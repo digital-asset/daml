@@ -101,7 +101,6 @@ message Transaction {
   string workflow_id = 3;
 
   // Ledger effective time.
-  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   google.protobuf.Timestamp effective_at = 4;
 

@@ -1,0 +1,65 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Canton.Internal.PartyReplication where
+
+-- OBSOLETE TEMPLATES accidentally added to 3.2 repeated here in dummy form to avoid breaking
+-- Smart Contract Upgrading (SCU) (see #24990).
+
+data PartyReplicationMetadata = PartyReplicationMetadata
+  with
+    id : Text
+    partyId : Party
+    timestamp : Time
+    startAtWatermark: Int
+  deriving (Eq, Show)
+
+template ChannelProposal
+  with
+    sourceParticipant : Party
+    targetParticipant : Party
+    sequencerUids : [Text]
+    payloadMetadata : PartyReplicationMetadata
+  where
+    signatory targetParticipant
+    observer sourceParticipant
+
+    -- don't allow creating dummy template contract
+    ensure False
+
+    choice Accept : ContractId ChannelAgreement
+      with
+        sequencerUid : Text
+      controller sourceParticipant
+        do
+          assertMsg "Dummy contract - cannot accept" False
+          channelAgreement <- create ChannelAgreement with sourceParticipant, targetParticipant, sequencerUid, payloadMetadata
+          return channelAgreement
+
+    choice Reject : ()
+      with
+        reason : Text
+      controller sourceParticipant
+        do
+          assertMsg "Dummy contract - cannot reject" False
+          return ()
+
+template ChannelAgreement
+  with
+    sourceParticipant : Party
+    targetParticipant : Party
+    sequencerUid : Text
+    payloadMetadata : PartyReplicationMetadata
+  where
+    signatory targetParticipant, sourceParticipant
+
+    -- don't allow creating dummy template contract
+    ensure False
+
+    choice Done : ()
+      with
+        participant : Party
+      controller participant
+        do
+          assertMsg "Dummy contract - cannot mark done" False
+          return ()

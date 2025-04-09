@@ -6,6 +6,11 @@ package com.digitalasset.canton.participant.protocol
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
 import com.digitalasset.canton.ledger.participant.state.{FloatingUpdate, Update}
@@ -211,7 +216,7 @@ class ParticipantTopologyTerminateProcessingTest
               case PartyToParticipantAuthorization(
                     party,
                     participant,
-                    AuthorizationLevel.Confirmation,
+                    Added(AuthorizationLevel.Confirmation),
                   ) =>
                 party shouldBe party1.toLf
                 participant shouldBe participant1.uid.toProtoPrimitive
@@ -249,7 +254,7 @@ class ParticipantTopologyTerminateProcessingTest
               case PartyToParticipantAuthorization(
                     party,
                     participant,
-                    AuthorizationLevel.Submission,
+                    Added(AuthorizationLevel.Submission),
                   ) =>
                 party shouldBe party1.toLf
                 participant shouldBe participant2.uid.toProtoPrimitive
@@ -287,7 +292,7 @@ class ParticipantTopologyTerminateProcessingTest
               case PartyToParticipantAuthorization(
                     party,
                     participant,
-                    AuthorizationLevel.Observation,
+                    ChangedTo(AuthorizationLevel.Observation),
                   ) =>
                 party shouldBe party1.toLf
                 participant shouldBe participant1.uid.toProtoPrimitive
@@ -325,7 +330,7 @@ class ParticipantTopologyTerminateProcessingTest
               case PartyToParticipantAuthorization(
                     party,
                     participant,
-                    AuthorizationLevel.Revoked,
+                    Revoked,
                   ) =>
                 party shouldBe party1.toLf
                 participant shouldBe participant2.uid.toProtoPrimitive

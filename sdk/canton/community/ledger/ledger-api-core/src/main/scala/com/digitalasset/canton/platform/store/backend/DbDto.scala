@@ -133,6 +133,7 @@ object DbDto {
       party_id: String,
       participant_id: String,
       participant_permission: Int,
+      participant_authorization_event: Int,
       synchronizer_id: String,
       record_time: Long,
       trace_context: Array[Byte],

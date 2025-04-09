@@ -6,7 +6,17 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.Revoked
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.{
+  Confirmation,
+  Observation,
+  Submission,
+}
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawParticipantAuthorization
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.data.Ref
@@ -41,14 +51,33 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     dtoPartyToParticipant(offset(4), 4L, someParty, someParticipantId.toString, Revoked),
   )
 
+  private val authorizationEvents: Vector[AuthorizationEvent] = Vector(
+    Added(Confirmation): AuthorizationEvent,
+    Added(Observation),
+    Added(Submission),
+    ChangedTo(Confirmation),
+    ChangedTo(Observation),
+    ChangedTo(Submission),
+    Revoked,
+  )
+
+  private val authorizationEventDtos: Vector[DbDto.EventPartyToParticipant] =
+    authorizationEvents.zipWithIndex.map { case (event, i) =>
+      dtoPartyToParticipant(
+        offset = offset(i.toLong + 1), // cannot be zero
+        eventSequentialId = i.toLong,
+        authorizationEvent = event,
+      )
+    }
+
   def toRaw(dbDto: DbDto.EventPartyToParticipant): RawParticipantAuthorization =
     RawParticipantAuthorization(
       offset = Offset.tryFromLong(dbDto.event_offset),
       updateId = dbDto.update_id,
       partyId = dbDto.party_id,
       participantId = dbDto.participant_id,
-      participant_permission =
-        EventStorageBackend.intToAuthorizationLevel(dbDto.participant_permission),
+      authorizationEvent = Conversions
+        .authorizationEvent(dbDto.participant_authorization_event, dbDto.participant_permission),
       recordTime = Timestamp.assertFromLong(dbDto.record_time),
       synchronizerId = dbDto.synchronizer_id,
       traceContext = Some(dbDto.trace_context),
@@ -132,6 +161,21 @@ private[backend] trait StorageBackendTestsPartyToParticipant
     payloadsForAll should not be empty
     payloadsForAll
       .map(sanitize) should contain theSameElementsAs multipleDtos.map(toRaw).map(sanitize)
+  }
+
+  it should "handle the different authorization events" in {
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(authorizationEventDtos, _))
+
+    authorizationEventDtos.foreach { dto =>
+      val payloads = executeSql(
+        backend.event.topologyPartyEventBatch(Vector(dto.event_sequential_id))
+      )
+
+      payloads should have size 1
+      payloads.headOption.value.authorizationEvent shouldBe
+        authorizationEvents(dto.event_sequential_id.toInt)
+    }
   }
 
   behavior of "topologyEventOffsetPublishedOnRecordTime"

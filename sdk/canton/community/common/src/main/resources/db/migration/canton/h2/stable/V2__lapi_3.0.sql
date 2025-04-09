@@ -398,7 +398,8 @@ CREATE TABLE lapi_events_party_to_participant (
     update_id VARCHAR NOT NULL,
     party_id INTEGER NOT NULL,
     participant_id VARCHAR NOT NULL,
-    participant_permission integer NOT NULL,
+    participant_permission INTEGER NOT NULL,
+    participant_authorization_event INTEGER NOT NULL,
     synchronizer_id INTEGER NOT NULL,
     record_time BIGINT NOT NULL,
     trace_context BINARY LARGE OBJECT

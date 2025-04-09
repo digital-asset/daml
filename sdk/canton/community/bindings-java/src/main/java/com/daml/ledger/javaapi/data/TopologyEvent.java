@@ -9,6 +9,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 /**
  * This interface represents events in {@link TopologyTransaction}s.
  *
+ * @see ParticipantAuthorizationAdded
  * @see ParticipantAuthorizationChanged
  * @see ParticipantAuthorizationRevoked
  * @see TopologyTransaction
@@ -24,6 +25,9 @@ public interface TopologyEvent {
     if (this instanceof ParticipantAuthorizationChanged) {
       ParticipantAuthorizationChanged event = (ParticipantAuthorizationChanged) this;
       eventBuilder.setParticipantAuthorizationChanged(event.toProto());
+    } else if (this instanceof ParticipantAuthorizationAdded) {
+      ParticipantAuthorizationAdded event = (ParticipantAuthorizationAdded) this;
+      eventBuilder.setParticipantAuthorizationAdded(event.toProto());
     } else if (this instanceof ParticipantAuthorizationRevoked) {
       ParticipantAuthorizationRevoked event = (ParticipantAuthorizationRevoked) this;
       eventBuilder.setParticipantAuthorizationRevoked(event.toProto());
@@ -38,6 +42,8 @@ public interface TopologyEvent {
   static TopologyEvent fromProtoEvent(TopologyTransactionOuterClass.TopologyEvent event) {
     if (event.hasParticipantAuthorizationChanged()) {
       return ParticipantAuthorizationChanged.fromProto(event.getParticipantAuthorizationChanged());
+    } else if (event.hasParticipantAuthorizationAdded()) {
+      return ParticipantAuthorizationAdded.fromProto(event.getParticipantAuthorizationAdded());
     } else if (event.hasParticipantAuthorizationRevoked()) {
       return ParticipantAuthorizationRevoked.fromProto(event.getParticipantAuthorizationRevoked());
     } else {

@@ -14,7 +14,6 @@ import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiParticipantProvider}
@@ -375,9 +374,7 @@ class ParticipantNodeBootstrap(
           participantId,
           ips,
           crypto,
-          // TODO(#22362): Enable correct config
-          // parameters.sessionSigningKeys
-          SessionSigningKeysConfig.disabled,
+          parameters.sessionSigningKeys,
           parameters.batchingConfig.parallelism,
           timeouts,
           futureSupervisor,

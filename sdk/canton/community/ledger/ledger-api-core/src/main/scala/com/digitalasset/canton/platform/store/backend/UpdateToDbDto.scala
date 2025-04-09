@@ -9,9 +9,8 @@ import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
-  AuthorizationLevel,
+  AuthorizationEvent,
   TopologyEvent,
 }
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
@@ -19,6 +18,10 @@ import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils.NodeInfo
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  authorizationEventInt,
+  participantPermissionInt,
+}
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.SerializableTraceContext
@@ -163,13 +166,6 @@ object UpdateToDbDto {
     )
   }
 
-  private[backend] def authorizationLevelToInt(level: AuthorizationLevel) = level match {
-    case Revoked => 0
-    case Submission => 1
-    case Confirmation => 2
-    case Observation => 3
-  }
-
   private def topologyTransactionToDbDto(
       metrics: LedgerApiServerMetrics,
       participantId: Ref.ParticipantId,
@@ -194,7 +190,7 @@ object UpdateToDbDto {
     )
 
     val events = topologyTransaction.events.iterator.flatMap {
-      case TopologyEvent.PartyToParticipantAuthorization(party, participant, level) =>
+      case TopologyEvent.PartyToParticipantAuthorization(party, participant, authorizationEvent) =>
         import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
         val eventPartyToParticipant = Iterator(
           DbDto.EventPartyToParticipant(
@@ -203,19 +199,22 @@ object UpdateToDbDto {
             update_id = topologyTransaction.updateId,
             party_id = party,
             participant_id = participant,
-            participant_permission = authorizationLevelToInt(level),
+            participant_permission = participantPermissionInt(authorizationEvent),
+            participant_authorization_event = authorizationEventInt(authorizationEvent),
             synchronizer_id = topologyTransaction.synchronizerId.toProtoPrimitive,
             record_time = topologyTransaction.recordTime.toMicros,
             trace_context = serializedTraceContext,
           )
         )
-        val partyEntry = Option
-          .when(level != TopologyTransactionEffective.AuthorizationLevel.Revoked)(
+        val partyEntry = Seq(authorizationEvent)
+          .collect { case active: AuthorizationEvent.ActiveAuthorization => active }
+          .map(_ =>
             DbDto.PartyEntry(
               ledger_offset = offset.unwrap,
               recorded_at = topologyTransaction.recordTime.toMicros,
-              submission_id =
-                Some(PartyAllocation.TrackerKey.of(party, participant, level).submissionId),
+              submission_id = Some(
+                PartyAllocation.TrackerKey.of(party, participant, authorizationEvent).submissionId
+              ),
               party = Some(party),
               typ = JdbcLedgerDao.acceptType,
               rejection_reason = None,

@@ -1,10 +1,11 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.crypto.signer
+package com.digitalasset.canton.crypto.sync
 
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.SessionSigningKeysConfig
+import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys
 import com.digitalasset.canton.crypto.{
   Signature,
   SignatureDelegation,
@@ -18,7 +19,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.duration.FiniteDuration
 
-class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSignerTest {
+class SyncCryptoWithSessionKeysTest extends AnyWordSpec with SyncCryptoTest {
   override protected lazy val sessionSigningKeysConfig: SessionSigningKeysConfig =
     SessionSigningKeysConfig.default
 
@@ -31,7 +32,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       .asMap()
 
   private def sessionKeysVerificationCache(p: SynchronizerCryptoClient) =
-    p.syncCryptoSigner.sessionKeysVerificationCache.asMap().map { case (id, (sD, _)) => (id, sD) }
+    p.syncCryptoVerifier.sessionKeysVerificationCache.asMap().map { case (id, (sD, _)) => (id, sD) }
 
   private def cleanUpSessionKeysCache(p: SynchronizerCryptoClient): Unit =
     p.syncCryptoSigner
@@ -40,9 +41,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       .invalidateAll()
 
   private def cleanUpSessionKeysVerificationCache(p: SynchronizerCryptoClient): Unit =
-    p.syncCryptoSigner
-      .asInstanceOf[SyncCryptoSignerWithSessionKeys]
-      .sessionKeysVerificationCache
+    p.syncCryptoVerifier.sessionKeysVerificationCache
       .invalidateAll()
 
   private def cutOffDuration(p: SynchronizerCryptoClient) =
@@ -97,7 +96,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
     sessionKeyAndDelegation.signatureDelegation
   }
 
-  "A SyncCryptoSigner with session keys" must {
+  "A SyncCrypto with session keys" must {
 
     behave like syncCryptoSignerTest()
 
@@ -125,7 +124,7 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
 
       val signatureDelegation = checkSignatureDelegation(testSnapshot, signature)
 
-      syncCryptoSignerP1
+      syncCryptoVerifierP1
         .verifySignature(
           testSnapshot,
           hash,
@@ -143,6 +142,35 @@ class SyncCryptoSignerWithSessionKeysTest extends AnyWordSpec with SyncCryptoSig
       sDSigningCached.signatureDelegation shouldBe signatureDelegation
       sDSigningCached.signatureDelegation shouldBe sDVerificationCached
 
+    }
+
+    "sign and verify message with different synchronizers uses different session keys" in {
+      val p1OtherSynchronizer =
+        testingTopology.forOwnerAndSynchronizer(
+          owner = participant1,
+          synchronizerId = otherSynchronizerId,
+        )
+      val syncCryptoSignerP1Other = p1OtherSynchronizer.syncCryptoSigner
+
+      val signature = syncCryptoSignerP1Other
+        .sign(
+          testSnapshot,
+          hash,
+          defaultUsage,
+        )
+        .valueOrFail("sign failed")
+        .futureValueUS
+
+      val signatureDelegationOther =
+        checkSignatureDelegation(testSnapshot, signature, p1OtherSynchronizer)
+
+      sessionKeysCache(p1OtherSynchronizer).loneElement
+
+      // it's different from the signature delegation for the other synchronizer
+      val (_, signatureDelegation) = sessionKeysCache(p1).loneElement
+      signatureDelegationOther.validityPeriod shouldBe signatureDelegation.signatureDelegation.validityPeriod
+      signatureDelegationOther.sessionKey should not be signatureDelegation.signatureDelegation.sessionKey
+      signatureDelegationOther.signature should not be signatureDelegation.signatureDelegation.signature
     }
 
     "use a new session signing key when the cut-off period has elapsed" in {

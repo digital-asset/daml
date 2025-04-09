@@ -406,6 +406,22 @@ paths:
     get:
       description: List all known parties.
       operationId: getV2Parties
+      parameters:
+      - name: pageSize
+        in: query
+        description: maximum number of elements in a returned page
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: pageToken
+        in: query
+        description: token - to continue results from a given page, leave empty to
+          start from the beginning of the list, obtain token from the result of previous
+          page
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: ''
@@ -414,7 +430,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListKnownPartiesResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: 'Invalid value for: query parameter pageSize, Invalid value
+            for: query parameter pageToken, Invalid value for: headers'
           content:
             text/plain:
               schema:
@@ -1029,6 +1046,22 @@ paths:
     get:
       description: List all users.
       operationId: getV2Users
+      parameters:
+      - name: pageSize
+        in: query
+        description: maximum number of elements in a returned page
+        required: false
+        schema:
+          type: integer
+          format: int32
+      - name: pageToken
+        in: query
+        description: token - to continue results from a given page, leave empty to
+          start from the beginning of the list, obtain token from the result of previous
+          page
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: ''
@@ -1037,7 +1070,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListUsersResponse'
         '400':
-          description: 'Invalid value for: query parameters, Invalid value for: headers'
+          description: 'Invalid value for: query parameter pageSize, Invalid value
+            for: query parameter pageToken, Invalid value for: headers'
           content:
             text/plain:
               schema:
@@ -1717,7 +1751,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating transaction or reassignment.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -2173,7 +2207,7 @@ components:
           description: |-
             The position of this event in the originating transaction or reassignment.
             The origin has contextual meaning, please see description at messages that include a CreatedEvent.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -2261,10 +2295,10 @@ components:
           items:
             type: string
         createdAt:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Ledger effective time of the transaction that created the contract.
             Required
+          type: string
         packageName:
           description: |-
             The package name of the created contract.
@@ -2663,7 +2697,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating transaction or reassignment.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -3001,15 +3035,15 @@ components:
       - userId
       properties:
         from:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The from timestamp (inclusive).
             Required.
+          type: string
         to:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The to timestamp (exclusive).
             If not provided, the server will default to its current time.
+          type: string
         userId:
           description: |-
             If set to a non-empty value, then the report will only be generated for that user.
@@ -3023,10 +3057,9 @@ components:
           $ref: '#/components/schemas/GetMeteringReportRequest'
           description: The actual request that was executed.
         reportGenerationTime:
-          $ref: '#/components/schemas/Timestamp'
           description: The time at which the report was computed.
+          type: string
         meteringReportJson:
-          $ref: '#/components/schemas/Struct'
           description: |-
             The metering report json.  For a JSON Schema definition of the JSon see:
             https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
@@ -3278,8 +3311,8 @@ components:
     HASHING_SCHEME_VERSION_UNSPECIFIED:
       title: HASHING_SCHEME_VERSION_UNSPECIFIED
       type: object
-    HASHING_SCHEME_VERSION_V1:
-      title: HASHING_SCHEME_VERSION_V1
+    HASHING_SCHEME_VERSION_V2:
+      title: HASHING_SCHEME_VERSION_V2
       type: object
     HashingSchemeVersion:
       title: HashingSchemeVersion
@@ -3292,10 +3325,10 @@ components:
             $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
       - type: object
         required:
-        - HASHING_SCHEME_VERSION_V1
+        - HASHING_SCHEME_VERSION_V2
         properties:
-          HASHING_SCHEME_VERSION_V1:
-            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V1'
+          HASHING_SCHEME_VERSION_V2:
+            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V2'
       - type: object
         required:
         - Recognized
@@ -3651,7 +3684,6 @@ components:
         deduplicationPeriod:
           $ref: '#/components/schemas/DeduplicationPeriod'
         minLedgerTimeAbs:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Lower bound for the ledger time assigned to the resulting transaction.
             Note: The ledger time of a transaction is assigned as part of command interpretation.
@@ -3659,6 +3691,7 @@ components:
             the time the resulting transaction is sequenced, its assigned ledger time is not valid anymore.
             Must not be set at the same time as min_ledger_time_rel.
             Optional
+          type: string
         minLedgerTimeRel:
           $ref: '#/components/schemas/Duration'
           description: |-
@@ -4009,6 +4042,7 @@ components:
           type: boolean
     JsPrepareSubmissionResponse:
       title: JsPrepareSubmissionResponse
+      description: '[docs-entry-end: HashingSchemeVersion]'
       type: object
       required:
       - preparedTransactionHash
@@ -4087,11 +4121,11 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
             Required
+          type: string
     JsReassignmentEvent:
       title: JsReassignmentEvent
       oneOf:
@@ -4208,12 +4242,12 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the changes in the topology transaction become effective. There is a small delay between a
             topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
             in order relative to a synchronizer based on their effective time rather than their sequencing time.
             Required
+          type: string
     JsTransaction:
       title: JsTransaction
       description: Filtered view of an on-ledger transaction's create and archive
@@ -4247,11 +4281,10 @@ components:
             Optional
           type: string
         effectiveAt:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Ledger effective time.
-            Must be a valid LedgerString (as described in ``value.proto``).
             Required
+          type: string
         events:
           description: |-
             The collection of events.
@@ -4289,11 +4322,11 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the transaction was recorded. The record time refers to the synchronizer
             which synchronized the transaction.
             Required
+          type: string
     JsTransactionTree:
       title: JsTransactionTree
       description: |-
@@ -4328,10 +4361,10 @@ components:
             Optional
           type: string
         effectiveAt:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Ledger effective time.
             Required
+          type: string
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -4363,11 +4396,11 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the transaction was recorded. The record time refers to the synchronizer
             which synchronized the transaction.
             Required
+          type: string
     JsUnassignedEvent:
       title: JsUnassignedEvent
       description: Records that a contract has been unassigned, and it becomes unusable
@@ -4497,10 +4530,6 @@ components:
       type: object
       additionalProperties:
         type: string
-    Map_Value:
-      title: Map_Value
-      type: object
-      additionalProperties: {}
     MinLedgerTime:
       title: MinLedgerTime
       type: object
@@ -4516,7 +4545,7 @@ components:
       - value
       properties:
         value:
-          $ref: '#/components/schemas/Timestamp'
+          type: string
     MinLedgerTimeRel:
       title: MinLedgerTimeRel
       type: object
@@ -4999,7 +5028,7 @@ components:
       title: Recognized
       oneOf:
       - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
-      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V1'
+      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V2'
     RevokeUserRightsRequest:
       title: RevokeUserRightsRequest
       description: |-
@@ -5144,17 +5173,6 @@ components:
             $ref: '#/components/schemas/Any'
         unknownFields:
           type: string
-    Struct:
-      title: Struct
-      type: object
-      required:
-      - fields
-      - unknownFields
-      properties:
-        fields:
-          $ref: '#/components/schemas/Map_Value'
-        unknownFields:
-          type: string
     SubmitAndWaitResponse:
       title: SubmitAndWaitResponse
       type: object
@@ -5201,10 +5219,10 @@ components:
             Required
           type: string
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
             Required
+          type: string
     TRANSACTION_SHAPE_ACS_DELTA:
       title: TRANSACTION_SHAPE_ACS_DELTA
       type: object
@@ -5265,22 +5283,6 @@ components:
         properties:
           MinLedgerTimeRel:
             $ref: '#/components/schemas/MinLedgerTimeRel'
-    Timestamp:
-      title: Timestamp
-      type: object
-      required:
-      - seconds
-      - nanos
-      - unknownFields
-      properties:
-        seconds:
-          type: integer
-          format: int64
-        nanos:
-          type: integer
-          format: int32
-        unknownFields:
-          type: string
     TopologyFormat:
       title: TopologyFormat
       description: A format specifying which topology transactions to include and
@@ -5512,12 +5514,12 @@ components:
           type: integer
           format: int64
         assignmentExclusivity:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Assignment exclusivity
             Before this time (measured on the target synchronizer), only the submitter of the unassignment can initiate the assignment
             Defined for reassigning participants.
             Optional
+          type: string
         witnessParties:
           description: |-
             The parties that are notified of this event.
@@ -5541,7 +5543,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating reassignment.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of reassignments.
             Required, must be valid node ID (non-negative integer)
           type: integer

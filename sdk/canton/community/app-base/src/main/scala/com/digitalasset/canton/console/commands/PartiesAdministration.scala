@@ -25,7 +25,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
-import com.digitalasset.canton.console.commands.TopologyTxFiltering.{ChangedFilter, RevokedFilter}
+import com.digitalasset.canton.console.commands.TopologyTxFiltering.{AddedFilter, RevokedFilter}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   CantonInternalError,
@@ -445,7 +445,7 @@ class ParticipantPartiesAdministrationGroup(
       participantId,
       synchronizerId,
       validFrom,
-      ChangedFilter,
+      AddedFilter,
     )(consoleEnvironment)
 
     findTopologyOffset(
@@ -638,7 +638,7 @@ object TopologySynchronisation {
 
 private object TopologyTxFiltering {
   sealed trait AuthorizationFilterKind
-  case object ChangedFilter extends AuthorizationFilterKind
+  case object AddedFilter extends AuthorizationFilterKind
   case object RevokedFilter extends AuthorizationFilterKind
 
   def getTopologyFilter(
@@ -669,9 +669,9 @@ private object TopologyTxFiltering {
           synchronizerId.toProtoPrimitive == wrapper.synchronizerId &&
           tx.events.exists { tx =>
             filterType match {
-              case ChangedFilter =>
-                val changed = tx.getParticipantAuthorizationChanged
-                changed.partyId == partyId.toLf && changed.participantId == participantId.toLf
+              case AddedFilter =>
+                val added = tx.getParticipantAuthorizationAdded
+                added.partyId == partyId.toLf && added.participantId == participantId.toLf
               case RevokedFilter =>
                 val revoked = tx.getParticipantAuthorizationRevoked
                 revoked.partyId == partyId.toLf && revoked.participantId == participantId.toLf

@@ -24,8 +24,8 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{ComparesLfTransactions, LfPackageName, LfPackageVersion}
-import com.digitalasset.daml.lf.data.{FrontStack, Ref}
+import com.digitalasset.canton.{ComparesLfTransactions, LfPackageName}
+import com.digitalasset.daml.lf.data.FrontStack
 import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
@@ -259,7 +259,6 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
       key = CreateKey.NoKey,
       version = tbCtx.txVersion,
       packageName = LfPackageName.assertFromString("CantonTests"),
-      packageVersion = Some(LfPackageVersion.assertFromString("3.1.0")),
     )
   }
 
@@ -694,9 +693,6 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
       key = CreateKey.NoKey,
       version = tbCtx.txVersion,
       packageName = LfPackageName.assertFromString("CantonTestsDev"),
-      packageVersion = Some(
-        Ref.PackageVersion.assertFromString(exceptionstester.Informees.PACKAGE_VERSION.toString)
-      ),
     )
   }
 
@@ -722,7 +718,6 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
       key = CreateKey.SignatoryMaintainerKey(LfValue.ValueParty(lfParty)),
       version = tbCtx.txVersion,
       packageName = LfPackageName.assertFromString("CantonTestsDev"),
-      packageVersion = Some(LfPackageVersion.assertFromString("3.3.0")),
     )
   }
 

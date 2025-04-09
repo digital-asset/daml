@@ -8,6 +8,7 @@ import anorm.{Row, RowParser, SimpleSql, ~}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.backend.Conversions.{
+  authorizationEventParser,
   contractId,
   hashFromHexString,
   offset,
@@ -27,7 +28,6 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawUnassignEvent,
   SynchronizerOffset,
   UnassignProperties,
-  intToAuthorizationLevel,
 }
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
@@ -445,7 +445,7 @@ object EventStorageBackendTemplate {
       str("update_id") ~
       int("party_id") ~
       str("participant_id") ~
-      int("participant_permission") ~
+      authorizationEventParser("participant_permission", "participant_authorization_event") ~
       int("synchronizer_id") ~
       timestampFromMicros("record_time") ~
       byteArray("trace_context").?
@@ -459,7 +459,7 @@ object EventStorageBackendTemplate {
           updateId ~
           partyId ~
           participantId ~
-          participant_permission ~
+          authorizationEvent ~
           synchronizerId ~
           recordTime ~
           traceContext =>
@@ -468,7 +468,7 @@ object EventStorageBackendTemplate {
           updateId = updateId,
           partyId = stringInterning.party.unsafe.externalize(partyId),
           participantId = participantId,
-          participant_permission = intToAuthorizationLevel(participant_permission),
+          authorizationEvent = authorizationEvent,
           recordTime = recordTime,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(synchronizerId),
           traceContext = traceContext,

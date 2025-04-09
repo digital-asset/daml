@@ -388,25 +388,9 @@ components:
             Required
           type: string
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
             Required
-    Timestamp:
-      title: Timestamp
-      type: object
-      required:
-      - seconds
-      - nanos
-      - unknownFields
-      properties:
-        seconds:
-          type: integer
-          format: int64
-        nanos:
-          type: integer
-          format: int32
-        unknownFields:
           type: string
     Empty1:
       title: Empty
@@ -823,7 +807,7 @@ components:
           description: |-
             The position of this event in the originating transaction or reassignment.
             The origin has contextual meaning, please see description at messages that include a CreatedEvent.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -911,10 +895,10 @@ components:
           items:
             type: string
         createdAt:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Ledger effective time of the transaction that created the contract.
             Required
+          type: string
         packageName:
           description: |-
             The package name of the created contract.
@@ -1110,12 +1094,12 @@ components:
           type: integer
           format: int64
         assignmentExclusivity:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Assignment exclusivity
             Before this time (measured on the target synchronizer), only the submitter of the unassignment can initiate the assignment
             Defined for reassigning participants.
             Optional
+          type: string
         witnessParties:
           description: |-
             The parties that are notified of this event.
@@ -1139,7 +1123,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating reassignment.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of reassignments.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -1399,11 +1383,11 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the reassignment was recorded. The record time refers to the source/target
             synchronizer for an unassign/assign event respectively.
             Required
+          type: string
     JsReassignmentEvent:
       title: JsReassignmentEvent
       oneOf:
@@ -1508,12 +1492,12 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the changes in the topology transaction become effective. There is a small delay between a
             topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
             in order relative to a synchronizer based on their effective time rather than their sequencing time.
             Required
+          type: string
     Event:
       title: Event
       description: |-
@@ -1604,11 +1588,10 @@ components:
             Optional
           type: string
         effectiveAt:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Ledger effective time.
-            Must be a valid LedgerString (as described in ``value.proto``).
             Required
+          type: string
         events:
           description: |-
             The collection of events.
@@ -1646,11 +1629,11 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the transaction was recorded. The record time refers to the synchronizer
             which synchronized the transaction.
             Required
+          type: string
     Event1:
       title: Event
       description: |-
@@ -1706,7 +1689,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating transaction or reassignment.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -1776,7 +1759,7 @@ components:
         nodeId:
           description: |-
             The position of this event in the originating transaction or reassignment.
-            Node ids are not necessarily equal across participants,
+            Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of transactions.
             Required, must be valid node ID (non-negative integer)
           type: integer
@@ -1968,10 +1951,10 @@ components:
             Optional
           type: string
         effectiveAt:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             Ledger effective time.
             Required
+          type: string
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -2003,11 +1986,11 @@ components:
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
         recordTime:
-          $ref: '#/components/schemas/Timestamp'
           description: |-
             The time at which the transaction was recorded. The record time refers to the synchronizer
             which synchronized the transaction.
             Required
+          type: string
     TreeEvent:
       title: TreeEvent
       description: |-

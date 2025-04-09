@@ -5,14 +5,18 @@ package com.digitalasset.canton.participant.protocol
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
   AuthorizationLevel,
   TopologyEvent,
 }
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransactions.PositiveSignedTopologyTransactions
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, *}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LedgerParticipantId, LedgerTransactionId, LfPartyId}
@@ -43,33 +47,34 @@ private[protocol] object TopologyTransactionDiff {
     val before = partyToParticipant(oldRelevantState)
     val after = partyToParticipant(currentRelevantState)
 
-    def locallyAddedPartiesExistingOnOtherParticipants: Set[LfPartyId] = {
+    def locallyAddedPartiesExistingOnOtherParticipants(
+        added: Set[PartyToParticipantAuthorization]
+    ): Set[LfPartyId] = {
       // Adding a party that existed before on another participant means the local participant needs to
       // initiate party replication.
-      val locallyAddedParties = after.view.collect {
-        case ((partyId, participantId), _)
-            if participantId == localParticipantId.toLf && !before.contains(
-              partyId -> participantId
-            ) =>
-          partyId
-      }.toSet
+      val locallyAddedParties: Set[LfPartyId] =
+        added.filter(_.participant == localParticipantId.toLf).map(_.party)
       val partiesExistingOnOtherParticipants = before.view.collect {
         case ((partyId, participantId), _) if participantId != localParticipantId.toLf => partyId
       }.toSet
       locallyAddedParties intersect partiesExistingOnOtherParticipants
     }
 
-    val addedOrChanged: Set[TopologyEvent] = after.view.collect {
+    val added: Set[PartyToParticipantAuthorization] = after.view.collect {
+      case ((partyId, participantId), permission) if !before.contains(partyId -> participantId) =>
+        PartyToParticipantAuthorization(partyId, participantId, Added(permission))
+    }.toSet
+    val changed: Set[TopologyEvent] = after.view.collect {
       case ((partyId, participantId), permission)
-          if !before.get(partyId -> participantId).contains(permission) =>
-        PartyToParticipantAuthorization(partyId, participantId, permission)
+          if before.get(partyId -> participantId).exists(_ != permission) =>
+        PartyToParticipantAuthorization(partyId, participantId, ChangedTo(permission))
     }.toSet
     val removed: Set[TopologyEvent] = before.view.collect {
       case ((partyId, participantId), _) if !after.contains(partyId -> participantId) =>
         PartyToParticipantAuthorization(partyId, participantId, Revoked)
     }.toSet
 
-    val allEvents: Set[TopologyEvent] = addedOrChanged ++ removed
+    val allEvents: Set[TopologyEvent] = added ++ changed ++ removed
 
     NonEmpty
       .from(allEvents)
@@ -78,7 +83,7 @@ private[protocol] object TopologyTransactionDiff {
           _,
           updateId(synchronizerId, protocolVersion, oldRelevantState, currentRelevantState),
           requiresLocalParticipantPartyReplication =
-            locallyAddedPartiesExistingOnOtherParticipants.nonEmpty,
+            locallyAddedPartiesExistingOnOtherParticipants(added).nonEmpty,
         )
       )
   }

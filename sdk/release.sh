@@ -179,7 +179,7 @@ release_branch_for_version() {
 # Takes a commit reference as its first argument.
 find_release_branches_for_commit() {
     git branch --all --format='%(refname:short)' --contains="$1" \
-      | grep "${2:-}" -E -x "origin/(release/[0-9]+.[0-9]+.x|main|main-2.x)"
+      | grep ${2:-} -E -x "origin/(release/[0-9]+.[0-9]+.x|main|main-2.x)"
 }
 
 # Takes a commit reference as its first argument, and a branch as its second argument.

@@ -3,6 +3,11 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.flatspec.AnyFlatSpec
@@ -440,7 +445,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         1L,
         someParty,
         someParticipantId.toString,
-        AuthorizationLevel.Submission,
+        Added(AuthorizationLevel.Submission),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         recordTime = time5,
       ),
@@ -449,7 +454,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         2L,
         someParty,
         someParticipantId.toString,
-        AuthorizationLevel.Confirmation,
+        ChangedTo(AuthorizationLevel.Confirmation),
         synchronizerId = someSynchronizerId2.toProtoPrimitive,
         recordTime = time1,
       ),
@@ -458,7 +463,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         3L,
         someParty,
         someParticipantId.toString,
-        AuthorizationLevel.Observation,
+        ChangedTo(AuthorizationLevel.Observation),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         recordTime = time7,
       ),
@@ -467,7 +472,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         4L,
         someParty,
         someParticipantId.toString,
-        AuthorizationLevel.Revoked,
+        Revoked,
         synchronizerId = someSynchronizerId2.toProtoPrimitive,
         recordTime = time3,
       ),
@@ -476,7 +481,7 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         5L,
         someParty,
         someParticipantId.toString,
-        AuthorizationLevel.Submission,
+        Added(AuthorizationLevel.Submission),
         synchronizerId = someSynchronizerId.toProtoPrimitive,
         recordTime = time6,
       ),

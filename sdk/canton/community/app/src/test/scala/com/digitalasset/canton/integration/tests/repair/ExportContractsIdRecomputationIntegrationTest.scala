@@ -415,7 +415,6 @@ class ExportContractsIdRecomputationArchivedDependencyIntegrationTest
 
     } yield LfContractInst(
       fatContract.packageName,
-      fatContract.packageVersion,
       fatContract.templateId,
       transaction.Versioned(fatContract.version, fatContract.createArg),
     )

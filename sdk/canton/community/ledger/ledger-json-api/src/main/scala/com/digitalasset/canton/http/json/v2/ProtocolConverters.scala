@@ -343,11 +343,18 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           Future(ParticipantAuthorizationChanged.toJson(value))
         case lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationRevoked(value) =>
           Future(ParticipantAuthorizationRevoked.toJson(value))
+        case lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationAdded(value) =>
+          Future(ParticipantAuthorizationAdded.toJson(value))
       }
 
     def fromJson(
         event: JsTopologyEvent.Event
     ): Future[lapi.topology_transaction.TopologyEvent.Event] = event match {
+      case added: JsTopologyEvent.ParticipantAuthorizationAdded =>
+        Future(
+          lapi.topology_transaction.TopologyEvent.Event
+            .ParticipantAuthorizationAdded(ParticipantAuthorizationAdded.fromJson(added))
+        )
       case changed: JsTopologyEvent.ParticipantAuthorizationChanged =>
         Future(
           lapi.topology_transaction.TopologyEvent.Event
@@ -878,6 +885,31 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         ev: JsTopologyEvent.ParticipantAuthorizationChanged
     ): lapi.topology_transaction.ParticipantAuthorizationChanged =
       lapi.topology_transaction.ParticipantAuthorizationChanged(
+        partyId = ev.partyId,
+        participantId = ev.participantId,
+        participantPermission =
+          lapi.state_service.ParticipantPermission.fromValue(ev.participantPermission),
+      )
+  }
+
+  object ParticipantAuthorizationAdded
+      extends ProtocolConverter[
+        lapi.topology_transaction.ParticipantAuthorizationAdded,
+        JsTopologyEvent.ParticipantAuthorizationAdded,
+      ] {
+    def toJson(
+        e: lapi.topology_transaction.ParticipantAuthorizationAdded
+    ): JsTopologyEvent.ParticipantAuthorizationAdded =
+      JsTopologyEvent.ParticipantAuthorizationAdded(
+        partyId = e.partyId,
+        participantId = e.participantId,
+        participantPermission = e.participantPermission.value,
+      )
+
+    def fromJson(
+        ev: JsTopologyEvent.ParticipantAuthorizationAdded
+    ): lapi.topology_transaction.ParticipantAuthorizationAdded =
+      lapi.topology_transaction.ParticipantAuthorizationAdded(
         partyId = ev.partyId,
         participantId = ev.participantId,
         participantPermission =
