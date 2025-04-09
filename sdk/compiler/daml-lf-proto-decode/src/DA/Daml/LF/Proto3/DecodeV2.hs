@@ -402,6 +402,8 @@ decodeBuiltinFunction = \case
   LF2.BuiltinFunctionBIGNUMERIC_TO_NUMERIC -> pure BEBigNumericToNumeric
   LF2.BuiltinFunctionNUMERIC_TO_BIGNUMERIC -> pure BENumericToBigNumeric
 
+  LF2.BuiltinFunctionFAIL_WITH_STATUS -> pure BEFailWithStatus
+
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do
   mbModRef' <- traverse decodeModuleId mbModRef
@@ -572,9 +574,6 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <*> decodeNameId ChoiceName expr_ChoiceObserverChoiceInternedStr
     <*> mayDecode "expr_ChoiceObserverContractExpr" expr_ChoiceObserverContractExpr decodeExpr
     <*> mayDecode "expr_ChoiceObserverChoiceArgExpr" expr_ChoiceObserverChoiceArgExpr decodeExpr
-  LF2.ExprSumFailWithStatus LF2.Expr_FailWithStatus {..} -> EFailWithStatus
-    <$> mayDecode "expr_FailWithStatusReturnType" expr_FailWithStatusReturnType decodeType
-    <*> mayDecode "expr_FailWithStatusFailureStatus" expr_FailWithStatusFailureStatus decodeExpr
   LF2.ExprSumExperimental (LF2.Expr_Experimental name mbType) -> do
     ty <- mayDecode "expr_Experimental" mbType decodeType
     pure $ EExperimental (decodeString name) ty
@@ -635,6 +634,8 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
       <*> mayDecode "update_FetchInterfaceCid" update_FetchInterfaceCid decodeExpr
   LF2.UpdateSumGetTime LF2.Unit ->
     pure (EUpdate UGetTime)
+  LF2.UpdateSumLedgerTimeLt time ->
+    fmap (EUpdate . ULedgerTimeLT) (decodeExpr time)
   LF2.UpdateSumEmbedExpr LF2.Update_EmbedExpr{..} ->
     fmap EUpdate $ UEmbedExpr
       <$> mayDecode "update_EmbedExprType" update_EmbedExprType decodeType

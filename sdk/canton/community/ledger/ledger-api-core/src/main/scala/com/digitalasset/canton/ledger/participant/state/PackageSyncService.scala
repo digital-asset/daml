@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.base.error.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf.Archive

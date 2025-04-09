@@ -1,0 +1,28 @@
+{
+  "name": "typescript",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "compile": "npx tsc",
+    "scenario": "node -r tsconfig-paths/register dist/index.js",
+    "generate_api": "npx openapi-typescript openapi.yaml -o ./generated/api/ledger-api.d.ts",
+    "generate_daml_bindings" : "daml codegen js ../model/.daml/dist/model-tests-1.0.0.dar -o generated"
+  },
+  "keywords": [],
+  "author": "",
+  "description": "",
+  "devDependencies": {
+    "@types/node": "^22.13.13",
+    "openapi-typescript": "^7.6.1",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@daml/ledger": "^2.10.0",
+    "@daml/types": "^2.10.0",
+    "@types/lodash": "^4.17.16",
+    "cli-table3": "^0.6.5",
+    "lodash": "^4.17.21",
+    "openapi-fetch": "^0.13.5",
+    "tsconfig-paths": "^4.2.0"
+  }
+}

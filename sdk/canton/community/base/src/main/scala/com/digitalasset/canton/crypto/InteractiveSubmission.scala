@@ -117,7 +117,7 @@ object InteractiveSubmission {
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
-  private def computeHashV1(
+  private def computeHashV2(
       transaction: VersionedTransaction,
       metadata: TransactionMetadataForHashing,
       nodeSeeds: Map[NodeId, LfHash],
@@ -175,7 +175,7 @@ object InteractiveSubmission {
       )
     } else {
       hashVersion match {
-        case HashingSchemeVersion.V1 => computeHashV1(transaction, metadata, nodeSeeds, hashTracer)
+        case HashingSchemeVersion.V2 => computeHashV2(transaction, metadata, nodeSeeds, hashTracer)
       }
     }
   }

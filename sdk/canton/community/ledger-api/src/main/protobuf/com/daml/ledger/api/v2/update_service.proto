@@ -54,15 +54,25 @@ service UpdateService {
   // If the transaction cannot be found for the request, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   rpc GetTransactionTreeById(GetTransactionByIdRequest) returns (GetTransactionTreeResponse);
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Lookup a transaction by its offset.
   // If there is no transaction with this offset, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   // Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
   rpc GetTransactionByOffset(GetTransactionByOffsetRequest) returns (GetTransactionResponse);
 
+  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
   // Lookup a transaction by its ID.
   // If there is no transaction with this id, or all the events are filtered, a TRANSACTION_NOT_FOUND error will be raised.
   // Use a wildcard template filter if you want to retrieve any transaction visible to the parties you can read as.
   rpc GetTransactionById(GetTransactionByIdRequest) returns (GetTransactionResponse);
+
+  // Lookup an update by its offset.
+  // If there is no update with this offset, or all the events are filtered, an UPDATE_NOT_FOUND error will be raised.
+  rpc GetUpdateByOffset(GetUpdateByOffsetRequest) returns (GetUpdateResponse);
+
+  // Lookup an update by its ID.
+  // If there is no update with this ID, or all the events are filtered, an UPDATE_NOT_FOUND error will be raised.
+  rpc GetUpdateById(GetUpdateByIdRequest) returns (GetUpdateResponse);
 }
 
 message GetUpdatesRequest {
@@ -111,7 +121,6 @@ message GetUpdatesResponse {
     Transaction transaction = 1;
     Reassignment reassignment = 2;
     OffsetCheckpoint offset_checkpoint = 3;
-    // Message returned only when the experimental feature is turned on
     TopologyTransaction topology_transaction = 4;
   }
 }
@@ -126,6 +135,7 @@ message GetUpdateTreesResponse {
   }
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message GetTransactionByOffsetRequest {
   // The offset of the transaction being looked up.
   // Must be a valid absolute offset (positive integer).
@@ -151,9 +161,10 @@ message GetTransactionByOffsetRequest {
   TransactionFormat transaction_format = 3;
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message GetTransactionByIdRequest {
   // The ID of a particular transaction.
-  // Must be a valid LedgerString (as describe in ``value.proto``).
+  // Must be a valid LedgerString (as described in ``value.proto``).
   // Required
   string update_id = 1;
 
@@ -182,7 +193,39 @@ message GetTransactionTreeResponse {
   TransactionTree transaction = 1;
 }
 
+// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
 message GetTransactionResponse {
   // Required
   Transaction transaction = 1;
+}
+
+message GetUpdateByOffsetRequest {
+  // The offset of the update being looked up.
+  // Must be a valid absolute offset (positive integer).
+  // Required
+  int64 offset = 1;
+
+  // The format for the update.
+  // Required
+  UpdateFormat update_format = 2;
+}
+
+message GetUpdateByIdRequest {
+  // The ID of a particular update.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string update_id = 1;
+
+  // The format for the update.
+  // Required
+  UpdateFormat update_format = 2;
+}
+
+message GetUpdateResponse {
+  // The update that matches the filter in the request.
+  oneof update {
+    Transaction transaction = 1;
+    Reassignment reassignment = 2;
+    TopologyTransaction topology_transaction = 3;
+  }
 }

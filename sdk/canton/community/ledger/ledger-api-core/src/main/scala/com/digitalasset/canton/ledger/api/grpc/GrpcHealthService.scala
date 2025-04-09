@@ -5,12 +5,16 @@ package com.digitalasset.canton.ledger.api.grpc
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.tracing.Telemetry
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService.*
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import io.grpc.ServerServiceDefinition
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.stub.StreamObserver

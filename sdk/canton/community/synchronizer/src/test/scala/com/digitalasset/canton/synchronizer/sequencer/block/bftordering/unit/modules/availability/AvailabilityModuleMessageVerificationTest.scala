@@ -11,6 +11,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftKeyId,
+  BftNodeId,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.MessageAuthorizer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Availability
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import org.scalatest.wordspec.AnyWordSpec
@@ -25,36 +30,40 @@ class AvailabilityModuleMessageVerificationTest
 
     "it receives UnverifiedProtocolMessage" should {
 
-      "authorize it and if not okay drop it" in {
-        implicit val context
-            : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
-          new ProgrammableUnitTestContext
-        val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
-        val availability = createAvailability[ProgrammableUnitTestEnv](
-          cryptoProvider = cryptoProvider
-        )
-
-        val underlyingMessage = mock[Availability.RemoteProtocolMessage]
-        val signedMessage = underlyingMessage.fakeSign
-
-        when(
-          cryptoProvider.verifySignedMessage(
-            signedMessage,
-            AuthenticatedMessageType.BftSignedAvailabilityMessage,
+      "drop it" when {
+        "unauthorized" in {
+          implicit val context
+              : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+            new ProgrammableUnitTestContext
+          val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
+          val messageAuthorizer = mock[MessageAuthorizer]
+          when(messageAuthorizer.isAuthorized(any[BftNodeId], any[BftKeyId])) thenReturn false
+          val availability = createAvailability[ProgrammableUnitTestEnv](
+            cryptoProvider = cryptoProvider,
+            customMessageAuthorizer = Some(messageAuthorizer),
           )
-        ) thenReturn (() => Either.unit)
 
-        assertLogs(
-          availability.receive(Availability.UnverifiedProtocolMessage(signedMessage)),
-          (logEntry: LogEntry) => {
-            logEntry.level shouldBe Level.INFO
-            logEntry.message should include(
-              "it cannot be verified in the currently known dissemination topology"
-            )
-          },
-        )
+          val underlyingMessage = mock[Availability.RemoteProtocolMessage]
+          val signedMessage = underlyingMessage.fakeSign
+          when(underlyingMessage.from) thenReturn Node0
 
-        context.runPipedMessages() shouldBe empty
+          assertLogs(
+            availability.receive(Availability.UnverifiedProtocolMessage(signedMessage)),
+            (logEntry: LogEntry) => {
+              logEntry.level shouldBe Level.INFO
+              logEntry.message should include(
+                "it cannot be verified in the currently known dissemination topology"
+              )
+            },
+          )
+
+          verify(messageAuthorizer).isAuthorized(
+            Node0,
+            FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy),
+          )
+
+          context.runPipedMessages() shouldBe empty
+        }
       }
 
       "verify it and if okay it should send the underlying message to self" in {

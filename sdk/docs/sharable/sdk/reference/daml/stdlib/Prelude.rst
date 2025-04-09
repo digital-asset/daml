@@ -1486,6 +1486,7 @@ Data Types
 **data** `Date <type-da-internal-lf-date-32253_>`_
 
   The ``Date`` type represents a date, for example ``date 2007 Apr 5``\.
+  The bounds for Date are 0001\-01\-01 and 9999\-12\-31\.
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Date <type-da-internal-lf-date-32253_>`_
 
@@ -1527,7 +1528,7 @@ Data Types
 
   The ``Party`` type represents a party to a contract\.
 
-  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` `Party <type-da-internal-lf-party-57932_>`_
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
 
   **instance** :ref:`HasToHex <class-da-crypto-text-hastohex-92431>` `Party <type-da-internal-lf-party-57932_>`_
 
@@ -1576,10 +1577,14 @@ Data Types
 
   The ``Time`` type represents a specific datetime in UTC,
   for example ``time (date 2007 Apr 5) 14 30 05``\.
+  The bounds for Time are 0001\-01\-01T00\:00\:00\.000000Z and
+  9999\-12\-31T23\:59\:59\.999999Z\.
 
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ `Time <type-da-internal-lf-time-63886_>`_
+
+  **instance** `Bounded <class-ghc-enum-bounded-34379_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
   **instance** `Show <class-ghc-show-show-65360_>`_ `Time <type-da-internal-lf-time-63886_>`_
 
@@ -1633,6 +1638,12 @@ Data Types
 
   `Some <constr-da-internal-prelude-some-71164_>`_ a
 
+
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Party <type-da-internal-lf-party-57932_>`_)
+
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Int <type-ghc-types-int-37261_>`_)
+
+  **instance** :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`Optional <type-da-internal-prelude-optional-37153_>`_ `Text <type-ghc-types-text-51952_>`_)
 
   **instance** :ref:`Foldable <class-da-foldable-foldable-25994>` `Optional <type-da-internal-prelude-optional-37153_>`_
 

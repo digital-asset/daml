@@ -117,7 +117,6 @@ freeVarsStep = \case
     EViewInterfaceF _ e -> e
     EChoiceControllerF _ _ e1 e2 -> e1 <> e2
     EChoiceObserverF _ _ e1 e2 -> e1 <> e2
-    EFailWithStatusF t e -> freeVarsInType t <> e
     EExperimentalF _ t -> freeVarsInType t
 
   where
@@ -154,6 +153,7 @@ freeVarsStep = \case
         UFetchF _ e -> e
         UFetchInterfaceF _ e -> e
         UGetTimeF -> mempty
+        ULedgerTimeLTF e -> e
         UEmbedExprF t e -> freeVarsInType t <> e
         UFetchByKeyF _ -> mempty
         ULookupByKeyF _ -> mempty

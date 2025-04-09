@@ -88,7 +88,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         version = version,
         ContractInstance(
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -99,7 +98,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         version = version,
         ContractInstance(
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -139,7 +137,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         version = version,
         ContractInstance(
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -150,7 +147,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         version = version,
         ContractInstance(
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -325,7 +321,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         version = version,
         ContractInstance(
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
         ),
@@ -342,7 +337,6 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         version = version,
         ContractInstance(
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
         ),
@@ -611,7 +605,6 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Node.Create(
           coid = contractId,
           packageName = pkg.pkgName,
-          packageVersion = pkg.pkgVersion,
           templateId = templateId,
           arg = payload.toNormalizedValue(txVersion),
           signatories = Set(maintainer),

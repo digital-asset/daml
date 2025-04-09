@@ -72,7 +72,6 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     val (
       flatTransactionEvents,
       transactionTreeEvents,
-      _flatTransaction,
       _transactionTree,
       acs,
     ) = fetch(Some(Set(someParty)))
@@ -92,7 +91,6 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     val (
       flatTransactionEventsSuperReader,
       transactionTreeEventsSuperReader,
-      _,
       _,
       acsSuperReader,
     ) = fetch(None)
@@ -120,21 +118,17 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
   private def fetch(filterParties: Option[Set[Ref.Party]]) = {
 
     val flatTransactionEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsAcsDelta(
+      backend.event.fetchEventPayloadsAcsDelta(
         EventPayloadSourceForUpdatesAcsDelta.Create
       )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
     val transactionTreeEvents = executeSql(
-      backend.event.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+      backend.event.fetchEventPayloadsLedgerEffects(
         EventPayloadSourceForUpdatesLedgerEffects.Create
       )(eventSequentialIds = Seq(1L, 2L, 3L, 4L), filterParties)
     )
-    val flatTransaction = executeSql(
-      backend.event.transactionPointwiseQueries
-        .fetchFlatTransactionEvents(1L, 1L, filterParties)
-    )
     val transactionTree = executeSql(
-      backend.event.transactionPointwiseQueries
+      backend.event.updatePointwiseQueries
         .fetchTreeTransactionEvents(1L, 1L, filterParties)
     )
     val acs = executeSql(
@@ -143,7 +137,6 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     (
       flatTransactionEvents,
       transactionTreeEvents,
-      flatTransaction,
       transactionTree,
       acs,
     )
@@ -156,18 +149,12 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     val (
       flatTransactionEvents,
       transactionTreeEvents,
-      flatTransaction,
       transactionTree,
       acs,
     ) = fetch(partiesO)
 
     extractCreatedAtFrom[RawCreatedEvent, RawFlatEvent](
       in = flatTransactionEvents,
-      createdAt = _.ledgerEffectiveTime,
-    ) shouldBe expectedCreatedAt
-
-    extractCreatedAtFrom[RawCreatedEvent, RawFlatEvent](
-      in = flatTransaction,
       createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 

@@ -5,7 +5,6 @@ package com.digitalasset.canton.ledger.error.groups
 
 import com.digitalasset.base.error.{
   ContextualizedDamlError,
-  ContextualizedErrorLogger,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -19,6 +18,7 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
   LatestOffsetMetadataKey,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.{LookupError, Reference}
 
@@ -81,6 +81,35 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
       final case class RejectWithOffset(offset: Long)(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(cause = "Transaction not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.Offset, offset.toString)
+        )
+      }
+    }
+
+    @Explanation(
+      "The update does not exist or the update format specified filters it out."
+    )
+    @Resolution(
+      "Check the update id or offset and verify that the requested update is not being filtered out by the update format."
+    )
+    object Update
+        extends ErrorCode(
+          id = "UPDATE_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      final case class RejectWithTxId(updateId: String)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = "Update not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.UpdateId, updateId)
+        )
+      }
+
+      final case class RejectWithOffset(offset: Long)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = "Update not found, or not visible.") {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           (ErrorResource.Offset, offset.toString)
         )

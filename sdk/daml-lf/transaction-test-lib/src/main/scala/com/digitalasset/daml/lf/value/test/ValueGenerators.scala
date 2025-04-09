@@ -276,8 +276,7 @@ object ValueGenerators {
       template <- idGen
       arg <- versionedValueGen
       pkgName <- pkgNameGen
-      pkgVer <- pkgVerGen(arg.version)
-    } yield arg.map(Value.ContractInstance(pkgName, pkgVer, template, _))
+    } yield arg.map(Value.ContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: TypeConName,
@@ -316,7 +315,6 @@ object ValueGenerators {
     for {
       coid <- coidGen
       packageName <- pkgNameGen
-      pkgVer <- pkgVerGen(version)
       templateId <- idGen
       arg <- valueGen()
       signatories <- genNonEmptyParties
@@ -328,7 +326,6 @@ object ValueGenerators {
     } yield Node.Create(
       coid = coid,
       packageName = packageName,
-      packageVersion = pkgVer,
       templateId = templateId,
       arg = arg,
       signatories = signatories,

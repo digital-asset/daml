@@ -166,12 +166,6 @@ object Ast {
       choiceArgExpr: Expr,
   ) extends Expr
 
-  /** Fail with grpc status and ErrorInfoDetail metadata */
-  final case class EFailWithStatus(
-      returnType: Type,
-      failureStatus: Expr,
-  ) extends Expr
-
   // We use this type to reduce depth of pattern matching
   sealed abstract class ExprInterface extends Expr
 
@@ -575,6 +569,9 @@ object Ast {
   // TypeRep
   final case object BTypeRepTyConName extends BuiltinFunction // : TypeRep → Optional Text
 
+  final case object BFailWithStatus
+      extends BuiltinFunction // : ∀a. Text → FailureCategory → Text → TextMap Text → a
+
   final case class EExperimental(name: String, typ: Type) extends Expr
 
   //
@@ -626,6 +623,7 @@ object Ast {
       argE: Expr,
   ) extends Update
   case object UpdateGetTime extends Update
+  final case class UpdateLedgerTimeLT(time: Expr) extends Update
   final case class UpdateFetchByKey(templateId: TypeConName) extends Update
   final case class UpdateLookupByKey(templateId: TypeConName) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
@@ -1271,19 +1269,8 @@ object Ast {
       } else {
         false
       }
-    // package Name if the package support upgrade
-    // TODO: https://github.com/digital-asset/daml/issues/17965
-    //  drop that in daml-3
     private[lf] def pkgName: Ref.PackageName = metadata.name
-    private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
-      if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
-        Some(metadata.version)
-      else
-        None
-    }
-    private[lf] def pkgNameVersion: (Ref.PackageName, Option[Ref.PackageVersion]) =
-      pkgName -> pkgVersion
-
+    private[lf] def pkgVersion: Ref.PackageVersion = metadata.version
   }
 
   final class GenPackageCompanion[E] private[Ast] {

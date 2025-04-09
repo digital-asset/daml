@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
@@ -21,6 +22,7 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.Repo
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.CommittedTransaction
@@ -47,6 +49,11 @@ private[platform] trait LedgerDaoUpdateReader {
       offset: Offset,
       internalTransactionFormat: InternalTransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]]
+
+  def lookupUpdateBy(
+      lookupKey: LookupKey,
+      internalUpdateFormat: InternalUpdateFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]]
 
   def getTransactionTrees(
       startInclusive: Offset,
@@ -202,8 +209,8 @@ private[platform] trait LedgerWriteDaoForTests extends ReportsHealth {
       loggingContext: LoggingContextWithTrace
   ): Future[PersistenceResponse]
 
-  /** This is a combined store transaction method to support sandbox-classic and tests !!! Usage of
-    * this is discouraged, with the removal of sandbox-classic this will be removed
+  /** This is a combined store transaction method to support only tests !!! Usage of this is
+    * discouraged.
     */
   def storeTransaction(
       completionInfo: Option[state.CompletionInfo],

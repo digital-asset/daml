@@ -7,7 +7,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.logging.SuppressingLogger
 import com.digitalasset.canton.platform.store.backend.common.EventIdSource
-import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.Inside
@@ -423,7 +423,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsNonConsuming(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries.fetchEventIds(
+      backend.event.updateStreamingQueries.fetchEventIds(
         EventIdSource.NonConsumingInformee
       )(
         stakeholderO = Some(someParty),
@@ -436,7 +436,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsConsumingNonStakeholder(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries
+      backend.event.updateStreamingQueries
         .fetchEventIds(EventIdSource.ConsumingNonStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
@@ -448,7 +448,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsConsumingStakeholder(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries
+      backend.event.updateStreamingQueries
         .fetchEventIds(EventIdSource.ConsumingStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
@@ -460,7 +460,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsCreateNonStakeholder(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries
+      backend.event.updateStreamingQueries
         .fetchEventIds(EventIdSource.CreateNonStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
@@ -472,7 +472,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
 
   private def fetchIdsCreateStakeholder(): Vector[Long] =
     executeSql(
-      backend.event.transactionStreamingQueries
+      backend.event.updateStreamingQueries
         .fetchEventIds(EventIdSource.CreateStakeholder)(
           stakeholderO = Some(someParty),
           templateIdO = None,
@@ -515,22 +515,30 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     )
 
   private def fetchIdsFromTransactionMetaUpdateIds(udpateIds: Seq[String]): Set[(Long, Long)] = {
-    val txPointwiseQueries = backend.event.transactionPointwiseQueries
+    val txPointwiseQueries = backend.event.updatePointwiseQueries
     udpateIds
       .map(Ref.TransactionId.assertFromString)
       .map { updateId =>
-        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(LookupKey.UpdateId(updateId)))
+        executeSql(
+          txPointwiseQueries.fetchIdsFromTransactionMeta(
+            lookupKey = LookupKey.UpdateId(updateId)
+          )
+        )
       }
       .flatMap(_.toList)
       .toSet
   }
 
   private def fetchIdsFromTransactionMetaOffsets(offsets: Seq[Long]): Set[(Long, Long)] = {
-    val txPointwiseQueries = backend.event.transactionPointwiseQueries
+    val txPointwiseQueries = backend.event.updatePointwiseQueries
     offsets
       .map(Offset.tryFromLong)
       .map { offset =>
-        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(LookupKey.Offset(offset)))
+        executeSql(
+          txPointwiseQueries.fetchIdsFromTransactionMeta(
+            lookupKey = LookupKey.Offset(offset)
+          )
+        )
       }
       .flatMap(_.toList)
       .toSet

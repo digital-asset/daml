@@ -594,11 +594,8 @@ private[lf] object SBuiltinFun {
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(
-                IE.Dev.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
-              ),
+            IE.CCTP(
+              IE.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
             )
           )
       }
@@ -616,42 +613,33 @@ private[lf] object SBuiltinFun {
             .fromString(getSText(args, 0))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 0),
-                    cause = "can not parse signature hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 0),
+                  cause = "can not parse signature hex string",
+                )
               )
             )
           message <- Ref.HexString
             .fromString(getSText(args, 1))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 1),
-                    cause = "can not parse message hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 1),
+                  cause = "can not parse message hex string",
+                )
               )
             )
           derEncodedPublicKey <- Ref.HexString
             .fromString(getSText(args, 2))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 2),
-                    cause = "can not parse DER encoded public key hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 2),
+                  cause = "can not parse DER encoded public key hex string",
+                )
               )
             )
           publicKey = extractPublicKey(derEncodedPublicKey)
@@ -667,23 +655,20 @@ private[lf] object SBuiltinFun {
           crash("BouncyCastle provider fails to support SECP256K1")
         case exn: InvalidKeyException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: InvalidKeySpecException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: SignatureException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)
             )
           )
       }
@@ -711,14 +696,11 @@ private[lf] object SBuiltinFun {
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(
-                IE.Dev.CCTP.MalformedByteEncoding(
-                  getSText(args, 0),
-                  cause = "can not parse hex string argument",
-                )
-              ),
+            IE.CCTP(
+              IE.CCTP.MalformedByteEncoding(
+                getSText(args, 0),
+                cause = "can not parse hex string argument",
+              )
             )
           )
       }
@@ -1168,7 +1150,7 @@ private[lf] object SBuiltinFun {
         allowCatchingContractInfoErrors = false,
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
-        val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+        val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1334,9 +1316,7 @@ private[lf] object SBuiltinFun {
       k: PackageId => Control[Q]
   ): Control[Q] = {
     machine.packageResolution.get(pkgName) match {
-      // TODO https://github.com/digital-asset/daml/issues/17995
-      //  We need a proper interpretation error here
-      case None => crash(s"cannot resolve package $pkgName")
+      case None => Control.Error(IE.UnresolvedPackageName(pkgName))
       case Some(pkgId) => k(pkgId)
     }
   }
@@ -1506,8 +1486,8 @@ private[lf] object SBuiltinFun {
     if (dstTplId == srcTplId) {
       k(Some(srcArg))
     } else if (dstTplId.qualifiedName == srcTplId.qualifiedName) {
-      val (srcPkgName, _) = machine.tmplId2PackageNameVersion(dstTplId)
-      val (dstPkgName, _) = machine.tmplId2PackageNameVersion(srcTplId)
+      val srcPkgName = machine.tmplId2PackageName(dstTplId)
+      val dstPkgName = machine.tmplId2PackageName(srcTplId)
       if (srcPkgName == dstPkgName) {
         // This isn't ideal as its a large uncached computation in a non Update primative.
         // Ideally this would run in Update, and not iterate the value twice
@@ -1695,7 +1675,7 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
-      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
@@ -1775,7 +1755,7 @@ private[lf] object SBuiltinFun {
 
       val keyValue = args.get(0)
       val version = machine.tmplId2TxVersion(templateId)
-      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
@@ -1868,7 +1848,21 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.needTime()
+      machine.needTime(time => Control.Value(STimestamp(time)))
+    }
+  }
+
+  /** $ledgerTimeLT: Timestamp -> Token -> Bool */
+  final case object SBULedgerTimeLT extends UpdateBuiltin(2) {
+    override protected def executeUpdate(
+        args: util.ArrayList[SValue],
+        machine: UpdateMachine,
+    ): Control[Question.Update] = {
+      checkToken(args, 1)
+
+      val time = getSTimestamp(args, 0)
+
+      machine.needTime(now => Control.Value(SBool(now < time)))
     }
   }
 
@@ -2101,32 +2095,25 @@ private[lf] object SBuiltinFun {
 
   }
 
-  /** $failWithStatus :: FailureStatus -> a */
-  final case object SBFailWithStatus extends SBuiltinFun(1) {
+  /** $failWithStatus :: Text -> FailureCategory (Int64) -> Text -> TextMap Text -> a */
+  final case object SBFailWithStatus extends SBuiltinFun(4) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
     ): Control[Nothing] = {
-      val failureStatusIdentifier = machine.failureStatusIdentifier
-      getSRecord(args, 0) match {
-        case SRecord(
-              `failureStatusIdentifier`,
-              _,
-              ArrayList(
-                SText(errorId),
-                SInt64(categoryId),
-                SText(errorMessage),
-                smap @ SMap(false, treeMap),
-              ),
-            ) => {
-          val meta = treeMap.toMap.map {
+      val errorId = getSText(args, 0)
+      val categoryId = getSInt64(args, 1)
+      val errorMessage = getSText(args, 2)
+      val meta = getSMap(args, 3) match {
+        case smap @ SMap(true, treeMap) =>
+          treeMap.toMap.map {
             case (SText(key), SText(value)) => (key, value)
-            case _ => unexpectedType(0, "Map Text Text", smap)
+            case _ => unexpectedType(0, "TextMap Text", smap)
           }
-          Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
-        }
-        case otherwise => unexpectedType(0, "FailureStatus", otherwise)
+        case otherwise => unexpectedType(0, "TextMap Text", otherwise)
       }
+
+      Control.Error(IE.FailureStatus(errorId, categoryId.toInt, errorMessage, meta))
     }
   }
 
@@ -2168,7 +2155,7 @@ private[lf] object SBuiltinFun {
       val contractInfoStruct = args.get(0)
       val contractInfo = extractContractInfo(
         machine.tmplId2TxVersion,
-        machine.tmplId2PackageNameVersion,
+        machine.tmplId2PackageName,
         contractInfoStruct,
       )
       val recomputed = contractInfo.toCreateNode(contract.contractId)
@@ -2325,7 +2312,7 @@ private[lf] object SBuiltinFun {
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
-      tmplId2PackageNameVersion: TypeConName => (PackageName, Option[PackageVersion]),
+      tmplId2PackageName: TypeConName => PackageName,
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2339,7 +2326,7 @@ private[lf] object SBuiltinFun {
             )
         }
         val version = tmplId2TxVersion(templateId)
-        val (pkgName, pkgVer) = tmplId2PackageNameVersion(templateId)
+        val pkgName = tmplId2PackageName(templateId)
         val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
@@ -2354,7 +2341,6 @@ private[lf] object SBuiltinFun {
         ContractInfo(
           version = version,
           packageName = pkgName,
-          packageVersion = pkgVer,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           signatories = extractParties(
@@ -2568,7 +2554,7 @@ private[lf] object SBuiltinFun {
       contractInfoStruct =>
         val contract = extractContractInfo(
           machine.tmplId2TxVersion,
-          machine.tmplId2PackageNameVersion,
+          machine.tmplId2PackageName,
           contractInfoStruct,
         )
         f(contract)

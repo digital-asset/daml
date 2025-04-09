@@ -243,6 +243,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "COERCE_CONTRACT_ID" -> BCoerceContractId,
         "ANY_EXCEPTION_MESSAGE" -> BAnyExceptionMessage,
         "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
+        "FAIL_WITH_STATUS" -> BFailWithStatus,
       )
 
       forEvery(testCases)((stringToParse, expectedBuiltin) =>
@@ -507,6 +508,8 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           UpdateLookupByKey(T.tycon),
         "uget_time" ->
           UpdateGetTime,
+        "ledger_time_lt e" ->
+          UpdateLedgerTimeLT(e"e"),
         "uembed_expr @tau e" ->
           UpdateEmbedExpr(t"tau", e"e"),
         "try @tau body catch err -> handler err" ->

@@ -25,7 +25,6 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.v1.page_tokens.ListPartiesPageTokenPayload
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService

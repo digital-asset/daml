@@ -6,6 +6,12 @@
 DA.Time
 =======
 
+This module provides a set of functions to manipulate Time values\.
+The ``Time`` type represents a specific datetime in UTC,
+for example ``time (date 2007 Apr 5) 14 30 05``\.
+The bounds for Time are 0001\-01\-01T00\:00\:00\.000000Z and
+9999\-12\-31T23\:59\:59\.999999Z\.
+
 Data Types
 ----------
 
@@ -18,6 +24,8 @@ Data Types
   **instance** :ref:`Eq <class-ghc-classes-eq-22713>` `RelTime <type-da-time-types-reltime-23082_>`_
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` `RelTime <type-da-time-types-reltime-23082_>`_
+
+  **instance** :ref:`Bounded <class-ghc-enum-bounded-34379>` `RelTime <type-da-time-types-reltime-23082_>`_
 
   **instance** :ref:`Additive <class-ghc-num-additive-25881>` `RelTime <type-da-time-types-reltime-23082_>`_
 

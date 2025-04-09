@@ -7,7 +7,7 @@ module DA.Fail (module DA.Fail, module DA.Internal.Fail, module DA.Internal.Fail
 import DA.Internal.Fail
 import DA.Internal.Fail.Types
 import DA.Internal.Record
-import DA.Map (Map)
+import DA.TextMap (TextMap)
 import GHC.Types (primitive)
 
 instance Eq FailureCategory where
@@ -47,9 +47,9 @@ instance SetField "message" FailureStatus Text where
   setField message (FailureStatus errorId category _ meta) =
     FailureStatus errorId category message meta
 
-instance GetField "meta" FailureStatus (Map Text Text) where
+instance GetField "meta" FailureStatus (TextMap Text) where
   getField (FailureStatus {..}) = meta
-instance SetField "meta" FailureStatus (Map Text Text) where
+instance SetField "meta" FailureStatus (TextMap Text) where
   setField meta (FailureStatus errorId category message _) =
     FailureStatus errorId category message meta
 

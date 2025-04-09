@@ -1108,7 +1108,7 @@ class TransactionProcessingSteps(
     val completionInfoO =
       submitterMetaO.flatMap(completionInfoFromSubmitterMetadataO(_, freshOwnTimelyTx))
 
-    rejectionReason.logWithContext(Map("requestId" -> pendingTransaction.requestId.toString))
+    rejectionReason.logRejection(Map("requestId" -> pendingTransaction.requestId.toString))
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
 
     val updateO = completionInfoO.map(info =>

@@ -54,7 +54,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eViewInterface |
       eChoiceController |
       eChoiceObserver |
-      eFailWithStatus |
       (id ^? builtinFunctions) ^^ EBuiltinFun |
       experimental |
       caseOf |
@@ -310,11 +309,6 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
         EChoiceObserver(typeId, choiceName, contract, choiceArg)
     }
 
-  private lazy val eFailWithStatus: Parser[Expr] =
-    `fail_with_status` ~>! argTyp ~ expr0 ^^ { case retType ~ failureStatus =>
-      EFailWithStatus(retType, failureStatus)
-    }
-
   private lazy val pattern: Parser[CasePat] =
     Id("_") ^^^ CPDefault |
       primCon ^^ CPBuiltinCon |
@@ -421,6 +415,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
     "NUMERIC_TO_BIGNUMERIC" -> BNumericToBigNumeric,
     "BIGNUMERIC_TO_TEXT" -> BBigNumericToText,
     "TYPE_REP_TYCON_NAME" -> BTypeRepTyConName,
+    "FAIL_WITH_STATUS" -> BFailWithStatus,
   )
 
   private lazy val eCallInterface: Parser[ECallInterface] =
@@ -502,6 +497,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val updateGetTime =
     Id("uget_time") ^^^ UpdateGetTime
 
+  private lazy val updateLedgerTimeLT =
+    Id("ledger_time_lt") ~> expr0 ^^ { case time =>
+      UpdateLedgerTimeLT(time)
+    }
+
   private lazy val updateEmbedExpr =
     Id("uembed_expr") ~> argTyp ~ expr0 ^^ { case t ~ e =>
       UpdateEmbedExpr(t, e)
@@ -527,6 +527,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       updateFetchByKey |
       updateLookupByKey |
       updateGetTime |
+      updateLedgerTimeLT |
       updateEmbedExpr |
       updateCatch
 

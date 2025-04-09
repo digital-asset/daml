@@ -610,6 +610,39 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             )
           )
         })
+
+      @Help.Summary("Get an update by its ID", FeatureFlag.Testing)
+      @Help.Description(
+        """Get an update by its ID. Returns None if the update is not (yet) known at the participant or all the events
+          |of the update are filtered due to the update format or if the update has been pruned via `pruning.prune`."""
+      )
+      def update_by_id(id: String, updateFormat: UpdateFormat): Option[UpdateWrapper] =
+        check(FeatureFlag.Testing)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.UpdateService.GetUpdateById(id, updateFormat)(
+              consoleEnvironment.environment.executionContext
+            )
+          )
+        })
+
+      @Help.Summary("Get an update by its offset", FeatureFlag.Testing)
+      @Help.Description(
+        """Get an update by its offset. Returns None if the update is not (yet) known at the participant or all the
+          |events of the update are filtered due to the update format or if the update has been pruned via
+          |`pruning.prune`."""
+      )
+      def update_by_offset(
+          offset: Long,
+          updateFormat: UpdateFormat,
+      ): Option[UpdateWrapper] =
+        check(FeatureFlag.Testing)(consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.UpdateService.GetUpdateByOffset(offset, updateFormat)(
+              consoleEnvironment.environment.executionContext
+            )
+          )
+        })
+
     }
 
     @Help.Summary("Interactive submission", FeatureFlag.Testing)
@@ -909,7 +942,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         FeatureFlag.Testing,
       )
       @Help.Description(
-        """Submits a assignment command on behalf of `submitter` party, waits for the resulting assignment to commit, and returns the reassignment.
+        """Submits an assignment command on behalf of `submitter` party, waits for the resulting assignment to commit, and returns the reassignment.
           | If waitForParticipants is set, it also waits for the reassignment(s) to appear at all other configured
           | participants who were involved in the assignment. The call blocks until the assignment commits or fails.
           | Fails if the assignment doesn't commit, or if it doesn't become visible to the involved participants in time.

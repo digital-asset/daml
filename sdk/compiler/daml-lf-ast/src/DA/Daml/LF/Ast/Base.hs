@@ -346,6 +346,9 @@ data BuiltinExpr
 
   -- TypeRep
   | BETypeRepTyConName           -- :: TypeRep -> Optional Text
+
+  -- FailureStatus
+  | BEFailWithStatus             -- :: forall a. Text -> FailureCategory -> Text -> TextMap Text -> a
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 
@@ -607,10 +610,6 @@ data Expr
     , choiceObserverContract :: !Expr
     , choiceObserverChoiceArg :: !Expr
     }
-  | EFailWithStatus
-    { fwsReturnType :: !Type
-    , fwsStatusFailure :: !Expr
-    }
   -- | Experimental Expression Hook
   | EExperimental !T.Text !Type
   deriving (Eq, Data, Generic, NFData, Ord, Show)
@@ -762,6 +761,8 @@ data Update
     }
   -- | Retrieve effective ledger time.
   | UGetTime
+  -- | Check whether the ledger time is strictly before an absolute time.
+  | ULedgerTimeLT !Expr
   -- | See comment for 'SEmbedExpr'
   | UEmbedExpr
     { updateEmbedType :: !Type

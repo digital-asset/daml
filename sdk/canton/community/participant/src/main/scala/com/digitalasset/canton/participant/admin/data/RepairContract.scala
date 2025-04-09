@@ -73,7 +73,6 @@ object RepairContract {
 
       contractInstance = LfContractInst(
         fattyContract.packageName,
-        fattyContract.packageVersion,
         fattyContract.templateId,
         transaction.Versioned(fattyContract.version, fattyContract.createArg),
       )

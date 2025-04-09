@@ -317,7 +317,7 @@ trait ReassignmentProcessingSteps[
       )
     )
 
-    rejectionReason.logWithContext(Map("requestId" -> pendingReassignment.requestId.toString))
+    rejectionReason.logRejection(Map("requestId" -> pendingReassignment.requestId.toString))
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
     val updateO = completionInfoO.map(info =>
       Update.SequencedCommandRejected(

@@ -20,7 +20,9 @@ load(
     "da_scala_macro_library",
     "da_scala_test",
     "da_scala_test_suite",
+    "default_scalacopts",
     "kind_projector_plugin",
+    "lf_scalacopts_stricter",
     "scala_source_jar",
     "scaladoc_jar",
 )
@@ -458,19 +460,45 @@ filegroup(
     visibility = ["//daml-script:__subpackages__"],
 )
 
-scala_library(
+da_scala_library(
     name = "community_admin-api",
     srcs = [":community_admin-api-src"],
-    scalacopts = canton_scalacopts + ["-language:postfixOps"],
+    override_scalacopts = canton_scalacopts + [
+        copt
+        for copt in default_scalacopts + lf_scalacopts_stricter
+        if copt not in [
+            # ProtocolVersionAnnotation.scala violates this warning
+            "-P:wartremover:traverser:org.wartremover.warts.LeakingSealed",
+        ]
+    ],
+    tags = ["maven_coordinates=com.daml:community-admin-api:__VERSION__"],
     visibility = ["//daml-lf/validation:__subpackages__"],
 )
 
 ### community/base ###
 
-proto_library(
+proto_jars(
     name = "community_base_proto",
-    srcs = glob(["community/base/src/main/protobuf/**/*.proto"]),
+    srcs = glob(
+        ["community/base/src/main/protobuf/**/*.proto"],
+        # @scalapb//:scalapb_proto, which is required by proto_jars, defines a competing package.proto for the
+        # google.rpc package. Even though the two files agree, this is rejected by scalapb. Thus we exclude
+        # the one defined by the canton repo.
+        exclude = ["community/base/src/main/protobuf/google/rpc/package.proto"],
+    ),
+    # The code of canton assumes that these protos are generated with the flat_package option.
+    flat_package = True,
+    grpc = True,
+    java_deps = [
+        "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
+        "@maven//:com_google_api_grpc_proto_google_common_protos",
+    ],
+    maven_artifact_prefix = "community-base",
+    maven_artifact_scala_suffix = "scalapb",
+    maven_group = "com.daml",
+    scala_deps = [":community_admin-api"],
     strip_import_prefix = "community/base/src/main/protobuf",
+    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:duration_proto",
         "@com_google_protobuf//:empty_proto",
@@ -481,20 +509,9 @@ proto_library(
     ],
 )
 
-proto_gen(
-    name = "community_base_proto_scala",
-    srcs = [":community_base_proto"],
-    plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
-    plugin_name = "scalapb",
-    plugin_options = [
-        "flat_package",
-        "grpc",
-    ],
-)
-
 scala_library(
     name = "community_base",
-    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_base_proto_scala"] + [":community_admin-api_proto_scala"],
+    srcs = glob(["community/base/src/main/scala/**/*.scala"]) + [":community_admin-api_proto_scala"],
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
@@ -517,6 +534,7 @@ scala_library(
         ":base_util-external",
         ":bindings-java",
         ":community_admin-api",
+        ":community_base_proto_scala",
         ":community_buildinfo",
         ":community_kms-driver-api",
         ":community_lib_slick_slick-fork",
@@ -613,6 +631,7 @@ scala_library(
         ":base_util-external",
         ":community_admin-api",
         ":community_base",
+        ":community_base_proto_scala",
         ":community_buildinfo",
         ":community_lib_Blake2b",
         ":community_lib_slick_slick-fork",
@@ -689,7 +708,10 @@ proto_library(
 
 proto_gen(
     name = "community_ledger_ledger-api-core_proto_scala",
-    srcs = [":community_ledger_ledger-api-core_proto"],
+    srcs = [
+        ":community_ledger_ledger-api-core_proto",
+        "@com_github_grpc_grpc//src/proto/grpc/health/v1:health_proto_descriptor",
+    ],
     plugin_exec = "//scala-protoc-plugins/scalapb:protoc-gen-scalapb",
     plugin_name = "scalapb",
     plugin_options = [
@@ -982,6 +1004,7 @@ scala_library(
         ":base_util-external",
         ":community_admin-api",
         ":community_base",
+        ":community_base_proto_scala",
         ":community_common",
         ":community_lib_slick_slick-fork",
         ":community_lib_wartremover",
@@ -1113,6 +1136,7 @@ scala_library(
         ":bindings-java",
         ":community_admin-api",
         ":community_base",
+        ":community_base_proto_scala",
         ":community_common",
         ":community_ledger_ledger-api-core",
         ":community_ledger_ledger-common",
@@ -1304,6 +1328,7 @@ scala_library(
         ":bindings-java",
         ":community_admin-api",
         ":community_base",
+        ":community_base_proto_scala",
         ":community_common",
         ":community_kms-driver-api",
         ":community_ledger_ledger-api-core",
@@ -1410,6 +1435,7 @@ scala_library(
         ":community_participant",
         ":community_synchronizer",
         ":community_util-logging",
+        ":ledger_api_proto_scala",
         "//daml-lf/data",
         "//libs-scala/nonempty",
         "@maven//:ch_qos_logback_logback_classic",

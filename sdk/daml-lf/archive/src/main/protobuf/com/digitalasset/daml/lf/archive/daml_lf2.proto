@@ -355,12 +355,14 @@ enum BuiltinFunction {
 
   ANY_EXCEPTION_MESSAGE = 59;
 
-  KECCAK256_TEXT = 66;
-  SECP256K1_BOOL = 67;
-  HEX_TO_TEXT = 68;
-  TEXT_TO_HEX = 69;
+  FAIL_WITH_STATUS = 66;
 
-  // Next id is 64.
+  KECCAK256_TEXT = 67;
+  SECP256K1_BOOL = 68;
+  HEX_TO_TEXT = 69;
+  TEXT_TO_HEX = 70;
+
+  // Next id is 71.
 
   /* Dev Builtins */
   // We use fields above 1000 for dev features
@@ -751,15 +753,6 @@ message Expr {
     Expr choice_arg_expr = 4;
   }
 
-  // Fail with status.
-  message FailWithStatus {
-    // Overall type of the "failWithStatus" expression.
-    Type return_type = 1;
-    // value of type DA.Internal.Fail.Types:FailureStatus
-    Expr failure_status = 2;
-  }
-  
-
   message Experimental {
     string name = 1;
     Type type = 2 ;
@@ -885,9 +878,6 @@ message Expr {
     ToRequiredInterface to_required_interface = 41;
     FromRequiredInterface from_required_interface = 42;
     UnsafeFromRequiredInterface unsafe_from_required_interface = 43;
-
-    // Throw strictly formed error to affect ledger-api grpc status+metadata (replacement for exceptions)
-    FailWithStatus fail_with_status = 44;
 
     // Obtain the controllers for a choice.
     // *Available in versions >= 2.dev*
@@ -1138,6 +1128,8 @@ message Update {
     CreateInterface create_interface = 12;
     ExerciseInterface exercise_interface = 13;
     FetchInterface fetch_interface = 14;
+
+    Expr ledger_time_lt = 15;
 
     DynamicExercise dynamic_exercise = 1001; // *Available in versions >= 2.dev*
     SoftFetch soft_fetch = 1002; // *Available in versions >= 2.dev*

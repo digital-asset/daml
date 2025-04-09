@@ -333,6 +333,10 @@ object JsSchema {
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
       Schema.oneOfWrapped
 
+    implicit val identifierFilterSchema
+        : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
+      Schema.oneOfWrapped
+
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any
   }
 }

@@ -319,14 +319,6 @@ Functions
   ``isAlphaNum t`` is ``True`` if ``t`` is not empty and consists only of
   alphanumeric symbols\.
 
-.. _function-da-text-ishex-82520:
-
-`isHex <function-da-text-ishex-82520_>`_
-  \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Bool <type-ghc-types-bool-66265>`
-
-  ``isHex`` is ``True`` if ``t`` is not empty and consists only of
-  hex or hexadecimal characters\.
-
 .. _function-da-text-parseint-736:
 
 `parseInt <function-da-text-parseint-736_>`_

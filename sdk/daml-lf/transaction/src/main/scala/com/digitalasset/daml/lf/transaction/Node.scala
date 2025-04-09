@@ -84,7 +84,6 @@ object Node {
   final case class Create(
       coid: ContractId,
       override val packageName: PackageName,
-      packageVersion: Option[PackageVersion] = None,
       override val templateId: TypeConName,
       arg: Value,
       agreementText: String = "", // to be removed
@@ -94,8 +93,6 @@ object Node {
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction {
-    import Ordering.Implicits._
-    assert(packageVersion.isEmpty || version >= TransactionVersion.minPackageVersion)
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
@@ -113,7 +110,7 @@ object Node {
     def versionedArg: Value.VersionedValue = versioned(arg)
 
     def coinst: Value.ContractInstance =
-      Value.ContractInstance(packageName, packageVersion, templateId, arg)
+      Value.ContractInstance(packageName, templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 
@@ -135,7 +132,6 @@ object Node {
       Create(
         coid = coid,
         packageName = contract.unversioned.packageName,
-        packageVersion = contract.unversioned.packageVersion,
         templateId = contract.unversioned.template,
         arg = contract.unversioned.arg,
         signatories = signatories,

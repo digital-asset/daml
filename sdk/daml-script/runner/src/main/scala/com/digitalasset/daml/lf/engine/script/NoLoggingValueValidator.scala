@@ -11,9 +11,9 @@ import com.digitalasset.canton.ledger.api.validation.ValueValidator
 object NoLoggingValueValidator {
 
   def validateRecord(rec: api.Record): Either[StatusRuntimeException, Value.ValueRecord] =
-    ValueValidator.validateRecord(rec)(com.digitalasset.base.error.NoLogging)
+    ValueValidator.validateRecord(rec)(com.digitalasset.canton.logging.NoLogging)
 
   def validateValue(v0: api.Value): Either[StatusRuntimeException, Value] =
-    ValueValidator.validateValue(v0)(com.digitalasset.base.error.NoLogging)
+    ValueValidator.validateValue(v0)(com.digitalasset.canton.logging.NoLogging)
 
 }

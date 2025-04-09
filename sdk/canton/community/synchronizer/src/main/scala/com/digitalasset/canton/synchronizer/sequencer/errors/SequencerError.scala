@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer.errors
 import com.digitalasset.base.error.{
   Alarm,
   AlarmErrorCode,
-  ContextualizedErrorLogger,
   ErrorCategory,
   ErrorCode,
   Explanation,
@@ -18,6 +17,7 @@ import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonBaseError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -44,11 +44,13 @@ object SequencerError extends SequencerErrorGroup {
         member: Member,
         ackedTimestamp: CantonTimestamp,
         latestValidTimestamp: CantonTimestamp,
-    )(implicit override val logger: ContextualizedErrorLogger)
+    )(implicit logger: ContextualizedErrorLogger)
         extends Alarm(
           s"Member $member has acknowledged the timestamp $ackedTimestamp when only events with timestamps at most $latestValidTimestamp have been delivered."
         )
-        with LogOnCreation
+        with LogOnCreation {
+      def logError(): Unit = logWithContext()(logger)
+    }
   }
 
   @Explanation("""
@@ -62,12 +64,14 @@ object SequencerError extends SequencerErrorGroup {
         signedAcknowledgeRequest: SignedContent[AcknowledgeRequest],
         latestValidTimestamp: CantonTimestamp,
         error: SignatureCheckError,
-    )(implicit override val logger: ContextualizedErrorLogger)
+    )(implicit logger: ContextualizedErrorLogger)
         extends Alarm({
           val ack = signedAcknowledgeRequest.content
           s"Member ${ack.member} has acknowledged the timestamp ${ack.timestamp} but signature from ${signedAcknowledgeRequest.timestampOfSigningKey} failed to be verified at $latestValidTimestamp: $error"
         })
-        with LogOnCreation
+        with LogOnCreation {
+      def logError(): Unit = logWithContext()(logger)
+    }
   }
 
   @Explanation(
@@ -143,11 +147,13 @@ object SequencerError extends SequencerErrorGroup {
     final case class Error(
         blockHeight: Long,
         protoDeserializationError: ProtoDeserializationError,
-    )(implicit override val logger: ContextualizedErrorLogger)
+    )(implicit logger: ContextualizedErrorLogger)
         extends Alarm(
           s"At block $blockHeight could not parse an event from the ledger. Event is being ignored. $protoDeserializationError"
         )
-        with LogOnCreation
+        with LogOnCreation {
+      def logError(): Unit = logWithContext()(logger)
+    }
   }
 
   // TODO(#15603) modify resolution once fixed

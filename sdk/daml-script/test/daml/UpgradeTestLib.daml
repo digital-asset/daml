@@ -14,8 +14,8 @@ module UpgradeTestLib (
   broken,
   brokenOnCanton,
   brokenOnIDELedger,
-  withUnvettedDar,
-  withUnvettedDarOnParticipant,
+  withUnvettedPackage,
+  withUnvettedPackageOnParticipant,
   module Daml.Script,
   module Daml.Script.Internal,
   module DA.Assert,
@@ -72,23 +72,25 @@ brokenScript act testState = do
     Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> pure ()
 
-withUnvettedDarOnParticipant : Text -> ParticipantName -> Script a -> Script a
-withUnvettedDarOnParticipant darName participant act = do
-  unvetDarOnParticipant darName participant
+withUnvettedPackageOnParticipant : Text -> Text -> ParticipantName -> Script a -> Script a
+withUnvettedPackageOnParticipant packageName packageVersion participant act = do
+  let pkg = PackageName packageName packageVersion
+  unvetPackagesOnParticipant [pkg] participant
   res <- tryToEither (\() -> liftFailedCommandToException act)
-  vetDarOnParticipant darName participant
+  vetPackagesOnParticipant [pkg] participant
   case res of
     Left e -> throwAnyException e
     Right r -> pure r
 
-withUnvettedDar : Text -> Script a -> Script a
-withUnvettedDar darName act = do
-  unsafeUnvetDarOnParticipant darName (Some participant0)
-  unsafeUnvetDarOnParticipant darName (Some participant1)
+withUnvettedPackage : Text -> Text -> Script a -> Script a
+withUnvettedPackage packageName packageVersion act = do
+  let pkg = PackageName packageName packageVersion
+  unsafeUnvetPackages [pkg] (Some participant0)
+  unsafeUnvetPackages [pkg] (Some participant1)
   sleep $ seconds 1
   res <- tryToEither (\() -> liftFailedCommandToException act)
-  unsafeVetDarOnParticipant darName (Some participant0)
-  unsafeVetDarOnParticipant darName (Some participant1)
+  unsafeVetPackages [pkg] (Some participant0)
+  unsafeVetPackages [pkg] (Some participant1)
   sleep $ seconds 1
   case res of
     Left e -> throwAnyException e

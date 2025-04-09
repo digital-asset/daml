@@ -8,9 +8,9 @@ import com.daml.ledger.api.v2.event.{ArchivedEvent, CreatedEvent, ExercisedEvent
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Record as ApiRecord, Value as ApiValue}
 import com.daml.metrics.Timed
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -370,7 +370,6 @@ final class LfValueTranslation(
           coid = rawCreatedEvent.contractId,
           templateId = rawCreatedEvent.templateId,
           packageName = rawCreatedEvent.packageName,
-          packageVersion = rawCreatedEvent.packageVersion,
           arg = createArgument.unversioned,
           signatories = signatories,
           stakeholders = signatories ++ observers,

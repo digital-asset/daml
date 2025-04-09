@@ -42,11 +42,7 @@ Typeclasses
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListVettedPackages <type-daml-script-internal-questions-packages-listvettedpackages-5133>` \[:ref:`PackageName <type-daml-script-internal-questions-packages-packagename-68696>`\]
 
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`UnvetDar <type-daml-script-internal-questions-packages-unvetdar-94927>` ()
-
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510>` ()
-
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`VetDar <type-daml-script-internal-questions-packages-vetdar-93380>` ()
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455>` ()
 

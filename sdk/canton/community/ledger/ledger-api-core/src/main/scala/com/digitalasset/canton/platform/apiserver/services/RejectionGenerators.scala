@@ -3,19 +3,14 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
-import com.digitalasset.base.error.{
-  BaseError,
-  ContextualizedErrorLogger,
-  DamlErrorWithDefiniteAnswer,
-  NoLogging,
-  RpcError,
-}
+import com.digitalasset.base.error.{BaseError, DamlErrorWithDefiniteAnswer, RpcError}
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.{
   CommandExecutionErrors,
   ConsistencyErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
@@ -96,6 +91,9 @@ object RejectionGenerators {
         case LfInterpretationError.ContractNotFound(cid) =>
           ConsistencyErrors.ContractNotFound
             .Reject(renderedMessage, cid)
+        case LfInterpretationError.UnresolvedPackageName(packageName) =>
+          CommandExecutionErrors.Interpreter.LookupErrors.UnresolvedPackageName
+            .Reject(renderedMessage, packageName)
         case LfInterpretationError.ContractKeyNotFound(key) =>
           CommandExecutionErrors.Interpreter.LookupErrors.ContractKeyNotFound
             .Reject(renderedMessage, key)
@@ -167,6 +165,21 @@ object RejectionGenerators {
               error: LfInterpretationError.Upgrade.DowngradeFailed
             ) =>
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.CCTP(
+              error: LfInterpretationError.CCTP.MalformedByteEncoding
+            ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedByteEncoding
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.CCTP(
+              error: LfInterpretationError.CCTP.MalformedKey
+            ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedKey
+            .Reject(renderedMessage, error)
+        case LfInterpretationError.CCTP(
+              error: LfInterpretationError.CCTP.MalformedSignature
+            ) =>
+          CommandExecutionErrors.Interpreter.CryptoError.MalformedSignature
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError

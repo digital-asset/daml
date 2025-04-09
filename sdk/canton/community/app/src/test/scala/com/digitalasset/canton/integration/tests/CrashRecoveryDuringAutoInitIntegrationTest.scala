@@ -7,6 +7,7 @@ import com.digitalasset.canton.config.{DbConfig, DefaultProcessingTimeouts}
 import com.digitalasset.canton.console.LocalInstanceReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
@@ -115,9 +116,8 @@ class CrashRecoveryDuringAutoInitReferenceIntegrationTestPostgres
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
-// TODO(#16761): Disabled because the BFT sequencer is not crash tolerant yet
-//class CrashRecoveryDuringAutoInitBftOrderingIntegrationTestPostgres
-//    extends CrashRecoveryDuringAutoInitIntegrationTest {
-//  registerPlugin(new UsePostgres(loggerFactory))
-//  registerPlugin(new UseBftSequencer(loggerFactory))
-//}
+class CrashRecoveryDuringAutoInitBftOrderingIntegrationTestPostgres
+    extends CrashRecoveryDuringAutoInitIntegrationTest {
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+}

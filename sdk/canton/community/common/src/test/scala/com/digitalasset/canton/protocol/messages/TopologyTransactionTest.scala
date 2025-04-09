@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.{BaseTest, FailOnShutdown}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPackageId}
 import com.google.protobuf.ByteString
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AnyWordSpec
@@ -150,4 +150,31 @@ class TopologyTransactionTest
 
   }
 
+  "authorized store topology transactions" when {
+    "package vetting" should {
+      "honor specified LET boundaries" in {
+        val validFrom = CantonTimestamp.ofEpochSecond(20)
+        val validUntil = CantonTimestamp.ofEpochSecond(30)
+        val vp =
+          VettedPackage(LfPackageId.assertFromString("pkg-id"), Some(validFrom), Some(validUntil))
+        assert(!vp.validAt(validFrom.immediatePredecessor), "before valid-from invalid")
+        // see https://github.com/DACH-NY/canton-network-node/issues/18259 regarding valid-from inclusivity:
+        assert(vp.validAt(validFrom), "valid-from must be inclusive")
+        assert(vp.validAt(validFrom.immediateSuccessor), "between must be valid")
+        assert(!vp.validAt(validUntil), "valid-until must be exclusive")
+      }
+
+      "honor open ended LET boundaries" in {
+        val validFrom = CantonTimestamp.ofEpochSecond(20)
+        val untilForever =
+          VettedPackage(LfPackageId.assertFromString("pkg-id"), Some(validFrom), None)
+        assert(untilForever.validAt(CantonTimestamp.MaxValue), "valid until forever")
+
+        val validUntil = CantonTimestamp.ofEpochSecond(20)
+        val sinceForever =
+          VettedPackage(LfPackageId.assertFromString("pkg-id"), None, Some(validUntil))
+        assert(sinceForever.validAt(CantonTimestamp.MinValue), "valid since forever")
+      }
+    }
+  }
 }

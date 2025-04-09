@@ -4,8 +4,9 @@
 package com.digitalasset.canton.platform.store.dao.events
 
 import com.daml.ledger.api.v2.event.Event
-import com.daml.ledger.api.v2.transaction.TreeEvent
-import com.daml.ledger.api.v2.update_service.{GetTransactionResponse, GetTransactionTreeResponse}
+import com.daml.ledger.api.v2.transaction.{Transaction, TreeEvent}
+import com.daml.ledger.api.v2.update_service.GetTransactionTreeResponse
+import com.daml.metrics.api.MetricHandle
 import com.daml.metrics.{DatabaseMetrics, Timed}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.TransactionShape
@@ -18,8 +19,13 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   RawFlatEvent,
   RawTreeEvent,
 }
-import com.digitalasset.canton.platform.store.backend.common.TransactionPointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
+import com.digitalasset.canton.platform.store.backend.common.{
+  EventPayloadSourceForUpdatesAcsDelta,
+  EventPayloadSourceForUpdatesLedgerEffects,
+}
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
+import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTransaction
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 import com.digitalasset.canton.platform.{InternalTransactionFormat, Party, TemplatePartiesFilter}
 import com.digitalasset.canton.util.MonadUtil
@@ -72,9 +78,10 @@ sealed trait TransactionPointwiseReaderLegacy {
     for {
       // Fetching event sequential id range corresponding to the requested transaction id
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(lookupKey =
-          lookupKey
-        )
+        eventStorageBackend.updatePointwiseQueries
+          .fetchIdsFromTransactionMeta(
+            lookupKey = lookupKey
+          )
       )
       response <- eventSeqIdRangeO match {
         case Some((firstEventSeqId, lastEventSeqId)) =>
@@ -134,7 +141,7 @@ final class TransactionTreePointwiseReader(
       lastEventSequentialId: Long,
       requestingParties: Set[Party],
   )(connection: Connection): Vector[Entry[RawEventT]] =
-    eventStorageBackend.transactionPointwiseQueries.fetchTreeTransactionEvents(
+    eventStorageBackend.updatePointwiseQueries.fetchTreeTransactionEvents(
       firstEventSequentialId = firstEventSequentialId,
       lastEventSequentialId = lastEventSequentialId,
       requestingParties = Some(requestingParties),
@@ -164,33 +171,88 @@ final class TransactionPointwiseReader(
 
   protected val dbMetrics: metrics.index.db.type = metrics.index.db
 
-  val dbMetric: DatabaseMetrics = dbMetrics.lookupPointwiseTransaction
   val directEC: DirectExecutionContext = DirectExecutionContext(logger)
 
   private def fetchRawFlatEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Option[Set[Party]],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[RawFlatEvent]] =
-    eventStorageBackend.transactionPointwiseQueries.fetchFlatTransactionEvents(
-      firstEventSequentialId = firstEventSequentialId,
-      lastEventSequentialId = lastEventSequentialId,
-      requestingParties = requestingParties,
-    )(connection)
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Vector[EventStorageBackend.Entry[RawFlatEvent]]] = for {
+    createEvents <- dbDispatcher.executeSql(
+      dbMetrics.updatesAcsDeltaPointwise.fetchEventCreatePayloads
+    )(
+      eventStorageBackend.fetchEventPayloadsAcsDelta(target =
+        EventPayloadSourceForUpdatesAcsDelta.Create
+      )(
+        eventSequentialIds = firstEventSequentialId to lastEventSequentialId,
+        requestingParties = requestingParties,
+      )
+    )
+
+    consumingEvents <-
+      dbDispatcher.executeSql(
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+      )(
+        eventStorageBackend.fetchEventPayloadsAcsDelta(target =
+          EventPayloadSourceForUpdatesAcsDelta.Consuming
+        )(
+          eventSequentialIds = firstEventSequentialId to lastEventSequentialId,
+          requestingParties = requestingParties,
+        )
+      )
+
+  } yield {
+    (createEvents ++ consumingEvents).sortBy(_.eventSequentialId)
+  }
 
   private def fetchRawTreeEvents(
       firstEventSequentialId: Long,
       lastEventSequentialId: Long,
       requestingParties: Option[Set[Party]],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[RawTreeEvent]] =
-    eventStorageBackend.transactionPointwiseQueries.fetchTreeTransactionEvents(
-      firstEventSequentialId = firstEventSequentialId,
-      lastEventSequentialId = lastEventSequentialId,
-      requestingParties = requestingParties,
-    )(connection)
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Vector[EventStorageBackend.Entry[RawTreeEvent]]] = for {
+    createEvents <-
+      dbDispatcher.executeSql(
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+      )(
+        eventStorageBackend.fetchEventPayloadsLedgerEffects(target =
+          EventPayloadSourceForUpdatesLedgerEffects.Create
+        )(
+          eventSequentialIds = firstEventSequentialId to lastEventSequentialId,
+          requestingParties = requestingParties,
+        )
+      )
 
-  private def toTransactionResponse(events: Seq[Entry[Event]]): Option[GetTransactionResponse] =
-    TransactionConversions.toGetTransactionResponse(events)
+    consumingEvents <-
+      dbDispatcher.executeSql(
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+      )(
+        eventStorageBackend.fetchEventPayloadsLedgerEffects(target =
+          EventPayloadSourceForUpdatesLedgerEffects.Consuming
+        )(
+          eventSequentialIds = firstEventSequentialId to lastEventSequentialId,
+          requestingParties = requestingParties,
+        )
+      )
+
+    nonConsumingEvents <-
+      dbDispatcher.executeSql(
+        dbMetrics.updatesAcsDeltaPointwise.fetchEventConsumingPayloads
+      )(
+        eventStorageBackend.fetchEventPayloadsLedgerEffects(target =
+          EventPayloadSourceForUpdatesLedgerEffects.NonConsuming
+        )(
+          eventSequentialIds = firstEventSequentialId to lastEventSequentialId,
+          requestingParties = requestingParties,
+        )
+      )
+
+  } yield {
+    (createEvents ++ consumingEvents ++ nonConsumingEvents).sortBy(_.eventSequentialId)
+  }
 
   private def deserializeEntryAcsDelta(
       eventProjectionProperties: EventProjectionProperties,
@@ -210,47 +272,21 @@ final class TransactionPointwiseReader(
   ): Future[Entry[Event]] =
     UpdateReader.deserializeRawTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
 
-  private def filterRawEvents[T <: RawEvent](templatePartiesFilter: TemplatePartiesFilter)(
-      rawEvents: Seq[Entry[T]]
-  ): Seq[Entry[T]] = {
-    val templateWildcardPartiesO = templatePartiesFilter.templateWildcardParties
-    val templateSpecifiedPartiesMap = templatePartiesFilter.relation.map {
-      case (identifier, partiesO) => (identifier, partiesO.map(_.map(_.toString)))
-    }
-
-    templateWildcardPartiesO match {
-      // the filter allows all parties for all templates (wildcard)
-      case None => rawEvents
-      case Some(templateWildcardParties) =>
-        val templateWildcardPartiesStrings: Set[String] = templateWildcardParties.toSet[String]
-        rawEvents.filter(entry =>
-          // at least one of the witnesses exist in the template wildcard filter
-          entry.event.witnessParties.exists(templateWildcardPartiesStrings) ||
-            (templateSpecifiedPartiesMap.get(entry.event.templateId) match {
-              // the event's template id was not found in the filters
-              case None => false
-              case Some(partiesO) => partiesO.fold(true)(entry.event.witnessParties.exists)
-            })
-        )
-    }
-  }
-
   private def fetchAndFilterEvents[T <: RawEvent](
-      fetchRawEvents: Connection => Vector[Entry[T]],
+      fetchRawEvents: Future[Vector[Entry[T]]],
       templatePartiesFilter: TemplatePartiesFilter,
       deserializeEntry: Entry[T] => Future[Entry[Event]],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
+      timer: MetricHandle.Timer,
   ): Future[Seq[Entry[Event]]] =
     for {
       // Fetching all events from the event sequential id range
-      rawEvents <- dbDispatcher.executeSql(dbMetric)(fetchRawEvents)
+      rawEvents <- fetchRawEvents
       // Filtering by template filters
-      filteredRawEvents = filterRawEvents(templatePartiesFilter)(rawEvents)
+      filteredRawEvents = UpdateReader.filterRawEvents(templatePartiesFilter)(rawEvents)
       // Deserialization of lf values
-      deserialized <- Timed.value(
-        timer = dbMetric.translationTimer,
-        value = Future.delegate {
+      deserialized <- Timed.future(
+        timer = timer,
+        future = Future.delegate {
           implicit val ec: ExecutionContext =
             directEC // Scala 2 implicit scope override: shadow the outer scope's implicit by name
           MonadUtil.sequentialTraverse(filteredRawEvents)(deserializeEntry)
@@ -261,9 +297,9 @@ final class TransactionPointwiseReader(
     }
 
   def lookupTransactionBy(
-      lookupKey: LookupKey,
+      eventSeqIdRange: (Long, Long),
       internalTransactionFormat: InternalTransactionFormat,
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[Transaction]] = {
     val requestingParties: Option[Set[Party]] =
       internalTransactionFormat.internalEventFormat.templatePartiesFilter.allFilterParties
     val eventProjectionProperties: EventProjectionProperties =
@@ -271,46 +307,39 @@ final class TransactionPointwiseReader(
     val templatePartiesFilter = internalTransactionFormat.internalEventFormat.templatePartiesFilter
     val txShape = internalTransactionFormat.transactionShape
 
-    for {
-      // Fetching event sequential id range corresponding to the requested transaction id
-      eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(lookupKey =
-          lookupKey
+    val (firstEventSeqId, lastEventSeqId) = eventSeqIdRange
+
+    val events = txShape match {
+      case TransactionShape.AcsDelta =>
+        fetchAndFilterEvents(
+          fetchRawEvents = fetchRawFlatEvents(
+            firstEventSequentialId = firstEventSeqId,
+            lastEventSequentialId = lastEventSeqId,
+            requestingParties = requestingParties,
+          ),
+          templatePartiesFilter = templatePartiesFilter,
+          deserializeEntry =
+            deserializeEntryAcsDelta(eventProjectionProperties, lfValueTranslation),
+          timer = dbMetrics.updatesAcsDeltaPointwise.translationTimer,
         )
-      )
-      response <- eventSeqIdRangeO match {
-        case Some((firstEventSeqId, lastEventSeqId)) =>
-          val events = txShape match {
-            case TransactionShape.AcsDelta =>
-              fetchAndFilterEvents(
-                fetchRawEvents = fetchRawFlatEvents(
-                  firstEventSequentialId = firstEventSeqId,
-                  lastEventSequentialId = lastEventSeqId,
-                  requestingParties = requestingParties,
-                ),
-                templatePartiesFilter = templatePartiesFilter,
-                deserializeEntry =
-                  deserializeEntryAcsDelta(eventProjectionProperties, lfValueTranslation),
-              )
-            case TransactionShape.LedgerEffects =>
-              fetchAndFilterEvents(
-                fetchRawEvents = fetchRawTreeEvents(
-                  firstEventSequentialId = firstEventSeqId,
-                  lastEventSequentialId = lastEventSeqId,
-                  requestingParties = requestingParties,
-                ),
-                templatePartiesFilter = templatePartiesFilter,
-                deserializeEntry =
-                  deserializeEntryLedgerEffects(eventProjectionProperties, lfValueTranslation),
-              )
-          }
-          events.map(
-            // Conversion to API response type
-            toTransactionResponse
-          )
-        case None => Future.successful[Option[GetTransactionResponse]](None)
-      }
-    } yield response
+      case TransactionShape.LedgerEffects =>
+        fetchAndFilterEvents(
+          fetchRawEvents = fetchRawTreeEvents(
+            firstEventSequentialId = firstEventSeqId,
+            lastEventSequentialId = lastEventSeqId,
+            requestingParties = requestingParties,
+          ),
+          templatePartiesFilter = templatePartiesFilter,
+          deserializeEntry =
+            deserializeEntryLedgerEffects(eventProjectionProperties, lfValueTranslation),
+          timer = dbMetrics.updatesLedgerEffectsPointwise.translationTimer,
+        )
+    }
+
+    events.map(
+      // Conversion to API response type
+      toTransaction
+    )
   }
 
 }

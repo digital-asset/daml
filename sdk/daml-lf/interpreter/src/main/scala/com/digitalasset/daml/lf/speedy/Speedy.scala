@@ -130,7 +130,6 @@ private[lf] object Speedy {
   final case class ContractInfo(
       version: TxVersion,
       packageName: Ref.PackageName,
-      packageVersion: Option[Ref.PackageVersion],
       templateId: Ref.TypeConName,
       value: SValue,
       signatories: Set[Party],
@@ -146,7 +145,6 @@ private[lf] object Speedy {
       Node.Create(
         coid = coid,
         packageName = packageName,
-        packageVersion = packageVersion,
         templateId = templateId,
         arg = arg,
         signatories = signatories,
@@ -220,14 +218,16 @@ private[lf] object Speedy {
     // The following needXXXX methods take care to emit question while ensuring no exceptions are
     // thrown during the question callbacks execution
 
-    final private[speedy] def needTime(): Control[Question.Update] = {
+    final private[speedy] def needTime(
+        continue: Time.Timestamp => Control[Question.Update]
+    ): Control[Question.Update] = {
       Control.Question(
         Question.Update.NeedTime { time =>
           setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
             "NeedTime",
-            Control.Value(SValue.STimestamp(time)),
+            continue(time),
           )
         }
       )
@@ -345,7 +345,6 @@ private[lf] object Speedy {
               f(
                 V.ContractInstance(
                   contractInfo.packageName,
-                  contractInfo.packageVersion,
                   contractInfo.templateId,
                   contractInfo.value.toUnnormalizedValue,
                 )
@@ -859,8 +858,6 @@ private[lf] object Speedy {
     val sArithmeticError: SArithmeticError =
       new SArithmeticError(valueArithmeticError)
 
-    val failureStatusIdentifier: Identifier = stablePackages.FailureStatus
-
     private[speedy] def handleException(excep: SValue.SAny): Control[Nothing]
 
     // Triggers conversion of exception to failure status and throws.
@@ -965,10 +962,8 @@ private[lf] object Speedy {
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
       Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
-    final def tmplId2PackageNameVersion(
-        tmplId: TypeConName
-    ): (PackageName, Option[PackageVersion]) =
-      Machine.tmplId2PackageNameVersion(compiledPackages.pkgInterface, tmplId)
+    final def tmplId2PackageName(tmplId: TypeConName): PackageName =
+      Machine.tmplId2PackageName(compiledPackages.pkgInterface, tmplId)
 
     private[lf] def abort(): Unit = {
       // We make sure the interpretation cannot be resumed
@@ -1576,21 +1571,23 @@ private[lf] object Speedy {
     def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
       pkgInterface.packageLanguageVersion(tmplId.packageId)
 
-    def tmplId2PackageNameVersion(
+    def tmplId2PackageName(
         pkgInterface: PackageInterface,
         tmplId: TypeConName,
-    ): (PackageName, Option[PackageVersion]) =
-      pkgInterface.signatures(tmplId.packageId).pkgNameVersion
+    ): PackageName =
+      pkgInterface.signatures(tmplId.packageId).pkgName
 
     private[lf] def globalKey(
         pkgInterface: PackageInterface,
         templateId: Ref.Identifier,
         contractKey: SValue,
-    ): Option[GlobalKey] = {
-      val packageTxVersion = tmplId2TxVersion(pkgInterface, templateId)
-      val (pkgName, _) = tmplId2PackageNameVersion(pkgInterface, templateId)
-      globalKey(packageTxVersion, pkgName, templateId, contractKey)
-    }
+    ): Option[GlobalKey] =
+      globalKey(
+        packageTxVersion = tmplId2TxVersion(pkgInterface, templateId),
+        pkgName = tmplId2PackageName(pkgInterface, templateId),
+        templateId = templateId,
+        keyValue = contractKey,
+      )
 
     private[lf] def globalKey(
         packageTxVersion: TxVersion,

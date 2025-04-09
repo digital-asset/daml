@@ -25,6 +25,7 @@ import com.daml.ledger.api.v2.transaction.{
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
@@ -140,7 +141,7 @@ private[events] object TransactionLogUpdatesConversions {
         val internalTransactionFormat = internalUpdateFormat.includeTransactions
           .getOrElse(
             throw new IllegalStateException(
-              "Transaction cannot be converted as there is no transaction specified in update format"
+              "Transaction cannot be converted as there is no transaction format specified in update format"
             )
           )
         toTransaction(
@@ -181,6 +182,62 @@ private[events] object TransactionLogUpdatesConversions {
 
       case illegal => throw new IllegalStateException(s"$illegal is not expected here")
     }
+
+    def toGetUpdateResponse(
+        transactionLogUpdate: TransactionLogUpdate,
+        internalUpdateFormat: InternalUpdateFormat,
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContextWithTrace,
+        executionContext: ExecutionContext,
+    ): Future[Option[GetUpdateResponse]] =
+      filter(internalUpdateFormat)(transactionLogUpdate)
+        .collect {
+          case transactionAccepted: TransactionLogUpdate.TransactionAccepted =>
+            val internalTransactionFormat = internalUpdateFormat.includeTransactions
+              .getOrElse(
+                throw new IllegalStateException(
+                  "Transaction cannot be converted as there is no transaction format specified in update format"
+                )
+              )
+            toTransaction(
+              transactionAccepted,
+              internalTransactionFormat,
+              lfValueTranslation,
+              transactionAccepted.traceContext,
+            )
+              .map(transaction =>
+                GetUpdateResponse(GetUpdateResponse.Update.Transaction(transaction))
+                  .withPrecomputedSerializedSize()
+              )
+
+          case reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted =>
+            val reassignmentInternalEventFormat = internalUpdateFormat.includeReassignments
+              .getOrElse(
+                throw new IllegalStateException(
+                  "Reassignment cannot be converted as there is no reassignment specified in update format"
+                )
+              )
+            toReassignment(
+              reassignmentAccepted,
+              reassignmentInternalEventFormat.templatePartiesFilter.allFilterParties,
+              reassignmentInternalEventFormat.eventProjectionProperties,
+              lfValueTranslation,
+              reassignmentAccepted.traceContext,
+            )
+              .map(reassignment =>
+                GetUpdateResponse(GetUpdateResponse.Update.Reassignment(reassignment))
+                  .withPrecomputedSerializedSize()
+              )
+
+          case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
+            toTopologyTransaction(topologyTransaction).map(transaction =>
+              GetUpdateResponse(GetUpdateResponse.Update.TopologyTransaction(transaction))
+                .withPrecomputedSerializedSize()
+            )
+        }
+        .map(_.map(Some(_)))
+        .getOrElse(Future.successful(None))
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
@@ -692,7 +749,6 @@ private[events] object TransactionLogUpdatesConversions {
             coid = createdEvent.contractId,
             templateId = createdEvent.templateId,
             packageName = createdEvent.packageName,
-            packageVersion = createdEvent.packageVersion,
             arg = createdEvent.createArgument.unversioned,
             signatories = createdEvent.createSignatories,
             stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,

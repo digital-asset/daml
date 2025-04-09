@@ -232,9 +232,6 @@ applySubstInExpr subst@Subst{..} = \case
         ch
         (applySubstInExpr subst expr1)
         (applySubstInExpr subst expr2)
-    EFailWithStatus t e -> EFailWithStatus
-        (applySubstInType subst t)
-        (applySubstInExpr subst e)
     EExperimental name ty ->
         EExperimental name (applySubstInType subst ty)
 
@@ -305,6 +302,7 @@ applySubstInUpdate subst = \case
         interface
         (applySubstInExpr subst e)
     e@UGetTime -> e
+    ULedgerTimeLT e -> ULedgerTimeLT (applySubstInExpr subst e)
     UEmbedExpr t e -> UEmbedExpr
         (applySubstInType subst t)
         (applySubstInExpr subst e)

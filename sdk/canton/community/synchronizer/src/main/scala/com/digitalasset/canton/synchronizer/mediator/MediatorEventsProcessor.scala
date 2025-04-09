@@ -3,10 +3,14 @@
 
 package com.digitalasset.canton.synchronizer.mediator
 
+import cats.Monad
+import cats.syntax.alternative.*
+import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.*
@@ -14,6 +18,7 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -42,26 +47,49 @@ private[mediator] class MediatorEventsProcessor(
     val identityF = identityClientEventHandler(Traced(events))
 
     val envelopesForSynchronizer = filterEnvelopesForSynchronizer(events)
+    val determinedMediatorEvents = envelopesForSynchronizer.forgetNE.flatMap {
+      case (event, envelopes) =>
+        determineMediatorEvents(event, envelopes)
+    }
     for {
-      deduplicatorResult <- deduplicator.rejectDuplicates(envelopesForSynchronizer)
-      (uniqueEnvelopesByEvent, storeF) = deduplicatorResult
-      lastEvent = events.last1
+      deduplicatorResult <- MonadUtil
+        .sequentialTraverse(determinedMediatorEvents) {
+          case traced @ Traced(req: MediatorEvent.Request) =>
+            deduplicator
+              .rejectDuplicate(
+                req.sequencingTimestamp,
+                req.requestEnvelope.protocolMessage,
+                req.rootHashMessages,
+              )(traced.traceContext, callerCloseContext)
+              .map { case (isUnique, storeF) => Option.when(isUnique)(traced) -> storeF }
+          case traced =>
+            FutureUnlessShutdown.pure(Some(traced) -> FutureUnlessShutdown.unit)
+        }
+        .map(_.separate)
+        .map { case (deduplicatedMediatorEvents, storeFs) =>
+          (deduplicatedMediatorEvents.flattenOption, storeFs.sequence_)
+        }
+      (deduplicatedMediatorEvents, storeF) = deduplicatorResult
+      lastEventTimestamp = events.last1.value.timestamp
 
-      determinedStages = uniqueEnvelopesByEvent.flatMap { case (event, envelopes) =>
-        determine(event, envelopes)
+      // we need to advance time on the confirmation response even if there are no relevant mediator events
+      _ <- NonEmpty.from(deduplicatedMediatorEvents) match {
+        case None =>
+          handler.observeTimestampWithoutEvent(lastEventTimestamp)(events.last1.traceContext)
+        case Some(mediatorEventsNE) =>
+          for {
+            _ <- MonadUtil.sequentialTraverseMonoid(mediatorEventsNE)(stage =>
+              handler.handleMediatorEvent(
+                stage.value
+              )(stage.traceContext)
+            )
+            // if the sequencing timestamp of the last event is higher than the timestamp of the last mediator event,
+            // trigger an additional round of timeout detection with that timestamp
+            _ <- Monad[FutureUnlessShutdown].whenA(
+              mediatorEventsNE.last1.value.sequencingTimestamp < lastEventTimestamp
+            )(handler.observeTimestampWithoutEvent(lastEventTimestamp)(events.last1.traceContext))
+          } yield ()
       }
-
-      // we need to advance time on the confirmation response even if there is no relevant mediator events
-      _ <-
-        if (determinedStages.isEmpty)
-          handler.observeTimestampWithoutEvent(lastEvent.value.timestamp)
-        else FutureUnlessShutdown.unit
-
-      _ <- MonadUtil.sequentialTraverseMonoid(determinedStages)(stage =>
-        handler.handleMediatorEvent(
-          stage.value
-        )(stage.traceContext)
-      )
 
       resultIdentity <- identityF
     } yield {
@@ -69,7 +97,8 @@ private[mediator] class MediatorEventsProcessor(
     }
   }
 
-  private def filterEnvelopesForSynchronizer(
+  @VisibleForTesting
+  private[mediator] def filterEnvelopesForSynchronizer(
       events: NonEmpty[Seq[TracedProtocolEvent]]
   ): NonEmpty[Seq[(TracedProtocolEvent, Seq[DefaultOpenEnvelope])]] =
     events.map { tracedProtocolEvent =>
@@ -84,7 +113,7 @@ private[mediator] class MediatorEventsProcessor(
       tracedProtocolEvent -> synchronizerEnvelopes
     }
 
-  private def determine(
+  private def determineMediatorEvents(
       tracedProtocolEvent: TracedProtocolEvent,
       envelopes: Seq[DefaultOpenEnvelope],
   ): Seq[Traced[MediatorEvent]] = {
@@ -116,7 +145,11 @@ private[mediator] class MediatorEventsProcessor(
     )
 
     if (requests.nonEmpty && responses.nonEmpty) {
-      logger.error("Received both mediator confirmation requests and confirmation responses.")
+      MediatorError.MalformedMessage
+        .Reject(
+          "Received both mediator confirmation requests and confirmation responses."
+        )
+        .report()
       Seq.empty
     } else if (requests.nonEmpty) {
       requests match {
@@ -136,7 +169,9 @@ private[mediator] class MediatorEventsProcessor(
           )
 
         case _ =>
-          logger.error("Received more than one mediator confirmation request.")
+          MediatorError.MalformedMessage
+            .Reject("Received more than one mediator confirmation request.")
+            .report()
           Seq.empty
       }
     } else if (responses.nonEmpty) {

@@ -126,6 +126,11 @@ final class Conversions(
                 //     archived or what not are turned into more specific
                 //     errors so we never produce ContractNotFound
                 builder.setCrash(s"contract ${cid.coid} not found")
+              case UnresolvedPackageName(packageName) =>
+                builder.setUnresolvedPackageName(
+                  proto.ScriptError.UnresolvedPackageName.newBuilder
+                    .setPackageName(packageName)
+                )
               case TemplatePreconditionViolated(tid, optLoc, arg) =>
                 val uepvBuilder = proto.ScriptError.TemplatePreconditionViolated.newBuilder
                 optLoc.map(convertLocation).foreach(uepvBuilder.setLocation)
@@ -273,14 +278,13 @@ final class Conversions(
                         .setExpected(convertIdentifier(expected))
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
-                  case _: Dev.CCTP =>
-                    // TODO: https://github.com/DACH-NY/canton-network-utilities/issues/3017: add structured error reporting to daml-script
-                    proto.ScriptError.CCTPError.newBuilder.setMessage(
-                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
-                    )
                 }
               case _: Upgrade =>
                 proto.ScriptError.UpgradeError.newBuilder.setMessage(
+                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                )
+              case _: CCTP =>
+                proto.ScriptError.CCTPError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
               case err @ Dev(_, _) =>

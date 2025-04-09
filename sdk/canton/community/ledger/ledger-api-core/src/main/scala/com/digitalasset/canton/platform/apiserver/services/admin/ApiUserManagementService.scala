@@ -14,7 +14,6 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
 }
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.auth.ClaimSet.Claims
 import com.digitalasset.canton.auth.{
   AuthorizationChecksErrors,
@@ -40,6 +39,7 @@ import com.digitalasset.canton.ledger.participant.state.index.IndexPartyManageme
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withEnrichedLoggingContext
 import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,

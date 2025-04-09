@@ -18,6 +18,8 @@ final case class GrpcLedgerClient(
     val grpcAdminClient: Option[AdminLedgerClient] = None,
 ) extends ScriptLedgerClient
 
+object GrpcLedgerClient {}
+
 final case class IdeLedgerClient(
     compiledPackages: PureCompiledPackages,
     traceLog: TraceLog,

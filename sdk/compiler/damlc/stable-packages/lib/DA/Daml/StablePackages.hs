@@ -861,5 +861,5 @@ daInternalFailTypes version = Package
       [ (mkField "errorId", TText)
       , (mkField "category", TFailureCategory)
       , (mkField "message", TText)
-      , (mkField "meta", TGenMap TText TText)
+      , (mkField "meta", TTextMap TText)
       ]
