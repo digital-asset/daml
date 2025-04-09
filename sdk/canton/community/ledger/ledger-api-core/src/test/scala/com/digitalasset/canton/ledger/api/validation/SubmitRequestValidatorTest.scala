@@ -137,7 +137,6 @@ class SubmitRequestValidatorTest
           create = LfNode.Create(
             coid = Lf.ContractId.V1.assertFromString("00" + "00" * 32),
             packageName = Ref.PackageName.assertFromString("package"),
-            packageVersion = Some(Ref.PackageVersion.assertFromString("1.0.0")),
             templateId = templateId,
             arg = ValueRecord(
               Some(templateId),

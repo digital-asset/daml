@@ -6,10 +6,12 @@ package com.digitalasset.canton.crypto.signer
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.crypto.*
-import com.digitalasset.canton.crypto.provider.jce.JcePrivateCrypto
+import com.digitalasset.canton.crypto.EncryptionAlgorithmSpec.RsaOaepSha256
+import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
+import com.digitalasset.canton.crypto.provider.jce.{JcePrivateCrypto, JcePureCrypto}
 import com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys.SessionKeyAndDelegation
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -24,40 +26,51 @@ import com.google.common.annotations.VisibleForTesting
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
 
-/** Defines the methods for protocol message signing and verification using a session signing key.
-  * This requires signatures to include information about which session key is being used, as well
-  * as an authorization by a long-term key through an additional signature. This extra signature
-  * covers the session key, its validity period, and the synchronizer for which it is valid. This
-  * allows us to use the session key, within a specific time frame and synchronizer, to sign
-  * protocol messages instead of using the long-term key. If the signature delegation is not
-  * present, verification defaults to the original method by attempting to verify the signature with
-  * the long-term key. Session keys are intended to be used with a KMS/HSM-based provider to reduce
-  * the number of signing calls and, consequently, lower the latency costs associated with such
-  * external key management services.
+/** Defines the methods for protocol message signing using a session signing key. This requires
+  * signatures to include information about which session key is being used, as well as an
+  * authorization by a long-term key through an additional signature. This extra signature covers
+  * the session key, its validity period, and the synchronizer for which it is valid. This allows us
+  * to use the session key, within a specific time frame and synchronizer, to sign protocol messages
+  * instead of using the long-term key. Session keys are intended to be used with a KMS/HSM-based
+  * provider to reduce the number of signing calls and, consequently, lower the latency costs
+  * associated with such external key management services.
   *
   * @param signPrivateApiWithLongTermKeys
   *   The crypto private API used to sign session signing keys, creating a signature delegation with
   *   a long-term key.
-  * @param signPublicApiWithLongTermKeys
-  *   The crypto public API used to directly verify messages or validate a signature delegation with
-  *   a long-term key.
-  * @param verificationParallelismLimit
-  *   The maximum number of concurrent verifications allowed.
   */
 class SyncCryptoSignerWithSessionKeys(
-    override protected val synchronizerId: SynchronizerId,
-    override protected val staticSynchronizerParameters: StaticSynchronizerParameters,
+    synchronizerId: SynchronizerId,
+    staticSynchronizerParameters: StaticSynchronizerParameters,
     member: Member,
     signPrivateApiWithLongTermKeys: SigningPrivateOps,
-    override protected val signPublicApiWithLongTermKeys: SynchronizerCryptoPureApi,
     sessionSigningKeysConfig: SessionSigningKeysConfig,
-    override protected val verificationParallelismLimit: PositiveInt,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends SyncCryptoSigner {
 
-  override protected val signingAlgorithmSpec: Option[SigningAlgorithmSpec] =
-    Some(sessionSigningKeysConfig.signingAlgorithmSpec)
+  /** The software-based crypto public API that is used to sign protocol messages with a session
+    * signing key (generated in software). Except for the signing scheme, when signing with session
+    * keys is enabled, all other schemes are not needed. Therefore, we use fixed schemes (i.e.
+    * placeholders) for the other crypto parameters.
+    *
+    * //TODO(#23731): Split up pure crypto into smaller modules and only use the signing module here
+    */
+  private lazy val signPublicApiSoftwareBased: SynchronizerCryptoPureApi = {
+    val pureCryptoForSessionKeys = new JcePureCrypto(
+      defaultSymmetricKeyScheme = Aes128Gcm, // not used
+      defaultSigningAlgorithmSpec = sessionSigningKeysConfig.signingAlgorithmSpec,
+      supportedSigningAlgorithmSpecs =
+        NonEmpty.mk(Set, sessionSigningKeysConfig.signingAlgorithmSpec),
+      defaultEncryptionAlgorithmSpec = RsaOaepSha256, // not used
+      supportedEncryptionAlgorithmSpecs = NonEmpty.mk(Set, RsaOaepSha256), // not used
+      defaultHashAlgorithm = Sha256, // not used
+      defaultPbkdfScheme = PbkdfScheme.Argon2idMode1, // not used
+      loggerFactory = loggerFactory,
+    )
+
+    new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCryptoForSessionKeys)
+  }
 
   /** The user-configured validity period of a session signing key. */
   private val sessionKeyValidityPeriod =

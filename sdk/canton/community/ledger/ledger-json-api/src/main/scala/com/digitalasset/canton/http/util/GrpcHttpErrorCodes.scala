@@ -3,12 +3,14 @@
 
 package com.digitalasset.canton.http.util
 
-private[http] object GrpcHttpErrorCodes {
+object GrpcHttpErrorCodes {
   import com.google.rpc.Code as G
+  import io.grpc.Status.Code as GRPCCode
   import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes as A}
 
   implicit final class `gRPC status as pekko http`(private val self: G) extends AnyVal {
     // some version of this mapping _should_ already exist somewhere, right? -SC
+    // based on https://github.com/googleapis/googleapis/blob/master/google/rpc/code.proto
     def asPekkoHttp: StatusCode = self match {
       case G.OK => A.OK
       case G.INVALID_ARGUMENT | G.FAILED_PRECONDITION | G.OUT_OF_RANGE => A.BadRequest
@@ -28,6 +30,11 @@ private[http] object GrpcHttpErrorCodes {
       case G.UNAUTHENTICATED | G.CANCELLED => A.InternalServerError
       case _ => self.asPekkoHttp
     }
+  }
+
+  implicit final class `gRPC status  as sttp`(private val self: GRPCCode) extends AnyVal {
+    def asSttpStatus: sttp.model.StatusCode =
+      sttp.model.StatusCode(G.forNumber(self.value()).asPekkoHttp.intValue())
   }
 
   private[this] val ClientClosedRequest =

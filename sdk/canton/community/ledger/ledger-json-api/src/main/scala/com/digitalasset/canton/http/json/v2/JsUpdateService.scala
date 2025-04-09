@@ -28,7 +28,7 @@ import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import sttp.tapir.{AnyEndpoint, CodecFormat, Endpoint, Schema, path, query, webSocketBody}
+import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -265,13 +265,7 @@ object JsUpdateService extends DocumentationEndpoints {
     .out(jsonBody[JsGetTransactionTreeResponse])
     .description("Get transaction tree by offset")
 
-  val getTransactionTreeByIdEndpoint: Endpoint[
-    CallerContext,
-    (String, List[String]),
-    JsCantonError,
-    JsGetTransactionTreeResponse,
-    Any,
-  ] = updates.get
+  val getTransactionTreeByIdEndpoint = updates.get
     .in(sttp.tapir.stringToPath("transaction-tree-by-id"))
     .in(path[String]("update-id"))
     .in(query[List[String]]("parties"))

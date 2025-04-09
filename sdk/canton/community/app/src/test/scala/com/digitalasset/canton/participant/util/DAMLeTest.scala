@@ -39,20 +39,17 @@ import com.digitalasset.canton.{
   HasActorSystem,
   HasExecutionContext,
   LfCreateCommand,
-  LfPackageVersion,
   LfPartyId,
   protocol,
 }
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.*
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.ExecutionContext
-import scala.math.Ordered.orderingToOrdered
 
 trait DAMLeTest
     extends AsyncWordSpec
@@ -88,10 +85,10 @@ trait DAMLeTest
   protected val alice: LfPartyId = LfPartyId.assertFromString("Alice")
   protected val bob: LfPartyId = LfPartyId.assertFromString("Bob")
 
-  protected def resolveTemplateIdPackageNameAndPackageVersion(
+  protected def resolveTemplateIdPackageName(
       module: String,
       template: String,
-  ): FutureUnlessShutdown[(Identifier, PackageName, Option[LfPackageVersion])] = {
+  ): FutureUnlessShutdown[(Identifier, PackageName)] = {
     val payload = BinaryFileUtil
       .readByteStringFromFile(cantonTestsPath)
       .valueOrFail("could not load test")
@@ -118,14 +115,11 @@ trait DAMLeTest
       (packageId, astPackage) = packages.find(_._2.modules.contains(moduleName)).value
 
       packageName = astPackage.metadata.name
-      packageVersion = Option.when(
-        astPackage.languageVersion > LanguageVersion.Features.persistedPackageVersion
-      )(astPackage.metadata.version)
       templateId = Identifier(
         PackageId.assertFromString(packageId),
         QualifiedName(moduleName, DottedName.assertFromString(template)),
       )
-    } yield (templateId, packageName, packageVersion)
+    } yield (templateId, packageName)
   }
 }
 
@@ -174,10 +168,11 @@ class DAMLeTestDefault extends DAMLeTest {
 
   private def mkContractInst(): FutureUnlessShutdown[Value.VersionedContractInstance] =
     for {
-      (templateId, packageName, packageVersionO) <- resolveTemplateIdPackageNameAndPackageVersion(
+      entry <- resolveTemplateIdPackageName(
         "FailedTransactionsDoNotDivulge",
         "Two",
       )
+      (templateId, packageName) = entry
     } yield {
       val arg = Value.ValueRecord(
         None,
@@ -188,7 +183,6 @@ class DAMLeTestDefault extends DAMLeTest {
       )
       LfContractInst(
         packageName = packageName,
-        packageVersion = packageVersionO,
         template = templateId,
         arg = Versioned(protocol.DummyTransactionVersion, arg),
       )

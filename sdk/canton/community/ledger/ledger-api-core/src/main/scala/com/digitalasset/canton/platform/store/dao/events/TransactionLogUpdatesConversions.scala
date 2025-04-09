@@ -10,13 +10,7 @@ import com.daml.ledger.api.v2.reassignment.{
   ReassignmentEvent as ApiReassignmentEvent,
   UnassignedEvent as ApiUnassignedEvent,
 }
-import com.daml.ledger.api.v2.state_service.ParticipantPermission as ApiParticipantPermission
-import com.daml.ledger.api.v2.topology_transaction.{
-  ParticipantAuthorizationChanged,
-  ParticipantAuthorizationRevoked,
-  TopologyEvent,
-  TopologyTransaction,
-}
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.{
   Transaction as FlatTransaction,
   TransactionTree,
@@ -32,10 +26,10 @@ import com.daml.ledger.api.v2.update_service.{
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TransactionShape}
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
+import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTopologyEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
   CreatedEvent,
@@ -886,49 +880,22 @@ private[events] object TransactionLogUpdatesConversions {
     )
   }
 
-  private def toPermissionLevel(permission: AuthorizationLevel): Option[ApiParticipantPermission] =
-    permission match {
-      case AuthorizationLevel.Submission =>
-        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
-      case AuthorizationLevel.Observation =>
-        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION)
-      case AuthorizationLevel.Confirmation =>
-        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION)
-      case AuthorizationLevel.Revoked => None
-    }
-
   private def toTopologyTransaction(
       topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective
-  ): Future[TopologyTransaction] = Future.successful(
+  ): Future[TopologyTransaction] = Future.successful {
     TopologyTransaction(
       updateId = topologyTransaction.updateId,
       offset = topologyTransaction.offset.unwrap,
       synchronizerId = topologyTransaction.synchronizerId,
       recordTime = Some(TimestampConversion.fromLf(topologyTransaction.effectiveTime)),
       events = topologyTransaction.events.map(event =>
-        toPermissionLevel(event.level).fold(
-          TopologyEvent(
-            TopologyEvent.Event.ParticipantAuthorizationRevoked(
-              ParticipantAuthorizationRevoked(
-                partyId = event.party,
-                participantId = event.participant,
-              )
-            )
-          )
-        )(permission =>
-          TopologyEvent(
-            TopologyEvent.Event.ParticipantAuthorizationChanged(
-              ParticipantAuthorizationChanged(
-                partyId = event.party,
-                participantId = event.participant,
-                participantPermission = permission,
-              )
-            )
-          )
+        toTopologyEvent(
+          partyId = event.party,
+          participantId = event.participant,
+          authorizationEvent = event.authorizationEvent,
         )
       ),
       traceContext = SerializableTraceContext(topologyTransaction.traceContext).toDamlProtoOpt,
     )
-  )
-
+  }
 }

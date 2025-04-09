@@ -41,7 +41,6 @@ object InteractiveSubmissionGenerators {
       node
         .copy(
           version = LanguageVersion.v2_1,
-          packageVersion = None,
           keyOpt = None,
           // signatories should be a subset of stakeholders for the node to be valid
           // take a random size subset of stakeholders, but 1 minimum

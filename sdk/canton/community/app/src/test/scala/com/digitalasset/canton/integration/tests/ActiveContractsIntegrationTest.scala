@@ -187,7 +187,6 @@ class ActiveContractsIntegrationTest
 
     val contractInst = LfContractInst(
       packageName = packageName,
-      packageVersion = None,
       template = lfTemplate,
       arg = Versioned(protocol.DummyTransactionVersion, lfArguments),
     )

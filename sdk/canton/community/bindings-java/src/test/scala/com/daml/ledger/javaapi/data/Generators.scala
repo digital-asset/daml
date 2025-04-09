@@ -4,7 +4,11 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
-import com.daml.ledger.api.v2.{CommandsOuterClass, TransactionFilterOuterClass}
+import com.daml.ledger.api.v2.{
+  CommandsOuterClass,
+  StateServiceOuterClass,
+  TransactionFilterOuterClass,
+}
 import com.google.protobuf.{ByteString, Empty, Timestamp}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -253,6 +257,9 @@ object Generators {
         participantAuthorizationChangedGen.map(e =>
           (b: TopologyEvent.Builder) => b.setParticipantAuthorizationChanged(e)
         ),
+        participantAuthorizationAddedGen.map(e =>
+          (b: TopologyEvent.Builder) => b.setParticipantAuthorizationAdded(e)
+        ),
         participantAuthorizationRevokedGen.map(e =>
           (b: TopologyEvent.Builder) => b.setParticipantAuthorizationRevoked(e)
         ),
@@ -390,17 +397,33 @@ object Generators {
       .setExerciseResult(exerciseResult)
       .build()
 
+  val participantPermissionGen: Gen[StateServiceOuterClass.ParticipantPermission] =
+    Gen.oneOf(
+      v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+      v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+      v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
+    )
+
   val participantAuthorizationChangedGen
       : Gen[v2.TopologyTransactionOuterClass.ParticipantAuthorizationChanged] =
     for {
       partyId <- Arbitrary.arbString.arbitrary
       participantId <- Arbitrary.arbString.arbitrary
-      permission <- Gen.oneOf(
-        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
-        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
-        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
-      )
+      permission <- participantPermissionGen
     } yield v2.TopologyTransactionOuterClass.ParticipantAuthorizationChanged
+      .newBuilder()
+      .setPartyId(partyId)
+      .setParticipantId(participantId)
+      .setParticipantPermission(permission)
+      .build()
+
+  val participantAuthorizationAddedGen
+      : Gen[v2.TopologyTransactionOuterClass.ParticipantAuthorizationAdded] =
+    for {
+      partyId <- Arbitrary.arbString.arbitrary
+      participantId <- Arbitrary.arbString.arbitrary
+      permission <- participantPermissionGen
+    } yield v2.TopologyTransactionOuterClass.ParticipantAuthorizationAdded
       .newBuilder()
       .setPartyId(partyId)
       .setParticipantId(participantId)

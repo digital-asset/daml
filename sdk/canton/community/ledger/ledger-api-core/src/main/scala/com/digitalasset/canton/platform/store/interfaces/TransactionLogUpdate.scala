@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.TransactionShape
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
@@ -190,7 +190,7 @@ object TransactionLogUpdate {
   final case class PartyToParticipantAuthorization(
       party: Party,
       participant: Ref.ParticipantId,
-      level: AuthorizationLevel,
+      authorizationEvent: AuthorizationEvent,
   )
 
 }

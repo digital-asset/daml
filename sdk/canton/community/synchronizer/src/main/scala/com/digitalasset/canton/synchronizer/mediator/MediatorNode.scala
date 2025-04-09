@@ -591,9 +591,7 @@ class MediatorNodeBootstrap(
         staticSynchronizerParameters,
         crypto,
         new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
-        // TODO(#22362): Enable correct config
-        // parameters.sessionSigningKeys
-        SessionSigningKeysConfig.disabled,
+        parameters.sessionSigningKeys,
         parameters.batchingConfig.parallelism,
         timeouts,
         futureSupervisor,

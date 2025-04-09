@@ -21,6 +21,7 @@ import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiError
 import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.{LookupError, Reference}
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.time.Duration
 
@@ -112,6 +113,27 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = "Update not found, or not visible.") {
         override def resources: Seq[(ErrorResource, String)] = Seq(
           (ErrorResource.Offset, offset.toString)
+        )
+      }
+    }
+
+    @Explanation(
+      "Events for the specified contract ID do not exist or the event format specified filters them out."
+    )
+    @Resolution(
+      "Check the contract ID and verify that the requested events are not being filtered out by the event format."
+    )
+    object ContractEvents
+        extends ErrorCode(
+          id = "CONTRACT_EVENTS_NOT_FOUND",
+          ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+
+      final case class Reject(contractId: ContractId)(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(cause = "Contract events not found, or not visible.") {
+        override def resources: Seq[(ErrorResource, String)] = Seq(
+          (ErrorResource.ContractId, contractId.coid)
         )
       }
     }

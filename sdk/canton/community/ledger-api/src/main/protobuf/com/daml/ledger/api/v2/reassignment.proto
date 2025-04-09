@@ -122,7 +122,7 @@ message UnassignedEvent {
   int64 offset = 11;
 
   // The position of this event in the originating reassignment.
-  // Node ids are not necessarily equal across participants,
+  // Node IDs are not necessarily equal across participants,
   // as these may see different projections/parts of reassignments.
   // Required, must be valid node ID (non-negative integer)
   int32 node_id = 12;

@@ -92,7 +92,6 @@ object ExampleTransactionFactory {
     LfContractInst(
       packageName = packageName,
       template = templateId,
-      packageVersion = None,
       arg = versionedValueCapturing(capturedIds.toList),
     )
 
@@ -145,7 +144,6 @@ object ExampleTransactionFactory {
     LfContractInst(
       packageName = packageName,
       template = templateId,
-      packageVersion = None,
       arg = veryDeepVersionedValue,
     )
 

@@ -19,7 +19,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.canton.platform.{Contract, ContractId, *}
-import com.digitalasset.daml.lf.data.Ref.{PackageName, PackageVersion}
+import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 
@@ -93,7 +93,6 @@ private[dao] sealed class ContractsReader(
               contractId = contractId,
               templateId = raw.templateId,
               packageName = raw.packageName,
-              packageVersion = raw.packageVersion,
               createArgument = raw.createArgument,
               createArgumentCompression =
                 Compression.Algorithm.assertLookup(raw.createArgumentCompression),
@@ -174,7 +173,6 @@ private[dao] object ContractsReader {
       contractId: ContractId,
       templateId: String,
       packageName: String,
-      packageVersion: Option[String],
       createArgument: Array[Byte],
       createArgumentCompression: Compression.Algorithm,
       decompressionTimer: Timer,

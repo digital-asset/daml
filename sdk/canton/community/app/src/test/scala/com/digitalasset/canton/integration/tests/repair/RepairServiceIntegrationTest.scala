@@ -766,7 +766,6 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             val contractInst = LfContractInst(
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
-              packageVersion = None,
               arg = LfVersioned(
                 ExampleTransactionFactory.transactionVersion,
                 ValueRecord(None, ImmArray(None -> ValueParty(alice.toLf))),

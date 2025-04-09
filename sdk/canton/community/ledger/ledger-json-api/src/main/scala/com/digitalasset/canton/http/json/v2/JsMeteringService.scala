@@ -14,8 +14,6 @@ import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 
-import scala.concurrent.ExecutionContext
-
 class JsMeteringService(
     meteringReportClient: MeteringReportClient,
     val loggerFactory: NamedLoggerFactory,
@@ -37,9 +35,7 @@ class JsMeteringService(
         )
         val resp = meteringReportClient
           .getMeteringReport(req, caller.token())(input.traceContext)
-        resp.resultToRight.transform(handleErrorResponse(input.traceContext))(
-          ExecutionContext.parasitic
-        )
+        resp.resultToRight
       },
   )
 

@@ -324,7 +324,7 @@ private[platform] object InMemoryStateUpdater {
       .collect { case TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, events) =>
         events.collect { case u: TransactionLogUpdate.PartyToParticipantAuthorization =>
           PartyAllocation.Completed(
-            PartyAllocation.TrackerKey.of(u.party, u.participant, u.level),
+            PartyAllocation.TrackerKey.of(u.party, u.participant, u.authorizationEvent),
             IndexerPartyDetails(party = u.party, isLocal = u.participant == participantId),
           )
         }
@@ -637,7 +637,7 @@ private[platform] object InMemoryStateUpdater {
             TransactionLogUpdate.PartyToParticipantAuthorization(
               party = event.party,
               participant = event.participant,
-              level = event.level,
+              authorizationEvent = event.authorizationEvent,
             )
         }
         .toVector,

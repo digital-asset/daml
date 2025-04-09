@@ -1271,7 +1271,6 @@ object RepairService {
     def contractDataToInstance(
         templateId: Identifier,
         packageName: LfPackageName,
-        packageVersion: Option[LfPackageVersion],
         createArguments: Record,
         signatories: Set[String],
         observers: Set[String],
@@ -1324,7 +1323,6 @@ object RepairService {
       (
           Identifier,
           LfPackageName,
-          Option[LfPackageVersion],
           Record,
           Set[String],
           Set[String],
@@ -1345,7 +1343,6 @@ object RepairService {
             (
               LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
               contractInstance.unversioned.packageName,
-              None,
               record,
               signatories,
               stakeholders -- signatories,

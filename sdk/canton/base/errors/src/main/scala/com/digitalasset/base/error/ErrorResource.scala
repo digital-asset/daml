@@ -16,7 +16,6 @@ object ErrorResource {
   lazy val ContractIds: ErrorResource = ErrorResource("CONTRACT_IDS")
   lazy val ContractKey: ErrorResource = ErrorResource("CONTRACT_KEY")
   lazy val ContractArg: ErrorResource = ErrorResource("CONTRACT_ARG")
-  lazy val CryptoValue: ErrorResource = ErrorResource("CRYPTO_VALUE")
   lazy val TransactionId: ErrorResource = ErrorResource("TRANSACTION_ID")
   lazy val UpdateId: ErrorResource = ErrorResource("UPDATE_ID")
   lazy val DalfPackage: ErrorResource = ErrorResource("PACKAGE")
@@ -38,6 +37,7 @@ object ErrorResource {
   lazy val Offset: ErrorResource = ErrorResource("OFFSET")
   lazy val ExpectedType: ErrorResource = ErrorResource("EXPECTED_TYPE")
   lazy val FieldIndex: ErrorResource = ErrorResource("FIELD_INDEX")
+  lazy val CryptoValue: ErrorResource = ErrorResource("CRYPTO_VALUE")
 
   lazy val all: Seq[ErrorResource] = Seq(
     CommandId,
@@ -46,7 +46,6 @@ object ErrorResource {
     ContractIds,
     ContractKey,
     ContractKeyHash,
-    CryptoValue,
     DalfPackage,
     DevErrorType,
     ExceptionText,
@@ -58,6 +57,7 @@ object ErrorResource {
     InterfaceId,
     Offset,
     PackageName,
+    CryptoValue,
     Parties,
     Party,
     SynchronizerAlias,
