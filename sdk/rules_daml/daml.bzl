@@ -31,12 +31,13 @@ def _daml_configure_impl(ctx):
     typecheck_upgrades = ctx.attr.typecheck_upgrades
     generated_daml_source_directory = ctx.attr.generated_daml_source_directory
     force_utility_package = ctx.attr.force_utility_package
+    disable_deprecated_exceptions = ctx.attr.disable_deprecated_exceptions
     daml_yaml = ctx.outputs.daml_yaml
     target = ctx.attr.target
     opts = (
         (["--target={}".format(target)] if target else []) +
         (["--typecheck-upgrades=no"] if not typecheck_upgrades and using_local_compiler(target) else []) +
-        (["--force-utility-package=yes"] if force_utility_package and using_local_compiler(target) else [])
+        (["--disable-deprecated-exceptions-warning"] if disable_deprecated_exceptions and using_local_compiler(target) else [])
     )
     ctx.actions.write(
         output = daml_yaml,
@@ -103,6 +104,9 @@ _daml_configure = rule(
         "force_utility_package": attr.bool(
             doc = "Force a package to be a utility package (no serializable types). Errors if the package contains templates/interfaces/exceptions.",
         ),
+        "disable_deprecated_exceptions": attr.bool(
+            doc = "Disable the deprecation warnings for exceptions.",
+        )
     },
 )
 
@@ -347,6 +351,7 @@ def daml_compile(
         typecheck_upgrades = False,
         generated_daml_source_directory = None,
         force_utility_package = False,
+        disable_deprecated_exceptions = False,
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
@@ -359,6 +364,7 @@ def daml_compile(
         upgrades = path_to_dar(upgrades) if upgrades else "",
         typecheck_upgrades = typecheck_upgrades,
         force_utility_package = force_utility_package,
+        disable_deprecated_exceptions = disable_deprecated_exceptions,
         name = name + ".configure",
         project_name = project_name or name,
         project_version = version,

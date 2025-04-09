@@ -13,7 +13,9 @@ module DA.Exception
 #else
 
 -- | Exception handling in Daml.
-module DA.Exception ( module X ) where
+module DA.Exception
+  {-# DEPRECATED in "x-exceptions" "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+  ( module X ) where
 
 import DA.Internal.Exception as X hiding (DamlException)
 

@@ -145,6 +145,13 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
+disableDeprecatedExceptionsOpt :: Parser DisableDeprecatedExceptions
+disableDeprecatedExceptionsOpt = DisableDeprecatedExceptions <$>
+  switch
+    (  long "disable-deprecated-exceptions-warning"
+    <> help "Disable the warning for deprecated exceptions. Note that exceptions will be removed in a future version, use at your own risk."
+    )
+
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
 enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm
@@ -437,6 +444,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optDamlWarningFlags <- optDamlWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     optForceUtilityPackage <- forceUtilityPackageOpt
+    optDisableDeprecatedExceptions <- disableDeprecatedExceptionsOpt
 
     return Options{..}
   where

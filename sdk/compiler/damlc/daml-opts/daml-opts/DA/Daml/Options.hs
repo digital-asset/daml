@@ -504,9 +504,16 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
   -- always starts with the same value (#14936)
   liftIO $ initUniqSupply 0 1
 
-  unless (null optGhcCustomOpts) $ do
+  let
+    ghcCustomOpts =
+      if getDisableDeprecatedExceptions optDisableDeprecatedExceptions
+        -- Add disable deprecations flag last, so it takes precedence over other options (such as -Werror)
+        then optGhcCustomOpts ++ ["-Wno-x-exceptions"]
+        else optGhcCustomOpts
+
+  unless (null ghcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags
-    (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc optGhcCustomOpts
+    (dflags', leftover, warns) <- parseDynamicFilePragma damlDFlags $ map noLoc ghcCustomOpts
 
     let leftoverError = CmdLineError $
           (unlines . ("Unable to parse custom flags:":) . map unLoc) leftover
