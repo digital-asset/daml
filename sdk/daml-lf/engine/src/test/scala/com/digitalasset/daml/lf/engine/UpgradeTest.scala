@@ -723,8 +723,8 @@ object UpgradeTest {
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Observers"})"""
   }
 
-  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: changed precondition expression, evaluates to true, upgrade succeeds
-  case object OnlyInterfaceForV2 extends TestCase("OnlyInterfaceForV2", ExpectSuccess) {
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: added an interface instance in v2 when it doesn't yet exist in v1, make sure that it gets picked up
+  case object AddingInterfaceInstance extends TestCase("AddingInterfaceInstance", ExpectSuccess) {
     override def v1InterfaceInstance = ""
   }
 
@@ -1584,7 +1584,7 @@ object UpgradeTest {
     AdditionalConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
     AdditionalTemplateArg,
-    OnlyInterfaceForV2,
+    AddingInterfaceInstance,
     // cases that test that adding unrelated stuff to the package has no impact
     AdditionalChoices,
     AdditionalTemplates,
