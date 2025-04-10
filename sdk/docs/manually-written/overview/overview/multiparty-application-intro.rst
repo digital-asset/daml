@@ -15,7 +15,7 @@ Multi-Party Applications
 What Is a Multi-Party Application?
 ++++++++++++++++++++++++++++++++++
 
-Diagram: Users interacting with other users (app provider + app users) over an "infrastructure cloud" that represents the Canton Network and the services (e.g., via utilities) it provides
+Diagram: Organizations interacting with other organizations (app provider + app users) over an "infrastructure cloud" that represents the Canton Network and the services (e.g., via utilities) it provides
 
 Example: settlement
 
@@ -41,8 +41,8 @@ Applications building on APIs exposed by other applications.
 
 Execute transactionally across multiple applications.
 
-
-
+Example: DvP example, e.g. trade settlement
+https://github.com/DACH-NY/canton-network-node/pull/17606/files#diff-cd3b53f3e2ca4f021676501a3aa5f6625bda75ae6d992dac65689a5527653fd8R30
 
 
 

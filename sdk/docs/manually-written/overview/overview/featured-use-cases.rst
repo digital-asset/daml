@@ -10,7 +10,7 @@ Where appropriate, include pointers on how to setup up and integrate with them.
   We want to highlight milestone applications here that are identified by DA,
   not the apps that the GSF currently decided to feature for them getting more rewards!
 
-  Refer to GS board of apps https://www.canton.network/ecosystem for further examples.
+  Refer to Global Synchronizer board of apps https://www.canton.network/ecosystem for further examples.
     
 
 * Product/Marketing to decide what apps to feature here
