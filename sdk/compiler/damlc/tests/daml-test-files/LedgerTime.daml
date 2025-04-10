@@ -1,0 +1,129 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module LedgerTime where
+
+import DA.Assert ((===), assertDeadlineExceeded, assertWithinDeadline)
+import DA.Time
+import Daml.Script
+
+template LabeledContract with
+    party : Party
+    label : Text
+  where
+    signatory party
+
+    nonconsuming choice CheckLT : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeLT dueBy
+
+    nonconsuming choice CheckLE : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeLE dueBy
+
+    nonconsuming choice CheckGT : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeGT dueBy
+
+    nonconsuming choice CheckGE : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeGE dueBy
+
+    nonconsuming choice CheckWithinDeadline : ()
+      with
+        deadline: Time
+      controller party
+      do
+        assertWithinDeadline "within-deadline" deadline
+        pure ()
+
+    nonconsuming choice CheckDeadlineExceeded : ()
+      with
+        deadline: Time
+      controller party
+      do
+        assertDeadlineExceeded "deadline-exceeded" deadline
+        pure ()
+
+main =
+  script do
+    alice <- allocateParty "alice"
+    cid <- submit alice $ createCmd (LabeledContract alice "test-action")
+    timePrev <- getTime
+    let
+      timeNow = addRelTime timePrev (microseconds 1)
+      timeNext = addRelTime timePrev (microseconds 2)
+
+    -- isLedgerTimeLT
+    setTime timeNow
+    lt0 <- submit alice $ exerciseCmd cid (CheckLT timeNext)
+    lt0 === True
+    setTime timeNow
+    lt1 <- submit alice $ exerciseCmd cid (CheckLT timeNow)
+    lt1 === False
+    setTime timeNow
+    lt2 <- submit alice $ exerciseCmd cid (CheckLT timePrev)
+    lt2 === False
+
+    -- isLedgerTimeLE
+    setTime timeNow
+    le0 <- submit alice $ exerciseCmd cid (CheckLE timeNext)
+    le0 === True
+    setTime timeNow
+    le1 <- submit alice $ exerciseCmd cid (CheckLE timeNow)
+    le1 === True
+    setTime timeNow
+    le2 <- submit alice $ exerciseCmd cid (CheckLE timePrev)
+    le2 === False
+
+    -- isLedgerTimeGT
+    setTime timeNow
+    gt0 <- submit alice $ exerciseCmd cid (CheckGT timeNext)
+    gt0 === False
+    setTime timeNow
+    gt1 <- submit alice $ exerciseCmd cid (CheckGT timeNow)
+    gt1 === False
+    setTime timeNow
+    gt2 <- submit alice $ exerciseCmd cid (CheckGT timePrev)
+    gt2 === True
+
+    -- isLedgerTimeGE
+    setTime timeNow
+    ge0 <- submit alice $ exerciseCmd cid (CheckGE timeNext)
+    ge0 === False
+    setTime timeNow
+    ge1 <- submit alice $ exerciseCmd cid (CheckGE timeNow)
+    ge1 === True
+    setTime timeNow
+    ge2 <- submit alice $ exerciseCmd cid (CheckGE timePrev)
+    ge2 === True
+
+    -- assertWithinDeadline
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckWithinDeadline timeNext)
+    setTime timeNow
+    _ <- submitMustFail alice $ exerciseCmd cid (CheckWithinDeadline timeNow)
+    setTime timeNow
+    _ <- submitMustFail alice $ exerciseCmd cid (CheckWithinDeadline timePrev)
+
+    -- assertDeadlineExceeded
+    setTime timeNow
+    _ <- submitMustFail alice $ exerciseCmd cid (CheckDeadlineExceeded timeNext)
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckDeadlineExceeded timeNow)
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckDeadlineExceeded timePrev)
+
+    pure ()
