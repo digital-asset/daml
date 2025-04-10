@@ -122,3 +122,31 @@ Functions
 
   Convert microseconds to RelTime
   Use higher level functions instead of the internal microseconds
+
+.. _function-da-time-isledgertimelt-78120:
+
+`isLedgerTimeLT <function-da-time-isledgertimelt-78120_>`_
+  \: :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` :ref:`Bool <type-ghc-types-bool-66265>`
+
+  TODO\:
+
+.. _function-da-time-isledgertimele-50101:
+
+`isLedgerTimeLE <function-da-time-isledgertimele-50101_>`_
+  \: :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` :ref:`Bool <type-ghc-types-bool-66265>`
+
+  TODO\:
+
+.. _function-da-time-isledgertimegt-6233:
+
+`isLedgerTimeGT <function-da-time-isledgertimegt-6233_>`_
+  \: :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` :ref:`Bool <type-ghc-types-bool-66265>`
+
+  TODO\:
+
+.. _function-da-time-isledgertimege-95212:
+
+`isLedgerTimeGE <function-da-time-isledgertimege-95212_>`_
+  \: :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` :ref:`Bool <type-ghc-types-bool-66265>`
+
+  TODO\:

@@ -15,6 +15,9 @@ module DA.Assert
 #endif
   ) where
 
+import DA.Action (when, unless)
+import DA.Time (isLedgerTimeGE)
+
 infix 4 ===
 infix 4 =/=
 
@@ -59,3 +62,17 @@ assertBeforeMsg msg time = do
   if time < now
     then assertFail msg
     else return ()
+
+-- | TODO:
+assertWithinDeadline: Text -> Time -> Update ()
+assertWithinDeadline name deadline = do
+  deadlineExceeded <- isLedgerTimeGE deadline
+  when deadlineExceeded $ fail $
+    "Ledger time is at or past deadline '" <> name <> "' at " <> show deadline
+
+-- | TODO:
+assertDeadlineExceeded: Text -> Time -> Update ()
+assertDeadlineExceeded name deadline = do
+  deadlineExceeded <- isLedgerTimeGE deadline
+  unless deadlineExceeded $ fail $
+      "Ledger time is before deadline '" <> name <> "' at " <> show deadline

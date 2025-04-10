@@ -23,8 +23,13 @@ module DA.Time
   , time
   , convertRelTimeToMicroseconds
   , convertMicrosecondsToRelTime
+  , isLedgerTimeLT
+  , isLedgerTimeLE
+  , isLedgerTimeGT
+  , isLedgerTimeGE
   ) where
 
+import GHC.Types (primitive)
 import DA.Time.Types hiding (microseconds)
 import DA.Internal.Time
 
@@ -92,3 +97,18 @@ instance Bounded Time where
     minBound = microsecondsSinceEpochToTime (-62135596800000000)
     maxBound = microsecondsSinceEpochToTime 253402300799999999
 
+-- | TODO:
+isLedgerTimeLT: Time -> Update Bool
+isLedgerTimeLT = primitive @"ULedgerTimeLT"
+
+-- | TODO:
+isLedgerTimeLE: Time -> Update Bool
+isLedgerTimeLE time = isLedgerTimeLT (addRelTime time (microseconds 1))
+
+-- | TODO:
+isLedgerTimeGT: Time -> Update Bool
+isLedgerTimeGT time = fmap not (isLedgerTimeLE time)
+
+-- | TODO:
+isLedgerTimeGE: Time -> Update Bool
+isLedgerTimeGE time = fmap not (isLedgerTimeLT time)
