@@ -6,8 +6,58 @@ Multi-Party Applications
 ########################
 
 .. note::
-    align this with the TSA docs, make it crisper and shorter : https://docs.google.com/presentation/d/170hLvxQlXxoUUEze9lU_VRl-UlrTNMK9sEs3o_si2vg/edit#slide=id.g2ce8206ef6a_0_0
-    ensure that we introduce the canton network and the ecosystem
+
+   Align this with the TSA docs, make it crisper and shorter : https://docs.google.com/presentation/d/170hLvxQlXxoUUEze9lU_VRl-UlrTNMK9sEs3o_si2vg/edit#slide=id.g2ce8206ef6a_0_0
+
+   Can we create a 3-5min video summarizing this? Maybe out of the TSA course?
+   
+
+What Is a Multi-Party Application?
+++++++++++++++++++++++++++++++++++
+
+Diagram: Organizations interacting with other organizations (app provider + app users) over an "infrastructure cloud" that represents the Canton Network and the services (e.g., via utilities) it provides
+
+Example: settlement
+
+
+
+Why Do Multi-Party Applications Matter?
++++++++++++++++++++++++++++++++++++++++
+
+
+Concisely motivate the benefits
+
+* Save operational and opportunity costs associated with traditional multi-day processes
+
+* Enables app composition: can participate in transactional cross-org workflows. Creates a network effect
+
+  Example: holiday booking aggregator
+
+
+What is Application Composition?
+++++++++++++++++++++++++++++++++
+
+Applications building on APIs exposed by other applications.
+
+Execute transactionally across multiple applications.
+
+Example: DvP example, e.g. trade settlement
+https://github.com/DACH-NY/canton-network-node/pull/17606/files#diff-cd3b53f3e2ca4f021676501a3aa5f6625bda75ae6d992dac65689a5527653fd8R30
+
+
+
+
+
+
+
+
+
+
+Parking lot
++++++++++++
+
+
+   
 
 Multi-Party Applications
 ************************

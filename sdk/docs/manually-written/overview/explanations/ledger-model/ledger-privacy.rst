@@ -6,6 +6,19 @@
 Privacy
 #######
 
+.. note::
+
+   It makes sense to have privacy before integrity, because this introduces projection.
+   But this text was written with the opposite order in mind.
+   Need to revisit this.
+
+   * Replace divulgence for submission by explicit disclosure.
+     Divulged contracts are not exposed over LAPI.
+
+   * Discuss ledger model projection with Canton projection in terms of information leakage (projection of the transaction view Merkle tree vs. as defined in here)
+
+
+
 The previous sections have addressed two out of three questions posed in the
 introduction: "what the ledger looks like", and "who may request which changes".
 This section addresses the last one, "who sees which changes and data". That is,
