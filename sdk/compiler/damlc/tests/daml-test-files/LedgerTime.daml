@@ -99,9 +99,15 @@ main =
     setTime timeNow
     le3 <- submit alice $ exerciseCmd cid (CheckLE timeMin)
     le3 === False
-    --setTime timeNow
-    --le4 <- submit alice $ exerciseCmd cid (CheckLE timeMax)
-    --le4 === True
+    setTime timeNow
+    resultLE0 <- trySubmit alice $ exerciseCmd cid (CheckLE timeMax)
+    case resultLE0 of
+      Left (FailureStatusError fsError) | "GeneralError" `isInfixOf` fsError.errorId ->
+        fsError.message === "Can not compare against the maximum time bound"
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
 
     -- isLedgerTimeGT
     setTime timeNow
@@ -116,9 +122,15 @@ main =
     setTime timeNow
     gt3 <- submit alice $ exerciseCmd cid (CheckGT timeMin)
     gt3 === True
-    --setTime timeNow
-    --gt4 <- submit alice $ exerciseCmd cid (CheckGT timeMax)
-    --gt4 === False
+    setTime timeNow
+    resultGT0 <- trySubmit alice $ exerciseCmd cid (CheckGT timeMax)
+    case resultGT0 of
+      Left (FailureStatusError fsError) | "GeneralError" `isInfixOf` fsError.errorId ->
+        fsError.message === "Can not compare against the maximum time bound"
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
 
     -- isLedgerTimeGE
     setTime timeNow
@@ -141,19 +153,17 @@ main =
     setTime timeNow
     _ <- submit alice $ exerciseCmd cid (CheckWithinDeadline timeNext)
     setTime timeNow
-    result0 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timeNow)
-    case result0 of
+    resultWD0 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timeNow)
+    case resultWD0 of
       Left (FailureStatusError fsError) | "AssertionFailed" `isInfixOf` fsError.errorId ->
-        -- FIXME: intentionally broken test code for Dylan debugging!
-        fsError.message === ("Ledger time is strictly before deadline 'within' at " <> show timeNow)
-        --fsError.message === ("Ledger time is strictly before deadline 'within-deadline' at " <> show timeNow)
+        fsError.message === ("Ledger time is strictly before deadline 'within-deadline' at " <> show timeNow)
       Left e ->
         error $ "failureStatusError incorrect error: " <> show e
       Right _ ->
         error "failureStatusError incorrectly succeeded"
     setTime timeNow
-    result1 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timePrev)
-    case result1 of
+    resultWD1 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timePrev)
+    case resultWD1 of
       Left (FailureStatusError fsError) | "AssertionFailed" `isInfixOf` fsError.errorId ->
         fsError.message === ("Ledger time is strictly before deadline 'within-deadline' at " <> show timePrev)
       Left e ->
@@ -161,8 +171,8 @@ main =
       Right _ ->
         error "failureStatusError incorrectly succeeded"
     setTime timeNow
-    result2 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timeMin)
-    case result2 of
+    resultWD2 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timeMin)
+    case resultWD2 of
       Left (FailureStatusError fsError) | "AssertionFailed" `isInfixOf` fsError.errorId ->
         fsError.message === ("Ledger time is strictly before deadline 'within-deadline' at " <> show timeMin)
       Left e ->
@@ -174,8 +184,8 @@ main =
 
     -- assertDeadlineExceeded
     setTime timeNow
-    result3 <- trySubmit alice $ exerciseCmd cid (CheckDeadlineExceeded timeNext)
-    case result3 of
+    resultDE0 <- trySubmit alice $ exerciseCmd cid (CheckDeadlineExceeded timeNext)
+    case resultDE0 of
       Left (FailureStatusError fsError) | "AssertionFailed" `isInfixOf` fsError.errorId ->
         fsError.message === ("Ledger time is at or after deadline 'deadline-exceeded' at " <> show timeNext)
       Left e ->
@@ -189,8 +199,8 @@ main =
     setTime timeNow
     _ <- submit alice $ exerciseCmd cid (CheckDeadlineExceeded timeMin)
     setTime timeNow
-    result4 <- trySubmit alice $ exerciseCmd cid (CheckDeadlineExceeded timeMax)
-    case result4 of
+    resultDE1 <- trySubmit alice $ exerciseCmd cid (CheckDeadlineExceeded timeMax)
+    case resultDE1 of
       Left (FailureStatusError fsError) | "AssertionFailed" `isInfixOf` fsError.errorId ->
         fsError.message === ("Ledger time is at or after deadline 'deadline-exceeded' at " <> show timeMax)
       Left e ->

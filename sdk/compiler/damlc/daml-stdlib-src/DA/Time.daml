@@ -103,7 +103,9 @@ isLedgerTimeLT = primitive @"ULedgerTimeLT"
 
 -- | True iff the ledger time of the transaction is less than or equal to the given time.
 isLedgerTimeLE: Time -> Update Bool
-isLedgerTimeLE time = isLedgerTimeLT (addRelTime time (microseconds 1))
+isLedgerTimeLE time
+  | time == maxBound @Time = error $ "Can not compare against the maximum time bound"
+  | otherwise = isLedgerTimeLT (addRelTime time (microseconds 1))
 
 -- | True iff the ledger time of the transaction is greater than the given time.
 isLedgerTimeGT: Time -> Update Bool
