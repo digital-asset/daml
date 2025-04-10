@@ -18,8 +18,8 @@ module DA.Exception.PreconditionFailed where
 
 import GHC.Types (Text)
 
--- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
 {-# DEPRECATED in "x-exceptions" PreconditionFailed "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Exception raised when a contract is invalid, i.e. fails the ensure clause.
 data PreconditionFailed = PreconditionFailed { message : Text }
 
 #endif

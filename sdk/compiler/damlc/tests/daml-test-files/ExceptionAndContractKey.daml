@@ -3,6 +3,8 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
  -- regression test for https://github.com/digital-asset/daml/pull/14080
 module ExceptionAndContractKey where
 

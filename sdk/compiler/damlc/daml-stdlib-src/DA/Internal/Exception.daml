@@ -49,26 +49,26 @@ type Exception e =
     , HasFromAnyException e
     )
 
--- | Part of the `Exception` constraint.
 {-# DEPRECATED in "x-exceptions" throwPure "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Part of the `Exception` constraint.
 class HasThrow e where
     -- | Throw exception in a pure context.
     throwPure : forall t. e -> t
 
--- | Part of the `Exception` constraint.
 {-# DEPRECATED in "x-exceptions" message "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Part of the `Exception` constraint.
 class HasMessage e where
     -- | Get the error message associated with an exception.
     message : e -> Text
 
--- | Part of the `Exception` constraint.
 {-# DEPRECATED in "x-exceptions" toAnyException "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Part of the `Exception` constraint.
 class HasToAnyException e where
     -- | Convert an exception type to AnyException.
     toAnyException : e -> AnyException
 
--- | Part of the `Exception` constraint.
 {-# DEPRECATED in "x-exceptions" fromAnyException "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Part of the `Exception` constraint.
 class HasFromAnyException e where
     -- | Convert an AnyException back to the underlying exception type, if possible.
     fromAnyException : AnyException -> Optional e
@@ -169,13 +169,13 @@ instance HasFromAnyException AssertionFailed where
 
 --------------------------------------------------------------
 
--- | Action type in which `throw` is supported.
 {-# DEPRECATED in "x-exceptions" throw "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Action type in which `throw` is supported.
 class Action m => ActionThrow m where
     throw : Exception e => e -> m t
 
--- | Action type in which `try ... catch ...` is supported.
 {-# DEPRECATED in "x-exceptions" _tryCatch "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Action type in which `try ... catch ...` is supported.
 class ActionThrow m => ActionCatch m where
     -- | Handle an exception. Use the `try ... catch ...` syntax
     -- instead of calling this method directly.

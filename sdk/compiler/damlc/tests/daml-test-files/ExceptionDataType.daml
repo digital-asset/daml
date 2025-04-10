@@ -3,6 +3,8 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 -- | Test that exception syntax desugars to the correct data type.
 module ExceptionDataType where
 

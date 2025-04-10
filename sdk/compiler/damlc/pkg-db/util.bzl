@@ -190,7 +190,7 @@ daml_package_rule = rule(
         ),
         "disable_deprecated_exceptions": attr.bool(
             default = False,
-        )
+        ),
     },
 )
 

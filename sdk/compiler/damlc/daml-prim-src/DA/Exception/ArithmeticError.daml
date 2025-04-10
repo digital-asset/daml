@@ -18,8 +18,8 @@ module DA.Exception.ArithmeticError where
 
 import GHC.Types (Text)
 
--- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
 {-# DEPRECATED in "x-exceptions" ArithmeticError "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
 data ArithmeticError = ArithmeticError { message : Text }
 
 #endif

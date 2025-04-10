@@ -18,8 +18,8 @@ module DA.Exception.AssertionFailed where
 
 import GHC.Types (Text)
 
--- | Exception raised by assert functions in DA.Assert
 {-# DEPRECATED in "x-exceptions" AssertionFailed "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+-- | Exception raised by assert functions in DA.Assert
 data AssertionFailed = AssertionFailed { message : Text }
 
 #endif
