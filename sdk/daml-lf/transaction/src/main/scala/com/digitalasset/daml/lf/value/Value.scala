@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package value
 
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, TypeConName}
 import com.digitalasset.daml.lf.data._
@@ -12,6 +13,8 @@ import data.ScalazEqual._
 import scalaz.{Equal, Order}
 import scalaz.syntax.order._
 import scalaz.syntax.semigroup._
+
+import java.nio.{ByteBuffer, ByteOrder}
 
 /** Values */
 sealed abstract class Value extends CidContainer[Value] with Product with Serializable {
@@ -241,29 +244,116 @@ object Value {
         case (ContractId.V1(hash1, suffix1), ContractId.V1(hash2, suffix2)) =>
           hash1 ?|? hash2 |+| suffix1 ?|? suffix2
       }
+    }
 
+    final case class V2 private (local: Bytes, suffix: Bytes) extends ContractId with data.NoCopy {
+      override lazy val toBytes: Bytes = V2.prefix ++ local ++ suffix
+      lazy val coid: Ref.HexString = toBytes.toHexString
+      override def toString: String = s"ContractId($coid)"
+    }
+
+    object V2 {
+      private[lf] def MaxSuffixLength: Int = V1.MaxSuffixLength
+
+      val prefix: Bytes = Bytes.assertFromString("01")
+
+      private val timePrefixSize: Int = 5
+      private val discriminatorSize: Int = 7
+
+      require(discriminatorSize <= crypto.Hash.underlyingHashLength)
+
+      val localSize: Int = timePrefixSize + discriminatorSize
+
+      private val suffixStart: Int = prefix.length + localSize
+
+      def build(local: Bytes, suffix: Bytes): Either[String, V2] = {
+        for {
+          _ <- Either.cond(
+            local.length == localSize,
+            (),
+            s"The local part has the wrong size, expected $localSize, but got ${local.length}",
+          )
+          _ <- Either.cond(
+            suffix.length <= MaxSuffixLength,
+            (),
+            s"the suffix is too long, expected at most $MaxSuffixLength bytes, but got ${suffix.length}",
+          )
+        } yield new V2(local, suffix)
+      }
+
+      def assertBuild(local: Bytes, suffix: Bytes): V2 =
+        assertRight(build(local, suffix))
+
+      /** The largest integer `i` so that the number of microseconds between [[Time.Timestamp.MinValue]]
+        * and [[Time.Timestamp.MaxValue]] divided by `i` is smaller than `2^40-1` and therefore fits into 5 bytes.
+        */
+      private[lf] val resolution: Long = 286981L
+
+      private[lf] def timePrefix(time: Time.Timestamp): Bytes = {
+        val microsRebased = time.micros - Time.Timestamp.MinValue.micros
+        val scaled = java.lang.Long.divideUnsigned(microsRebased, resolution)
+        val byteBuffer = ByteBuffer.allocate(timePrefixSize).order(ByteOrder.BIG_ENDIAN)
+        discard(byteBuffer.put((scaled >> 32).toByte).putInt(scaled.toInt))
+        Bytes.fromByteBuffer(byteBuffer.position(0))
+      }
+
+      private[lf] def discriminator(nodeSeed: crypto.Hash): Bytes =
+        nodeSeed.bytes.slice(0, discriminatorSize)
+
+      def unsuffixed(time: Time.Timestamp, nodeSeed: crypto.Hash): V2 =
+        new V2(timePrefix(time) ++ discriminator(nodeSeed), Bytes.Empty)
+
+      def fromBytes(bytes: Bytes): Either[String, V2] =
+        if (bytes.startsWith(prefix) && bytes.length >= suffixStart) {
+          val local = bytes.slice(prefix.length, suffixStart)
+          val suffix = bytes.slice(suffixStart, bytes.length)
+          build(local, suffix)
+        } else
+          Left(s"""cannot parse V2 ContractId "${bytes.toHexString}"""")
+
+      def fromString(s: String): Either[String, V2] =
+        Bytes.fromString(s).flatMap(fromBytes)
+
+      def assertFromString(s: String): V2 = assertRight(fromString(s))
+
+      implicit val `V2 Order`: Order[V2] = {
+        case (ContractId.V2(local1, suffix1), ContractId.V2(local2, suffix2)) =>
+          local1 ?|? local2 |+| suffix1 ?|? suffix2
+      }
     }
 
     def fromString(s: String): Either[String, ContractId] =
-      V1.fromString(s)
-        .left
-        .map(_ => s"""cannot parse ContractId "$s"""")
+      V2.fromString(s)
+        .orElse(
+          V1.fromString(s)
+            .left
+            .map(_ => s"""cannot parse ContractId "$s"""")
+        )
 
     def assertFromString(s: String): ContractId =
       assertRight(fromString(s))
 
-    def fromBytes(bytes: Bytes): Either[String, ContractId] = V1.fromBytes(bytes)
+    def fromBytes(bytes: Bytes): Either[String, ContractId] =
+      if (bytes.startsWith(V2.prefix)) V2.fromBytes(bytes)
+      else if (bytes.startsWith(V1.prefix)) V1.fromBytes(bytes)
+      else Left(s"cannot parse ContractId: unknown version prefix ${bytes.slice(0, 1).toHexString}")
 
     implicit val `Cid Order`: Order[ContractId] = new Order[ContractId] {
-      override def order(a: ContractId, b: ContractId) =
+      override def order(a: ContractId, b: ContractId): scalaz.Ordering =
         (a, b) match {
+          case (a: V2, b: V2) => a ?|? b
           case (a: V1, b: V1) => a ?|? b
+          case (_: V1, _: V2) => scalaz.Ordering.LT
+          case (_: V2, _: V1) => scalaz.Ordering.GT
         }
 
-      override def equal(a: ContractId, b: ContractId) =
+      override def equal(a: ContractId, b: ContractId): Boolean =
         (a, b).match2 {
           case V1(discA, suffA) => { case V1(discB, suffB) =>
             discA == discB && suffA.toByteString == suffB.toByteString
+          }
+          case V2(localA, suffA) => { case V2(localB, suffB) =>
+            localA == localB && suffA.toByteString == suffB.toByteString
           }
         }(fallback = false)
     }

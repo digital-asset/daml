@@ -130,10 +130,10 @@ object Error {
   final case object NonComparableValues extends Error
 
   // Attempt to compare the global contract ID `globalCid` and a local
-  // contract ID with same discriminator. See the "Contract ID
+  // contract ID with same discriminator / local prefix. See the "Contract ID
   // Comparability" section in the contract ID specification
   // (//daml-lf/spec/contract-id.rst) for more details.
-  final case class ContractIdComparability(globalCid: ContractId.V1) extends Error
+  final case class ContractIdComparability(globalCid: ContractId) extends Error
 
   final case class ContractIdInContractKey(key: Value) extends Error
 

@@ -2767,7 +2767,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   }
 
   def suffix(tx: VersionedTransaction): VersionedTransaction =
-    data.assertRight(tx.suffixCid(_ => dummySuffix))
+    data.assertRight(tx.suffixCid(_ => dummySuffix, _ => dummySuffix))
 
   // Mimics Canton reinterpretation
   // requires a suffixed transaction.

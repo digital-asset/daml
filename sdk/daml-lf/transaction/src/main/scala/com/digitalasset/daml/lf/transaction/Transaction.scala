@@ -698,9 +698,10 @@ object Transaction {
 
   def commitTransaction(
       submittedTransaction: SubmittedTransaction,
-      f: crypto.Hash => Bytes,
+      f1: crypto.Hash => Bytes,
+      f2: Bytes => Bytes,
   ): Either[String, CommittedTransaction] =
-    submittedTransaction.suffixCid(f).map(CommittedTransaction(_))
+    submittedTransaction.suffixCid(f1, f2).map(CommittedTransaction(_))
 
   /** The state of a key at the beginning of the transaction.
     */

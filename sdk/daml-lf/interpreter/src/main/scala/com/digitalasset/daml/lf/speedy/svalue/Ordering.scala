@@ -107,27 +107,32 @@ object Ordering extends scala.math.Ordering[SValue] {
   }
   @inline
   private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int = {
-    (cid1, cid2) match {
-      case (
-            cid1 @ ContractId.V1(discriminator1, suffix1),
-            cid2 @ ContractId.V1(discriminator2, suffix2),
-          ) =>
-        val c1 = crypto.Hash.ordering.compare(discriminator1, discriminator2)
-        if (c1 != 0) {
-          c1
-        } else if (suffix1.isEmpty) {
-          if (suffix2.isEmpty) {
-            0
-          } else {
-            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid2))
-          }
+    def compareByComponents(prefix1: Bytes, suffix1: Bytes, prefix2: Bytes, suffix2: Bytes): Int = {
+      val c1 = Bytes.ordering.compare(prefix1, prefix2)
+      if (c1 != 0) {
+        c1
+      } else if (suffix1.isEmpty) {
+        if (suffix2.isEmpty) {
+          0
         } else {
-          if (suffix2.isEmpty) {
-            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid1))
-          } else {
-            Bytes.ordering.compare(suffix1, suffix2)
-          }
+          throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid2))
         }
+      } else {
+        if (suffix2.isEmpty) {
+          throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid1))
+        } else {
+          Bytes.ordering.compare(suffix1, suffix2)
+        }
+      }
+    }
+
+    (cid1, cid2) match {
+      case (ContractId.V1(discriminator1, suffix1), ContractId.V1(discriminator2, suffix2)) =>
+        compareByComponents(discriminator1.bytes, suffix1, discriminator2.bytes, suffix2)
+      case (ContractId.V2(local1, suffix1), ContractId.V2(local2, suffix2)) =>
+        compareByComponents(local1, suffix1, local2, suffix2)
+      case (_: ContractId.V1, _: ContractId.V2) => -1
+      case (_: ContractId.V2, _: ContractId.V1) => 1
     }
   }
 

@@ -31,6 +31,13 @@ object TransactionBuilder {
     crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(bytes))
   }
 
+  private def newTimestamp(): Time.Timestamp = {
+    val randomMicrosSince0 = scala.util.Random.nextLong(
+      Time.Timestamp.MaxValue.micros - Time.Timestamp.MinValue.micros + 1
+    )
+    Time.Timestamp.assertFromLong(randomMicrosSince0 + Time.Timestamp.MinValue.micros)
+  }
+
   def record(fields: (String, String)*): Value =
     Value.ValueRecord(
       tycon = None,
@@ -42,6 +49,7 @@ object TransactionBuilder {
     )
 
   def newV1Cid: ContractId.V1 = ContractId.V1(newHash())
+  def newV2Cid: ContractId.V2 = ContractId.V2.unsuffixed(newTimestamp(), newHash())
 
   def newCid: ContractId = newV1Cid
 
