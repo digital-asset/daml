@@ -8,11 +8,23 @@ import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationEvent,
+  TopologyEvent,
+}
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  authorizationEventInt,
+  participantPermissionInt,
+}
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.{
   CompressionStrategy,
@@ -218,7 +230,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = createNode.packageVersion.map(_.toString()),
+        package_version = None,
         flat_event_witnesses =
           Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
         tree_event_witnesses =
@@ -979,7 +991,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = createNode.packageVersion.map(_.toString()),
+        package_version = None,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1189,7 +1201,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = createNode.packageVersion.map(_.toString()),
+        package_version = None,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1323,7 +1335,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             contract_id = createNode.coid.toBytes.toByteArray,
             template_id = createNode.templateId.toString,
             package_name = createNode.packageName.toString,
-            package_version = createNode.packageVersion.map(_.toString()),
+            package_version = None,
             flat_event_witnesses = Set("signatory", "observer"), // stakeholders
             tree_event_witnesses = Set("signatory", "observer"), // informees
             create_argument = emptyArray,
@@ -1422,7 +1434,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = createNode.packageVersion.map(_.toString()),
+        package_version = None,
         flat_event_witnesses = Set("signatory", "observer", "observer2"),
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
@@ -1575,16 +1587,45 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
     }
 
     "handle TopologyTransactionEffective - PartyToParticipantAuthorization" in {
+      val submissionParty = Ref.Party.assertFromString("SubmissionParty")
+      val confirmationParty = Ref.Party.assertFromString("ConfirmationParty")
+      val observationParty = Ref.Party.assertFromString("ObservationParty")
+
       val events = Set[TopologyEvent](
         PartyToParticipantAuthorization(
-          party = someParty,
+          party = submissionParty,
           participant = someParticipantId,
-          level = Submission,
+          authorizationEvent = Added(Submission),
+        ),
+        PartyToParticipantAuthorization(
+          party = confirmationParty,
+          participant = someParticipantId,
+          authorizationEvent = Added(Confirmation),
+        ),
+        PartyToParticipantAuthorization(
+          party = observationParty,
+          participant = someParticipantId,
+          authorizationEvent = Added(Observation),
+        ),
+        PartyToParticipantAuthorization(
+          party = submissionParty,
+          participant = otherParticipantId,
+          authorizationEvent = ChangedTo(Submission),
+        ),
+        PartyToParticipantAuthorization(
+          party = confirmationParty,
+          participant = otherParticipantId,
+          authorizationEvent = ChangedTo(Confirmation),
+        ),
+        PartyToParticipantAuthorization(
+          party = observationParty,
+          participant = otherParticipantId,
+          authorizationEvent = ChangedTo(Observation),
         ),
         PartyToParticipantAuthorization(
           party = someParty,
-          participant = otherParticipantId,
-          level = Revoked,
+          participant = someParticipantId,
+          authorizationEvent = Revoked,
         ),
       )
 
@@ -1595,32 +1636,73 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         effectiveTime = someRecordTime,
       )
 
-      val dtos = updateToDtos(update)
-
-      dtos should contain(
+      def eventPartyToParticipant(
+          partyId: String,
+          participantId: String,
+          authorizationEvent: AuthorizationEvent,
+      ) =
         DbDto.EventPartyToParticipant(
           event_sequential_id = 0,
           event_offset = someOffset.unwrap,
           update_id = update.updateId,
-          party_id = someParty,
-          participant_id = someParticipantId,
-          participant_permission = UpdateToDbDto.authorizationLevelToInt(Submission),
+          party_id = partyId,
+          participant_id = participantId,
+          participant_permission = participantPermissionInt(authorizationEvent),
+          participant_authorization_event = authorizationEventInt(authorizationEvent),
           synchronizer_id = someSynchronizerId1.toProtoPrimitive,
           record_time = someRecordTime.toMicros,
           trace_context = serializedEmptyTraceContext,
         )
+
+      val dtos = updateToDtos(update)
+
+      dtos should contain(
+        eventPartyToParticipant(
+          partyId = submissionParty,
+          participantId = someParticipantId,
+          authorizationEvent = Added(Submission),
+        )
       )
       dtos should contain(
-        DbDto.EventPartyToParticipant(
-          event_sequential_id = 0,
-          event_offset = someOffset.unwrap,
-          update_id = update.updateId,
-          party_id = someParty,
-          participant_id = otherParticipantId,
-          participant_permission = UpdateToDbDto.authorizationLevelToInt(Revoked),
-          synchronizer_id = someSynchronizerId1.toProtoPrimitive,
-          record_time = someRecordTime.toMicros,
-          trace_context = serializedEmptyTraceContext,
+        eventPartyToParticipant(
+          partyId = confirmationParty,
+          participantId = someParticipantId,
+          authorizationEvent = Added(Confirmation),
+        )
+      )
+      dtos should contain(
+        eventPartyToParticipant(
+          partyId = observationParty,
+          participantId = someParticipantId,
+          authorizationEvent = Added(Observation),
+        )
+      )
+      dtos should contain(
+        eventPartyToParticipant(
+          partyId = submissionParty,
+          participantId = otherParticipantId,
+          authorizationEvent = ChangedTo(Submission),
+        )
+      )
+      dtos should contain(
+        eventPartyToParticipant(
+          partyId = confirmationParty,
+          participantId = otherParticipantId,
+          authorizationEvent = ChangedTo(Confirmation),
+        )
+      )
+      dtos should contain(
+        eventPartyToParticipant(
+          partyId = observationParty,
+          participantId = otherParticipantId,
+          authorizationEvent = ChangedTo(Observation),
+        )
+      )
+      dtos should contain(
+        eventPartyToParticipant(
+          partyId = someParty,
+          participantId = someParticipantId,
+          authorizationEvent = Revoked,
         )
       )
       dtos should contain(

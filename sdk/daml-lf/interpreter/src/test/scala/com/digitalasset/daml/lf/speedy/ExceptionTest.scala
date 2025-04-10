@@ -1335,7 +1335,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               val disclosedContract = Speedy.ContractInfo(
                 version = TransactionVersion.StableVersions.max,
                 templateDefsPkgName,
-                templateDefsV1Pkg.pkgVersion,
                 templateId,
                 SValue.SRecord(
                   templateId,

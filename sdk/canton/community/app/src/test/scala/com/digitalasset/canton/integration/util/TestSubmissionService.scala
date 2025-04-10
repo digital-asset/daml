@@ -18,7 +18,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
 }
 import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
@@ -37,7 +36,12 @@ import com.digitalasset.canton.ledger.api.validation.{
 }
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  ContextualizedErrorLogger,
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+}
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.SeedService.WeakRandom
 import com.digitalasset.canton.protocol.*

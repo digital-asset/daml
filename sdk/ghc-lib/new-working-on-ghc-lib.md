@@ -59,7 +59,7 @@ While working on GHC, you can integrate your changes directly into the `daml` pr
 
 1. Add `BUILD` file:
    ```
-   ln -s $DAML_REPO/bazel_tools/ghc-lib/BUILD.ghc BUILD
+   ln -s $DAML_REPO/sdk/bazel_tools/ghc-lib/BUILD.ghc BUILD
    ```
 
 2. Make changes... 🛠️

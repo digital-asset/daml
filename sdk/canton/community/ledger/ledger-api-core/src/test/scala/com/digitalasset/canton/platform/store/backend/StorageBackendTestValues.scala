@@ -6,8 +6,16 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.ParticipantId
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
+  AuthorizationEvent,
+  AuthorizationLevel,
+}
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
+import com.digitalasset.canton.platform.store.backend.Conversions.{
+  authorizationEventInt,
+  participantPermissionInt,
+}
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.topology.SynchronizerId
@@ -279,7 +287,7 @@ private[store] object StorageBackendTestValues {
       eventSequentialId: Long,
       party: String = someParty,
       participant: String = someParticipantId.toString,
-      authorizationLevel: AuthorizationLevel = AuthorizationLevel.Submission,
+      authorizationEvent: AuthorizationEvent = Added(AuthorizationLevel.Submission),
       synchronizerId: String = "x::sourcesynchronizer",
       recordTime: Timestamp = someTime,
       traceContext: Array[Byte] = serializableTraceContext,
@@ -291,7 +299,8 @@ private[store] object StorageBackendTestValues {
       update_id = updateId,
       party_id = party,
       participant_id = participant,
-      participant_permission = UpdateToDbDto.authorizationLevelToInt(authorizationLevel),
+      participant_permission = participantPermissionInt(authorizationEvent),
+      participant_authorization_event = authorizationEventInt(authorizationEvent),
       synchronizer_id = synchronizerId,
       record_time = recordTime.micros,
       trace_context = traceContext,

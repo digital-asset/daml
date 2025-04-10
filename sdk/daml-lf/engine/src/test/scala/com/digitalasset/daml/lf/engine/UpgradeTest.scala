@@ -230,6 +230,13 @@ object UpgradeTest {
       s"Cons @Party [Mod:${templateName} {p1} this] (Nil @Party)"
     def v1InterfaceChoiceObservers: String = "Nil @Party"
     def v1View: String = s"'$commonDefsPkgId':Mod:MyView { value = 0 }"
+    def v1InterfaceInstance: String =
+      s"""
+         |    implements '$commonDefsPkgId':Mod:Iface {
+         |      view = $v1View;
+         |      method interfaceChoiceControllers = $v1InterfaceChoiceControllers;
+         |      method interfaceChoiceObservers = $v1InterfaceChoiceObservers;
+         |    };"""
 
     def v2AdditionalDefinitions: String = v1AdditionalDefinitions
     def v2ChoiceArgTypeDef: String = v1ChoiceArgTypeDef
@@ -244,6 +251,13 @@ object UpgradeTest {
     def v2InterfaceChoiceObservers: String = v1InterfaceChoiceObservers
     def v2Maintainers: String = v1Maintainers
     def v2View: String = v1View
+    def v2InterfaceInstance: String =
+      s"""
+         |    implements '$commonDefsPkgId':Mod:Iface {
+         |      view = $v2View;
+         |      method interfaceChoiceControllers = $v2InterfaceChoiceControllers;
+         |      method interfaceChoiceObservers = $v2InterfaceChoiceObservers;
+         |    };"""
 
     // Used for creating contracts in choice bodies
     def additionalCreateArgsLf(v1PkgId: PackageId): String = ""
@@ -274,9 +288,7 @@ object UpgradeTest {
         observers: String,
         key: String,
         maintainers: String,
-        interfaceChoiceControllers: String,
-        interfaceChoiceObservers: String,
-        view: String,
+        interfaceInstance: String,
     ): String =
       s"""
          |  $additionalDefinitions
@@ -307,11 +319,7 @@ object UpgradeTest {
          |
          |    $additionalChoices
          |
-         |    implements '$commonDefsPkgId':Mod:Iface {
-         |      view = $view;
-         |      method interfaceChoiceControllers = $interfaceChoiceControllers;
-         |      method interfaceChoiceObservers = $interfaceChoiceObservers;
-         |    };
+         |    $interfaceInstance
          |
          |    key @Mod:${templateName}Key ($key) ($maintainers);
          |  };""".stripMargin
@@ -327,9 +335,7 @@ object UpgradeTest {
       v1Observers,
       v1Key,
       v1Maintainers,
-      v1InterfaceChoiceControllers,
-      v1InterfaceChoiceObservers,
-      v1View,
+      v1InterfaceInstance,
     )
 
     def v2TemplateDefinition: String = templateDefinition(
@@ -343,9 +349,7 @@ object UpgradeTest {
       v2Observers,
       v2Key,
       v2Maintainers,
-      v2InterfaceChoiceControllers,
-      v2InterfaceChoiceObservers,
-      v2View,
+      v2InterfaceInstance,
     )
 
     def clientChoices(
@@ -717,6 +721,11 @@ object UpgradeTest {
     override def v1Observers = "Nil @Party"
     override def v2Observers =
       s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Observers"})"""
+  }
+
+  // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: added an interface instance in v2 when it doesn't yet exist in v1, make sure that it gets picked up
+  case object AddingInterfaceInstance extends TestCase("AddingInterfaceInstance", ExpectSuccess) {
+    override def v1InterfaceInstance = ""
   }
 
   // TEST_EVIDENCE: Integrity: Smart Contract Upgrade: the new version of the template defines an additional choice, upgrade succeeds
@@ -1575,6 +1584,7 @@ object UpgradeTest {
     AdditionalConstructorInVariantArg,
     AdditionalConstructorInEnumArg,
     AdditionalTemplateArg,
+    AddingInterfaceInstance,
     // cases that test that adding unrelated stuff to the package has no impact
     AdditionalChoices,
     AdditionalTemplates,
@@ -1745,7 +1755,6 @@ object UpgradeTest {
     val clientContract: VersionedContractInstance = assertAsVersionedContract(
       ContractInstance(
         clientPkg.pkgName,
-        Some(clientPkg.metadata.version),
         clientTplId,
         ValueRecord(
           Some(clientTplId),
@@ -1767,7 +1776,6 @@ object UpgradeTest {
     val globalContract: VersionedContractInstance = assertAsVersionedContract(
       ContractInstance(
         templateDefsV1Pkg.pkgName,
-        Some(templateDefsV1Pkg.metadata.version),
         v1TplId,
         globalContractArg,
       )
@@ -1808,7 +1816,6 @@ object UpgradeTest {
       version = languageVersion,
       contractId = globalContractId,
       packageName = templateDefsPkgName,
-      packageVersion = None,
       templateId = v1TplId,
       createArg = normalize(globalContractArg, Ast.TTyCon(v1TplId)),
       signatories = immutable.TreeSet(alice),

@@ -58,6 +58,7 @@ class DamlLfEncoderTest
         "InterfaceMod",
         "InterfaceMod0",
         "TextMapMod",
+        "LedgerTimeMod",
       )
       val modules_2_dev = modules_2_1 ++ Set[DottedName](
         "BigNumericMod",

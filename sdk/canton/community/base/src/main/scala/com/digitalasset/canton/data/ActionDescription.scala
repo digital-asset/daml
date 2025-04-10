@@ -106,7 +106,6 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
       case LfNodeCreate(
             contractId,
             _packageName,
-            _packageVersion,
             _templateId,
             _arg,
             _agreementText,

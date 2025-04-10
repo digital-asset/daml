@@ -6,13 +6,15 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByIdRequest,
   GetTransactionByOffsetRequest,
+  GetUpdateByIdRequest,
+  GetUpdateByOffsetRequest,
   GetUpdatesRequest,
 }
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.UpdateId
 import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import io.grpc.StatusRuntimeException
 
 object UpdateServiceRequestValidator {
@@ -126,6 +128,7 @@ object UpdateServiceRequestValidator {
       )
     }
 
+  // TODO(#23504) remove when the GetTransactionById endpoint is removed
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
@@ -186,6 +189,7 @@ object UpdateServiceRequestValidator {
       )
     }
 
+  // TODO(#23504) remove when the GetTransactionByOffset endpoint is removed
   def validateTransactionByOffset(
       req: GetTransactionByOffsetRequest
   )(implicit
@@ -243,4 +247,38 @@ object UpdateServiceRequestValidator {
         parties,
       )
     }
+
+  def validateUpdateByOffset(
+      req: GetUpdateByOffsetRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[update.GetUpdateByOffsetRequest] =
+    for {
+      offset <- ParticipantOffsetValidator.validatePositive(req.offset, "offset")
+      updateFormatProto <- requirePresence(req.updateFormat, "update_format")
+      updateFormat <- FormatValidator.validate(updateFormatProto)
+    } yield {
+      update.GetUpdateByOffsetRequest(
+        offset = offset,
+        updateFormat = updateFormat,
+      )
+    }
+
+  def validateUpdateById(
+      req: GetUpdateByIdRequest
+  )(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Result[update.GetUpdateByIdRequest] =
+    for {
+      _ <- requireNonEmptyString(req.updateId, "update_id")
+      updateId <- requireLedgerString(req.updateId)
+      updateFormatProto <- requirePresence(req.updateFormat, "update_format")
+      updateFormat <- FormatValidator.validate(updateFormatProto)
+    } yield {
+      update.GetUpdateByIdRequest(
+        updateId = UpdateId(updateId),
+        updateFormat = updateFormat,
+      )
+    }
+
 }

@@ -46,7 +46,12 @@ public final class ParticipantAuthorizationRevoked implements TopologyEvent {
 
   @Override
   public String toString() {
-    return "CreatedEvent{" + "partyId=" + partyId + ", participantId='" + participantId + '}';
+    return "ParticipantAuthorizationRevoked{"
+        + "partyId="
+        + partyId
+        + ", participantId='"
+        + participantId
+        + '}';
   }
 
   public TopologyTransactionOuterClass.@NonNull ParticipantAuthorizationRevoked toProto() {

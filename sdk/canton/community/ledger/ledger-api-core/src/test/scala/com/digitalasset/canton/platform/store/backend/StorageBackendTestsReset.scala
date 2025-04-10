@@ -70,12 +70,12 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
 
     def events =
       executeSql(
-        backend.event.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+        backend.event.fetchEventPayloadsLedgerEffects(
           EventPayloadSourceForUpdatesLedgerEffects.Create
         )(List(1L), Some(Set.empty))
       ) ++
         executeSql(
-          backend.event.transactionStreamingQueries.fetchEventPayloadsLedgerEffects(
+          backend.event.fetchEventPayloadsLedgerEffects(
             EventPayloadSourceForUpdatesLedgerEffects.Consuming
           )(List(2L), Some(Set.empty))
         )
@@ -87,7 +87,7 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
     )
 
     def filterIds = executeSql(
-      backend.event.transactionStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
+      backend.event.updateStreamingQueries.fetchIdsOfCreateEventsForStakeholder(
         stakeholderO = Some(someParty),
         templateIdO = None,
         startExclusive = 0,

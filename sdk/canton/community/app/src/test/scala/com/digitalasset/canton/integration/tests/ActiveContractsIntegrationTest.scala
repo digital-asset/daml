@@ -10,10 +10,7 @@ import com.daml.ledger.api.v2.event.CreatedEvent.toJavaProto
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.value.{Identifier, Record}
 import com.daml.ledger.javaapi.data.CreatedEvent.fromProto as createdEventFromProto
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
-  UnassignedWrapper,
-  UpdateWrapper,
-}
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UnassignedWrapper
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedContractEntry
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
@@ -190,7 +187,6 @@ class ActiveContractsIntegrationTest
 
     val contractInst = LfContractInst(
       packageName = packageName,
-      packageVersion = None,
       template = lfTemplate,
       arg = Versioned(protocol.DummyTransactionVersion, lfArguments),
     )
@@ -852,7 +848,7 @@ class ActiveContractsIntegrationTest
         Set(observer),
         beginOffsetExclusive = startFromExclusive,
         completeAfter = PositiveInt.one,
-        resultFilter = UpdateWrapper.isUnassignedWrapper,
+        resultFilter = _.isUnassignment,
       )
       .collect { case UnassignedWrapper(_, unassignedEvent) =>
         (unassignedEvent.source, unassignedEvent.unassignId)

@@ -43,7 +43,6 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
   private val createNode = Node.Create(
     coid = ContractId.V1.assertFromString(contractId1),
     packageName = packageName0,
-    packageVersion = None,
     templateId = defRef("module", "name"),
     arg = VA.text.inj("hello"),
     signatories =
@@ -143,6 +142,8 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
                                     |'00000001' # 1 (int)
                                     |'00000007' # 7 (int)
                                     |'636861726c6965' # charlie (string)
+                                    |# Interface Id
+                                    |'00' # None
                                     |# Acting Parties
                                     |'00000002' # 2 (int)
                                     |'00000005' # 5 (int)
@@ -150,7 +151,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
                                     |'00000003' # 3 (int)
                                     |'626f62' # bob (string)""".stripMargin
 
-  private val fetchNodeHash = "9821f98da68f9ae9d454d162b5cf1af51856b4e48f6ba79e916b24ff939de60b"
+  private val fetchNodeHash = "c962c6098394f3d11cd6f0c795de9517d32a8e3e1979cec76cd2f66254efc610"
   private val fetchNode2 = fetchNode.copy(
     coid = ContractId.V1.assertFromString(contractId2)
   )
@@ -178,7 +179,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     version = LanguageVersion.v2_1,
   )
 
-  private val exerciseNodeHash = "497e1e3de894dd085907d4a82ab87b7d40f1d22a7e62aed34d30ee9924bc20af"
+  private val exerciseNodeHash = "070970eb4b2de72561dafb67017ca33850650a8103e5134e16044ba78991f48c"
 
   private val lookupNode = Node.LookupByKey(
     packageName = packageName0,
@@ -194,7 +195,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     children = ImmArray(NodeId(2), NodeId(4)) // Fetch2 and Exercise
   )
 
-  private val rollbackNodeHash = "4b97c3eaa1b42e90daeb49a69d269b7bb17ae2d926b65420ece7351dd28ceb55"
+  private val rollbackNodeHash = "7264d5da2fd714427453bedc0d1cdb21f52ac7aec8d4bb5ac0598d25c5fcaed9"
 
   private val nodeSeedCreate =
     LfHash.assertFromString("926bbb6f341bc0092ae65d06c6e284024907148cc29543ef6bff0930f5d52c19")
@@ -749,7 +750,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     )
 
     val defaultHash = Hash
-      .fromHexStringRaw("3dd9e6ca04bd97b2138fc645ad2b9e917cf6a5db5557155b7e4d3e97ad4ffbf2")
+      .fromHexStringRaw("154f334d24a8a5e4d0ce51ac87d93821b3256f885f21d3f779a1640abf481983")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -822,7 +823,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     )
 
     val defaultHash = Hash
-      .fromHexStringRaw("38c2a61da11ba27fb82214726099c848185727b1e6dae39051d36b3440cbce91")
+      .fromHexStringRaw("b8216db44814a527c84f462fd012e81c31601e03936f1fdad77a0161a254454f")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -840,7 +841,8 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
         hashTracer = hashTracer,
       )
       hashTracer.result shouldBe s"""'00000030' # Hash Purpose
-                                      |'3dd9e6ca04bd97b2138fc645ad2b9e917cf6a5db5557155b7e4d3e97ad4ffbf2' # Transaction
+                                      |'02' # 02 (Hashing Scheme Version)
+                                      |'154f334d24a8a5e4d0ce51ac87d93821b3256f885f21d3f779a1640abf481983' # Transaction
                                       |'bdf59f1d269c1df19683ee6d6c144deec7733c9dec1d3356c8bf98076a16e950' # Metadata
                                       |""".stripMargin
       assertStringTracer(hashTracer, hash)

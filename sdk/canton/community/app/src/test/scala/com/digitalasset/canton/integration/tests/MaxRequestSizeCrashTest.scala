@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.iou.Dummy
 import com.digitalasset.canton.integration.plugins.{
+  UseBftSequencer,
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
@@ -180,9 +181,7 @@ class MaxRequestSizeCrashReferenceIntegrationTestPostgres extends MaxRequestSize
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }
 
-// TODO(#16761): re-enable the test below (and remove the replacement) once crash recovery is implemented
-class MaxRequestSizeCrashBftOrderingIntegrationTestPostgres
-//  extends MaxRequestSizeCrashTest {
-//  registerPlugin(new UsePostgres(loggerFactory))
-//  registerPlugin(new UseBftOrderingBlockSequencer(loggerFactory))
-//}
+class MaxRequestSizeCrashBftOrderingIntegrationTestPostgres extends MaxRequestSizeCrashTest {
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseBftSequencer(loggerFactory))
+}

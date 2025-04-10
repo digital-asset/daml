@@ -412,6 +412,8 @@ class SequencerConnectionXPoolImplTest
 
             eventually() {
               pool.nbSequencers shouldBe NonNegativeInt.tryCreate(2)
+              // Wait until the bad bootstrap has been logged
+              loggerFactory.numberOfRecordedEntries shouldBe 1
             }
             pool.synchronizerId shouldBe Some(testSynchronizerId(2))
 

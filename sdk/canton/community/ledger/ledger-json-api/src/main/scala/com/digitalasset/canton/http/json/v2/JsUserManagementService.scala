@@ -14,7 +14,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.UserId
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
-import sttp.model.QueryParams
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
@@ -30,10 +29,10 @@ class JsUserManagementService(
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   def endpoints() = List(
-    withServerLogic(
+    asPagedList(
       JsUserManagementService.listUsersEndpoint,
       listUsers,
-    ), // TODO (i19538) paging
+    ),
     withServerLogic(
       JsUserManagementService.createUserEndpoint,
       createUser,
@@ -79,14 +78,16 @@ class JsUserManagementService(
 
   private def listUsers(
       callerContext: CallerContext
-  ): TracedInput[QueryParams] => Future[
+  ): TracedInput[PagedList[Unit]] => Future[
     Either[JsCantonError, user_management_service.ListUsersResponse]
   ] = req =>
     userManagementClient
       .serviceStub(callerContext.token())(req.traceContext)
-      .listUsers(user_management_service.ListUsersRequest("", 0, ""))
+      .listUsers(
+        user_management_service
+          .ListUsersRequest(req.in.pageToken.getOrElse(""), req.in.pageSize.getOrElse(0), "")
+      )
       .resultToRight
-  // TODO (i19538) paging
 
   private def getUser(
       callerContext: CallerContext
@@ -221,8 +222,8 @@ object JsUserManagementService extends DocumentationEndpoints {
   private val userIdPath = "user-id"
   val listUsersEndpoint =
     users.get
-      .in(queryParams)
       .out(jsonBody[user_management_service.ListUsersResponse])
+      .inPagedListParams()
       .description("List all users.")
 
   val createUserEndpoint =

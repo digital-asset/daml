@@ -308,6 +308,7 @@ select
     debug.resolve_lapi_interned_string(party_id) as party_id,
     participant_id,
     participant_permission,
+    participant_authorization_event,
     debug.resolve_lapi_interned_string(synchronizer_id) as synchronizer_id,
     debug.canton_timestamp(record_time) as record_time,
     trace_context

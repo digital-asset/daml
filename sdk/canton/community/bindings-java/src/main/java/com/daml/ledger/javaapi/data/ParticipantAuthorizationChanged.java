@@ -58,7 +58,7 @@ public final class ParticipantAuthorizationChanged implements TopologyEvent {
 
   @Override
   public String toString() {
-    return "CreatedEvent{"
+    return "ParticipantAuthorizationChanged{"
         + "partyId="
         + partyId
         + ", participantId='"

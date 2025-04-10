@@ -169,4 +169,8 @@
   type: jar-scala
 - target: //canton:base_util-external
   type: jar-scala
+- target: //canton:community_base_proto_scala
+  type: jar-scala
+- target: //canton:community_admin-api
+  type: jar-scala
 

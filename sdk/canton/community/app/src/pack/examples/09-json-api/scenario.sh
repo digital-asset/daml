@@ -32,7 +32,7 @@ create_contract() {
                  }
             }
         ],
-        "applicationId": "ledger-api-user",
+        "userId": "ledger-api-user",
         "commandId": "example-app-create-'${uniqueId}'",
         "actAs": ["'$appUserParty'"],
         "readAs": ["'$appUserParty'"]
@@ -57,7 +57,7 @@ exercise_transfer() {
                  }
             }
         ],
-        "applicationId": "ledger-api-user",
+        "userId": "ledger-api-user",
         "commandId": "example-app-transfer'${uniqueId}'",
         "actAs": ["'$appUserParty'"],
         "readAs": ["'$appUserParty'"]
@@ -79,7 +79,7 @@ exercise_accept() {
                  }
             }
         ],
-        "applicationId": "ledger-api-user",
+        "userId": "ledger-api-user",
         "commandId": "example-app-accept'${uniqueId}'",
         "actAs": ["'$appUserParty'"],
         "readAs": ["'$appUserParty'"]

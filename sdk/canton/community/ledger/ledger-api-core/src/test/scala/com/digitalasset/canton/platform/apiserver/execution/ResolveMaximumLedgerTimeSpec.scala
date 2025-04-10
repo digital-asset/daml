@@ -83,7 +83,6 @@ class ResolveMaximumLedgerTimeSpec
     FatContractInstanceHelper.buildFatContractInstance(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
       packageName = PackageName.assertFromString("pkg-name"),
-      packageVersion = None,
       contractId = cId,
       argument = Value.ValueNil,
       createdAt = createdAt,

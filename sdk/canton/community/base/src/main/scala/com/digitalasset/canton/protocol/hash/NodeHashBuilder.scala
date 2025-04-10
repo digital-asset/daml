@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol.hash
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer
+import com.digitalasset.canton.protocol.hash.NodeBuilder.NodeEncodingV1
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -21,10 +22,22 @@ private sealed abstract class NodeHashBuilder(
     hashTracer: HashTracer,
 ) extends LfValueBuilder(purpose, hashTracer) {
 
-  def addHashVersion(version: HashingSchemeVersion): this.type =
+  def addHashingSchemeVersion(hashingSchemeVersion: HashingSchemeVersion): this.type =
     addByte(
-      version.index.byteValue,
-      s"${formatByteToHexString(version.index.byteValue)} (Node Encoding Version)",
+      hashingSchemeVersion.index.byteValue,
+      byte => s"${formatByteToHexString(byte)} (Hashing Scheme Version)",
+    )
+
+  def addNodeEncodingVersion(nodeVersion: Int): this.type =
+    addByte(
+      nodeVersion.byteValue,
+      byte => s"${formatByteToHexString(byte)} (Node Encoding Version)",
+    )
+
+  def addMetadataEncodingVersion(metadataVersion: Int): this.type =
+    addByte(
+      metadataVersion.byteValue,
+      byte => s"${formatByteToHexString(byte)} (Metadata Encoding Version)",
     )
 
   private[hash] def hashNode(
@@ -57,10 +70,12 @@ private sealed abstract class NodeHashBuilder(
 }
 
 private object NodeBuilder {
+  // Version of the protobuf used to encode nodes defined in the interactive_submission_data.proto
+  private[hash] val NodeEncodingV1 = 1
   private[hash] val HashingVersionToSupportedLFVersionMapping
       : Map[HashingSchemeVersion, Set[LanguageVersion]] =
     Map(
-      HashingSchemeVersion.V1 -> Set(LanguageVersion.v2_1)
+      HashingSchemeVersion.V2 -> Set(LanguageVersion.v2_1)
     )
 
   private[hash] sealed abstract class NodeTag(val tag: Byte)
@@ -104,11 +119,11 @@ private class NodeBuilderV1(
     node.optVersion
       .foreach(
         NodeBuilder
-          .assertHashingVersionSupportsLfVersion(_, HashingSchemeVersion.V1)
+          .assertHashingVersionSupportsLfVersion(_, HashingSchemeVersion.V2)
       )
 
     new NodeBuilderV1(purpose, hashTracer, enforceNodeSeedForCreateNodes)
-      .addHashVersion(HashingSchemeVersion.V1)
+      .addNodeEncodingVersion(NodeEncodingV1)
       .addNode(node, nodeSeed, nodes, nodeSeeds)
       .finish()
   }
@@ -118,7 +133,6 @@ private class NodeBuilderV1(
     case Node.Create(
           coid,
           packageName,
-          packageVersion,
           templateId,
           arg,
           _agreementText @ _,
@@ -127,11 +141,10 @@ private class NodeBuilderV1(
           keyOpt,
           version,
         ) =>
-      if (packageVersion.isDefined) notSupported("packageVersion in Create node") // 2.dev feature
       if (keyOpt.isDefined) notSupported("keyOpt in Create node") // 2.dev feature
       addContext("Create Node")
         .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))
-        .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Create Node Tag")
+        .addByte(NodeBuilder.NodeTag.CreateTag.tag, _ => "Create Node Tag")
         .withContext("Node Seed")(
           _.addOptional(nodeSeed, builder => seed => builder.addLfHash(seed, "node seed"))
         )
@@ -158,15 +171,15 @@ private class NodeBuilderV1(
         ) =>
       if (keyOpt.nonEmpty) notSupported("keyOpt in Fetch node") // 2.dev feature
       if (byKey == true) notSupported("byKey in Fetch node") // 2.dev feature
-      if (interfaceId.nonEmpty) notSupported("interfaceId in Fetch node") // 2.dev feature
       addContext("Fetch Node")
         .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))
-        .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Fetch Node Tag")
+        .addByte(NodeBuilder.NodeTag.FetchTag.tag, _ => "Fetch Node Tag")
         .withContext("Contract Id")(_.addCid(coid))
         .withContext("Package Name")(_.add(packageName))
         .withContext("Template Id")(_.addIdentifier(templateId))
         .withContext("Signatories")(_.addStringSet(signatories))
         .withContext("Stakeholders")(_.addStringSet(stakeholders))
+        .withContext("Interface Id")(_.addOptional(interfaceId, _.addIdentifier))
         .withContext("Acting Parties")(_.addStringSet(actingParties))
   }
 
@@ -200,7 +213,7 @@ private class NodeBuilderV1(
       if (byKey == true) notSupported("byKey in Exercise node") // 2.dev feature
       addContext("Exercise Node")
         .withContext("Node Version")(_.add(TransactionVersion.toProtoValue(version)))
-        .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Exercise Node Tag")
+        .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, _ => "Exercise Node Tag")
         .withContext("Node Seed")(_.addLfHash(nodeSeed, "seed"))
         .withContext("Contract Id")(_.addCid(targetCoid))
         .withContext("Package Name")(_.add(packageName))
@@ -227,7 +240,7 @@ private class NodeBuilderV1(
       nodeSeeds: Map[NodeId, LfHash],
   ): Node.Rollback => this.type = { case Node.Rollback(children) =>
     addContext("Rollback Node")
-      .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Rollback Node Tag")
+      .addByte(NodeBuilder.NodeTag.RollbackTag.tag, _ => "Rollback Node Tag")
       .withContext("Children")(_.addNodesFromNodeIds(children, nodes, nodeSeeds))
   }
 
@@ -255,7 +268,7 @@ private class NodeBuilderV1(
 
   private[this] def notSupported(str: String) =
     throw NodeHashingError.UnsupportedFeature(
-      s"$str is not supported in version ${HashingSchemeVersion.V1.index}"
+      s"$str is not supported in version ${HashingSchemeVersion.V2.index}"
     )
 
   private[this] def missingNodeSeed(node: Node) =

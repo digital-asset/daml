@@ -1,0 +1,16 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module CantonLfV21 where
+
+-- this example doesn't do much. the magic is in daml.yaml that selects the `dev` version
+template HelloLfV21
+  with
+    owner : Party
+  where
+    signatory owner
+
+    choice Ack: ()
+      controller owner
+        do
+          return ()

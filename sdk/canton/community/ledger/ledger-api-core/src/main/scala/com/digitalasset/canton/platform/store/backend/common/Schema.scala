@@ -322,6 +322,9 @@ private[backend] object AppendOnlySchema {
         // TODO(i21859) Implement interning for participant ids
         "participant_id" -> fieldStrategy.string(_ => _.participant_id),
         "participant_permission" -> fieldStrategy.int(_ => _.participant_permission),
+        "participant_authorization_event" -> fieldStrategy.int(_ =>
+          _.participant_authorization_event
+        ),
         "synchronizer_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.synchronizerId.unsafe.internalize(dbDto.synchronizer_id)
         ),

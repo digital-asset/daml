@@ -152,6 +152,12 @@ object JsSchema {
   object JsTopologyEvent {
     sealed trait Event
 
+    final case class ParticipantAuthorizationAdded(
+        partyId: String,
+        participantId: String,
+        participantPermission: Int,
+    ) extends Event
+
     final case class ParticipantAuthorizationChanged(
         partyId: String,
         participantId: String,
@@ -234,10 +240,6 @@ object JsSchema {
       Try(Duration.create(str))
     }
 
-    implicit val byteStringSchema: Schema[protobuf.ByteString] = Schema(
-      SchemaType.SString()
-    )
-
     implicit val encodeByteString: Encoder[protobuf.ByteString] =
       Encoder.encodeString.contramap[protobuf.ByteString] { v =>
         Base64.getEncoder.encodeToString(v.toByteArray)
@@ -309,6 +311,8 @@ object JsSchema {
     implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveCodec
     implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveCodec
     implicit val jsTopologyEvent: Codec[JsTopologyEvent.Event] = deriveCodec
+    implicit val jsParticipantAuthorizationAdded
+        : Codec[JsTopologyEvent.ParticipantAuthorizationAdded] = deriveCodec
     implicit val jsParticipantAuthorizationChanged
         : Codec[JsTopologyEvent.ParticipantAuthorizationChanged] = deriveCodec
     implicit val jsParticipantAuthorizationRevoked
@@ -325,12 +329,24 @@ object JsSchema {
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
     implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
 
+    implicit val timestampSchema: Schema[protobuf.timestamp.Timestamp] = Schema.string
+
+    implicit val byteStringSchema: Schema[protobuf.ByteString] = Schema(
+      SchemaType.SString()
+    )
+
+    implicit val structSchema: Schema[protobuf.struct.Struct] = Schema.any
+
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsEventSchema: Schema[JsEvent.Event] =
       Schema.oneOfWrapped
 
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
+      Schema.oneOfWrapped
+
+    implicit val identifierFilterSchema
+        : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
       Schema.oneOfWrapped
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any

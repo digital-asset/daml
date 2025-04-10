@@ -1269,19 +1269,8 @@ object Ast {
       } else {
         false
       }
-    // package Name if the package support upgrade
-    // TODO: https://github.com/digital-asset/daml/issues/17965
-    //  drop that in daml-3
     private[lf] def pkgName: Ref.PackageName = metadata.name
-    private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
-      if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
-        Some(metadata.version)
-      else
-        None
-    }
-    private[lf] def pkgNameVersion: (Ref.PackageName, Option[Ref.PackageVersion]) =
-      pkgName -> pkgVersion
-
+    private[lf] def pkgVersion: Ref.PackageVersion = metadata.version
   }
 
   final class GenPackageCompanion[E] private[Ast] {

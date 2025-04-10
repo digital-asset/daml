@@ -16,6 +16,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.SyncCryptoError.{KeyNotAvailable, SyncCryptoEncryptionError}
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
+import com.digitalasset.canton.crypto.verifier.SyncCryptoVerifier
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
@@ -310,6 +311,7 @@ class SynchronizerCryptoClient private (
     val ips: SynchronizerTopologyClient,
     val crypto: Crypto,
     val syncCryptoSigner: SyncCryptoSigner,
+    val syncCryptoVerifier: SyncCryptoVerifier,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
@@ -350,6 +352,7 @@ class SynchronizerCryptoClient private (
       snapshot,
       crypto,
       syncCryptoSigner,
+      syncCryptoVerifier,
       loggerFactory,
     )
 
@@ -410,13 +413,9 @@ object SynchronizerCryptoClient {
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
     val syncCryptoSignerWithLongTermKeys = SyncCryptoSigner.createWithLongTermKeys(
-      synchronizerId,
-      staticSynchronizerParameters,
       member,
       crypto.privateCrypto,
-      pureCrypto,
       crypto.cryptoPrivateStore,
-      verificationParallelismLimit,
       loggerFactory,
     )
     new SynchronizerCryptoClient(
@@ -425,6 +424,13 @@ object SynchronizerCryptoClient {
       ips,
       crypto,
       syncCryptoSignerWithLongTermKeys,
+      SyncCryptoVerifier.create(
+        synchronizerId,
+        staticSynchronizerParameters,
+        pureCrypto,
+        verificationParallelismLimit,
+        loggerFactory,
+      ),
       staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
@@ -455,10 +461,8 @@ object SynchronizerCryptoClient {
       staticSynchronizerParameters,
       member,
       crypto.privateCrypto,
-      pureCrypto,
       crypto.cryptoPrivateStore,
       sessionSigningKeysConfig,
-      verificationParallelismLimit,
       loggerFactory,
     )
     new SynchronizerCryptoClient(
@@ -467,6 +471,13 @@ object SynchronizerCryptoClient {
       ips,
       crypto,
       syncCryptoSignerWithSessionKeys,
+      SyncCryptoVerifier.create(
+        synchronizerId,
+        staticSynchronizerParameters,
+        pureCrypto,
+        verificationParallelismLimit,
+        loggerFactory,
+      ),
       staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
@@ -483,6 +494,7 @@ class SynchronizerSnapshotSyncCryptoApi(
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
     val syncCryptoSigner: SyncCryptoSigner,
+    val syncCryptoVerifier: SyncCryptoVerifier,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends SyncCryptoApi
@@ -505,7 +517,7 @@ class SynchronizerSnapshotSyncCryptoApi(
       signature: Signature,
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    syncCryptoSigner.verifySignature(ipsSnapshot, hash, signer, signature, usage)
+    syncCryptoVerifier.verifySignature(ipsSnapshot, hash, signer, signature, usage)
 
   override def verifySignatures(
       hash: Hash,
@@ -513,7 +525,7 @@ class SynchronizerSnapshotSyncCryptoApi(
       signatures: NonEmpty[Seq[Signature]],
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    syncCryptoSigner.verifySignatures(ipsSnapshot, hash, signer, signatures, usage)
+    syncCryptoVerifier.verifySignatures(ipsSnapshot, hash, signer, signatures, usage)
 
   override def verifyMediatorSignatures(
       hash: Hash,
@@ -533,7 +545,7 @@ class SynchronizerSnapshotSyncCryptoApi(
             )
         }
       )
-      _ <- syncCryptoSigner.verifyGroupSignatures(
+      _ <- syncCryptoVerifier.verifyGroupSignatures(
         ipsSnapshot,
         hash,
         mediatorGroup.active,
@@ -561,7 +573,7 @@ class SynchronizerSnapshotSyncCryptoApi(
             )
           )
       )
-      _ <- syncCryptoSigner.verifyGroupSignatures(
+      _ <- syncCryptoVerifier.verifyGroupSignatures(
         ipsSnapshot,
         hash,
         sequencerGroup.active,
@@ -589,7 +601,7 @@ class SynchronizerSnapshotSyncCryptoApi(
             )
           )
       )
-      _ <- syncCryptoSigner.verifyGroupSignatures(
+      _ <- syncCryptoVerifier.verifyGroupSignatures(
         ipsSnapshot,
         hash,
         sequencerGroup.active,

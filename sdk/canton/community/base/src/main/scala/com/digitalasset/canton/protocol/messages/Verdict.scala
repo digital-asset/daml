@@ -5,13 +5,12 @@ package com.digitalasset.canton.protocol.messages
 
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.error.*
-import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.{ContextualizedErrorLogger, ErrorLoggingContext}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -20,7 +19,8 @@ import com.google.protobuf.empty
 import pprint.Tree
 
 trait TransactionRejection {
-  def logWithContext(extra: Map[String, String] = Map())(implicit
+
+  def logRejection(extra: Map[String, String] = Map())(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Unit
 
@@ -95,7 +95,7 @@ object Verdict
       param("isMalformed", _.isMalformed),
     )
 
-    override def logWithContext(
+    override def logRejection(
         extra: Map[String, String]
     )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit =
       // Log with level INFO, leave it to MediatorError to log the details.
@@ -106,6 +106,7 @@ object Verdict
 
     override def isTimeoutDeterminedByMediator: Boolean =
       DecodedCantonError.fromGrpcStatus(reason).exists(_.code.id == MediatorError.Timeout.id)
+
   }
 
   object MediatorReject {

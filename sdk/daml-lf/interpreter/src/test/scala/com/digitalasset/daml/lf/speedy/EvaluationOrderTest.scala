@@ -349,10 +349,9 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     Versioned(
       testTxVersion,
       Value.ContractInstance(
-        pkg.pkgName,
-        pkg.pkgVersion,
-        T,
-        Value.ValueRecord(
+        packageName = pkg.pkgName,
+        template = T,
+        arg = Value.ValueRecord(
           None,
           ImmArray(
             None -> Value.ValueParty(alice),
@@ -372,7 +371,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
       Speedy.ContractInfo(
         version = TransactionVersion.minVersion,
         packageName = pkg.pkgName,
-        packageVersion = pkg.pkgVersion,
         templateId = Dummy,
         value = SRecord(
           Dummy,
@@ -391,7 +389,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     testTxVersion,
     Value.ContractInstance(
       packageName = pkg.pkgName,
-      packageVersion = pkg.pkgVersion,
       template = Helper,
       arg = ValueRecord(
         None,
@@ -404,7 +401,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     testTxVersion,
     Value.ContractInstance(
       packageName = pkg.pkgName,
-      packageVersion = pkg.pkgVersion,
       template = Human,
       arg = Value.ValueRecord(
         None,
@@ -432,7 +428,6 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
     testTxVersion,
     Value.ContractInstance(
       packageName = pkg.pkgName,
-      packageVersion = pkg.pkgVersion,
       template = Dummy,
       arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),
     ),

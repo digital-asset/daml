@@ -10,7 +10,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
+  BftBlockOrdererConfig,
+  FingerprintKeyId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector.BootstrapKind
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.InitialState
@@ -52,6 +55,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
+  MessageAuthorizer,
   OrderingTopologyInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.PbftVerifiedNetworkMessage
@@ -108,6 +112,8 @@ final class IssConsensusModule[E <: Env[E]](
     ),
     // Only passed in tests
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
+    // Only passed in tests
+    private var messageAuthorizer: MessageAuthorizer = activeTopologyInfo.currentTopology,
 )(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
     extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
@@ -376,41 +382,54 @@ final class IssConsensusModule[E <: Env[E]](
         processPbftMessage(pbftEvent)
 
       case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
-        context.pipeToSelf(
-          signatureVerifier.verify(underlyingNetworkMessage, activeTopologyInfo)
-        ) {
-          case Failure(error) =>
-            logger.warn(
-              s"Message $underlyingNetworkMessage from ${underlyingNetworkMessage.from} could not be validated, dropping",
-              error,
-            )
-            emitNonCompliance(metrics)(
-              underlyingNetworkMessage.from,
-              underlyingNetworkMessage.message.blockMetadata.epochNumber,
-              underlyingNetworkMessage.message.viewNumber,
-              underlyingNetworkMessage.message.blockMetadata.blockNumber,
-              metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
-            )
-            None
-          case Success(Left(errors)) =>
-            // Info because it can also happen at epoch boundaries
-            logger.info(
-              s"Message $underlyingNetworkMessage from ${underlyingNetworkMessage.from} failed validation, dropping: $errors"
-            )
-            emitNonCompliance(metrics)(
-              underlyingNetworkMessage.from,
-              underlyingNetworkMessage.message.blockMetadata.epochNumber,
-              underlyingNetworkMessage.message.viewNumber,
-              underlyingNetworkMessage.message.blockMetadata.blockNumber,
-              metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
-            )
-            None
+        val from = underlyingNetworkMessage.from
+        val keyId = FingerprintKeyId.toBftKeyId(underlyingNetworkMessage.signature.signedBy)
+        val blockMetadata = underlyingNetworkMessage.message.blockMetadata
+        val epochNumber = blockMetadata.epochNumber
+        val blockNumber = blockMetadata.blockNumber
+        val viewNumber = underlyingNetworkMessage.message.viewNumber
 
-          case Success(Right(())) =>
-            logger.debug(
-              s"Message ${shortType(underlyingNetworkMessage.message)} from ${underlyingNetworkMessage.from} is valid"
-            )
-            Some(PbftVerifiedNetworkMessage(underlyingNetworkMessage))
+        def emitNonComplianceMetric(): Unit =
+          emitNonCompliance(metrics)(
+            from,
+            epochNumber,
+            viewNumber,
+            blockNumber,
+            metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
+          )
+
+        if (messageAuthorizer.isAuthorized(from, keyId)) {
+          context.pipeToSelf(
+            signatureVerifier.verify(underlyingNetworkMessage, activeTopologyInfo)
+          ) {
+            case Failure(error) =>
+              logger.warn(
+                s"Message $underlyingNetworkMessage from '$from' could not be validated, dropping",
+                error,
+              )
+              emitNonComplianceMetric()
+              None
+            case Success(Left(errors)) =>
+              // Info because it can also happen at epoch boundaries
+              logger.info(
+                s"Message $underlyingNetworkMessage from '$from' failed validation, dropping: $errors"
+              )
+              emitNonComplianceMetric()
+              None
+
+            case Success(Right(())) =>
+              logger.debug(
+                s"Message ${shortType(underlyingNetworkMessage.message)} from $from is valid"
+              )
+              Some(PbftVerifiedNetworkMessage(underlyingNetworkMessage))
+          }
+        } else {
+          emitNonComplianceMetric()
+          logger.warn(
+            s"Received a message from '$from' signed with '$keyId' " +
+              "but it is unauthorized in the current ordering topology " +
+              s"${activeTopologyInfo.currentTopology.nodesTopologyInfo}, dropping it"
+          )
         }
 
       case Consensus.ConsensusMessage.BlockOrdered(
@@ -599,6 +618,7 @@ final class IssConsensusModule[E <: Env[E]](
       newEpochInfo.number == currentEpochInfo.number + 1 || currentEpochInfo == GenesisEpochInfo
     ) {
       activeTopologyInfo = activeTopologyInfo.updateMembership(newMembership, newCryptoProvider)
+      messageAuthorizer = activeTopologyInfo.currentTopology
 
       val currentMembership = activeTopologyInfo.currentMembership
       catchupDetector.updateMembership(currentMembership)

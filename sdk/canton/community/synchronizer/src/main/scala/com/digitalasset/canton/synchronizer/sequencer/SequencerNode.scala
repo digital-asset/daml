@@ -8,7 +8,6 @@ import com.digitalasset.canton.admin.sequencer.v30.SequencerStatusServiceGrpc
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.config.SessionSigningKeysConfig
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoClient, SynchronizerCryptoPureApi}
@@ -623,9 +622,7 @@ class SequencerNodeBootstrap(
               staticSynchronizerParameters,
               crypto,
               new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
-              // TODO(#22362): Enable correct config
-              // parameters.sessionSigningKeys
-              SessionSigningKeysConfig.disabled,
+              parameters.sessionSigningKeys,
               parameters.batchingConfig.parallelism,
               parameters.processingTimeouts,
               futureSupervisor,

@@ -73,6 +73,24 @@ final class UpdateServiceAuthorization(
     authorizer.rpc(service.getTransactionById)(
       getTransactionByIdClaims(request)*
     )(request)
+
+  override def getUpdateByOffset(
+      request: GetUpdateByOffsetRequest
+  ): Future[GetUpdateResponse] =
+    authorizer.rpc(service.getUpdateByOffset)(
+      request.updateFormat.toList.flatMap(
+        RequiredClaims.updateFormatClaims[GetUpdateByOffsetRequest]
+      )*
+    )(request)
+
+  override def getUpdateById(
+      request: GetUpdateByIdRequest
+  ): Future[GetUpdateResponse] =
+    authorizer.rpc(service.getUpdateById)(
+      request.updateFormat.toList.flatMap(
+        RequiredClaims.updateFormatClaims[GetUpdateByIdRequest]
+      )*
+    )(request)
 }
 
 object UpdateServiceAuthorization {

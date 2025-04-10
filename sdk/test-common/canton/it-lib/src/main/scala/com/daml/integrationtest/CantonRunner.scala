@@ -100,6 +100,7 @@ object CantonRunner {
          |      init.ledger-api.max-deduplication-duration = 0s
          |      ledger-api{
          |        port = ${ledgerApiPort.port}
+         |        topology-aware-package-selection.enabled = true
          |        ${authConfig}
          |        ${tls}
          |      }

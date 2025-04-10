@@ -16,7 +16,7 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.server.ServerEndpoint
-import sttp.tapir.{AnyEndpoint, Endpoint, path, query}
+import sttp.tapir.{AnyEndpoint, path, query}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -31,7 +31,7 @@ class JsPartyManagementService(
 
   def endpoints(): List[ServerEndpoint[Any, Future]] =
     List(
-      withServerLogic(
+      asPagedList(
         JsPartyManagementService.listKnownPartiesEndpoint,
         listKnownParties,
       ),
@@ -50,15 +50,20 @@ class JsPartyManagementService(
       ),
     )
 
-  private val listKnownParties: CallerContext => TracedInput[Unit] => Future[
+  private val listKnownParties: CallerContext => TracedInput[PagedList[Unit]] => Future[
     Either[JsCantonError, party_management_service.ListKnownPartiesResponse]
   ] = ctx =>
     req =>
       partyManagementClient
         .serviceStub(ctx.token())(req.traceContext)
-        .listKnownParties(party_management_service.ListKnownPartiesRequest("", 0, ""))
+        .listKnownParties(
+          party_management_service.ListKnownPartiesRequest(
+            req.in.pageToken.getOrElse(""),
+            req.in.pageSize.getOrElse(0),
+            "",
+          )
+        )
         .resultToRight
-  // TODO (i19538) paging
 
   private val getParty
       : CallerContext => TracedInput[(String, Option[String], List[String])] => Future[
@@ -124,13 +129,7 @@ object JsPartyManagementService extends DocumentationEndpoints {
   private val parties = v2Endpoint.in(sttp.tapir.stringToPath("parties"))
   private val partyPath = "party"
 
-  val allocatePartyEndpoint: Endpoint[
-    CallerContext,
-    party_management_service.AllocatePartyRequest,
-    JsCantonError,
-    party_management_service.AllocatePartyResponse,
-    Any,
-  ] = parties.post
+  val allocatePartyEndpoint = parties.post
     .in(jsonBody[party_management_service.AllocatePartyRequest])
     .out(jsonBody[party_management_service.AllocatePartyResponse])
     .description("Allocate a new party to the participant node")
@@ -138,6 +137,7 @@ object JsPartyManagementService extends DocumentationEndpoints {
   val listKnownPartiesEndpoint =
     parties.get
       .out(jsonBody[party_management_service.ListKnownPartiesResponse])
+      .inPagedListParams()
       .description("List all known parties.")
 
   val getParticipantIdEndpoint =

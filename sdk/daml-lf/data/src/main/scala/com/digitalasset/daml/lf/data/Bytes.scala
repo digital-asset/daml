@@ -27,6 +27,8 @@ final class Bytes private (protected val value: ByteString) extends AnyVal {
 
   def toHexString: Ref.HexString = Ref.HexString.encode(this)
 
+  def toStringUtf8: String = toByteString.toStringUtf8
+
   def startsWith(prefix: Bytes): Boolean = value.startsWith(prefix.value)
 
   def slice(begin: Int, end: Int): Bytes = new Bytes(value.substring(begin, end))
@@ -67,6 +69,9 @@ object Bytes {
 
   def fromString(s: String): Either[String, Bytes] =
     Ref.HexString.fromString(s).map(fromHexString)
+
+  def fromStringUtf8(s: String): Bytes =
+    Bytes.fromByteString(com.google.protobuf.ByteString.copyFromUtf8(s))
 
   def assertFromString(s: String): Bytes =
     assertRight(fromString(s))

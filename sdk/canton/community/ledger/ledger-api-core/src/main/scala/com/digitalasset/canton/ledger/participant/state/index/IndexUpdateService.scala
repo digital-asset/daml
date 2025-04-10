@@ -6,12 +6,14 @@ package com.digitalasset.canton.ledger.participant.state.index
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.{EventFormat, TransactionFormat, UpdateFormat, UpdateId}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -56,6 +58,11 @@ trait IndexUpdateService extends LedgerEndService {
       offset: Offset,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
+
+  def getUpdateBy(
+      lookupKey: LookupKey,
+      updateFormat: UpdateFormat,
+  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]]
 
   def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace

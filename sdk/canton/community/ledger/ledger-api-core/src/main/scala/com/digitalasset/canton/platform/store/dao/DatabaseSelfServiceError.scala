@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.base.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.error.IndexErrors
+import com.digitalasset.canton.logging.ContextualizedErrorLogger
 import io.grpc.StatusRuntimeException
 import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
 import org.postgresql.util.PSQLException

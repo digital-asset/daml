@@ -10,13 +10,7 @@ import com.daml.ledger.api.v2.reassignment.{
   ReassignmentEvent as ApiReassignmentEvent,
   UnassignedEvent as ApiUnassignedEvent,
 }
-import com.daml.ledger.api.v2.state_service.ParticipantPermission as ApiParticipantPermission
-import com.daml.ledger.api.v2.topology_transaction.{
-  ParticipantAuthorizationChanged,
-  ParticipantAuthorizationRevoked,
-  TopologyEvent,
-  TopologyTransaction,
-}
+import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
 import com.daml.ledger.api.v2.transaction.{
   Transaction as FlatTransaction,
   TransactionTree,
@@ -25,16 +19,17 @@ import com.daml.ledger.api.v2.transaction.{
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
+  GetUpdateResponse,
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.ledger.api.TransactionShape.{AcsDelta, LedgerEffects}
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ParticipantAuthorizationFormat, TransactionShape}
-import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
+import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions.toTopologyEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
   CreatedEvent,
@@ -140,7 +135,7 @@ private[events] object TransactionLogUpdatesConversions {
         val internalTransactionFormat = internalUpdateFormat.includeTransactions
           .getOrElse(
             throw new IllegalStateException(
-              "Transaction cannot be converted as there is no transaction specified in update format"
+              "Transaction cannot be converted as there is no transaction format specified in update format"
             )
           )
         toTransaction(
@@ -181,6 +176,62 @@ private[events] object TransactionLogUpdatesConversions {
 
       case illegal => throw new IllegalStateException(s"$illegal is not expected here")
     }
+
+    def toGetUpdateResponse(
+        transactionLogUpdate: TransactionLogUpdate,
+        internalUpdateFormat: InternalUpdateFormat,
+        lfValueTranslation: LfValueTranslation,
+    )(implicit
+        loggingContext: LoggingContextWithTrace,
+        executionContext: ExecutionContext,
+    ): Future[Option[GetUpdateResponse]] =
+      filter(internalUpdateFormat)(transactionLogUpdate)
+        .collect {
+          case transactionAccepted: TransactionLogUpdate.TransactionAccepted =>
+            val internalTransactionFormat = internalUpdateFormat.includeTransactions
+              .getOrElse(
+                throw new IllegalStateException(
+                  "Transaction cannot be converted as there is no transaction format specified in update format"
+                )
+              )
+            toTransaction(
+              transactionAccepted,
+              internalTransactionFormat,
+              lfValueTranslation,
+              transactionAccepted.traceContext,
+            )
+              .map(transaction =>
+                GetUpdateResponse(GetUpdateResponse.Update.Transaction(transaction))
+                  .withPrecomputedSerializedSize()
+              )
+
+          case reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted =>
+            val reassignmentInternalEventFormat = internalUpdateFormat.includeReassignments
+              .getOrElse(
+                throw new IllegalStateException(
+                  "Reassignment cannot be converted as there is no reassignment specified in update format"
+                )
+              )
+            toReassignment(
+              reassignmentAccepted,
+              reassignmentInternalEventFormat.templatePartiesFilter.allFilterParties,
+              reassignmentInternalEventFormat.eventProjectionProperties,
+              lfValueTranslation,
+              reassignmentAccepted.traceContext,
+            )
+              .map(reassignment =>
+                GetUpdateResponse(GetUpdateResponse.Update.Reassignment(reassignment))
+                  .withPrecomputedSerializedSize()
+              )
+
+          case topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective =>
+            toTopologyTransaction(topologyTransaction).map(transaction =>
+              GetUpdateResponse(GetUpdateResponse.Update.TopologyTransaction(transaction))
+                .withPrecomputedSerializedSize()
+            )
+        }
+        .map(_.map(Some(_)))
+        .getOrElse(Future.successful(None))
 
     def toGetFlatTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
@@ -692,7 +743,6 @@ private[events] object TransactionLogUpdatesConversions {
             coid = createdEvent.contractId,
             templateId = createdEvent.templateId,
             packageName = createdEvent.packageName,
-            packageVersion = createdEvent.packageVersion,
             arg = createdEvent.createArgument.unversioned,
             signatories = createdEvent.createSignatories,
             stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
@@ -830,49 +880,22 @@ private[events] object TransactionLogUpdatesConversions {
     )
   }
 
-  private def toPermissionLevel(permission: AuthorizationLevel): Option[ApiParticipantPermission] =
-    permission match {
-      case AuthorizationLevel.Submission =>
-        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION)
-      case AuthorizationLevel.Observation =>
-        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION)
-      case AuthorizationLevel.Confirmation =>
-        Some(ApiParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION)
-      case AuthorizationLevel.Revoked => None
-    }
-
   private def toTopologyTransaction(
       topologyTransaction: TransactionLogUpdate.TopologyTransactionEffective
-  ): Future[TopologyTransaction] = Future.successful(
+  ): Future[TopologyTransaction] = Future.successful {
     TopologyTransaction(
       updateId = topologyTransaction.updateId,
       offset = topologyTransaction.offset.unwrap,
       synchronizerId = topologyTransaction.synchronizerId,
       recordTime = Some(TimestampConversion.fromLf(topologyTransaction.effectiveTime)),
       events = topologyTransaction.events.map(event =>
-        toPermissionLevel(event.level).fold(
-          TopologyEvent(
-            TopologyEvent.Event.ParticipantAuthorizationRevoked(
-              ParticipantAuthorizationRevoked(
-                partyId = event.party,
-                participantId = event.participant,
-              )
-            )
-          )
-        )(permission =>
-          TopologyEvent(
-            TopologyEvent.Event.ParticipantAuthorizationChanged(
-              ParticipantAuthorizationChanged(
-                partyId = event.party,
-                participantId = event.participant,
-                participantPermission = permission,
-              )
-            )
-          )
+        toTopologyEvent(
+          partyId = event.party,
+          participantId = event.participant,
+          authorizationEvent = event.authorizationEvent,
         )
       ),
       traceContext = SerializableTraceContext(topologyTransaction.traceContext).toDamlProtoOpt,
     )
-  )
-
+  }
 }

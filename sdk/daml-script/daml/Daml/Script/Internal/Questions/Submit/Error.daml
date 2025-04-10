@@ -7,6 +7,7 @@ module Daml.Script.Internal.Questions.Submit.Error
   , isNotActive
   , SubmitError (..)
   , UpgradeErrorType (..)
+  , CryptoErrorType (..)
   ) where
 
 import Daml.Script.Internal.Questions.Util
@@ -29,6 +30,15 @@ data UpgradeErrorType
         fieldIndex : Int
   | DowngradeFailed with
         expectedType : Text
+
+data CryptoErrorType
+  = MalformedByteEncoding with
+        value : Text
+    | MalformedKey with
+        keyValue : Text
+    | MalformedSignature with
+        signatureValue : Text
+    deriving Show
 
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
@@ -69,6 +79,9 @@ data SubmitError
   | -- | Contract with given contract key could not be found
     ContractKeyNotFound with
       contractKey : AnyContractKey
+  | -- | No vetted package with given package name could be found
+    UnresolvedPackageName with
+      packageName : Text
   | -- | Generic authorization failure, included missing party authority, invalid signatories, etc.
     AuthorizationError with
       authorizationErrorMessage : Text -- We can't pass over the data at the moment, so we just give the full string error here, for anyone that wants to check it
@@ -148,6 +161,10 @@ data SubmitError
       errorMessage : Text
   | FailureStatusError with
       failureStatus : FailureStatus
+  | -- | Crypto exceptions
+    CryptoError with
+      cryptoErrorType : CryptoErrorType
+      cryptoErrorMessage : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -169,6 +186,7 @@ instance Show SubmitError where
       "Could not find contract with ID(s) " <> intercalate ", " (toList unknownContractIds) <> "."
       <> foldMap (\info -> " Additional debugging info: " <> show info) additionalDebuggingInfo
     ContractKeyNotFound contractKey -> "Could not find contract with given key"
+    UnresolvedPackageName packageName -> "Could not find any vetted package with name " <> packageName
     AuthorizationError errMessage -> "Authorization failure: " <> errMessage
     DisclosedContractKeyHashingError contractId contractKey contractKeyHash ->
       "Disclosed contract with ID " <> show contractId <> " used incorrect payload - contract key hash: " <> contractKeyHash
@@ -194,6 +212,7 @@ instance Show SubmitError where
     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
     UpgradeError ty msg -> "UpgradeError: " <> show ty <> "\n with message \"" <> msg <> "\""
     FailureStatusError failureStatus -> "Failed with Status: " <> show failureStatus
+    CryptoError ty msg -> "CryptoError: " <> show ty <> "\n with message \"" <> msg <> "\""
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""

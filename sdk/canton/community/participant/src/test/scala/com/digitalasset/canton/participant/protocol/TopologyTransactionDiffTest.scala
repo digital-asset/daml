@@ -4,6 +4,11 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
+  Added,
+  ChangedTo,
+  Revoked,
+}
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
 import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
@@ -152,7 +157,7 @@ class TopologyTransactionDiffTest
           ptp(charlie, List(p2 -> ParticipantPermission.Submission)),
         )
       ).value.forgetNE should contain theSameElementsAs Set(
-        PartyToParticipantAuthorization(bob.toLf, p2.toLf, Submission)
+        PartyToParticipantAuthorization(bob.toLf, p2.toLf, Added(Submission))
       )
 
       diffInitialWith(
@@ -160,7 +165,7 @@ class TopologyTransactionDiffTest
           ptp(donald, List(p1 -> ParticipantPermission.Submission)) // new
         ) ++ initialTxs
       ).value.forgetNE should contain theSameElementsAs Set(
-        PartyToParticipantAuthorization(donald.toLf, p1.toLf, Submission)
+        PartyToParticipantAuthorization(donald.toLf, p1.toLf, Added(Submission))
       )
 
       diffInitialWith(
@@ -169,8 +174,8 @@ class TopologyTransactionDiffTest
           synchronizerTrustCertificate(p2), // new
         ) ++ initialTxs
       ).value.forgetNE should contain theSameElementsAs Set(
-        PartyToParticipantAuthorization(p1.adminParty.toLf, p1.toLf, Submission),
-        PartyToParticipantAuthorization(p2.adminParty.toLf, p2.toLf, Submission),
+        PartyToParticipantAuthorization(p1.adminParty.toLf, p1.toLf, Added(Submission)),
+        PartyToParticipantAuthorization(p2.adminParty.toLf, p2.toLf, Added(Submission)),
       )
 
       diffInitialWith(
@@ -178,7 +183,7 @@ class TopologyTransactionDiffTest
           ptp(
             bob,
             List(p1 -> ParticipantPermission.Confirmation, p2 -> ParticipantPermission.Observation),
-          ), // p2 added, p2 overridden
+          ), // p2 added, p1 overridden
           ptp(
             alice,
             List(p1 -> ParticipantPermission.Submission, p2 -> ParticipantPermission.Submission),
@@ -186,8 +191,8 @@ class TopologyTransactionDiffTest
           ptp(charlie, List(p2 -> ParticipantPermission.Submission)),
         )
       ).value.forgetNE should contain theSameElementsAs Set(
-        PartyToParticipantAuthorization(bob.toLf, p1.toLf, Confirmation),
-        PartyToParticipantAuthorization(bob.toLf, p2.toLf, Observation),
+        PartyToParticipantAuthorization(bob.toLf, p1.toLf, ChangedTo(Confirmation)),
+        PartyToParticipantAuthorization(bob.toLf, p2.toLf, Added(Observation)),
       )
     }
 

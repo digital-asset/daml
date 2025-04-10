@@ -33,7 +33,6 @@ import com.digitalasset.daml.lf.transaction.{
 }
 import com.digitalasset.daml.lf.value.{Value => V}
 
-import java.nio.charset.StandardCharsets
 import java.security.{
   InvalidKeyException,
   KeyFactory,
@@ -594,11 +593,8 @@ private[lf] object SBuiltinFun {
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(
-                IE.Dev.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
-              ),
+            IE.CCTP(
+              IE.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
             )
           )
       }
@@ -616,42 +612,33 @@ private[lf] object SBuiltinFun {
             .fromString(getSText(args, 0))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 0),
-                    cause = "can not parse signature hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 0),
+                  cause = "can not parse signature hex string",
+                )
               )
             )
           message <- Ref.HexString
             .fromString(getSText(args, 1))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 1),
-                    cause = "can not parse message hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 1),
+                  cause = "can not parse message hex string",
+                )
               )
             )
           derEncodedPublicKey <- Ref.HexString
             .fromString(getSText(args, 2))
             .left
             .map(_ =>
-              IE.Dev(
-                NameOf.qualifiedNameOfCurrentFunc,
-                IE.Dev.CCTP(
-                  IE.Dev.CCTP.MalformedByteEncoding(
-                    getSText(args, 2),
-                    cause = "can not parse DER encoded public key hex string",
-                  )
-                ),
+              IE.CCTP(
+                IE.CCTP.MalformedByteEncoding(
+                  getSText(args, 2),
+                  cause = "can not parse DER encoded public key hex string",
+                )
               )
             )
           publicKey = extractPublicKey(derEncodedPublicKey)
@@ -667,23 +654,20 @@ private[lf] object SBuiltinFun {
           crash("BouncyCastle provider fails to support SECP256K1")
         case exn: InvalidKeyException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: InvalidKeySpecException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: SignatureException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(IE.Dev.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)),
+            IE.CCTP(
+              IE.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)
             )
           )
       }
@@ -705,20 +689,17 @@ private[lf] object SBuiltinFun {
     ): Control[Q] = {
       try {
         val hexArg = Ref.HexString.assertFromString(getSText(args, 0))
-        val arg = new String(Ref.HexString.decode(hexArg).toByteArray, StandardCharsets.UTF_8)
+        val arg = Ref.HexString.decode(hexArg).toStringUtf8
 
         Control.Value(SText(arg))
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.CCTP(
-                IE.Dev.CCTP.MalformedByteEncoding(
-                  getSText(args, 0),
-                  cause = "can not parse hex string argument",
-                )
-              ),
+            IE.CCTP(
+              IE.CCTP.MalformedByteEncoding(
+                getSText(args, 0),
+                cause = "can not parse hex string argument",
+              )
             )
           )
       }
@@ -728,7 +709,7 @@ private[lf] object SBuiltinFun {
   final case object SBEncodeHex extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
       val arg = getSText(args, 0)
-      val hexArg = Ref.HexString.encode(Bytes.fromByteArray(arg.getBytes(StandardCharsets.UTF_8)))
+      val hexArg = Ref.HexString.encode(Bytes.fromStringUtf8(arg))
 
       SText(hexArg)
     }
@@ -1168,7 +1149,7 @@ private[lf] object SBuiltinFun {
         allowCatchingContractInfoErrors = false,
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
-        val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+        val pkgName = machine.tmplId2PackageName(templateId)
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1334,9 +1315,7 @@ private[lf] object SBuiltinFun {
       k: PackageId => Control[Q]
   ): Control[Q] = {
     machine.packageResolution.get(pkgName) match {
-      // TODO https://github.com/digital-asset/daml/issues/17995
-      //  We need a proper interpretation error here
-      case None => crash(s"cannot resolve package $pkgName")
+      case None => Control.Error(IE.UnresolvedPackageName(pkgName))
       case Some(pkgId) => k(pkgId)
     }
   }
@@ -1506,8 +1485,8 @@ private[lf] object SBuiltinFun {
     if (dstTplId == srcTplId) {
       k(Some(srcArg))
     } else if (dstTplId.qualifiedName == srcTplId.qualifiedName) {
-      val (srcPkgName, _) = machine.tmplId2PackageNameVersion(dstTplId)
-      val (dstPkgName, _) = machine.tmplId2PackageNameVersion(srcTplId)
+      val srcPkgName = machine.tmplId2PackageName(dstTplId)
+      val dstPkgName = machine.tmplId2PackageName(srcTplId)
       if (srcPkgName == dstPkgName) {
         // This isn't ideal as its a large uncached computation in a non Update primative.
         // Ideally this would run in Update, and not iterate the value twice
@@ -1695,7 +1674,7 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Nothing] = {
       val keyVersion = machine.tmplId2TxVersion(templateId)
-      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, keyVersion, pkgName, templateId, args.get(0))
       val mbCoid = args.get(1) match {
@@ -1775,7 +1754,7 @@ private[lf] object SBuiltinFun {
 
       val keyValue = args.get(0)
       val version = machine.tmplId2TxVersion(templateId)
-      val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+      val pkgName = machine.tmplId2PackageName(templateId)
       val cachedKey =
         extractKey(NameOf.qualifiedNameOfCurrentFunc, version, pkgName, templateId, keyValue)
       if (cachedKey.maintainers.isEmpty) {
@@ -2175,7 +2154,7 @@ private[lf] object SBuiltinFun {
       val contractInfoStruct = args.get(0)
       val contractInfo = extractContractInfo(
         machine.tmplId2TxVersion,
-        machine.tmplId2PackageNameVersion,
+        machine.tmplId2PackageName,
         contractInfoStruct,
       )
       val recomputed = contractInfo.toCreateNode(contract.contractId)
@@ -2332,7 +2311,7 @@ private[lf] object SBuiltinFun {
 
   private def extractContractInfo(
       tmplId2TxVersion: TypeConName => TransactionVersion,
-      tmplId2PackageNameVersion: TypeConName => (PackageName, Option[PackageVersion]),
+      tmplId2PackageName: TypeConName => PackageName,
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2346,7 +2325,7 @@ private[lf] object SBuiltinFun {
             )
         }
         val version = tmplId2TxVersion(templateId)
-        val (pkgName, pkgVer) = tmplId2PackageNameVersion(templateId)
+        val pkgName = tmplId2PackageName(templateId)
         val mbKey = vals.get(contractInfoStructKeyIdx) match {
           case SOptional(mbKey) =>
             mbKey.map(
@@ -2361,7 +2340,6 @@ private[lf] object SBuiltinFun {
         ContractInfo(
           version = version,
           packageName = pkgName,
-          packageVersion = pkgVer,
           templateId = templateId,
           value = vals.get(contractInfoStructArgIdx),
           signatories = extractParties(
@@ -2575,7 +2553,7 @@ private[lf] object SBuiltinFun {
       contractInfoStruct =>
         val contract = extractContractInfo(
           machine.tmplId2TxVersion,
-          machine.tmplId2PackageNameVersion,
+          machine.tmplId2PackageName,
           contractInfoStruct,
         )
         f(contract)

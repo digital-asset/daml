@@ -216,7 +216,7 @@ trait StressTopologyDispatcherIntegrationTest
               endOffsetInclusive = Some(endOffset),
             )
             .flatMap(_.topologyTransaction.events)
-            .flatMap(_.event.participantAuthorizationChanged)
+            .flatMap(_.event.participantAuthorizationAdded)
             .map(_.partyId)
             .map(PartyId.tryFromProtoPrimitive)
             .map(_.identifier.str)

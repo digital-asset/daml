@@ -324,7 +324,7 @@ private[platform] object InMemoryStateUpdater {
       .collect { case TransactionLogUpdate.TopologyTransactionEffective(_, _, _, _, events) =>
         events.collect { case u: TransactionLogUpdate.PartyToParticipantAuthorization =>
           PartyAllocation.Completed(
-            PartyAllocation.TrackerKey.of(u.party, u.participant, u.level),
+            PartyAllocation.TrackerKey.of(u.party, u.participant, u.authorizationEvent),
             IndexerPartyDetails(party = u.party, isLocal = u.participant == participantId),
           )
         }
@@ -370,7 +370,6 @@ private[platform] object InMemoryStateUpdater {
         contractId = createdEvent.contractId,
         contract = Contract(
           packageName = createdEvent.packageName,
-          packageVersion = createdEvent.packageVersion,
           template = createdEvent.templateId,
           arg = createdEvent.createArgument,
         ),
@@ -432,7 +431,7 @@ private[platform] object InMemoryStateUpdater {
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
           templateId = create.templateId,
           packageName = create.packageName,
-          packageVersion = create.packageVersion,
+          packageVersion = None,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
           contractKey = create.keyOpt.map(k =>
@@ -596,7 +595,7 @@ private[platform] object InMemoryStateUpdater {
               ledgerEffectiveTime = assign.ledgerEffectiveTime,
               templateId = create.templateId,
               packageName = create.packageName,
-              packageVersion = create.packageVersion,
+              packageVersion = None,
               commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
               workflowId = u.workflowId.getOrElse(""),
               contractKey = create.keyOpt.map(k =>
@@ -638,7 +637,7 @@ private[platform] object InMemoryStateUpdater {
             TransactionLogUpdate.PartyToParticipantAuthorization(
               party = event.party,
               participant = event.participant,
-              level = event.level,
+              authorizationEvent = event.authorizationEvent,
             )
         }
         .toVector,

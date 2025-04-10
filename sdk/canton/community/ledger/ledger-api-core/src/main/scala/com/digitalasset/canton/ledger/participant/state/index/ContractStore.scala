@@ -68,7 +68,6 @@ object ContractState {
         Node.Create(
           coid = coid,
           packageName = ci.packageName,
-          packageVersion = None,
           templateId = ci.template,
           arg = ci.arg,
           signatories = signatories,

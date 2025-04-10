@@ -600,13 +600,23 @@ class GrpcLedgerClient(
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = unsupportedOn("vetPackages")
+  ): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
+    )
+    adminClient.vetPackages(packages)
+  }
 
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
-  ): Future[Unit] = unsupportedOn("unvetPackages")
+  ): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
+    )
+    adminClient.unvetPackages(packages)
+  }
 
   override def listVettedPackages()(implicit
       ec: ExecutionContext,
@@ -619,26 +629,4 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
-
-  override def vetDar(name: String)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use vetDar without specifying a adminPort")
-    )
-    adminClient.vetDar(name)
-  }
-
-  override def unvetDar(name: String)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
-    )
-    adminClient.unvetDar(name)
-  }
 }

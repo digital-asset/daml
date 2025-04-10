@@ -4,7 +4,11 @@
 package com.daml.ledger.javaapi.data
 
 import com.daml.ledger.api.*
-import com.daml.ledger.api.v2.{CommandsOuterClass, TransactionFilterOuterClass}
+import com.daml.ledger.api.v2.{
+  CommandsOuterClass,
+  StateServiceOuterClass,
+  TransactionFilterOuterClass,
+}
 import com.google.protobuf.{ByteString, Empty, Timestamp}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -253,6 +257,9 @@ object Generators {
         participantAuthorizationChangedGen.map(e =>
           (b: TopologyEvent.Builder) => b.setParticipantAuthorizationChanged(e)
         ),
+        participantAuthorizationAddedGen.map(e =>
+          (b: TopologyEvent.Builder) => b.setParticipantAuthorizationAdded(e)
+        ),
         participantAuthorizationRevokedGen.map(e =>
           (b: TopologyEvent.Builder) => b.setParticipantAuthorizationRevoked(e)
         ),
@@ -390,17 +397,33 @@ object Generators {
       .setExerciseResult(exerciseResult)
       .build()
 
+  val participantPermissionGen: Gen[StateServiceOuterClass.ParticipantPermission] =
+    Gen.oneOf(
+      v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+      v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+      v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
+    )
+
   val participantAuthorizationChangedGen
       : Gen[v2.TopologyTransactionOuterClass.ParticipantAuthorizationChanged] =
     for {
       partyId <- Arbitrary.arbString.arbitrary
       participantId <- Arbitrary.arbString.arbitrary
-      permission <- Gen.oneOf(
-        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
-        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
-        v2.StateServiceOuterClass.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION,
-      )
+      permission <- participantPermissionGen
     } yield v2.TopologyTransactionOuterClass.ParticipantAuthorizationChanged
+      .newBuilder()
+      .setPartyId(partyId)
+      .setParticipantId(participantId)
+      .setParticipantPermission(permission)
+      .build()
+
+  val participantAuthorizationAddedGen
+      : Gen[v2.TopologyTransactionOuterClass.ParticipantAuthorizationAdded] =
+    for {
+      partyId <- Arbitrary.arbString.arbitrary
+      participantId <- Arbitrary.arbString.arbitrary
+      permission <- participantPermissionGen
+    } yield v2.TopologyTransactionOuterClass.ParticipantAuthorizationAdded
       .newBuilder()
       .setPartyId(partyId)
       .setParticipantId(participantId)
@@ -1084,6 +1107,30 @@ object Generators {
       .build()
   }
 
+  def getUpdateByOffsetRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdateByOffsetRequest] = {
+    import v2.UpdateServiceOuterClass.GetUpdateByOffsetRequest as Request
+    for {
+      offset <- Arbitrary.arbLong.arbitrary
+      updateFormat <- updateFormatGen
+    } yield Request
+      .newBuilder()
+      .setOffset(offset)
+      .setUpdateFormat(updateFormat)
+      .build()
+  }
+
+  def getUpdateByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdateByIdRequest] = {
+    import v2.UpdateServiceOuterClass.GetUpdateByIdRequest as Request
+    for {
+      updateId <- Arbitrary.arbString.arbitrary.suchThat(_.nonEmpty)
+      updateFormat <- updateFormatGen
+    } yield Request
+      .newBuilder()
+      .setUpdateId(updateId)
+      .setUpdateFormat(updateFormat)
+      .build()
+  }
+
   def getTransactionByIdRequestGen: Gen[v2.UpdateServiceOuterClass.GetTransactionByIdRequest] = {
     import v2.UpdateServiceOuterClass.GetTransactionByIdRequest as Request
     for {
@@ -1157,6 +1204,24 @@ object Generators {
         ),
         offsetCheckpointGen.map(checkpoint =>
           (b: Response.Builder) => b.setOffsetCheckpoint(checkpoint)
+        ),
+        topologyTransactionGen.map(topologyTransaction =>
+          (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
+        ),
+      )
+    } yield Response
+      .newBuilder()
+      .pipe(update)
+      .build()
+  }
+
+  def getUpdateResponseGen: Gen[v2.UpdateServiceOuterClass.GetUpdateResponse] = {
+    import v2.UpdateServiceOuterClass.GetUpdateResponse as Response
+    for {
+      update <- Gen.oneOf(
+        transactionGen.map(transaction => (b: Response.Builder) => b.setTransaction(transaction)),
+        reassignmentGen.map(reassingment =>
+          (b: Response.Builder) => b.setReassignment(reassingment)
         ),
         topologyTransactionGen.map(topologyTransaction =>
           (b: Response.Builder) => b.setTopologyTransaction(topologyTransaction)
@@ -1435,4 +1500,41 @@ object Generators {
       .setEventFormat(eventFormat)
       .setTransactionShape(transactionShape)
       .build()
+
+  val topologyFormatGen: Gen[TransactionFilterOuterClass.TopologyFormat] =
+    for {
+      partiesList <- Gen.listOf(Arbitrary.arbString.arbitrary)
+      parties = partiesList.toSet
+      partiesO <- Gen.option(parties)
+      participantAuthorizationTopologyFormat =
+        TransactionFilterOuterClass.ParticipantAuthorizationTopologyFormat
+          .newBuilder()
+          .addAllParties(partiesO.fold(List.empty[String].asJava)(_.toList.asJava))
+          .build()
+      participantAuthorizationTopologyFormatO <- Gen.option(participantAuthorizationTopologyFormat)
+    } yield {
+      val builder = TransactionFilterOuterClass.TopologyFormat.newBuilder()
+
+      participantAuthorizationTopologyFormatO
+        .map(builder.setIncludeParticipantAuthorizationEvents)
+
+      builder.build()
+    }
+
+  val updateFormatGen: Gen[TransactionFilterOuterClass.UpdateFormat] =
+    for {
+      transactionFormatO <- Gen.option(transactionFormatGen)
+      reassignmentFormatO <- Gen.option(eventFormatGen)
+      topologyFormatO <- Gen.option(topologyFormatGen)
+    } yield {
+      val builder = TransactionFilterOuterClass.UpdateFormat
+        .newBuilder()
+
+      transactionFormatO.map(builder.setIncludeTransactions)
+      reassignmentFormatO.map(builder.setIncludeReassignments)
+      topologyFormatO.map(builder.setIncludeTopologyEvents)
+
+      builder.build()
+    }
+
 }

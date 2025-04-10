@@ -43,7 +43,7 @@ message CreatedEvent {
 
   // The position of this event in the originating transaction or reassignment.
   // The origin has contextual meaning, please see description at messages that include a CreatedEvent.
-  // Node ids are not necessarily equal across participants,
+  // Node IDs are not necessarily equal across participants,
   // as these may see different projections/parts of transactions.
   // Required, must be valid node ID (non-negative integer)
   int32 node_id = 2;
@@ -163,7 +163,7 @@ message ArchivedEvent {
   int64 offset = 1;
 
   // The position of this event in the originating transaction or reassignment.
-  // Node ids are not necessarily equal across participants,
+  // Node IDs are not necessarily equal across participants,
   // as these may see different projections/parts of transactions.
   // Required, must be valid node ID (non-negative integer)
   int32 node_id = 2;
@@ -207,7 +207,7 @@ message ExercisedEvent {
   int64 offset = 1;
 
   // The position of this event in the originating transaction or reassignment.
-  // Node ids are not necessarily equal across participants,
+  // Node IDs are not necessarily equal across participants,
   // as these may see different projections/parts of transactions.
   // Required, must be valid node ID (non-negative integer)
   int32 node_id = 2;
