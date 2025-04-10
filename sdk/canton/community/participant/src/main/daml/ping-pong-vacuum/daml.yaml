@@ -1,11 +1,11 @@
-sdk-version: 2.9.5
+sdk-version: 2.9.6
 build-options: 
 - --target=1.14
 name: AdminWorkflowsWithVacuuming
 data-dependencies: 
 - ../../../src/main/resources/dar/AdminWorkflows.dar
 source: PingPongVacuum.daml
-version: 2.9.6
+version: 2.9.7
 dependencies: 
 - daml-prim
 - daml-stdlib
