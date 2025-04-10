@@ -63,18 +63,18 @@ assertBeforeMsg msg time = do
     then assertFail msg
     else return ()
 
--- | Check whether the ledger time of the transaction is at or past the given deadline.
+-- | Check whether the ledger time of the transaction is strictly before the given deadline.
 -- If it's not, abort with a message.
 assertWithinDeadline: Text -> Time -> Update ()
 assertWithinDeadline name deadline = do
   deadlineExceeded <- isLedgerTimeGE deadline
   when deadlineExceeded $ assertFail $
-    "Ledger time is at or past deadline '" <> name <> "' at " <> show deadline
+    "Ledger time is strictly before deadline '" <> name <> "' at " <> show deadline
 
--- | Check whether the ledger time of the transaction before the given deadline.
+-- | Check whether the ledger time of the transaction ia at or after the given deadline.
 -- If it's not, abort with a message.
 assertDeadlineExceeded: Text -> Time -> Update ()
 assertDeadlineExceeded name deadline = do
   deadlineExceeded <- isLedgerTimeGE deadline
   unless deadlineExceeded $ assertFail $
-      "Ledger time is before deadline '" <> name <> "' at " <> show deadline
+      "Ledger time is at or after deadline '" <> name <> "' at " <> show deadline
