@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
@@ -37,7 +37,7 @@ trait PackageSyncService {
   ): Future[SubmissionResult]
 
   def getPackageMetadataSnapshot(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PackageMetadata =
     throw new UnsupportedOperationException()
 

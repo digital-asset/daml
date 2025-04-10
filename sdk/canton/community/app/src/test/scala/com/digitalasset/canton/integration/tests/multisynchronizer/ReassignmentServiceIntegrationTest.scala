@@ -293,7 +293,7 @@ abstract class ReassignmentServiceIntegrationTest
         getAssignmentCmd(
           source = daId,
           target = acmeId,
-          unassignmentId = unassignedEvent.event.unassignId,
+          unassignmentId = unassignedEvent.unassignId,
         ),
         submittingParty = signatory.toLf,
       )
@@ -333,12 +333,12 @@ abstract class ReassignmentServiceIntegrationTest
         )
 
       // Assign contract
-      val reassignmentId = getReassignmentId(unassignedEvent.event)
+      val reassignmentId = getReassignmentId(unassignedEvent)
       val assignmentCmd = getReassignmentCommand(
         getAssignmentCmd(
           source = daId,
           target = acmeId,
-          unassignmentId = unassignedEvent.event.unassignId,
+          unassignmentId = unassignedEvent.unassignId,
         ),
         submittingParty = signatory.toLf,
       )
@@ -502,7 +502,7 @@ abstract class ReassignmentServiceIntegrationTest
 
     val expectedUnassignedEvent = proto.reassignment.UnassignedEvent(
       offset = 0L,
-      unassignId = unassignedEvent.event.unassignId, // We don't know this value
+      unassignId = unassignedEvent.unassignId, // We don't know this value
       contractId = cid.coid,
       templateId = expectedTemplateId,
       source = daId.toProtoPrimitive,
@@ -510,13 +510,15 @@ abstract class ReassignmentServiceIntegrationTest
       submitter = submittingParty.toLf,
       reassignmentCounter = 1,
       assignmentExclusivity =
-        unassignedEvent.event.assignmentExclusivity, // We don't know this value
+        unassignedEvent.events.loneElement.assignmentExclusivity, // We don't know this value
       witnessParties = Seq(submittingParty.toProtoPrimitive),
       packageName = "CantonExamples",
       nodeId = 0,
     )
 
-    comparableUnassignedEvent(unassignedEvent.event) shouldBe expectedUnassignedEvent
+    comparableUnassignedEvent(
+      unassignedEvent.events.loneElement
+    ) shouldBe expectedUnassignedEvent
     unassignedEvent.reassignment.workflowId shouldBe defaultWorkflowId
     unassignedEvent.reassignment.commandId shouldBe defaultCommandId
 
@@ -551,7 +553,7 @@ abstract class ReassignmentServiceIntegrationTest
     )
 
     val (assignedEvent, assignmentCompletion) = assign(
-      unassignId = unassignedEvent.event.unassignId,
+      unassignId = unassignedEvent.unassignId,
       source = daId,
       target = acmeId,
       submittingParty = submittingParty.toLf,
@@ -577,7 +579,7 @@ abstract class ReassignmentServiceIntegrationTest
       createdEvent = Some(expectedCreatedEvent),
     )
 
-    comparableAssignedEvent(assignedEvent.event) shouldBe
+    comparableAssignedEvent(assignedEvent.events.loneElement) shouldBe
       comparableAssignedEvent(expectedAssignedEvent)
 
     assignedEvent.reassignment.workflowId shouldBe defaultWorkflowId

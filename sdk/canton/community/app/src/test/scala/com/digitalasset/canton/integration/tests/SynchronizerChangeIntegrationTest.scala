@@ -38,7 +38,7 @@ import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
+import com.digitalasset.canton.synchronizer.sequencer.HasProgrammableSequencer
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -52,8 +52,8 @@ import org.scalatest.{Assertion, Tag}
 
 import java.time.Duration as JDuration
 import java.util.concurrent.atomic.AtomicInteger
+import scala.concurrent.Future
 import scala.concurrent.duration.*
-import scala.concurrent.{Future, Promise}
 import scala.jdk.CollectionConverters.*
 import scala.language.implicitConversions
 import scala.util.{Failure, Success}
@@ -604,7 +604,6 @@ abstract class SynchronizerChangeSimClockIntegrationTest
                 paintSynchronizerId,
                 iouSynchronizerId,
               )
-              .unassignedEvent
 
           P4.ledger_api.commands.submit_assign(
             painter,
@@ -866,7 +865,6 @@ trait SynchronizerChangeRealClockIntegrationTest
                 sourceId,
                 targetId,
               )
-              .unassignedEvent
 
           def assign(participant: ParticipantReference, party: PartyId): Unit =
             participant.ledger_api.commands.submit_assign(
@@ -966,79 +964,6 @@ trait SynchronizerChangeRealClockIntegrationTest
       }
 
     }
-  }
-
-  "unassignment event arrives after the assignment for the reassigning participant" in {
-    implicit env =>
-      import env.*
-
-      withUniqueParties { case (alice, bank, painter) =>
-        val iou = createIou(alice, bank, painter)
-        val iouId = iou.id.toLf
-
-        val cmd = createPaintOfferCmd(alice, bank, painter, iouId)
-        P5.ledger_api.commands.submit(Seq(alice), Seq(cmd), Some(paintSynchronizerId))
-
-        val paintOfferId = searchAcsSync(
-          Seq(P4),
-          paintSynchronizerAlias,
-          PaintModule,
-          OfferToPaintHouseByOwnerTemplate,
-          stakeholder = Some(painter),
-        )
-
-        val sequencerPaint = getProgrammableSequencer("sequencer2")
-
-        // When the confirmation result for the unassignment arrives, disconnect P5 from PaintSynchronizer
-        val unassignmentResultReady = Promise[Unit]()
-        val P5disconnected = Promise[Unit]()
-        val paintMediator = mediator2.id
-        sequencerPaint.setPolicy_("hold back confirmation result until P5 is disconnected") {
-          submissionRequest =>
-            if (submissionRequest.sender == paintMediator) {
-              unassignmentResultReady.trySuccess(())
-              SendDecision.HoldBack(P5disconnected.future)
-            } else SendDecision.Process
-        }
-
-        val unassignedEventF = Future {
-          P4.ledger_api.commands
-            .submit_unassign(painter, paintOfferId, paintSynchronizerId, iouSynchronizerId)
-            .unassignedEvent
-        }
-        val disconnectedF = unassignmentResultReady.future.map { _ =>
-          P5.synchronizers.disconnect(paintSynchronizerAlias)
-          P5disconnected.success(())
-        }
-
-        val patience = defaultPatience.copy(timeout = defaultPatience.timeout.scaledBy(2))
-        val paintOfferUnassignedEvent = unassignedEventF.futureValue(patience, Position.here)
-        disconnectedF.futureValue
-
-        P4.ledger_api.commands.submit_assign(
-          painter,
-          paintOfferUnassignedEvent.unassignId,
-          paintSynchronizerId,
-          iouSynchronizerId,
-        )
-
-        logger.info("Reconnect P5")
-        P5.synchronizers.reconnect(paintSynchronizerAlias)
-        assertNotInAcsSync(
-          Seq(P5),
-          paintSynchronizerAlias,
-          PaintModule,
-          OfferToPaintHouseByOwnerTemplate,
-          stakeholder = Some(alice),
-        )
-        assertNotInAcsSync(
-          Seq(P4),
-          paintSynchronizerAlias,
-          PaintModule,
-          OfferToPaintHouseByOwnerTemplate,
-          stakeholder = Some(painter),
-        )
-      }
   }
 
 }

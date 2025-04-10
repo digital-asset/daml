@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 import cats.Applicative
 import cats.syntax.either.*
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, TracedLogger}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
 import io.scalaland.chimney.partial.{Error, Path, Result}
@@ -28,7 +28,7 @@ object PreparedTransactionCodec {
       * containing only the high level reason of the failure.
       */
     def toFutureWithLoggedFailures(description: String, logger: TracedLogger)(implicit
-        errorLoggingContext: ContextualizedErrorLogger,
+        errorLoggingContext: ErrorLoggingContext,
         traceContext: TraceContext,
     ): Future[A] = Future.fromTry {
       result.asEither

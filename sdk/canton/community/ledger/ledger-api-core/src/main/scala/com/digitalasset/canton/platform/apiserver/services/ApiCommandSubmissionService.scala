@@ -26,7 +26,6 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackO
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -75,7 +74,7 @@ final class ApiCommandSubmissionService(
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(request.traceContext)
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request.value)
-    val errorLogger: ContextualizedErrorLogger =
+    val errorLogger: ErrorLoggingContext =
       ErrorLoggingContext.fromOption(
         logger,
         loggingContextWithTrace,
@@ -148,7 +147,7 @@ final class ApiCommandSubmissionService(
         .setAttribute(SpanAttribute.WorkflowId, command.workflowId)
     }
     val requestWithSubmissionId = generateSubmissionIdIfEmpty(request)
-    val errorLogger: ContextualizedErrorLogger =
+    val errorLogger: ErrorLoggingContext =
       ErrorLoggingContext.fromOption(
         logger,
         loggingContextWithTrace,

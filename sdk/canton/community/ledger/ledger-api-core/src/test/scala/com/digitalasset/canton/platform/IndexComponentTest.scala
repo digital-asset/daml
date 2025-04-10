@@ -171,6 +171,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           ),
           queryExecutionContext = executorService,
           commandExecutionContext = executorService,
+          getPackagePreference = _ => _ => FutureUnlessShutdown.pure(None),
         )
       } yield indexService -> indexer
 

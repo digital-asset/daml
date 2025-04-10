@@ -8,7 +8,6 @@ import cats.syntax.either.*
 import com.digitalasset.canton.config.CantonConfig
 import com.digitalasset.canton.console.BufferedProcessLogger
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
 import java.nio.file.{Path, Paths}
@@ -72,7 +71,6 @@ final case class UseExternalConsole(
   private def run(command: String)(implicit
       elc: ErrorLoggingContext
   ): String = {
-    implicit val traceContext: TraceContext = elc.traceContext
 
     val cantonBinFile = BFile(cantonBin)
 
@@ -81,7 +79,7 @@ final case class UseExternalConsole(
       s"$cantonBinFile doesn't exist. Before being able to run these tests locally, you need to execute `sbt bundle`",
     )
     val processLogger = new BufferedProcessLogger
-    elc.logger.info(s"Running $command")
+    elc.info(s"Running $command")
 
     val process = Process(command, None, extraEnv*)
 
@@ -91,7 +89,7 @@ final case class UseExternalConsole(
       )
     }
 
-    elc.logger.info(s"Running command has succeeded and returned $result")
+    elc.info(s"Running command has succeeded and returned $result")
     result
   }
 

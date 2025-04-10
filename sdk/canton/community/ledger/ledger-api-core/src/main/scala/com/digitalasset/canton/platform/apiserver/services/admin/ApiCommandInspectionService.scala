@@ -11,7 +11,6 @@ import com.digitalasset.canton.ledger.api.services.CommandInspectionService
 import com.digitalasset.canton.ledger.api.validation.CommandInspectionServiceRequestValidator
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -31,7 +30,7 @@ class ApiCommandInspectionService(
     with StreamingServiceLifecycleManagement
     with NamedLogging {
 
-  protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger =
+  protected implicit val errorLoggingContext: ErrorLoggingContext =
     ErrorLoggingContext(
       logger,
       loggerFactory.properties,

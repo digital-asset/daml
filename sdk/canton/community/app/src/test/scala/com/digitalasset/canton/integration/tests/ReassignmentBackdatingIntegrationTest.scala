@@ -96,7 +96,6 @@ abstract class ReassignmentBackdatingIntegrationTest
               paintSynchronizerId,
               iouSynchronizerId,
             )
-            .unassignedEvent
         }
 
         val disableF = unassignmentP.future.map { _ =>

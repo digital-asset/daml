@@ -172,13 +172,15 @@ class AssignmentValidationTest
         sourceMediator,
       )(reassigningParticipants = reassigningParticipants)
 
-    val reassignmentData =
+    val incompleteUnassignmentData =
       reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)
 
     val unassignmentResult = reassignmentDataHelpers
-      .unassignmentResult(reassignmentData)
+      .unassignmentResult(incompleteUnassignmentData)
       .futureValue
 
+    val reassignmentData =
+      incompleteUnassignmentData.copy(unassignmentResult = Some(unassignmentResult))
     val assignmentRequest = makeFullAssignmentTree(
       contract,
       unassignmentResult,

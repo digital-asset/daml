@@ -59,9 +59,9 @@ import com.digitalasset.canton.participant.store.{
   AcsCounterParticipantConfigStore,
   ContractStore,
   ReassignmentStoreTest,
-  SyncEphemeralState,
   SyncPersistentState,
 }
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{pureCrypto, submitter}
@@ -378,8 +378,10 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case UnassignmentIncomplete(_, _) =>
-        }
+        preparedSubmission should matchPattern { case SubmissionValidationError(_) => }
+        preparedSubmission.message should include(
+          s"Cannot assign `${reassignmentData.reassignmentId}` because unassignment is incomplete"
+        )
       }
     }
 
@@ -554,7 +556,11 @@ class AssignmentProcessingStepsTest
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
 
-        _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
+        _ <- valueOrFail(
+          persistentState.reassignmentStore.addUnassignmentData(
+            reassignmentData.copy(unassignmentResult = Some(unassignmentResult))
+          )
+        )(
           "add reassignment data failed"
         ).failOnShutdown
 
@@ -586,7 +592,11 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
+          _ <- valueOrFail(
+            persistentState.reassignmentStore.addUnassignmentData(
+              reassignmentData.copy(unassignmentResult = Some(unassignmentResult))
+            )
+          )(
             "add reassignment data failed"
           ).failOnShutdown
 
@@ -733,7 +743,11 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (persistentState, ephemeralState) = deps
 
-          _ <- valueOrFail(persistentState.reassignmentStore.addUnassignmentData(reassignmentData))(
+          _ <- valueOrFail(
+            persistentState.reassignmentStore.addUnassignmentData(
+              reassignmentData.copy(unassignmentResult = Some(unassignmentResult))
+            )
+          )(
             "add reassignment data failed"
           ).failOnShutdown
 

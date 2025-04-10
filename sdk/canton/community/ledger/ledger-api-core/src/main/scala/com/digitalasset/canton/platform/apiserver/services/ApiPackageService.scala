@@ -30,7 +30,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
 }
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -83,7 +82,7 @@ private[apiserver] final class ApiPackageService(
               Future.failed[GetPackageResponse](
                 RequestValidationErrors.NotFound.Package
                   .Reject(packageId = packageId)(
-                    createContextualizedErrorLogger
+                    createerrorLoggingContext
                   )
                   .asGrpcError
               )
@@ -131,7 +130,7 @@ private[apiserver] final class ApiPackageService(
               request,
               ValidationErrors
                 .invalidArgument(s"Invalid package id: $errorMessage")(
-                  createContextualizedErrorLogger
+                  createerrorLoggingContext
                 ),
             )
           ),
@@ -150,8 +149,8 @@ private[apiserver] final class ApiPackageService(
     )
   }
 
-  private def createContextualizedErrorLogger(implicit
+  private def createerrorLoggingContext(implicit
       loggingContext: LoggingContextWithTrace
-  ): ContextualizedErrorLogger =
+  ): ErrorLoggingContext =
     ErrorLoggingContext(logger, loggingContext)
 }

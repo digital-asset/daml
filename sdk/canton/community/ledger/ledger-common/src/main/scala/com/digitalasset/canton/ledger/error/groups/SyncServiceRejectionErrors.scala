@@ -13,7 +13,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.SyncServiceRejectionErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
 @Explanation(
@@ -32,7 +32,7 @@ object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
       ) {
     final case class Reject(
         submitterParty: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
+    )(implicit loggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           cause = s"Party not known on ledger: Submitting party '$submitterParty' not known"
         ) {
@@ -53,7 +53,7 @@ object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
     final case class Reject(parties: Set[String])(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = s"Parties not known on ledger: ${parties
             .mkString("[", ",", "]")}") {
       override def resources: Seq[(ErrorResource, String)] =
@@ -72,7 +72,7 @@ object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
         details: String,
         submitter: String,
         participantId: String,
-    )(implicit loggingContext: ContextualizedErrorLogger)
+    )(implicit loggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           cause = s"Inconsistent: $details",
           extraContext = Map(
@@ -83,7 +83,7 @@ object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
 
     final case class Reject(
         details: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
+    )(implicit loggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(cause = s"Inconsistent: $details")
   }
 
@@ -101,7 +101,7 @@ object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
           ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
         ) {
       final case class Reject(override val cause: String, keyO: Option[GlobalKey] = None)(implicit
-          loggingContext: ContextualizedErrorLogger
+          loggingContext: ErrorLoggingContext
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
         override def resources: Seq[(ErrorResource, String)] =
           super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key.toString).toList
@@ -119,7 +119,7 @@ object SyncServiceRejectionErrors extends SyncServiceRejectionErrorGroup {
           ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
         ) {
       final case class Reject(override val cause: String, keyO: Option[GlobalKey] = None)(implicit
-          loggingContext: ContextualizedErrorLogger
+          loggingContext: ErrorLoggingContext
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {
         override def resources: Seq[(ErrorResource, String)] =
           super.resources ++ keyO.map(key => ErrorResource.ContractKey -> key.toString).toList

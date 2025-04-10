@@ -3,7 +3,9 @@
 
 module Upgrade where
 
--- Template with the same definition as the one defined in 2.0.0
+import Iface
+
+-- Template with the same definition as the one defined in 2.0.0 and reimplemented interface view
 template UA with
   issuer : Party
   owner : Party
@@ -12,6 +14,9 @@ template UA with
  where
   signatory issuer
   observer owner
+
+  interface instance Iface1 for UA where
+    view = Iface1View "Iface1-UAv3"
 
 -- Updated with extra field compared to 2.0.0
 template UB with

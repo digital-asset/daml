@@ -897,6 +897,7 @@ scala_library(
         "@maven//:com_lihaoyi_ujson_circe_2_13",
         "@maven//:com_lihaoyi_upickle_core_2_13",
         "@maven//:com_softwaremill_magnolia1_2_magnolia_2_13",
+        "@maven//:com_softwaremill_quicklens_quicklens_2_13",
         "@maven//:com_softwaremill_sttp_apispec_apispec_model_2_13",
         "@maven//:com_softwaremill_sttp_apispec_asyncapi_circe_yaml_2_13",
         "@maven//:com_softwaremill_sttp_apispec_asyncapi_model_2_13",

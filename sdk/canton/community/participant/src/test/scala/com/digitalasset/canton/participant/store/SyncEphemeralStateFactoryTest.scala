@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingStartingPoints,
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryRequestJournalStore
+import com.digitalasset.canton.participant.sync.SyncEphemeralStateFactory
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent

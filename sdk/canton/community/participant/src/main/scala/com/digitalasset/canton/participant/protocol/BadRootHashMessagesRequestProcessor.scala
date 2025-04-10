@@ -11,7 +11,7 @@ import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.store.SyncEphemeralState
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.messages.{ConfirmationResponse, ConfirmationResponses}
 import com.digitalasset.canton.protocol.{LocalRejectError, RequestId, RootHash}
 import com.digitalasset.canton.sequencing.client.SequencerClient

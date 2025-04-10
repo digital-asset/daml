@@ -138,12 +138,12 @@ class DispatcherState(
     )
 
   private def dispatcherNotRunning: StatusRuntimeException = {
-    val contextualizedErrorLogger = ErrorLoggingContext(
+    val errorLoggingContext = ErrorLoggingContext(
       logger = logger,
       loggerFactory.properties,
       traceContext,
     )
-    CommonErrors.ServiceNotRunning.Reject(ServiceName)(contextualizedErrorLogger).asGrpcError
+    CommonErrors.ServiceNotRunning.Reject(ServiceName)(errorLoggingContext).asGrpcError
   }
 }
 

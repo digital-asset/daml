@@ -52,11 +52,9 @@ import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingStartingPoints,
 }
+import com.digitalasset.canton.participant.store.AcsCounterParticipantConfigStore
 import com.digitalasset.canton.participant.store.memory.*
-import com.digitalasset.canton.participant.store.{
-  AcsCounterParticipantConfigStore,
-  SyncEphemeralState,
-}
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*

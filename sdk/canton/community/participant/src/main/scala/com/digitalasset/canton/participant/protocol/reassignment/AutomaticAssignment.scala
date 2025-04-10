@@ -43,7 +43,7 @@ private[participant] object AutomaticAssignment {
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
-    val logger = elc.logger
+    val logger = elc
     implicit val traceContext: TraceContext = elc.traceContext
 
     def hostedStakeholders(

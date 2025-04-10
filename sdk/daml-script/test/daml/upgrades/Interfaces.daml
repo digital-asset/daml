@@ -219,7 +219,7 @@ main = tests
   , ("Calling a new interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationForNewInterfaceUpdate)
   , ("Package map preference is used for new interface implementation selection at command level", newInterfaceChoicePackagePreferenceCommand)
   , ("Package map preference is used for new interface implementation selection at choice body level", newInterfaceChoicePackagePreferenceUpdate)
-  , broken ("queryInterfaceContractId works as intended in the presence of upgraded packages with new interface instances", queryNewInterfaceUpgrades)
+  , brokenOnIDELedger ("queryInterfaceContractId works as intended in the presence of upgraded packages with new interface instances", queryNewInterfaceUpgrades)
   , ("fetchFromInterface works as intended in the presence of upgraded packages with new interface instances", fetchFromNewInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
   -- Can't unvet old version of package on 3x, even though v2 exists.

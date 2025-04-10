@@ -25,8 +25,8 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.
 }
 import com.digitalasset.canton.participant.protocol.RequestJournal
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProviderFactory
-import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail
+import com.digitalasset.canton.participant.store.{SyncPersistentState, *}
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizersLookup,
   SyncPersistentStateManager,

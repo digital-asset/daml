@@ -11,9 +11,10 @@ import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -59,7 +60,10 @@ final class IndexServiceOwner(
         TraceContext,
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
-    getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
+    getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
+    getPackagePreference: logging.LoggingContextWithTrace => Ref.PackageName => FutureUnlessShutdown[
+      Option[Ref.PackageId]
+    ],
     lfValueTranslation: LfValueTranslation,
     queryExecutionContext: ExecutionContextExecutorService,
     commandExecutionContext: ExecutionContextExecutorService,
@@ -116,6 +120,7 @@ final class IndexServiceOwner(
         metrics = metrics,
         loggerFactory = loggerFactory,
         idleStreamOffsetCheckpointTimeout = config.idleStreamOffsetCheckpointTimeout,
+        getPreferredPackageVersion = getPackagePreference,
       )
     } yield new TimedIndexService(indexService, metrics)
   }

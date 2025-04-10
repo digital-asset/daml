@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.store
+package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.syntax.traverse.*
@@ -15,6 +15,12 @@ import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.protocol.*
+import com.digitalasset.canton.participant.store.{
+  ContractStore,
+  ParticipantNodeEphemeralState,
+  RequestJournalStore,
+  SyncPersistentState,
+}
 import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
@@ -234,7 +240,7 @@ object SyncEphemeralStateFactory {
         messageProcessingStartingPoint,
       )
     } yield {
-      loggingContext.logger.info(show"Computed starting points: $startingPoints")
+      loggingContext.info(show"Computed starting points: $startingPoints")
       startingPoints
     }
   }

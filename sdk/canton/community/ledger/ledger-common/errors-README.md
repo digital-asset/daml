@@ -28,7 +28,7 @@ object SomeErrorGroup extends ErrorGroup() {
                                             category = ErrorCategory.InvalidIndependentOfSystemState){
 
         case class Reject(reason: String)
-                         (implicit loggingContext: ContextualizedErrorLogger)
+                         (implicit loggingContext: ErrorLoggingContext)
           extends LoggingTransactionErrorImpl(cause = reason)
 
     }

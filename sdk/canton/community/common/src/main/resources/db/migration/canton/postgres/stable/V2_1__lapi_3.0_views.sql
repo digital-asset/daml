@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- -------------------
@@ -166,7 +166,6 @@ create or replace view debug.lapi_events_assign as
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(package_name) as package_name,
-    debug.resolve_lapi_interned_string(package_version) as package_version,
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_string(source_synchronizer_id) as source_synchronizer_id,
     debug.resolve_lapi_interned_string(target_synchronizer_id) as target_synchronizer_id,
@@ -231,7 +230,6 @@ create or replace view debug.lapi_events_create as
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(package_name) as package_name,
-    debug.resolve_lapi_interned_string(package_version) as package_version,
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_strings(tree_event_witnesses) as tree_event_witnesses,
     create_argument,

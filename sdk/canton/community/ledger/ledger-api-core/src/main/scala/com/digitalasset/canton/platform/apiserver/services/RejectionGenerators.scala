@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   ConsistencyErrors,
   RequestValidationErrors,
 }
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
@@ -46,7 +46,7 @@ object ErrorCause {
 object RejectionGenerators {
 
   def commandExecutorError(cause: ErrorCause)(implicit
-      errorLoggingContext: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): RpcError = {
 
     def processPackageError(err: LfError.Package.Error): RpcError = err match {
@@ -167,18 +167,18 @@ object RejectionGenerators {
           CommandExecutionErrors.Interpreter.UpgradeError.DowngradeFailed
             .Reject(renderedMessage, error)
         case LfInterpretationError.CCTP(
-        error: LfInterpretationError.CCTP.MalformedByteEncoding
-        ) =>
+              error: LfInterpretationError.CCTP.MalformedByteEncoding
+            ) =>
           CommandExecutionErrors.Interpreter.CryptoError.MalformedByteEncoding
             .Reject(renderedMessage, error)
         case LfInterpretationError.CCTP(
-        error: LfInterpretationError.CCTP.MalformedKey
-        ) =>
+              error: LfInterpretationError.CCTP.MalformedKey
+            ) =>
           CommandExecutionErrors.Interpreter.CryptoError.MalformedKey
             .Reject(renderedMessage, error)
         case LfInterpretationError.CCTP(
-        error: LfInterpretationError.CCTP.MalformedSignature
-        ) =>
+              error: LfInterpretationError.CCTP.MalformedSignature
+            ) =>
           CommandExecutionErrors.Interpreter.CryptoError.MalformedSignature
             .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>

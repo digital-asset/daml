@@ -34,11 +34,8 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessResult,
   ActivenessSet,
 }
-import com.digitalasset.canton.participant.store.{
-  ReassignmentLookup,
-  SyncEphemeralState,
-  SyncEphemeralStateLookup,
-}
+import com.digitalasset.canton.participant.store.ReassignmentLookup
+import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.{

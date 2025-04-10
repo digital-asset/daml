@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 ---------------------------------------------------------------------------------------------------
@@ -146,7 +146,6 @@ CREATE TABLE lapi_events_assign (
     contract_id bytea not null,
     template_id integer not null,
     package_name integer not null,
-    package_version integer, -- Can be null for LF 2.1
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment
@@ -265,7 +264,6 @@ CREATE TABLE lapi_events_create (
     contract_id bytea not null,
     template_id integer not null,
     package_name integer not null,
-    package_version integer, -- Can be null for LF 2.1
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 

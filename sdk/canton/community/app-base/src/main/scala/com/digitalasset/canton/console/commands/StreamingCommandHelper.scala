@@ -17,7 +17,7 @@ trait StreamingCommandHelper {
   protected def consoleEnvironment: ConsoleEnvironment
   protected def name: String
 
-  protected def mkResult[Res](
+  def mkResult[Res](
       call: => AutoCloseable,
       requestDescription: String,
       observer: RecordingStreamObserver[Res],
