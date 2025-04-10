@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerStat
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -496,7 +496,7 @@ private[execution] class TopologyAwareCommandExecutor(
   private def refinePackageNotFoundError(
       errorCause: ErrorCause,
       locallyStoredPackageNames: Set[LfPackageName],
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): ErrorCause =
+  )(implicit errorLoggingContext: ErrorLoggingContext): ErrorCause =
     // It can be that a missing or unresolved package name is due to package selection algorithm
     // removing it from the package-map provided to the engine due to topology constraints.
     // In these cases, report a dedicated error to the client to aid debugging.

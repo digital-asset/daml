@@ -37,11 +37,13 @@ import com.digitalasset.canton.participant.store.{
   InFlightSubmissionStore,
   ParticipantNodePersistentState,
   RequestJournalStore,
-  SyncEphemeralStateFactory,
   SyncPersistentState,
   SynchronizerConnectionConfigStore,
 }
-import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
+import com.digitalasset.canton.participant.sync.{
+  SyncEphemeralStateFactory,
+  SyncPersistentStateManager,
+}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}

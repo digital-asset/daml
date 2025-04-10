@@ -37,7 +37,7 @@ import com.digitalasset.canton.ledger.api.validation.{
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -553,7 +553,7 @@ object TestSubmissionService {
 
     def parties: Seq[PartyId] = (actAs ++ readAs).distinct
 
-    def apiCommands()(implicit errorLogger: ContextualizedErrorLogger): ApiCommands = {
+    def apiCommands()(implicit errorLogger: ErrorLoggingContext): ApiCommands = {
       val apiCommands = new CommandsValidator(
         validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty,
         validateDisclosedContracts = ValidateDisclosedContracts.WithContractIdVerificationDisabled,

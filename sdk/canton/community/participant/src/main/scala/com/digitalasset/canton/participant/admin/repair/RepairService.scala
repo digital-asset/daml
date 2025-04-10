@@ -9,16 +9,13 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v2.value.{Identifier, Record}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Salt, SyncCryptoApiParticipantProvider}
+import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.api.util.LfEngineToApi
-import com.digitalasset.canton.ledger.api.validation.StricterValueValidator as LedgerApiValueValidator
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -26,12 +23,7 @@ import com.digitalasset.canton.lifecycle.{
   HasCloseContext,
   LifeCycle,
 }
-import com.digitalasset.canton.logging.{
-  HasLoggerName,
-  NamedLoggerFactory,
-  NamedLogging,
-  NamedLoggingContext,
-}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -43,7 +35,8 @@ import com.digitalasset.canton.participant.admin.repair.RepairService.{
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
-import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.{SyncPersistentState, *}
+import com.digitalasset.canton.participant.sync.SyncEphemeralStateFactory
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -63,7 +56,6 @@ import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
-import java.time.Instant
 import scala.Ordered.orderingToOrdered
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{ExecutionContext, Future}
@@ -1265,95 +1257,6 @@ final class RepairService(
 }
 
 object RepairService {
-
-  object ContractConverter extends HasLoggerName {
-
-    def contractDataToInstance(
-        templateId: Identifier,
-        packageName: LfPackageName,
-        createArguments: Record,
-        signatories: Set[String],
-        observers: Set[String],
-        lfContractId: LfContractId,
-        ledgerTime: Instant,
-        contractSalt: Salt,
-    )(implicit namedLoggingContext: NamedLoggingContext): Either[String, SerializableContract] =
-      for {
-        template <- LedgerApiValueValidator.validateIdentifier(templateId).leftMap(_.getMessage)
-
-        argsValue <- LedgerApiValueValidator
-          .validateRecord(createArguments)
-          .leftMap(e => s"Failed to validate arguments: $e")
-
-        argsVersionedValue = LfVersioned(
-          protocol.DummyTransactionVersion, // Version is ignored by daml engine upon RepairService.addContract
-          argsValue,
-        )
-
-        lfContractInst = LfContractInst(
-          packageName = packageName,
-          template = template,
-          arg = argsVersionedValue,
-        )
-
-        serializableRawContractInst <- SerializableRawContractInstance
-          .create(lfContractInst)
-          .leftMap(_.errorMessage)
-
-        signatoriesAsParties <- signatories.toList.traverse(LfPartyId.fromString).map(_.toSet)
-        observersAsParties <- observers.toList.traverse(LfPartyId.fromString).map(_.toSet)
-
-        time <- CantonTimestamp.fromInstant(ledgerTime)
-      } yield SerializableContract(
-        contractId = lfContractId,
-        rawContractInstance = serializableRawContractInst,
-        // TODO(#13870): Calculate contract keys from the serializable contract
-        metadata = checked(
-          ContractMetadata
-            .tryCreate(signatoriesAsParties, signatoriesAsParties ++ observersAsParties, None)
-        ),
-        ledgerCreateTime = LedgerCreateTime(time),
-        contractSalt = contractSalt,
-      )
-
-    def contractInstanceToData(
-        contract: SerializableContract
-    ): Either[
-      String,
-      (
-          Identifier,
-          LfPackageName,
-          Record,
-          Set[String],
-          Set[String],
-          LfContractId,
-          Salt,
-          LedgerCreateTime,
-      ),
-    ] = {
-      val contractInstance = contract.rawContractInstance.contractInstance
-      LfEngineToApi
-        .lfValueToApiRecord(verbose = true, contractInstance.unversioned.arg)
-        .bimap(
-          e =>
-            s"Failed to convert contract instance to data due to issue with create-arguments: $e",
-          record => {
-            val signatories = contract.metadata.signatories.map(_.toString)
-            val stakeholders = contract.metadata.stakeholders.map(_.toString)
-            (
-              LfEngineToApi.toApiIdentifier(contractInstance.unversioned.template),
-              contractInstance.unversioned.packageName,
-              record,
-              signatories,
-              stakeholders -- signatories,
-              contract.contractId,
-              contract.contractSalt,
-              contract.ledgerCreateTime,
-            )
-          },
-        )
-    }
-  }
 
   private final case class ContractToAdd(
       contract: SerializableContract,

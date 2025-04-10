@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.command_service.{
 }
 import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 import java.time.{Duration, Instant}
@@ -24,7 +24,7 @@ class SubmitAndWaitRequestValidator(
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
@@ -42,7 +42,7 @@ class SubmitAndWaitRequestValidator(
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")

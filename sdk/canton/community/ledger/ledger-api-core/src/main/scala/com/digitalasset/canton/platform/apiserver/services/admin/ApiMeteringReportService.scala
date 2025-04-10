@@ -14,7 +14,6 @@ import com.digitalasset.canton.ledger.participant.state.index.MeteringStore
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -59,7 +58,7 @@ private[apiserver] final class ApiMeteringReportService(
   private def validateRequest(
       request: GetMeteringReportRequest
   )(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Either[StatusRuntimeException, (Timestamp, Option[Timestamp], Option[UserId])] =
     (for {
       protoFrom <- request.from.toRight("from date must be specified")
@@ -80,7 +79,7 @@ private[apiserver] final class ApiMeteringReportService(
       userId: Option[Ref.UserId],
       reportData: ReportData,
   )(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Either[StatusRuntimeException, GetMeteringReportResponse] =
     generator.generate(request, from, to, userId, reportData, clock()).left.map { e =>
       AdminServiceErrors.InternallyInvalidKey.Reject(e).asGrpcError

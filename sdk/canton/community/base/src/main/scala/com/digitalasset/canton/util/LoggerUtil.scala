@@ -127,7 +127,7 @@ object LoggerUtil {
       task
     } catch {
       case NonFatal(e) =>
-        loggingContext.logger.error("Unhandled exception thrown!", e)(loggingContext.traceContext)
+        loggingContext.error("Unhandled exception thrown!", e)
     }
 
   /** truncates a string

@@ -153,6 +153,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
   UpdateServiceGrpc,
 }
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -1006,32 +1007,32 @@ object LedgerApiCommands {
     }
     sealed trait UpdateWrapper {
       def updateId: String
-      def isUnassignment: Boolean
-      def createEvent: Option[CreatedEvent] =
+      def isUnassignment = this match {
+        case _: UnassignedWrapper => true
+        case _ => false
+      }
+      def createEvents: Iterator[CreatedEvent] =
         this match {
-          case UpdateService.TransactionWrapper(t) => t.events.headOption.map(_.getCreated)
-          case u: UpdateService.AssignedWrapper => u.assignedEvent.createdEvent
-          case _: UpdateService.UnassignedWrapper => None
-          case _: UpdateService.TopologyTransactionWrapper => None
+          case UpdateService.TransactionWrapper(t) => t.events.iterator.map(_.getCreated)
+          case u: UpdateService.AssignedWrapper => u.events.iterator.flatMap(_.createdEvent)
+          case _: UpdateService.UnassignedWrapper => Iterator.empty
+          case _: UpdateService.TopologyTransactionWrapper => Iterator.empty
         }
 
       def synchronizerId: String
     }
-
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
         extends UpdateTreeWrapper {
       override def updateId: String = transactionTree.updateId
     }
     final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
       override def updateId: String = transaction.updateId
-      override def isUnassignment: Boolean = false
 
       override def synchronizerId: String = transaction.synchronizerId
     }
     final case class TopologyTransactionWrapper(topologyTransaction: TopologyTransaction)
         extends UpdateWrapper {
       override def updateId: String = topologyTransaction.updateId
-      override def isUnassignment: Boolean = false
 
       override def synchronizerId: String = topologyTransaction.synchronizerId
     }
@@ -1039,39 +1040,75 @@ object LedgerApiCommands {
       override def updateId: String = reassignment.updateId
 
       def reassignment: Reassignment
-      def event: ReassignmentEvent.Event
-      def offset: Long = reassignment.offset
     }
 
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper =
         reassignment.events match {
-          case Seq(ReassignmentEvent(ReassignmentEvent.Event.Assigned(evt))) =>
-            AssignedWrapper(reassignment, evt)
-          case Seq(ReassignmentEvent(ReassignmentEvent.Event.Unassigned(evt))) =>
-            UnassignedWrapper(reassignment, evt)
+          case ReassignmentEvent(ReassignmentEvent.Event.Assigned(head)) +: tail =>
+            AssignedWrapper(
+              reassignment,
+              NonEmpty(Seq, head, validateRest(head, tail, _.event.assigned)*),
+            )
+          case ReassignmentEvent(ReassignmentEvent.Event.Unassigned(head)) +: tail =>
+            UnassignedWrapper(
+              reassignment,
+              NonEmpty(Seq, head, validateRest(head, tail, _.event.unassigned)*),
+            )
           case _ =>
             throw new IllegalStateException(
-              s"Invalid reassignment event (only supported single UnassignedEvent and AssignedEvent): ${reassignment.events}"
+              s"Invalid reassignment events: ${reassignment.events}"
             )
         }
+
+      // Fields shared by AssignedEvent and UnassignedEvent that must be invariant with a batch.
+      private type ValidatableEvent = {
+        val source: String; val target: String; val unassignId: String
+      }
+
+      import scala.language.reflectiveCalls
+      private def validateRest[E <: ValidatableEvent](
+          first: E,
+          rest: Seq[ReassignmentEvent],
+          getEvent: ReassignmentEvent => Option[E],
+      ): Seq[E] = rest match {
+        case hd +: tl =>
+          getEvent(hd) match {
+            case Some(e) =>
+              if (
+                e.unassignId != first.unassignId ||
+                e.source != first.source ||
+                e.target != first.target
+              ) throw new IllegalStateException(s"Invalid event batch elements: $first vs $e")
+              e +: validateRest(first, tl, getEvent)
+            case None => throw new IllegalStateException(s"Inconsistent event type: $hd")
+          }
+        case _ => Seq.empty
+      }
     }
 
-    final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
-        extends ReassignmentWrapper {
-      override def isUnassignment: Boolean = false
-      override def synchronizerId: String = assignedEvent.target
-      override def event = ReassignmentEvent.Event.Assigned(assignedEvent)
+    final case class AssignedWrapper private[UpdateService] (
+        val reassignment: Reassignment,
+        val assignedEvents: NonEmpty[Seq[AssignedEvent]],
+    ) extends ReassignmentWrapper {
+      override def synchronizerId = assignedEvents.head1.target
+      def events: Seq[AssignedEvent] = assignedEvents.forgetNE
+      def source: String = assignedEvents.head1.source
+      def target: String = assignedEvents.head1.target
+      def unassignId: String = assignedEvents.head1.unassignId
     }
-    final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
-        extends ReassignmentWrapper {
-      override def isUnassignment: Boolean = true
-      override def synchronizerId: String = unassignedEvent.source
-      override def event = ReassignmentEvent.Event.Unassigned(unassignedEvent)
 
-      def unassignId: String = unassignedEvent.unassignId
+    final case class UnassignedWrapper private[UpdateService] (
+        val reassignment: Reassignment,
+        val unassignedEvents: NonEmpty[Seq[UnassignedEvent]],
+    ) extends ReassignmentWrapper {
+      override def synchronizerId = source
+      def events: Seq[UnassignedEvent] = unassignedEvents.forgetNE
+      def source: String = unassignedEvents.head1.source
+      def target: String = unassignedEvents.head1.target
+      def unassignId: String = unassignedEvents.head1.unassignId
       def reassignmentId: ReassignmentId = ReassignmentId(
-        Source(SynchronizerId.tryFromString(unassignedEvent.source)),
+        Source(SynchronizerId.tryFromString(unassignedEvents.head1.source)),
         CantonTimestamp.assertFromLong(unassignId.toLong),
       )
     }
@@ -1492,7 +1529,7 @@ object LedgerApiCommands {
         commandId: String,
         submitter: LfPartyId,
         submissionId: String,
-        contractId: LfContractId,
+        contractIds: Seq[LfContractId],
         source: SynchronizerId,
         target: SynchronizerId,
     ) extends BaseCommand[SubmitReassignmentRequest, SubmitReassignmentResponse, Unit] {
@@ -1504,7 +1541,7 @@ object LedgerApiCommands {
               userId = userId,
               commandId = commandId,
               submitter = submitter.toString,
-              commands = Seq(
+              commands = contractIds.map(contractId =>
                 ReassignmentCommand(
                   ReassignmentCommand.Command.UnassignCommand(
                     UnassignCommand(

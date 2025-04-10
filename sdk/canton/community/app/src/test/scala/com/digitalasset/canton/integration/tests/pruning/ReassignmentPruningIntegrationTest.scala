@@ -161,13 +161,13 @@ sealed trait ReassignmentPruningIntegrationTest
         target,
         waitForParticipants = Map.apply(participant1 -> alice),
       )
-    val unassignOffsetP2 = unassignment.offset
+    val unassignOffsetP2 = unassignment.reassignment.offset
     val unassignmentId = unassignment.unassignId
 
     val unassignOffsetP1 = participant1.ledger_api.updates
       .trees(Set(alice), 1, ledgerEndP1BeforeUnassign)
       .collectFirst { case wrapper: UpdateService.ReassignmentWrapper =>
-        wrapper.offset
+        wrapper.reassignment.offset
       }
       .value
     (unassignmentId, unassignOffsetP1, unassignOffsetP2)
@@ -183,12 +183,12 @@ sealed trait ReassignmentPruningIntegrationTest
     val ledgerEndP2BeforeAssign =
       participant2.ledger_api.state.end()
     val res = participant1.ledger_api.commands.submit_assign(alice, unassignmentId, origin, target)
-    val assignOffsetP1 = res.offset
+    val assignOffsetP1 = res.reassignment.offset
 
     val assignOffsetP2 = participant2.ledger_api.updates
       .trees(Set(bank), 1, ledgerEndP2BeforeAssign)
       .collectFirst { case wrapper: UpdateService.ReassignmentWrapper =>
-        wrapper.offset
+        wrapper.reassignment.offset
       }
       .value
 

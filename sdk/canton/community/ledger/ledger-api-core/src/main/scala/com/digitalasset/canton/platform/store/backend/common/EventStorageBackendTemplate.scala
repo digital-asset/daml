@@ -62,7 +62,6 @@ object EventStorageBackendTemplate {
       "contract_id",
       "template_id",
       "package_name",
-      "package_version",
       "create_argument",
       "create_argument_compression",
       "create_signatories",
@@ -89,7 +88,6 @@ object EventStorageBackendTemplate {
       "contract_id",
       "template_id",
       "package_name",
-      "NULL as package_version",
       "NULL as create_argument",
       "NULL as create_argument_compression",
       "NULL as create_signatories",
@@ -135,7 +133,7 @@ object EventStorageBackendTemplate {
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~
       Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~
-      Array[Byte] ~ Option[Int]
+      Array[Byte]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -147,8 +145,7 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
-      byteArray("driver_metadata") ~
-      int("package_version").?
+      byteArray("driver_metadata")
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
@@ -186,6 +183,7 @@ object EventStorageBackendTemplate {
           packageName ~
           commandId ~
           workflowId ~
+
           eventWitnesses ~
           submitters ~
           internedSynchronizerId ~
@@ -199,8 +197,7 @@ object EventStorageBackendTemplate {
           createKeyHash ~
           createKeyValueCompression ~
           createKeyMaintainers ~
-          driverMetadata ~
-          packageVersion =>
+          driverMetadata =>
         Entry(
           offset = offset,
           updateId = updateId,
@@ -215,7 +212,6 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
-            packageVersion = packageVersion.map(stringInterning.packageVersion.externalize),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               eventWitnesses,
@@ -376,7 +372,6 @@ object EventStorageBackendTemplate {
     "ledger_effective_time",
     "template_id",
     "package_name",
-    "package_version",
     "workflow_id",
     "create_argument",
     "create_argument_compression",
@@ -409,7 +404,6 @@ object EventStorageBackendTemplate {
     "ledger_effective_time",
     "template_id",
     "package_name",
-    "NULL as package_version",
     "workflow_id",
     "NULL as create_argument",
     "NULL as create_argument_compression",
@@ -488,7 +482,6 @@ object EventStorageBackendTemplate {
       contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
-      int("package_version").? ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -522,7 +515,6 @@ object EventStorageBackendTemplate {
           contractId ~
           templateId ~
           packageName ~
-          packageVersion ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -564,7 +556,6 @@ object EventStorageBackendTemplate {
               contractId = contractId,
               templateId = stringInterning.templateId.externalize(templateId),
               packageName = stringInterning.packageName.externalize(packageName),
-              packageVersion = packageVersion.map(stringInterning.packageVersion.externalize),
               witnessParties = filterAndExternalizeWitnesses(
                 allQueryingPartiesO,
                 flatEventWitnesses,
@@ -682,7 +673,6 @@ object EventStorageBackendTemplate {
       contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
-      int("package_version").? ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -709,7 +699,6 @@ object EventStorageBackendTemplate {
           contractId ~
           templateId ~
           packageName ~
-          packageVersion ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -733,7 +722,6 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
-            packageVersion = packageVersion.map(stringInterning.packageVersion.externalize),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,
@@ -765,7 +753,6 @@ object EventStorageBackendTemplate {
       contractId("contract_id") ~
       int("template_id") ~
       int("package_name") ~
-      int("package_version").? ~
       array[Int]("flat_event_witnesses") ~
       array[Int]("create_signatories") ~
       array[Int]("create_observers") ~
@@ -792,7 +779,6 @@ object EventStorageBackendTemplate {
           contractId ~
           templateId ~
           packageName ~
-          packageVersion ~
           flatEventWitnesses ~
           createSignatories ~
           createObservers ~
@@ -817,7 +803,6 @@ object EventStorageBackendTemplate {
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),
-            packageVersion = packageVersion.map(stringInterning.packageVersion.externalize),
             witnessParties = filterAndExternalizeWitnesses(
               allQueryingPartiesO,
               flatEventWitnesses,

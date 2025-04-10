@@ -101,8 +101,8 @@ class AssignmentBeforeUnassignmentIntegrationTest
 
     // unassignment succeeded on participant2
     updates.headOption.value match {
-      case UpdateService.UnassignedWrapper(_, unassignedEvent) =>
-        unassignedEvent.unassignId shouldBe unassignId
+      case unassigned: UpdateService.UnassignedWrapper =>
+        unassigned.unassignId shouldBe unassignId
       case other =>
         fail(s"Expected a reassignment event but got $other")
     }

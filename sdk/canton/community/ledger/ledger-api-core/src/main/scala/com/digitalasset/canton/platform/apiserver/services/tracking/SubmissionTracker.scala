@@ -11,7 +11,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
@@ -27,7 +27,7 @@ trait SubmissionTracker extends AutoCloseable {
       timeout: NonNegativeFiniteDuration,
       submit: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
       traceContext: TraceContext,
   ): Future[CompletionResponse]
 
@@ -41,7 +41,7 @@ object SubmissionTracker {
     import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
 
     override def timedOut(k: SubmissionKey)(implicit
-        errorLogger: ContextualizedErrorLogger
+        errorLogger: ErrorLoggingContext
     ): StatusRuntimeException =
       CommonErrors.RequestTimeOut
         .Reject(
@@ -51,7 +51,7 @@ object SubmissionTracker {
         .asGrpcError
 
     override def duplicated(k: SubmissionKey)(implicit
-        errorLogger: ContextualizedErrorLogger
+        errorLogger: ErrorLoggingContext
     ): StatusRuntimeException =
       ConsistencyErrors.DuplicateCommand
         .Reject(existingCommandSubmissionId = Some(k.submissionId))
@@ -103,13 +103,13 @@ object SubmissionTracker {
         timeout: NonNegativeFiniteDuration,
         submit: TraceContext => FutureUnlessShutdown[Any],
     )(implicit
-        errorLogger: ContextualizedErrorLogger,
+        errorLoggingContext: ErrorLoggingContext,
         traceContext: TraceContext,
     ): Future[CompletionResponse] =
       ensuringSubmissionIdPopulated(submissionKey) {
         streamTracker
           .track(submissionKey, timeout)(submit)
-          .flatMap(c => Future.fromTry(Result.fromCompletion(errorLogger, c)))
+          .flatMap(c => Future.fromTry(Result.fromCompletion(errorLoggingContext, c)))
       }
 
     override def onCompletion(completionStreamResponse: CompletionStreamResponse): Unit =
@@ -121,7 +121,7 @@ object SubmissionTracker {
       streamTracker.close()
 
     private def ensuringSubmissionIdPopulated[T](submissionKey: SubmissionKey)(f: => Future[T])(
-        implicit errorLogger: ContextualizedErrorLogger
+        implicit errorLogger: ErrorLoggingContext
     ): Future[T] =
       // We need submissionId for tracking submissions
       if (submissionKey.submissionId.isEmpty) {
@@ -157,7 +157,7 @@ object SubmissionTracker {
     import io.grpc.protobuf.StatusProto
 
     def fromCompletion(
-        errorLogger: ContextualizedErrorLogger,
+        errorLogger: ErrorLoggingContext,
         completion: Completion,
     ): Try[CompletionResponse] =
       completion.status
@@ -174,7 +174,7 @@ object SubmissionTracker {
             )
         }
 
-    private def missingStatusError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    private def missingStatusError(errorLogger: ErrorLoggingContext): StatusRuntimeException =
       CommonErrors.ServiceInternalError
         .Generic(
           "Missing status in completion response",

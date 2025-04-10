@@ -24,8 +24,7 @@ import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
-  LedgerErrorLoggingContext,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -151,7 +150,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
   private def submitAndWaitInternal(
       commands: Option[Commands]
   )(implicit
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
       traceContext: TraceContext,
   ): Future[CompletionResponse] = {
     def ifServiceRunning: Future[Unit] =
@@ -204,7 +203,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       commands: Commands,
       loggingContextWithTrace: LoggingContextWithTrace,
   )(
-      submitWithContext: (ContextualizedErrorLogger, TraceContext) => Future[T]
+      submitWithContext: (ErrorLoggingContext, TraceContext) => Future[T]
   ): Future[T] =
     LoggingContextWithTrace.withEnrichedLoggingContext(
       logging.submissionId(commands.submissionId),
@@ -213,7 +212,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       logging.readAsStrings(commands.readAs),
     ) { loggingContext =>
       submitWithContext(
-        LedgerErrorLoggingContext(
+        ErrorLoggingContext.withExplicitCorrelationId(
           logger,
           loggingContext.toPropertiesMap,
           loggingContext.traceContext,
@@ -266,7 +265,7 @@ private[apiserver] object CommandServiceImpl {
       commandId: String,
       submissionId: String,
       defaultTrackingTimeout: config.NonNegativeFiniteDuration,
-  )(implicit errorLogger: ContextualizedErrorLogger): Try[config.NonNegativeFiniteDuration] =
+  )(implicit errorLogger: ErrorLoggingContext): Try[config.NonNegativeFiniteDuration] =
     grpcRequestDeadline.map(_.timeRemaining(TimeUnit.NANOSECONDS)) match {
       case None => Success(defaultTrackingTimeout)
       case Some(remainingDeadlineNanos) if remainingDeadlineNanos >= 0 =>

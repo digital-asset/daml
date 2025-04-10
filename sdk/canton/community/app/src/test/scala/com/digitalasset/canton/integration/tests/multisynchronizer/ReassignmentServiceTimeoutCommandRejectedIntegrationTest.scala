@@ -259,7 +259,7 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         {
           val failedAssignmentCompletion = failingAssignment(
-            unassignId = unassignedEvent.event.unassignId,
+            unassignId = unassignedEvent.unassignId,
             source = daId,
             target = acmeId,
             submittingParty = signatory.toLf,
@@ -283,7 +283,7 @@ sealed trait ReassignmentServiceTimeoutCommandRejectedIntegrationTest
           )
 
           assign(
-            unassignId = unassignedEvent.event.unassignId,
+            unassignId = unassignedEvent.unassignId,
             source = daId,
             target = acmeId,
             submittingParty = signatory.toLf,

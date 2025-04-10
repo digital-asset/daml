@@ -44,7 +44,6 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.networking.grpc.{ApiRequestLogger, CantonGrpcUtil}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
-import com.digitalasset.canton.platform.ResourceOwnerOps
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
@@ -59,6 +58,7 @@ import com.digitalasset.canton.platform.config.{
 import com.digitalasset.canton.platform.index.IndexServiceOwner
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
+import com.digitalasset.canton.platform.{PackagePreferenceBackend, ResourceOwnerOps}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.daml.lf.data.Ref
@@ -244,6 +244,12 @@ class StartableStoppableLedgerApiServer(
           )
         )
         .afterReleased(logger.info("ReadApiServiceExecutionContext released"))
+      packagePreferenceBackend = new PackagePreferenceBackend(
+        clock = config.clock,
+        adminParty = LfPartyId.assertFromString(config.participantId),
+        syncService = timedSyncService,
+        loggerFactory = loggerFactory,
+      )
       indexService <- new IndexServiceOwner(
         dbSupport = dbSupport,
         config = indexServiceConfig,
@@ -265,6 +271,10 @@ class StartableStoppableLedgerApiServer(
         ),
         queryExecutionContext = queryExecutionContext,
         commandExecutionContext = executionContext,
+        getPackagePreference = loggingContext =>
+          packageName =>
+            packagePreferenceBackend
+              .getPreferredPackageVersionForParticipant(packageName)(loggingContext),
       )
       _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
@@ -359,7 +369,7 @@ class StartableStoppableLedgerApiServer(
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
         lfValueTranslation = lfValueTranslationForInteractiveSubmission,
         keepAlive = config.serverConfig.keepAliveServer,
-        clock = config.clock,
+        packagePreferenceBackend = packagePreferenceBackend,
       )
       _ <- startHttpApiIfEnabled(timedSyncService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId

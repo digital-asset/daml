@@ -21,6 +21,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.UnassignmentIncomplete
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
@@ -36,6 +37,7 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -146,7 +148,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
         unassignmentData.unassignmentResult.toRight(
-          UnassignmentIncomplete(reassignmentId, participantId)
+          UnassignmentIncomplete(reassignmentId).toSubmissionValidationError
         )
       )
 
@@ -348,11 +350,15 @@ private[reassignment] class AssignmentProcessingSteps(
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
     val reassignmentId = parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId
+    val isReassigningParticipant =
+      parsedRequest.fullViewTree.isReassigningParticipant(participantId)
+
     for {
-      reassignmentDataE <- EitherT
-        .right[ReassignmentProcessorError](
-          reassignmentLookup.lookup(reassignmentId).value
-        )
+      reassignmentDataE <- EitherT.right[ReassignmentProcessorError](
+        reassignmentCoordination
+          .waitForStartedUnassignmentToCompletePhase7(reassignmentId)
+          .flatMap(_ => reassignmentLookup.lookup(reassignmentId).value)
+      )
 
       assignmentValidationResult <- assignmentValidation
         .perform(
@@ -362,8 +368,8 @@ private[reassignment] class AssignmentProcessingSteps(
         )(parsedRequest)
 
     } yield {
-      val responseF = if (assignmentValidationResult.isReassigningParticipant) {
-        if (!assignmentValidationResult.validationResult.isUnassignmentDataNotFound)
+      val responseF = if (isReassigningParticipant) {
+        if (!assignmentValidationResult.validationResult.isUnassignmentDataNotFoundOrIncomplete)
           createConfirmationResponses(
             parsedRequest.requestId,
             parsedRequest.snapshot.ipsSnapshot,
@@ -458,7 +464,7 @@ private[reassignment] class AssignmentProcessingSteps(
         // TODO(i22993): Adding this exception is a workaround, we should remove it once we have decided how to deal
         //  with completing assignment before unassignment.
         case _: Verdict.Approve
-            if !isSuccessful && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound =>
+            if !isSuccessful && !assignmentValidationResult.validationResult.isUnassignmentDataNotFoundOrIncomplete =>
           throw new RuntimeException(
             s"Assignment validation failed for $requestId because: ${assignmentValidationResult.validationResult}"
           )
@@ -473,7 +479,7 @@ private[reassignment] class AssignmentProcessingSteps(
             // TODO(i22993): workaround for issue 22993.
             _ <-
               if (
-                assignmentValidationResult.validationResult.isUnassignmentDataNotFound
+                assignmentValidationResult.validationResult.isUnassignmentDataNotFoundOrIncomplete
                 && assignmentValidationResult.isReassigningParticipant
               ) {
                 reassignmentCoordination.addAssignmentData(

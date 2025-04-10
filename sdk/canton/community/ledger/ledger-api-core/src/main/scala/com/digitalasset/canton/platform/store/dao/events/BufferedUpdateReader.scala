@@ -50,7 +50,7 @@ private[events] class BufferedUpdateReader(
       GetUpdateTreesResponse,
     ],
     bufferedTransactionTreeByIdReader: BufferedTransactionPointwiseReader[
-      (String, Set[Party]),
+      (String, Set[Party], EventProjectionProperties),
       GetTransactionTreeResponse,
     ],
     bufferedUpdateReader: BufferedUpdatePointwiseReader[
@@ -58,7 +58,7 @@ private[events] class BufferedUpdateReader(
       GetUpdateResponse,
     ],
     bufferedTransactionTreeByOffsetReader: BufferedTransactionPointwiseReader[
-      (Offset, Set[Party]),
+      (Offset, Set[Party], EventProjectionProperties),
       GetTransactionTreeResponse,
     ],
     lfValueTranslation: LfValueTranslation,
@@ -156,17 +156,23 @@ private[events] class BufferedUpdateReader(
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     Future.delegate(
-      bufferedTransactionTreeByIdReader.fetch(updateId -> requestingParties)
+      bufferedTransactionTreeByIdReader.fetch(
+        (updateId, requestingParties, eventProjectionProperties)
+      )
     )
 
   override def lookupTransactionTreeByOffset(
       offset: Offset,
       requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     Future.delegate(
-      bufferedTransactionTreeByOffsetReader.fetch(offset -> requestingParties)
+      bufferedTransactionTreeByOffsetReader.fetch(
+        (offset, requestingParties, eventProjectionProperties)
+      )
     )
 
   override def getActiveContracts(
@@ -252,27 +258,32 @@ private[platform] object BufferedUpdateReader {
       )
 
     val bufferedTransactionTreeByIdReader =
-      new BufferedTransactionPointwiseReader[(String, Set[Party]), GetTransactionTreeResponse](
+      new BufferedTransactionPointwiseReader[
+        (String, Set[Party], EventProjectionProperties),
+        GetTransactionTreeResponse,
+      ](
         fetchFromPersistence = {
           case (
-                (updateId, parties),
+                (updateId, parties, eventProjectionProperties),
                 loggingContext: LoggingContextWithTrace,
               ) =>
             delegate.lookupTransactionTreeById(
               updateId = platform.UpdateId.assertFromString(updateId),
               requestingParties = parties,
+              eventProjectionProperties = eventProjectionProperties,
             )(loggingContext)
         },
-        fetchFromBuffer = { case (updateId, _) => updatesBuffer.lookupTransaction(updateId) },
+        fetchFromBuffer = { case (updateId, _, _) => updatesBuffer.lookupTransaction(updateId) },
         toApiResponse = {
           case (
                 transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-                (_updateId, parties),
+                (_updateId, parties, eventProjectionProperties),
                 loggingContext: LoggingContextWithTrace,
               ) =>
             ToTransactionTree.toGetTransactionResponse(
               transactionLogUpdate = transactionAccepted,
               requestingParties = parties,
+              eventProjectionProperties = eventProjectionProperties,
               lfValueTranslation = lfValueTranslation,
             )(loggingContext, directEC)
         },
@@ -307,26 +318,31 @@ private[platform] object BufferedUpdateReader {
       )
 
     val bufferedTransactionTreeByOffsetReader =
-      new BufferedTransactionPointwiseReader[(Offset, Set[Party]), GetTransactionTreeResponse](
+      new BufferedTransactionPointwiseReader[
+        (Offset, Set[Party], EventProjectionProperties),
+        GetTransactionTreeResponse,
+      ](
         fetchFromPersistence = {
           case (
-                (offset, parties),
+                (offset, parties, eventProjectionProperties),
                 loggingContext: LoggingContextWithTrace,
               ) =>
             delegate.lookupTransactionTreeByOffset(
               offset = offset,
               requestingParties = parties,
+              eventProjectionProperties = eventProjectionProperties,
             )(loggingContext)
         },
         fetchFromBuffer = queryParam => updatesBuffer.lookupTransaction(queryParam._1),
         toApiResponse = (
             transactionAccepted: TransactionLogUpdate.TransactionAccepted,
-            queryParam: (Offset, Set[Party]),
+            queryParam: (Offset, Set[Party], EventProjectionProperties),
             loggingContext: LoggingContextWithTrace,
         ) =>
           ToTransactionTree.toGetTransactionResponse(
             transactionAccepted,
             queryParam._2,
+            queryParam._3,
             lfValueTranslation,
           )(loggingContext, directEC),
       )

@@ -147,7 +147,6 @@ sealed trait ReassignmentConfirmationPoliciesPartyIntegrationTest
 
     val unassignId = participant1.ledger_api.commands
       .submit_unassign(alice, LfContractId.assertFromString(iou.id.contractId), daId, acmeId)
-      .unassignedEvent
       .unassignId
 
     PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(

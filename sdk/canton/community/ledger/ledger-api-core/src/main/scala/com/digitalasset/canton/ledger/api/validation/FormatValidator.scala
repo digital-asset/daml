@@ -33,7 +33,7 @@ import com.digitalasset.canton.ledger.api.{
   UpdateFormat,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
 import scalaz.std.list.*
@@ -49,7 +49,7 @@ object FormatValidator {
       txFilter: ProtoTransactionFilter,
       verbose: Boolean,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, EventFormat] =
     validate(ProtoEventFormat(txFilter.filtersByParty, txFilter.filtersForAnyParty, verbose))
 
@@ -58,7 +58,7 @@ object FormatValidator {
       txFilter: ProtoTransactionFilter,
       verbose: Boolean,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, UpdateFormat] =
     for {
       eventFormat <- FormatValidator.validate(txFilter, verbose)
@@ -73,7 +73,7 @@ object FormatValidator {
   def validateLegacyToTransactionFormat(
       requestingParties: Seq[String]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, TransactionFormat] = {
     val txFilter = ProtoTransactionFilter(
       filtersByParty = requestingParties
@@ -96,7 +96,7 @@ object FormatValidator {
   }
 
   def validate(eventFormat: ProtoEventFormat)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, EventFormat] =
     if (eventFormat.filtersByParty.isEmpty && eventFormat.filtersForAnyParty.isEmpty) {
       Left(invalidArgument("filtersByParty and filtersForAnyParty cannot be empty simultaneously"))
@@ -123,7 +123,7 @@ object FormatValidator {
   def validate(
       protoParticipantAuthorizationTopologyFormat: ProtoParticipantAuthorizationTopologyFormat
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ParticipantAuthorizationFormat] =
     protoParticipantAuthorizationTopologyFormat.parties.toList
       .traverse(requirePartyField(_, "parties"))
@@ -136,7 +136,7 @@ object FormatValidator {
       )
 
   def validate(protoTopologyFormat: ProtoTopologyFormat)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, TopologyFormat] =
     for {
       participantAuthorizationPartiesO <- validateOptional(
@@ -145,7 +145,7 @@ object FormatValidator {
     } yield TopologyFormat(participantAuthorizationPartiesO)
 
   def validate(protoTransactionShape: ProtoTransactionShape)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, TransactionShape] = protoTransactionShape match {
     case ProtoTransactionShape.TRANSACTION_SHAPE_UNSPECIFIED =>
       Left(RequestValidationErrors.MissingField.Reject("transaction_shape").asGrpcError)
@@ -162,7 +162,7 @@ object FormatValidator {
   }
 
   def validate(protoTransactionFormat: ProtoTransactionFormat)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, TransactionFormat] =
     for {
       transactionShape <- validate(protoTransactionFormat.transactionShape)
@@ -170,7 +170,7 @@ object FormatValidator {
     } yield TransactionFormat(eventFormat, transactionShape)
 
   def validate(protoUpdateFormat: ProtoUpdateFormat)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, UpdateFormat] =
     for {
       includeTransactions <- validateOptional(protoUpdateFormat.includeTransactions)(validate)
@@ -180,7 +180,7 @@ object FormatValidator {
 
   // Allow using deprecated Protobuf fields for backwards compatibility
   private def validateFilters(filters: Filters)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, CumulativeFilter] = {
     val extractedFilters = filters.cumulative.map(_.identifierFilter)
     val empties = extractedFilters.filter(_.isEmpty)
@@ -218,7 +218,7 @@ object FormatValidator {
   }
 
   private def validateTemplateFilter(filter: ProtoTemplateFilter)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, TemplateFilter] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
@@ -229,7 +229,7 @@ object FormatValidator {
     )
 
   private def validateInterfaceFilter(filter: ProtoInterfaceFilter)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
@@ -245,7 +245,7 @@ object FormatValidator {
       interfaceFilters: Seq[ProtoInterfaceFilter],
       wildcardFilters: Seq[WildcardFilter],
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Unit] =
     Either.cond(
       !(templateFilters.isEmpty && interfaceFilters.isEmpty && wildcardFilters.isEmpty),

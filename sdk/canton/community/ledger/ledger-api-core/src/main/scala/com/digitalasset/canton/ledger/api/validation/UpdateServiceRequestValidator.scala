@@ -14,7 +14,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.UpdateId
 import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 object UpdateServiceRequestValidator {
@@ -29,7 +29,7 @@ object UpdateServiceRequestValidator {
 
   private def commonValidations(
       req: GetUpdatesRequest
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Result[PartialValidation] =
+  )(implicit errorLoggingContext: ErrorLoggingContext): Result[PartialValidation] =
     for {
       begin <- ParticipantOffsetValidator
         .validateNonNegative(req.beginExclusive, "begin_exclusive")
@@ -44,7 +44,7 @@ object UpdateServiceRequestValidator {
       req: GetUpdatesRequest,
       ledgerEnd: Option[Offset],
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetUpdatesRequest] =
     for {
       partial <- commonValidations(req)
@@ -95,7 +95,7 @@ object UpdateServiceRequestValidator {
       req: GetUpdatesRequest,
       ledgerEnd: Option[Offset],
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetUpdatesRequestForTrees] =
     for {
       _ <-
@@ -132,7 +132,7 @@ object UpdateServiceRequestValidator {
   def validateTransactionById(
       req: GetTransactionByIdRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetTransactionByIdRequest] =
     for {
       transactionFormat <- (req.requestingParties, req.transactionFormat) match {
@@ -167,7 +167,7 @@ object UpdateServiceRequestValidator {
   def validateTransactionByIdForTrees(
       req: GetTransactionByIdRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetTransactionByIdRequestForTrees] =
     for {
       _ <-
@@ -193,7 +193,7 @@ object UpdateServiceRequestValidator {
   def validateTransactionByOffset(
       req: GetTransactionByOffsetRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetTransactionByOffsetRequest] =
     for {
       transactionFormat <- (req.requestingParties, req.transactionFormat) match {
@@ -227,7 +227,7 @@ object UpdateServiceRequestValidator {
   def validateTransactionByOffsetForTrees(
       req: GetTransactionByOffsetRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetTransactionByOffsetRequestForTrees] =
     for {
       _ <-
@@ -251,7 +251,7 @@ object UpdateServiceRequestValidator {
   def validateUpdateByOffset(
       req: GetUpdateByOffsetRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetUpdateByOffsetRequest] =
     for {
       offset <- ParticipantOffsetValidator.validatePositive(req.offset, "offset")
@@ -267,7 +267,7 @@ object UpdateServiceRequestValidator {
   def validateUpdateById(
       req: GetUpdateByIdRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[update.GetUpdateByIdRequest] =
     for {
       _ <- requireNonEmptyString(req.updateId, "update_id")

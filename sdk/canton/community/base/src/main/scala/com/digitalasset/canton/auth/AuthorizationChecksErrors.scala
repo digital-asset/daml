@@ -12,7 +12,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.error.CantonErrorGroups
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 
 import scala.concurrent.duration.*
 
@@ -31,7 +31,7 @@ object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksEr
         ErrorCategory.ContentionOnSharedResources,
       ) {
     final case class Reject()(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer("Stale stream authorization. Retry quickly.") {
       override def retryable: Option[ErrorCategoryRetry] = Some(
         ErrorCategoryRetry(duration = 0.seconds)
@@ -52,13 +52,13 @@ object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksEr
         ErrorCategory.AuthInterceptorInvalidAuthenticationCredentials,
       ) {
     final case class MissingJwtToken()(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "The command is missing a (valid) JWT token"
         )
 
     final case class UserBasedAuthenticationIsDisabled()(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "User based authentication is disabled."
         )
@@ -74,7 +74,7 @@ object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksEr
         ErrorCategory.ContentionOnSharedResources,
       ) {
     final case class Reject(override val cause: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "JWT token has expired"
         )
@@ -88,7 +88,7 @@ object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksEr
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Reject(message: String, throwable: Throwable)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = message,
           throwableO = Some(throwable),
@@ -105,7 +105,7 @@ object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksEr
   object PermissionDenied
       extends ErrorCode(id = "PERMISSION_DENIED", ErrorCategory.InsufficientPermission) {
     final case class Reject(override val cause: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
             s"The provided authorization token is not sufficient to authorize the intended command: $cause"
@@ -119,13 +119,13 @@ object AuthorizationChecksErrors extends CantonErrorGroups.AuthorizationChecksEr
   object InvalidToken
       extends ErrorCode(id = "INVALID_TOKEN", ErrorCategory.InvalidIndependentOfSystemState) {
     final case class MissingUserId(reason: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"The submitted request is missing a user-id: $reason"
         )
 
     final case class InvalidField(fieldName: String, message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
             s"The submitted token has a field with invalid value: Invalid field $fieldName: $message"

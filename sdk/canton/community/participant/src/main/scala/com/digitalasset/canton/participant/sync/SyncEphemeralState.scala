@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.store
+package com.digitalasset.canton.participant.sync
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
@@ -25,19 +25,26 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.PendingReassignmentSubmission
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
+import com.digitalasset.canton.participant.store.{
+  ContractLookup,
+  ContractStore,
+  ReassignmentLookup,
+  SyncPersistentState,
+}
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Source
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
 /** The participant-relevant state and components for a synchronizer that is kept only in memory and
-  * must be reconstructed after crashes and fatal errors from the [[SyncPersistentState]]. The
-  * ephemeral state can be kept across network disconnects provided that the local processing
-  * continues as far as possible.
+  * must be reconstructed after crashes and fatal errors from the
+  * [[com.digitalasset.canton.participant.store.SyncPersistentState]]. The ephemeral state can be
+  * kept across network disconnects provided that the local processing continues as far as possible.
   */
 class SyncEphemeralState(
     participantId: ParticipantId,
@@ -67,11 +74,15 @@ class SyncEphemeralState(
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from synchronizer")
 
+  val synchronizerId = persistentState.indexedSynchronizer.synchronizerId
   // Key is the root hash of the reassignment tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
     TrieMap.empty[RootHash, PendingReassignmentSubmission]
   val pendingAssignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
     TrieMap.empty[RootHash, PendingReassignmentSubmission]
+
+  val reassignmentSynchronizer: ReassignmentSynchronizer =
+    new ReassignmentSynchronizer(Source(synchronizerId), loggerFactory, timeouts)
 
   val sessionKeyStore: SessionKeyStore = SessionKeyStore(sessionKeyCacheConfig)
 
@@ -147,6 +158,7 @@ class SyncEphemeralState(
       submissionTracker,
       phase37Synchronizer,
       reassignmentCache,
+      reassignmentSynchronizer,
     )(logger)
 
 }

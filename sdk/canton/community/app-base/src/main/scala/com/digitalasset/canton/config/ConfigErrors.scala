@@ -52,14 +52,14 @@ object ConfigErrors extends ConfigErrorGroup {
     override def logError(): Unit = {
       super.logError()
       exceptions.foreach { e =>
-        loggingContext.logger.debug(
+        loggingContext.debug(
           code.toMsg(
             s"Received the following exception while attempting to parse the Canton config files",
             loggingContext.traceContext.traceId,
             limit = None,
           ),
           e,
-        )(loggingContext.traceContext)
+        )
       }
     }
   }

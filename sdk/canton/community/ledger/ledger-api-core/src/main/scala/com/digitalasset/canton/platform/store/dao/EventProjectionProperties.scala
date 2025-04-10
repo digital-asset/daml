@@ -4,10 +4,14 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
+import com.digitalasset.canton.platform.index.IndexServiceImpl.InterfaceViewPackageUpgrade
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.*
+import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.View
+import scala.concurrent.Future
 
 /** This class encapsulates the logic of how contract arguments and interface views are being
   * projected to the consumer based on the filter criteria and the relation between interfaces and
@@ -23,6 +27,9 @@ import scala.collection.View
   * @param templateWildcardCreatedEventBlobParties
   *   parties for which the created event blob will be populated for all the templates, if None then
   *   blobs for all the parties and all the templates will be populated
+  * @param interfaceViewPackageUpgrade
+  *   computes which interface instance version should be used for rendering an interface view for a
+  *   given interface instance
   */
 final case class EventProjectionProperties(
     verbose: Boolean,
@@ -32,6 +39,10 @@ final case class EventProjectionProperties(
     templateWildcardCreatedEventBlobParties: Option[Set[String]] = Some(
       Set.empty
     ), // TODO(#19364) fuse with the templateWildcardWitnesses into a templateWildcard Projection and potentially include it into the following Map
+)(
+    // Note: including this field in a separate argument list to the case class to not affect the deep equality check of the
+    //       regular argument list
+    val interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade
 ) {
   def render(witnesses: Set[String], templateId: Identifier): Projection =
     (witnesses.iterator.map(Some(_))
@@ -77,6 +88,7 @@ object EventProjectionProperties {
       eventFormat: EventFormat,
       interfaceImplementedBy: Identifier => Set[Identifier],
       resolveTypeConRef: TypeConRef => Set[Identifier],
+      interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
       alwaysPopulateArguments: Boolean,
   ): EventProjectionProperties =
     EventProjectionProperties(
@@ -89,6 +101,31 @@ object EventProjectionProperties {
         interfaceImplementedBy,
         resolveTypeConRef,
       ),
+    )(
+      interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
+    )
+
+  @VisibleForTesting
+  val UseOriginalViewPackageId: InterfaceViewPackageUpgrade =
+    (_: Ref.ValueRef, originalTemplateImplementation: Ref.ValueRef) =>
+      Future.successful(originalTemplateImplementation)
+
+  @VisibleForTesting
+  def apply(
+      eventFormat: EventFormat,
+      interfaceImplementedBy: Identifier => Set[Identifier],
+      resolveTypeConRef: TypeConRef => Set[Identifier],
+      alwaysPopulateArguments: Boolean,
+  ): EventProjectionProperties =
+    EventProjectionProperties(
+      eventFormat = eventFormat,
+      interfaceImplementedBy = interfaceImplementedBy,
+      resolveTypeConRef = resolveTypeConRef,
+      alwaysPopulateArguments = alwaysPopulateArguments,
+      interfaceViewPackageUpgrade = (_: Ref.ValueRef, _: Ref.ValueRef) =>
+        Future.failed(
+          new UnsupportedOperationException("Not expected to be called in unit tests")
+        ),
     )
 
   private def templateWildcardWitnesses(

@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import io.grpc.StatusRuntimeException
@@ -34,7 +34,7 @@ trait StreamTracker[K, I] extends AutoCloseable {
       start: TraceContext => FutureUnlessShutdown[Any]
   )(implicit
       ec: ExecutionContext,
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
       traceContext: TraceContext,
       tracer: Tracer,
       errors: StreamTracker.Errors[K],
@@ -77,9 +77,9 @@ object StreamTracker {
     } yield streamTracker
 
   trait Errors[Key] {
-    def timedOut(key: Key)(implicit errorLogger: ContextualizedErrorLogger): StatusRuntimeException
+    def timedOut(key: Key)(implicit errorLogger: ErrorLoggingContext): StatusRuntimeException
     def duplicated(key: Key)(implicit
-        errorLogger: ContextualizedErrorLogger
+        errorLogger: ErrorLoggingContext
     ): StatusRuntimeException
   }
 }
@@ -94,7 +94,7 @@ private[tracking] class StreamTrackerImpl[Key, Item](
     with Spanning {
 
   private[tracking] val pending =
-    TrieMap.empty[Key, (ContextualizedErrorLogger, Promise[Item])]
+    TrieMap.empty[Key, (ErrorLoggingContext, Promise[Item])]
 
   override def track(
       key: Key,
@@ -103,15 +103,15 @@ private[tracking] class StreamTrackerImpl[Key, Item](
       start: TraceContext => FutureUnlessShutdown[Any]
   )(implicit
       ec: ExecutionContext,
-      errorLogger: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
       traceContext: TraceContext,
       tracer: Tracer,
       errors: StreamTracker.Errors[Key],
   ): Future[Item] =
     inFlightCounter.check(pending.size) {
       val promise = Promise[Item]()
-      pending.putIfAbsent(key, (errorLogger, promise)) match {
-        case Some(_) => promise.failure(errors.duplicated(key)(errorLogger))
+      pending.putIfAbsent(key, (errorLoggingContext, promise)) match {
+        case Some(_) => promise.failure(errors.duplicated(key)(errorLoggingContext))
         case None => trackWithCancelTimeout(key, timeout, promise, start)
       }
       promise.future
@@ -124,7 +124,7 @@ private[tracking] class StreamTrackerImpl[Key, Item](
       start: TraceContext => FutureUnlessShutdown[Any],
   )(implicit
       ec: ExecutionContext,
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
       traceContext: TraceContext,
       tracer: Tracer,
       errors: StreamTracker.Errors[Key],
@@ -178,7 +178,7 @@ private[tracking] class StreamTrackerImpl[Key, Item](
 trait InFlight {
   def check[T](currCount: Int)(
       f: => Future[T]
-  )(implicit ec: ExecutionContext, errorLogger: ContextualizedErrorLogger): Future[T]
+  )(implicit ec: ExecutionContext, errorLogger: ErrorLoggingContext): Future[T]
 }
 
 object InFlight {
@@ -189,7 +189,7 @@ object InFlight {
         f: => Future[T]
     )(implicit
         ec: ExecutionContext,
-        errorLogger: ContextualizedErrorLogger,
+        errorLogger: ErrorLoggingContext,
     ): Future[T] =
       if (currCount < maxCount) {
         metric.inc()
@@ -208,7 +208,7 @@ object InFlight {
         f: => Future[T]
     )(implicit
         ec: ExecutionContext,
-        errorLogger: ContextualizedErrorLogger,
+        errorLogger: ErrorLoggingContext,
     ): Future[T] = f
   }
 }

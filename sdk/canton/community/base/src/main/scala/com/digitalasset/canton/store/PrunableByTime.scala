@@ -113,7 +113,7 @@ trait PrunableByTime {
     } yield {
       val num = res.sum
       if (num > 0)
-        errorLoggingContext.logger.debug(s"Pruned $num $kind using ${res.length} intervals")
+        errorLoggingContext.debug(s"Pruned $num $kind using ${res.length} intervals")
       lastTs.foreach(ts => updateBucketSize(res, limit - ts))
     }
   }
@@ -156,10 +156,8 @@ trait PrunableByTime {
               } else current
             }
             if (old != cur) {
-              errorLoggingContext.logger.debug(
+              errorLoggingContext.debug(
                 s"Updating pruning interval of $kind to $cur ms for average ${average.toInt} in ${res.length} buckets"
-              )(
-                errorLoggingContext.traceContext
               )
             }
           case None =>

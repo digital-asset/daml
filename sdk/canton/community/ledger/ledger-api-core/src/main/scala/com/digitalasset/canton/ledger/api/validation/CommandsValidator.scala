@@ -24,7 +24,7 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
 }
 import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.command.*
 import com.digitalasset.daml.lf.data.*
@@ -55,7 +55,7 @@ final class CommandsValidator(
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Commands] =
     for {
       userId <- requireUserId(prepareRequest.userId, "user_id")
@@ -121,7 +121,7 @@ final class CommandsValidator(
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Commands] =
     for {
       workflowId <- validateWorkflowId(commands.workflowId)
@@ -187,7 +187,7 @@ final class CommandsValidator(
       minLedgerTimeAbs: Option[Timestamp],
       minLedgerTimeRel: Option[DurationP],
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Instant] =
     (minLedgerTimeAbs, minLedgerTimeRel) match {
       case (None, None) => Right(currentTime)
@@ -206,7 +206,7 @@ final class CommandsValidator(
   def validateInnerCommands(
       commands: Seq[Command]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, immutable.Seq[ApiCommand]] =
     commands.traverse(command => validateInnerCommand(command.command))
 
@@ -214,7 +214,7 @@ final class CommandsValidator(
   def validateInnerCommand(
       command: Command.Command
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ApiCommand] =
     command match {
       case c: ProtoCreate =>
@@ -283,7 +283,7 @@ final class CommandsValidator(
   private def validateSubmitters(
       submitters: Submitters[String]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Submitters[Ref.Party]] = {
     def actAsMustNotBeEmpty(effectiveActAs: Set[Ref.Party]) =
       Either.cond(
@@ -306,7 +306,7 @@ final class CommandsValidator(
       deduplicationPeriod: ExecuteSubmissionRequest.DeduplicationPeriod,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     validateDeduplicationPeriod(
       deduplicationPeriod.transformInto[ProtoCommands.DeduplicationPeriod],
@@ -320,7 +320,7 @@ final class CommandsValidator(
       deduplicationPeriod: ProtoCommands.DeduplicationPeriod,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, DeduplicationPeriod] =
     deduplicationPeriod match {
       case ProtoCommands.DeduplicationPeriod.Empty =>
@@ -353,14 +353,14 @@ final class CommandsValidator(
   private def validatePrefetchContractKeys(
       keys: Seq[PrefetchContractKey]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Seq[ApiContractKey]] =
     keys.traverse(validatePrefetchContractKey)
 
   private def validatePrefetchContractKey(
       key: PrefetchContractKey
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ApiContractKey] = {
     val PrefetchContractKey(templateIdO, contractKeyO) = key
     for {

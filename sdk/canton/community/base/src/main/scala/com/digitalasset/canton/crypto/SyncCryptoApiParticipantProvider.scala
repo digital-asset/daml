@@ -214,7 +214,7 @@ object SyncCryptoClient {
       loggingContext: ErrorLoggingContext,
       monad: Monad[F],
   ): F[SyncCryptoApi] = {
-    implicit val traceContext: TraceContext = loggingContext.traceContext
+    val traceContext: TraceContext = loggingContext.traceContext
 
     def lookupDynamicSynchronizerParameters(
         timestamp: CantonTimestamp
@@ -223,11 +223,11 @@ object SyncCryptoClient {
         snapshot <- awaitSnapshotSupervised(
           s"searching for topology change delay at $timestamp for desired timestamp $desiredTimestamp and known until ${client.topologyKnownUntilTimestamp}",
           timestamp,
-          traceContext,
+          loggingContext.traceContext,
         )
         synchronizerParams <- dynamicSynchronizerParameters(
           snapshot.ipsSnapshot,
-          traceContext,
+          loggingContext.traceContext,
         )
       } yield synchronizerParams
 
@@ -241,12 +241,12 @@ object SyncCryptoClient {
       lookupDynamicSynchronizerParameters
     ).flatMap { timestamp =>
       if (timestamp <= client.topologyKnownUntilTimestamp) {
-        loggingContext.logger.debug(
+        loggingContext.debug(
           s"Getting topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
         getSnapshot(timestamp, traceContext)
       } else {
-        loggingContext.logger.debug(
+        loggingContext.debug(
           s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
         awaitSnapshotSupervised(

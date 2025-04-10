@@ -49,6 +49,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Purged,
   ReassignedAway,
 }
+import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
@@ -404,6 +405,11 @@ class UnassignmentProcessingSteps(
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
     val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
+    val reassignmentId = ReassignmentId(synchronizerId, requestTimestamp)
+
+    if (isReassigningParticipant) {
+      reassignmentCoordination.addPendingUnassignment(reassignmentId)
+    }
 
     for {
       targetTopologyO <-
@@ -514,7 +520,14 @@ class UnassignmentProcessingSteps(
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
     ] = for {
-      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetSynchronizer, requestId))
+      _ <- ifThenET(isReassigningParticipant)(
+        deleteReassignment(targetSynchronizer, requestId)
+          .map(_ =>
+            reassignmentCoordination.completeUnassignment(
+              unassignmentValidationResult.reassignmentId
+            )
+          )
+      )
 
       eventO <- EitherT.fromEither[FutureUnlessShutdown](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
@@ -527,6 +540,8 @@ class UnassignmentProcessingSteps(
         // TODO(i22887): Right now we fail at phase 7 if any validation has failed.
         // We should fail only for some specific errors e.g ModelConformance check.
         case _: Verdict.Approve if !isSuccessful =>
+          reassignmentCoordination
+            .completeUnassignment(unassignmentValidationResult.reassignmentId)
           throw new RuntimeException(
             s"Unassignment validation failed for $requestId because: ${unassignmentValidationResult.validationResult}"
           )
@@ -545,6 +560,11 @@ class UnassignmentProcessingSteps(
                 .flatMap { deliveredResult =>
                   reassignmentCoordination
                     .addUnassignmentResult(targetSynchronizer, deliveredResult)
+                    .map { _ =>
+                      reassignmentCoordination.completeUnassignment(
+                        unassignmentValidationResult.reassignmentId
+                      )
+                    }
                 }
             }
 
@@ -574,7 +594,12 @@ class UnassignmentProcessingSteps(
   override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    deleteReassignment(parsedRequest.fullViewTree.targetSynchronizer, parsedRequest.requestId)
+    deleteReassignment(parsedRequest.fullViewTree.targetSynchronizer, parsedRequest.requestId).map(
+      _ =>
+        reassignmentCoordination.completeUnassignment(
+          ReassignmentId(synchronizerId, parsedRequest.requestTimestamp)
+        )
+    )
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData

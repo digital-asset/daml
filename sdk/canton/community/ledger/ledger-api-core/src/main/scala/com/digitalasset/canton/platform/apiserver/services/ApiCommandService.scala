@@ -74,7 +74,7 @@ class ApiCommandService(
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration,
-      )(contextualizedErrorLogger(requestWithSubmissionId))
+      )(errorLoggingContext(requestWithSubmissionId))
       .fold(
         t =>
           Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
@@ -98,7 +98,7 @@ class ApiCommandService(
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration,
-      )(contextualizedErrorLogger(requestWithSubmissionId))
+      )(errorLoggingContext(requestWithSubmissionId))
       .fold(
         t =>
           Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
@@ -113,12 +113,12 @@ class ApiCommandService(
       commands
     }
 
-  private def contextualizedErrorLogger(request: SubmitAndWaitRequest)(implicit
+  private def errorLoggingContext(request: SubmitAndWaitRequest)(implicit
       loggingContext: LoggingContextWithTrace
   ) =
     ErrorLoggingContext.fromOption(logger, loggingContext, request.commands.map(_.submissionId))
 
-  private def contextualizedErrorLogger(request: SubmitAndWaitForTransactionRequest)(implicit
+  private def errorLoggingContext(request: SubmitAndWaitForTransactionRequest)(implicit
       loggingContext: LoggingContextWithTrace
   ) =
     ErrorLoggingContext.fromOption(logger, loggingContext, request.commands.map(_.submissionId))

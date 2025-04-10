@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
-import cats.Order.*
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as proto
@@ -11,6 +10,7 @@ import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
 import com.digitalasset.canton.data.CantonTimestamp
@@ -29,7 +29,6 @@ import com.digitalasset.canton.ledger.api.{
 }
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NotFound.PackageNamesNotFound
 import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, ConsistencyErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
@@ -37,13 +36,13 @@ import com.digitalasset.canton.ledger.participant.state.{SubmissionResult, Synch
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.*
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
@@ -59,14 +58,12 @@ import com.digitalasset.canton.platform.apiserver.services.{
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.protocol.hash.HashTracer
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{MonadUtil, TryUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
-import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion, LfPartyId}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.PackageName
@@ -88,7 +85,6 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
   )
 
   def createApiService(
-      clock: Clock,
       submissionSyncService: state.SyncService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
@@ -99,12 +95,12 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
       lfValueTranslation: LfValueTranslation,
       config: InteractiveSubmissionServiceConfig,
       contractStore: ContractStore,
+      packagePreferenceBackend: PackagePreferenceBackend,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
       tracer: Tracer,
   ): InteractiveSubmissionService & AutoCloseable = new InteractiveSubmissionServiceImpl(
-    clock,
     submissionSyncService,
     timeProvider,
     timeProviderType,
@@ -115,13 +111,13 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
     lfValueTranslation,
     config,
     contractStore,
+    packagePreferenceBackend,
     loggerFactory,
   )
 
 }
 
 private[apiserver] final class InteractiveSubmissionServiceImpl private[services] (
-    clock: Clock,
     syncService: state.SyncService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
@@ -132,6 +128,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     lfValueTranslation: LfValueTranslation,
     config: InteractiveSubmissionServiceConfig,
     contractStore: ContractStore,
+    packagePreferenceService: PackagePreferenceBackend,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends InteractiveSubmissionService
@@ -170,7 +167,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
             .mkString("\n  ")}"
       )
 
-      implicit val errorLoggingContext: ContextualizedErrorLogger =
+      implicit val errorLoggingContext: ErrorLoggingContext =
         ErrorLoggingContext.fromOption(
           logger,
           loggingContext,
@@ -254,7 +251,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       verboseHashing: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): FutureUnlessShutdown[proto.PrepareSubmissionResponse] = {
     val result: EitherT[FutureUnlessShutdown, RpcError, proto.PrepareSubmissionResponse] = for {
       commandExecutionResult <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
@@ -380,7 +377,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   private def failedOnCommandProcessing(
       error: ErrorCause
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[CommandExecutionResult] =
     FutureUnlessShutdown.failed(
       RejectionGenerators
@@ -551,70 +548,11 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]] = {
-    val routingSynchronizerState = syncService.getRoutingSynchronizerState
-    val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
-    val packageIdMapSnapshot = packageMetadataSnapshot.packageIdVersionMap
-
-    def collectReferencesForTargetPackageName(
-        pkgId: LfPackageId,
-        packageIdMapSnapshot: Map[LfPackageId, (LfPackageName, LfPackageVersion)],
-    ): Set[PackageReference] =
-      packageIdMapSnapshot
-        // Optionality is supported since utility packages are not in the packageIdMapSnapshot,
-        // since they are not upgradable
-        // TODO(#23334): Querying for parties not hosted on the current participant is problematic
-        //               since it can be that on their hosting participants, such parties have higher-versioned packages
-        //               in their package store. In such cases, the answer on non-hosting participants can be deceiving
-        //               as they are restricted by the non-hosting participant's package store and not only by the
-        //               vetting state on the commonly-connected synchronizer
-        .get(pkgId)
-        .iterator
-        .collect {
-          case (name, version) if name == packageName => PackageReference(pkgId, version, name)
-        }
-        .toSet
-
-    def computePackagePreference(
-        packageMap: Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]
-    ): Option[(PackageReference, SynchronizerId)] =
-      packageMap.view
-        .flatMap { case (syncId, partyPackageMap: Map[LfPartyId, Set[LfPackageId]]) =>
-          partyPackageMap.values
-            // Find all commonly vetted package-ids for the given parties for the current synchronizer (`syncId`)
-            .reduceOption(_.intersect(_))
-            .getOrElse(Set.empty[LfPackageId])
-            .flatMap(collectReferencesForTargetPackageName(_, packageIdMapSnapshot))
-            .map(_ -> syncId)
-        }
-        // There is (at most) a preferred package for each synchronizer
-        // Pick the one with the highest version, if any
-        // If two preferences match, pick according to synchronizer-id order
-        // TODO(#23334): Use the synchronizer priority order to break ties
-        .maxOption(
-          Ordering.Tuple2(
-            implicitly[Ordering[PackageReference]],
-            // Follow the pattern used for SynchronizerRank ordering,
-            // where lexicographic order picks the most preferred synchronizer by id
-            implicitly[Ordering[SynchronizerId]].reverse,
-          )
-        )
-
-    for {
-      _ <-
-        if (packageMetadataSnapshot.packageNameMap.contains(packageName)) FutureUnlessShutdown.unit
-        else
-          FutureUnlessShutdown.failed(PackageNamesNotFound.Reject(Set(packageName)).asGrpcError)
-      packageMapForRequest <- syncService
-        .packageMapFor(
-          submitters = Set.empty,
-          informees = parties,
-          vettingValidityTimestamp = vettingValidAt.getOrElse(clock.now),
-          prescribedSynchronizer = synchronizerId,
-          routingSynchronizerState = routingSynchronizerState,
-        )
-
-      packagePreference = computePackagePreference(packageMapForRequest)
-    } yield packagePreference
-  }
+  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]] =
+    packagePreferenceService.getPreferredPackageVersion(
+      parties,
+      packageName,
+      synchronizerId,
+      vettingValidAt,
+    )
 }

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.index
 
+import cats.implicits.catsSyntaxSemigroup
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
@@ -17,13 +18,17 @@ import com.digitalasset.canton.ledger.api.{
   UpdateFormat,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.index.IndexServiceImplSpec.Scope
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.EventProjectionProperties
-import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
+import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
+  Projection,
+  UseOriginalViewPackageId,
+}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
   PackageResolution,
@@ -72,6 +77,7 @@ class IndexServiceImplSpec
           )
         ),
         alwaysPopulateArguments = false,
+        interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
       )
     memoFunc() shouldBe None
   }
@@ -94,17 +100,18 @@ class IndexServiceImplSpec
       getPackageMetadataSnapshot = getPackageMetadata,
       updateFormat = updateFormatForTransactions(eventFormat),
       alwaysPopulateArguments = false,
+      interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
     )
     val memoFuncReassignments = memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot = getPackageMetadata,
       updateFormat = updateFormatForReassignments(eventFormat),
       alwaysPopulateArguments = false,
+      interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
     )
     memoFuncTransactions() shouldBe None // no template implementing iface1
     memoFuncReassignments() shouldBe None // no template implementing iface1
     // template1 implements iface1
-    currentPackageMetadata =
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1)))
+    currentPackageMetadata = packageMetadata_iface1_template1
 
     val internalEventFormat0 =
       InternalEventFormat(
@@ -115,7 +122,7 @@ class IndexServiceImplSpec
           templateWildcardCreatedEventBlobParties = Some(Set.empty),
           witnessTemplateProjections =
             Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
-        ),
+        )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
       ) // filter gets complicated, filters template1 for iface1, projects iface1
 
     memoFuncTransactions() shouldBe Some(internalUpdateFormatForTransactions(internalEventFormat0))
@@ -124,8 +131,7 @@ class IndexServiceImplSpec
     )
 
     // template2 also implements iface1 as template1
-    currentPackageMetadata =
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1, template2)))
+    currentPackageMetadata = packageMetadata_iface1_template1 |+| packageMetadata_iface1_template2
 
     val internalEventFormat1 = InternalEventFormat(
       templatePartiesFilter = TemplatePartiesFilter(
@@ -145,7 +151,7 @@ class IndexServiceImplSpec
           )
         ),
         templateWildcardCreatedEventBlobParties = Some(Set.empty),
-      ),
+      )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
     ) // filter gets even more complicated, filters template1 and template2 for iface1, projects iface1 for both templates
 
     memoFuncTransactions() shouldBe Some(internalUpdateFormatForTransactions(internalEventFormat1))
@@ -155,8 +161,7 @@ class IndexServiceImplSpec
   }
 
   it should "populate all contract arguments correctly" in new Scope {
-    currentPackageMetadata =
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1)))
+    currentPackageMetadata = packageMetadata_iface1_template1
     // subscribing to iface1
     val memoFunc = memoizedInternalUpdateFormat(
       getPackageMetadataSnapshot = getPackageMetadata,
@@ -174,6 +179,7 @@ class IndexServiceImplSpec
         )
       ),
       alwaysPopulateArguments = true,
+      interfaceViewPackageUpgrade = EventProjectionProperties.UseOriginalViewPackageId,
     )
     memoFunc() shouldBe Some(
       internalUpdateFormatForTransactions(
@@ -186,7 +192,7 @@ class IndexServiceImplSpec
             witnessTemplateProjections =
               Map(Some(party.toString) -> Map(template1 -> Projection(Set(iface1), false, false))),
             templateWildcardCreatedEventBlobParties = Some(Set.empty),
-          ),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
       )
     )
@@ -514,7 +520,7 @@ class IndexServiceImplSpec
 
   it should "provide a template filter for related interface filter" in new Scope {
     templateFilter(
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
+      packageMetadata_iface1_template1,
       EventFormat(
         filtersByParty = Map(party -> CumulativeFilter(Set(), Set(iface1Filter), None)),
         filtersForAnyParty = None,
@@ -523,7 +529,7 @@ class IndexServiceImplSpec
     ) shouldBe Map(template1 -> Some(Set(party)))
 
     templateFilter(
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
+      packageMetadata_iface1_template1,
       EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(CumulativeFilter(Set(), Set(iface1Filter), None)),
@@ -534,7 +540,7 @@ class IndexServiceImplSpec
 
   it should "merge template filter and interface filter together" in new Scope {
     templateFilter(
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template2))),
+      packageMetadata_iface1_template2,
       EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(Set(template1Filter), Set(iface1Filter), None)
@@ -545,7 +551,7 @@ class IndexServiceImplSpec
     ) shouldBe Map(template1 -> Some(Set(party)), template2 -> Some(Set(party)))
 
     templateFilter(
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template2))),
+      packageMetadata_iface1_template2,
       EventFormat(
         filtersByParty = Map.empty,
         filtersForAnyParty = Some(
@@ -559,9 +565,7 @@ class IndexServiceImplSpec
 
   it should "merge multiple interface filters" in new Scope {
     templateFilter(
-      PackageMetadata(interfacesImplementedBy =
-        Map(iface1 -> Set(template1), iface2 -> Set(template2))
-      ),
+      packageMetadata_iface1_template1 |+| packageMetadata_iface2_template2,
       EventFormat(
         filtersByParty = Map(
           party ->
@@ -586,9 +590,7 @@ class IndexServiceImplSpec
 
   it should "merge interface filters present in both filter by party and filter for any party" in new Scope {
     templateFilter(
-      PackageMetadata(interfacesImplementedBy =
-        Map(iface1 -> Set(template1), iface2 -> Set(template2))
-      ),
+      packageMetadata_iface1_template1 |+| packageMetadata_iface2_template2,
       EventFormat(
         filtersByParty = Map(
           party -> CumulativeFilter(
@@ -618,7 +620,7 @@ class IndexServiceImplSpec
 
   it should "merge the same interface filter present in both filter by party and filter for any party" in new Scope {
     templateFilter(
-      PackageMetadata(interfacesImplementedBy = Map(iface1 -> Set(template1))),
+      packageMetadata_iface1_template1,
       EventFormat(
         filtersByParty = Map(
           party ->
@@ -848,7 +850,7 @@ class IndexServiceImplSpec
 
   behavior of "IndexServiceImpl.invalidTemplateOrInterfaceMessage"
 
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
+  private implicit val errorLoggingContext: ErrorLoggingContext = NoLogging
   it should "provide no message if the list of invalid templates or interfaces is empty" in new Scope {
     RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
       .Reject(List.empty)
@@ -1439,8 +1441,7 @@ object IndexServiceImplSpec {
       includeCreatedEventBlob = false,
     )
     @volatile var currentPackageMetadata = PackageMetadata()
-    val getPackageMetadata: ContextualizedErrorLogger => PackageMetadata = _ =>
-      currentPackageMetadata
+    val getPackageMetadata: ErrorLoggingContext => PackageMetadata = _ => currentPackageMetadata
     val packageResolutionForTemplate1: PackageResolution = PackageResolution(
       preference = LocalPackagePreference(
         Ref.PackageVersion.assertFromString("0.1"),
@@ -1454,6 +1455,59 @@ object IndexServiceImplSpec {
         iface1.packageId,
       ),
       allPackageIdsForName = NonEmpty(Set, iface1.packageId),
+    )
+    val packageMetadata_iface1_template1: PackageMetadata = PackageMetadata(
+      interfaces = Set(iface1),
+      templates = Set(template1),
+      interfacesImplementedBy = Map(iface1 -> Set(template1)),
+      packageIdVersionMap = Map(
+        template1.packageId -> (packageName1 -> Ref.PackageVersion.assertFromString("1.0.0"))
+      ),
+      packageNameMap = Map(
+        packageName1 -> PackageResolution(
+          LocalPackagePreference(
+            Ref.PackageVersion.assertFromString("1.0.0"),
+            template1.packageId,
+          ),
+          NonEmpty(Set, template1.packageId),
+        )
+      ),
+    )
+
+    val packageMetadata_iface1_template2: PackageMetadata = PackageMetadata(
+      interfaces = Set(iface1),
+      templates = Set(template2),
+      interfacesImplementedBy = Map(iface1 -> Set(template2)),
+      packageIdVersionMap = Map(
+        template2.packageId -> (packageName1 -> Ref.PackageVersion.assertFromString("1.0.0"))
+      ),
+      packageNameMap = Map(
+        packageName1 -> PackageResolution(
+          LocalPackagePreference(
+            Ref.PackageVersion.assertFromString("1.0.0"),
+            template2.packageId,
+          ),
+          NonEmpty(Set, template2.packageId),
+        )
+      ),
+    )
+
+    val packageMetadata_iface2_template2: PackageMetadata = PackageMetadata(
+      interfaces = Set(iface2),
+      templates = Set(template2),
+      interfacesImplementedBy = Map(iface2 -> Set(template2)),
+      packageIdVersionMap = Map(
+        template2.packageId -> (packageName1 -> Ref.PackageVersion.assertFromString("1.0.0"))
+      ),
+      packageNameMap = Map(
+        packageName1 -> PackageResolution(
+          LocalPackagePreference(
+            Ref.PackageVersion.assertFromString("1.0.0"),
+            template2.packageId,
+          ),
+          NonEmpty(Set, template2.packageId),
+        )
+      ),
     )
   }
 }

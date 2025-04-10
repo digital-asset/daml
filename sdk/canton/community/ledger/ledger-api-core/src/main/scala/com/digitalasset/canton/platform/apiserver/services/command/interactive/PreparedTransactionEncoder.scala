@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -342,7 +342,7 @@ final class PreparedTransactionEncoder(
       nodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[DamlTransaction] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     implicit val implicitTransactionTransformer
@@ -364,7 +364,7 @@ final class PreparedTransactionEncoder(
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[iss.PreparedTransaction] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     implicit val metadataTransformer: PartialTransformer[TransactionData, Metadata] =

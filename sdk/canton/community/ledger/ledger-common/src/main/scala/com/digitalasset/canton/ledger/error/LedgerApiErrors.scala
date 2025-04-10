@@ -12,7 +12,8 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.engine.Error.Validation.ReplayMismatch
 import org.slf4j.event.Level
@@ -61,7 +62,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
     override def logLevel: Level = Level.INFO
 
-    final case class Rejection(reason: String)(implicit errorLogger: ContextualizedErrorLogger)
+    final case class Rejection(reason: String)(implicit errorLogger: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           cause = s"The participant is overloaded: $reason",
           extraContext = Map("reason" -> reason),
@@ -87,7 +88,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         limit: Long,
         metricPrefix: String,
         fullMethodName: String,
-    )(implicit errorLogger: ContextualizedErrorLogger)
+    )(implicit errorLogger: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           cause =
             s"The $memoryPool collection usage threshold has exceeded the maximum ($limit). Jvm memory metrics are available at $metricPrefix.",
@@ -120,7 +121,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         metricPrefix: String,
         fullMethodName: String,
     )(implicit
-        errorLogger: ContextualizedErrorLogger
+        errorLogger: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
             s"The number of streams in use ($value) has reached or exceeded the limit ($limit). Metrics are available at $metricPrefix.",
@@ -155,7 +156,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         queued: Long,
         limit: Int,
         fullMethodName: String,
-    )(implicit errorLogger: ContextualizedErrorLogger)
+    )(implicit errorLogger: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           s"The $metricNameLabel ($name) queue size ($queued) has exceeded the maximum ($limit).",
           extraContext = Map(
@@ -169,6 +170,29 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         )
   }
 
+  @Explanation(
+    """The requested interface view for the template's package-name is unavailable due to a missing vetted package.
+    |This could be due to a stale stream subscription or the deactivation of an interface implementation
+    |resulting from the unvetting of its compatible packages."""
+  )
+  @Resolution(
+    """Close and re-open the stream subscription to refresh the vetting state used for rendering interface views.
+      |If the problem persists and it is unexpected, contact the participant operator."""
+  )
+  object UnresolvedInterfaceViewPackage
+      extends ErrorCode(
+        id = "NO_VETTED_INTERFACE_IMPLEMENTATION_PACKAGE",
+        category = ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(
+        packageName: Ref.PackageName
+    )(implicit errorLoggingContext: ErrorLoggingContext)
+        extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"Could not resolve a vetted package-id for rendering the interface view for $packageName"
+        )
+  }
+
   @Explanation("""This error occurs if there was an unexpected error in the Ledger API.""")
   @Resolution("Contact support.")
   object InternalError
@@ -178,7 +202,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
       ) {
 
     final case class UnexpectedOrUnknownException(t: Throwable)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "Unexpected or unknown exception occurred.",
           throwableO = Some(t),
@@ -188,7 +212,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         message: String,
         override val throwableO: Option[Throwable] = None,
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = message,
           extraContext = Map("throwableO" -> throwableO.toString),
@@ -197,7 +221,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     final case class PackageSelfConsistency(
         err: LfError.Package.SelfConsistency
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = err.message
         )
@@ -205,7 +229,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     final case class PackageInternal(
         err: LfError.Package.Internal
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = err.message
         )
@@ -213,11 +237,11 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     final case class Preprocessing(
         err: LfError.Preprocessing.Internal
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = err.message)
 
     final case class Validation(reason: ReplayMismatch)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Observed un-expected replay mismatch: $reason"
         )
@@ -227,18 +251,18 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
         message: String,
         detailMessage: Option[String],
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Daml-Engine interpretation failed with internal error: $where / $message",
           extraContext = Map("detailMessage" -> detailMessage),
         )
 
     final case class VersionService(message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = message)
 
     final case class Buffer(message: String, override val throwableO: Option[Throwable])(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = message, throwableO = throwableO)
   }
 }

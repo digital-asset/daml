@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.SequencerIndexMov
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessSet
-import com.digitalasset.canton.participant.store.SyncEphemeralState
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.RequestId
 import com.digitalasset.canton.protocol.messages.{
   ConfirmationResponses,

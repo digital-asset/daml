@@ -5,13 +5,13 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 object ParticipantOffsetValidator {
 
   def validateOptionalPositive(offsetO: Option[Long], fieldName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Option[Offset]] =
     offsetO match {
       case Some(off) =>
@@ -30,7 +30,7 @@ object ParticipantOffsetValidator {
       fieldName: String,
       errorMsg: String = "the offset has to be a positive integer (>0)",
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Offset] =
     Either.cond(
       offset > 0,
@@ -45,7 +45,7 @@ object ParticipantOffsetValidator {
     )
 
   def validateNonNegative(offset: Long, fieldName: String)(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Either[StatusRuntimeException, Option[Offset]] =
     Either.cond(
       offset >= 0,
@@ -64,7 +64,7 @@ object ParticipantOffsetValidator {
       offset: Option[Offset],
       ledgerEnd: Option[Offset],
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Unit] =
     Either.cond(
       offset <= ledgerEnd,

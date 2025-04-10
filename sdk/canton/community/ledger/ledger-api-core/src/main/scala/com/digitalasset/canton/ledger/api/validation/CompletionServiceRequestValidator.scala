@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 object CompletionServiceRequestValidator {
@@ -16,7 +16,7 @@ object CompletionServiceRequestValidator {
   def validateGrpcCompletionStreamRequest(
       request: GrpcCompletionStreamRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       userId <- requireUserId(request.userId, "user_id")
@@ -35,7 +35,7 @@ object CompletionServiceRequestValidator {
       request: CompletionStreamRequest,
       ledgerEnd: Option[Offset],
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
       _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(

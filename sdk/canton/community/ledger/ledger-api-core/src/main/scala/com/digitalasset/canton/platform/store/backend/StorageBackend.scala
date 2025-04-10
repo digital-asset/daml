@@ -43,7 +43,6 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import java.sql.Connection
@@ -281,7 +280,6 @@ object ContractStorageBackend {
   final case class RawCreatedContract(
       templateId: String,
       packageName: String,
-      packageVersion: Option[String],
       flatEventWitnesses: Set[Party],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
@@ -458,7 +456,6 @@ object EventStorageBackend {
       contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
-      packageVersion: Option[PackageVersion],
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],

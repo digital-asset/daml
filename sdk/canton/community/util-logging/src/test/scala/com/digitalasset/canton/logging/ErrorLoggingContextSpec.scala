@@ -6,13 +6,13 @@ package com.digitalasset.canton.logging
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-class ContextualizedErrorLoggerSpec extends AnyFlatSpec with Matchers {
+class ErrorLoggingContextSpec extends AnyFlatSpec with Matchers {
 
   it should "sort entries by keys and skip empty values" in {
     val contextMap = Map("c" -> "C", "a" -> "A", "b" -> "B", "empty value" -> "")
 
     val actual =
-      ContextualizedErrorLogger.formatContextAsString(contextMap)
+      ErrorLoggingContext.formatContextAsString(contextMap)
 
     actual shouldBe "a=A, b=B, c=C"
   }

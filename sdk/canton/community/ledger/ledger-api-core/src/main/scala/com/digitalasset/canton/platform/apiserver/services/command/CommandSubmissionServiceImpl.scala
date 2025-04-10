@@ -20,7 +20,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
 }
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -115,7 +114,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
           .toSeq
           .mkString("\n  ")}")
 
-      implicit val errorLoggingContext: ContextualizedErrorLogger =
+      implicit val errorLoggingContext: ErrorLoggingContext =
         ErrorLoggingContext.fromOption(
           logger,
           loggingContext,
@@ -156,7 +155,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       commands: ApiCommands,
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): FutureUnlessShutdown[state.SubmissionResult] =
     checkOverloaded(loggingContext.traceContext)
       .map(FutureUnlessShutdown.pure)
@@ -230,7 +229,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   private def failedOnCommandProcessing(
       error: ErrorCause
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): FutureUnlessShutdown[SubmissionResult] =
     FutureUnlessShutdown.failed(
       RejectionGenerators

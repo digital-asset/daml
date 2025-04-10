@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 import java.time.Duration
@@ -12,7 +12,7 @@ object DeduplicationPeriodValidator {
   private val fieldName = "deduplication_period"
 
   def validateNonNegativeDuration(duration: Duration)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Duration] = if (duration.isNegative)
     Left(
       ValidationErrors

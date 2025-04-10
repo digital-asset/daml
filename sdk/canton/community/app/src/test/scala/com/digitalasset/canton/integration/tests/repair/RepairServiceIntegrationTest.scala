@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import cats.syntax.either.*
-import com.daml.ledger.api.v2.reassignment.UnassignedEvent
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
@@ -293,8 +292,7 @@ sealed trait RepairServiceIntegrationTestStableLf
                   daId,
                   acmeId,
                 )
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+            }.discard
 
             eventually() {
               val res =
@@ -421,8 +419,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
                 .submit_unassign(bob, cid.toLf, daId, acmeId)
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+            }.discard
             cid
           }
 
@@ -692,8 +689,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
                 .submit_unassign(bob, created.toLf, daId, acmeId)
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+            }.discard
             contract
           }
           val contractId = contractInstance.contract.contractId

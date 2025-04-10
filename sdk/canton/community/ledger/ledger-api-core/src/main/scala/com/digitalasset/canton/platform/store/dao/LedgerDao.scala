@@ -67,11 +67,13 @@ private[platform] trait LedgerDaoUpdateReader {
   def lookupTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
   def lookupTransactionTreeByOffset(
       offset: Offset,
       requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]]
 
   def getActiveContracts(

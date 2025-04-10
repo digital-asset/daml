@@ -70,7 +70,7 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
     */
   def updateConfig(newConfig: SequencerConnectionXPoolConfig)(implicit
       traceContext: TraceContext
-  ): Either[SequencerConnectionXPool.SequencerConnectionXPoolError, Unit]
+  ): Either[SequencerConnectionXPoolError, Unit]
 
   def health: SequencerConnectionXPoolHealth
 

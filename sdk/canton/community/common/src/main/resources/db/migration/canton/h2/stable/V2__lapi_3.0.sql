@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 CREATE ALIAS array_intersection FOR "com.digitalasset.canton.store.db.h2.H2FunctionAliases.arrayIntersection";
@@ -129,7 +129,6 @@ CREATE TABLE lapi_events_create (
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
-    package_version INTEGER, -- Can be null for LF 2.1
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -352,7 +351,6 @@ CREATE TABLE lapi_events_assign (
     contract_id BINARY VARYING NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
-    package_version INTEGER, -- Can be null for LF 2.1
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
 
     -- * common reassignment

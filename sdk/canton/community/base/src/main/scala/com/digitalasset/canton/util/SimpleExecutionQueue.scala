@@ -368,8 +368,8 @@ object SimpleExecutionQueue {
 
       def logNotRunningTask(isShutdown: Boolean): Unit = {
         def log(msg: String): Unit =
-          if (isShutdown) loggingContext.logger.debug(msg)(loggingContext.traceContext)
-          else loggingContext.logger.error(msg)(loggingContext.traceContext)
+          if (isShutdown) loggingContext.debug(msg)
+          else loggingContext.error(msg)
         val reason = if (isShutdown) "shutdown" else "failure"
         val primaryMessage =
           s"Task ${description.singleQuoted} will not run because of $reason of previous task"

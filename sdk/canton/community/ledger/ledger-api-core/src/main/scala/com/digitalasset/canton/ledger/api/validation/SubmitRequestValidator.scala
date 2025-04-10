@@ -27,7 +27,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HashingSchemeVersion
@@ -50,7 +50,7 @@ class SubmitRequestValidator(
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       commands <- requirePresence(req.commands, "commands")
@@ -68,7 +68,7 @@ class SubmitRequestValidator(
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
     for {
       validatedCommands <- commandsValidator.validatePrepareRequest(
@@ -83,7 +83,7 @@ class SubmitRequestValidator(
       formatP: InteractiveSignatureFormat,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, SignatureFormat] =
     formatP match {
       case InteractiveSignatureFormat.SIGNATURE_FORMAT_DER => Right(SignatureFormat.Der)
@@ -99,7 +99,7 @@ class SubmitRequestValidator(
       signingAlgorithmSpecP: iss.SigningAlgorithmSpec,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, SigningAlgorithmSpec] =
     signingAlgorithmSpecP match {
       case iss.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_ED25519 =>
@@ -116,7 +116,7 @@ class SubmitRequestValidator(
       issSignatureP: iss.Signature,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Signature] = {
     val InteractiveSignature(formatP, signatureP, signedByP, signingAlgorithmSpecP) =
       issSignatureP
@@ -133,7 +133,7 @@ class SubmitRequestValidator(
   private def validatePartySignatures(
       proto: PartySignatures
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Map[TopologyPartyId, Seq[Signature]]] =
     proto.signatures
       .traverse { case SinglePartySignatures(partyP, signaturesP) =>
@@ -158,7 +158,7 @@ class SubmitRequestValidator(
       submissionIdGenerator: SubmissionIdGenerator,
       maxDeduplicationDuration: Duration,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ExecuteRequest] = {
     val iss.ExecuteSubmissionRequest(
       preparedTransactionP,
@@ -206,7 +206,7 @@ class SubmitRequestValidator(
   }
 
   private def validateSynchronizerId(string: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[RpcError, SynchronizerId] =
     SynchronizerId
       .fromString(string)
@@ -216,7 +216,7 @@ class SubmitRequestValidator(
       )
 
   private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[RpcError, HashingSchemeVersion] = protoVersion match {
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2 => Right(V2)
     case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
@@ -234,7 +234,7 @@ class SubmitRequestValidator(
   def validateReassignment(
       req: SubmitReassignmentRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitReassignmentRequest] =
     for {
       reassignmentCommand <- requirePresence(req.reassignmentCommands, "reassignment_commands")

@@ -80,12 +80,14 @@ private[reassignment] class AssignmentValidation(
           EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
             Seq.empty[ReassignmentValidationError]
           )
+
         case Right(unassignmentData) =>
           validateAssignmentRequestForReassigningParticipant(
             unassignmentData,
             assignmentRequest,
             assignmentRequestTs,
           )
+
         case Left(_: ReassignmentCompleted) =>
           EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
             Seq(ReassignmentDataCompleted(reassignmentId): ReassignmentValidationError)
@@ -242,7 +244,7 @@ private[reassignment] class AssignmentValidation(
       reassignmentId,
       unassignmentRequest,
       unassignmentDecisionTime,
-      _unassignmentResult,
+      unassignmentResult,
     ) = unassignmentData
 
     val reassigningParticipants = Validated.condNec(
@@ -282,6 +284,12 @@ private[reassignment] class AssignmentValidation(
       ),
     )
 
+    val incompleteUnassignment = Validated.condNec(
+      unassignmentResult.nonEmpty,
+      (),
+      AssignmentValidationError.UnassignmentIncomplete(reassignmentId),
+    )
+
     for {
       deliveredUnassignmentResult <- DeliveredUnassignmentResultValidation(
         reassignmentId = reassignmentId,
@@ -297,6 +305,7 @@ private[reassignment] class AssignmentValidation(
       contract,
       exclusivityTimeout,
       reassignmentCounter,
+      incompleteUnassignment,
       deliveredUnassignmentResult.toValidatedNec,
     ).sequence_.fold(_.toList, _ => Nil)
   }
@@ -311,14 +320,6 @@ object AssignmentValidation {
   ) extends AssignmentProcessorError {
     override def message: String =
       s"Cannot find reassignment data for reassignment `$reassignmentId`: ${lookupError.cause}"
-  }
-
-  final case class UnassignmentIncomplete(
-      reassignmentId: ReassignmentId,
-      participant: ParticipantId,
-  ) extends AssignmentProcessorError {
-    override def message: String =
-      s"Cannot assign `$reassignmentId` because unassignment is incomplete"
   }
 
   final case class NoParticipantForReceivingParty(reassignmentId: ReassignmentId, party: LfPartyId)

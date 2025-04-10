@@ -33,12 +33,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedSynchronizerResponse
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
-  ErrorLoggingContext,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.Pruning.*
@@ -314,6 +309,10 @@ class CantonSyncService(
       parameters.reassignmentTimeProofFreshnessProportion,
       syncPersistentStateManager,
       connectedSynchronizersLookup.get,
+      synchronizerId =>
+        connectedSynchronizersLookup
+          .get(synchronizerId.unwrap)
+          .map(_.ephemeral.reassignmentSynchronizer),
       syncCrypto,
       loggerFactory,
     )(ec)
@@ -738,7 +737,7 @@ class CantonSyncService(
       .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
 
   override def getPackageMetadataSnapshot(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PackageMetadata = packageService.value.packageMetadataView.getSnapshot
 
   /** Executes ordered sequence of steps to recover any state that might have been lost if the

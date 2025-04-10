@@ -13,7 +13,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.IndexErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 
 @Explanation("Errors raised by the Participant Index persistence layer.")
 object IndexErrors extends IndexErrorGroup {
@@ -28,7 +28,7 @@ object IndexErrors extends IndexErrorGroup {
           ErrorCategory.TransientServerFailure,
         ) {
       final case class Reject(throwable: Throwable)(implicit
-          val loggingContext: ContextualizedErrorLogger
+          val loggingContext: ErrorLoggingContext
       ) extends DbError(
             cause =
               s"Processing the request failed due to a transient database error: ${throwable.getMessage}",
@@ -46,7 +46,7 @@ object IndexErrors extends IndexErrorGroup {
           ErrorCategory.SystemInternalAssumptionViolated,
         ) {
       final case class Reject(throwable: Throwable)(implicit
-          val loggingContext: ContextualizedErrorLogger
+          val loggingContext: ErrorLoggingContext
       ) extends DbError(
             cause =
               s"Processing the request failed due to a non-transient database error: ${throwable.getMessage}",
@@ -64,7 +64,7 @@ object IndexErrors extends IndexErrorGroup {
       override val throwableO: Option[Throwable] = None,
   )(implicit
       code: ErrorCode,
-      loggingContext: ContextualizedErrorLogger,
+      loggingContext: ErrorLoggingContext,
   ) extends DamlErrorWithDefiniteAnswer(cause, throwableO) {
 
     override def asGrpcError: IndexDbException = {

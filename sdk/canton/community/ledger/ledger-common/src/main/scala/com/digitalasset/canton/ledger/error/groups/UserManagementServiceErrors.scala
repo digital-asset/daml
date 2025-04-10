@@ -13,7 +13,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AdminServicesErrorGroup.UserManagementServiceErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 
 object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
 
@@ -28,7 +28,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Reject(userId: String, reason: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends ContextualizedDamlError(
           cause = s"Update operation for user id '$userId' failed due to: $reason"
         ) {
@@ -51,7 +51,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends ContextualizedDamlError(
           cause = s"Maximum annotations size for user '$userId' has been exceeded"
         ) {
@@ -76,7 +76,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
         ErrorCategory.ContentionOnSharedResources,
       ) {
     final case class Reject(userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends ContextualizedDamlError(
           cause =
             s"Update operation for user '$userId' failed due to a concurrent update to the same user"
@@ -97,7 +97,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
     final case class Reject(operation: String, userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"$operation failed for unknown user \"$userId\""
         ) {
@@ -116,7 +116,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
     final case class Reject(operation: String, userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"$operation failed, as user \"$userId\" already exists"
         ) {
@@ -140,7 +140,7 @@ object UserManagementServiceErrors extends UserManagementServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(operation: String, userId: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"$operation failed, as user \"$userId\" would have too many rights."
         ) {

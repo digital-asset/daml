@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, LoggingContextWithTrace}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, tracking}
@@ -73,7 +73,7 @@ class CommandServiceImplSpec
             eqTo(expectedSubmissionKey),
             eqTo(config.NonNegativeFiniteDuration.ofSeconds(1000L)),
             any[TraceContext => FutureUnlessShutdown[Any]],
-          )(any[ContextualizedErrorLogger], any[TraceContext])
+          )(any[ErrorLoggingContext], any[TraceContext])
           response.updateId should be("transaction ID")
           response.completionOffset shouldBe offset
         }
@@ -108,7 +108,7 @@ class CommandServiceImplSpec
               eqTo(expectedSubmissionKey),
               eqTo(config.NonNegativeFiniteDuration.ofSeconds(3600L)),
               any[TraceContext => FutureUnlessShutdown[Any]],
-            )(any[ContextualizedErrorLogger], any[TraceContext])
+            )(any[ErrorLoggingContext], any[TraceContext])
             response.updateId should be("transaction ID")
             succeed
           }
@@ -144,7 +144,7 @@ class CommandServiceImplSpec
                 any[SubmissionTracker.SubmissionKey],
                 any[config.NonNegativeFiniteDuration],
                 any[TraceContext => FutureUnlessShutdown[Any]],
-              )(any[ContextualizedErrorLogger], any[TraceContext])
+              )(any[ErrorLoggingContext], any[TraceContext])
 
               response.failed.map(inside(_) { case RpcProtoExtractors.Exception(status) =>
                 status.getCode shouldBe Code.DEADLINE_EXCEEDED.getNumber
@@ -164,7 +164,7 @@ class CommandServiceImplSpec
           any[config.NonNegativeFiniteDuration],
           any[TraceContext => FutureUnlessShutdown[Any]],
         )(
-          any[ContextualizedErrorLogger],
+          any[ErrorLoggingContext],
           any[TraceContext],
         )
       ).thenReturn(
@@ -223,7 +223,7 @@ class CommandServiceImplSpec
         any[config.NonNegativeFiniteDuration],
         any[TraceContext => FutureUnlessShutdown[Any]],
       )(
-        any[ContextualizedErrorLogger],
+        any[ErrorLoggingContext],
         any[TraceContext],
       )
     ).thenReturn(Future.successful(trackerCompletionResponse))

@@ -22,6 +22,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
@@ -45,7 +46,6 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
@@ -125,8 +125,8 @@ object ApiServices {
       dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
-      clock: Clock,
       logger: TracedLogger,
+      packagePreferenceBackend: PackagePreferenceBackend,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -385,7 +385,6 @@ object ApiServices {
       val apiInteractiveSubmissionService = {
         val interactiveSubmissionService =
           InteractiveSubmissionServiceImpl.createApiService(
-            clock,
             syncService,
             timeProvider,
             timeProviderType,
@@ -396,6 +395,7 @@ object ApiServices {
             lfValueTranslation,
             interactiveSubmissionServiceConfig,
             contractStore,
+            packagePreferenceBackend,
             loggerFactory,
           )
 

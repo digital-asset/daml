@@ -169,7 +169,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
         a[CommandFailure] shouldBe thrownBy {
           participant1.ledger_api.commands.submit_assign(
             participant1.adminParty,
-            unassigned.unassignedEvent.unassignId,
+            unassigned.unassignId,
             synchronizer1Id,
             synchronizer2Id,
           )
