@@ -14,7 +14,7 @@ module DA.Exception
 
 -- | Exception handling in Daml.
 module DA.Exception
-  {-# DEPRECATED in "x-exceptions" "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+  {-# DEPRECATED in "x-exceptions" ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `--disable-deprecated-exceptions-warning` to disable this warning."] #-}
   ( module X ) where
 
 import DA.Internal.Exception as X hiding (DamlException)

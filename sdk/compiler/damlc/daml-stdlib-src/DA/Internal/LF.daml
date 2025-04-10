@@ -204,7 +204,7 @@ instance Ord TypeRep where
 
 #ifdef DAML_EXCEPTIONS
 
-{-# DEPRECATED in "x-exceptions" AnyException "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+{-# DEPRECATED in "x-exceptions" AnyException ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `--disable-deprecated-exceptions-warning` to disable this warning."] #-}
 -- | A wrapper for all exception types.
 data AnyException = AnyException Opaque
 

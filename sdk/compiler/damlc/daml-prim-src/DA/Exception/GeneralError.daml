@@ -18,7 +18,7 @@ module DA.Exception.GeneralError where
 
 import GHC.Types (Text)
 
-{-# DEPRECATED in "x-exceptions" GeneralError "Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch." #-}
+{-# DEPRECATED in "x-exceptions" GeneralError ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `--disable-deprecated-exceptions-warning` to disable this warning."] #-}
 -- | Exception raised by `error`.
 data GeneralError = GeneralError { message : Text }
 
