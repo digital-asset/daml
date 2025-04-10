@@ -215,8 +215,8 @@ class IdeLedgerClient(
             val version = machine.tmplId2TxVersion(templateId)
             Some(svalue.toNormalizedValue(version))
 
-          case Left(_) =>
-            None
+          case Left(e) =>
+            sys.error(s"runPure failed: $e")
         }
     }
   }
@@ -264,8 +264,14 @@ class IdeLedgerClient(
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
       case Some(contract) =>
-        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
-        Future.successful(viewOpt)
+        val reversePackageIdMap = getPackageIdReverseMap()
+        val packageMap = calculatePackageMap(List(), reversePackageIdMap)
+        Future.successful(
+          for {
+            preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
+            view <- computeView(contract.templateId.copy(packageId = preferredPkgId), interfaceId, contract.createArg)
+          } yield view
+        )
     }
   }
 

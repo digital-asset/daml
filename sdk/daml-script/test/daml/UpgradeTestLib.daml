@@ -12,6 +12,7 @@ module UpgradeTestLib (
   tests,
   subtree,
   broken,
+  ignore,
   brokenOnCanton,
   brokenOnIDELedger,
   withUnvettedPackage,
@@ -113,4 +114,10 @@ brokenOnIDELedger (name, act) =
   , \testState -> case testState.runMode of
     IdeLedger -> brokenScript act testState
     _ -> act testState
+  )
+
+ignore : (Text, Test) -> (Text, Test)
+ignore (name, _) =
+  ( "(IGNORE) " <> name
+  , \testState -> pure ()
   )
