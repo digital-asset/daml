@@ -13,6 +13,7 @@ module DA.Exception
 #else
 
 -- | Exception handling in Daml.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 module DA.Exception
   {-# DEPRECATED in "x-exceptions" ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `--disable-deprecated-exceptions-warning` to disable this warning."] #-}
   ( module X ) where

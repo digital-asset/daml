@@ -20,6 +20,7 @@ import GHC.Types (Text)
 
 {-# DEPRECATED in "x-exceptions" AssertionFailed ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `--disable-deprecated-exceptions-warning` to disable this warning."] #-}
 -- | Exception raised by assert functions in DA.Assert
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 data AssertionFailed = AssertionFailed { message : Text }
 
 #endif

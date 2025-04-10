@@ -20,6 +20,7 @@ import GHC.Types (Text)
 
 {-# DEPRECATED in "x-exceptions" ArithmeticError ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `--disable-deprecated-exceptions-warning` to disable this warning."] #-}
 -- | Exception raised by an arithmetic operation, such as divide-by-zero or overflow.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 data ArithmeticError = ArithmeticError { message : Text }
 
 #endif
