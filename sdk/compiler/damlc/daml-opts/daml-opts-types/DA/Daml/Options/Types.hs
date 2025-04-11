@@ -23,7 +23,6 @@ module DA.Daml.Options.Types
     , ErrorOrWarning
     , IgnoreDataDepVisibility(..)
     , ForceUtilityPackage(..)
-    , DisableDeprecatedExceptions(..)
     , defaultOptions
     , damlArtifactDir
     , projectPackageDatabase
@@ -43,8 +42,11 @@ module DA.Daml.Options.Types
     , defaultUiWarnBadExceptions
     , defaultUpgradeInfo
     , damlWarningFlagParser
+    , inlineDamlCustomWarningsParser
+    , inlineDamlCustomWarningToGhcFlag
     , TypeCheckerError.damlWarningFlagParserTypeChecker
     , LFConversion.damlWarningFlagParserLFConversion
+    , InlineDamlCustomWarnings (..)
     ) where
 
 import Control.Monad.Reader
@@ -146,16 +148,42 @@ data Options = Options
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
-  , optDisableDeprecatedExceptions :: DisableDeprecatedExceptions
+  , optInlineDamlCustomWarnings :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings
   }
+
+data InlineDamlCustomWarnings
+  = DisableDeprecatedExceptions
+  deriving (Enum, Bounded, Ord, Eq, Show)
+
+inlineDamlCustomWarningsParser :: WarningFlags.DamlWarningFlagParser InlineDamlCustomWarnings
+inlineDamlCustomWarningsParser = WarningFlags.mkDamlWarningFlagParser
+  (\case
+    DisableDeprecatedExceptions -> WarningFlags.AsWarning)
+  [ WarningFlags.DamlWarningFlagSpec "deprecated-exceptions" True $ \case
+      DisableDeprecatedExceptions -> True
+  ]
+
+inlineDamlCustomWarningToGhcFlag :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings -> [String]
+inlineDamlCustomWarningToGhcFlag flags = mapMaybe go [minBound..maxBound]
+  where
+    toName :: InlineDamlCustomWarnings -> String
+    toName DisableDeprecatedExceptions = "x-exceptions"
+
+    go inlineWarning =
+      case WarningFlags.getWarningStatus flags inlineWarning of
+        WarningFlags.AsError -> Just $ "-Werror=" <> toName inlineWarning
+        WarningFlags.AsWarning -> Nothing -- "-W" <> toName inlineWarning
+        WarningFlags.Hidden -> Just $ "-Wno-" <> toName inlineWarning
 
 type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
 
-damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser (Either InlineDamlCustomWarnings ErrorOrWarning)
 damlWarningFlagParser =
   WarningFlags.combineParsers
-    TypeCheckerError.damlWarningFlagParserTypeChecker
-    LFConversion.damlWarningFlagParserLFConversion
+    inlineDamlCustomWarningsParser
+    (WarningFlags.combineParsers
+      TypeCheckerError.damlWarningFlagParserTypeChecker
+      LFConversion.damlWarningFlagParserLFConversion)
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -219,9 +247,6 @@ newtype EnableInterfaces = EnableInterfaces { getEnableInterfaces :: Bool }
     deriving Show
 
 newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bool }
-    deriving Show
-
-newtype DisableDeprecatedExceptions = DisableDeprecatedExceptions { getDisableDeprecatedExceptions :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -303,10 +328,15 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
-        , optDamlWarningFlags = WarningFlags.mkDamlWarningFlags damlWarningFlagParser []
+        , optDamlWarningFlags =
+            WarningFlags.mkDamlWarningFlags
+              (WarningFlags.combineParsers
+                TypeCheckerError.damlWarningFlagParserTypeChecker
+                LFConversion.damlWarningFlagParserLFConversion)
+              []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
-        , optDisableDeprecatedExceptions = DisableDeprecatedExceptions False
+        , optInlineDamlCustomWarnings = WarningFlags.mkDamlWarningFlags inlineDamlCustomWarningsParser []
         }
 
 defaultUpgradeInfo :: UpgradeInfo

@@ -73,6 +73,9 @@ instance Contravariant DamlWarningFlags where
       , dwfFlags = fmap (contramap f) dwfFlags
       }
 
+splitDamlWarningFlags :: DamlWarningFlags (Either err1 err2) -> (DamlWarningFlags err1, DamlWarningFlags err2)
+splitDamlWarningFlags flags = (contramap Left flags, contramap Right flags)
+
 combineParsers :: DamlWarningFlagParser err1 -> DamlWarningFlagParser err2 -> DamlWarningFlagParser (Either err1 err2)
 combineParsers left right =
   DamlWarningFlagParser

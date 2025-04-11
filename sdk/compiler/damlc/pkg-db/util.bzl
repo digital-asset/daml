@@ -98,7 +98,7 @@ def _daml_package_rule_impl(ctx):
 
     package_db_dir = ctx.attr.package_db[PackageDb].db_dir
     disable_warn_large_tuples = "-Wno-large-tuples" if ctx.attr.disable_warn_large_tuples else "-Wlarge-tuples"
-    disable_deprecated_exceptions = "--disable-deprecated-exceptions-warning" if ctx.attr.disable_deprecated_exceptions else ""
+    disable_deprecated_exceptions = "-Wno-deprecated-exceptions" if ctx.attr.disable_deprecated_exceptions else ""
 
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],

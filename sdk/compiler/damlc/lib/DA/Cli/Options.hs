@@ -145,13 +145,6 @@ newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
 
-disableDeprecatedExceptionsOpt :: Parser DisableDeprecatedExceptions
-disableDeprecatedExceptionsOpt = DisableDeprecatedExceptions <$>
-  switch
-    (  long "disable-deprecated-exceptions-warning"
-    <> help "Disable the warning for deprecated exceptions. Note that exceptions will be removed in a future version, use at your own risk."
-    )
-
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
 enableMultiPackageOpt = EnableMultiPackage <$> flagYesNoAuto "enable-multi-package" True "Enable/disable multi-package.yaml support (enabled by default)" idm
@@ -441,10 +434,9 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
-    optDamlWarningFlags <- optDamlWarningFlags
+    ~(optInlineDamlCustomWarnings, optDamlWarningFlags) <- optDamlWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     optForceUtilityPackage <- forceUtilityPackageOpt
-    optDisableDeprecatedExceptions <- disableDeprecatedExceptionsOpt
 
     return Options{..}
   where
@@ -585,9 +577,9 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         "Typecheck upgrades."
         idm
 
-    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
+    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags InlineDamlCustomWarnings, WarningFlags.DamlWarningFlags ErrorOrWarning)
     optDamlWarningFlags =
-      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$>
+      WarningFlags.splitDamlWarningFlags . WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$>
         many (Options.Applicative.option
           (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
           (short 'W' <> helpDoc (Just helpStr)))
