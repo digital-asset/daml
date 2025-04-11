@@ -283,8 +283,8 @@ final class Conversions(
                 proto.ScriptError.UpgradeError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
-              case _: CCTP =>
-                proto.ScriptError.CCTPError.newBuilder.setMessage(
+              case _: Crypto =>
+                proto.ScriptError.CryptoError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
               case err @ Dev(_, _) =>

@@ -273,7 +273,7 @@ message ScriptError {
     Identifier required_interface_id = 3;
   }
 
-  message CCTPError {
+  message CryptoError {
     string message = 1;
   }
 

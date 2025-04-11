@@ -97,7 +97,7 @@ da_scala_test_suite(
         ":interpreter-test-lib",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
-        "//daml-lf/data:cctp-data-test",
+        "//daml-lf/data:crypto-data-test",
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/stable-packages",

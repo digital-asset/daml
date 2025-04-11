@@ -925,7 +925,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           ) {
         final case class Reject(
             override val cause: String,
-            err: LfInterpretationError.CCTP.MalformedByteEncoding,
+            err: LfInterpretationError.Crypto.MalformedByteEncoding,
         )(implicit
             loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(
@@ -950,7 +950,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           ) {
         final case class Reject(
             override val cause: String,
-            err: LfInterpretationError.CCTP.MalformedKey,
+            err: LfInterpretationError.Crypto.MalformedKey,
         )(implicit
             loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(
@@ -975,7 +975,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
           ) {
         final case class Reject(
             override val cause: String,
-            err: LfInterpretationError.CCTP.MalformedSignature,
+            err: LfInterpretationError.Crypto.MalformedSignature,
         )(implicit
             loggingContext: ErrorLoggingContext
         ) extends DamlErrorWithDefiniteAnswer(

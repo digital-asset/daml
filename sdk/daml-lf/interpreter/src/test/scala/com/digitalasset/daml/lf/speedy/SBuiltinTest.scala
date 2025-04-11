@@ -1759,7 +1759,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
-  "CCTP" - {
+  "Crypto" - {
 
     "KECCAK256_TEXT" - {
       "correctly digest hex strings" in {
@@ -1800,8 +1800,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""KECCAK256_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1813,14 +1813,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SECP256K1_BOOL" - {
-      val keyPair = cctp.MessageSignatureUtil.generateKeyPair
+      val keyPair = crypto.MessageSignatureUtil.generateKeyPair
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
           val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
@@ -1832,7 +1832,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
             SBool(false)
@@ -1844,13 +1844,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = "DeadBeef"
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1866,11 +1866,11 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "fails with incorrect secp256k1 public key" in {
           val incorrectPublicKey =
             Bytes
-              .fromByteArray(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
+              .fromByteArray(crypto.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
               .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
             SBool(false)
@@ -1885,13 +1885,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedKey(`invalidPublicKey`, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedKey(`invalidPublicKey`, reason)
                     )
                   )
                 ) =>
@@ -1903,13 +1903,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidPublicKey = keyPair.getPublic
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1937,8 +1937,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto
                         .MalformedSignature(`invalidSignature`, reason)
                     )
                   )
@@ -1955,8 +1955,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
               case Left(
                     SError.SErrorDamlException(
-                      interpretation.Error.CCTP(
-                        interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                      interpretation.Error.Crypto(
+                        interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                       )
                     )
                   ) =>
@@ -2016,8 +2016,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""HEX_TO_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
