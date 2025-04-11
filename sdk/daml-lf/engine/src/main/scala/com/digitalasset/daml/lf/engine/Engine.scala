@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package engine
 
 import com.digitalasset.daml.lf.command._
-import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.{crypto => _, _}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.speedy.{InitialSeeding, Question, SError, SResult, SValue, TraceLog}

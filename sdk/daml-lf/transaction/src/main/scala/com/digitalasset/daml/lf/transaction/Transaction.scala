@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package transaction
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.{crypto => _, _}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyMapping
