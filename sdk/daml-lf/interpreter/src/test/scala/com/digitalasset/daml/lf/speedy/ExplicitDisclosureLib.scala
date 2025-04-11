@@ -111,9 +111,9 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainerParty)))),
       ),
     )
-  val ledgerHouseContract: Value.VersionedContractInstance =
+  val ledgerHouseContract: Value.VersionedThinContractInstance =
     buildContract(ledgerParty, maintainerParty)
-  val ledgerCaveContract: Value.VersionedContractInstance =
+  val ledgerCaveContract: Value.VersionedThinContractInstance =
     buildContract(ledgerParty, maintainerParty, templateId = caveTemplateId)
   val disclosedCaveContractNoHash: (Value.ContractId, Speedy.ContractInfo) =
     contractId -> buildDisclosedCaveContract(disclosureParty)
@@ -308,7 +308,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {
@@ -354,7 +354,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {

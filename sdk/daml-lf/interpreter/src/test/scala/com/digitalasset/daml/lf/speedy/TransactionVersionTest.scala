@@ -237,7 +237,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
       contractId: ContractId,
       committers: Set[Party] = Set.empty,
       controllers: Set[Party] = Set.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
   ): Either[SError.SError, SubmittedTransaction] = {
     import SpeedyTestLib.loggingContext

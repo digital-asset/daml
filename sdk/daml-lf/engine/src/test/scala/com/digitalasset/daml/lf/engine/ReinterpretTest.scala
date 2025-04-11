@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.transaction.{Node, NodeId, SubmittedTransaction,
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command.ReplayCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -34,6 +34,8 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
   import ReinterpretTest._
 
+  private[this] val langVersion = majorLanguageVersion.maxStableVersion
+
   private def hash(s: String) = crypto.Hash.hashPrivateKey(s)
 
   private val party = Party.assertFromString("Party")
@@ -47,11 +49,11 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
     s"daml-lf/tests/ReinterpretTests-v${majorLanguageVersion.pretty}.dar"
   )
 
-  private val defaultContracts: Map[ContractId, VersionedContractInstance] =
+  private val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
-        assertAsVersionedContract(
-          ThinContractInstance(
+        FatContractInstance.fromThinInstance(
+          version  = langVersion,
             miniTestsPkg.pkgName,
             TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
             ValueRecord(
@@ -59,7 +61,6 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
           )
-        )
     )
 
   private def freshEngine = new Engine(

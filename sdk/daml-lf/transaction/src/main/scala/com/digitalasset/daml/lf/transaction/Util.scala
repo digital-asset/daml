@@ -66,8 +66,8 @@ object Util {
     normalizeValue(value.unversioned, value.version).map(normalized => value.map(_ => normalized))
 
   def normalizeContract(
-      contract: VersionedContractInstance
-  ): Either[String, VersionedContractInstance] =
+      contract: VersionedThinContractInstance
+  ): Either[String, VersionedThinContractInstance] =
     normalizeValue(contract.unversioned.arg, contract.version)
       .map(normalized => contract.map(_.copy(arg = normalized)))
 

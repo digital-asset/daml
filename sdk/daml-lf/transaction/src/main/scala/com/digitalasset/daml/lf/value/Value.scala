@@ -164,14 +164,14 @@ object Value {
       copy(arg = arg.mapCid(f))
   }
 
-  type VersionedContractInstance = transaction.Versioned[ThinContractInstance]
+  type VersionedThinContractInstance = transaction.Versioned[ThinContractInstance]
 
   object VersionedContractInstance {
     def apply(
         packageName: Ref.PackageName,
         template: Identifier,
         arg: VersionedValue,
-    ): VersionedContractInstance =
+    ): VersionedThinContractInstance =
       arg.map(ThinContractInstance(packageName, template, _))
 
     @deprecated("use the version with 3 argument", since = "2.9.0")
@@ -180,7 +180,7 @@ object Value {
         packageName: Ref.PackageName,
         template: Identifier,
         arg: Value,
-    ): VersionedContractInstance =
+    ): VersionedThinContractInstance =
       transaction.Versioned(version, ThinContractInstance(packageName, template, arg))
   }
 

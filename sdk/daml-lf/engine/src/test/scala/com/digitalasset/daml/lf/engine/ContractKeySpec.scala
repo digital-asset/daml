@@ -7,34 +7,14 @@ package engine
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
 import com.digitalasset.daml.lf.command.ApiCommand
-import com.digitalasset.daml.lf.data.Ref.{
-  Identifier,
-  Name,
-  PackageId,
-  Party,
-  QualifiedName,
-  TypeConName,
-}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, Party, QualifiedName, TypeConName}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.InitialSeeding
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
-import com.digitalasset.daml.lf.transaction.{
-  ContractKeyUniquenessMode,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-}
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, FatContractInstance, GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ThinContractInstance,
-  ValueContractId,
-  ValueInt64,
-  ValueParty,
-  ValueRecord,
-  VersionedContractInstance,
-}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueContractId, ValueInt64, ValueParty, ValueRecord}
 import com.daml.logging.LoggingContext
 
 import java.io.File
@@ -64,6 +44,8 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   import ContractKeySpec._
 
+  private[this] val langVersion = majorLanguageVersion.maxStableVersion
+
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
   private[this] val suffixLenientEngine = Engine.DevEngine(majorLanguageVersion)
@@ -89,9 +71,9 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
-  val withKeyContractInst: VersionedContractInstance =
-    assertAsVersionedContract(
-      ThinContractInstance(
+  val withKeyContractInst: FatContractInstance =
+    FatContractInstance.fromThinInstance(
+      version  = langVersion,
         packageName = basicTestsPkg.pkgName,
         template = TypeConName(basicTestsPkgId, withKeyTemplate),
         arg = ValueRecord(
@@ -101,25 +83,23 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
             (Some[Ref.Name]("k"), ValueInt64(42)),
           ),
         ),
-      )
     )
 
-  val defaultContracts: Map[ContractId, VersionedContractInstance] =
+  val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("BasicTests:Simple:1") ->
-        assertAsVersionedContract(
-          ThinContractInstance(
+        FatContractInstance.fromThinInstance(
+            version  = langVersion,
             packageName = basicTestsPkg.pkgName,
             template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             arg = ValueRecord(
               Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
               ImmArray((Some[Name]("p"), ValueParty(party))),
             ),
-          )
-        ),
+          ),
       toContractId("BasicTests:CallablePayout:1") ->
-        assertAsVersionedContract(
-          ThinContractInstance(
+        FatContractInstance.fromThinInstance(
+          version  = langVersion,
             packageName = basicTestsPkg.pkgName,
             template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             arg = ValueRecord(
@@ -129,8 +109,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
                 (Some[Ref.Name]("receiver"), ValueParty(bob)),
               ),
             ),
-          )
-        ),
+          ),
       toContractId("BasicTests:WithKey:1") ->
         withKeyContractInst,
     )
@@ -297,13 +276,12 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
-      val keyedInst = assertAsVersionedContract(
-        ThinContractInstance(
+      val keyedInst = FatContractInstance.fromThinInstance(
+          version = langVersion,
           packageName = multiKeysPkg.pkgName,
           template = TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )
-      )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)
       val lookupKey: PartialFunction[GlobalKeyWithMaintainers, ContractId] = {
         case GlobalKeyWithMaintainers(GlobalKey(`keyedId`, ValueParty(`party`)), _) => cid1

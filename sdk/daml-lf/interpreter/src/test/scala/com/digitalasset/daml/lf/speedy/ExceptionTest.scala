@@ -75,13 +75,13 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private def runUpdateApp(
-      compiledPackages: PureCompiledPackages,
-      packageResolution: Map[Ref.PackageName, Ref.PackageId],
-      expr: Expr,
-      args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
-      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
+                            compiledPackages: PureCompiledPackages,
+                            packageResolution: Map[Ref.PackageName, Ref.PackageId],
+                            expr: Expr,
+                            args: Array[SValue],
+                            getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+                            getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+                            disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
     runUpdateExpr(
       compiledPackages,
@@ -94,12 +94,12 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   private def runUpdateExpr(
-      compiledPackages: PureCompiledPackages,
-      packageResolution: Map[Ref.PackageName, Ref.PackageId],
-      sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
-      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
-      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
+                             compiledPackages: PureCompiledPackages,
+                             packageResolution: Map[Ref.PackageName, Ref.PackageId],
+                             sexpr: SExpr,
+                             getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+                             getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+                             disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
     val machine = Speedy.Machine
       .fromUpdateSExpr(

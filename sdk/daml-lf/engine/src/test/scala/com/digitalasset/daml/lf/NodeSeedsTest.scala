@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Engine
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
-import com.digitalasset.daml.lf.transaction.{Node, NodeId, Versioned}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, NodeId}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import org.scalatest.matchers.should.Matchers
@@ -48,30 +48,26 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     "001000000000000000000000000000000000000000000000000000000000000000"
   )
   val requestContract =
-    Versioned(
+    FatContractInstance.fromThinInstance(
       transaction.TransactionVersion.VDev,
-      Value.ThinContractInstance(
-        mainPkg.pkgName,
+      mainPkg.pkgName,
         requestTmplId,
         Value.ValueRecord(
           None,
           ImmArray(None -> Value.ValueParty(operator), None -> Value.ValueParty(investor)),
         ),
-      ),
     )
   val roleTmplId =
     Ref.Identifier(mainPkgId, Ref.QualifiedName.assertFromString("Demonstrator:RegistrarRole"))
   val roleCid: Value.ContractId = Value.ContractId.V1.assertFromString(
     "002000000000000000000000000000000000000000000000000000000000000000"
   )
-  val roleContract = Versioned(
+  val roleContract =   FatContractInstance.fromThinInstance(
     transaction.TransactionVersion.VDev,
-    Value.ThinContractInstance(
       mainPkg.pkgName,
       roleTmplId,
       Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
-    ),
-  )
+    )
   val contracts = Map(requestCid -> requestContract, roleCid -> roleContract)
 
   implicit val loggingContext: LoggingContext = LoggingContext.empty

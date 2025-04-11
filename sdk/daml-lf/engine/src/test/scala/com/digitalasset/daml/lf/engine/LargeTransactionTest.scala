@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.script.IdeLedger
-import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, SubmittedTransaction, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command._
@@ -70,7 +70,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     def get(
         submitter: Party,
         effectiveAt: Time.Timestamp,
-    ): PartialFunction[ContractId, VersionedContractInstance] =
+    ): PartialFunction[ContractId, FatContractInstance] =
       Function.unlift((id: ContractId) =>
         ledger.lookupGlobalContract(
           Set(submitter),
@@ -78,7 +78,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
           effectiveAt,
           id,
         ) match {
-          case LookupOk(coinst) => Some(coinst.toImplementation.toCreateNode.versionedCoinst)
+          case LookupOk(coinst) => Some(coinst)
           case _: LookupContractNotEffective | _: LookupContractNotActive |
               _: LookupContractNotVisible | _: LookupContractNotFound =>
             None

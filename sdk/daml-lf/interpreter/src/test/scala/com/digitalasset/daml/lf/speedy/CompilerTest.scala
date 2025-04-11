@@ -555,7 +555,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalSExpr(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       committers: Set[Party] = Set.empty,
   ): Either[

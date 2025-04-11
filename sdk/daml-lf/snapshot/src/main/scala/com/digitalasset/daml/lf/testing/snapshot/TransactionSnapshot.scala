@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction => SubmittedTx,
@@ -18,7 +19,6 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionOuterClass => TxOuterClass,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.digitalasset.daml.lf.value.Value
 import com.daml.logging.LoggingContext
 import com.google.protobuf.ByteString
 
@@ -33,7 +33,7 @@ final case class TransactionSnapshot(
     ledgerTime: Time.Timestamp,
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
-    contracts: Map[ContractId, Value.VersionedContractInstance],
+    contracts: Map[ContractId, FatContractInstance],
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
     pkgs: Map[Ref.PackageId, Ast.Package],
     profileDir: Option[Path] = None,
@@ -168,7 +168,8 @@ private[snapshot] object TransactionSnapshot {
     ) = {
       val relevantCreateNodes = activeCreates.view.filterKeys(tx.inputContracts).toList
       val contracts = relevantCreateNodes.view.map { case (cid, create) =>
-        cid -> create.versionedCoinst
+        val ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime)
+        cid -> FatContractInstance.fromCreateNode(create, ledgerTime, Bytes.Empty)
       }.toMap
       val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
         create.keyOpt.map(_ -> cid).toList

@@ -271,7 +271,7 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
+  val versionedContractInstanceGen: Gen[Value.VersionedThinContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
