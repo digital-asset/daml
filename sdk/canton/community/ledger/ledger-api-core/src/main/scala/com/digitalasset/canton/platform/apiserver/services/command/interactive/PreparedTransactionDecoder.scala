@@ -222,7 +222,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .traverse(_.transformIntoPartial[lf.value.Value])
           .flatMap(_.toRight("Missing argument value").toResult),
       )
-      .withFieldConst(_.agreementText, "") // Agreement text will be removed
       .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
       // Fields not supported in V1
       .withFieldConst(_.keyOpt, None)

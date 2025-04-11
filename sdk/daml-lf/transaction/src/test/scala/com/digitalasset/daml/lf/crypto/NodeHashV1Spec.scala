@@ -308,10 +308,6 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
       hashCreateNode(createNode) shouldBe defaultHash
     }
 
-    "not include agreement text" in {
-      hashCreateNode(createNode.copy(agreementText = "SOMETHING_ELSE")) shouldBe defaultHash
-    }
-
     "fails global keys" in {
       a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
         hashCreateNode(

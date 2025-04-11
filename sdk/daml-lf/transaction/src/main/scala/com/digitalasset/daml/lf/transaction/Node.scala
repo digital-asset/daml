@@ -86,7 +86,6 @@ object Node {
       override val packageName: PackageName,
       override val templateId: TypeConName,
       arg: Value,
-      agreementText: String = "", // to be removed
       signatories: Set[Party],
       stakeholders: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],

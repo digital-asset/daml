@@ -295,10 +295,6 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
       hashCreateNode(createNode).toHexString shouldBe defaultHash.toHexString
     }
 
-    "not include agreement text" in {
-      hashCreateNode(createNode.copy(agreementText = "SOMETHING_ELSE")) shouldBe defaultHash
-    }
-
     "fails global keys" in {
       a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
         hashCreateNode(

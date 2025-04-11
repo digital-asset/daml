@@ -1421,7 +1421,6 @@ class ExampleTransactionFactory(
 
     override def toString: String = "transaction with multiple roots and a simple view nesting"
 
-    val create0Agreement = "create0"
     def create0Inst: LfContractInst = contractInstance()
     val create0seed: LfHash = deriveNodeSeed(0)
     val create0disc: LfHash = discriminator(create0seed, Set(submitter, observer))
@@ -1468,14 +1467,12 @@ class ExampleTransactionFactory(
         signatories = Set(submitter, signatory, extra),
       )
 
-    val create10Agreement = "create10"
     val create10seed: LfHash = deriveNodeSeed(1, 0)
     val create10disc: LfHash =
       discriminator(create10seed, Set(submitter, signatory, signatoryReplica))
 
     val lfCreate10: LfNodeCreate =
       genCreate10(LfContractId.V1(create10disc), create10Inst)
-    val create12Agreement = "create12"
     val create12seed: LfHash = deriveNodeSeed(1, 2)
     val create12disc: LfHash = discriminator(create12seed, Set(submitter, signatory, extra))
     val lfCreate12: LfNodeCreate =
@@ -1617,7 +1614,6 @@ class ExampleTransactionFactory(
       )
     val create0: LfNodeCreate = genCreate0(create0Id)
 
-    val exercise1Agreement = "exercise1"
     val exercise1Id: LfContractId = suffixedId(-1, 0)
     val exercise1: LfNodeExercises = genExercise1(exercise1Id)
     val exercise1Instance: LfContractInst = contractInstance()

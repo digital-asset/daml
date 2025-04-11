@@ -1221,9 +1221,7 @@ message DefTemplate {
   // template parameter in scope.
   Expr signatories = 4;
 
-  // The agreement text associated with the contract. It has type `Text` and
-  // the template parameter in scope.
-  Expr agreement = 5;
+  reserved 5; // was agreement
 
   // The choices available in the resulting contract.
   repeated TemplateChoice choices = 6;

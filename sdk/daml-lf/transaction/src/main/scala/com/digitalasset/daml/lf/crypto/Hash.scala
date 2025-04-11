@@ -388,7 +388,6 @@ object Hash {
             packageName,
             templateId,
             arg,
-            _agreementText @ _,
             signatories,
             stakeholders,
             keyOpt,
