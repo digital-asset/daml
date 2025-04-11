@@ -450,14 +450,23 @@ final class LfValueTranslation(
     def asyncInterfaceViews =
       MonadUtil.sequentialTraverse(renderResult.interfaces.toList)(interfaceId =>
         for {
-          upgradedInterfaceInstance <- eventProjectionProperties.interfaceViewPackageUpgrade
+          upgradedInstanceIdentifierResultE <- eventProjectionProperties.interfaceViewPackageUpgrade
             .upgrade(interfaceId, templateId)
-          result <- computeInterfaceView(
-            templateId = upgradedInterfaceInstance,
-            value = value.unversioned,
+          viewResult <- upgradedInstanceIdentifierResultE.fold(
+            failureStatus => Future.successful(Left(failureStatus)),
+            upgradedInstanceIdentifier =>
+              computeInterfaceView(
+                templateId = upgradedInstanceIdentifier,
+                value = value.unversioned,
+                interfaceId = interfaceId,
+              ),
+          )
+          interfaceView <- toInterfaceView(
+            verbose = eventProjectionProperties.verbose,
             interfaceId = interfaceId,
-          ).flatMap(toInterfaceView(eventProjectionProperties.verbose, interfaceId))
-        } yield result
+            result = viewResult,
+          )
+        } yield interfaceView
       )
 
     def asyncCreatedEventBlob = condFuture(renderResult.createdEventBlob) {
@@ -497,8 +506,10 @@ final class LfValueTranslation(
     .map(LfEngineToApi.toApiIdentifier)
     .toSeq
 
-  private def toInterfaceView(verbose: Boolean, interfaceId: Identifier)(
-      result: Either[Status, Versioned[Value]]
+  private def toInterfaceView(
+      verbose: Boolean,
+      interfaceId: Identifier,
+      result: Either[Status, Versioned[Value]],
   )(implicit ec: ExecutionContext, loggingContext: LoggingContextWithTrace): Future[InterfaceView] =
     result match {
       case Right(versionedValue) =>

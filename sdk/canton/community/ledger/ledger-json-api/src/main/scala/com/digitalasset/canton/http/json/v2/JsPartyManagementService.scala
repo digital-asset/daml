@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.party_management_service
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
@@ -12,7 +13,6 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.Inval
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
-import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 import sttp.tapir.server.ServerEndpoint
@@ -169,28 +169,29 @@ object JsPartyManagementService extends DocumentationEndpoints {
 }
 
 object JsPartyManagementCodecs {
+  import JsSchema.config
 
-  implicit val partyDetails: Codec[party_management_service.PartyDetails] = deriveCodec
+  implicit val partyDetails: Codec[party_management_service.PartyDetails] = deriveRelaxedCodec
   implicit val listKnownPartiesResponse: Codec[party_management_service.ListKnownPartiesResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val allocatePartyRequest: Codec[party_management_service.AllocatePartyRequest] =
-    deriveCodec
+    deriveRelaxedCodec
   implicit val allocatePartyResponse: Codec[party_management_service.AllocatePartyResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val getPartiesRequest: Codec[party_management_service.GetPartiesRequest] =
-    deriveCodec
+    deriveRelaxedCodec
   implicit val getPartiesResponse: Codec[party_management_service.GetPartiesResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val updatePartyDetailsRequest
       : Codec[party_management_service.UpdatePartyDetailsRequest] =
-    deriveCodec
+    deriveRelaxedCodec
   implicit val updatePartyDetailsResponse
       : Codec[party_management_service.UpdatePartyDetailsResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val getParticipantIdResponse: Codec[party_management_service.GetParticipantIdResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 }

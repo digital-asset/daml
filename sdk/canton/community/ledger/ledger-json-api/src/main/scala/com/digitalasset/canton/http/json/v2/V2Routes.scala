@@ -21,7 +21,6 @@ class V2Routes(
     eventService: JsEventService,
     identityProviderService: JsIdentityProviderService,
     interactiveSubmissionService: JsInteractiveSubmissionService,
-    meteringService: JsMeteringService,
     packageService: JsPackageService,
     partyManagementService: JsPartyManagementService,
     stateService: JsStateService,
@@ -40,7 +39,7 @@ class V2Routes(
       .endpoints() ++ packageService.endpoints() ++ partyManagementService
       .endpoints() ++ stateService.endpoints() ++ updateService.endpoints() ++ userManagementService
       .endpoints() ++ identityProviderService
-      .endpoints() ++ meteringService.endpoints() ++ interactiveSubmissionService
+      .endpoints() ++ interactiveSubmissionService
       .endpoints() ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
 
   private val docs =
@@ -97,8 +96,6 @@ object V2Routes {
 
     val userManagementService =
       new JsUserManagementService(ledgerClient.userManagementClient, loggerFactory)
-    val meteringService = new JsMeteringService(ledgerClient.meteringReportClient, loggerFactory)
-
     val identityProviderService = new JsIdentityProviderService(
       ledgerClient.identityProviderConfigClient,
       loggerFactory,
@@ -116,7 +113,6 @@ object V2Routes {
       eventService,
       identityProviderService,
       interactiveSubmissionService,
-      meteringService,
       jsPackageService,
       partyManagementService,
       stateService,

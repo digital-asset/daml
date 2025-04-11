@@ -550,9 +550,10 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]] =
     packagePreferenceService.getPreferredPackageVersion(
-      parties,
-      packageName,
-      synchronizerId,
-      vettingValidAt,
+      parties = parties,
+      packageName = packageName,
+      supportedPackageIds = None,
+      synchronizerId = synchronizerId,
+      vettingValidAt = vettingValidAt,
     )
 }

@@ -267,7 +267,6 @@ message BlockTransferRequest {
 }
 
 message BlockTransferResponse {
+  // Avoid adding more data that needs to be signed to allow skipping the outer signature.
   optional CommitCertificate commit_certificate = 1;
-  // Latest completed epoch of the serving node.
-  int64 latest_completed_epoch = 2;
 }

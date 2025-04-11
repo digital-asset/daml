@@ -104,11 +104,28 @@ trait OutputMetadataStore[E <: Env[E]] extends AutoCloseable {
   protected def pruneName(epochNumberExclusive: EpochNumber): String =
     s"prune at epoch $epochNumberExclusive (exclusive)"
 
+  /** As part of pruning, we persist the new lower bound, which is the epoch from which this node
+    * will support serving blocks (inclusive). The block number is also part of it, but is is
+    * implicitly derived. This is important both for the correct functioning of computing the last
+    * consecutive block and for retrying the last pruning operation after a crash.
+    */
   def saveLowerBound(epoch: EpochNumber)(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Either[String, Unit]]
   protected def saveLowerBoundName(epoch: EpochNumber): String =
     s"save lower bound $epoch"
+
+  /** Similar to [[saveLowerBound]] but only used once, when a new node is onboarded and we must
+    * persist the initial point it supports serving blocks froms.
+    */
+  def saveOnboardedNodeLowerBound(epoch: EpochNumber, blockNumber: BlockNumber)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Either[String, Unit]]
+  protected def saveOnboardedNodeLowerBoundName(
+      epoch: EpochNumber,
+      blockNumber: BlockNumber,
+  ): String =
+    s"save onboarded node's lower bound $epoch $blockNumber"
 
   /** Fetch the lower bound of blocks/epochs that can be read. Returns `None` if all data can be
     * read.

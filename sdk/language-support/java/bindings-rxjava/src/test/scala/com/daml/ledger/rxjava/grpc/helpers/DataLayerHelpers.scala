@@ -41,7 +41,7 @@ trait DataLayerHelpers {
       .create(
         "userId",
         "commandId",
-        synchronizerId.getOrElse("synchronizerId"),
+        synchronizerId.toJava,
         commands.asJava,
       )
       .withWorkflowId("workflowId")

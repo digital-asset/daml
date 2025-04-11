@@ -179,14 +179,6 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
 
   }
 
-  // please note the counterpart of this test is located in ConsoleCommandIntegrationTest, which tests the successful accounting of a ping if the infrastructure statistics are allowed
-  "the command ledger_api.metering.get_report" should {
-    "correctly skip statistics for ping, as it is by default considered infrastructure traffic" in {
-      implicit env =>
-        ConsoleCommandIntegrationTest.meterEventsForAPing shouldBe 0
-    }
-  }
-
   private def createIouWithObserver(observer: PartyId): Command =
     new Iou(
       bank.toProtoPrimitive,

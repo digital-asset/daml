@@ -18,7 +18,6 @@ import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -163,14 +162,6 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   def pruningOffsets(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[(Option[Offset], Option[Offset])]
-
-  /** Returns all TransactionMetering records matching given criteria */
-  def meteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData]
-
 }
 
 // TODO(i12285) sandbox-classic clean-up: This interface and its implementation is only used in the JdbcLedgerDao suite

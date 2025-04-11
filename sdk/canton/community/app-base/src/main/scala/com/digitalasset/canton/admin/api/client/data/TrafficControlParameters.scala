@@ -16,6 +16,7 @@ final case class TrafficControlParameters(
     maxBaseTrafficAccumulationDuration: config.PositiveFiniteDuration,
     setBalanceRequestSubmissionWindowSize: config.PositiveFiniteDuration,
     enforceRateLimiting: Boolean,
+    baseEventCost: NonNegativeLong,
 ) extends PrettyPrinting {
 
   override protected def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
@@ -24,6 +25,7 @@ final case class TrafficControlParameters(
     param("max base traffic accumulation duration", _.maxBaseTrafficAccumulationDuration),
     param("set balance request submission window size", _.setBalanceRequestSubmissionWindowSize),
     param("enforce rate limiting", _.enforceRateLimiting),
+    param("base event cost", _.baseEventCost),
   )
 
   private[canton] def toInternal: TrafficControlParametersInternal =
@@ -35,5 +37,6 @@ final case class TrafficControlParameters(
       setBalanceRequestSubmissionWindowSize =
         InternalPositiveFiniteDuration.fromConfig(setBalanceRequestSubmissionWindowSize),
       enforceRateLimiting = enforceRateLimiting,
+      baseEventCost = baseEventCost,
     )
 }

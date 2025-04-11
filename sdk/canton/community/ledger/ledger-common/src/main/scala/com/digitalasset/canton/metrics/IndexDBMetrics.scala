@@ -469,11 +469,6 @@ class MainIndexDBMetrics(
     "load_string_interning_entries"
   )
 
-  val meteringAggregator: DatabaseMetrics = createDbMetrics("metering_aggregator")
-  val initializeMeteringAggregator: DatabaseMetrics = createDbMetrics(
-    "initialize_metering_aggregator"
-  )
-
   val getAssingIdsForOffsets: DatabaseMetrics = createDbMetrics(
     "get_assign_ids_for_offsets"
   )

@@ -71,7 +71,18 @@ message CommandUpdates {
 }
 
 message Contract {
+  // The identifier of the template used to create the contract.
+  // The identifier uses the package-id reference format.
+  //
+  // Required
   Identifier template_id = 1;
+
+  // The contract's ID
+  //
+  // Required
   string contract_id = 2;
+  // The contract key, if defined
+  //
+  // Optional
   Value contract_key = 3;
 }

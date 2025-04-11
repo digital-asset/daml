@@ -273,8 +273,11 @@ class StartableStoppableLedgerApiServer(
         commandExecutionContext = executionContext,
         getPackagePreference = loggingContext =>
           packageName =>
-            packagePreferenceBackend
-              .getPreferredPackageVersionForParticipant(packageName)(loggingContext),
+            candidatePackageIds =>
+              packagePreferenceBackend
+                .getPreferredPackageVersionForParticipant(packageName, candidatePackageIds)(
+                  loggingContext
+                ),
       )
       _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
@@ -359,7 +362,6 @@ class StartableStoppableLedgerApiServer(
         jwtTimestampLeeway = config.serverConfig.jwtTimestampLeeway,
         tokenExpiryGracePeriodForStreams =
           config.cantonParameterConfig.ledgerApiServerParameters.tokenExpiryGracePeriodForStreams,
-        meteringReportKey = config.meteringReportKey,
         engineLoggingConfig = config.cantonParameterConfig.engine.submissionPhaseLogging,
         telemetry = telemetry,
         loggerFactory = loggerFactory,

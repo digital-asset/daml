@@ -16,6 +16,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
+import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
@@ -28,10 +29,10 @@ import com.digitalasset.canton.ledger.api.{
   UpdateFormat,
   UpdateId,
 }
+import com.digitalasset.canton.ledger.error.LedgerApiErrors.InterfaceViewUpgradeFailureWrapper
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.ledger.participant.state.index.*
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
@@ -65,10 +66,10 @@ import com.digitalasset.canton.platform.{
 }
 import com.digitalasset.canton.{config, logging}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageRef, TypeConRef, UserId}
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
@@ -76,6 +77,7 @@ import scalaz.syntax.tag.ToTagOps
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
@@ -89,7 +91,9 @@ private[index] class IndexServiceImpl(
     getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
     metrics: LedgerApiServerMetrics,
     idleStreamOffsetCheckpointTimeout: config.NonNegativeFiniteDuration,
-    getPreferredPackageVersion: logging.LoggingContextWithTrace => Ref.PackageName => FutureUnlessShutdown[
+    getPreferredPackageVersion: logging.LoggingContextWithTrace => Ref.PackageName => Set[
+      Ref.PackageId
+    ] => FutureUnlessShutdown[
       Option[Ref.PackageId]
     ],
     override protected val loggerFactory: NamedLoggerFactory,
@@ -572,17 +576,6 @@ private[index] class IndexServiceImpl(
     ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets)
   }
 
-  override def getMeteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
-    ledgerDao.meteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-    )
-
   override def currentLedgerEnd(): Future[Option[Offset]] =
     Future.successful(ledgerEnd())
 
@@ -645,29 +638,63 @@ private[index] class IndexServiceImpl(
   private def createViewUpgradeMemoized(implicit
       loggingContextWithTrace: LoggingContextWithTrace
   ): InterfaceViewPackageUpgrade = {
-    val memoizedSelection = TrieMap.empty[(Identifier, Ref.PackageName), Future[Ref.PackageId]]
+    val memoizedSelection =
+      TrieMap.empty[(Identifier, Ref.PackageName), Future[Either[Status, Ref.PackageId]]]
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContextWithTrace)
     implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
 
-    def computeUpgradeViewPackage(
-        packageName: Ref.PackageName
-    )(implicit loggingContextWithTrace: LoggingContextWithTrace): Future[Ref.PackageId] =
-      getPreferredPackageVersion(loggingContextWithTrace)(packageName)
-        .failOnShutdownToAbortException("getPackagePreference for stream construction")
-        .flatMap {
-          case Some(preferredPackageId) => Future.successful(preferredPackageId)
-          case None =>
-            Future.failed(
-              LedgerApiErrors.UnresolvedInterfaceViewPackage.Reject(packageName).asGrpcError
+    def handlePreferredPackageVersionError(
+        computeUpgradeResult: Try[Option[Ref.PackageId]],
+        packageName: Ref.PackageName,
+    ): Try[Either[Status, PackageId]] =
+      computeUpgradeResult match {
+        case Success(Some(value)) => Success(Right[Status, Ref.PackageId](value))
+        case Success(None) =>
+          Success(
+            Left[Status, Ref.PackageId](
+              LedgerApiErrors.NoVettedInterfaceImplementationPackage
+                .Reject(packageName)
+                .asGrpcStatus
             )
-        }
+          )
+        case Failure(sre: StatusRuntimeException) =>
+          DecodedCantonError
+            .fromStatusRuntimeException(sre)
+            .fold(
+              errorCodeDecodeFailure => {
+                logger.warn(s"Could not decode error: $errorCodeDecodeFailure")
+                Failure(sre)
+              },
+              decodedError =>
+                // TODO(#23334): Make the NotConnectedToAnySynchronizer error available to this module
+                //               and use its reference code id directly instead of the String representation
+                if (decodedError.code.id == "NOT_CONNECTED_TO_ANY_SYNCHRONIZER") {
+                  Success(
+                    Left(InterfaceViewUpgradeFailureWrapper(decodedError).asGrpcStatus)
+                  )
+                } else Failure(sre),
+            )
+        case Failure(otherFailure) => Failure(otherFailure)
+      }
+
+    def computeUpgradeViewPackage(
+        packageName: Ref.PackageName,
+        packageIdsWithInterfaceInstance: Set[Ref.PackageId],
+    )(implicit
+        loggingContextWithTrace: LoggingContextWithTrace
+    ): Future[Either[Status, Ref.PackageId]] =
+      getPreferredPackageVersion(loggingContextWithTrace)(packageName)(
+        packageIdsWithInterfaceInstance
+      )
+        .failOnShutdownToAbortException("getPackagePreference for stream construction")
+        .transform(handlePreferredPackageVersionError(_, packageName))
 
     // Computes the package-id for up/downgrading the interface instance used for computing an interface view.
     // The selection picks the highest-versioned vetted package-id for the package name of the original create event.
     // For performance reasons, the result is memoized for the entire lifetime of a stream / query
     (interfaceId: Identifier, originalCreateTemplate: Identifier) => {
-      val packageIdVersionMap =
-        getPackageMetadataSnapshot(contextualizedErrorLogger).packageIdVersionMap
+      val packageMetadataSnapshot = getPackageMetadataSnapshot(contextualizedErrorLogger)
+      val packageIdVersionMap = packageMetadataSnapshot.packageIdVersionMap
 
       packageIdVersionMap
         .get(originalCreateTemplate.packageId)
@@ -684,13 +711,26 @@ private[index] class IndexServiceImpl(
               .asGrpcError
           )
         )
-        .flatMap(packageName =>
+        .flatMap { packageName =>
+          val directImplementationsOfInterface =
+            packageMetadataSnapshot.interfacesImplementedBy.getOrElse(interfaceId, Set.empty)
           memoizedSelection
-            .getOrElseUpdate(interfaceId -> packageName, computeUpgradeViewPackage(packageName))
-            .map(upgradeViewPackageId =>
-              originalCreateTemplate.copy(packageId = upgradeViewPackageId)
+            .getOrElseUpdate(
+              interfaceId -> packageName,
+              computeUpgradeViewPackage(
+                packageName = packageName,
+                // Used to filter down the candidate package-ids for upgrade that actually implement the interface
+                // to ensure that the interface view can be computed.
+                // If no direct implementations are vetted, the view computation fails with NO_VETTED_INTERFACE_IMPLEMENTATION_PACKAGE
+                packageIdsWithInterfaceInstance = directImplementationsOfInterface.map(_.packageId),
+              ),
             )
-        )
+            .map(result =>
+              result.map(upgradedViewPackageId =>
+                originalCreateTemplate.copy(packageId = upgradedViewPackageId)
+              )
+            )
+        }
     }
   }
 }
@@ -709,7 +749,7 @@ object IndexServiceImpl {
     def upgrade(
         interfaceId: Identifier,
         originalCreateTemplate: Identifier,
-    ): Future[Identifier]
+    ): Future[Either[Status, Identifier]]
   }
 
   private[index] def checkUnknownIdentifiers(

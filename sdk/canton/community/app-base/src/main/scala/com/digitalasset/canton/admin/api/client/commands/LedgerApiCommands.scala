@@ -14,12 +14,6 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.{
 }
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.*
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigServiceStub
-import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportServiceStub
-import com.daml.ledger.api.v2.admin.metering_report_service.{
-  GetMeteringReportRequest,
-  GetMeteringReportResponse,
-  MeteringReportServiceGrpc,
-}
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.admin.package_management_service.*
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementServiceStub
@@ -161,7 +155,6 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.admin.api.client.data.{
   LedgerApiUser,
-  LedgerMeteringReport,
   ListLedgerApiUsersResult,
   TemplateId,
   UserRights,
@@ -958,46 +951,6 @@ object LedgerApiCommands {
         Right(response.identityProviderConfigs)
     }
 
-  }
-
-  object Metering {
-    abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
-      override type Svc = MeteringReportServiceStub
-
-      override def createService(channel: ManagedChannel): MeteringReportServiceStub =
-        MeteringReportServiceGrpc.stub(channel)
-    }
-
-    final case class GetReport(
-        from: CantonTimestamp,
-        to: Option[CantonTimestamp],
-        userId: Option[String],
-    ) extends BaseCommand[
-          GetMeteringReportRequest,
-          GetMeteringReportResponse,
-          String,
-        ] {
-
-      override protected def submitRequest(
-          service: MeteringReportServiceStub,
-          request: GetMeteringReportRequest,
-      ): Future[GetMeteringReportResponse] =
-        service.getMeteringReport(request)
-
-      override protected def createRequest(): Either[String, GetMeteringReportRequest] =
-        Right(
-          GetMeteringReportRequest(
-            from = Some(from.toProtoTimestamp),
-            to = to.map(_.toProtoTimestamp),
-            userId = userId.getOrElse(""),
-          )
-        )
-
-      override protected def handleResponse(
-          response: GetMeteringReportResponse
-      ): Either[String, String] =
-        LedgerMeteringReport.fromProtoV0(response).leftMap(_.toString)
-    }
   }
 
   object UpdateService {

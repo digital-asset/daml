@@ -44,7 +44,7 @@ public final class UpdateSubmission<U> {
   @NonNull private final List<@NonNull String> packageIdSelectionPreference;
   @NonNull private List<@NonNull PrefetchContractKey> prefetchContractKeys;
 
-  @NonNull private final String synchronizerId;
+  @NonNull private final Optional<String> synchronizerId;
 
   private UpdateSubmission(
       @NonNull String userId,
@@ -58,7 +58,7 @@ public final class UpdateSubmission<U> {
       @NonNull Optional<Duration> deduplicationDuration,
       @NonNull Optional<Long> deduplicationOffset,
       @NonNull Optional<String> accessToken,
-      @NonNull String synchronizerId,
+      @NonNull Optional<String> synchronizerId,
       @NonNull List<DisclosedContract> disclosedContracts,
       @NonNull List<@NonNull String> packageIdSelectionPreference,
       @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
@@ -92,7 +92,7 @@ public final class UpdateSubmission<U> {
         empty(),
         empty(),
         empty(),
-        "",
+        empty(),
         emptyList(),
         emptyList(),
         emptyList());
@@ -142,7 +142,7 @@ public final class UpdateSubmission<U> {
     return accessToken;
   }
 
-  public String getSynchronizerId() {
+  public Optional<String> getSynchronizerId() {
     return synchronizerId;
   }
 

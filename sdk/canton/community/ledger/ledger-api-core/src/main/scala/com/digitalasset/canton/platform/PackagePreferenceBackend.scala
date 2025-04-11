@@ -26,9 +26,29 @@ class PackagePreferenceBackend(
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
+  /** Computes the commonly-preferred package version for the given parties and package name based
+    * on the package vetting state.
+    *
+    * @param parties
+    *   The parties whose package vetting state is considered
+    * @param packageName
+    *   The package name for which the preferred package version is requested
+    * @param supportedPackageIds
+    *   If provided, acts as a filter on the candidate package-ids for preference computation.
+    * @param synchronizerId
+    *   If provided, only this synchronizer's vetting topology state is considered in the
+    *   computation. Otherwise, the highest package version from all the connected synchronizers is
+    *   returned.
+    * @param vettingValidAt
+    *   If provided, used to compute the package vetting state at this timestamp.
+    * @return
+    *   if a solution exists, the best package preference coupled with the synchronizer id that it
+    *   pertains to.
+    */
   def getPreferredPackageVersion(
       parties: Set[LfPartyId],
       packageName: PackageName,
+      supportedPackageIds: Option[Set[LfPackageId]],
       synchronizerId: Option[SynchronizerId],
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
@@ -57,10 +77,14 @@ class PackagePreferenceBackend(
     ): Option[(PackageReference, SynchronizerId)] =
       packageMap.view
         .flatMap { case (syncId, partyPackageMap: Map[LfPartyId, Set[LfPackageId]]) =>
-          partyPackageMap.values
+          val uniformlyVettedPackages = partyPackageMap.values
             // Find all commonly vetted package-ids for the given parties for the current synchronizer (`syncId`)
             .reduceOption(_.intersect(_))
             .getOrElse(Set.empty[LfPackageId])
+
+          supportedPackageIds
+            .map(_.intersect(uniformlyVettedPackages))
+            .getOrElse(uniformlyVettedPackages)
             .flatMap(collectReferencesForTargetPackageName(_, packageIdMapSnapshot))
             .map(_ -> syncId)
         }
@@ -99,13 +123,15 @@ class PackagePreferenceBackend(
   }
 
   def getPreferredPackageVersionForParticipant(
-      packageName: PackageName
+      packageName: PackageName,
+      supportedPackageIds: Set[LfPackageId],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Option[LfPackageId]] =
     getPreferredPackageVersion(
       parties = Set(adminParty),
       packageName = packageName,
+      supportedPackageIds = Some(supportedPackageIds),
       synchronizerId = None,
       vettingValidAt = Some(CantonTimestamp.MaxValue),
     )

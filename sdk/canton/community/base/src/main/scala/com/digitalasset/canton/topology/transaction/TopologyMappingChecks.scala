@@ -652,7 +652,6 @@ class ValidatingTopologyMappingChecks(
         toValidate.serial,
       )
         .flatMap { mdsHistory =>
-          logger.debug(s"gerolf: $mdsHistory")
           val allMediatorsPreviouslyOnSynchronizer = mdsHistory.view
             .flatMap(_.selectMapping[MediatorSynchronizerState])
             .flatMap(_.mapping.allMediatorsInGroup)

@@ -22,9 +22,6 @@ trait StorageBackendSuite
     with StorageBackendTestsUserManagement
     with StorageBackendTestsIDPConfig
     with StorageBackendTestsPartyRecord
-    with StorageBackendTestsMeteringParameters
-    with StorageBackendTestsWriteMetering
-    with StorageBackendTestsReadMetering
     with StorageBackendTestsReassignmentEvents
     with StorageBackendTestsPartyToParticipant
     with StorageBackendTestsQueryValidRange

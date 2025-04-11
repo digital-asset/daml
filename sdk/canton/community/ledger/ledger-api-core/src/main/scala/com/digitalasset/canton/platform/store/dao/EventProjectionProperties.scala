@@ -108,7 +108,7 @@ object EventProjectionProperties {
   @VisibleForTesting
   val UseOriginalViewPackageId: InterfaceViewPackageUpgrade =
     (_: Ref.ValueRef, originalTemplateImplementation: Ref.ValueRef) =>
-      Future.successful(originalTemplateImplementation)
+      Future.successful(Right(originalTemplateImplementation))
 
   @VisibleForTesting
   def apply(

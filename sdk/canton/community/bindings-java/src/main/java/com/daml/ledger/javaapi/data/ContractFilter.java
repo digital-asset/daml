@@ -25,10 +25,18 @@ public final class ContractFilter<Ct> {
   private final ContractTypeCompanion<Ct, ?, ?, ?> companion;
 
   private final CumulativeFilter filter;
+  private final boolean verbose;
+  private final TransactionShape transactionShape;
 
-  private ContractFilter(ContractTypeCompanion<Ct, ?, ?, ?> companion, CumulativeFilter filter) {
+  private ContractFilter(
+      ContractTypeCompanion<Ct, ?, ?, ?> companion,
+      CumulativeFilter filter,
+      boolean verbose,
+      TransactionShape transactionShape) {
     this.companion = companion;
     this.filter = filter;
+    this.verbose = verbose;
+    this.transactionShape = transactionShape;
   }
 
   public static <Ct> ContractFilter<Ct> of(ContractCompanion<Ct, ?, ?> companion) {
@@ -38,7 +46,7 @@ public final class ContractFilter<Ct> {
             Collections.singletonMap(
                 companion.TEMPLATE_ID, Filter.Template.HIDE_CREATED_EVENT_BLOB),
             Optional.empty());
-    return new ContractFilter<>(companion, filter);
+    return new ContractFilter<>(companion, filter, false, TransactionShape.ACS_DELTA);
   }
 
   public static <Cid, View> ContractFilter<Contract<Cid, View>> of(
@@ -49,7 +57,7 @@ public final class ContractFilter<Ct> {
                 companion.TEMPLATE_ID, Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB),
             Collections.emptyMap(),
             Optional.empty());
-    return new ContractFilter<>(companion, filter);
+    return new ContractFilter<>(companion, filter, false, TransactionShape.ACS_DELTA);
   }
 
   public ContractFilter<Ct> withIncludeCreatedEventBlob(boolean includeCreatedEventBlob) {
@@ -86,7 +94,16 @@ public final class ContractFilter<Ct> {
             templateFiltersWithCreatedEventBlob,
             includeCreatedEventBlobWildcard);
 
-    return new ContractFilter<>(companion, filterWithIncludedCreatedEventBlob);
+    return new ContractFilter<>(
+        companion, filterWithIncludedCreatedEventBlob, verbose, transactionShape);
+  }
+
+  public ContractFilter<Ct> withVerbose(boolean verbose) {
+    return new ContractFilter<>(companion, filter, verbose, transactionShape);
+  }
+
+  public ContractFilter<Ct> withTransactionShape(TransactionShape transactionShape) {
+    return new ContractFilter<>(companion, filter, verbose, transactionShape);
   }
 
   public Ct toContract(CreatedEvent createdEvent) throws IllegalArgumentException {
@@ -107,7 +124,49 @@ public final class ContractFilter<Ct> {
             .orElse(Collections.emptyMap());
 
     Optional<Filter> anyPartyFilterO = partiesO.isEmpty() ? Optional.of(filter) : Optional.empty();
-
     return new TransactionFilter(partyToFilters, anyPartyFilterO);
+  }
+
+  public UpdateFormat updateFormat(Optional<Set<String>> parties) {
+    return updateFormat(filter, parties, verbose, transactionShape);
+  }
+
+  private static UpdateFormat updateFormat(
+      Filter filter,
+      Optional<Set<String>> partiesO,
+      boolean verbose,
+      TransactionShape transactionShape) {
+
+    TransactionFormat transactionFormat =
+        transactionFormat(filter, partiesO, verbose, transactionShape);
+    return new UpdateFormat(
+        Optional.of(transactionFormat),
+        Optional.of(transactionFormat.getEventFormat()),
+        Optional.empty());
+  }
+
+  public TransactionFormat transactionFormat(Optional<Set<String>> parties) {
+    return transactionFormat(filter, parties, verbose, transactionShape);
+  }
+
+  private static TransactionFormat transactionFormat(
+      Filter filter,
+      Optional<Set<String>> partiesO,
+      boolean verbose,
+      TransactionShape transactionShape) {
+
+    EventFormat eventFormat = eventFormat(filter, partiesO, verbose);
+    return new TransactionFormat(eventFormat, transactionShape);
+  }
+
+  public EventFormat eventFormat(Optional<Set<String>> parties) {
+    return eventFormat(filter, parties, verbose);
+  }
+
+  private static EventFormat eventFormat(
+      Filter filter, Optional<Set<String>> partiesO, boolean verbose) {
+    TransactionFilter transactionFilter = transactionFilter(filter, partiesO);
+    return new EventFormat(
+        transactionFilter.getPartyToFilters(), transactionFilter.getAnyPartyFilter(), verbose);
   }
 }

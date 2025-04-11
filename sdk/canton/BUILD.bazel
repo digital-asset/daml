@@ -775,7 +775,6 @@ scala_library(
         "//daml-lf/validation",
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/crypto",
         "//libs-scala/executors",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
@@ -788,7 +787,6 @@ scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "//libs-scala/scala-utils",
-        "//libs-scala/struct-json/struct-spray-json",
         "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/tracing",
@@ -918,7 +916,6 @@ scala_library(
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_circe_circe_generic_2_13",
         "@maven//:io_circe_circe_generic_extras_2_13",
-        "@maven//:io_circe_circe_numbers_2_13",
         "@maven//:io_circe_circe_parser_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
@@ -1828,7 +1825,6 @@ filegroup(
 ledger_api_haskellpb_sources_admin = [
     "PackageManagementService.hs",
     "PartyManagementService.hs",
-    "MeteringReportService.hs",
     "ObjectMeta.hs",
     "UserManagementService.hs",
 ]

@@ -59,7 +59,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ProofOfAvailability,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput.Mode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.{
   BlockMetadata,
   EpochInfo,
@@ -179,7 +178,6 @@ class IssConsensusModuleTest
             EpochNumber(2L),
             aMembership,
             failingCryptoProvider,
-            Mode.FromConsensus,
           )
         )
 
@@ -234,7 +232,6 @@ class IssConsensusModuleTest
                 allIds,
               ),
               failingCryptoProvider,
-              Mode.FromConsensus,
             )
           )
 
@@ -324,7 +321,6 @@ class IssConsensusModuleTest
             newEpochInfo.number,
             membership,
             cryptoProvider,
-            Mode.FromConsensus,
           )
         )
         context.runPipedMessages() shouldBe empty
@@ -390,7 +386,6 @@ class IssConsensusModuleTest
             EpochNumber(1L),
             aMembership,
             failingCryptoProvider,
-            Mode.FromConsensus,
           )
         )
 
@@ -438,7 +433,6 @@ class IssConsensusModuleTest
                 EpochNumber(1L),
                 aMembership,
                 failingCryptoProvider,
-                Mode.FromConsensus,
               )
             ),
             log => {
@@ -496,7 +490,6 @@ class IssConsensusModuleTest
                     nodes,
                   ),
                   failingCryptoProvider,
-                  Mode.FromConsensus,
                 )
               ),
             )
@@ -511,6 +504,60 @@ class IssConsensusModuleTest
           )
           succeed
         }
+      }
+    }
+
+    "completing state transfer" should {
+      "process the new epoch topology message" in {
+        val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+        val latestTopologyActivationTime = TopologyActivationTime(aTimestamp)
+        val latestCompletedEpochFromStore = EpochStore.Epoch(
+          EpochInfo(
+            EpochNumber.First,
+            BlockNumber.First,
+            epochLength,
+            latestTopologyActivationTime,
+          ),
+          Seq.empty,
+        )
+
+        when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
+          latestCompletedEpochFromStore
+        )
+        when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
+
+        val (context, consensus) =
+          createIssConsensusModule(
+            epochStore = epochStore,
+            preConfiguredInitialEpochState = Some(newEpochState(latestCompletedEpochFromStore, _)),
+          )
+        implicit val ctx: ContextType = context
+
+        // emulate time advancing for the next epoch's ordering topology activation
+        val nextTopologyActivationTime =
+          TopologyActivationTime(latestTopologyActivationTime.value.immediateSuccessor)
+
+        consensus.receive(
+          Consensus.StateTransferCompleted(
+            Consensus.NewEpochTopology(
+              EpochNumber(1L),
+              Membership(
+                myId,
+                OrderingTopology.forTesting(
+                  nodes = allIds.toSet,
+                  activationTime = nextTopologyActivationTime,
+                ),
+                allIds,
+              ),
+              failingCryptoProvider,
+            )
+          )
+        )
+
+        verify(epochStore, times(1)).startEpoch(
+          latestCompletedEpochFromStore.info.next(epochLength, nextTopologyActivationTime)
+        )
+        succeed
       }
     }
 
@@ -543,14 +590,7 @@ class IssConsensusModuleTest
         consensus.receive(Consensus.Start)
 
         context.extractSelfMessages() should matchPattern {
-          case Seq(
-                Consensus.NewEpochTopology(
-                  epochNumber,
-                  membership,
-                  _,
-                  _,
-                )
-              )
+          case Seq(Consensus.NewEpochTopology(epochNumber, membership, _))
               if epochNumber == EpochNumber.First && membership.orderingTopology == anOrderingTopology =>
         }
       }
@@ -671,18 +711,10 @@ class IssConsensusModuleTest
           EpochNumber.First,
           aMembership,
           failingCryptoProvider,
-          Mode.FromConsensus,
         )
         val selfSentMessages = context.extractSelfMessages()
         selfSentMessages should matchPattern {
-          case Seq(
-                Consensus.NewEpochTopology(
-                  epochNumber,
-                  membership,
-                  _,
-                  _,
-                )
-              )
+          case Seq(Consensus.NewEpochTopology(epochNumber, membership, _))
               if epochNumber == newEpochTopologyMsg.epochNumber &&
                 membership.orderingTopology == newEpochTopologyMsg.membership.orderingTopology =>
         }

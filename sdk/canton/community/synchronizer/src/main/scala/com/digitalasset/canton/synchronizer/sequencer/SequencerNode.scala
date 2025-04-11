@@ -189,7 +189,7 @@ class SequencerNodeBootstrap(
         description = "wait-for-sequencer-to-synchronizer-init",
         bootstrapStageCallback,
         storage,
-        config.init.autoInit,
+        false, // has no auto-init
       )
       with GrpcSequencerInitializationService.Callback {
 
@@ -755,6 +755,7 @@ class SequencerNodeBootstrap(
             staticSynchronizerParameters.protocolVersion,
             topologyStateForInitializationService,
             loggerFactory,
+            config.acknowledgementsConflateWindow,
           )
           _ = sequencerServiceCell.putIfAbsent(sequencerService)
 

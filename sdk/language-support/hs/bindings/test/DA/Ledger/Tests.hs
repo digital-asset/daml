@@ -28,13 +28,6 @@ import qualified Data.ByteString.Lazy as BSL (readFile,toStrict)
 import qualified Data.ByteString.UTF8 as BS (ByteString,fromString)
 import qualified Data.Set as Set
 import qualified Data.Text.Lazy as TL(Text,pack,fromStrict,splitOn)
-import Data.Text (unpack)
-import Data.Either.Extra(maybeToEither)
-import qualified Data.Aeson as Aeson
-import Data.Aeson.KeyMap(KeyMap)
-import qualified Data.Aeson.KeyMap as KeyMap
-import Data.Aeson.Key(fromString)
-import Data.Aeson(decode)
 
 main :: IO ()
 main = do
@@ -43,7 +36,6 @@ main = do
     Tasty.defaultMain $ testGroup "Ledger bindings"
         [ sharedSandboxTests testDar
         , authenticatingSandboxTests testDar
-        , tMeteringReportJson
         ]
 
 type SandboxTest = WithSandbox -> TestTree
@@ -60,7 +52,6 @@ nonFlakyTests =
     , tGetParticipantId
     , tUploadDarFileBad
     , tAllocateParty
-    , tMeteringReport
     ]
 flakyTests =
     [ tUploadDarFileGood
@@ -199,39 +190,6 @@ tAllocateParty withSandbox = testCase "tAllocateParty" $ run withSandbox $ \_dar
     liftIO $ assertEqual "new parties"
         (Set.fromList after Set.\\ Set.fromList before)
         (Set.singleton expected)
-
-tMeteringReportJson :: TestTree
-tMeteringReportJson = testCase "tMeteringReportJson" $ do
-    let sample = "{ \"s\": \"abc\", \"b\": true, \"n\": null, \"d\": 2.3, \"a\": [1,2,3], \"o\": { \"x\": 1, \"y\": 2 } }"
-    let expected = decode sample :: Maybe Aeson.Value
-    let struct = fmap toRawStructValue expected
-    let actual = fmap toRawAesonValue struct
-    assertEqual "MeteringReport Serialization" expected actual
-
-expectObject :: Aeson.Value -> Either String (KeyMap Aeson.Value)
-expectObject (Aeson.Object keyMap) = Right keyMap
-expectObject other = Left $ "Expected object not " <> show other
-
-expectString :: Aeson.Value -> Either String String
-expectString (Aeson.String string) = Right (unpack string)
-expectString other = Left $ "Expected string not " <> show other
-
-expectField :: String -> KeyMap Aeson.Value -> Either String Aeson.Value
-expectField key keyMap = maybeToEither ("Did not find " <> key <> " in " <> show (KeyMap.keys keyMap)) (KeyMap.lookup (fromString key) keyMap)
-
-tMeteringReport :: SandboxTest
-tMeteringReport withSandbox = testCase "tMeteringReport" $ run withSandbox $ \_ _testId -> do
-    let timestamp = Timestamp {seconds = 3600, nanos = 0}  -- Must be rounded to hour
-    let expected = timestampToIso8601 timestamp
-    reportValue <- getMeteringReport timestamp Nothing Nothing
-    let actual = do
-        report <- expectObject reportValue
-        requestValue <- expectField "request" report
-        request <- expectObject requestValue
-        fromValue <- expectField "from" request
-        expectString fromValue
-
-    liftIO $ assertEqual "report from date" (Right expected) actual
 
 ----------------------------------------------------------------------
 -- misc ledger ops/commands

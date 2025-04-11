@@ -110,11 +110,6 @@ final class StateTransferMessageValidator[E <: Env[E]](
         s"received a block transfer response from '$from' with insufficient number of commits " +
           s"${commitCert.map(_.commits.size)}, the minimal number is $strongQuorum (strong quorum)",
       )
-      _ <- Either.cond(
-        response.latestCompletedEpoch >= Genesis.GenesisEpochNumber,
-        (),
-        s"received a block transfer response from '$from' with invalid latest completed epoch ${response.latestCompletedEpoch}",
-      )
     } yield ()
   }
 
@@ -159,7 +154,6 @@ final class StateTransferMessageValidator[E <: Env[E]](
   def verifyCommitCertificate(
       commitCertificate: CommitCertificate,
       from: BftNodeId,
-      latestRemotelyCompletedEpoch: EpochNumber,
       orderingTopologyInfo: OrderingTopologyInfo[E],
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit =
     context.pipeToSelf(
@@ -167,7 +161,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
     ) {
       case Success(Right(())) =>
         Some(
-          StateTransferMessage.BlockVerified(commitCertificate, latestRemotelyCompletedEpoch, from)
+          StateTransferMessage.BlockVerified(commitCertificate, from)
         )
       case Success(Left(errors)) =>
         // TODO(#23313) emit metrics

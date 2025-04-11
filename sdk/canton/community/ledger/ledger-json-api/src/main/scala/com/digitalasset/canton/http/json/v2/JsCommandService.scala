@@ -19,6 +19,7 @@ import com.daml.ledger.api.v2.{
   reassignment_commands,
 }
 import com.digitalasset.canton.http.WebsocketConfig
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
@@ -33,7 +34,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import io.circe.*
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
-import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
@@ -319,86 +319,91 @@ object JsCommandService extends DocumentationEndpoints {
 object JsCommandServiceCodecs {
   import JsSchema.config
   import JsSchema.JsServicesCommonCodecs.*
+  import io.circe.generic.extras.auto.*
 
-  implicit val deduplicationPeriodRW: Codec[DeduplicationPeriod] = deriveCodec
+  implicit val deduplicationPeriodRW: Codec[DeduplicationPeriod] = deriveConfiguredCodec // ADT
 
   implicit val deduplicationPeriodDeduplicationDurationRW
-      : Codec[DeduplicationPeriod.DeduplicationDuration] = deriveCodec
+      : Codec[DeduplicationPeriod.DeduplicationDuration] = deriveRelaxedCodec
   implicit val deduplicationPeriodDeduplicationOffsetRW
-      : Codec[DeduplicationPeriod.DeduplicationOffset] = deriveCodec
+      : Codec[DeduplicationPeriod.DeduplicationOffset] = deriveRelaxedCodec
 
-  implicit val durationRW: Codec[protobuf.duration.Duration] = deriveCodec
+  implicit val durationRW: Codec[protobuf.duration.Duration] = deriveRelaxedCodec
 
   implicit val jsSubmitAndWaitRequestRW: Codec[JsSubmitAndWaitForTransactionRequest] =
-    deriveCodec
+    deriveConfiguredCodec
 
   implicit val jsSubmitAndWaitForTransactionResponseRW
-      : Codec[JsSubmitAndWaitForTransactionResponse] = deriveCodec
+      : Codec[JsSubmitAndWaitForTransactionResponse] = deriveConfiguredCodec
 
   implicit val submitResponseRW: Codec[command_submission_service.SubmitResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val submitAndWaitResponseRW: Codec[SubmitAndWaitResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val submitReassignmentResponseRW
       : Codec[command_submission_service.SubmitReassignmentResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val jsCommandsRW: Codec[JsCommands] = deriveConfiguredCodec
 
-  implicit val jsCommandCommandRW: Codec[JsCommand.Command] = deriveCodec
-  implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveCodec
-  implicit val jsCommandExerciseRW: Codec[JsCommand.ExerciseCommand] = deriveCodec
+  implicit val jsCommandCommandRW: Codec[JsCommand.Command] = deriveConfiguredCodec
+  implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveConfiguredCodec
+  implicit val jsCommandExerciseRW: Codec[JsCommand.ExerciseCommand] = deriveConfiguredCodec
 
   implicit val commandCompletionRW: Codec[command_completion_service.CompletionStreamRequest] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val reassignmentCommandsRW: Codec[reassignment_commands.ReassignmentCommands] =
-    deriveCodec
+    deriveRelaxedCodec
 
-  implicit val reassignmentCommandRW: Codec[reassignment_commands.ReassignmentCommand] = deriveCodec
+  implicit val reassignmentCommandRW: Codec[reassignment_commands.ReassignmentCommand] =
+    deriveRelaxedCodec
 
   implicit val reassignmentCommandCommandRW
-      : Codec[reassignment_commands.ReassignmentCommand.Command] = deriveCodec
+      : Codec[reassignment_commands.ReassignmentCommand.Command] = deriveConfiguredCodec // ADT
 
   implicit val reassignmentUnassignCommandRW: Codec[reassignment_commands.UnassignCommand] =
-    deriveCodec
+    deriveRelaxedCodec
 
-  implicit val reassignmentAssignCommandRW: Codec[reassignment_commands.AssignCommand] = deriveCodec
+  implicit val reassignmentAssignCommandRW: Codec[reassignment_commands.AssignCommand] =
+    deriveRelaxedCodec
 
   implicit val reassignmentCommandUnassignCommandRW
-      : Codec[reassignment_commands.ReassignmentCommand.Command.UnassignCommand] = deriveCodec
+      : Codec[reassignment_commands.ReassignmentCommand.Command.UnassignCommand] =
+    deriveRelaxedCodec
 
   implicit val reassignmentCommandAssignCommandRW
-      : Codec[reassignment_commands.ReassignmentCommand.Command.AssignCommand] = deriveCodec
+      : Codec[reassignment_commands.ReassignmentCommand.Command.AssignCommand] = deriveRelaxedCodec
 
   implicit val submitReassignmentRequestRW: Codec[
     command_submission_service.SubmitReassignmentRequest
-  ] = deriveCodec
+  ] = deriveRelaxedCodec
 
   implicit val completionStreamResponseRW
-      : Codec[command_completion_service.CompletionStreamResponse] = deriveCodec
+      : Codec[command_completion_service.CompletionStreamResponse] = deriveRelaxedCodec
   implicit val completionResponseRW
-      : Codec[command_completion_service.CompletionStreamResponse.CompletionResponse] = deriveCodec
+      : Codec[command_completion_service.CompletionStreamResponse.CompletionResponse] =
+    deriveConfiguredCodec // ADT
   implicit val completionResponseOffsetCheckpointRW: Codec[
     command_completion_service.CompletionStreamResponse.CompletionResponse.OffsetCheckpoint
-  ] = deriveCodec
+  ] = deriveRelaxedCodec
   implicit val completionResponseOffsetCompletionRW: Codec[
     command_completion_service.CompletionStreamResponse.CompletionResponse.Completion
-  ] = deriveCodec
+  ] = deriveRelaxedCodec
 
   implicit val completionRW: Codec[
     completion.Completion
-  ] = deriveCodec
+  ] = deriveRelaxedCodec
 
   implicit val completionDeduplicationPeriodRW: Codec[
     completion.Completion.DeduplicationPeriod
-  ] = deriveCodec
+  ] = deriveConfiguredCodec // ADT
 
   implicit val disclosedContractRW: Codec[
     commands.DisclosedContract
-  ] = deriveCodec
+  ] = deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
   implicit val reassignmentCommandCommandSchema

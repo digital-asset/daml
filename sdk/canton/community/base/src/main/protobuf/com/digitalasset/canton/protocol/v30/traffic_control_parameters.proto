@@ -28,6 +28,10 @@ message TrafficControlParameters {
 
   // If true, submission requests without enough traffic credit will not be delivered
   bool enforce_rate_limiting = 6;
+
+  // In bytes, base event cost added to all sequenced events.
+  // Optional
+  optional uint64 base_event_cost = 7;
 }
 
 // Message representing a traffic receipt included in SequencedEvent receipts to update sender about
