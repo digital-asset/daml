@@ -15,49 +15,50 @@ import DA.Time (seconds)
 
 -- These tests rely on unvetting, none of them will work on IDE
 main : TestTree
-main = tests $ brokenOnIDELedger <$>
+main = tests $
   [ subtree "exercise"
-    [ ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterCommand)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterCommandInterface)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterChoiceBody)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterChoiceBodyInterface)
+    -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
+    [ broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command (should change the expectation to fails)", v1UnvettedOnSubmitterCommand)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface (should fail)", v1UnvettedOnSubmitterCommandInterface)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body (should fail)", v1UnvettedOnSubmitterChoiceBody)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface (should fail)", v1UnvettedOnSubmitterChoiceBodyInterface)
 
-    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
-    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
-    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
-    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
+    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command (should fail)", v1UnvettedOnSubmitterDisclosedCommand)
+    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface (should fail)", v1UnvettedOnSubmitterDisclosedCommandInterface)
+    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body (should fail)", v1UnvettedOnSubmitterDisclosedChoiceBody)
+    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface (should fail)", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
 
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command", v1UnvettedOnNonConfirmingInformeeCommand)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface", v1UnvettedOnNonConfirmingInformeeCommandInterface)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body", v1UnvettedOnNonConfirmingInformeeChoiceBody)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command (should fail)", v1UnvettedOnNonConfirmingInformeeCommand)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface (should fail)", v1UnvettedOnNonConfirmingInformeeCommandInterface)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body (should fail)", v1UnvettedOnNonConfirmingInformeeChoiceBody)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface (should fail)", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
 
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command", v1UnvettedOnConfirmingInformeeCommand)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface", v1UnvettedOnConfirmingInformeeCommandInterface)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body", v1UnvettedOnConfirmingInformeeChoiceBody)
-    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command (should fail)", v1UnvettedOnConfirmingInformeeCommand)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface (should fail)", v1UnvettedOnConfirmingInformeeCommandInterface)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body (should fail)", v1UnvettedOnConfirmingInformeeChoiceBody)
+    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface (should fail)", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
     ]
   , subtree "fetch"
-    [ ("Fetch undistributed contract with source unvetted on submitter", fetchUndistributedUnvettedOnSubmitter)
-    , ("Fetch undistributed contract with source unvetted on submitter via interface", fetchUndistributedUnvettedOnSubmitterInterface)
-    , ("Fetch distributed contract with source unvetted on submitter", fetchDistributedUnvettedOnSubmitter)
-    , ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
-    , ("Fetch disclosed contract with source unvetted on submitter", fetchDisclosedUnvettedOnSubmitter)
-    , ("Fetch disclosed contract with source unvetted on submitter via interface", fetchDisclosedUnvettedOnSubmitterInterface)
-    , ("Fetch distributed contract with source unvetted on non-confirming informee (Should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
-    , ("Fetch distributed contract with source unvetted on confirming informee", fetchDistributedUnvettedOnConfirmingInformee)
-    , ("Fetch distributed contract with source unvetted on confirming informee via interface", fetchDistributedUnvettedOnConfirmingInformeeInterface)
+    -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
+    [ broken ("Fetch undistributed contract with source unvetted on submitter (should fail)", fetchUndistributedUnvettedOnSubmitter)
+    , broken ("Fetch undistributed contract with source unvetted on submitter via interface (should fail)", fetchUndistributedUnvettedOnSubmitterInterface)
+    , broken ("Fetch distributed contract with source unvetted on submitter (should fail)", fetchDistributedUnvettedOnSubmitter)
+    , broken ("Fetch distributed contract with source unvetted on submitter via interface (should fail)", fetchDistributedUnvettedOnSubmitterInterface)
+    , broken ("Fetch disclosed contract with source unvetted on submitter (should fail)", fetchDisclosedUnvettedOnSubmitter)
+    , broken ("Fetch disclosed contract with source unvetted on submitter via interface (should fail)", fetchDisclosedUnvettedOnSubmitterInterface)
+    , broken ("Fetch distributed contract with source unvetted on non-confirming informee (should fail)", fetchDistributedUnvettedOnNonConfirmingInformee)
+    , broken ("Fetch distributed contract with source unvetted on confirming informee (should fail)", fetchDistributedUnvettedOnConfirmingInformee)
+    , broken ("Fetch distributed contract with source unvetted on confirming informee via interface (should fail)", fetchDistributedUnvettedOnConfirmingInformeeInterface)
     -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
-    -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should succeed)", fetchDisclosedUnvettedOnNonConfirmingInformee)
-    , ("Fetch disclosed contract with source unvetted on confirming informee", fetchDisclosedUnvettedOnConfirmingInformee)
-    , ("Fetch disclosed contract with source unvetted on confirming informee via interface", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
+    -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should fail)", fetchDisclosedUnvettedOnNonConfirmingInformee)
+    , broken ("Fetch disclosed contract with source unvetted on confirming informee (should fail)", fetchDisclosedUnvettedOnConfirmingInformee)
+    , broken ("Fetch disclosed contract with source unvetted on confirming informee via interface (should fail)", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
     ]
-  , -- TODO: Broken as we expect failure but query succeeds
-    subtree "query"
-    [ brokenOnCanton ("Query undistributed contract with source unvetted", queryUndistributedUnvetted)
-    , brokenOnCanton ("Query undistributed contract with source unvetted via interface", queryUndistributedUnvettedInterface)
-    , brokenOnCanton ("Query distributed contract with source unvetted", queryDistributedUnvetted)
-    , brokenOnCanton ("Query distributed contract with source unvetted via interface", queryDistributedUnvettedInterface)
+  , subtree "query"
+    [ ("Query undistributed contract with source unvetted (should succeed)", queryUndistributedUnvetted)
+    , ("Query undistributed contract with source unvetted via interface (should succeed)", queryUndistributedUnvettedInterface)
+    , ("Query distributed contract with source unvetted (should succeed)", queryDistributedUnvetted)
+    , ("Query distributed contract with source unvetted via interface (should succeed)", queryDistributedUnvettedInterface)
     ]
   ]
 
@@ -230,6 +231,10 @@ expectSuccess : Either SubmitError a -> Script ()
 expectSuccess (Right _) = pure ()
 expectSuccess (Left e) = fail $ "Expected success but got failure: " <> show e
 
+expectQuerySuccess : Optional a -> Script ()
+expectQuerySuccess (Some _) = pure ()
+expectQuerySuccess None = fail $ "Expected qery to succeed, but it failed"
+
 expectQueryFailure : Optional a -> Script ()
 expectQueryFailure None = pure ()
 expectQueryFailure (Some _) = fail "Expected query to fail, but it succeeded"
@@ -278,7 +283,7 @@ v1UnvettedOnSubmitter
 v1UnvettedOnSubmitter makeCommands = test $
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant0
     []
     []
@@ -309,7 +314,7 @@ v1UnvettedOnSubmitterDisclosed makeSubmission = test $ do
       disclosure <- fromSome <$> queryDisclosure alice cidV2
       (actAs bob <> disclose disclosure) `trySubmit` makeSubmission bob cidV2 iid
     )
-    expectSuccess
+    expectPackageMissingFailure
     participant1
     []
     []
@@ -336,7 +341,7 @@ v1UnvettedOnInformee isConfirming makeCommands = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant1
     (if isConfirming then [bob] else [])
     (if isConfirming then [] else [bob])
@@ -375,7 +380,7 @@ fetchUndistributedUnvettedOnSubmitter : Test
 fetchUndistributedUnvettedOnSubmitter = test $
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant0
     []
     []
@@ -384,7 +389,7 @@ fetchUndistributedUnvettedOnSubmitterInterface : Test
 fetchUndistributedUnvettedOnSubmitterInterface = test $
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant0
     []
     []
@@ -394,7 +399,7 @@ fetchDistributedUnvettedOnSubmitter = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant0
     [bob]
     []
@@ -404,7 +409,7 @@ fetchDistributedUnvettedOnSubmitterInterface = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant0
     [bob]
     []
@@ -424,7 +429,7 @@ fetchDisclosedSubmitter participant makeChoice = test $ do
       cidWithAlice <- alice `submit` exerciseExactCmd cidWithoutAlice HelperPromoteObserver with newSig = alice
       (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidWithAlice (makeChoice cidV2 iid)
     )
-    expectSuccess
+    expectPackageMissingFailure
     participant
     []
     []
@@ -440,7 +445,7 @@ fetchDistributedUnvettedOnNonConfirmingInformee = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
-    expectSuccess
+    expectPackageMissingFailure
     participant1
     []
     [bob]
@@ -461,7 +466,7 @@ queryUndistributedUnvetted : Test
 queryUndistributedUnvetted = test $
   unvettedTest
     (\alice cidV2 _ -> alice `queryContractId` cidV2)
-    expectQueryFailure
+    expectQuerySuccess
     participant0
     []
     []
@@ -470,7 +475,7 @@ queryUndistributedUnvettedInterface : Test
 queryUndistributedUnvettedInterface = test $
   unvettedTest
     (\alice _ iid -> alice `queryInterfaceContractId` iid)
-    expectQueryFailure
+    expectQuerySuccess
     participant0
     []
     []
@@ -480,7 +485,7 @@ queryDistributedUnvetted = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 _ -> alice `queryContractId` cidV2)
-    expectQueryFailure
+    expectQuerySuccess
     participant0
     [bob]
     []
@@ -490,7 +495,7 @@ queryDistributedUnvettedInterface = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice _ iid -> alice `queryInterfaceContractId` iid)
-    expectQueryFailure
+    expectQuerySuccess
     participant0
     [bob]
     []
