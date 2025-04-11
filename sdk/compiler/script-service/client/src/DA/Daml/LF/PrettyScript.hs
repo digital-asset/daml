@@ -781,19 +781,19 @@ prettyNodeNode lvl nn = do
   case nn of
     NodeNodeCreate Node_Create{..} ->
       pure $
-        case node_CreateContractInstance of
+        case node_CreateThinContractInstance of
           Nothing -> text "<missing contract instance>"
-          Just ContractInstance{..} ->
+          Just ThinContractInstance{..} ->
             let (parties, kw) = partiesAction node_CreateSignatories "creates" "create" in
             parties
             <-> ( -- group to align "create" and "with"
-              (kw <-> prettyMay "<TEMPLATE?>" (prettyDefName lvl world) contractInstanceTemplateId)
+              (kw <-> prettyMay "<TEMPLATE?>" (prettyDefName lvl world) thinContractInstanceTemplateId)
               $$ maybe
                     mempty
                     (\v ->
                       keyword_ "with" $$
                         nest 2 (prettyValue' lvl False 0 world v))
-                      contractInstanceValue
+                      thinContractInstanceValue
               )
 
     NodeNodeFetch Node_Fetch{..} -> do
@@ -1108,9 +1108,9 @@ nodeInfo :: S.Set TL.Text -> Node -> Maybe NodeInfo
 nodeInfo activeContracts node@Node{..} = do
     NodeNodeCreate create <- nodeNode
     niNodeId <- nodeNodeId
-    inst <- node_CreateContractInstance create
-    niTemplateId <- contractInstanceTemplateId inst
-    niValue <- contractInstanceValue inst
+    inst <- node_CreateThinContractInstance create
+    niTemplateId <- thinContractInstanceTemplateId inst
+    niValue <- thinContractInstanceValue inst
     let niActive = isActive activeContracts node
     let niSignatories = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateSignatories create)
     let niStakeholders = S.fromList $ map (TL.toStrict . partyParty) $ V.toList (node_CreateStakeholders create)

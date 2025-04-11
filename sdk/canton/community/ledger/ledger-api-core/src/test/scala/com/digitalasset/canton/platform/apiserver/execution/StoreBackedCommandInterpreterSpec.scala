@@ -41,7 +41,7 @@ import com.digitalasset.daml.lf.transaction.{
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueTrue}
+import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueTrue}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -266,7 +266,7 @@ class StoreBackedCommandInterpreterSpec
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
         LfTransactionVersion.minVersion,
-        ContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
+        ThinContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
       ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),

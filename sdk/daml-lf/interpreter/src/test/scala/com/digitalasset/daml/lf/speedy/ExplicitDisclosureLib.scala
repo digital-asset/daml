@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.transaction.{
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 /** Shared test data and functions for testing explicit disclosure.
@@ -210,7 +210,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       maintainer: Party,
       packageName: Ref.PackageName = pkg.pkgName,
       templateId: Ref.Identifier = houseTemplateId,
-  ): Versioned[ContractInstance] = {
+  ): Versioned[ThinContractInstance] = {
     val contractFields = templateId match {
       case `caveTemplateId` =>
         ImmArray(
@@ -231,7 +231,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
     Versioned(
       TransactionVersion.minVersion,
-      Value.ContractInstance(
+      Value.ThinContractInstance(
         packageName = packageName,
         template = templateId,
         arg = Value.ValueRecord(None, contractFields),

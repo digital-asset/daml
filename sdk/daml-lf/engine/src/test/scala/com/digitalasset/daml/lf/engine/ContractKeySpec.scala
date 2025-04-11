@@ -28,7 +28,7 @@ import com.digitalasset.daml.lf.transaction.{
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
-  ContractInstance,
+  ThinContractInstance,
   ValueContractId,
   ValueInt64,
   ValueParty,
@@ -91,7 +91,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   val BasicTests_WithKey = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
-      ContractInstance(
+      ThinContractInstance(
         packageName = basicTestsPkg.pkgName,
         template = TypeConName(basicTestsPkgId, withKeyTemplate),
         arg = ValueRecord(
@@ -108,7 +108,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
-          ContractInstance(
+          ThinContractInstance(
             packageName = basicTestsPkg.pkgName,
             template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             arg = ValueRecord(
@@ -119,7 +119,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
-          ContractInstance(
+          ThinContractInstance(
             packageName = basicTestsPkg.pkgName,
             template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             arg = ValueRecord(
@@ -298,7 +298,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val cid1 = toContractId("1")
       val cid2 = toContractId("2")
       val keyedInst = assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = multiKeysPkg.pkgName,
           template = TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
           arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),

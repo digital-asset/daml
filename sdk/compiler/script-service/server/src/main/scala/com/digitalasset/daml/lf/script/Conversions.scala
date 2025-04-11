@@ -649,8 +649,8 @@ final class Conversions(
         val createBuilder =
           proto.Node.Create.newBuilder
             .setContractId(coidToEventId(create.coid).toLedgerString)
-            .setContractInstance(
-              proto.ContractInstance.newBuilder
+            .setThinContractInstance(
+              proto.ThinContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.templateId))
                 .setValue(convertValue(create.arg))
                 .build
@@ -745,8 +745,8 @@ final class Conversions(
       case create: Node.Create =>
         val createBuilder =
           proto.Node.Create.newBuilder
-            .setContractInstance(
-              proto.ContractInstance.newBuilder
+            .setThinContractInstance(
+              proto.ThinContractInstance.newBuilder
                 .setTemplateId(convertIdentifier(create.templateId))
                 .setValue(convertValue(create.arg))
                 .build

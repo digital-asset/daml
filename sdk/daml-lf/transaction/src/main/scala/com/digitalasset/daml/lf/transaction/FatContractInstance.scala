@@ -9,8 +9,8 @@ import value.{CidContainer, Value}
 
 import scala.collection.immutable.TreeSet
 
-// This should replace value.ContractInstance in the whole daml/canton codespace
-// TODO: Rename to ContractInstance once value.ContractInstance is properly deprecated
+// This should replace value.ThinContractInstance in the whole daml/canton codespace
+// TODO: Rename to ContractInstance once value.ThinContractInstance is properly deprecated
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
   val version: TransactionVersion
   val contractId: Value.ContractId

@@ -101,7 +101,7 @@ object SerializableRawContractInstance {
   ): ParsingResult[SerializableRawContractInstance] =
     for {
       contractInstanceP <- ProtoConverter.protoParser(
-        TransactionOuterClass.ContractInstance.parseFrom
+        TransactionOuterClass.ThinContractInstance.parseFrom
       )(bytes)
       contractInstance <- TransactionCoder
         .decodeContractInstance(protoCoinst = contractInstanceP)

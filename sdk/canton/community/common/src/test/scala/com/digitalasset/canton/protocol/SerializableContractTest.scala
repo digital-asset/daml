@@ -102,7 +102,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
             .create(
               LfVersioned(
                 transactionVersion,
-                LfValue.ContractInstance(
+                LfValue.ThinContractInstance(
                   packageName = pkgName,
                   template = templateId,
                   arg = LfValue.ValueInt64(123L),

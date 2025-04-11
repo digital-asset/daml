@@ -1657,7 +1657,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               contractId -> Versioned(
                 version = txVersion,
-                Value.ContractInstance(
+                Value.ThinContractInstance(
                   packageName = pkg.pkgName,
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
@@ -1710,7 +1710,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               contractId -> Versioned(
                 version = txVersion,
-                Value.ContractInstance(
+                Value.ThinContractInstance(
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                   packageName = pkg.pkgName,
@@ -1740,7 +1740,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           getContract = Map(
             cid -> Versioned(
               version = txVersion,
-              Value.ContractInstance(
+              Value.ThinContractInstance(
                 packageName = pkg.pkgName,
                 template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,
                 arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),

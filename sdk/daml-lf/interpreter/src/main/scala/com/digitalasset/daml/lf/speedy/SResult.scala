@@ -26,7 +26,7 @@ object Question {
         // Callback
         // returns the next expression to evaluate.
         // In case of failure the call back does not throw but returns a SErrorDamlException
-        callback: Value.ContractInstance => Unit,
+        callback: Value.ThinContractInstance => Unit,
     ) extends Update
 
     /** Contract info for upgraded contract needs verification by ledger */

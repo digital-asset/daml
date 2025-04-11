@@ -27,7 +27,7 @@ message Transaction {
 // architecture-handbook-entry-end: Transaction
 
 // architecture-handbook-entry-begin: Contract
-message ContractInstance {
+message ThinContractInstance {
     string package_name = 4;
     reserved 5; // was  package_version
     com.digitalasset.daml.lf.value.Identifier template_id = 1;

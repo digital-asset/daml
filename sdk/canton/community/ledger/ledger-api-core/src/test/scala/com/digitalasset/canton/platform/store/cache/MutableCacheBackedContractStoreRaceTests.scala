@@ -25,7 +25,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64}
+import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueInt64}
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -306,7 +306,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = Value.ValueInt64(idx)
     val contractInstance =
-      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
+      ThinContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

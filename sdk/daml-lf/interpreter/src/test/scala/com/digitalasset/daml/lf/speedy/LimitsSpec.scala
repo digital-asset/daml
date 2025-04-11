@@ -73,7 +73,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
 
   def eval(
       limits: interpretation.Limits,
-      contracts: PartialFunction[Value.ContractId, Versioned[Value.ContractInstance]],
+      contracts: PartialFunction[Value.ContractId, Versioned[Value.ThinContractInstance]],
       committers: Set[Ref.Party],
       e: Ast.Expr,
       agrs: SValue*
@@ -538,7 +538,7 @@ class LimitsSpec(majorLanguageVersion: LanguageMajorVersion)
 
     Versioned(
       TransactionVersion.StableVersions.max,
-      Value.ContractInstance(
+      Value.ThinContractInstance(
         pkg.pkgName,
         T,
         Value.ValueRecord(

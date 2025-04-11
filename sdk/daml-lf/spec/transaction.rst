@@ -216,8 +216,8 @@ any ``version`` not in this list should be considered newer than any
 version in that list, and consumers must reject values with such
 unknown versions.
 
-message ContractInstance
-^^^^^^^^^^^^^^^^^^^^^^^^
+message ThinContractInstance
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 An instance of a Daml-LF template, represented by the Daml-LF value used
 to construct that instance.

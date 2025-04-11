@@ -1753,7 +1753,7 @@ object UpgradeTest {
     val globalContractId: ContractId = toContractId("1")
 
     val clientContract: VersionedContractInstance = assertAsVersionedContract(
-      ContractInstance(
+      ThinContractInstance(
         clientPkg.pkgName,
         clientTplId,
         ValueRecord(
@@ -1774,7 +1774,7 @@ object UpgradeTest {
     )
 
     val globalContract: VersionedContractInstance = assertAsVersionedContract(
-      ContractInstance(
+      ThinContractInstance(
         templateDefsV1Pkg.pkgName,
         v1TplId,
         globalContractArg,

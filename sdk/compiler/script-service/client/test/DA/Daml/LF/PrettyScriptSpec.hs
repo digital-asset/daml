@@ -62,7 +62,7 @@ toPtx nodes = case runState (mapM go nodes) (0, []) of
           nid <- nextNodeId
           nodeNode <- case n of
               Create -> pure $ S.NodeNodeCreate S.Node_Create
-                { node_CreateContractInstance = Nothing
+                { node_CreateThinContractInstance = Nothing
                 , node_CreateSignatories = V.empty
                 , node_CreateStakeholders = V.empty
                 , node_CreateKeyWithMaintainers = Nothing

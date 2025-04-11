@@ -211,9 +211,9 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
     Ref.TypeConName.assertFromString(s"$interfacesPkgId:InterfaceMod:Interface1")
   val contractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
-  val implementsContract: Versioned[Value.ContractInstance] = Versioned(
+  val implementsContract: Versioned[Value.ThinContractInstance] = Versioned(
     newVersion,
-    Value.ContractInstance(
+    Value.ThinContractInstance(
       implementsPkg.pkgName,
       implementsTemplateId,
       Value.ValueRecord(
