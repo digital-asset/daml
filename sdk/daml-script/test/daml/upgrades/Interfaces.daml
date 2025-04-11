@@ -219,7 +219,7 @@ main = tests
   , ("Calling a new interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationForNewInterfaceUpdate)
   , ("Package map preference is used for new interface implementation selection at command level", newInterfaceChoicePackagePreferenceCommand)
   , ("Package map preference is used for new interface implementation selection at choice body level", newInterfaceChoicePackagePreferenceUpdate)
-  , brokenOnIDELedger ("queryInterfaceContractId works as intended in the presence of upgraded packages with new interface instances", queryNewInterfaceUpgrades)
+  , ("queryInterfaceContractId works as intended in the presence of upgraded packages with new interface instances", queryNewInterfaceUpgrades)
   , ("fetchFromInterface works as intended in the presence of upgraded packages with new interface instances", fetchFromNewInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
   -- Can't unvet old version of package on 3x, even though v2 exists.
@@ -390,6 +390,7 @@ queryNewInterfaceUpgrades : Test
 queryNewInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndV1NewInterface
   res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
+  res.version === "GetNewVersionV3" -- Always uses the latest preferred package
   res.owner === alice
 
 fetchFromInterfaceUpgrades : Test
