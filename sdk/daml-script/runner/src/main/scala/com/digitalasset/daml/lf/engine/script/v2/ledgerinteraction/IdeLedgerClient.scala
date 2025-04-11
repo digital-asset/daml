@@ -215,8 +215,8 @@ class IdeLedgerClient(
             val version = machine.tmplId2TxVersion(templateId)
             Some(svalue.toNormalizedValue(version))
 
-          case Left(e) =>
-            sys.error(s"runPure failed: $e")
+          case Left(_) =>
+            None
         }
     }
   }
