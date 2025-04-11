@@ -345,10 +345,10 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private val testTxVersion: TransactionVersion = languageVersion
 
-  private[this] def buildContract(observer: Party): Versioned[Value.ContractInstance] =
+  private[this] def buildContract(observer: Party): Versioned[Value.ThinContractInstance] =
     Versioned(
       testTxVersion,
-      Value.ContractInstance(
+      Value.ThinContractInstance(
         packageName = pkg.pkgName,
         template = T,
         arg = Value.ValueRecord(
@@ -387,7 +387,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val helper = Versioned(
     testTxVersion,
-    Value.ContractInstance(
+    Value.ThinContractInstance(
       packageName = pkg.pkgName,
       template = Helper,
       arg = ValueRecord(
@@ -399,7 +399,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val iface_contract = Versioned(
     testTxVersion,
-    Value.ContractInstance(
+    Value.ThinContractInstance(
       packageName = pkg.pkgName,
       template = Human,
       arg = Value.ValueRecord(
@@ -426,7 +426,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
 
   private[this] val dummyContract = Versioned(
     testTxVersion,
-    Value.ContractInstance(
+    Value.ThinContractInstance(
       packageName = pkg.pkgName,
       template = Dummy,
       arg = ValueRecord(None, ImmArray(None -> ValueParty(alice))),

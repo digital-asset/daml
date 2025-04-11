@@ -188,7 +188,7 @@ private[lf] object Speedy {
   )(implicit loggingContext: LoggingContext)
       extends Machine[Question.Update] {
 
-    private[this] var contractsCache = Map.empty[V.ContractId, V.ContractInstance]
+    private[this] var contractsCache = Map.empty[V.ContractId, V.ThinContractInstance]
 
     // To handle continuation exceptions, as continuations run outside the interpreter loop.
     // Here we delay the throw to the interpreter loop, but it would be probably better
@@ -236,7 +236,7 @@ private[lf] object Speedy {
     final private[speedy] def needContract(
         location: => String,
         contractId: V.ContractId,
-        continue: V.ContractInstance => Control[Question.Update],
+        continue: V.ThinContractInstance => Control[Question.Update],
     ): Control.Question[Question.Update] =
       Control.Question(
         Question.Update.NeedContract(
@@ -333,7 +333,7 @@ private[lf] object Speedy {
       )
 
     private[speedy] def lookupContract(coid: V.ContractId)(
-        f: V.ContractInstance => Control[Question.Update]
+        f: V.ThinContractInstance => Control[Question.Update]
     ): Control[Question.Update] =
       contractsCache.get(coid) match {
         case Some(res) =>
@@ -343,7 +343,7 @@ private[lf] object Speedy {
             case Some(contractInfo) =>
               markDisclosedcontractAsUsed(coid)
               f(
-                V.ContractInstance(
+                V.ThinContractInstance(
                   contractInfo.packageName,
                   contractInfo.templateId,
                   contractInfo.value.toUnnormalizedValue,

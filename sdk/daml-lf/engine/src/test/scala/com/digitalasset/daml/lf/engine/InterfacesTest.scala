@@ -76,14 +76,14 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val cid2 = toContractId("2")
     val contracts = Map(
       cid1 -> assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           interfacesPkg.pkgName,
           idT1,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
         )
       ),
       cid2 -> assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           interfacesPkg.pkgName,
           idT2,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),

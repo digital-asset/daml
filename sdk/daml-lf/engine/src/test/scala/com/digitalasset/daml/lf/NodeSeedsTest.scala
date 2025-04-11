@@ -50,7 +50,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   val requestContract =
     Versioned(
       transaction.TransactionVersion.VDev,
-      Value.ContractInstance(
+      Value.ThinContractInstance(
         mainPkg.pkgName,
         requestTmplId,
         Value.ValueRecord(
@@ -66,7 +66,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
   )
   val roleContract = Versioned(
     transaction.TransactionVersion.VDev,
-    Value.ContractInstance(
+    Value.ThinContractInstance(
       mainPkg.pkgName,
       roleTmplId,
       Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),

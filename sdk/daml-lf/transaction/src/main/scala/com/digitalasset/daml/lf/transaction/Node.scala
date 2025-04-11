@@ -108,8 +108,8 @@ object Node {
 
     def versionedArg: Value.VersionedValue = versioned(arg)
 
-    def coinst: Value.ContractInstance =
-      Value.ContractInstance(packageName, templateId, arg)
+    def coinst: Value.ThinContractInstance =
+      Value.ThinContractInstance(packageName, templateId, arg)
 
     def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
 

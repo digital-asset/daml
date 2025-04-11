@@ -40,7 +40,7 @@ import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -570,7 +570,7 @@ final class StoreBackedCommandInterpreter(
         driverMetadataBytes = disclosedContract.cantonData.toByteArray,
         contractInstance = Versioned(
           disclosedContract.version,
-          ContractInstance(
+          ThinContractInstance(
             packageName = disclosedContract.packageName,
             template = disclosedContract.templateId,
             arg = disclosedContract.createArg,

@@ -313,7 +313,7 @@ class TransactionCoderSpec
       }
     }
 
-    "do ContractInstance" in {
+    "do ThinContractInstance" in {
       forAll(
         malformedCreateNodeGen(),
         minSuccessful(5),
