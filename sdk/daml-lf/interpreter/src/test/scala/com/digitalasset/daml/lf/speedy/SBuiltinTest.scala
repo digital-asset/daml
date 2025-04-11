@@ -1813,14 +1813,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SECP256K1_BOOL" - {
-      val keyPair = crypto.MessageSignatureUtil.generateKeyPair
+      val keyPair = support.crypto.MessageSignatureUtil.generateKeyPair
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
           val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
@@ -1832,7 +1832,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
-          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
             SBool(false)
@@ -1844,7 +1844,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = "DeadBeef"
-          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
             case Left(
@@ -1866,11 +1866,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "fails with incorrect secp256k1 public key" in {
           val incorrectPublicKey =
             Bytes
-              .fromByteArray(crypto.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
+              .fromByteArray(
+                support.crypto.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded
+              )
               .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
             SBool(false)
@@ -1885,7 +1887,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
@@ -1903,7 +1905,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidPublicKey = keyPair.getPublic
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = crypto.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
