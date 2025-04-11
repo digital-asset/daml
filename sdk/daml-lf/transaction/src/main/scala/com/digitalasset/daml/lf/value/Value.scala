@@ -6,7 +6,7 @@ package value
 
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, TypeConName}
-import com.digitalasset.daml.lf.data.{crypto => _, _}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.{Ast, StablePackages}
 import data.ScalazEqual._
 import scalaz.{Equal, Order}

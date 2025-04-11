@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.crypto.Hash.hashContractInstance
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.support._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.ArrayList.Implicits._
