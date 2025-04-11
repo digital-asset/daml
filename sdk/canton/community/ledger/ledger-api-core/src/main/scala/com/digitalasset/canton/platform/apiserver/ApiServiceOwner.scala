@@ -39,8 +39,6 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
 }
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
@@ -81,7 +79,6 @@ object ApiServiceOwner {
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       // immutable configuration parameters
       participantId: Ref.ParticipantId,
-      meteringReportKey: MeteringReportKey = CommunityKey,
       // objects
       indexService: IndexService,
       submissionTracker: SubmissionTracker,
@@ -189,7 +186,6 @@ object ApiServiceOwner {
         userManagementServiceConfig = userManagement,
         partyManagementServiceConfig = partyManagementServiceConfig,
         engineLoggingConfig = engineLoggingConfig,
-        meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         authenticateSerializableContract = authenticateSerializableContract,

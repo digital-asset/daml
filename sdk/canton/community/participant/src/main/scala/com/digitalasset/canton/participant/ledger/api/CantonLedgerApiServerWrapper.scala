@@ -23,7 +23,6 @@ import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.platform.apiserver.*
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.{NoTracing, TracerProvider}
 import com.digitalasset.canton.{LedgerParticipantId, config}
@@ -79,7 +78,6 @@ object CantonLedgerApiServerWrapper extends NoTracing {
       tracerProvider: TracerProvider,
       metrics: LedgerApiServerMetrics,
       jsonApiMetrics: HttpApiMetrics,
-      meteringReportKey: MeteringReportKey,
       maxDeduplicationDuration: config.NonNegativeFiniteDuration,
       clock: Clock,
   ) extends NamedLogging {

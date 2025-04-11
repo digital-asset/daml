@@ -11,12 +11,10 @@ import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransacti
   AuthorizationEvent,
   AuthorizationLevel,
 }
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.Conversions.{
   authorizationEventInt,
   participantPermissionInt,
 }
-import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -61,7 +59,6 @@ private[store] object StorageBackendTestValues {
   val someParty3: Ref.Party = Ref.Party.assertFromString("party3")
   val someUserId: Ref.UserId = Ref.UserId.assertFromString("user_id")
   val someSubmissionId: Ref.SubmissionId = Ref.SubmissionId.assertFromString("submission_id")
-  val someLedgerMeteringEnd: LedgerMeteringEnd = LedgerMeteringEnd(None, someTime)
   val someDriverMetadata: Bytes = Bytes.assertFromString("00abcd")
   val someDriverMetadataBytes: Array[Byte] = someDriverMetadata.toByteArray
 
@@ -359,18 +356,6 @@ private[store] object StorageBackendTestValues {
     event_sequential_id_first = event_sequential_id_first,
     event_sequential_id_last = event_sequential_id_last,
   )
-
-  def dtoTransactionMetering(
-      metering: TransactionMetering
-  ): DbDto.TransactionMetering = {
-    import metering.*
-    DbDto.TransactionMetering(
-      userId,
-      actionCount,
-      meteringTimestamp.micros,
-      ledgerOffset.unwrap,
-    )
-  }
 
   def dtoCreateFilter(
       event_sequential_id: Long,

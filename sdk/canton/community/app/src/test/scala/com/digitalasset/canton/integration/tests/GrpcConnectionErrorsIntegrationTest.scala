@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.ExistingFile
-import com.digitalasset.canton.config.{PemFile, StorageConfig, TlsBaseServerConfig}
+import com.digitalasset.canton.config.{IdentityConfig, PemFile, StorageConfig, TlsBaseServerConfig}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
@@ -34,7 +34,7 @@ trait GrpcConnectionErrorsIntegrationTest extends CommunityIntegrationTest with 
       .addConfigTransforms(
         // Prevent participant2 from auto-initializing.
         ConfigTransforms.updateParticipantConfig("participant2")(
-          _.focus(_.init.identity).replace(None)
+          _.focus(_.init.identity).replace(IdentityConfig.Manual)
         ),
         ConfigTransforms.updateSequencerConfig("sequencer2")(
           _.focus(_.publicApi.tls).replace(

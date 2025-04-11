@@ -38,9 +38,6 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
       delete from lapi_user_annotations cascade;
       delete from lapi_user_rights cascade;
       delete from lapi_identity_provider_config cascade;
-      delete from lapi_transaction_metering cascade;
-      delete from lapi_participant_metering cascade;
-      delete from lapi_metering_parameters cascade;
     """
       .execute()(connection)
       .discard

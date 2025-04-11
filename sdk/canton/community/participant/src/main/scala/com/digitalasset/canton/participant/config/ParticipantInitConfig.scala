@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.config
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{
   CantonConfigValidator,
+  IdentityConfig,
   InitConfigBase,
   NonNegativeFiniteDuration,
   StateConfig,
@@ -21,9 +22,11 @@ import com.digitalasset.canton.participant.config.ParticipantInitConfig.Particip
   *   changes
   */
 final case class ParticipantInitConfig(
-    identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity()),
+    identity: IdentityConfig = IdentityConfig.Auto(),
     ledgerApi: ParticipantLedgerApiInitConfig = ParticipantLedgerApiInitConfig(),
     state: Option[StateConfig] = None,
+    generateIntermediateKey: Boolean = false,
+    generateTopologyTransactionsAndKeys: Boolean = true,
 ) extends InitConfigBase
     with UniformCantonConfigValidation
 

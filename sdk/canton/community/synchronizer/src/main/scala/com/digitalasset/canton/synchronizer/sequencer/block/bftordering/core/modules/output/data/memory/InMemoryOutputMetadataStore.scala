@@ -204,6 +204,28 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       } yield lowerBound.set(Some(OutputMetadataStore.LowerBound(epoch, blockNumber))))
     }
 
+  def saveOnboardedNodeLowerBound(epoch: EpochNumber, blockNumber: BlockNumber)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Either[String, Unit]] = {
+    val initialLowerBound = OutputMetadataStore.LowerBound(epoch, blockNumber)
+    createFuture(saveOnboardedNodeLowerBoundName(epoch, blockNumber)) { () =>
+      Success(
+        lowerBound
+          .get()
+          .fold[Either[String, Unit]] {
+            lowerBound.set(Some(OutputMetadataStore.LowerBound(epoch, blockNumber)))
+            Right(())
+          } { existing =>
+            if (existing == initialLowerBound) Right(())
+            else
+              Left(
+                s"The initial lower bound for this node has already been set to $existing, so cannot set it to $initialLowerBound"
+              )
+          }
+      )
+    }
+  }
+
   override def getLowerBound()(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputMetadataStore.LowerBound]] =

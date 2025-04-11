@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.console.LocalInstanceReference
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -59,7 +60,9 @@ class IdentityConsoleCommandsIntegrationTest
           },
       )
 
-      val uid = UniqueIdentifier.tryCreate(node.name, node.name)
+      val key =
+        node.keys.secret.generate_signing_key("namespace", usage = SigningKeyUsage.NamespaceOnly)
+      val uid = UniqueIdentifier.tryCreate(node.name, key.fingerprint)
       eventually() {
         Try(node.topology.init_id(uid)).success
       }

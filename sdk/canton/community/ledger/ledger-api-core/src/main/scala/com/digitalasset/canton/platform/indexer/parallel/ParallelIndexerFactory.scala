@@ -50,7 +50,6 @@ object ParallelIndexerFactory {
       dataSourceStorageBackend: DataSourceStorageBackend,
       initializeParallelIngestion: InitializeParallelIngestion,
       parallelIndexerSubscription: ParallelIndexerSubscription[?],
-      meteringAggregator: DbDispatcher => ResourceOwner[Unit],
       mat: Materializer,
       executionContext: ExecutionContext,
       initializeInMemoryState: Option[LedgerEnd] => Future[Unit],
@@ -157,8 +156,6 @@ object ParallelIndexerFactory {
                     )
                     .afterReleased(logger.debug("Indexing DbDispatcher released"))
                 )
-              _ <- meteringAggregator(dbDispatcher)
-                .afterReleased(logger.debug("Metering Aggregator released"))
             } yield dbDispatcher
           ) { dbDispatcher =>
             for {

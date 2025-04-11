@@ -39,7 +39,6 @@ object JdbcIndexer {
       participantId: Ref.ParticipantId,
       participantDataSourceConfig: ParticipantDataSourceConfig,
       config: IndexerConfig,
-      excludedPackageIds: Set[Ref.PackageId],
       metrics: LedgerApiServerMetrics,
       inMemoryState: InMemoryState,
       apiUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
@@ -62,10 +61,8 @@ object JdbcIndexer {
       )
       val dataSourceStorageBackend = factory.createDataSourceStorageBackend
       val ingestionStorageBackend = factory.createIngestionStorageBackend
-      val meteringStoreBackend = factory.createMeteringStorageWriteBackend
       val parameterStorageBackend =
         factory.createParameterStorageBackend(inMemoryState.stringInterningView)
-      val meteringParameterStorageBackend = factory.createMeteringParameterStorageBackend
       val DBLockStorageBackend = factory.createDBLockStorageBackend
       val stringInterningStorageBackend = factory.createStringInterningStorageBackend
       val completionStorageBackend =
@@ -117,7 +114,6 @@ object JdbcIndexer {
           maxTailerBatchSize = config.maxTailerBatchSize,
           postProcessingParallelism = config.postProcessingParallelism,
           maxOutputBatchedBufferSize = config.maxOutputBatchedBufferSize,
-          excludedPackageIds = excludedPackageIds,
           metrics = metrics,
           inMemoryStateUpdaterFlow = apiUpdaterFlow,
           inMemoryState = inMemoryState,
@@ -128,13 +124,6 @@ object JdbcIndexer {
           tracer = tracer,
           loggerFactory = loggerFactory,
         ),
-        meteringAggregator = new MeteringAggregator.Owner(
-          meteringStore = meteringStoreBackend,
-          meteringParameterStore = meteringParameterStorageBackend,
-          parameterStore = parameterStorageBackend,
-          metrics = metrics,
-          loggerFactory = loggerFactory,
-        ).apply,
         mat = materializer,
         executionContext = executionContext,
         initializeInMemoryState = inMemoryState.initializeTo,

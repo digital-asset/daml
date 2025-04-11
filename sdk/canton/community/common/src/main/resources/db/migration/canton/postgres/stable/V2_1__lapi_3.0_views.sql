@@ -98,29 +98,6 @@ $$
 -- -------------------
 
 
-create or replace view debug.lapi_metering_parameters as
-  select
-    ledger_metering_end,
-    ledger_metering_timestamp
-  from lapi_metering_parameters;
-
-create or replace view debug.lapi_participant_metering as
-  select
-    user_id,
-    debug.canton_timestamp(from_timestamp) as from_timestamp,
-    debug.canton_timestamp(to_timestamp) as to_timestamp,
-    action_count,
-    ledger_offset
-  from lapi_participant_metering;
-
-create or replace view debug.lapi_transaction_metering as
-  select
-    user_id,
-    action_count,
-    debug.canton_timestamp(metering_timestamp) as metering_timestamp,
-    ledger_offset
-  from lapi_transaction_metering;
-
 create or replace view debug.lapi_parameters as
   select
     ledger_end,

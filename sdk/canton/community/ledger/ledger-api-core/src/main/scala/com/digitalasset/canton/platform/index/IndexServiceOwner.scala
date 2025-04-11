@@ -61,7 +61,9 @@ final class IndexServiceOwner(
     ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
-    getPackagePreference: logging.LoggingContextWithTrace => Ref.PackageName => FutureUnlessShutdown[
+    getPackagePreference: logging.LoggingContextWithTrace => Ref.PackageName => Set[
+      Ref.PackageId
+    ] => FutureUnlessShutdown[
       Option[Ref.PackageId]
     ],
     lfValueTranslation: LfValueTranslation,

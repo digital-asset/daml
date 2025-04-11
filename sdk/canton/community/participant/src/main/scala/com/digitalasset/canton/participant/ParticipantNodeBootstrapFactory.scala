@@ -22,7 +22,6 @@ import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.ParticipantSettingsStore
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.resource.CommunityStorageFactory
 import com.digitalasset.canton.time.TestingTimeService
 import com.digitalasset.daml.lf.engine.Engine
@@ -106,7 +105,6 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
       clock = arguments.clock,
       testingTimeService = testingTimeService,
       allocateIndexerLockIds = _ => Option.empty[IndexerLockIds].asRight,
-      meteringReportKey = CommunityKey,
       futureSupervisor = arguments.futureSupervisor,
       loggerFactory = arguments.loggerFactory,
     )

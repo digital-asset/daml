@@ -104,7 +104,6 @@ private[metrics] final class ServicesHistograms(val prefix: MetricName)(implicit
   private[metrics] val partyEntries: Item = extend("party_entries", baseInfo)
   private[metrics] val lookupConfiguration: Item = extend("lookup_configuration", baseInfo)
   private[metrics] val prune: Item = extend("prune", baseInfo)
-  private[metrics] val getTransactionMetering: Item = extend("get_transaction_metering", baseInfo)
 
   private[metrics] val bufferedReaderPrefix: MetricName = indexPrefix :+ "buffer_reader"
 
@@ -255,9 +254,6 @@ final class ServicesMetrics private[metrics] (
       openTelemetryMetricsFactory.timer(inventory.lookupConfiguration.info)
 
     val prune: Timer = openTelemetryMetricsFactory.timer(inventory.prune.info)
-
-    val getTransactionMetering: Timer =
-      openTelemetryMetricsFactory.timer(inventory.getTransactionMetering.info)
 
     // Private constructor to avoid being instantiated multiple times by accident
     final class InMemoryFanoutBufferMetrics private[IndexMetrics] {

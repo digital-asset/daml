@@ -286,6 +286,40 @@ trait OutputMetadataStoreTest extends AsyncWordSpec {
         }
       }
 
+      "set initial lower bound for newly onboarded node" in {
+        val store = createStore()
+        val block1 = BlockNumber.First
+        val epoch1 = EpochNumber.First
+
+        val block2 = BlockNumber(BlockNumber.First + 1L)
+        val epoch2 = EpochNumber(EpochNumber.First + 1L)
+
+        for {
+          lowerBound <- store.getLowerBound()
+          _ = lowerBound shouldBe None
+
+          result <- store.saveOnboardedNodeLowerBound(epoch1, block1)
+          _ = result shouldBe (Right(()))
+
+          // idempotent
+          result <- store.saveOnboardedNodeLowerBound(epoch1, block1)
+          _ = result shouldBe (Right(()))
+
+          lowerBound <- store.getLowerBound()
+          _ = lowerBound shouldBe Some(OutputMetadataStore.LowerBound(epoch1, block1))
+
+          // can only be set once with this method
+          result <- store.saveOnboardedNodeLowerBound(epoch2, block2)
+          _ = result shouldBe (Left(
+            "The initial lower bound for this node has already been set to LowerBound(0,0), so cannot set it to LowerBound(1,1)"
+          ))
+
+          // lower bound is unchanged
+          lowerBound <- store.getLowerBound()
+          _ = lowerBound shouldBe Some(OutputMetadataStore.LowerBound(epoch1, block1))
+        } yield succeed
+      }
+
       "prune" should {
         "prune epochs and blocks" in {
           val store = createStore()

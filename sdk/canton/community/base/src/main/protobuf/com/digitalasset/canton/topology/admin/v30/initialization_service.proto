@@ -5,6 +5,7 @@ syntax = "proto3";
 
 package com.digitalasset.canton.topology.admin.v30;
 
+import "com/digitalasset/canton/protocol/v30/topology.proto";
 import "com/digitalasset/canton/topology/admin/v30/common.proto";
 
 /**
@@ -23,11 +24,6 @@ service IdentityInitializationService {
   rpc InitId(InitIdRequest) returns (InitIdResponse);
 
   /**
-   * Returns the owner to key transactions together with all necessary certificates, used for onboarding
-   */
-  rpc GetOnboardingTransactions(GetOnboardingTransactionsRequest) returns (GetOnboardingTransactionsResponse);
-
-  /**
    * Returns the id of the node (or empty if not initialized)
    */
   rpc GetId(GetIdRequest) returns (GetIdResponse);
@@ -39,8 +35,14 @@ service IdentityInitializationService {
 }
 
 message InitIdRequest {
-  // the unique identifier of this node
-  string unique_identifier = 1;
+  // The identifier of this node
+  string identifier = 1;
+  // The namespace of this node
+  // If empty, then we use the namespace of the first certificate. If both are set, then we assert
+  // that the namespace matches the namespace of the first certificate.
+  string namespace = 2;
+  // Optional set of namespace_delegations for this node (in case we are using external root keys)
+  repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction namespace_delegations = 3;
 }
 
 message InitIdResponse {}

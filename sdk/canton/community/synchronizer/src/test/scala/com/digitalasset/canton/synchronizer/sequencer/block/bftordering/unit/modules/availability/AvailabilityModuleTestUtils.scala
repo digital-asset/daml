@@ -311,7 +311,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
     ABatchId -> AMissingBatchStatusNode1And2AcksWithNode1ToTry
   protected val AMissingBatchStatusFromStateTransferWithNoAttemptsLeft =
     AMissingBatchStatusNode1And2AcksWithNoAttemptsLeft
-      .copy(mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock)
+      .copy(mode = OrderedBlockForOutput.Mode.FromStateTransfer)
   protected val AToBeProvidedToConsensus =
     ToBeProvidedToConsensus(
       BftBlockOrdererConfig.DefaultMaxBatchesPerProposal,

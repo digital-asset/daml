@@ -2172,32 +2172,6 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
 
     }
 
-    @Help.Summary("Retrieve the ledger metering", FeatureFlag.Testing)
-    @Help.Group("Metering")
-    object metering extends Helpful {
-
-      @Help.Summary("Get the ledger metering report", FeatureFlag.Testing)
-      @Help.Description("""Returns the current ledger metering report
-           from: required from timestamp (inclusive)
-           to: optional to timestamp
-           user_id: optional user id to which we want to restrict the report
-          """)
-      def get_report(
-          from: CantonTimestamp,
-          to: Option[CantonTimestamp] = None,
-          userId: Option[String] = None,
-      ): String =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.Metering.GetReport(
-              from,
-              to,
-              userId,
-            )
-          )
-        })
-    }
-
     @Help.Summary("Interact with the time service", FeatureFlag.Testing)
     @Help.Group("Time")
     object time {

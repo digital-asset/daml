@@ -1050,11 +1050,14 @@ object TopologyAdminCommands {
         v30.IdentityInitializationServiceGrpc.stub(channel)
     }
 
-    final case class InitId(identifier: String)
-        extends BaseInitializationService[v30.InitIdRequest, v30.InitIdResponse, Unit] {
+    final case class InitId(
+        identifier: String,
+        namespace: String,
+        delegations: Seq[GenericSignedTopologyTransaction],
+    ) extends BaseInitializationService[v30.InitIdRequest, v30.InitIdResponse, Unit] {
 
       override protected def createRequest(): Either[String, v30.InitIdRequest] =
-        Right(v30.InitIdRequest(identifier))
+        Right(v30.InitIdRequest(identifier, namespace, delegations.map(_.toProtoV30)))
 
       override protected def submitRequest(
           service: IdentityInitializationServiceStub,

@@ -26,6 +26,9 @@ message Command {
 // Create a new contract instance based on a template.
 message CreateCommand {
   // The template of contract the client wants to create.
+  // Both package-name and package-id reference identifier formats for the template-id are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+  //
   // Required
   Identifier template_id = 1;
 
@@ -37,6 +40,9 @@ message CreateCommand {
 // Exercise a choice on an existing contract.
 message ExerciseCommand {
   // The template of contract the client wants to exercise.
+  // Both package-name and package-id reference identifier formats for the template-id are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+  //
   // Required
   Identifier template_id = 1;
 
@@ -58,6 +64,9 @@ message ExerciseCommand {
 // Exercise a choice on an existing contract specified by its key.
 message ExerciseByKeyCommand {
   // The template of contract the client wants to exercise.
+  // Both package-name and package-id reference identifier formats for the template-id are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+  //
   // Required
   Identifier template_id = 1;
 
@@ -78,6 +87,9 @@ message ExerciseByKeyCommand {
 // Create a contract and exercise a choice on it in the same transaction.
 message CreateAndExerciseCommand {
   // The template of the contract the client wants to create.
+  // Both package-name and package-id reference identifier formats for the template-id are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+  //
   // Required
   Identifier template_id = 1;
 
@@ -99,8 +111,11 @@ message CreateAndExerciseCommand {
 // contract & contract key lookups.
 message DisclosedContract {
   // The template id of the contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 1;
+
   // The contract id
   // Required
   string contract_id = 2;
@@ -217,6 +232,7 @@ message Commands {
 message PrefetchContractKey {
   // The template of contract the client wants to prefetch.
   // Both package-name and package-id reference identifier formats for the template-id are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
   //
   // Required
   Identifier template_id = 1;

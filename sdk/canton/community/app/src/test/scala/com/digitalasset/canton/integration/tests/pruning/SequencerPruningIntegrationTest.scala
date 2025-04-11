@@ -51,6 +51,12 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
       _.focus(_.acknowledgementInterval).replace(sequencerClientAcknowledgementInterval)
     )
 
+  // disable the acknowledgement conflate window to prevent conflating acknowledgements
+  protected val reduceSequencerAcknowledgementConflateWindow: ConfigTransform =
+    ConfigTransforms.updateAllSequencerConfigs_(
+      _.focus(_.acknowledgementsConflateWindow).replace(None)
+    )
+
   // participant 3 has higher acknowledgement interval so we can simulate a member falling behind in acknowledgements
   protected val increaseParticipant3AcknowledgementInterval: ConfigTransform =
     ConfigTransforms.updateParticipantConfig("participant3") { config =>
@@ -308,6 +314,7 @@ trait SequencerNodePruningIntegrationTest extends SequencerPruningIntegrationTes
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
       .addConfigTransform(reduceSequencerClientAcknowledgementInterval)
+      .addConfigTransform(reduceSequencerAcknowledgementConflateWindow)
       .addConfigTransform(increaseParticipant3AcknowledgementInterval)
       .addConfigTransform(ConfigTransforms.useStaticTime)
       .addConfigTransform(setupSequencerConfig)

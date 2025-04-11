@@ -181,6 +181,15 @@ class OutputModule[E <: Env[E]](
     message match {
 
       case Start =>
+        startupState.initialLowerBound.foreach { case (epochNumber, blockNumber) =>
+          context
+            .blockingAwait(
+              store.saveOnboardedNodeLowerBound(epochNumber, blockNumber),
+              DefaultDatabaseReadTimeout,
+            )
+            .fold(error => abort(error), _ => ())
+        }
+
         val lastStoredOutputBlockMetadata =
           context.blockingAwait(store.getLastConsecutiveBlock, DefaultDatabaseReadTimeout)
         val lastStoredBlockNumber = lastStoredOutputBlockMetadata.map(_.blockNumber)
@@ -404,7 +413,6 @@ class OutputModule[E <: Env[E]](
             }
 
           case TopologyFetched(
-                lastBlockFromPreviousEpochMode,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider: CryptoProvider[E],
@@ -423,7 +431,6 @@ class OutputModule[E <: Env[E]](
                   abort(s"Failed to store $outputEpochMetadata", exception)
                 case Success(_) =>
                   MetadataStoredForNewEpoch(
-                    lastBlockFromPreviousEpochMode,
                     newEpochNumber,
                     orderingTopology,
                     cryptoProvider,
@@ -433,13 +440,11 @@ class OutputModule[E <: Env[E]](
               setupNewEpoch(
                 newEpochNumber,
                 Some(orderingTopology -> cryptoProvider),
-                lastBlockFromPreviousEpochMode,
                 epochMetadataStored = false,
               )
             }
 
           case MetadataStoredForNewEpoch(
-                lastBlockFromPreviousEpochMode,
                 newEpochNumber,
                 orderingTopology,
                 cryptoProvider: CryptoProvider[E],
@@ -450,7 +455,6 @@ class OutputModule[E <: Env[E]](
             setupNewEpoch(
               newEpochNumber,
               Some(orderingTopology -> cryptoProvider),
-              lastBlockFromPreviousEpochMode,
               epochMetadataStored = true,
             )
 
@@ -648,12 +652,7 @@ class OutputModule[E <: Env[E]](
       ) {
         case Failure(exception) => AsyncException(exception)
         case Success(Some((orderingTopology, cryptoProvider))) =>
-          TopologyFetched(
-            lastBlockMode,
-            newEpochNumber,
-            orderingTopology,
-            cryptoProvider,
-          )
+          TopologyFetched(newEpochNumber, orderingTopology, cryptoProvider)
         case Success(None) =>
           NoTopologyAvailable
       }
@@ -661,8 +660,7 @@ class OutputModule[E <: Env[E]](
       logger.debug(s"Completed epoch $completedEpochNumber that did not change the topology")
       setupNewEpoch(
         newEpochNumber,
-        None,
-        lastBlockMode,
+        newOrderingTopologyAndCryptoProvider = None,
         epochMetadataStored = false,
       )
     }
@@ -671,7 +669,6 @@ class OutputModule[E <: Env[E]](
   private def setupNewEpoch(
       newEpochNumber: EpochNumber,
       newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
-      lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
       epochMetadataStored: Boolean,
   )(implicit
       context: E#ActorContextT[Message[E]],
@@ -691,12 +688,7 @@ class OutputModule[E <: Env[E]](
     )
     newEpochTopologyMessagePeanoQueue.insert(
       newEpochNumber,
-      Consensus.NewEpochTopology(
-        newEpochNumber,
-        newMembership,
-        cryptoProvider,
-        lastBlockFromPreviousEpochMode,
-      ),
+      Consensus.NewEpochTopology(newEpochNumber, newMembership, cryptoProvider),
     )
     val newEpochTopologyMessages = newEpochTopologyMessagePeanoQueue.pollAvailable()
     logger.debug(
@@ -723,11 +715,9 @@ class OutputModule[E <: Env[E]](
       currentEpochCouldAlterOrderingTopology = pendingTopologyChanges
 
       metrics.topology.validators.updateValue(currentEpochOrderingTopology.nodes.size)
-      val destination =
-        if (newEpochTopologyMessage.lastBlockFromPreviousEpochMode.isStateTransfer) "state transfer"
-        else "consensus"
       logger.debug(
-        s"Sending topology $currentEpochOrderingTopology of new epoch ${newEpochTopologyMessage.epochNumber} to $destination"
+        s"Sending topology $currentEpochOrderingTopology of a new epoch ${newEpochTopologyMessage.epochNumber} " +
+          "to a consensus behavior"
       )
 
       consensus.asyncSend(newEpochTopologyMessage)
@@ -756,6 +746,7 @@ object OutputModule {
       onboardingEpochCouldAlterOrderingTopology: Boolean,
       initialCryptoProvider: CryptoProvider[E],
       initialOrderingTopology: OrderingTopology,
+      initialLowerBound: Option[(EpochNumber, BlockNumber)],
   )
 
   @VisibleForTesting

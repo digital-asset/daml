@@ -230,12 +230,5 @@ object DbDto {
       event_sequential_id_last: Long,
   ) extends DbDto
 
-  final case class TransactionMetering(
-      user_id: String,
-      action_count: Int,
-      metering_timestamp: Long,
-      ledger_offset: Long,
-  ) extends DbDto
-
   final case class SequencerIndexMoved(synchronizerId: String) extends DbDto
 }

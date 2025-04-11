@@ -6,6 +6,7 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.{reassignment, state_service}
 import com.digitalasset.canton.http.WebsocketConfig
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsContractEntry.{
   JsActiveContract,
@@ -19,7 +20,7 @@ import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
-import io.circe.generic.semiauto.deriveCodec
+import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
@@ -217,42 +218,48 @@ final case class JsGetActiveContractsResponse(
 
 object JsStateServiceCodecs {
 
-  import JsSchema.JsServicesCommonCodecs.*
+  import JsSchema.*
+  import io.circe.generic.extras.auto.*
 
   implicit val getActiveContractsRequestRW: Codec[state_service.GetActiveContractsRequest] =
-    deriveCodec
+    deriveRelaxedCodec
 
-  implicit val jsGetActiveContractsResponseRW: Codec[JsGetActiveContractsResponse] = deriveCodec
+  implicit val jsGetActiveContractsResponseRW: Codec[JsGetActiveContractsResponse] =
+    deriveConfiguredCodec
 
-  implicit val jsContractEntryRW: Codec[JsContractEntry] = deriveCodec
-  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-  implicit val jsContractEntrySchema: Schema[JsContractEntry] = Schema.oneOfWrapped
+  implicit val jsContractEntryRW: Codec[JsContractEntry] = deriveConfiguredCodec
 
-  implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveCodec
-  implicit val jsIncompleteAssignedRW: Codec[JsIncompleteAssigned] = deriveCodec
-  implicit val jsActiveContractRW: Codec[JsActiveContract] = deriveCodec
-  implicit val jsUnassignedEventRW: Codec[JsUnassignedEvent] = deriveCodec
-  implicit val jsAssignedEventRW: Codec[JsAssignedEvent] = deriveCodec
+  implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveConfiguredCodec
+  implicit val jsIncompleteAssignedRW: Codec[JsIncompleteAssigned] = deriveConfiguredCodec
+  implicit val jsActiveContractRW: Codec[JsActiveContract] = deriveConfiguredCodec
+  implicit val jsUnassignedEventRW: Codec[JsUnassignedEvent] = deriveConfiguredCodec
+  implicit val jsAssignedEventRW: Codec[JsAssignedEvent] = deriveConfiguredCodec
 
   implicit val getConnectedSynchronizersRequestRW
       : Codec[state_service.GetConnectedSynchronizersRequest] =
-    deriveCodec
+    deriveRelaxedCodec
   implicit val getConnectedSynchronizersResponseRW
       : Codec[state_service.GetConnectedSynchronizersResponse] =
-    deriveCodec
+    deriveRelaxedCodec
   implicit val connectedSynchronizerRW
       : Codec[state_service.GetConnectedSynchronizersResponse.ConnectedSynchronizer] =
-    deriveCodec
-  implicit val participantPermissionRW: Codec[state_service.ParticipantPermission] = deriveCodec
+    deriveRelaxedCodec
+  implicit val participantPermissionRW: Codec[state_service.ParticipantPermission] =
+    deriveConfiguredCodec // ADT
 
-  implicit val getLedgerEndRequestRW: Codec[state_service.GetLedgerEndRequest] = deriveCodec
+  implicit val getLedgerEndRequestRW: Codec[state_service.GetLedgerEndRequest] = deriveRelaxedCodec
 
-  implicit val getLedgerEndResponseRW: Codec[state_service.GetLedgerEndResponse] = deriveCodec
+  implicit val getLedgerEndResponseRW: Codec[state_service.GetLedgerEndResponse] =
+    deriveRelaxedCodec
   implicit val getLatestPrunedOffsetsResponseRW
       : Codec[state_service.GetLatestPrunedOffsetsResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+
+  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+  implicit val jsContractEntrySchema: Schema[JsContractEntry] = Schema.oneOfWrapped
+
   implicit val participantPermissionRecognizedSchema
       : Schema[state_service.ParticipantPermission.Recognized] =
     Schema.oneOfWrapped

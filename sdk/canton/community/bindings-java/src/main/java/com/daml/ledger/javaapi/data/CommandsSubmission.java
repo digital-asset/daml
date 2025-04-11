@@ -26,7 +26,7 @@ import static java.util.Optional.empty;
  *
  * Usage:
  * <pre>
- *   var submission = CommandsSubmission.create(userId, commandId, synchronizerId, commands)
+ *   var submission = CommandsSubmission.create(userId, commandId, Optional.of(synchronizerId), commands)
  *                                   .withAccessToken(token)
  *                                   .withWorkflowId(workflowId)
  *                                   .with...
@@ -47,7 +47,7 @@ public final class CommandsSubmission {
   @NonNull private final List<@NonNull String> readAs;
   @NonNull private final Optional<String> submissionId;
   @NonNull private final List<DisclosedContract> disclosedContracts;
-  @NonNull private final String synchronizerId;
+  @NonNull private final Optional<String> synchronizerId;
   @NonNull private final Optional<String> accessToken;
   @NonNull private List<String> packageIdSelectionPreference;
   @NonNull private List<@NonNull PrefetchContractKey> prefetchContractKeys;
@@ -65,7 +65,7 @@ public final class CommandsSubmission {
       @NonNull List<@NonNull String> readAs,
       @NonNull Optional<String> submissionId,
       @NonNull List<@NonNull DisclosedContract> disclosedContracts,
-      @NonNull String synchronizerId,
+      @NonNull Optional<String> synchronizerId,
       @NonNull Optional<String> accessToken,
       @NonNull List<String> packageIdSelectionPreference,
       @NonNull List<@NonNull PrefetchContractKey> prefetchContractKeys) {
@@ -90,7 +90,7 @@ public final class CommandsSubmission {
   public static CommandsSubmission create(
       String userId,
       String commandId,
-      String synchronizerId,
+      Optional<String> synchronizerId,
       @NonNull List<@NonNull ? extends HasCommands> commands) {
     return new CommandsSubmission(
         empty(),
@@ -177,7 +177,7 @@ public final class CommandsSubmission {
   }
 
   @NonNull
-  public String getSynchronizerId() {
+  public Optional<String> getSynchronizerId() {
     return synchronizerId;
   }
 
@@ -484,8 +484,9 @@ public final class CommandsSubmission {
             .addAllActAs(actAs)
             .addAllReadAs(readAs)
             .addAllDisclosedContracts(disclosedContractsConverted)
-            .setSynchronizerId(synchronizerId)
             .addAllPackageIdSelectionPreference(packageIdSelectionPreference);
+
+    synchronizerId.ifPresent(builder::setSynchronizerId);
 
     workflowId.ifPresent(builder::setWorkflowId);
 
@@ -510,6 +511,10 @@ public final class CommandsSubmission {
             : Optional.of(commands.getWorkflowId());
     String userId = commands.getUserId();
     String commandId = commands.getCommandId();
+    Optional<String> synchronizerId =
+        commands.getSynchronizerId().isEmpty()
+            ? Optional.empty()
+            : Optional.of(commands.getSynchronizerId());
 
     List<? extends HasCommands> listOfCommands =
         commands.getCommandsList().stream()
@@ -567,7 +572,7 @@ public final class CommandsSubmission {
         readAs,
         submissionId,
         disclosedContracts,
-        commands.getSynchronizerId(),
+        synchronizerId,
         empty(),
         packageIdSelectionPreference,
         prefetchContractKeys);

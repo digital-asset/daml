@@ -46,7 +46,6 @@ import com.digitalasset.canton.util.PekkoUtil.{
   RecoveringFutureQueueImpl,
   RecoveringQueueMetrics,
 }
-import com.digitalasset.daml.lf.data.Ref
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
@@ -91,7 +90,6 @@ final case class LedgerApiIndexerConfig(
     indexerConfig: IndexerConfig,
     indexerHaConfig: HaConfig,
     ledgerParticipantId: LedgerParticipantId,
-    excludedPackageIds: Set[Ref.PackageId],
     onlyForTestingEnableInMemoryTransactionStore: Boolean,
 )
 
@@ -138,7 +136,6 @@ object LedgerApiIndexer {
         ledgerApiIndexerConfig.ledgerParticipantId,
         DbSupport.ParticipantDataSourceConfig(ledgerApiStore.value.ledgerApiStorage.jdbcUrl),
         ledgerApiIndexerConfig.indexerConfig,
-        ledgerApiIndexerConfig.excludedPackageIds,
         metrics,
         inMemoryState,
         inMemoryStateUpdaterFlow,

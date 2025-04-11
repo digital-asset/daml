@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.tests.health
 
 import com.digitalasset.canton.admin.api.client.data.NodeStatus
-import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{DbConfig, IdentityConfig}
 import com.digitalasset.canton.integration.bootstrap.{
   NetworkBootstrapper,
   NetworkTopologyDescription,
@@ -37,11 +37,13 @@ sealed trait StatusIntegrationTest
       )
       .withManualStart
       .addConfigTransform(
-        ConfigTransforms.updateMediatorConfig("mediator2")(_.focus(_.init.identity).replace(None))
+        ConfigTransforms.updateMediatorConfig("mediator2")(
+          _.focus(_.init.identity).replace(IdentityConfig.Manual)
+        )
       )
       .addConfigTransform(
         ConfigTransforms.updateSequencerConfig("sequencer2")(
-          _.focus(_.init.identity).replace(None)
+          _.focus(_.init.identity).replace(IdentityConfig.Manual)
         )
       )
 

@@ -174,9 +174,9 @@ class IndexerMetrics(
   val meteredEventsMeter: MetricHandle.Meter = factory.meter(
     MetricInfo(
       prefix :+ "metered_events",
-      summary = "Number of ledger events that are metered.",
-      description = """Represents the number of events that will be included in the metering report.
-          |This is an estimate of the total number and not a substitute for the metering report.""",
+      summary = "Number of individual ledger events (create, exercise, archive).",
+      description =
+        """Represents the number of individual ledger events constituting a transaction.""",
       qualification = MetricQualification.Debug,
       labelsWithDescription = Map(
         "participant_id" -> "The id of the participant.",

@@ -30,7 +30,7 @@ object OrderedBlockForOutput {
 
     /** If `true`, dissemination will use the current topology for the output pull protocol. */
     def isStateTransfer: Boolean = this match {
-      case _: Mode.StateTransfer => true
+      case Mode.FromStateTransfer => true
       case Mode.FromConsensus => false
     }
   }
@@ -39,10 +39,6 @@ object OrderedBlockForOutput {
 
     case object FromConsensus extends Mode
 
-    sealed trait StateTransfer extends Mode
-    object StateTransfer {
-      case object MiddleBlock extends StateTransfer
-      case object LastBlock extends StateTransfer
-    }
+    case object FromStateTransfer extends Mode
   }
 }

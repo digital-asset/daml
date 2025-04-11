@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.error
 
 import com.daml.metrics.ExecutorServiceMetrics
 import com.digitalasset.base.error.{
+  BaseError,
   DamlErrorWithDefiniteAnswer,
   ErrorCategory,
   ErrorCode,
@@ -179,7 +180,7 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
     """Close and re-open the stream subscription to refresh the vetting state used for rendering interface views.
       |If the problem persists and it is unexpected, contact the participant operator."""
   )
-  object UnresolvedInterfaceViewPackage
+  object NoVettedInterfaceImplementationPackage
       extends ErrorCode(
         id = "NO_VETTED_INTERFACE_IMPLEMENTATION_PACKAGE",
         category = ErrorCategory.InvalidGivenCurrentSystemStateOther,
@@ -192,6 +193,14 @@ object LedgerApiErrors extends LedgerApiErrorGroup {
             s"Could not resolve a vetted package-id for rendering the interface view for $packageName"
         )
   }
+
+  final case class InterfaceViewUpgradeFailureWrapper(
+      root: BaseError
+  )(implicit errorLoggingContext: ErrorLoggingContext)
+      extends DamlErrorWithDefiniteAnswer(
+        cause =
+          s"Could not compute a package-id for rendering the interface view. Root cause: ${root.cause}"
+      )(root.code, errorLoggingContext)
 
   @Explanation("""This error occurs if there was an unexpected error in the Ledger API.""")
   @Resolution("Contact support.")

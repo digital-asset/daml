@@ -29,7 +29,6 @@ import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticato
   AuthenticateFatContractInstance,
   AuthenticateSerializableContract,
 }
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl
@@ -117,7 +116,6 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
-      meteringReportKey: MeteringReportKey,
       authenticateSerializableContract: AuthenticateSerializableContract,
       authenticateFatContractInstance: AuthenticateFatContractInstance,
       telemetry: Telemetry,
@@ -141,7 +139,6 @@ object ApiServices {
     val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
-    val meteringStore: MeteringStore = indexService
 
     val (readServices, ledgerApiUpdateService) = {
       implicit val ec: ExecutionContext = queryExecutionContext
@@ -249,21 +246,11 @@ object ApiServices {
           List.empty
         }
 
-      val apiMeteringReportService =
-        new ApiMeteringReportService(
-          participantId,
-          meteringStore,
-          meteringReportKey,
-          telemetry,
-          loggerFactory,
-        )
-
       val readServices = ledgerApiServices :::
         apiInspectionServiceOpt.toList :::
         List(
           apiReflectionService,
           apiHealthService,
-          new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
         ) ::: userManagementServices
       readServices -> ledgerApiUpdateService
     }

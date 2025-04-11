@@ -791,9 +791,7 @@ class AvailabilityModuleOutputFetchTest
             ("block mode", "expected send to"),
             (OrderedBlockForOutput.Mode.FromConsensus, Node1),
             // Ignore nodes from the PoA, use the current topology
-            (OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock, Node3),
-            // Ignore nodes from the PoA, use the current topology
-            (OrderedBlockForOutput.Mode.StateTransfer.LastBlock, Node3),
+            (OrderedBlockForOutput.Mode.FromStateTransfer, Node3),
           )
         ) { (blockMode, expectedSendTo) =>
           val outputFetchProtocolState = new MainOutputFetchProtocolState()

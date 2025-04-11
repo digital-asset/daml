@@ -1,13 +1,12 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.store.backend
+package com.digitalasset.canton.platform.indexer.parallel
 
-import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
+import com.daml.metrics.api.testing.MetricValues
+import com.daml.metrics.api.{MetricHandle, MetricsContext}
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
@@ -22,23 +21,18 @@ import com.digitalasset.daml.lf.transaction.{
   VersionedTransaction,
 }
 import com.digitalasset.daml.lf.value.Value
+import org.mockito.ArgumentMatchers.any
+import org.mockito.MockitoSugar.{mock, verify, verifyZeroInteractions}
+import org.mockito.captor.ArgCaptor
 import org.scalatest.wordspec.AnyWordSpec
 
-class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
-
-  import DbDtoEq.*
+class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
 
   import TraceContext.Implicits.Empty.*
 
-  implicit val inventory: HistogramInventory = new HistogramInventory()
-  private val indexerHistograms = new IndexerHistograms(MetricName("test"))
-  private val IndexedUpdatesMetrics = newUpdateMetrics(indexerHistograms)
-
-  "UpdateMeteringToDbDto" should {
+  "EventMetricsUpdater" should {
 
     val userId = Ref.UserId.assertFromString("a0")
-
-    val timestamp: Long = 12345
 
     val offset = Offset.tryFromLong(2L)
     val statistics = TransactionNodeStatistics(
@@ -104,96 +98,67 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
     "extract transaction metering" in {
 
-      val actual =
-        UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
-          MetricsContext.Empty
-        )(
-          List((offset, someTransactionAccepted))
-        )
+      val meter: MetricHandle.Meter = mock[MetricHandle.Meter]
+      val captor = ArgCaptor[Long]
 
-      val expected: Vector[DbDto.TransactionMetering] = Vector(
-        DbDto.TransactionMetering(
-          user_id = userId,
-          action_count = statistics.committed.actions + statistics.rolledBack.actions,
-          metering_timestamp = timestamp,
-          ledger_offset = offset.unwrap,
-        )
+      EventMetricsUpdater(meter)(
+        MetricsContext.Empty
+      )(
+        List((offset, someTransactionAccepted))
       )
 
-      actual should equal(expected)(decided by DbDtoSeqEq)
-
+      verify(meter).mark(captor)(any[MetricsContext])
+      captor hasCaptured (statistics.committed.actions + statistics.rolledBack.actions).toLong
     }
 
     "aggregate transaction metering across batch" in {
 
-      val metering = DbDto.TransactionMetering(
-        user_id = userId,
-        action_count = 2 * (statistics.committed.actions + statistics.rolledBack.actions),
-        metering_timestamp = timestamp,
-        ledger_offset = 99,
+      val meter: MetricHandle.Meter = mock[MetricHandle.Meter]
+      val captor = ArgCaptor[Long]
+
+      EventMetricsUpdater(meter)(
+        MetricsContext.Empty
+      )(
+        List(
+          (
+            Offset.tryFromLong(1L),
+            someTransactionAccepted,
+          ),
+          (
+            Offset.tryFromLong(2L),
+            someTransactionAccepted,
+          ),
+        )
       )
 
-      val expected: Vector[DbDto.TransactionMetering] = Vector(metering)
-
-      val actual =
-        UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
-          MetricsContext.Empty
-        )(
-          List(
-            (
-              Offset.tryFromLong(1L),
-              someTransactionAccepted,
-            ),
-            (
-              Offset.tryFromLong(metering.ledger_offset),
-              someTransactionAccepted,
-            ),
-          )
-        )
-
-      actual should equal(expected)(decided by DbDtoSeqEq)
-
+      verify(meter).mark(captor)(any[MetricsContext])
+      captor hasCaptured 2 * (statistics.committed.actions + statistics.rolledBack.actions).toLong
     }
 
-    "return empty vector if input iterable is empty" in {
-      val expected: Vector[DbDto.TransactionMetering] = Vector.empty
-      val actual = UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
+    "no metrics if input iterable is empty" in {
+      val meter: MetricHandle.Meter = mock[MetricHandle.Meter]
+      EventMetricsUpdater(meter)(
         MetricsContext.Empty
       )(List.empty)
-      actual should equal(expected)(decided by DbDtoSeqEq)
+      verifyZeroInteractions(meter)
     }
 
-    // This is so infrastructure transactions, with a zero action count, are not included
-    "filter zero action counts" in {
+    "no metrics for infrastructure transactions" in {
 
+      val meter: MetricHandle.Meter = mock[MetricHandle.Meter]
       val txWithNoActionCount = someTransactionAccepted.copy(
         transaction = CommittedTransaction(
           VersionedTransaction(LanguageVersion.v2_dev, Map.empty, ImmArray.empty)
         )
       )
 
-      val actual =
-        UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
-          MetricsContext.Empty
-        )(
-          List((offset, txWithNoActionCount))
-        )
-
-      actual.isEmpty shouldBe true
-    }
-
-    "increment metered events counter" in {
-      val indexerMetrics = newUpdateMetrics(indexerHistograms)
-      UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, indexerMetrics)(
+      EventMetricsUpdater(meter)(
         MetricsContext.Empty
       )(
-        List((offset, someTransactionAccepted))
+        List((offset, txWithNoActionCount))
       )
-      indexerMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
+
+      verifyZeroInteractions(meter)
     }
   }
-
-  private def newUpdateMetrics(indexerHistograms: IndexerHistograms) =
-    new IndexerMetrics(indexerHistograms, InMemoryMetricsFactory)
-
 }

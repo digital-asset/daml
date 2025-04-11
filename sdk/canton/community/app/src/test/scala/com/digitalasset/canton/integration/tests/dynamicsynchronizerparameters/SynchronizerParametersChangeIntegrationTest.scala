@@ -282,6 +282,7 @@ trait SynchronizerParametersChangeIntegrationTest
                 maxBaseTrafficAccumulationDuration = 12.minutes,
                 setBalanceRequestSubmissionWindowSize = 10.minutes,
                 enforceRateLimiting = false,
+                baseEventCost = NonNegativeLong.zero,
               )
             ),
           ),
