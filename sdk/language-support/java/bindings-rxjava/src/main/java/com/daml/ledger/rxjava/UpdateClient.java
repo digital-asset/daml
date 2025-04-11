@@ -13,9 +13,6 @@ import java.util.Set;
 public interface UpdateClient {
 
   Flowable<Transaction> getTransactions(
-      Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
-
-  Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
       Long begin,
       Optional<Long> end,
@@ -23,15 +20,28 @@ public interface UpdateClient {
       boolean verbose);
 
   Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFormat transactionFormat);
+
+  Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFormat transactionFormat, String accessToken);
+
+  @Deprecated
+  Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
+
+  @Deprecated
+  Flowable<Transaction> getTransactions(
       Long begin,
       Optional<Long> end,
       TransactionFilter filter,
       boolean verbose,
       String accessToken);
 
+  @Deprecated
   Flowable<TransactionTree> getTransactionsTrees(
       Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
 
+  @Deprecated
   Flowable<TransactionTree> getTransactionsTrees(
       Long begin,
       Optional<Long> end,
@@ -39,14 +49,18 @@ public interface UpdateClient {
       boolean verbose,
       String accessToken);
 
+  @Deprecated
   Single<TransactionTree> getTransactionTreeByOffset(Long offset, Set<String> requestingParties);
 
+  @Deprecated
   Single<TransactionTree> getTransactionTreeByOffset(
       Long offset, Set<String> requestingParties, String accessToken);
 
+  @Deprecated
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties);
 
+  @Deprecated
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken);
 

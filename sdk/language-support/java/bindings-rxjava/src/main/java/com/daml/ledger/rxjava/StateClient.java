@@ -11,11 +11,19 @@ import java.util.Set;
 /** An RxJava version of {@link com.daml.ledger.api.v2.StateServiceGrpc} */
 public interface StateClient {
 
+  @Deprecated
   Flowable<GetActiveContractsResponse> getActiveContracts(
       TransactionFilter filter, boolean verbose, Long activeAtOffset);
 
+  @Deprecated
   Flowable<GetActiveContractsResponse> getActiveContracts(
       TransactionFilter filter, boolean verbose, Long activeAtOffset, String accessToken);
+
+  Flowable<GetActiveContractsResponse> getActiveContracts(
+      EventFormat eventFormat, Long activeAtOffset);
+
+  Flowable<GetActiveContractsResponse> getActiveContracts(
+      EventFormat eventFormat, Long activeAtOffset, String accessToken);
 
   /**
    * Get active Contracts

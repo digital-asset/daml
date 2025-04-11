@@ -47,12 +47,14 @@ public class StateClientImpl implements StateClient {
         .map(GetActiveContractsResponse::fromProto);
   }
 
+  @Deprecated
   @Override
   public Flowable<GetActiveContractsResponse> getActiveContracts(
       @NonNull TransactionFilter filter, boolean verbose, Long activeAtOffset) {
     return getActiveContracts(filter, verbose, activeAtOffset, Optional.empty());
   }
 
+  @Deprecated
   @Override
   public Flowable<GetActiveContractsResponse> getActiveContracts(
       @NonNull TransactionFilter filter,
@@ -60,6 +62,31 @@ public class StateClientImpl implements StateClient {
       Long activeAtOffset,
       @NonNull String accessToken) {
     return getActiveContracts(filter, verbose, activeAtOffset, Optional.of(accessToken));
+  }
+
+  @Override
+  public Flowable<GetActiveContractsResponse> getActiveContracts(
+      @NonNull EventFormat eventFormat, Long activeAtOffset) {
+    return getActiveContracts(eventFormat, activeAtOffset, Optional.empty());
+  }
+
+  @Override
+  public Flowable<GetActiveContractsResponse> getActiveContracts(
+      @NonNull EventFormat eventFormat, Long activeAtOffset, @NonNull String accessToken) {
+    return getActiveContracts(eventFormat, activeAtOffset, Optional.of(accessToken));
+  }
+
+  private Flowable<GetActiveContractsResponse> getActiveContracts(
+      @NonNull EventFormat eventFormat,
+      Long activeAtOffset,
+      @NonNull Optional<String> accessToken) {
+    StateServiceOuterClass.GetActiveContractsRequest request =
+        new GetActiveContractsRequest(eventFormat, activeAtOffset).toProto();
+    return ClientPublisherFlowable.create(
+            request,
+            StubHelper.authenticating(this.serviceStub, accessToken)::getActiveContracts,
+            sequencerFactory)
+        .map(GetActiveContractsResponse::fromProto);
   }
 
   private <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(

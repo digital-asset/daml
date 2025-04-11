@@ -61,4 +61,37 @@ trait DataLayerHelpers {
       ).asJava,
       None.toJava,
     )
+
+  def eventsForNothing(verbose: Boolean = true): EventFormat =
+    new EventFormat(Map[String, Filter]().asJava, None.toJava, verbose)
+
+  def eventsFor(party: String): EventFormat =
+    new EventFormat(
+      Map(
+        party -> (new CumulativeFilter(
+          Map.empty.asJava,
+          Map.empty.asJava,
+          Some(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB).toJava,
+        ): Filter)
+      ).asJava,
+      None.toJava,
+      false,
+    )
+
+  def transactionsFor(party: String): TransactionFormat = {
+    new TransactionFormat(
+      new EventFormat(
+        Map(
+          party -> (new CumulativeFilter(
+            Map.empty.asJava,
+            Map.empty.asJava,
+            Some(Filter.Wildcard.HIDE_CREATED_EVENT_BLOB).toJava,
+          ): Filter)
+        ).asJava,
+        None.toJava,
+        false,
+      ),
+      TransactionShape.ACS_DELTA,
+    )
+  }
 }
