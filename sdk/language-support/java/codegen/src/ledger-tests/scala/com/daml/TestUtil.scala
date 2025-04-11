@@ -89,7 +89,7 @@ object TestUtil {
 
   def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): SubmitAndWaitResponse = {
     val submission = CommandsSubmission
-      .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
+      .create(randomId, randomId, Optional.empty(), HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
       .withActAs(partyName)
 
@@ -111,7 +111,7 @@ object TestUtil {
       hasCmds: HasCommands*
   ): SubmitAndWaitResponse = {
     val submission = CommandsSubmission
-      .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
+      .create(randomId, randomId, Optional.empty(), HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
       .withActAs(actAs)
       .withReadAs(readAs)

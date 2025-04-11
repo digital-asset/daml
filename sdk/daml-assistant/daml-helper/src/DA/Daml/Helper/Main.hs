@@ -71,7 +71,6 @@ data Command
     | LedgerExport { flags :: LedgerFlags, remainingArguments :: [String] }
     | Codegen { lang :: Lang, remainingArguments :: [String] }
     | PackagesList {flags :: LedgerFlags}
-    | LedgerMeteringReport { flags :: LedgerFlags, from :: Day, to :: Maybe Day, application :: Maybe UserId, compactOutput :: Bool }
     | CantonSandbox
         { cantonOptions :: CantonOptions
         , portFileM :: Maybe FilePath
@@ -333,13 +332,6 @@ commandParser = subparser $ fold
     app :: ReadM UserId
     app = fmap (UserId . pack) str
 
-    ledgerMeteringReportCmd = LedgerMeteringReport
-        <$> ledgerFlags
-        <*> option auto (long "from" <> metavar "FROM" <> help "From date of report (inclusive).")
-        <*> optional (option auto (long "to" <> metavar "TO" <> help "To date of report (exclusive)."))
-        <*> optional (option app (long "application" <> metavar "APP" <> help "Report application identifier."))
-        <*> switch (long "compact-output" <> help "Generate compact report.")
-
     ledgerFlags = LedgerFlags
         <$> sslConfig
         <*> timeoutOption
@@ -521,7 +513,6 @@ runCommand = \case
     -- LedgerReset {..} -> runLedgerReset flags
     LedgerExport {..} -> runLedgerExport flags remainingArguments
     Codegen {..} -> runCodegen lang remainingArguments
-    LedgerMeteringReport {..} -> runLedgerMeteringReport flags from to application compactOutput
     CantonSandbox {..} ->
         (if shutdownStdinClose then withCloseOnStdin else id) $ do
             putStrLn "Starting Canton sandbox."

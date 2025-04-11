@@ -133,7 +133,7 @@ class CommandClientImplTest
       .create(
         randomUUID().toString,
         randomUUID().toString,
-        randomUUID().toString,
+        Optional.of(randomUUID().toString),
         token.fold(dummyCommands)(_ => commands),
       )
       .withActAs(party)
