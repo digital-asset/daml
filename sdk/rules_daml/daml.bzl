@@ -38,7 +38,7 @@ def _daml_configure_impl(ctx):
         (["--target={}".format(target)] if target else []) +
         (["--typecheck-upgrades=no"] if not typecheck_upgrades and using_local_compiler(target) else []) +
         (["--force-utility-package=yes"] if force_utility_package and using_local_compiler(target) else []) +
-        (["--disable-deprecated-exceptions-warning"] if disable_deprecated_exceptions and using_local_compiler(target) else [])
+        (["-Wno-deprecated-exceptions"] if disable_deprecated_exceptions and using_local_compiler(target) else [])
     )
     ctx.actions.write(
         output = daml_yaml,
