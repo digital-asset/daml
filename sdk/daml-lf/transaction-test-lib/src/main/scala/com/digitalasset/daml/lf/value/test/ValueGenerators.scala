@@ -276,7 +276,7 @@ object ValueGenerators {
       template <- idGen
       arg <- versionedValueGen
       pkgName <- pkgNameGen
-    } yield arg.map(Value.ContractInstance(pkgName, template, _))
+    } yield arg.map(Value.ThinContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: TypeConName,

@@ -462,7 +462,7 @@ private[lf] object Pretty {
   def prettyEventId(n: EventId): Doc =
     text(n.toLedgerString)
 
-  def prettyContractInst(coinst: ContractInstance): Doc =
+  def prettyContractInst(coinst: ThinContractInstance): Doc =
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyValue(false)(coinst.arg)).nested(4)
 

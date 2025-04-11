@@ -651,7 +651,7 @@ message Transaction {
   FailedAuthorizations failed_authorizations = 6; //this is always empty now
 }
 
-message ContractInstance {
+message ThinContractInstance {
   Identifier template_id = 1;
   Value value = 2;
 }
@@ -666,7 +666,7 @@ message KeyWithMaintainers {
 message Node {
   message Create {
     string contract_id = 1;
-    ContractInstance contract_instance = 2;
+    ThinContractInstance thin_contract_instance = 2;
     repeated Party signatories = 3;
     repeated Party stakeholders = 4;
     KeyWithMaintainers key_with_maintainers = 5; // optional
