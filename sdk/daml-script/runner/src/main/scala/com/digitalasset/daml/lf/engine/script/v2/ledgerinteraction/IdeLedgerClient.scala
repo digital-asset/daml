@@ -269,7 +269,11 @@ class IdeLedgerClient(
         Future.successful(
           for {
             preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
-            view <- computeView(contract.templateId.copy(packageId = preferredPkgId), interfaceId, contract.createArg)
+            view <- computeView(
+              contract.templateId.copy(packageId = preferredPkgId),
+              interfaceId,
+              contract.createArg,
+            )
           } yield view
         )
     }
