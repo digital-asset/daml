@@ -1,6 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 -- | Test that error (and related primitives) throw a GeneralError.
 module ExceptionCatchError where
 

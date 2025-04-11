@@ -23,6 +23,7 @@ module DA.Daml.Options.Types
     , ErrorOrWarning
     , IgnoreDataDepVisibility(..)
     , ForceUtilityPackage(..)
+    , DisableDeprecatedExceptions(..)
     , defaultOptions
     , damlArtifactDir
     , projectPackageDatabase
@@ -145,6 +146,7 @@ data Options = Options
   , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
+  , optDisableDeprecatedExceptions :: DisableDeprecatedExceptions
   }
 
 type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
@@ -217,6 +219,9 @@ newtype EnableInterfaces = EnableInterfaces { getEnableInterfaces :: Bool }
     deriving Show
 
 newtype ForceUtilityPackage = ForceUtilityPackage { getForceUtilityPackage :: Bool }
+    deriving Show
+
+newtype DisableDeprecatedExceptions = DisableDeprecatedExceptions { getDisableDeprecatedExceptions :: Bool }
     deriving Show
 
 damlArtifactDir :: FilePath
@@ -301,6 +306,7 @@ defaultOptions mbVersion =
         , optDamlWarningFlags = WarningFlags.mkDamlWarningFlags damlWarningFlagParser []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
+        , optDisableDeprecatedExceptions = DisableDeprecatedExceptions False
         }
 
 defaultUpgradeInfo :: UpgradeInfo

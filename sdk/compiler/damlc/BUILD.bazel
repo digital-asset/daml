@@ -298,6 +298,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
+            --disable-deprecated-exceptions-warning \
             --target={} \
             $(locations //compiler/damlc/daml-prim-src)
     """.format(lf_docs_version),
@@ -316,6 +317,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
+            --disable-deprecated-exceptions-warning \
             --target={} \
             $(locations //compiler/damlc/daml-stdlib-src)
     """.format(lf_docs_version),

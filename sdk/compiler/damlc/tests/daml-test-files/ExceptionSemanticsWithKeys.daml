@@ -5,6 +5,8 @@
 -- @SUPPORTS-LF-FEATURE DAML_CONTRACT_KEYS
 -- @WARN -Werror=upgrade-exceptions
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 module ExceptionSemanticsWithKeys where
 
 import Daml.Script
