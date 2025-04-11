@@ -69,7 +69,10 @@ object ValueRemapper {
         }))
       case value.Value.Sum.GenMap(value.GenMap(entries)) =>
         value.Value.Sum.GenMap(value.GenMap(entries.map { case value.GenMap.Entry(k, v) =>
-          value.GenMap.Entry(k, v.map(remapValue(remapContractId, remapParty)))
+          value.GenMap.Entry(
+            k.map(remapValue(remapContractId, remapParty)),
+            v.map(remapValue(remapContractId, remapParty)),
+          )
         }))
       case value.Value.Sum.Variant(value.Variant(id, constructor, v)) =>
         value.Value.Sum.Variant(
