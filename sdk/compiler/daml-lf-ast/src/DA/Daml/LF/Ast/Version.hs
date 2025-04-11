@@ -188,12 +188,12 @@ featureContractKeys = Feature
     , featureCppFlag = Just "DAML_CONTRACT_KEYS"
     }
 
-featureCCTP :: Feature
-featureCCTP = Feature
-    { featureName = "Daml CCTP primitives"
+featureCrypto :: Feature
+featureCrypto = Feature
+    { featureName = "Daml Crypto primitives"
     , featureVersionReq = VersionReq \case
            V2 -> allMinorVersions
-    , featureCppFlag = Just "DAML_CCTP"
+    , featureCppFlag = Just "DAML_CRYPTO"
     }
 
 featureExperimental :: Feature
@@ -227,7 +227,7 @@ allFeatures =
     , featureUnstable
     , featureExperimental
     , featureDynamicExercise
-    , featureCCTP
+    , featureCrypto
     ]
 
 -- | A map from feature CPP flags to features.

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.data
-package cctp
+package support.crypto
 
 import com.daml.crypto.MessageSignaturePrototypeUtil
 

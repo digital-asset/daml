@@ -184,9 +184,9 @@ object Error {
 
   }
 
-  sealed case class CCTP(error: CCTP.Error) extends Error
+  sealed case class Crypto(error: Crypto.Error) extends Error
 
-  object CCTP {
+  object Crypto {
     sealed abstract class Error extends Serializable with Product
 
     final case class MalformedByteEncoding(value: String, cause: String) extends Error

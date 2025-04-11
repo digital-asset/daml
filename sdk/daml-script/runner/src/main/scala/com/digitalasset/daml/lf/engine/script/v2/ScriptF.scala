@@ -8,7 +8,7 @@ package v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.daml.lf.data.cctp.MessageSignatureUtil
+import com.digitalasset.daml.lf.data.support.crypto.MessageSignatureUtil
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.Time.Timestamp
