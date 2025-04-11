@@ -24,9 +24,6 @@ import DA.Daml.Helper.Start
 import DA.Daml.Helper.Studio
 import DA.Daml.Helper.Util
 import DA.Daml.Helper.Codegen
-import DA.Ledger.Types (UserId(..))
-import Data.Text.Lazy (pack)
-import Data.Time.Calendar (Day(..))
 
 import SdkVersion (withSdkVersions)
 
@@ -254,9 +251,6 @@ commandParser = subparser $ fold
             , command "fetch-dar" $ info
                 (ledgerFetchDarCmd <**> helper)
                 (progDesc "Fetch DAR from ledger into file")
-            , command "metering-report" $ info
-                (ledgerMeteringReportCmd <**> helper)
-                (forwardOptions <> progDesc "Report on Ledger Use")
             ]
         , subparser $ internal <> fold -- hidden subcommands
             [ command "allocate-party" $ info
@@ -328,9 +322,6 @@ commandParser = subparser $ fold
         scriptOptions = LedgerExport
           <$> ledgerFlags
           <*> (("script":) <$> many (argument str (metavar "ARG" <> help "Arguments forwarded to export.")))
-
-    app :: ReadM UserId
-    app = fmap (UserId . pack) str
 
     ledgerFlags = LedgerFlags
         <$> sslConfig
