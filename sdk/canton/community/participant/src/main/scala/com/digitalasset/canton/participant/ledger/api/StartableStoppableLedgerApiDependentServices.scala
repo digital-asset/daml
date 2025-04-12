@@ -142,16 +142,15 @@ class StartableStoppableLedgerApiDependentServices(
 
             val (partyManagementGrpc, _) = {
               // Party replication coordinator is available through a feature flag only!
-              val partyReplicationCoordinator: Option[PartyReplicationAdminWorkflow] =
-                adminWorkflowServices.partyManagementO.flatMap {
-                  case (_, partyReplicationCoordinator) => Some(partyReplicationCoordinator)
-                  case _ => None
+              val partyReplicationAdminWorkflowO: Option[PartyReplicationAdminWorkflow] =
+                adminWorkflowServices.partyManagementO.map {
+                  case (_, partyReplicationAdminWorkflow) => partyReplicationAdminWorkflow
                 }
               registry
                 .addService(
                   PartyManagementServiceGrpc.bindService(
                     new GrpcPartyManagementService(
-                      partyReplicationCoordinator,
+                      partyReplicationAdminWorkflowO,
                       parameters.processingTimeouts,
                       syncService,
                       loggerFactory,

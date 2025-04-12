@@ -10,6 +10,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelApplicativeFutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.{
   NoOp,
   Send,
@@ -21,27 +22,9 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SystemInitializationResult,
   SystemInitializer,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
-  CancellableEvent,
-  ClientP2PNetworkManager,
-  Env,
-  FutureContext,
-  ModuleContext,
-  ModuleName,
-  ModuleRef,
-  ModuleSystem,
-  PureFun,
-}
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.actor.typed.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
-import org.apache.pekko.actor.typed.{
-  ActorRef,
-  ActorSystem,
-  Behavior,
-  MailboxSelector,
-  SupervisorStrategy,
-  Terminated,
-}
 import org.apache.pekko.actor.{BootstrapSetup, Cancellable}
 
 import scala.collection.mutable
@@ -69,39 +52,43 @@ object PekkoModuleSystem {
       var maybeModule: Option[framework.Module[PekkoEnv, MessageT]] = None
       val sendsAwaitingAModule = mutable.Queue[Send[PekkoEnv, MessageT]]()
       Behaviors
-        .receiveMessage[ModuleControl[PekkoEnv, MessageT]] {
-          case SetBehavior(m: framework.Module[PekkoEnv, MessageT], ready) =>
-            maybeModule.foreach(_.close())
-            maybeModule = Some(m)
-            if (ready)
-              m.ready(pekkoContext.self)
-            sendsAwaitingAModule.foreach { case Send(message, traceContext) =>
-              m.receive(message)(pekkoContext, traceContext)
+        .supervise(
+          Behaviors
+            .receiveMessage[ModuleControl[PekkoEnv, MessageT]] {
+              case SetBehavior(m: framework.Module[PekkoEnv, MessageT], ready) =>
+                maybeModule.foreach(_.close())
+                maybeModule = Some(m)
+                if (ready)
+                  m.ready(pekkoContext.self)
+                sendsAwaitingAModule.foreach { case Send(message, traceContext) =>
+                  m.receive(message)(pekkoContext, traceContext)
+                }
+                sendsAwaitingAModule.clear()
+                Behaviors.same
+              case send @ Send(message, traceContext) =>
+                maybeModule match {
+                  case Some(module) =>
+                    module.receive(message)(pekkoContext, traceContext)
+                  case _ =>
+                    sendsAwaitingAModule.enqueue(send)
+                }
+                Behaviors.same
+              case NoOp() =>
+                Behaviors.same
+              case Stop(onStop) =>
+                logger.info(s"Stopping Pekko actor for module '$moduleName' as requested")
+                onStop()
+                Behaviors.stopped
             }
-            sendsAwaitingAModule.clear()
-            Behaviors.same
-          case send @ Send(message, traceContext) =>
-            maybeModule match {
-              case Some(module) =>
-                module.receive(message)(pekkoContext, traceContext)
-              case _ =>
-                sendsAwaitingAModule.enqueue(send)
+            .receiveSignal { case (_, Terminated(actorRef)) =>
+              // after calling `context.stop()` we must handle the Terminated signal, otherwise an exception is thrown and the actor system stops
+              logger.info(
+                s"$moduleName received Terminated signal for Pekko actor '${actorRef.path.name}' as requested"
+              )
+              Behaviors.same
             }
-            Behaviors.same
-          case NoOp() =>
-            Behaviors.same
-          case Stop(onStop) =>
-            logger.info(s"Stopping Pekko actor for module '$moduleName' as requested")
-            onStop()
-            Behaviors.stopped
-        }
-        .receiveSignal { case (_, Terminated(actorRef)) =>
-          // after calling `context.stop()` we must handle the Terminated signal, otherwise an exception is thrown and the actor system stops
-          logger.info(
-            s"$moduleName received Terminated signal for Pekko actor '${actorRef.path.name}' as requested"
-          )
-          Behaviors.same
-        }
+        )
+        .onFailure(SupervisorStrategy.stop)
     }
 
   private[bftordering] final case class PekkoModuleRef[AcceptedMessageT](

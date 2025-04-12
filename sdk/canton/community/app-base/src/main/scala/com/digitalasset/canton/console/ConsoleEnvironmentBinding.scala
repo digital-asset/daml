@@ -69,6 +69,7 @@ object ConsoleEnvironmentBinding {
       """
          |import com.digitalasset.canton.topology.store.TimeQuery
          |import com.digitalasset.canton.topology.{store => _, _}
+         |import com.digitalasset.canton.topology.transaction.DelegationRestriction._
          |import com.digitalasset.canton.topology.transaction._
          |import com.digitalasset.canton.topology.admin.grpc._
          |import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized

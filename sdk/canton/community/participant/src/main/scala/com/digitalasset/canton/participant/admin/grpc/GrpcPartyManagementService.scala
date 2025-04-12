@@ -8,8 +8,9 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.admin.participant.v30.*
+import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -47,26 +48,18 @@ class GrpcPartyManagementService(
 )(implicit
     ec: ExecutionContext,
     actorSystem: ActorSystem,
-) extends PartyManagementServiceGrpc.PartyManagementService
+) extends v30.PartyManagementServiceGrpc.PartyManagementService
     with NamedLogging {
 
   override def addPartyAsync(
-      request: AddPartyAsyncRequest
-  ): Future[AddPartyAsyncResponse] = {
+      request: v30.AddPartyAsyncRequest
+  ): Future[v30.AddPartyAsyncResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    def toStatusRuntimeException(status: Status)(err: String): StatusRuntimeException =
-      status.withDescription(err).asRuntimeException()
 
     EitherTUtil.toFuture(for {
-      adminWorkflow <- EitherT
-        .fromEither[Future](adminWorkflowO match {
-          case Some(value) => Right(value)
-          case None =>
-            Left(
-              "The add_party_async command requires the `unsafe_online_party_replication` configuration"
-            )
-        })
-        .leftMap(toStatusRuntimeException(Status.UNIMPLEMENTED))
+      adminWorkflow <- EitherT.fromEither[Future](
+        ensureAdminWorkflowIfOnlinePartyReplicationEnabled()
+      )
 
       args <- EitherT.fromEither[Future](
         verifyArguments(request).leftMap(toStatusRuntimeException(Status.INVALID_ARGUMENT))
@@ -76,17 +69,17 @@ class GrpcPartyManagementService(
         .addPartyAsync(args, adminWorkflow)
         .leftMap(toStatusRuntimeException(Status.FAILED_PRECONDITION))
         .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
-    } yield AddPartyAsyncResponse(partyReplicationId = hash.toHexString))
+    } yield v30.AddPartyAsyncResponse(addPartyRequestId = hash.toHexString))
   }
 
   private def verifyArguments(
-      request: AddPartyAsyncRequest
+      request: v30.AddPartyAsyncRequest
   ): Either[String, PartyReplicationArguments] =
     for {
-      partyId <- convert(request.partyUid, "partyUid", PartyId(_))
+      partyId <- convert(request.partyId, "party_id", PartyId(_))
       sourceParticipantIdO <- Option
         .when(request.sourceParticipantUid.nonEmpty)(request.sourceParticipantUid)
-        .traverse(convert(_, "sourceParticipantUid", ParticipantId(_)))
+        .traverse(convert(_, "source_participant_uid", ParticipantId(_)))
       synchronizerId <- convert(
         request.synchronizerId,
         "synchronizer_id",
@@ -105,23 +98,67 @@ class GrpcPartyManagementService(
   ): Either[String, T] =
     UniqueIdentifier.fromProtoPrimitive(rawId, field).bimap(_.toString, wrap)
 
+  override def getAddPartyStatus(
+      request: v30.GetAddPartyStatusRequest
+  ): Future[v30.GetAddPartyStatusResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    (for {
+      adminWorkflow <- ensureAdminWorkflowIfOnlinePartyReplicationEnabled()
+
+      requestId <- Hash
+        .fromHexString(request.addPartyRequestId)
+        .leftMap(err => toStatusRuntimeException(Status.INVALID_ARGUMENT)(err.message))
+
+      status <- adminWorkflow.partyReplicator
+        .getAddPartyStatus(requestId)
+        .toRight(
+          toStatusRuntimeException(Status.UNKNOWN)(
+            s"Add party request id ${request.addPartyRequestId} not found"
+          )
+        )
+    } yield {
+      val statusP = v30.GetAddPartyStatusResponse.Status(status.toProto)
+      v30.GetAddPartyStatusResponse(
+        partyId = status.params.partyId.toProtoPrimitive,
+        synchronizerId = status.params.synchronizerId.toProtoPrimitive,
+        sourceParticipantUid = status.params.sourceParticipantId.uid.toProtoPrimitive,
+        targetParticipantUid = status.params.targetParticipantId.uid.toProtoPrimitive,
+        status = Some(statusP),
+      )
+    })
+      .fold(Future.failed, Future.successful)
+  }
+
+  private def toStatusRuntimeException(status: Status)(err: String): StatusRuntimeException =
+    status.withDescription(err).asRuntimeException()
+
+  private def ensureAdminWorkflowIfOnlinePartyReplicationEnabled() = (adminWorkflowO match {
+    case Some(value) => Right(value)
+    case None =>
+      Left(
+        "The add_party_async command requires the `unsafe_online_party_replication` configuration"
+      )
+  })
+    .leftMap(toStatusRuntimeException(Status.UNIMPLEMENTED))
+
   override def exportAcs(
-      request: ExportAcsRequest,
-      responseObserver: StreamObserver[ExportAcsResponse],
+      request: v30.ExportAcsRequest,
+      responseObserver: StreamObserver[v30.ExportAcsResponse],
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
 
     GrpcStreamingUtils.streamToClient(
       (out: OutputStream) => createAcsSnapshot(request, new GZIPOutputStream(out)),
       responseObserver,
-      byteString => ExportAcsResponse(byteString),
+      byteString => v30.ExportAcsResponse(byteString),
       processingTimeout.unbounded.duration,
       chunkSizeO = None,
     )
   }
 
   private def createAcsSnapshot(
-      request: ExportAcsRequest,
+      request: v30.ExportAcsRequest,
       out: OutputStream,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val allSynchronizers: Map[SynchronizerId, SyncPersistentState] =
@@ -189,7 +226,7 @@ object GrpcPartyManagementService {
   private object ValidExportAcsRequest {
 
     def validateRequest(
-        request: ExportAcsRequest,
+        request: v30.ExportAcsRequest,
         ledgerEnd: Offset,
         synchronizerIds: Set[SynchronizerId],
     )(implicit
@@ -218,7 +255,7 @@ object GrpcPartyManagementService {
           ),
         )
         contractSynchronizerRenames <- request.contractSynchronizerRenames.toList.traverse {
-          case (source, ExportAcsTargetSynchronizer(target)) =>
+          case (source, v30.ExportAcsTargetSynchronizer(target)) =>
             for {
               _ <- SynchronizerId.fromProtoPrimitive(source, "source synchronizer id")
               _ <- SynchronizerId.fromProtoPrimitive(target, "target synchronizer id")

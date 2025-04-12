@@ -19,8 +19,10 @@ import com.daml.ledger.api.v2.value.{
   RecordField,
   Value,
 }
+import com.daml.ledger.javaapi.data.{DisclosedContract, Identifier}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.admin.api.client.data
 import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
@@ -40,6 +42,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
+import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.{
@@ -504,6 +507,27 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         event.contractId,
       )
     }
+
+    def fetchContracsAsDisclosed(
+        participant: LocalParticipantReference,
+        readerParty: PartyId,
+        templateId: Identifier,
+    ): Map[String /* ContractId */, DisclosedContract] =
+      participant.ledger_api.state.acs
+        .active_contracts_of_party(
+          party = readerParty,
+          filterTemplates = Seq(TemplateId.fromJavaIdentifier(templateId)),
+          includeCreatedEventBlob = true,
+        )
+        .map { activeContract =>
+          val createdEvent = activeContract.getCreatedEvent
+          createdEvent.contractId -> JavaDecodeUtil
+            .toDisclosedContract(
+              activeContract.synchronizerId,
+              WrappedCreatedEvent(createdEvent).toJava,
+            )
+        }
+        .toMap
   }
 
   @Help.Summary("Logging related commands")

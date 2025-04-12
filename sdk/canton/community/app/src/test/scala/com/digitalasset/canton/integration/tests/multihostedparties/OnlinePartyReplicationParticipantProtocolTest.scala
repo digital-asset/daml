@@ -198,24 +198,29 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val replicatedContracts =
         mutable.Buffer.empty[(NonNegativeInt, NonEmpty[Seq[SerializableContract]])]
 
+      def noOpProgressAndCompletionCallback: NonNegativeInt => Unit = _ => ()
+
       val sourceProcessor = PartyReplicationSourceParticipantProcessor(
         daId,
         alice,
         partyToTargetParticipantEffectiveAt,
         sourceParticipant.testing.state_inspection.getAcsInspection(daId).value,
+        noOpProgressAndCompletionCallback,
+        noOpProgressAndCompletionCallback,
         testedProtocolVersion,
         timeouts,
         loggerFactory,
       )
       val connectedSynchronizer =
         targetParticipant.underlying.value.sync.connectedSynchronizerForAlias(daName).value
-      val pureCrypto = connectedSynchronizer.synchronizerHandle.syncPersistentState.pureCryptoApi
 
       val promiseWhenConcurrentTransactionsSubmitted = PromiseUnlessShutdown.unsupervised[Unit]()
       val targetProcessor = PartyReplicationTargetParticipantProcessor(
         daId,
         alice,
         partyToTargetParticipantEffectiveAt,
+        noOpProgressAndCompletionCallback,
+        noOpProgressAndCompletionCallback,
         { (acsChunkId, contracts) =>
           replicatedContracts += ((acsChunkId, contracts))
           if (acsChunkId.unwrap == 4) {
@@ -233,7 +238,6 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         },
         targetParticipant.underlying.value.sync.participantNodePersistentState,
         connectedSynchronizer,
-        pureCrypto,
         testedProtocolVersion,
         timeouts,
         loggerFactory,

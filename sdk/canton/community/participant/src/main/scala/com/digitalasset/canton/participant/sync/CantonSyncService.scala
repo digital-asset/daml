@@ -44,7 +44,6 @@ import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
   SyncStateInspection,
 }
-import com.digitalasset.canton.participant.admin.party.PartyReplicator
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -162,6 +161,7 @@ class CantonSyncService(
     metrics: ParticipantMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     val isActive: () => Boolean,
+    declarativeChangeTrigger: () => Unit,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
@@ -384,11 +384,6 @@ class CantonSyncService(
     connectQueue,
     loggerFactory,
   )
-
-  val partyReplicatorO: Option[PartyReplicator] =
-    parameters.unsafeOnlinePartyReplication.map(_ =>
-      new PartyReplicator(participantId, this, parameters.processingTimeouts, loggerFactory)
-    )
 
   private val migrationService =
     new SynchronizerMigration(
@@ -1515,6 +1510,7 @@ class CantonSyncService(
       } yield {
         // remove this one from the reconnect attempt list, as we are successfully connected now
         this.resolveReconnectAttempts(synchronizerAlias)
+        declarativeChangeTrigger()
       }
 
       def disconnectOn(): Unit =
@@ -1726,7 +1722,7 @@ class CantonSyncService(
       migrationService,
       repairService,
       pruningProcessor,
-    ) ++ partyReplicatorO.toList ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
+    ) ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
       transactionRoutingProcessor,
       synchronizerRegistry,
       synchronizerConnectionConfigStore,
@@ -1986,6 +1982,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): RoutingSynchronizerState =
     RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
+
 }
 
 object CantonSyncService {
@@ -2061,6 +2058,7 @@ object CantonSyncService {
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
         connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
+        triggerDeclarativeChange: () => Unit,
     )(implicit ec: ExecutionContextExecutor, mat: Materializer, tracer: Tracer): T
   }
 
@@ -2095,6 +2093,7 @@ object CantonSyncService {
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
         connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
+        triggerDeclarativeChange: () => Unit,
     )(implicit
         ec: ExecutionContextExecutor,
         mat: Materializer,
@@ -2125,6 +2124,7 @@ object CantonSyncService {
         metrics,
         sequencerInfoLoader,
         () => storage.isActive,
+        triggerDeclarativeChange,
         futureSupervisor,
         loggerFactory,
         testingConfig,

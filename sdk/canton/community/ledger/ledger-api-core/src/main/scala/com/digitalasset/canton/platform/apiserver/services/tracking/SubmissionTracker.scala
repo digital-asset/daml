@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.tracking
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommands
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.concurrent.DirectExecutionContext
@@ -149,6 +150,14 @@ object SubmissionTracker {
         submissionId = completion.submissionId,
         userId = completion.userId,
         parties = completion.actAs.toSet,
+      )
+
+    def fromReassignmentCommands(commands: ReassignmentCommands): SubmissionKey =
+      SubmissionKey(
+        commandId = commands.commandId,
+        submissionId = commands.submissionId,
+        userId = commands.userId,
+        parties = Set(commands.submitter),
       )
   }
 

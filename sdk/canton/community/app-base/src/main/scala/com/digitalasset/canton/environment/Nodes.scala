@@ -165,20 +165,16 @@ class ManagedNodes[
       instance: NodeBootstrap,
       name: InstanceName,
       config: NodeConfig,
-  ): EitherT[Future, String, Unit] = {
-    def getAdminToken = instance.getNode.flatMap(n => Option.when(n.isActive)(n.adminToken))
+  ): EitherT[Future, String, Unit] =
     declarativeManager
       .map { manager =>
         manager.started(
           name,
           config,
-          getAdminToken,
-          instance.metrics.declarativeApiMetrics,
-          instance.closeContext,
+          instance,
         )
       }
       .getOrElse(EitherT.rightT(()))
-  }
 
   private def startNode(
       name: InstanceName,

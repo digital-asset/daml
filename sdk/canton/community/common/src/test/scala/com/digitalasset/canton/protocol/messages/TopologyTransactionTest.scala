@@ -5,13 +5,17 @@ package com.digitalasset.canton.protocol.messages
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{PublicKey, SigningKeyUsage}
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.TestSynchronizerParameters
+import com.digitalasset.canton.protocol.{TestSynchronizerParameters, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPackageId}
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPackageId}
 import com.google.protobuf.ByteString
 import org.scalatest.exceptions.TestFailedException
 import org.scalatest.wordspec.AnyWordSpec
@@ -20,7 +24,8 @@ class TopologyTransactionTest
     extends AnyWordSpec
     with BaseTest
     with HasCryptographicEvidenceTest
-    with FailOnShutdown {
+    with FailOnShutdown
+    with HasExecutionContext {
 
   private val uid = DefaultTestIdentities.uid
   private val uid2 = UniqueIdentifier.tryFromProtoPrimitive("da1::default1")
@@ -34,14 +39,12 @@ class TopologyTransactionTest
         threshold = PositiveInt.one,
       )
     ).build(loggerFactory).forOwnerAndSynchronizer(sequencerId, synchronizerId)
+  // TODO(#25072): Create keys with a single usage and change the tests accordingly
   private val publicKey =
-    PublicKey
-      .getLatestKey(
-        crypto.currentSnapshotApproximation.ipsSnapshot
-          .signingKeys(sequencerId, SigningKeyUsage.All)
-          .futureValueUS
-      )
-      .getOrElse(sys.error("no keys"))
+    crypto.crypto.privateCrypto
+      .generateSigningKey(usage = SigningKeyUsage.All)
+      .valueOrFail("create public key")
+      .futureValueUS
   private val defaultDynamicSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
   private def mk[T <: TopologyMapping](
@@ -69,19 +72,57 @@ class TopologyTransactionTest
   "synchronizer topology transactions" when {
 
     "namespace mappings" should {
-
       val nsd =
-        mk(NamespaceDelegation.tryCreate(uid.namespace, publicKey, isRootDelegation = true))
+        mk(NamespaceDelegation.tryCreate(uid.namespace, publicKey, CanSignAllMappings))
       val nsd2 =
-        mk(NamespaceDelegation.tryCreate(uid2.namespace, publicKey, isRootDelegation = false))
+        mk(
+          NamespaceDelegation.tryCreate(
+            uid2.namespace,
+            publicKey,
+            CanSignAllButNamespaceDelegations,
+          )
+        )
 
       runTest(nsd, nsd2)
+    }
 
+    "namespace delegation restrictions are backwards compatible" in {
+      val legacyRootDelegationProto = v30.NamespaceDelegation(
+        uid.namespace.toProtoPrimitive,
+        Some(publicKey.toProtoV30),
+        isRootDelegation = true,
+        restrictedToMappings = Seq.empty,
+      )
+      val rootFromScala = NamespaceDelegation
+        .create(
+          uid.namespace,
+          publicKey,
+          CanSignAllMappings,
+        )
+        .value
+      NamespaceDelegation.fromProtoV30(legacyRootDelegationProto).value shouldBe rootFromScala
+      rootFromScala.toProto shouldBe legacyRootDelegationProto
+
+      val legacyNonRootDelegationProto = v30.NamespaceDelegation(
+        uid.namespace.toProtoPrimitive,
+        Some(publicKey.toProtoV30),
+        isRootDelegation = false,
+        restrictedToMappings = Seq.empty,
+      )
+      val nonRootFromScala = NamespaceDelegation
+        .create(
+          uid.namespace,
+          publicKey,
+          CanSignAllButNamespaceDelegations,
+        )
+        .value
+      NamespaceDelegation.fromProtoV30(legacyNonRootDelegationProto).value shouldBe nonRootFromScala
+      nonRootFromScala.toProto shouldBe legacyNonRootDelegationProto
     }
 
     "identifier delegations" should {
-      val id1 = mk(IdentifierDelegation(uid, publicKey))
-      val id2 = mk(IdentifierDelegation(uid2, publicKey))
+      val id1 = mk(IdentifierDelegation.tryCreate(uid, publicKey))
+      val id2 = mk(IdentifierDelegation.tryCreate(uid2, publicKey))
       runTest(id1, id2)
     }
 

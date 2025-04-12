@@ -43,6 +43,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.InvalidAcknowledgementTimestamp
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 import com.digitalasset.canton.topology.transaction.NamespaceDelegation
 import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -374,7 +375,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           participant1.topology.namespace_delegations.propose_delegation(
             participant1.namespace,
             signingKey,
-            isRootDelegation = false,
+            CanSignAllButNamespaceDelegations,
           )
           val delegations = participant1.topology.transactions
             .list(filterAuthorizedKey = Some(participant1.fingerprint))

@@ -6,11 +6,12 @@ package com.digitalasset.canton.topology.processing
 import cats.Apply
 import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, UnsupportedKeySpec}
 import com.digitalasset.canton.crypto.{Signature, SigningPublicKey, SynchronizerCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.protocol.{DynamicSequencingParameters, DynamicSynchronizerParameters}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.participant2
 import com.digitalasset.canton.topology.store.*
@@ -23,8 +24,14 @@ import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+  CanSignSpecificMappings,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.transaction.TopologyMapping.MappingHash
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
+import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, MappingHash}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{
@@ -60,7 +67,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         timeouts,
       ),
       validationIsFinal: Boolean = true,
-      insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
   ) = {
     val validator =
       new TopologyTransactionAuthorizationValidator(
@@ -70,8 +76,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         ),
         store,
         validationIsFinal = validationIsFinal,
-        insecureIgnoreMissingExtraKeySignatures =
-          insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
         loggerFactory,
       )
     validator
@@ -97,6 +101,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
       toValidate: Seq[GenericSignedTopologyTransaction],
       inStore: Map[MappingHash, GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
+      transactionMayHaveMissingSigningKeySignatures: Boolean = false,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[GenericValidatedTopologyTransaction]] =
@@ -106,7 +111,9 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           timestamp,
           tx,
           inStore.get(tx.mapping.uniqueKey),
-          expectFullAuthorization,
+          expectFullAuthorization = expectFullAuthorization,
+          transactionMayHaveMissingSigningKeySignatures =
+            transactionMayHaveMissingSigningKeySignatures,
         )
       )
   "topology transaction authorization" when {
@@ -192,19 +199,33 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         }
       }
 
-      "fail to add if the OwnerToKeyMapping misses the signature for newly added signing keys" in {
+      "fail to add if the OwnerToKeyMapping or PartyToKeyMapping misses the signature for newly added signing keys if transactionMayHaveMissingSigningKeySignatures==false" in {
         val validator = mk()
         import Factory.*
 
-        val okmS1k7_k1_missing_k7 =
+        val ownerToKeyWithMissingSigningKeySignature =
           okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
+        val partyToKeyWithMissingSigningKeysignature = mkAddMultiKey(
+          PartyToKeyMapping.tryCreate(
+            PartyId.tryCreate("someParty", ns1),
+            PositiveInt.one,
+            NonEmpty(Seq, SigningKeys.key7),
+          ),
+          NonEmpty(Set, SigningKeys.key1),
+        )
+
         for {
           validatedTopologyTransactions <- validate(
             validator,
             ts(0),
-            List(ns1k1_k1, okmS1k7_k1_missing_k7),
+            List(
+              ns1k1_k1,
+              ownerToKeyWithMissingSigningKeySignature,
+              partyToKeyWithMissingSigningKeysignature,
+            ),
             Map.empty,
             expectFullAuthorization = true,
+            transactionMayHaveMissingSigningKeySignatures = false,
           )
         } yield {
           check(
@@ -212,24 +233,38 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             Seq(
               None,
               Some(_ == NotAuthorized),
+              Some(_ == NotAuthorized),
             ),
           )
         }
       }
 
-      "permit OwnerToKeyMappings with missing signatures for newly added signing keys if insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot == true" in {
-        val validator = mk(insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = true)
+      s"permit OwnerToKeyMappings with missing signatures for newly added signing keys if transactionMayHaveMissingSigningKeySignatures==true" in {
+        val validator = mk()
         import Factory.*
 
-        val okmS1k7_k1_missing_k7 =
+        val ownerToKeyWithMissingSigningKeySignature =
           okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
+        val partyToKeyWithMissingSigningKeysignature = mkAddMultiKey(
+          PartyToKeyMapping.tryCreate(
+            PartyId.tryCreate("someParty", ns1),
+            PositiveInt.one,
+            NonEmpty(Seq, SigningKeys.key7),
+          ),
+          NonEmpty(Set, SigningKeys.key1),
+        )
         for {
           validatedTopologyTransactions <- validate(
             validator,
             ts(0),
-            List(ns1k1_k1, okmS1k7_k1_missing_k7),
+            List(
+              ns1k1_k1,
+              ownerToKeyWithMissingSigningKeySignature,
+              partyToKeyWithMissingSigningKeysignature,
+            ),
             Map.empty,
             expectFullAuthorization = true,
+            transactionMayHaveMissingSigningKeySignatures = true,
           )
         } yield {
           check(
@@ -237,6 +272,8 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             Seq(
               None,
               None,
+              // PTKs with missign signing keys are not permitted
+              Some(_ == NotAuthorized),
             ),
           )
         }
@@ -352,6 +389,175 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         } yield {
           result.loneElement.rejectionReason shouldBe None
         }
+      }
+
+      // generates mappings for the specified uid (or its namespace) that will
+      // be validated with delegations that are restricted to the respective mapping.
+      def generateTestMappings(uid: UniqueIdentifier): Seq[TopologyMapping] = {
+        import Factory.*
+        import SigningKeys.{key2, key3, key4, key5}
+
+        val participantId = ParticipantId(uid)
+        val synchronizerId = SynchronizerId(uid)
+        val partyId = PartyId(uid)
+
+        val testMappings = Seq(
+          NamespaceDelegation.tryCreate(uid.namespace, key2, CanSignAllButNamespaceDelegations),
+          IdentifierDelegation.tryCreate(uid, key3),
+          DecentralizedNamespaceDefinition
+            .create(
+              DecentralizedNamespaceDefinition.computeNamespace(Set(uid.namespace)),
+              PositiveInt.one,
+              NonEmpty(Set, uid.namespace),
+            )
+            .value,
+          OwnerToKeyMapping(participantId, NonEmpty(Seq, key4)),
+          SynchronizerTrustCertificate(participantId, synchronizerId),
+          ParticipantSynchronizerPermission(
+            synchronizerId,
+            participantId,
+            ParticipantPermission.Submission,
+            None,
+            None,
+          ),
+          PartyHostingLimits(synchronizerId, partyId),
+          VettedPackages.tryCreate(participantId, Seq.empty),
+          PartyToParticipant.tryCreate(
+            partyId,
+            PositiveInt.one,
+            Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
+          ),
+          SynchronizerParametersState(
+            synchronizerId,
+            DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
+          ),
+          MediatorSynchronizerState
+            .create(
+              synchronizerId,
+              NonNegativeInt.zero,
+              PositiveInt.one,
+              Seq(MediatorId(uid)),
+              Seq.empty,
+            )
+            .value,
+          SequencerSynchronizerState
+            .create(synchronizerId, PositiveInt.one, active = Seq(SequencerId(uid)), Seq.empty)
+            .value,
+          PurgeTopologyTransaction
+            .create(synchronizerId, Seq(PartyHostingLimits(synchronizerId, partyId)))
+            .value,
+          DynamicSequencingParametersState(
+            synchronizerId,
+            DynamicSequencingParameters.default(
+              DynamicSequencingParameters.protocolVersionRepresentativeFor(testedProtocolVersion)
+            ),
+          ),
+          PartyToKeyMapping.tryCreate(partyId, PositiveInt.one, NonEmpty(Seq, key5)),
+        )
+
+        testMappings
+      }
+
+      // for all topology mapping codes, generate a NamespaceDelegation
+      // * restricted to the respective mapping code
+      // * for the uid's namespace or the uid
+      // * with a newly generated target key (to detect bugs when checking the delegation restriction)
+      def generateDelegations(uid: UniqueIdentifier): (
+        // Code: the code the delegation is restricted to
+        // SigningPublicKey: the target key of the delegation
+        // SignedTopologyTransaction: the delegation itself
+        Seq[(Code, (SigningPublicKey, SignedTopologyTransaction[Replace, NamespaceDelegation]))]
+      ) = {
+        import Factory.*
+        import SigningKeys.key1
+
+        val namespaceDelegations =
+          TopologyMapping.Code.all.map { mappingCode =>
+            // generate a new signing key that is only used by the namespace delegation
+            val nsdTargetKey = genSignKey(mappingCode.code)
+            val namespaceDelegation = mkAdd(
+              NamespaceDelegation
+                .create(
+                  uid.namespace,
+                  nsdTargetKey,
+                  CanSignSpecificMappings(NonEmpty(Set, mappingCode)),
+                )
+                .value,
+              // we sign it with the root namespace key to make sure it is considered valid
+              key1,
+            )
+            mappingCode -> (nsdTargetKey, namespaceDelegation)
+          }
+
+        namespaceDelegations
+      }
+
+      "respect the mapping restrictions specified in NamespaceDelegation" in {
+        import Factory.*
+        import SigningKeys.key1
+
+        val uid = UniqueIdentifier.tryCreate("uid", ns1)
+
+        val mappingsToValidate = generateTestMappings(uid)
+        val delegations = generateDelegations(uid).toMap
+
+        val rootCert = mkAdd(NamespaceDelegation.create(ns1, key1, CanSignAllMappings).value, key1)
+
+        // create an in-memory topology store that is shared across all validations.
+        // this is acceptable, because we only write to it the initial state.
+        val store =
+          new InMemoryTopologyStore(
+            TopologyStoreId.AuthorizedStore,
+            testedProtocolVersion,
+            loggerFactory,
+            timeouts,
+          )
+        // store the root cert and all delegations in the store
+        store
+          .update(
+            SequencedTime(ts(0)),
+            EffectiveTime(ts(0)),
+            removeMapping = Map.empty,
+            removeTxs = Set.empty,
+            additions = (rootCert +: delegations.values.map(_._2).toSeq)
+              .map(ValidatedTopologyTransaction(_)),
+          )
+          .futureValueUS
+
+        // now for the actual test:
+        // * validate all mappings against all target keys used in delegations
+        for {
+          mappingToValidate <- mappingsToValidate
+          delegation <- delegations.toSeq
+          (restrictionForDelegation, (key, del)) = delegation
+        } clue(
+          s"testing validation of ${mappingToValidate.code} with delegation restricted to $restrictionForDelegation"
+        ) {
+          val signedTxToValidate = mkAdd(mappingToValidate, key, isProposal = true)
+          val validator = mk(store)
+
+          val validated = validator
+            .validateAndUpdateHeadAuthState(
+              ts(1),
+              signedTxToValidate,
+              inStore = None,
+              expectFullAuthorization = false,
+              transactionMayHaveMissingSigningKeySignatures = false,
+            )
+            .futureValueUS
+
+          // if the delegation is restricted to the code of the mapping that is validated
+          if (restrictionForDelegation == mappingToValidate.code) {
+            // we expect no errors
+            validated.rejectionReason shouldBe empty
+            validated.expireImmediately shouldBe false
+          } else {
+            // otherwise, the validation should reject the transaction
+            validated.rejectionReason should not be empty
+          }
+        }
+
+        succeed
       }
     }
 

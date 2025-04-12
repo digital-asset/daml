@@ -34,6 +34,7 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.integration.util.TestUtils.hasPersistence
 import com.digitalasset.canton.integration.util.{AcsInspection, EntitySyntax, PartiesAllocator}
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
@@ -365,7 +366,7 @@ abstract class SynchronizerChangeSimClockIntegrationTest
           val reassignmentId =
             P4.ledger_api.commands.submit_unassign(
               painter,
-              paintOfferId,
+              Seq(paintOfferId),
               paintSynchronizerId,
               iouSynchronizerId,
             )
@@ -425,7 +426,7 @@ abstract class SynchronizerChangeSimClockIntegrationTest
             val reassignmentId =
               P4.ledger_api.commands.submit_unassign(
                 painter,
-                paintOfferId,
+                Seq(paintOfferId),
                 paintSynchronizerId,
                 iouSynchronizerId,
               )
@@ -540,7 +541,7 @@ abstract class SynchronizerChangeSimClockIntegrationTest
           val reassignmentId =
             P4.ledger_api.commands.submit_unassign(
               painter,
-              paintOfferId,
+              Seq(paintOfferId),
               paintSynchronizerId,
               iouSynchronizerId,
             )
@@ -600,7 +601,7 @@ abstract class SynchronizerChangeSimClockIntegrationTest
             P4.ledger_api.commands
               .submit_unassign(
                 painter,
-                paintOfferId,
+                Seq(paintOfferId),
                 paintSynchronizerId,
                 iouSynchronizerId,
               )
@@ -639,7 +640,7 @@ abstract class SynchronizerChangeSimClockIntegrationTest
           P4.ledger_api.commands
             .submit_reassign(
               painter,
-              paintOfferId,
+              Seq(paintOfferId),
               iouSynchronizerId,
               paintSynchronizerId,
             )
@@ -755,7 +756,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           // Unassign paint offer
           P4.ledger_api.commands.submit_unassign(
             painter,
-            paintOfferId,
+            Seq(paintOfferId),
             paintSynchronizerId,
             iouSynchronizerId,
           )
@@ -803,7 +804,7 @@ trait SynchronizerChangeRealClockIntegrationTest
           P4.ledger_api.commands
             .submit_reassign(
               painter,
-              paintOfferId,
+              Seq(paintOfferId),
               paintSynchronizerId,
               iouSynchronizerId,
             )
@@ -861,7 +862,7 @@ trait SynchronizerChangeRealClockIntegrationTest
             P4.ledger_api.commands
               .submit_unassign(
                 painter,
-                paintOfferId,
+                Seq(paintOfferId),
                 sourceId,
                 targetId,
               )
@@ -883,19 +884,32 @@ trait SynchronizerChangeRealClockIntegrationTest
           }
 
           logger.info(s"Racy assignments of $paintOfferUnassignedEvent occur")
-          val assignmentsF = List(
-            Future(assign(P4, painter)),
-            Future(assign(P5, alice)),
-            Future(assign(P4, painter)),
-            Future(assign(P5, alice)),
-          ).parTraverse(_.transform {
-            case Success(_) => Success(1)
-            case Failure(_) =>
-              Success(0)
-          })
+          val successfulAssignments = loggerFactory.assertLogsUnorderedOptional(
+            {
+              val assignmentsF = List(
+                Future(assign(P4, painter)),
+                Future(assign(P5, alice)),
+                Future(assign(P4, painter)),
+                Future(assign(P5, alice)),
+              ).parTraverse(_.transform {
+                case Success(_) => Success(1)
+                case Failure(_) =>
+                  Success(0)
+              })
 
-          val patience = defaultPatience.copy(timeout = defaultPatience.timeout.scaledBy(2))
-          val successfulAssignments = assignmentsF.futureValue(patience, Position.here).sum
+              val patience = defaultPatience.copy(timeout = defaultPatience.timeout.scaledBy(2))
+
+              assignmentsF.futureValue(patience, Position.here).sum
+            },
+            (
+              LogEntryOptionality.OptionalMany,
+              logEntry => {
+                logEntry.errorMessage should include(
+                  "Rejected transaction is referring to locked contracts"
+                )
+              },
+            ),
+          )
 
           withClue("Number of successful assignments") {
             successfulAssignments shouldBe 1

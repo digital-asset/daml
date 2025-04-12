@@ -21,117 +21,11 @@ import com.digitalasset.canton.util.{
   TwoPhasePriorityAccumulator,
 }
 
-import java.util.concurrent.Semaphore
 import scala.annotation.tailrec
 import scala.collection.BufferedIterator
-import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success, Try}
-
-trait LifeCycleRegistrationHandle {
-  def cancel(): Boolean
-  def isScheduled: Boolean
-}
-
-trait HasRunOnClosing {
-
-  /** Returns whether the component is closing or has already been closed. No new tasks can be added
-    * with [[runOnClose]] during closing.
-    */
-  def isClosing: Boolean
-
-  /** Schedules the given task to be run upon closing.
-    *
-    * @return
-    *   An [[com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome]] indicates that the task will
-    *   have been run when the `LifeCycleManager`'s `closeAsync` method completes or when
-    *   `AutoCloseable`'s `close` method returns, unless the returned `LifeCycleRegistrationHandle`
-    *   was used to cancel the task or the task has been done beforehand.
-    *   [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] if the task is not
-    *   run due to closing. This always happens if [[isClosing]] returns true.
-    */
-  def runOnClose(task: RunOnClosing): UnlessShutdown[LifeCycleRegistrationHandle]
-
-  /** Register a task to run when closing is initiated, or run it immediately if closing is already
-    * ongoing. Unlike [[runOnClose]], this method does not guarantee that this task will have run by
-    * the time the `LifeCycleManager`'s `closeAsync` method completes or `AutoCloseable`'s `close`
-    * returns. This is because the task is run immediately if the component has already been closed.
-    */
-  def runOnOrAfterClose(
-      task: RunOnClosing
-  )(implicit traceContext: TraceContext): LifeCycleRegistrationHandle =
-    runOnClose(task).onShutdown {
-      runTaskUnlessDone(task)
-      LifeCycleManager.DummyHandle
-    }
-
-  /** Variant of [[runOnOrAfterClose]] that does not return a
-    * [[com.digitalasset.canton.lifecycle.LifeCycleRegistrationHandle]].
-    */
-  final def runOnOrAfterClose_(task: RunOnClosing)(implicit traceContext: TraceContext): Unit =
-    runOnOrAfterClose(task).discard
-
-  protected[this] def runTaskUnlessDone(task: RunOnClosing)(implicit
-      traceContext: TraceContext
-  ): Unit
-}
-
-trait HasSynchronizeWithClosing extends HasRunOnClosing {
-
-  /** Runs the computation `f` only if the component is not yet closing. If so, the component will
-    * delay releasing its resources until `f` has finished or the
-    * [[LifeCycleManager.synchronizeWithClosingPatience]] has elapsed.
-    *
-    * @return
-    *   [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] if `f` has not
-    *   run.
-    *
-    * @see
-    *   HasRunOnClosing.isClosing
-    */
-  @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-  def synchronizeWithClosing[A](name: String)(f: => A)(implicit
-      traceContext: TraceContext
-  ): UnlessShutdown[A] =
-    synchronizeWithClosingF(name)(Try(f)).map(_.get)
-
-  /** Runs the computation `f` only if the component is not yet closing. If so, the component will
-    * delay releasing its resources until `f` has completed (as defined by the
-    * [[com.digitalasset.canton.util.Thereafter]] instance) or the
-    * [[LifeCycleManager.synchronizeWithClosingPatience]] has elapsed.
-    *
-    * @return
-    *   The computation completes with
-    *   [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] if `f` has not
-    *   run. Otherwise it is the result of running `f`.
-    *
-    * @see
-    *   HasRunOnClosing.isClosing
-    */
-  def synchronizeWithClosingUSF[F[_], A](name: String)(f: => F[A])(implicit
-      traceContext: TraceContext,
-      F: Thereafter[F],
-      A: AbsorbUnlessShutdown[F],
-  ): F[A] = A.absorbOuter(synchronizeWithClosingF(name)(f))
-
-  /** Runs the computation `f` only if the component is not yet closing. If so, the component will
-    * delay releasing its resources until `f` has completed (as defined by the
-    * [[com.digitalasset.canton.util.Thereafter]] instance) or the
-    * [[LifeCycleManager.synchronizeWithClosingPatience]] has elapsed.
-    *
-    * @return
-    *   [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]] if `f` has not
-    *   run. Otherwise the result of running `f`.
-    *
-    * @see
-    *   HasRunOnClosing.isClosing
-    */
-  def synchronizeWithClosingF[F[_], A](name: String)(f: => F[A])(implicit
-      traceContext: TraceContext,
-      F: Thereafter[F],
-  ): UnlessShutdown[F[A]]
-}
 
 /** Ensures orderly shutdown for a set of [[LifeCycleManager.ManagedResource]]s and dependent
   * [[LifeCycleManager]]s. This creates a shutdown hierarchy.
@@ -289,10 +183,14 @@ object LifeCycleManager {
       override protected val loggerFactory: NamedLoggerFactory,
       executionContext: ExecutionContext,
   ) extends LifeCycleManager
-      with NamedLogging {
+      with NamedLogging
+      with HasSynchronizeWithReaders {
     self =>
-
     import LifeCycleManagerImpl.*
+
+    override protected[this] def keepTrackOfReaderCallStack: Boolean = false
+
+    override protected[this] def nameInternal: String = name
 
     private[this] val directExecutionContext: DirectExecutionContext =
       DirectExecutionContext(noTracingLogger)
@@ -375,20 +273,8 @@ object LifeCycleManager {
         traceContext: TraceContext,
         F: Thereafter[F],
     ): UnlessShutdown[F[A]] =
-      if (!addReader(name)) {
+      this.withReader(name)(f).tapOnShutdown {
         logger.debug(s"Won't run the task '$name' as the manager ${this.name} is closing")
-        UnlessShutdown.AbortedDueToShutdown
-      } else {
-        val fa = Try(f) match {
-          case Success(fa) =>
-            fa.thereafter { _ =>
-              removeReader(name)
-            }
-          case Failure(error) =>
-            removeReader(name)
-            throw error
-        }
-        UnlessShutdown.Outcome(fa)
       }
 
     override def closeAsync()(implicit traceContext: TraceContext): Future[Unit] =
@@ -654,21 +540,6 @@ object LifeCycleManager {
       }(directExecutionContext)
     }
 
-    /** Semaphore for all the [[HasSynchronizeWithClosing.synchornizeWithClosing]] calls. Each such
-      * call obtains a permit for the time the computation is running. When the [[LifeCycleManager]]
-      * closes, it grabs all permits and thereby prevents further calls from succeeding.
-      */
-    private[this] val readerSemaphore = new Semaphore(Int.MaxValue)
-
-    /** An underapproximation of the [[HasSynchronizeWithClosing.synchornizeWithClosing]] calls that
-      * currently hold a [[readerSemaphore]] permit. This represents a multiset of those call's
-      * names, mapping each name to its multiplicity. Used for logging the calls that interfere with
-      * closing for too long.
-      *
-      * Invariant: Does not contain the value 0.
-      */
-    private[this] val readerMultisetUnderapproximation = new TrieMap[String, Int]
-
     private[this] def synchronizeAndReleaseRegistered(
         iterator: BufferedIterator[(LifeCycleManagerTask, TwoPhasePriorityAccumulator.Priority)]
     )(implicit traceContext: TraceContext): Future[Unit] =
@@ -680,86 +551,14 @@ object LifeCycleManager {
           if (!allReadersClosed) {
             // If we were not able to synchronize with all readers above, then make another attempt
             // at grabbing all of them. Maybe they all have finished by now?
-            if (!readerSemaphore.tryAcquire(Int.MaxValue)) {
-              val remainingReaders = readerMultisetUnderapproximation.keys.toSeq
-              NonEmpty.from(remainingReaders).foreach { readers =>
-                val shutdownError = new ShutdownFailedException(readers)
-                throw shutdownError
-              }
+            val remainingReaders = this.remainingReaders()
+            NonEmpty.from(remainingReaders).foreach { readers =>
+              val shutdownError = new ShutdownFailedException(readers)
+              throw shutdownError
             }
           }
         }(directExecutionContext)
       }(executionContext).flatten
-
-    private[this] def synchronizeWithReaders()(implicit traceContext: TraceContext): Boolean = {
-      val deadline = synchronizeWithClosingPatience.fromNow
-
-      @tailrec def poll(patienceMillis: Long): Boolean = {
-        val acquired = readerSemaphore.tryAcquire(
-          // Grab all of the permits at once
-          Int.MaxValue,
-          patienceMillis,
-          java.util.concurrent.TimeUnit.MILLISECONDS,
-        )
-        if (acquired) true
-        else {
-          val timeLeft = deadline.timeLeft
-          if (timeLeft < zeroDuration) {
-            logger.warn(
-              s"Timeout $synchronizeWithClosingPatience expired, but tasks still running. Shutting down forcibly."
-            )
-            logger.debug(s"Tasks sill running: ${readerMultisetUnderapproximation.toString}")
-            false
-          } else {
-            val readerCount = Int.MaxValue - readerSemaphore.availablePermits()
-            val nextPatienceMillis =
-              (patienceMillis * 2) min maxSleepMillis min timeLeft.toMillis
-            logger.debug(
-              s"$readerCount active tasks prevent closing. Next log message in ${nextPatienceMillis}ms. Tasks: ${readerMultisetUnderapproximation.toString}"
-            )
-            poll(nextPatienceMillis)
-          }
-        }
-      }
-
-      poll(10L)
-    }
-
-    private def addReader(reader: String)(implicit traceContext: TraceContext): Boolean =
-      // Abort early if we are closing.
-      // This prevents new readers from registering themselves so that eventually all permits become available
-      // to grab in one go
-      if (isClosing) false
-      else if (readerSemaphore.tryAcquire()) {
-        readerMultisetUnderapproximation
-          .updateWith(reader) {
-            case None => Some(1)
-            case Some(i) => Some(i + 1)
-          }
-          .discard
-        true
-      } else if (isClosing) {
-        // We check again for closing because the closing may have been initiated concurrently since the previous check
-        false
-      } else {
-        logger.error(
-          s"All ${Int.MaxValue} reader locks for life cycle manager $name have been taken. Is there a memory/task leak somewhere?"
-        )
-        logger.debug(s"Currently registered readers: ${readerMultisetUnderapproximation.toString}")
-        throw new IllegalStateException(
-          s"All ${Int.MaxValue} reader locks for manager $name have been taken."
-        )
-      }
-
-    private def removeReader(reader: String): Unit = {
-      readerMultisetUnderapproximation
-        .updateWith(reader) {
-          case None => throw new IllegalStateException(s"Reader $reader is unknown.")
-          case Some(i) => Option.when(i > 1)(i - 1)
-        }
-        .discard
-      readerSemaphore.release()
-    }
 
     override def toString: String = s"LifeCycleManagerImpl(name=$name)"
   }
@@ -814,12 +613,6 @@ object LifeCycleManager {
           BufferedIterator[(LifeCycleManagerTask, TwoPhasePriorityAccumulator.Priority)]
         ]
     }
-
-    private val zeroDuration: FiniteDuration =
-      FiniteDuration(0, java.util.concurrent.TimeUnit.MILLISECONDS)
-
-    /** How often to poll to check that all tasks have completed. */
-    private val maxSleepMillis: Long = 500
   }
 
   private[lifecycle] final class LifeCycleRegistrationHandleImpl(

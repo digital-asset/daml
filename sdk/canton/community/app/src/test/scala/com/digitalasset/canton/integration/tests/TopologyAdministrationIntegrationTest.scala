@@ -5,8 +5,10 @@ package com.digitalasset.canton.integration.tests
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String185
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, LocalInstanceReference}
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.SigningKeyUsage.Protocol
 import com.digitalasset.canton.integration.plugins.UsePostgres
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
@@ -16,7 +18,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.TopologyManagerError
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Temporary
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.{Authorized, Temporary}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
@@ -33,7 +35,7 @@ class TopologyAdministrationIntegrationTest
     with SharedEnvironment {
   registerPlugin(new UsePostgres(loggerFactory))
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P1_S1M1
+    EnvironmentDefinition.P2_S1M1
 
   "TopologyAdministration" should {
     "identity_transactions" in { implicit env =>
@@ -291,5 +293,106 @@ class TopologyAdministrationIntegrationTest
           .list(filterSigningKey = keyWithNamespaceUsage.id.toProtoPrimitive) shouldBe empty
       }
     }
+
+    "properly handle OwnerToKeyMappings with missing signing key signatures" when {
+      // using participant2 in this test to not interfere with a previous test case that already uses participant1
+      "submitting to the authorized store" in { implicit env =>
+        import env.*
+
+        val existingOtk = participant2.topology.owner_to_key_mappings
+          .list(Authorized, filterKeyOwnerUid = participant2.id.filterString)
+          .loneElement
+
+        val signingKey = participant2.keys.secret
+          .generate_signing_key("authorized-store-test", usage = Set(Protocol))
+
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          participant2.topology.owner_to_key_mappings.propose(
+            existingOtk.item.copy(keys = existingOtk.item.keys :+ signingKey),
+            serial = existingOtk.context.serial.increment,
+            // explicitly only sign with the namespace key, but not the signing key
+            signedBy = Seq(participant2.fingerprint),
+            store = Authorized,
+          ),
+          _.shouldBeCantonError(
+            TopologyManagerError.UnauthorizedTransaction,
+            _ should include("Not authorized"),
+          ),
+          _.errorMessage should include("Please contact the operator"),
+        )
+      }
+
+      "submitting to a temporary store" in { implicit env =>
+        import env.*
+
+        val testTempStoreId =
+          participant2.topology.stores
+            .create_temporary_topology_store("test", testedProtocolVersion)
+
+        // load the root cert into the temporary store
+        val rootCert = participant2.topology.transactions
+          .identity_transactions()
+          .flatMap(_.selectMapping[NamespaceDelegation])
+          .filter(NamespaceDelegation.isRootCertificate(_))
+          .loneElement
+        participant2.topology.transactions.load(Seq(rootCert), testTempStoreId)
+
+        val signingKey = participant2.keys.secret
+          .generate_signing_key("authorized-store-test", usage = Set(Protocol))
+
+        val existingOtk = participant2.topology.owner_to_key_mappings
+          .list(Authorized, filterKeyOwnerUid = participant2.id.filterString)
+          .loneElement
+          .item
+
+        val otkWithNewKey = existingOtk.copy(keys = existingOtk.keys :+ signingKey)
+        participant2.topology.owner_to_key_mappings.propose(
+          otkWithNewKey,
+          serial = PositiveInt.one,
+          // explicitly only sign with the namespace key, but not the signing key
+          signedBy = Seq(participant2.fingerprint),
+          store = testTempStoreId,
+        )
+
+        // verify that the OTK in the temporary store was accepted and stored how we expect it
+        val otkInTempStore =
+          participant2.topology.owner_to_key_mappings.list(testTempStoreId).loneElement
+        otkInTempStore.item shouldBe otkWithNewKey
+        otkInTempStore.context.signedBy.forgetNE.loneElement shouldBe participant2.fingerprint
+
+        // cleanup
+        participant2.topology.stores.drop_temporary_topology_store(testTempStoreId)
+      }
+
+      "submitting to a synchronizer store" in { implicit env =>
+        import env.*
+
+        participant2.synchronizers.connect_local(sequencer1, daName)
+
+        val existingOtk = participant2.topology.owner_to_key_mappings
+          .list(daId, filterKeyOwnerUid = participant2.id.filterString)
+          .loneElement
+
+        val signingKey = participant2.keys.secret
+          .generate_signing_key("authorized-store-test", usage = Set(Protocol))
+
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          participant2.topology.owner_to_key_mappings.propose(
+            existingOtk.item.copy(keys = existingOtk.item.keys :+ signingKey),
+            serial = existingOtk.context.serial.increment,
+            // explicitly only sign with the namespace key, but not the signing key
+            signedBy = Seq(participant2.fingerprint),
+            store = daId,
+          ),
+          _.shouldBeCantonError(
+            TopologyManagerError.UnauthorizedTransaction,
+            _ should include("Not authorized"),
+          ),
+          _.errorMessage should include("Please contact the operator"),
+        )
+      }
+
+    }
+
   }
 }

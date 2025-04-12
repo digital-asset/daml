@@ -12,6 +12,10 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 
 import scala.concurrent.ExecutionContext
 
@@ -23,8 +27,8 @@ class TopologyTransactionTestFactory(
 
   import SigningKeys.*
 
-  def createNs(ns: Namespace, key: SigningPublicKey, isRootDelegation: Boolean) =
-    NamespaceDelegation.tryCreate(ns, key, isRootDelegation)
+  def createNs(ns: Namespace, key: SigningPublicKey, delegationRestriction: DelegationRestriction) =
+    NamespaceDelegation.tryCreate(ns, key, delegationRestriction)
 
   val ns1 = Namespace(key1.fingerprint)
   val ns1_unsupportedSpec = Namespace(key1_unsupportedSpec.fingerprint)
@@ -44,25 +48,25 @@ class TopologyTransactionTestFactory(
   val party6 = PartyId(uid6)
   val participant1 = ParticipantId(uid1a)
   val participant6 = ParticipantId(uid6)
-  val ns1k1_k1 = mkAdd(createNs(ns1, key1, isRootDelegation = true), key1)
+  val ns1k1_k1 = mkAdd(createNs(ns1, key1, CanSignAllMappings), key1)
   val ns1k1_k1_unsupportedScheme =
     mkAdd(
-      createNs(ns1_unsupportedSpec, key1_unsupportedSpec, isRootDelegation = true),
+      createNs(ns1_unsupportedSpec, key1_unsupportedSpec, CanSignAllMappings),
       key1_unsupportedSpec,
     )
-  val ns1k2_k1 = mkAdd(createNs(ns1, key2, isRootDelegation = true), key1)
-  val ns1k2_k1p = mkAdd(createNs(ns1, key2, isRootDelegation = true), key1)
-  val ns1k3_k2 = mkAdd(createNs(ns1, key3, isRootDelegation = false), key2)
-  val ns1k8_k3_fail = mkAdd(createNs(ns1, key8, isRootDelegation = false), key3)
-  val ns2k2_k2 = mkAdd(createNs(ns2, key2, isRootDelegation = true), key2)
-  val ns3k3_k3 = mkAdd(createNs(ns3, key3, isRootDelegation = true), key3)
-  val ns6k3_k6 = mkAdd(createNs(ns6, key3, isRootDelegation = false), key6)
-  val ns6k6_k6 = mkAdd(createNs(ns6, key6, isRootDelegation = true), key6)
-  val id1ak4_k1 = mkAdd(IdentifierDelegation(uid1a, key4), key1)
-  val id1ak4_k2 = mkAdd(IdentifierDelegation(uid1a, key4), key2)
-  val id1ak6_k4 = mkAdd(IdentifierDelegation(uid1a, key6), key4)
+  val ns1k2_k1 = mkAdd(createNs(ns1, key2, CanSignAllMappings), key1)
+  val ns1k2_k1p = mkAdd(createNs(ns1, key2, CanSignAllMappings), key1)
+  val ns1k3_k2 = mkAdd(createNs(ns1, key3, CanSignAllButNamespaceDelegations), key2)
+  val ns1k8_k3_fail = mkAdd(createNs(ns1, key8, CanSignAllButNamespaceDelegations), key3)
+  val ns2k2_k2 = mkAdd(createNs(ns2, key2, CanSignAllMappings), key2)
+  val ns3k3_k3 = mkAdd(createNs(ns3, key3, CanSignAllMappings), key3)
+  val ns6k3_k6 = mkAdd(createNs(ns6, key3, CanSignAllButNamespaceDelegations), key6)
+  val ns6k6_k6 = mkAdd(createNs(ns6, key6, CanSignAllMappings), key6)
+  val id1ak4_k1 = mkAdd(IdentifierDelegation.tryCreate(uid1a, key4), key1)
+  val id1ak4_k2 = mkAdd(IdentifierDelegation.tryCreate(uid1a, key4), key2)
+  val id1ak6_k4 = mkAdd(IdentifierDelegation.tryCreate(uid1a, key6), key4)
 
-  val id6k4_k1 = mkAdd(IdentifierDelegation(uid6, key4), key1)
+  val id6k4_k1 = mkAdd(IdentifierDelegation.tryCreate(uid6, key4), key1)
 
   val okm1ak5k1E_k2 =
     mkAddMultiKey(
@@ -171,9 +175,9 @@ class TopologyTransactionTestFactory(
     key1,
   )
 
-  val ns7k7_k7 = mkAdd(createNs(ns7, key7, isRootDelegation = true), key7)
-  val ns8k8_k8 = mkAdd(createNs(ns8, key8, isRootDelegation = true), key8)
-  val ns9k9_k9 = mkAdd(createNs(ns9, key9, isRootDelegation = true), key9)
+  val ns7k7_k7 = mkAdd(createNs(ns7, key7, CanSignAllMappings), key7)
+  val ns8k8_k8 = mkAdd(createNs(ns8, key8, CanSignAllMappings), key8)
+  val ns9k9_k9 = mkAdd(createNs(ns9, key9, CanSignAllMappings), key9)
 
   val dns1 = mkAddMultiKey(
     DecentralizedNamespaceDefinition
@@ -191,7 +195,8 @@ class TopologyTransactionTestFactory(
     serial = PositiveInt.two,
   )
   val dns1Idd = mkAddMultiKey(
-    IdentifierDelegation(UniqueIdentifier.tryCreate("test", dns1.mapping.namespace), key4),
+    IdentifierDelegation
+      .tryCreate(UniqueIdentifier.tryCreate("test", dns1.mapping.namespace), key4),
     NonEmpty(Set, key1, key8, key9),
   )
   val dns2 = mkAdd(

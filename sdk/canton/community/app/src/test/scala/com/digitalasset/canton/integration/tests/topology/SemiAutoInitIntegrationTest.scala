@@ -19,6 +19,10 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{Namespace, UniqueIdentifier}
 import com.digitalasset.canton.util.SingleUseCell
@@ -157,7 +161,7 @@ class SemiAutoInitIntegrationTest
     val rootNd = offsite.topology.namespace_delegations.propose_delegation(
       Namespace(rootKey.id),
       rootKey,
-      isRootDelegation = true,
+      CanSignAllMappings,
       store = storeId,
       mustFullyAuthorize = true,
     )
@@ -165,7 +169,7 @@ class SemiAutoInitIntegrationTest
     val intermediateNd = offsite.topology.namespace_delegations.propose_delegation(
       Namespace(rootKey.id),
       intermediateKey,
-      isRootDelegation = false,
+      CanSignAllButNamespaceDelegations,
       store = storeId,
       mustFullyAuthorize = true,
     )

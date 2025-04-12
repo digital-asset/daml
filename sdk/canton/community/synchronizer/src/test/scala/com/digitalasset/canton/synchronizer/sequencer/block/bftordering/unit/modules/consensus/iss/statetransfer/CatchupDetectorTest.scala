@@ -22,23 +22,27 @@ class CatchupDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
     catchupDetector.updateLatestKnownNodeEpoch(otherId, EpochNumber.First) shouldBe true
     catchupDetector.updateLatestKnownNodeEpoch(otherId, EpochNumber.First) shouldBe false
 
-    catchupDetector.shouldCatchUp(localEpoch = EpochNumber.First) shouldBe false
+    catchupDetector.shouldCatchUpTo(localEpoch = EpochNumber.First) shouldBe None
 
     catchupDetector.updateLatestKnownNodeEpoch(otherId, EpochNumber(1)) shouldBe true
     catchupDetector.updateLatestKnownNodeEpoch(otherId, EpochNumber.First) shouldBe false
 
-    catchupDetector.shouldCatchUp(localEpoch = EpochNumber.First) shouldBe false
+    catchupDetector.shouldCatchUpTo(localEpoch = EpochNumber.First) shouldBe None
 
-    catchupDetector.updateLatestKnownNodeEpoch(otherId, EpochNumber(2)) shouldBe true
+    val latestKnownNodeEpoch = EpochNumber(2)
+    catchupDetector.updateLatestKnownNodeEpoch(otherId, latestKnownNodeEpoch) shouldBe true
 
-    catchupDetector.shouldCatchUp(localEpoch = EpochNumber.First) shouldBe true
+    // -1 because the latest known epoch may be in progress
+    catchupDetector.shouldCatchUpTo(localEpoch = EpochNumber.First) shouldBe Some(
+      EpochNumber(latestKnownNodeEpoch - 1)
+    )
 
     val newMembership = Membership.forTesting(myId, otherNodes = Set.empty)
     catchupDetector.updateMembership(newMembership)
 
-    catchupDetector.updateLatestKnownNodeEpoch(otherId, EpochNumber(2)) shouldBe false
+    catchupDetector.updateLatestKnownNodeEpoch(otherId, latestKnownNodeEpoch) shouldBe false
 
-    catchupDetector.shouldCatchUp(localEpoch = EpochNumber.First) shouldBe false
+    catchupDetector.shouldCatchUpTo(localEpoch = EpochNumber.First) shouldBe None
   }
 }
 

@@ -314,6 +314,11 @@ class MultipleMediatorsIntegrationTest
 
         sequencer1.topology.mediators.remove_group(daId, NonNegativeInt.zero)
 
+        eventually() {
+          participant1.topology.mediators
+            .list(daId, group = Some(NonNegativeInt.one)) shouldBe empty
+        }
+
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           createCycleContract(participant1, participant1.adminParty, "no-mediator-on-synchronizer"),
           _.errorMessage should include(SynchronizerWithoutMediatorError.code.id),
@@ -326,6 +331,10 @@ class MultipleMediatorsIntegrationTest
           PositiveInt.one,
           active = Seq(mediator2),
         )
+        eventually() {
+          participant1.topology.mediators
+            .list(daId, group = Some(NonNegativeInt.one)) should not be empty
+        }
 
         createCycleContract(participant1, participant1.adminParty, "mediator-reactivated")
       }

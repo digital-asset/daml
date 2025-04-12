@@ -18,6 +18,10 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TopologyChangeOp}
 import com.digitalasset.canton.topology.{Namespace, PartyId}
 
@@ -135,14 +139,14 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.topology.namespace_delegations.propose_delegation(
         Namespace(ns.fingerprint),
         ns,
-        isRootDelegation = true,
+        CanSignAllMappings,
         synchronize = None,
       )
 
       participant1.topology.namespace_delegations.propose_delegation(
         Namespace(ns.fingerprint),
         ns2,
-        isRootDelegation = true,
+        CanSignAllMappings,
         signedBy = Seq(ns.fingerprint),
         synchronize = None,
       )
@@ -150,7 +154,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       participant1.topology.namespace_delegations.propose_delegation(
         Namespace(ns.fingerprint),
         ns3,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
         signedBy = Seq(ns2.fingerprint),
         synchronize = None,
       )
@@ -194,15 +198,17 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
         participant1.parties.list("indirect").headOption.valueOrFail("must be there").party
 
       // add new chains
-      Seq((newNS2Key, ns, true), (newNS3Key, newNS2Key, false)).foreach {
-        case (newKey, signedBy, isRootDelegation) =>
-          participant1.topology.namespace_delegations.propose_delegation(
-            Namespace(ns.fingerprint),
-            newKey,
-            isRootDelegation = isRootDelegation,
-            signedBy = Seq(signedBy.fingerprint),
-            synchronize = None,
-          )
+      Seq(
+        (newNS2Key, ns, CanSignAllMappings),
+        (newNS3Key, newNS2Key, CanSignAllButNamespaceDelegations),
+      ).foreach { case (newKey, signedBy, delegationRestriction) =>
+        participant1.topology.namespace_delegations.propose_delegation(
+          Namespace(ns.fingerprint),
+          newKey,
+          delegationRestriction,
+          signedBy = Seq(signedBy.fingerprint),
+          synchronize = None,
+        )
       }
 
       // add new identifier delegation

@@ -24,7 +24,7 @@ import scala.util.{Failure, Success, Try}
 // and wait for a corresponding message to be returned on a separate stream.
 //
 // The result stream must initially be instrumented to call `onStreamItem` on each item returned.
-// Thereafter `track` may be called, passing the initiatiating action and a key, and returning a Future.
+// Thereafter `track` may be called, passing the initiating action and a key, and returning a Future.
 // The Future will return the first subsequent stream item which corresponds to the tracked key.
 trait StreamTracker[K, I] extends AutoCloseable {
   def track(

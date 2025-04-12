@@ -192,7 +192,12 @@ final class IssConsensusModule[E <: Env[E]](
               activeTopologyInfo.currentMembership,
               activeTopologyInfo.currentCryptoProvider,
             )
-            startStateTransfer(startEpochInfo.number, StateTransferType.Onboarding)
+            startStateTransfer(
+              startEpochInfo.number,
+              StateTransferType.Onboarding,
+              // We only know the minimum end epoch when receiving it from the catchup detector.
+              minimumEndEpochNumber = None,
+            )
 
           case BootstrapKind.RegularStartup =>
             logger.debug(
@@ -727,12 +732,13 @@ final class IssConsensusModule[E <: Env[E]](
   ): Boolean = {
     val currentEpochNumber = epochState.epoch.info.number
     val latestCompletedEpochNumber = latestCompletedEpoch.info.number
-    if (updatedEpoch && catchupDetector.shouldCatchUp(currentEpochNumber)) {
+    val minimumEndEpochNumber = catchupDetector.shouldCatchUpTo(currentEpochNumber)
+    if (updatedEpoch && minimumEndEpochNumber.isDefined) {
       logger.debug(
-        s"Switching to catch-up state transfer while in epoch $currentEpochNumber; latestCompletedEpoch is "
-          + s"$latestCompletedEpochNumber and message epoch is $pbftMessageEpochNumber"
+        s"Switching to catch-up state transfer (up to at least $minimumEndEpochNumber) while in epoch $currentEpochNumber; " +
+          s"latestCompletedEpoch is $latestCompletedEpochNumber and message epoch is $pbftMessageEpochNumber"
       )
-      startStateTransfer(currentEpochNumber, StateTransferType.Catchup)
+      startStateTransfer(currentEpochNumber, StateTransferType.Catchup, minimumEndEpochNumber)
       true
     } else {
       false
@@ -742,12 +748,14 @@ final class IssConsensusModule[E <: Env[E]](
   private def startStateTransfer(
       startEpochNumber: EpochNumber,
       stateTransferType: StateTransferType,
+      minimumEndEpochNumber: Option[EpochNumber],
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
     logger.info(s"Starting $stateTransferType state transfer from epoch $startEpochNumber")
     val newBehavior = new StateTransferBehavior(
       epochLength,
       StateTransferBehavior.InitialState[E](
         startEpochNumber,
+        minimumEndEpochNumber,
         activeTopologyInfo,
         epochState,
         latestCompletedEpoch,

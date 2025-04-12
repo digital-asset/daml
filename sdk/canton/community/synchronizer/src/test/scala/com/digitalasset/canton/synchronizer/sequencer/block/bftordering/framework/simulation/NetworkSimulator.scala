@@ -125,7 +125,7 @@ class NetworkSimulator(
   private var canUseFaults = true
 
   def tick(): Unit = if (canUseFaults) {
-    partitionState = partitionState.tick(nodes, settings, clock, random)
+    partitionState = partitionState.tick(topology.activeNodes, settings, clock, random)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Return"))
@@ -175,7 +175,4 @@ class NetworkSimulator(
     canUseFaults = false
     partitionState = NetworkSimulatorState.NoCurrentPartition(clock.now)
   }
-
-  private def nodes =
-    topology.activeSequencersToMachines.view.keySet.toSet
 }

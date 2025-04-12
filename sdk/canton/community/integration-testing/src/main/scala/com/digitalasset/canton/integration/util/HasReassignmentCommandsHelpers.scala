@@ -47,7 +47,7 @@ trait HasReassignmentCommandsHelpers {
     )
     participant.ledger_api.commands.submit_unassign_async(
       submitter = submittingParty,
-      contractId = cid,
+      contractIds = Seq(cid),
       source = source,
       target = target,
       commandId = commandId,

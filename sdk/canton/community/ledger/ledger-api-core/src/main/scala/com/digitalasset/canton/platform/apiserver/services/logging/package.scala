@@ -48,6 +48,9 @@ package object logging {
   private[services] def readAs(partyNames: Iterable[Party]): LoggingEntry =
     "readAs" -> partyNames
 
+  private[services] def submitter(id: String): LoggingEntry =
+    "submitter" -> id
+
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private[services] def readAsStrings(partyNames: Iterable[String]): LoggingEntry =
     readAs(partyNames.asInstanceOf[Iterable[Party]])

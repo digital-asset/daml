@@ -4,14 +4,12 @@
 package com.digitalasset.canton.lifecycle
 
 import cats.data.EitherT
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{Checked, CheckedT}
 
-import java.util.concurrent.atomic.AtomicReference
-import scala.collection.immutable.MultiSet
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
@@ -27,17 +25,17 @@ import scala.util.control.NonFatal
   * @see
   *   FlagCloseable does expose the [[java.lang.AutoCloseable.close]] method.
   */
-trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
-  import PerformUnlessClosing.*
-
+trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReaders {
+  this: AutoCloseable =>
   protected def closingTimeout: FiniteDuration
 
-  /** Poor man's read-write lock; stores the number of tasks holding the read lock. If a write lock
-    * is held, this goes to -1. Not using Java's ReadWriteLocks since they are about thread
-    * synchronization, and since we can't count on acquires and releases happening on the same
-    * thread, since we support the synchronization of futures.
+  /** Set this to true to get detailed information about all futures that did not complete during
+    * shutdown.
     */
-  private val readerState = new AtomicReference(ReaderState.empty)
+  override protected[this] def keepTrackOfReaderCallStack: Boolean = false
+  override protected[this] def synchronizeWithClosingPatience: FiniteDuration = closingTimeout
+
+  override protected[this] def nameInternal: String = this.getClass.getSimpleName
 
   /** How often to poll to check that all tasks have completed. */
   protected def maxSleepMillis: Long = 500
@@ -58,15 +56,17 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
   def performUnlessClosing[A](
       name: String
   )(f: => A)(implicit traceContext: TraceContext): UnlessShutdown[A] =
-    if (isClosing || !addReader(name)) {
-      logger.debug(s"Won't schedule the task '$name' as this object is closing")
-      UnlessShutdown.AbortedDueToShutdown
-    } else
-      try {
-        UnlessShutdown.Outcome(f)
-      } finally {
-        removeReader(name)
-      }
+    this.addReader(name) match {
+      case UnlessShutdown.Outcome(handle) =>
+        try {
+          UnlessShutdown.Outcome(f)
+        } finally {
+          this.removeReader(handle)
+        }
+      case AbortedDueToShutdown =>
+        logger.debug(s"Won't schedule the task '$name' as this object is closing")
+        UnlessShutdown.AbortedDueToShutdown
+    }
 
   /** Performs the Future given by `f` unless a shutdown has been initiated. The future is lazy and
     * not evaluated during shutdown. The shutdown will only begin after `f` completes, but other
@@ -92,15 +92,14 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
   def performUnlessClosingUSF[A](name: String)(
       f: => FutureUnlessShutdown[A]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[A] =
-    if (isClosing || !addReader(name)) {
-      logger.debug(s"Won't schedule the future '$name' as this object is closing")
-      FutureUnlessShutdown.abortedDueToShutdown
-    } else {
-      val fut = Try(f).fold(FutureUnlessShutdown.failed[A], x => x).thereafter { _ =>
-        removeReader(name)
-      }
-      trackFuture(fut.unwrap)
-      fut
+    this.addReader(name) match {
+      case UnlessShutdown.Outcome(handle) =>
+        Try(f).fold(FutureUnlessShutdown.failed[A], x => x).thereafter { _ =>
+          this.removeReader(handle)
+        }
+      case AbortedDueToShutdown =>
+        logger.debug(s"Won't schedule the future '$name' as this object is closing")
+        FutureUnlessShutdown.abortedDueToShutdown
     }
 
   /** Use this method if closing/shutdown of the object should wait for asynchronous computation to
@@ -118,16 +117,18 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
   )(
       asyncResultToWaitForF: A => FutureUnlessShutdown[?]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): FutureUnlessShutdown[A] =
-    if (isClosing || !addReader(name)) {
-      logger.debug(s"Won't schedule the future '$name' as this object is closing")
-      FutureUnlessShutdown.abortedDueToShutdown
-    } else {
-      val fut = Try(f).fold(FutureUnlessShutdown.failed[A], identity)
-      val asyncF = fut
-        .flatMap(asyncResultToWaitForF)
-        .thereafter(_ => removeReader(name))
-      trackFuture(asyncF.unwrap)
-      fut
+    this.addReader(name) match {
+      case UnlessShutdown.Outcome(handle) =>
+        val fut = Try(f).fold(FutureUnlessShutdown.failed[A], identity)
+        fut
+          .flatMap(asyncResultToWaitForF)
+          .thereafter(_ => this.removeReader(handle))
+          // TODO(#16601) Do not discard a future here
+          .discard
+        fut
+      case AbortedDueToShutdown =>
+        logger.debug(s"Won't schedule the future '$name' as this object is closing")
+        FutureUnlessShutdown.abortedDueToShutdown
     }
 
   /** Performs the EitherT[Future] given by `etf` unless a shutdown has been initiated, in which
@@ -208,29 +209,6 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
       )
     )
 
-  /** track running futures on shutdown
-    *
-    * set to true to get detailed information about all futures that did not complete during
-    * shutdown. if set to false, we don't do anything.
-    */
-  protected def keepTrackOfOpenFutures: Boolean = false
-
-  private val scheduled = new AtomicReference[Seq[RunningFuture]](Seq())
-
-  private def trackFuture(fut: Future[Any])(implicit executionContext: ExecutionContext): Unit =
-    if (keepTrackOfOpenFutures) {
-      val ex = new Exception("location")
-      Future {
-        scheduled
-          .updateAndGet(x => x.filterNot(_.fut.isCompleted) :+ RunningFuture(fut, ex))
-      }.discard
-    }
-
-  private def dumpRunning()(implicit traceContext: TraceContext): Unit =
-    scheduled.updateAndGet(x => x.filterNot(_.fut.isCompleted)).foreach { cur =>
-      logger.debug("Future created from here is still running", cur.location)
-    }
-
   protected def onClosed(): Unit = ()
 
   protected def onCloseFailure(e: Throwable): Unit = throw e
@@ -241,73 +219,11 @@ trait PerformUnlessClosing extends OnShutdownRunner { this: AutoCloseable =>
   final override def onFirstClose(): Unit = {
     import TraceContext.Implicits.Empty.*
 
-    /* closingFlag has already been set to true. This ensures that we can shut down cleanly, unless one of the
-       readers takes longer to complete than the closing timeout. After the flag is set to true, the readerCount
-       can only decrease (since it only increases in performUnlessClosingF, and since the || there short-circuits).
-     */
-    // Poll for tasks to finish. Inefficient, but we're only doing this during shutdown.
-    val deadline = closingTimeout.fromNow
-    var sleepMillis = 1L
-    while (
-      (readerState.getAndUpdate { current =>
-        if (current == ReaderState.empty) {
-          current.copy(count = -1)
-        } else current
-      }.count != 0) && deadline.hasTimeLeft()
-    ) {
-      val readers = readerState.get()
-      logger.debug(
-        s"${readers.count} active tasks (${readers.readers.mkString(",")}) preventing closing; sleeping for ${sleepMillis}ms"
-      )
-      Threading.sleep(sleepMillis)
-      sleepMillis = (sleepMillis * 2) min maxSleepMillis min deadline.timeLeft.toMillis
-    }
-    if (readerState.get.count >= 0) {
-      logger.warn(
-        s"Timeout $closingTimeout expired, but tasks still running. $forceShutdownStr"
-      )
-      dumpRunning()
-    }
-    if (keepTrackOfOpenFutures) {
-      logger.warn("Tracking of open futures is enabled, but this is only meant for debugging!")
-    }
+    this.synchronizeWithReaders().discard[Boolean]
     try {
       onClosed()
     } catch {
       case NonFatal(e) => onCloseFailure(e)
     }
   }
-
-  private def addReader(reader: String): Boolean =
-    (readerState.updateAndGet { case state @ ReaderState(cnt, readers) =>
-      if (cnt == Int.MaxValue)
-        throw new IllegalStateException("Overflow on active reader locks")
-      if (cnt >= 0) {
-        ReaderState(cnt + 1, readers + reader)
-      } else state
-    }).count > 0
-
-  private def removeReader(reader: String): Unit = {
-    val _ = readerState.updateAndGet { case ReaderState(cnt, readers) =>
-      if (cnt <= 0)
-        throw new IllegalStateException("No active readers, but still trying to deactivate one")
-      ReaderState(cnt - 1, readers - reader)
-    }
-  }
-}
-
-object PerformUnlessClosing {
-
-  /** Logged upon forced shutdown. Pulled out a string here so that test log checking can refer to
-    * it.
-    */
-  val forceShutdownStr = "Shutting down forcibly"
-
-  private final case class ReaderState(count: Int, readers: MultiSet[String])
-
-  private object ReaderState {
-    val empty: ReaderState = ReaderState(0, MultiSet.empty)
-  }
-
-  private final case class RunningFuture(fut: Future[Any], location: Exception)
 }

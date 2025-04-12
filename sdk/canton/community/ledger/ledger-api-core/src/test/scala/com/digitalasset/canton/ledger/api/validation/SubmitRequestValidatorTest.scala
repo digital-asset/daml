@@ -17,7 +17,6 @@ import com.daml.ledger.api.v2.value.{
 }
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.ApiMocks.{commandId, submissionId, userId, workflowId}
-import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ApiMocks, Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
@@ -235,7 +234,7 @@ class SubmitRequestValidatorTest
           currentLedgerTime = internal.ledgerTime,
           currentUtcTime = internal.submittedAt,
           maxDeduplicationDuration = internal.maxDeduplicationDuration,
-        ) shouldEqual Right(SubmitRequest(internal.emptyCommands))
+        ) shouldEqual Right(())
       }
 
       "validate a request with empty by party and any party filters" in {

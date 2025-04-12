@@ -81,7 +81,8 @@ object ApiServiceOwner {
       participantId: Ref.ParticipantId,
       // objects
       indexService: IndexService,
-      submissionTracker: SubmissionTracker,
+      transactionSubmissionTracker: SubmissionTracker,
+      reassignmentSubmissionTracker: SubmissionTracker,
       partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
@@ -166,7 +167,8 @@ object ApiServiceOwner {
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static
           ),
-        submissionTracker = submissionTracker,
+        transactionSubmissionTracker = transactionSubmissionTracker,
+        reassignmentSubmissionTracker = reassignmentSubmissionTracker,
         partyAllocationTracker = partyAllocationTracker,
         commandProgressTracker = commandProgressTracker,
         commandConfig = command,

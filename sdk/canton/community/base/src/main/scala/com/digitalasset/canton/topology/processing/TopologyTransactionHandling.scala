@@ -4,25 +4,18 @@
 package com.digitalasset.canton.topology.processing
 
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.TopologyStateProcessor
 import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.transaction.{
-  SynchronizerParametersState,
-  TopologyChangeOp,
-  ValidatingTopologyMappingChecks,
-}
+import com.digitalasset.canton.topology.transaction.{SynchronizerParametersState, TopologyChangeOp}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
 import scala.concurrent.ExecutionContext
 
-class TopologyTransactionHandling(
-    insecureIgnoreMissingExtraKeySignatures: Boolean,
-    pureCrypto: SynchronizerCryptoPureApi,
-    store: TopologyStore[TopologyStoreId.SynchronizerStore],
+abstract class TopologyTransactionHandling(
+    store: TopologyStore[TopologyStoreId],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -31,14 +24,7 @@ class TopologyTransactionHandling(
   protected val timeAdjuster =
     new TopologyTimestampPlusEpsilonTracker(store, timeouts, loggerFactory)
 
-  protected val stateProcessor = new TopologyStateProcessor(
-    store,
-    None,
-    new ValidatingTopologyMappingChecks(store, loggerFactory),
-    insecureIgnoreMissingExtraKeySignatures = insecureIgnoreMissingExtraKeySignatures,
-    pureCrypto,
-    loggerFactory,
-  )
+  protected def stateProcessor: TopologyStateProcessor
 
   protected def inspectAndAdvanceTopologyTransactionDelay(
       effectiveTimestamp: EffectiveTime,

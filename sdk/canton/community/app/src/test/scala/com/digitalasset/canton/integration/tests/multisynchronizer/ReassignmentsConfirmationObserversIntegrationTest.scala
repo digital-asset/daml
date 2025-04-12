@@ -223,7 +223,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       // Unassignment
       val unassignId =
         participant1.ledger_api.commands
-          .submit_unassign(signatory, iou.id.toLf, daId, acmeId)
+          .submit_unassign(signatory, Seq(iou.id.toLf), daId, acmeId)
           .unassignId
       val reassignmentId =
         ReassignmentId(Source(daId), CantonTimestamp.fromProtoPrimitive(unassignId.toLong).value)
@@ -280,7 +280,7 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
 
       val unassignId =
         participant1.ledger_api.commands
-          .submit_unassign(signatory, iou.id.toLf, daId, acmeId)
+          .submit_unassign(signatory, Seq(iou.id.toLf), daId, acmeId)
           .unassignId
 
       participant1.ledger_api.commands.submit_assign(signatory, unassignId, daId, acmeId)

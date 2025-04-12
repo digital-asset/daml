@@ -7,10 +7,10 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.TopologyStateProcessor
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
@@ -18,7 +18,12 @@ import com.digitalasset.canton.topology.store.{
   TopologyStore,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.{TopologyChangeOp, TopologyMapping}
+import com.digitalasset.canton.topology.transaction.{
+  SignedTopologyTransaction,
+  TopologyChangeOp,
+  TopologyMapping,
+  ValidatingTopologyMappingChecks,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.MonadUtil.syntax.*
@@ -42,22 +47,25 @@ import scala.concurrent.ExecutionContext
   * Any inconsistency between the topology snapshot and the outcome of the validation is reported.
   */
 class InitialTopologySnapshotValidator(
-    synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    pureCrypto: SynchronizerCryptoPureApi,
-    store: TopologyStore[TopologyStoreId.SynchronizerStore],
-    insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean,
+    pureCrypto: CryptoPureApi,
+    store: TopologyStore[TopologyStoreId],
     timeouts: ProcessingTimeout,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TopologyTransactionHandling(
-      insecureIgnoreMissingExtraKeySignatures =
-        insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
-      pureCrypto,
       store,
       timeouts,
       loggerFactory,
     ) {
+
+  override protected lazy val stateProcessor: TopologyStateProcessor =
+    TopologyStateProcessor.forInitialSnapshotValidation(
+      store,
+      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      pureCrypto,
+      loggerFactory,
+    )
 
   /** Runs the topology snapshot through the normal processing/validation pipeline of the
     * TopologyStateProcessor.
@@ -163,7 +171,7 @@ class InitialTopologySnapshotValidator(
     )
 
     logger.debug(
-      s"Validating ${finalSnapshot.result.size}/${initialSnapshot.result.size} transactions to initialize the topology store for synchronizer $synchronizerId"
+      s"Validating ${finalSnapshot.result.size}/${initialSnapshot.result.size} transactions to initialize the topology store ${store.storeId}"
     )
     val groupedBySequencedTime: Seq[
       (
@@ -227,6 +235,10 @@ class InitialTopologySnapshotValidator(
               effectiveTime,
               storedTxs.map(_.transaction),
               expectFullAuthorization = false,
+              // when validating the initial snapshot, missing signing key signatures are only
+              // acceptable, if the transaction was part of the genesis topology snapshot
+              transactionMayHaveMissingSigningKeySignatures =
+                sequenced.value == SignedTopologyTransaction.InitialTopologySequencingTime,
               // The snapshot might contain transactions that only add additional
               // signatures. Since the genesis snapshot usually has all transactions at the same timestamp
               // and we compare the provided snapshot with what is stored one-by-one,

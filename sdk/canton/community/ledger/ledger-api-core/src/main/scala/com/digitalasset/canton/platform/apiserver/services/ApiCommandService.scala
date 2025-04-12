@@ -6,6 +6,8 @@ package com.digitalasset.canton.platform.apiserver.services
 import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService as CommandServiceGrpc
 import com.daml.ledger.api.v2.commands.Commands
+import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommands
+import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.services.CommandService
@@ -50,6 +52,11 @@ class ApiCommandService(
   ): Future[SubmitAndWaitForTransactionResponse] =
     enrichRequestAndSubmit(request = request)(service.submitAndWaitForTransaction)
 
+  override def submitAndWaitForReassignment(
+      request: SubmitAndWaitForReassignmentRequest
+  ): Future[SubmitAndWaitForReassignmentResponse] =
+    enrichRequestAndSubmit(request = request)(service.submitAndWaitForReassignment)
+
   override def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionTreeResponse] =
@@ -63,7 +70,7 @@ class ApiCommandService(
   private def enrichRequestAndSubmit[T](
       request: SubmitAndWaitRequest
   )(submit: SubmitAndWaitRequest => LoggingContextWithTrace => Future[T]): Future[T] = {
-    val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
+    val traceContext = getAnnotatedCommandTraceContext(request.commands, telemetry)
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(traceContext)
     val requestWithSubmissionId =
@@ -82,12 +89,14 @@ class ApiCommandService(
       )
   }
 
-  private def enrichRequestAndSubmit[T](
+  private def enrichRequestAndSubmit(
       request: SubmitAndWaitForTransactionRequest
   )(
-      submit: SubmitAndWaitForTransactionRequest => LoggingContextWithTrace => Future[T]
-  ): Future[T] = {
-    val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
+      submit: SubmitAndWaitForTransactionRequest => LoggingContextWithTrace => Future[
+        SubmitAndWaitForTransactionResponse
+      ]
+  ): Future[SubmitAndWaitForTransactionResponse] = {
+    val traceContext = getAnnotatedCommandTraceContext(request.commands, telemetry)
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(traceContext)
     val requestWithSubmissionId =
@@ -103,10 +112,62 @@ class ApiCommandService(
         t =>
           Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
         _ => submit(requestWithSubmissionId)(loggingContext),
+      )
+  }
+
+  private def enrichRequestAndSubmit(
+      request: SubmitAndWaitForReassignmentRequest
+  )(
+      submit: SubmitAndWaitForReassignmentRequest => LoggingContextWithTrace => Future[
+        SubmitAndWaitForReassignmentResponse
+      ]
+  ): Future[SubmitAndWaitForReassignmentResponse] = {
+    val traceContext =
+      getAnnotatedReassignmentCommandTraceContext(request.reassignmentCommands, telemetry)
+    implicit val loggingContext: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory)(traceContext)
+    val requestWithSubmissionId =
+      request.update(_.optionalReassignmentCommands.modify(generateSubmissionIdIfEmptyReassignment))
+    validator
+      .validate(
+        requestWithSubmissionId
+      )(errorLoggingContext(requestWithSubmissionId))
+      .fold(
+        t =>
+          Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
+        _ =>
+          requestWithSubmissionId.eventFormat match {
+            case Some(_) =>
+              submit(requestWithSubmissionId)(loggingContext)
+            case None =>
+              // request reassignment for all parties and remove the events
+              submit(
+                requestWithSubmissionId.copy(eventFormat =
+                  Some(
+                    EventFormat(
+                      filtersByParty = Map.empty,
+                      filtersForAnyParty = Some(Filters(Nil)),
+                      verbose = false,
+                    )
+                  )
+                )
+              )(
+                loggingContext
+              ).map(_.update(_.reassignment.modify(_.clearEvents)))
+          },
       )
   }
 
   private def generateSubmissionIdIfEmpty(commands: Option[Commands]): Option[Commands] =
+    if (commands.exists(_.submissionId.isEmpty)) {
+      commands.map(_.copy(submissionId = generateSubmissionId.generate()))
+    } else {
+      commands
+    }
+
+  private def generateSubmissionIdIfEmptyReassignment(
+      commands: Option[ReassignmentCommands]
+  ): Option[ReassignmentCommands] =
     if (commands.exists(_.submissionId.isEmpty)) {
       commands.map(_.copy(submissionId = generateSubmissionId.generate()))
     } else {
@@ -122,4 +183,13 @@ class ApiCommandService(
       loggingContext: LoggingContextWithTrace
   ) =
     ErrorLoggingContext.fromOption(logger, loggingContext, request.commands.map(_.submissionId))
+
+  private def errorLoggingContext(request: SubmitAndWaitForReassignmentRequest)(implicit
+      loggingContext: LoggingContextWithTrace
+  ) =
+    ErrorLoggingContext.fromOption(
+      logger,
+      loggingContext,
+      request.reassignmentCommands.map(_.submissionId),
+    )
 }

@@ -16,7 +16,9 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
+import com.daml.ledger.api.v2.reassignment_commands.{ReassignmentCommand, ReassignmentCommands}
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
+import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   Submitters,
@@ -26,6 +28,7 @@ import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.command.*
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.value.Value as Lf
@@ -38,6 +41,7 @@ import scalaz.syntax.tag.*
 import java.time.{Duration, Instant}
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable
+import scala.util.Try
 
 final class CommandsValidator(
     validateDisclosedContracts: ValidateDisclosedContracts,
@@ -180,6 +184,64 @@ final class CommandsValidator(
         } else
           packageResolutions.packagePreferenceSet,
       prefetchKeys = prefetchKeys,
+    )
+
+  def validateReassignmentCommands(
+      reassignmentCommands: ReassignmentCommands
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[StatusRuntimeException, submission.SubmitReassignmentRequest] =
+    for {
+      submitter <- requirePartyField(reassignmentCommands.submitter, "submitter")
+      userId <- requireUserId(reassignmentCommands.userId, "user_id")
+      commandId <- requireCommandId(reassignmentCommands.commandId, "command_id")
+      submissionId <- requireSubmissionId(reassignmentCommands.submissionId, "submission_id")
+      workflowId <- validateOptional(Some(reassignmentCommands.workflowId).filter(_.nonEmpty))(
+        requireWorkflowId(_, "workflow_id")
+      )
+      reassignmentCommands <- reassignmentCommands.commands.traverse {
+        _.command match {
+          case ReassignmentCommand.Command.Empty =>
+            Left(ValidationErrors.missingField("command"))
+          case assignCommand: ReassignmentCommand.Command.AssignCommand =>
+            for {
+              sourceSynchronizerId <- requireSynchronizerId(assignCommand.value.source, "source")
+              targetSynchronizerId <- requireSynchronizerId(assignCommand.value.target, "target")
+              longUnassignId <- Try(assignCommand.value.unassignId.toLong).toEither.left.map(_ =>
+                ValidationErrors.invalidField("unassign_id", "Invalid unassign ID")
+              )
+              timestampUnassignId <- Time.Timestamp
+                .fromLong(longUnassignId)
+                .left
+                .map(_ => ValidationErrors.invalidField("unassign_id", "Invalid unassign ID"))
+            } yield Left(
+              submission.AssignCommand(
+                sourceSynchronizerId = Source(sourceSynchronizerId),
+                targetSynchronizerId = Target(targetSynchronizerId),
+                unassignId = timestampUnassignId,
+              )
+            )
+          case unassignCommand: ReassignmentCommand.Command.UnassignCommand =>
+            for {
+              sourceSynchronizerId <- requireSynchronizerId(unassignCommand.value.source, "source")
+              targetSynchronizerId <- requireSynchronizerId(unassignCommand.value.target, "target")
+              cid <- requireContractId(unassignCommand.value.contractId, "contract_id")
+            } yield Right(
+              submission.UnassignCommand(
+                sourceSynchronizerId = Source(sourceSynchronizerId),
+                targetSynchronizerId = Target(targetSynchronizerId),
+                contractId = cid,
+              )
+            )
+        }
+      }
+    } yield submission.SubmitReassignmentRequest(
+      submitter = submitter,
+      userId = userId,
+      commandId = commandId,
+      submissionId = submissionId,
+      workflowId = workflowId,
+      reassignmentCommands = reassignmentCommands,
     )
 
   def validateLedgerTime(

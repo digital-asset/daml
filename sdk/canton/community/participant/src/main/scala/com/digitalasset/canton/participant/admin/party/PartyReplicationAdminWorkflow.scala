@@ -129,61 +129,64 @@ class PartyReplicationAdminWorkflow(
       tx: Transaction,
       contract: M.partyreplication.PartyReplicationProposal.Contract,
   )(implicit traceContext: TraceContext): Unit = {
-    val synchronizerId = tx.synchronizerId
+    val synchronizerIdS = tx.synchronizerId
     logger.info(
-      s"Received party replication proposal ${contract.data.partyReplicationId} for party ${contract.data.partyId} on synchronizer $synchronizerId" +
+      s"Received party replication proposal ${contract.data.partyReplicationId} for party ${contract.data.partyId} on synchronizer $synchronizerIdS" +
         s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
     )
-    if (contract.data.sourceParticipant == participantId.adminParty.toProtoPrimitive) {
-      val validationET = for {
-        params <- EitherT.fromEither[FutureUnlessShutdown](
-          PartyReplicationProposalParams.fromDaml(contract.data, synchronizerId)
-        )
-        sequencerId <- partyReplicator.validatePartyReplicationProposalAtSourceParticipant(params)
-      } yield sequencerId
 
-      val commandResultF = for {
-        acceptOrReject <- validationET.fold(
-          err => {
-            logger.warn(err)
-            (
-              contract.id.exerciseReject(err).commands,
-              // Upon reject use the contract id as the party-replication-id might be invalid
-              s"proposal-reject-${contract.id.contractId}",
-            )
-          },
-          sequencerId =>
-            (
-              contract.id.exerciseAccept(sequencerId.uid.toProtoPrimitive).commands,
-              s"proposal-accept-${contract.data.partyReplicationId}",
-            ),
-        )
-        (exercise, commandId) = acceptOrReject
-        commandResult <- performUnlessClosingF(s"submit $commandId")(
-          retrySubmitter.submitCommands(
-            Commands(
-              workflowId = "",
-              userId = userId,
-              commandId = commandId,
-              commands = exercise.asScala.toSeq.map(LedgerClientUtils.javaCodegenToScalaProto),
-              deduplicationPeriod =
-                DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
-              minLedgerTimeAbs = None,
-              minLedgerTimeRel = None,
-              actAs = Seq(participantId.adminParty.toProtoPrimitive),
-              readAs = Nil,
-              submissionId = "",
-              disclosedContracts = Nil,
-              synchronizerId = synchronizerId,
-              packageIdSelectionPreference = Nil,
-              prefetchContractKeys = Nil,
-            ),
-            timeouts.default.asFiniteApproximation,
+    def respondToProposal(
+        eitherErrorOrSequencerId: Either[String, PartyReplicationAgreementParams]
+    ): Unit = {
+      val (exercise, commandId) = eitherErrorOrSequencerId.fold(
+        err => {
+          logger.warn(err)
+          (
+            contract.id.exerciseReject(err).commands,
+            // Upon reject use the contract id as the party-replication-id might be an invalid
+            // command id if the party replication proposal contract was created by hand.
+            s"proposal-reject-${contract.id.contractId}",
           )
+        },
+        agreementParams =>
+          (
+            contract.id.exerciseAccept(agreementParams.sequencerId.uid.toProtoPrimitive).commands,
+            s"proposal-accept-${contract.data.partyReplicationId}",
+          ),
+      )
+      val commandResultF = performUnlessClosingF(s"submit $commandId")(
+        retrySubmitter.submitCommands(
+          Commands(
+            workflowId = "",
+            userId = userId,
+            commandId = commandId,
+            commands = exercise.asScala.toSeq.map(LedgerClientUtils.javaCodegenToScalaProto),
+            deduplicationPeriod =
+              DeduplicationDuration(syncService.maxDeduplicationDuration.toProtoPrimitive),
+            minLedgerTimeAbs = None,
+            minLedgerTimeRel = None,
+            actAs = Seq(participantId.adminParty.toProtoPrimitive),
+            readAs = Nil,
+            submissionId = "",
+            disclosedContracts = Nil,
+            synchronizerId = synchronizerIdS,
+            packageIdSelectionPreference = Nil,
+            prefetchContractKeys = Nil,
+          ),
+          timeouts.default.asFiniteApproximation,
         )
-      } yield commandResult
+      )
+      superviseBackgroundSubmission(
+        s"Accept or reject proposal ${contract.data.partyReplicationId}",
+        commandResultF,
+      )
+    }
 
-      superviseBackgroundSubmission("Accept or reject proposal", commandResultF)
+    if (contract.data.sourceParticipant == participantId.adminParty.toProtoPrimitive) {
+      partyReplicator.processPartyReplicationProposalAtSourceParticipant(
+        PartyReplicationProposalParams.fromDaml(contract.data, synchronizerIdS),
+        respondToProposal,
+      )
     }
   }
 
@@ -191,25 +194,18 @@ class PartyReplicationAdminWorkflow(
       tx: Transaction,
       contract: M.partyreplication.PartyReplicationAgreement.Contract,
   )(implicit traceContext: TraceContext): Unit = {
-    val synchronizerId = tx.synchronizerId
     logger.info(
-      s"Received agreement for party ${contract.data.partyId} on synchronizer $synchronizerId" +
+      s"Received agreement for party ${contract.data.partyId} on synchronizer ${tx.synchronizerId}" +
         s" from source participant ${contract.data.sourceParticipant} to target participant ${contract.data.targetParticipant}"
     )
-
-    def processOrLogWarning(processAgreement: PartyReplicationAgreementParams => Unit): Unit =
-      PartyReplicationAgreementParams
-        .fromDaml(contract.data, synchronizerId)
-        .fold(
-          err => logger.warn(s"Failed to handle party replication agreement: $err"),
-          agreementParams => processAgreement(agreementParams),
-        )
-
     participantId.adminParty.toProtoPrimitive match {
-      case `contract`.data.sourceParticipant =>
-        processOrLogWarning(partyReplicator.processPartyReplicationAgreementAtSourceParticipant)
-      case `contract`.data.targetParticipant =>
-        processOrLogWarning(partyReplicator.processPartyReplicationAgreementAtTargetParticipant)
+      case `contract`.data.sourceParticipant | `contract`.data.targetParticipant =>
+        PartyReplicationAgreementParams
+          .fromDaml(contract.data, tx.synchronizerId)
+          .fold(
+            err => logger.warn(s"Malformed party replication agreement: $err"),
+            partyReplicator.processPartyReplicationAgreement,
+          )
       case nonStakeholder =>
         logger.warn(
           s"Received unexpected party replication agreement between source ${contract.data.sourceParticipant}" +
@@ -293,7 +289,7 @@ class PartyReplicationAdminWorkflow(
     // Note that we can not time out requests nicely here on shutdown as the admin
     // server is closed first, which means that our requests will never
     // return properly on shutdown abort.
-    LifeCycle.close(retrySubmitter, ledgerClient)(logger)
+    LifeCycle.close(partyReplicator, retrySubmitter, ledgerClient)(logger)
 
   private val retrySubmitter = new CommandSubmitterWithRetry(
     ledgerClient.commandService,

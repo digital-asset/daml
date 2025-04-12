@@ -156,7 +156,7 @@ sealed trait ReassignmentPruningIntegrationTest
     val unassignment =
       participant2.ledger_api.commands.submit_unassign(
         bank,
-        contractId.toLf,
+        Seq(contractId.toLf),
         origin,
         target,
         waitForParticipants = Map.apply(participant1 -> alice),

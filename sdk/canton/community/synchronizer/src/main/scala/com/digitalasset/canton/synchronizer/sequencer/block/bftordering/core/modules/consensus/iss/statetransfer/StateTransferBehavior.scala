@@ -64,8 +64,9 @@ import scala.util.{Failure, Random, Success}
   *     from the Output module (indicating that all relevant batches have been fetched).
   *   - Store both the completed epoch and the new (subsequent) epoch in the epoch store.
   *   - Repeat the process by requesting blocks from the next epoch.
-  *   - Once there is nothing to transfer, complete state transfer by transitioning to the default
-  *     [[IssConsensusModule]] behavior.
+  *   - Once there is nothing to transfer (and, if it's catch-up, a minimum end epoch has been
+  *     reached), complete state transfer by transitioning to the default [[IssConsensusModule]]
+  *     behavior.
   *
   * Crash Recovery: Since state transfer sequentially stores all new and completed epochs, it
   * inherits the crash-fault tolerance capabilities of the BFT orderer. Additionally, it still
@@ -260,9 +261,15 @@ final class StateTransferBehavior[E <: Env[E]](
       case StateTransferMessageResult.NothingToStateTransfer(from) =>
         val currentEpochNumber = epochState.epoch.info.number
         stateTransferManager.cancelTimeoutForEpoch(currentEpochNumber)
-        // TODO(#24717) transfer at least up to an epoch that triggered the catch-up to avoid potentially costly interruptions
         maybeLastReceivedEpochTopology match {
-          case None =>
+          // Transition back to consensus only if we transferred at least up to the minimum end epoch (if it's defined).
+          case Some(newEpochTopologyMessage)
+              if initialState.minimumStateTransferEndEpoch.forall(_ <= currentEpochNumber) =>
+            logger.info(
+              s"$messageType: nothing to state transfer for epoch $currentEpochNumber from '$from', completing state transfer"
+            )
+            transitionBackToConsensus(newEpochTopologyMessage)
+          case _ =>
             logger.info(
               s"$messageType: nothing to state transfer from '$from', while there should be at least one epoch to transfer; " +
                 s"likely reached out to a lagging-behind or malicious node, state-transferring epoch $currentEpochNumber again"
@@ -272,11 +279,6 @@ final class StateTransferBehavior[E <: Env[E]](
               activeTopologyInfo.currentMembership,
               initialState.topologyInfo.currentCryptoProvider, // used only for signing the request
             )(abort)
-          case Some(newEpochTopologyMessage) =>
-            logger.info(
-              s"$messageType: nothing to state transfer for epoch $currentEpochNumber from '$from', completing state transfer"
-            )
-            transitionBackToConsensus(newEpochTopologyMessage)
         }
     }
 
@@ -404,6 +406,7 @@ object StateTransferBehavior {
 
   final case class InitialState[E <: Env[E]](
       stateTransferStartEpoch: EpochNumber,
+      minimumStateTransferEndEpoch: Option[EpochNumber],
       topologyInfo: OrderingTopologyInfo[E],
       epochState: EpochState[E],
       latestCompletedEpoch: EpochStore.Epoch,
@@ -417,6 +420,7 @@ object StateTransferBehavior {
     (
         EpochLength,
         EpochNumber,
+        Option[EpochNumber],
         OrderingTopologyInfo[?],
         EpochInfo,
         EpochStore.Epoch,
@@ -426,6 +430,7 @@ object StateTransferBehavior {
       (
         behavior.epochLength,
         behavior.initialState.stateTransferStartEpoch,
+        behavior.initialState.minimumStateTransferEndEpoch,
         behavior.activeTopologyInfo,
         behavior.epochState.epoch.info,
         behavior.latestCompletedEpoch,

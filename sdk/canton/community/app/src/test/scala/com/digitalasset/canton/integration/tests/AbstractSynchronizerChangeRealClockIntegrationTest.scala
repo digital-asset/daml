@@ -82,7 +82,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
     val paintOfferReassignmentId =
       P4.ledger_api.commands.submit_unassign(
         painter,
-        paintOfferId,
+        Seq(paintOfferId),
         paintSynchronizerId,
         iouSynchronizerId,
       )
@@ -141,7 +141,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
     val paintHouseUnassigned =
       P5.ledger_api.commands.submit_unassign(
         alice,
-        paintHouseId,
+        Seq(paintHouseId),
         iouSynchronizerId,
         paintSynchronizerId,
       )
