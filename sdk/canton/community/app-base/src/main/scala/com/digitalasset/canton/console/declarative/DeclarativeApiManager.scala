@@ -4,12 +4,11 @@
 package com.digitalasset.canton.console.declarative
 
 import cats.data.EitherT
-import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.GrpcAdminCommandRunner
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.environment.{CantonNode, CantonNodeBootstrap}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
-import com.digitalasset.canton.metrics.DeclarativeApiMetrics
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
@@ -31,19 +30,15 @@ trait DeclarativeApiManager[NodeConfig <: LocalNodeConfig] {
     *   the node name
     * @param config
     *   the config of the node
-    * @param activeAdminToken
-    *   used to obtain the admin token and at the same time check if the node is active
-    * @param metrics
-    *   metrics which will be used to report on errors during state sync
+    * @param instance
+    *   the instance running
     * @param closeContext
     *   the close context of the node. the update runner will terminate when the node is closed
     */
   def started(
       name: String,
       config: NodeConfig,
-      activeAdminToken: => Option[CantonAdminToken],
-      metrics: DeclarativeApiMetrics,
-      closeContext: CloseContext,
+      instance: CantonNodeBootstrap[CantonNode],
   )(implicit executionContext: ExecutionContext): EitherT[Future, String, Unit]
 
 }
@@ -58,9 +53,7 @@ object DeclarativeApiManager {
       override def started(
           name: String,
           config: C,
-          activeAdminToken: => Option[CantonAdminToken],
-          metrics: DeclarativeApiMetrics,
-          closeContext: CloseContext,
+          instance: CantonNodeBootstrap[CantonNode],
       )(implicit executionContext: ExecutionContext): EitherT[Future, String, Unit] = {
         val myLoggerFactory = loggerFactory.append("participant", name)
         config.init.state
@@ -70,9 +63,11 @@ object DeclarativeApiManager {
               config.ledgerApi.clientConfig,
               config.adminApi.clientConfig,
               stateConfig.consistencyTimeout,
-              activeAdminToken,
+              instance.getNode.flatMap(n => Option.when(n.isActive)(n.adminToken)),
               runnerFactory,
-              closeContext,
+              instance.closeContext,
+              stateConfig.file,
+              instance.metrics.declarativeApiMetrics,
               myLoggerFactory,
             )
             val logger = myLoggerFactory.getLogger(getClass)
@@ -81,12 +76,14 @@ object DeclarativeApiManager {
                 s"Starting state refreshing for $name with ${stateConfig.file} at interval=${stateConfig.refreshInterval}"
               )
               // startup (checking config file for failures)
-              api.startRefresh(
-                scheduler = scheduler,
-                interval = stateConfig.refreshInterval,
-                metrics,
-                stateConfig.file,
-              )
+              api
+                .startRefresh(
+                  scheduler = scheduler,
+                  interval = stateConfig.refreshInterval,
+                )
+                .map { _ =>
+                  instance.registerDeclarativeChangeTrigger(() => api.runSync().discard)
+                }
             }
           }
           .getOrElse(EitherTUtil.unit)

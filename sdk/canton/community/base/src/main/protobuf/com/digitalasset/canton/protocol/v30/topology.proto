@@ -36,6 +36,28 @@ message Enums {
     // participant is passive, can only observe transactions and submit reassignments
     PARTICIPANT_PERMISSION_OBSERVATION = 3;
   }
+
+  enum TopologyMappingCode {
+    TOPOLOGY_MAPPING_CODE_UNSPECIFIED = 0;
+    TOPOLOGY_MAPPING_CODE_NAMESPACE_DELEGATION = 1;
+    TOPOLOGY_MAPPING_CODE_IDENTIFIER_DELEGATION = 2;
+    TOPOLOGY_MAPPING_CODE_DECENTRALIZED_NAMESPACE_DEFINITION = 3;
+    TOPOLOGY_MAPPING_CODE_OWNER_TO_KEY_MAPPING = 4;
+    TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_TRUST_CERTIFICATE = 5;
+    TOPOLOGY_MAPPING_CODE_PARTICIPANT_PERMISSION = 6;
+    TOPOLOGY_MAPPING_CODE_PARTY_HOSTING_LIMITS = 7;
+    TOPOLOGY_MAPPING_CODE_VETTED_PACKAGES = 8;
+    TOPOLOGY_MAPPING_CODE_PARTY_TO_PARTICIPANT = 9;
+    reserved 10; // was AuthorityOf
+    TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_PARAMETERS_STATE = 11;
+    TOPOLOGY_MAPPING_CODE_MEDIATOR_SYNCHRONIZER_STATE = 12;
+    TOPOLOGY_MAPPING_CODE_SEQUENCER_SYNCHRONIZER_STATE = 13;
+    reserved 14; // was OffboardParticipant
+    TOPOLOGY_MAPPING_CODE_PURGE_TOPOLOGY_TXS = 15;
+    reserved 16; // was TrafficControlState
+    TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
+    TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING = 18;
+  }
 }
 
 // [start NamespaceDelegation definition]
@@ -49,12 +71,18 @@ message Enums {
 message NamespaceDelegation {
   // fingerprint of the root key defining the namespace
   string namespace = 1;
-
   // target key of getting full rights on the namespace (if target == namespace, it's a root CA)
   com.digitalasset.canton.crypto.v30.SigningPublicKey target_key = 2;
   // flag indicating whether the given delegation is a root delegation or not
   // a root delegation is also allowed to issue other NamespaceDelegations.
   bool is_root_delegation = 3;
+  // restricts target_key to only sign transactions with the specified mapping types.
+  // for backwards compatibility, only the following combinations are valid:
+  // * is_root_delegation = true,  restricted_to_mappings = empty: the key can sign all mappings
+  // * is_root_delegation = false, restricted_to_mappings = empty: the key can sign all mappings but namespace delegations
+  // * is_root_delegation = false, restricted_to_mappings = non-empty: the key can only sign the mappings specified in restricted_to_mappings
+  // input validation fails if is_root_delegation = true and restricted_to_mappings = non-empty
+  repeated Enums.TopologyMappingCode restricted_to_mappings = 4;
 }
 // [end NamespaceDelegation definition]
 

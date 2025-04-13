@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.admin.user_management_service.{
 }
 import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
+import com.digitalasset.base.error.ErrorResource
 import com.digitalasset.canton.auth.ClaimSet.Claims
 import com.digitalasset.canton.auth.{
   AuthorizationChecksErrors,
@@ -516,8 +517,8 @@ private[apiserver] final class ApiUserManagementService(
       s"Provided parties have not been found in " +
         s"identity_provider_id=`${identityProviderId.toRequestString}`: [${unknownParties.mkString(",")}]."
     Future.failed(
-      RequestValidationErrors.InvalidArgument
-        .Reject(message)
+      RequestValidationErrors.UnknownResource
+        .Reject(ErrorResource.Parties, unknownParties.toSeq, message)
         .asGrpcError
     )
   }

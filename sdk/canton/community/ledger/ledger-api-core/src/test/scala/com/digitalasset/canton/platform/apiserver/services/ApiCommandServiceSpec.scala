@@ -4,6 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentRequest,
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
@@ -69,6 +71,9 @@ class ApiCommandServiceSpec
         _ <- grpcCommandService.submitAndWaitForTransactionTree(
           aSubmitAndWaitRequestWithNoSubmissionId
         )
+        _ <- grpcCommandService.submitAndWaitForReassignment(
+          aSubmitAndWaitForReassignmentRequestWithNoSubmissionId
+        )
       } yield {
         def expectedSubmitAndWaitRequest(submissionIdSuffix: String): SubmitAndWaitRequest =
           aSubmitAndWaitRequestWithNoSubmissionId.update(
@@ -80,8 +85,16 @@ class ApiCommandServiceSpec
           aSubmitAndWaitForTransactionRequestWithNoSubmissionId.update(
             _.commands.submissionId := s"$submissionIdPrefix$submissionIdSuffix"
           )
+        def expectedSubmitAndWaitForReassignmentRequest(
+            submissionIdSuffix: String
+        ): SubmitAndWaitForReassignmentRequest =
+          aSubmitAndWaitForReassignmentRequestWithNoSubmissionId.update(
+            _.reassignmentCommands.submissionId := s"$submissionIdPrefix$submissionIdSuffix"
+          )
         val requestCaptorSubmitAndWait = ArgCaptor[SubmitAndWaitRequest]
         val requestCaptorSubmitAndWaitForTransaction = ArgCaptor[SubmitAndWaitForTransactionRequest]
+        val requestCaptorSubmitAndWaitForReassignment =
+          ArgCaptor[SubmitAndWaitForReassignmentRequest]
 
         verify(mockCommandService).submitAndWait(requestCaptorSubmitAndWait.capture)(
           any[LoggingContextWithTrace]
@@ -98,6 +111,13 @@ class ApiCommandServiceSpec
           requestCaptorSubmitAndWait.capture
         )(any[LoggingContextWithTrace])
         requestCaptorSubmitAndWait.value shouldBe expectedSubmitAndWaitRequest("3")
+        verify(mockCommandService).submitAndWaitForReassignment(
+          requestCaptorSubmitAndWaitForReassignment.capture
+        )(
+          any[LoggingContextWithTrace]
+        )
+        requestCaptorSubmitAndWaitForReassignment.value shouldBe
+          expectedSubmitAndWaitForReassignmentRequest("4")
         succeed
       }
     }
@@ -160,6 +180,10 @@ object ApiCommandServiceSpec {
       _.commands.commands := Seq(aCommand),
       _.commands.submissionId := "",
     )
+  private val aSubmitAndWaitForReassignmentRequestWithNoSubmissionId =
+    submitAndWaitForReassignmentRequest.update(
+      _.reassignmentCommands.submissionId := ""
+    )
 
   private val submissionIdPrefix = "submissionId-"
 
@@ -182,6 +206,12 @@ object ApiCommandServiceSpec {
       )
     )
       .thenReturn(Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance))
+    when(
+      mockCommandService.submitAndWaitForReassignment(any[SubmitAndWaitForReassignmentRequest])(
+        any[LoggingContextWithTrace]
+      )
+    )
+      .thenReturn(Future.successful(SubmitAndWaitForReassignmentResponse.defaultInstance))
     when(
       mockCommandService.submitAndWaitForTransactionTree(any[SubmitAndWaitRequest])(
         any[LoggingContextWithTrace]

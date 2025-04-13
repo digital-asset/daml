@@ -7,10 +7,12 @@ import cats.implicits.toTraverseOps
 import com.daml.ledger.api.v2 as lapi
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
 import com.digitalasset.canton.http.json.v2.JsPrepareSubmissionRequest
-import com.digitalasset.canton.http.json.v2.JsReassignmentEvent.JsReassignmentEvent
+import com.digitalasset.canton.http.json.v2.JsSchema.JsReassignmentEvent.JsReassignmentEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsEvent,
   JsInterfaceView,
+  JsReassignment,
+  JsReassignmentEvent,
   JsStatus,
   JsTopologyEvent,
   JsTopologyTransaction,
@@ -578,6 +580,38 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       .map(tx =>
         lapi.command_service.SubmitAndWaitForTransactionResponse(
           transaction = Some(tx)
+        )
+      )
+  }
+
+  object SubmitAndWaitForReassignmentResponse
+      extends ProtocolConverter[
+        lapi.command_service.SubmitAndWaitForReassignmentResponse,
+        JsSubmitAndWaitForReassignmentResponse,
+      ] {
+
+    def toJson(
+        response: lapi.command_service.SubmitAndWaitForReassignmentResponse
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[JsSubmitAndWaitForReassignmentResponse] =
+      Reassignment
+        .toJson(response.getReassignment)
+        .map(reassignment =>
+          JsSubmitAndWaitForReassignmentResponse(
+            reassignment = reassignment
+          )
+        )
+
+    def fromJson(
+        jsResponse: JsSubmitAndWaitForReassignmentResponse
+    )(implicit
+        errorLoggingContext: ErrorLoggingContext
+    ): Future[lapi.command_service.SubmitAndWaitForReassignmentResponse] = Reassignment
+      .fromJson(jsResponse.reassignment)
+      .map(reassignment =>
+        lapi.command_service.SubmitAndWaitForReassignmentResponse(
+          reassignment = Some(reassignment)
         )
       )
   }

@@ -932,7 +932,7 @@ trait AcsCommitmentProcessorIntegrationTest
             participant1.ledger_api.commands
               .submit_unassign(
                 participant1.id.adminParty,
-                reassignedCid,
+                Seq(reassignedCid),
                 daId,
                 acmeId,
               )

@@ -288,7 +288,7 @@ sealed trait RepairServiceIntegrationTestStableLf
               participant1.ledger_api.commands
                 .submit_unassign(
                   bob,
-                  created.toLf,
+                  Seq(created.toLf),
                   daId,
                   acmeId,
                 )
@@ -418,7 +418,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             val cid = createContract(participant1, alice, bob)
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
-                .submit_unassign(bob, cid.toLf, daId, acmeId)
+                .submit_unassign(bob, Seq(cid.toLf), daId, acmeId)
             }.discard
             cid
           }
@@ -688,7 +688,7 @@ sealed trait RepairServiceIntegrationTestStableLf
             val contract = readContractInstance(participant1, daName, daId, created)
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
-                .submit_unassign(bob, created.toLf, daId, acmeId)
+                .submit_unassign(bob, Seq(created.toLf), daId, acmeId)
             }.discard
             contract
           }

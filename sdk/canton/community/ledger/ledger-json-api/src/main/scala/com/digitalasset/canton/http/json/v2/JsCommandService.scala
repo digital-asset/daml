@@ -13,6 +13,7 @@ import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
 import com.daml.ledger.api.v2.transaction_filter.TransactionFormat
 import com.daml.ledger.api.v2.{
   command_completion_service,
+  command_service,
   command_submission_service,
   commands,
   completion,
@@ -24,6 +25,7 @@ import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInpu
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
+  JsReassignment,
   JsTransaction,
   JsTransactionTree,
 }
@@ -79,6 +81,10 @@ class JsCommandService(
     withServerLogic(
       JsCommandService.submitAndWaitForTransactionEndpoint,
       submitAndWaitForTransaction,
+    ),
+    withServerLogic(
+      JsCommandService.submitAndWaitForReassignmentEndpoint,
+      submitAndWaitForReassignment,
     ),
     withServerLogic(
       JsCommandService.submitAndWaitForTransactionTree,
@@ -164,6 +170,20 @@ class JsCommandService(
     } yield result
   }
 
+  def submitAndWaitForReassignment(
+      callerContext: CallerContext
+  ): TracedInput[command_service.SubmitAndWaitForReassignmentRequest] => Future[
+    Either[JsCantonError, JsSubmitAndWaitForReassignmentResponse]
+  ] = req => {
+    implicit val tc: TraceContext = req.traceContext
+    for {
+      result <- commandServiceClient(callerContext.token())
+        .submitAndWaitForReassignment(req.in)
+        .flatMap(r => protocolConverters.SubmitAndWaitForReassignmentResponse.toJson(r))
+        .resultToRight
+    } yield result
+  }
+
   private def submitAsync(callerContext: CallerContext): TracedInput[JsCommands] => Future[
     Either[JsCantonError, command_submission_service.SubmitResponse]
   ] = req => {
@@ -200,6 +220,10 @@ final case class JsSubmitAndWaitForTransactionTreeResponse(
 
 final case class JsSubmitAndWaitForTransactionResponse(
     transaction: JsTransaction
+)
+
+final case class JsSubmitAndWaitForReassignmentResponse(
+    reassignment: JsReassignment
 )
 
 object JsCommand {
@@ -255,7 +279,13 @@ object JsCommandService extends DocumentationEndpoints {
     .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction"))
     .in(jsonBody[JsSubmitAndWaitForTransactionRequest])
     .out(jsonBody[JsSubmitAndWaitForTransactionResponse])
-    .description("Submit a batch of commands and wait for the flat transactions response")
+    .description("Submit a batch of commands and wait for the transaction response")
+
+  val submitAndWaitForReassignmentEndpoint = commands.post
+    .in(sttp.tapir.stringToPath("submit-and-wait-for-reassignment"))
+    .in(jsonBody[command_service.SubmitAndWaitForReassignmentRequest])
+    .out(jsonBody[JsSubmitAndWaitForReassignmentResponse])
+    .description("Submit a batch of reassignment commands and wait for the reassignment response")
 
   val submitAndWaitForTransactionTree = commands.post
     .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction-tree"))
@@ -308,6 +338,7 @@ object JsCommandService extends DocumentationEndpoints {
   override def documentation: Seq[AnyEndpoint] = Seq(
     submitAndWait,
     submitAndWaitForTransactionEndpoint,
+    submitAndWaitForReassignmentEndpoint,
     submitAndWaitForTransactionTree,
     submitAsyncEndpoint,
     submitReassignmentAsyncEndpoint,
@@ -335,6 +366,12 @@ object JsCommandServiceCodecs {
 
   implicit val jsSubmitAndWaitForTransactionResponseRW
       : Codec[JsSubmitAndWaitForTransactionResponse] = deriveConfiguredCodec
+
+  implicit val submitAndWaitForReassignmentRequestRW
+      : Codec[command_service.SubmitAndWaitForReassignmentRequest] = deriveRelaxedCodec
+
+  implicit val jsSubmitAndWaitForReassignmentResponseRW
+      : Codec[JsSubmitAndWaitForReassignmentResponse] = deriveConfiguredCodec
 
   implicit val submitResponseRW: Codec[command_submission_service.SubmitResponse] =
     deriveRelaxedCodec

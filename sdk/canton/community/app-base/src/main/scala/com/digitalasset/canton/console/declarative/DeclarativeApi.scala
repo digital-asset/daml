@@ -27,8 +27,9 @@ import com.typesafe.config.ConfigException.UnresolvedSubstitution
 import pureconfig.{ConfigReader, Derivation}
 
 import java.io.File
-import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.reflect.ClassTag
 import scala.util.control.NonFatal
@@ -43,8 +44,20 @@ import scala.util.control.NonFatal
 trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
 
   private val startLimit = PositiveInt.tryCreate(1000)
+  // state to orchestrate trade safe invocation of runSync
+  // the tuple means (shouldRun, isRunning)
+  // if runSync is called concurrently, the runState reference will be used to ensure
+  // that we only run once. this can happen if someone edits the file during a sync
+  // triggered by a synchronizer connection being added via the console commands
+  // we don't protect using blocking calls but just use atomic operations.
+  // there is a small caveat: normally, adding a synchronizer connection will trigger a sync,
+  // but if a sync is already running, the adding of the synchronizer connection will not wait
+  // for the sync to finish.
+  private val runState = new AtomicReference[(Boolean, Boolean)]((false, false))
 
   protected def name: String
+  protected def file: File
+  protected def metrics: DeclarativeApiMetrics
   protected def closeContext: CloseContext
   protected def activeAdminToken: Option[CantonAdminToken]
   protected def consistencyTimeout: config.NonNegativeDuration
@@ -252,42 +265,73 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
       traceContext: TraceContext
   ): Either[String, UpdateResult]
 
-  protected def runSync(metrics: DeclarativeApiMetrics, file: File)(implicit
+  /** Trigger a synchronisation
+    *
+    * This method is thread safe as it will only run one synchronisation at a time (managed through
+    * an atomic reference). If no sync is currently running, the method will return only when the
+    * sync is finished. If a sync is already running, the method will return immediately.
+    *
+    * Concurrent sync runs are very rare, but can happen if the file is changed while a manual
+    * synchronizer connection is being added via the console commands or if the sync is currently
+    * failing due to a config issue or a bug.
+    */
+  @tailrec
+  final def runSync()(implicit
       traceContext: TraceContext
-  ): Boolean =
-    try {
-      def withErrorCode[R](step: String, code: Int)(e: Either[String, R]) = e.leftMap { c =>
-        logger.warn(s"State synchronisation step $step failed with $c")
-        metrics.errors.updateValue(code)
-        c
-      }
-      // first, prepare everything that must be in place for the sync
-      (for {
-        config <- withErrorCode("read config", -1)(readConfig(file))
-        prep <- withErrorCode("prepare", -2)(prepare(config))
-        itemsUpdated <- withErrorCode("sync", -3)(sync(config, prep))
-      } yield {
-        logger.info(
-          s"Completed state update with items=${itemsUpdated.items}, updated=${itemsUpdated.updated}, removed=${itemsUpdated.removed}, failed=${itemsUpdated.failed}"
-        )
-        metrics.items.updateValue(itemsUpdated.items)
-        metrics.errors.updateValue(itemsUpdated.failed)
-      }).isRight
-    } catch {
-      case NonFatal(e) =>
-        metrics.errors.updateValue(-9)
-        logger.error("Failed to run background update due to unhandled exception", e)
-        false
+  ): Boolean = {
+    val (_, isRunningAlready) = runState.getAndUpdate {
+      case (_, true) =>
+        (true, true) // if already running, we need to run again
+      case (_, false) =>
+        (false, true) // otherwise, we run now
     }
+    if (isRunningAlready) {
+      logger.debug("Already running a sync. Scheduling another one")
+      false // don't mark as a successful run
+    } else {
+      val ret =
+        try {
+          def withErrorCode[R](step: String, code: Int)(e: Either[String, R]) = e.leftMap { c =>
+            logger.warn(s"State synchronisation step $step failed with $c")
+            metrics.errors.updateValue(code)
+            c
+          }
+          // first, prepare everything that must be in place for the sync
+          (for {
+            config <- withErrorCode("read config", -1)(readConfig(file))
+            prep <- withErrorCode("prepare", -2)(prepare(config))
+            itemsUpdated <- withErrorCode("sync", -3)(sync(config, prep))
+          } yield {
+            logger.info(
+              s"Completed state update with items=${itemsUpdated.items}, updated=${itemsUpdated.updated}, removed=${itemsUpdated.removed}, failed=${itemsUpdated.failed}"
+            )
+            metrics.items.updateValue(itemsUpdated.items)
+            metrics.errors.updateValue(itemsUpdated.failed)
+          }).isRight
+        } catch {
+          case NonFatal(e) =>
+            metrics.errors.updateValue(-9)
+            logger.error("Failed to run background update due to unhandled exception", e)
+            false
+        }
+      val (shouldReRun, _) = runState.getAndUpdate { case (needsToRun, _) =>
+        (needsToRun, false)
+      }
+      if (ret && shouldReRun) {
+        logger.debug("Scheduling another run")
+        runSync()
+      } else ret
+    }
+  }
 
   private val lastModified = new AtomicLong(0)
-  protected def update(metrics: DeclarativeApiMetrics, file: File)(implicit
+  private def updateOnFileChange()(implicit
       traceContext: TraceContext
   ): Unit = {
     val modified = file.lastModified()
     val previous = lastModified.getAndSet(modified)
     if (modified != previous) {
-      if (!runSync(metrics, file)) {
+      if (!runSync()) {
         lastModified.compareAndSet(modified, previous).discard
       }
     }
@@ -296,22 +340,18 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
   def startRefresh(
       scheduler: ScheduledExecutorService,
       interval: config.NonNegativeFiniteDuration,
-      metrics: DeclarativeApiMetrics,
-      file: File,
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): EitherT[Future, String, Unit] =
     // make sure we can read and parse the config file
     EitherT.fromEither[Future](this.readConfig(file).map { _ =>
-      refresh(scheduler, interval, metrics, file)
+      refresh(scheduler, interval)
     })
 
   private def refresh(
       scheduler: ScheduledExecutorService,
       interval: config.NonNegativeFiniteDuration,
-      metrics: DeclarativeApiMetrics,
-      file: File,
   )(implicit
       traceContext: TraceContext
   ): Unit =
@@ -320,11 +360,11 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
     } else {
       activeAdminToken.foreach { _ =>
         logger.debug(s"Refreshing the state of $name")
-        update(metrics, file)
+        updateOnFileChange()
       }
       scheduler
         .schedule(
-          (() => refresh(scheduler, interval, metrics, file)): Runnable,
+          (() => refresh(scheduler, interval)): Runnable,
           interval.duration.toMillis,
           TimeUnit.MILLISECONDS,
         )

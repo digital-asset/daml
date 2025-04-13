@@ -192,70 +192,107 @@ class StateTransferBehaviorTest
     }
 
     "handling a 'NothingToTransfer' result of processing a state transfer message" should {
-      "retry state transfer if a new epoch topology message has not been received" in {
-        val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
-        val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
-        when(
-          epochStoreMock.latestEpoch(any[Boolean])(any[TraceContext])
-        ) thenReturn (() => anEpochStoreEpoch)
-        when(
-          epochStoreMock.loadEpochProgress(eqTo(anEpochStoreEpoch.info))(any[TraceContext])
-        ) thenReturn (() => EpochInProgress())
-        val (context, stateTransferBehavior) =
-          createStateTransferBehavior(
-            epochStore = epochStoreMock,
-            maybeStateTransferManager = Some(stateTransferManagerMock),
-          )
-        implicit val ctx: ContextType = context
-
-        val epochNumber = anEpochStoreEpoch.info.number
-        stateTransferBehavior.handleStateTransferMessageResult(
-          StateTransferMessageResult.NothingToStateTransfer(otherIds.head),
-          "aMessageType",
-        )
-
-        verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
-          eqTo(epochNumber),
-          eqTo(aMembership),
-          eqTo(aFakeCryptoProviderInstance),
-        )(any[String => Nothing])(eqTo(ctx), any[TraceContext])
-        succeed
-      }
-    }
-
-    "transition back to consensus mode if a new epoch topology message is set" in {
-      val (context, stateTransferBehavior) = createStateTransferBehavior()
-      implicit val ctx: ContextType = context
-
-      stateTransferBehavior.maybeLastReceivedEpochTopology = Some(
-        Consensus.NewEpochTopology(
-          EpochNumber.First,
-          aMembership,
-          aFakeCryptoProviderInstance,
-        )
-      )
-
-      stateTransferBehavior.handleStateTransferMessageResult(
-        StateTransferMessageResult.NothingToStateTransfer(otherIds.head),
-        "aMessageType",
-      )
-
-      val becomes = context.extractBecomes()
-      inside(becomes) {
-        case Seq(
-              consensusModule @ IssConsensusModule(
-                TestEpochLength,
-                None, // snapshotAdditionalInfo
-                `aTopologyInfo`,
-                futurePbftMessageQueue,
-                Seq(), // queuedConsensusMessages
+      "retry state transfer if a new epoch topology message has not been received, " +
+        "and the end epoch has not yet been transferred" in {
+          Table(
+            ("new epoch topology message", "minimum state transfer end epoch"),
+            (None, None),
+            (
+              Some(
+                Consensus.NewEpochTopology(
+                  EpochNumber.First,
+                  aMembership,
+                  aFakeCryptoProviderInstance,
+                )
+              ),
+              Some(EpochNumber(7)),
+            ),
+          ).forEvery { (newEpochTopologyMessage, minimumEndEpoch) =>
+            val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
+            val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
+            when(
+              epochStoreMock.latestEpoch(any[Boolean])(any[TraceContext])
+            ) thenReturn (() => anEpochStoreEpoch)
+            when(
+              epochStoreMock.loadEpochProgress(eqTo(anEpochStoreEpoch.info))(any[TraceContext])
+            ) thenReturn (() => EpochInProgress())
+            val (context, stateTransferBehavior) =
+              createStateTransferBehavior(
+                epochStore = epochStoreMock,
+                maybeStateTransferManager = Some(stateTransferManagerMock),
+                minimumStateTransferEndEpoch = minimumEndEpoch,
               )
-            ) if futurePbftMessageQueue.isEmpty =>
-          // A successful check below means that the new epoch topology message has been resent
-          //  and processed by the Consensus module.
-          consensusModule.isInitComplete shouldBe true
-      }
+            implicit val ctx: ContextType = context
+
+            stateTransferBehavior.maybeLastReceivedEpochTopology = newEpochTopologyMessage
+
+            val epochNumber = anEpochStoreEpoch.info.number
+            stateTransferBehavior.handleStateTransferMessageResult(
+              StateTransferMessageResult.NothingToStateTransfer(otherIds.head),
+              "aMessageType",
+            )
+
+            verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
+              eqTo(epochNumber),
+              eqTo(aMembership),
+              eqTo(aFakeCryptoProviderInstance),
+            )(any[String => Nothing])(eqTo(ctx), any[TraceContext])
+            succeed
+          }
+        }
     }
+
+    "transition back to consensus mode if a new epoch topology message is set, " +
+      "and transferred at least up to the minimum end epoch if it's defined" in {
+        Table(
+          "minimum state transfer end epoch",
+          None,
+          Some(EpochNumber(anEpochInfo.number)), // the same as the "current epoch", see below
+        ).forEvery { minimumEndEpoch =>
+          val epochStoreMock = mock[EpochStore[ProgrammableUnitTestEnv]]
+          when(
+            epochStoreMock.latestEpoch(any[Boolean])(any[TraceContext])
+          ) thenReturn (() => anEpochStoreEpoch)
+          when(
+            epochStoreMock.loadEpochProgress(eqTo(anEpochInfo))(any[TraceContext])
+          ) thenReturn (() => EpochInProgress())
+          val (context, stateTransferBehavior) =
+            createStateTransferBehavior(
+              epochStore = epochStoreMock,
+              minimumStateTransferEndEpoch = minimumEndEpoch,
+            )
+          implicit val ctx: ContextType = context
+
+          stateTransferBehavior.maybeLastReceivedEpochTopology = Some(
+            Consensus.NewEpochTopology(
+              EpochNumber.First,
+              aMembership,
+              aFakeCryptoProviderInstance,
+            )
+          )
+
+          stateTransferBehavior.handleStateTransferMessageResult(
+            StateTransferMessageResult.NothingToStateTransfer(otherIds.head),
+            "aMessageType",
+          )
+
+          val becomes = context.extractBecomes()
+          inside(becomes) {
+            case Seq(
+                  consensusModule @ IssConsensusModule(
+                    TestEpochLength,
+                    None, // snapshotAdditionalInfo
+                    `aTopologyInfo`,
+                    futurePbftMessageQueue,
+                    Seq(), // queuedConsensusMessages
+                  )
+                ) if futurePbftMessageQueue.isEmpty =>
+              // A successful check below means that the new epoch topology message has been resent
+              //  and processed by the Consensus module.
+              consensusModule.isInitComplete shouldBe true
+          }
+        }
+      }
   }
 
   "receiving a new epoch topology message" should {
@@ -322,6 +359,7 @@ class StateTransferBehaviorTest
                 TestEpochLength,
                 _,
                 _,
+                _,
                 `anEpochInfo`,
                 _,
               ) =>
@@ -356,6 +394,7 @@ class StateTransferBehaviorTest
         fakeIgnoringModule,
       maybeStateTransferManager: Option[StateTransferManager[ProgrammableUnitTestEnv]] = None,
       maybeCatchupDetector: Option[CatchupDetector] = None,
+      minimumStateTransferEndEpoch: Option[EpochNumber] = None,
       stateTransferType: StateTransferType = StateTransferType.Catchup,
   ): (ContextType, StateTransferBehavior[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext
@@ -404,7 +443,8 @@ class StateTransferBehaviorTest
         }
 
     val initialState = StateTransferBehavior.InitialState(
-      latestCompletedEpochFromStore.info.number,
+      stateTransferStartEpoch = latestCompletedEpochFromStore.info.number,
+      minimumStateTransferEndEpoch,
       aTopologyInfo,
       initialEpochState,
       latestCompletedEpochFromStore,

@@ -99,7 +99,8 @@ object ApiServices {
       engine: Engine,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      submissionTracker: SubmissionTracker,
+      transactionSubmissionTracker: SubmissionTracker,
+      reassignmentSubmissionTracker: SubmissionTracker,
       partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
@@ -355,13 +356,15 @@ object ApiServices {
       )
       val apiCommandService = CommandServiceImpl.createApiService(
         commandsValidator = commandsValidator,
-        submissionTracker = submissionTracker,
+        transactionSubmissionTracker = transactionSubmissionTracker,
+        reassignmentSubmissionTracker = reassignmentSubmissionTracker,
         // Using local services skips the gRPC layer, improving performance.
         submit = apiSubmissionService.submitWithTraceContext,
+        submitReassignment = apiSubmissionService.submitReassignmentWithTraceContext,
         defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-        transactionServices = new CommandServiceImpl.TransactionServices(
+        updateServices = new CommandServiceImpl.UpdateServices(
           getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
-          getTransactionById = ledgerApiUpdateService.getTransactionById,
+          getUpdateById = ledgerApiUpdateService.getUpdateById,
         ),
         timeProvider = timeProvider,
         maxDeduplicationDuration = maxDeduplicationDuration,

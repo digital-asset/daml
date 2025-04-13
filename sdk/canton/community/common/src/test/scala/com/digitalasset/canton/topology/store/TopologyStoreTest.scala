@@ -435,14 +435,12 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizerId = synchronizer1_p1p2_synchronizerId,
               protocolVersion = testedProtocolVersion,
               pureCrypto = new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 testData.factory.cryptoApi.crypto.pureCrypto,
               ),
               store = store,
-              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts = timeouts,
               loggerFactory = loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -576,14 +574,12 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizer1_p1p2_synchronizerId,
               testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
-              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -626,14 +622,12 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizer1_p1p2_synchronizerId,
               testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
-              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)

@@ -51,6 +51,10 @@ import scala.concurrent.ExecutionContext
   *   after which the contract to be sent are active.
   * @param acsInspection
   *   Interface to inspect the ACS.
+  * @param onProgress
+  *   Callback to update progress wrt the number of active contracts sent.
+  * @param onComplete
+  *   Callback notification that the source participant has sent the entire ACS.
   * @param protocolVersion
   *   The protocol version to use for now for the party replication protocol. Technically the online
   *   party replication protocol is a different protocol from the canton protocol.
@@ -60,6 +64,8 @@ class PartyReplicationSourceParticipantProcessor private (
     partyId: PartyId,
     activeAfter: CantonTimestamp,
     acsInspection: AcsInspection, // TODO(#24326): Stream the ACS via the Ledger Api instead.
+    onProgress: NonNegativeInt => Unit,
+    onComplete: NonNegativeInt => Unit,
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -114,10 +120,13 @@ class PartyReplicationSourceParticipantProcessor private (
       sendingUpToChunk = chunkToSendUpToExclusive.updateAndGet(
         _ + NonNegativeInt.tryCreate(contracts.size)
       )
+      _ = onProgress(sendingUpToChunk)
 
       // If there aren't enough contracts, send that we have reached the end of the ACS.
       _ <- EitherTUtil.ifThenET(sendingUpToChunk < newChunkToSendUpTo)(
-        sendEndOfAcs(s"End of ACS after chunk $sendingUpToChunk")
+        sendEndOfAcs(s"End of ACS after chunk $sendingUpToChunk").map(_ =>
+          onComplete(sendingUpToChunk)
+        )
       )
     } yield ()
 
@@ -208,6 +217,8 @@ object PartyReplicationSourceParticipantProcessor {
       partyId: PartyId,
       activeAt: CantonTimestamp,
       acsInspection: AcsInspection,
+      onProgress: NonNegativeInt => Unit,
+      onComplete: NonNegativeInt => Unit,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -217,6 +228,8 @@ object PartyReplicationSourceParticipantProcessor {
       partyId,
       activeAt,
       acsInspection,
+      onProgress,
+      onComplete,
       protocolVersion,
       timeouts,
       loggerFactory

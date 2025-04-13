@@ -5,14 +5,15 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.transaction_filter.ParticipantAuthorizationTopologyFormat
-import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter, update_service}
+import com.daml.ledger.api.v2.{offset_checkpoint, transaction_filter, update_service}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
+  JsReassignment,
+  JsReassignmentEvent,
   JsTopologyTransaction,
   JsTransaction,
   JsTransactionTree,
@@ -315,33 +316,6 @@ object JsUpdateService extends DocumentationEndpoints {
   )
 }
 
-object JsReassignmentEvent {
-  sealed trait JsReassignmentEvent
-
-  final case class JsAssignmentEvent(
-      source: String,
-      target: String,
-      unassignId: String,
-      submitter: String,
-      reassignmentCounter: Long,
-      createdEvent: CreatedEvent,
-  ) extends JsReassignmentEvent
-
-  final case class JsUnassignedEvent(value: reassignment.UnassignedEvent)
-      extends JsReassignmentEvent
-
-}
-
-final case class JsReassignment(
-    updateId: String,
-    commandId: String,
-    workflowId: String,
-    offset: Long,
-    events: Seq[JsReassignmentEvent.JsReassignmentEvent],
-    traceContext: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
-    recordTime: com.google.protobuf.timestamp.Timestamp,
-)
-
 object JsUpdate {
   sealed trait Update
   final case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
@@ -399,17 +373,6 @@ object JsUpdateServiceCodecs {
   implicit val jsUpdateReassignment: Codec[JsUpdate.Reassignment] = deriveConfiguredCodec
   implicit val jsUpdateTransaction: Codec[JsUpdate.Transaction] = deriveConfiguredCodec
   implicit val jsUpdateTopologyTransaction: Codec[JsUpdate.TopologyTransaction] =
-    deriveConfiguredCodec
-  implicit val jsReassignment: Codec[JsReassignment] = deriveConfiguredCodec
-
-  implicit val jsReassignmentEventRW: Codec[JsReassignmentEvent.JsReassignmentEvent] =
-    deriveConfiguredCodec
-
-  implicit val jsReassignmentEventJsUnassignedEventRW
-      : Codec[JsReassignmentEvent.JsUnassignedEvent] =
-    deriveConfiguredCodec
-
-  implicit val jsReassignmentEventJsAssignedEventRW: Codec[JsReassignmentEvent.JsAssignmentEvent] =
     deriveConfiguredCodec
 
   implicit val jsGetUpdateTreesResponse: Codec[JsGetUpdateTreesResponse] = deriveConfiguredCodec

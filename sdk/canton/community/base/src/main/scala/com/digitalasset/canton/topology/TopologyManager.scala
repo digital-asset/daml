@@ -82,7 +82,7 @@ class SynchronizerTopologyManager(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[SynchronizerStore, SynchronizerCryptoPureApi](
+    extends TopologyManager[SynchronizerStore](
       nodeId,
       clock,
       crypto,
@@ -95,12 +95,11 @@ class SynchronizerTopologyManager(
     ) {
   def synchronizerId: SynchronizerId = store.storeId.synchronizerId
 
-  override protected val processor: TopologyStateProcessor[SynchronizerCryptoPureApi] =
-    new TopologyStateProcessor[SynchronizerCryptoPureApi](
+  override protected val processor: TopologyStateProcessor =
+    TopologyStateProcessor.forTopologyManager(
       store,
       Some(outboxQueue),
       new ValidatingTopologyMappingChecks(store, loggerFactory),
-      insecureIgnoreMissingExtraKeySignatures = false,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
       loggerFactory,
     )
@@ -124,7 +123,10 @@ class SynchronizerTopologyManager(
         SequencedTime(ts),
         EffectiveTime(ts),
         transactions,
-        expectFullAuthorization,
+        expectFullAuthorization = expectFullAuthorization,
+        // the synchronizer topology manager does not permit missing signing key signatures,
+        // because these transactions would be rejected during the validating after sequencing.
+        transactionMayHaveMissingSigningKeySignatures = false,
       )
       .map { case (txs, asyncResult) => (Seq(txs -> ts), asyncResult) }
   }
@@ -181,7 +183,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[StoreId, CryptoPureApi](
+    extends TopologyManager[StoreId](
       nodeId,
       clock,
       crypto,
@@ -192,12 +194,11 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
       futureSupervisor,
       loggerFactory,
     ) {
-  override protected val processor: TopologyStateProcessor[CryptoPureApi] =
-    new TopologyStateProcessor[CryptoPureApi](
+  override protected val processor: TopologyStateProcessor =
+    TopologyStateProcessor.forTopologyManager(
       store,
       None,
       NoopTopologyMappingChecks,
-      insecureIgnoreMissingExtraKeySignatures = false,
       crypto.pureCrypto,
       loggerFactory,
     )
@@ -224,7 +225,10 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
             SequencedTime(ts),
             EffectiveTime(ts),
             Seq(transaction),
-            expectFullAuthorization,
+            expectFullAuthorization = expectFullAuthorization,
+            // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
+            // so that we can import legacy OTKs for debugging/investigation purposes
+            transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
           )
           .map { case (txs, asyncResult) => ((txs, ts), asyncResult) }
       }
@@ -234,7 +238,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
       }
 }
 
-abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: CryptoPureApi](
+abstract class TopologyManager[+StoreID <: TopologyStoreId](
     val nodeId: UniqueIdentifier,
     val clock: Clock,
     val crypto: Crypto,
@@ -260,7 +264,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     crashOnFailure = exitOnFatalFailures,
   )
 
-  protected val processor: TopologyStateProcessor[PureCrypto]
+  protected val processor: TopologyStateProcessor
 
   override def queueSize: Int = sequentialQueue.queueSize
 

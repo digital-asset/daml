@@ -299,7 +299,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
 
       val unassignId =
         participant1.ledger_api.commands
-          .submit_unassign(bob, bobIou.id.toLf, daId, acmeId)
+          .submit_unassign(bob, Seq(bobIou.id.toLf), daId, acmeId)
           .unassignId
 
       participant1.ledger_api.commands.submit_assign(bob, unassignId, daId, acmeId)
@@ -366,7 +366,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
 
       participant1.ledger_api.commands.submit_reassign(
         charlie,
-        LfContractId.assertFromString(iou.id.contractId),
+        Seq(LfContractId.assertFromString(iou.id.contractId)),
         daId,
         acmeId,
       )
@@ -388,7 +388,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
 
         val unassignId =
           participant1.ledger_api.commands
-            .submit_unassign(alice, aliceIou.id.toLf, daId, acmeId)
+            .submit_unassign(alice, Seq(aliceIou.id.toLf), daId, acmeId)
             .unassignId
 
         participant1.ledger_api.commands.submit_assign(alice, unassignId, daId, acmeId)
@@ -442,7 +442,8 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
 
           // Unassignment should now go through
           programmableSequencers(daName).resetPolicy()
-          participant1.ledger_api.commands.submit_unassign(alice, aliceIou.id.toLf, daId, acmeId)
+          participant1.ledger_api.commands
+            .submit_unassign(alice, Seq(aliceIou.id.toLf), daId, acmeId)
         },
         reassignmentFailureLogAssertions,
       )
@@ -463,7 +464,7 @@ sealed trait ReassignmentsConfirmationThresholdIntegrationTest
       val progressTimeP = Promise[Unit]()
 
       val unassignId = participant1.ledger_api.commands
-        .submit_unassign(alice, aliceIou.id.toLf, daId, acmeId)
+        .submit_unassign(alice, Seq(aliceIou.id.toLf), daId, acmeId)
         .unassignId
 
       // Assignment will not go through because we need two confirmations

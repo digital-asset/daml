@@ -59,6 +59,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
           )
     }
 
+    // TODO(#23504) remove the error when it is no longer used
     @Explanation(
       "The transaction does not exist or the requesting set of parties are not authorized to fetch it."
     )
@@ -329,6 +330,26 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"The submitted request has invalid arguments: $reason"
         )
+  }
+
+  @Explanation(
+    """This error is emitted when a submitted ledger API command refers to a non-existing resource."""
+  )
+  @Resolution("Inspect the reason given and correct your application.")
+  object UnknownResource
+      extends ErrorCode(
+        id = "UNKNOWN_RESOURCE",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Reject(errorResource: ErrorResource, items: Seq[String], reason: String)(
+        implicit loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"The submitted request refers to a non-existing ${errorResource.asString}: $reason"
+        ) {
+      override def resources: Seq[(ErrorResource, String)] =
+        super.resources ++ items.map(s => (errorResource, s))
+    }
   }
 
   @Explanation(

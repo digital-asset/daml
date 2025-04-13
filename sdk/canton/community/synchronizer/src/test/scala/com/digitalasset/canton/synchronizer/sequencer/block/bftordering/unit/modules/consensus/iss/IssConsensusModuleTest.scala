@@ -768,7 +768,7 @@ class IssConsensusModuleTest
         succeed
       }
 
-      "start state transfer when a snapshot is provided" in {
+      "start onboarding state transfer when a snapshot is provided" in {
         val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
 
         val aStartEpoch = GenesisEpoch.info.next(
@@ -808,6 +808,7 @@ class IssConsensusModuleTest
                 StateTransferBehavior(
                   DefaultEpochLength,
                   `aStartEpochNumber`,
+                  None, // minimum state transfer end epoch
                   `aTopologyInfo`,
                   `aStartEpoch`,
                   GenesisEpoch,
@@ -846,8 +847,9 @@ class IssConsensusModuleTest
           val catchupDetectorMock = mock[CatchupDetector]
           when(catchupDetectorMock.updateLatestKnownNodeEpoch(any[BftNodeId], any[EpochNumber]))
             .thenReturn(true)
-          when(catchupDetectorMock.shouldCatchUp(any[EpochNumber])(any[TraceContext]))
-            .thenReturn(true)
+          val catchUpToEpochNumber = Some(EpochNumber(7))
+          when(catchupDetectorMock.shouldCatchUpTo(any[EpochNumber])(any[TraceContext]))
+            .thenReturn(catchUpToEpochNumber)
 
           val (context, consensus) =
             createIssConsensusModule(
@@ -865,7 +867,7 @@ class IssConsensusModuleTest
           verify(catchupDetectorMock, times(1))
             .updateLatestKnownNodeEpoch(allIds(1), EpochNumber.First)
           verify(catchupDetectorMock, times(1))
-            .shouldCatchUp(eqTo(GenesisEpochNumber))(any[TraceContext])
+            .shouldCatchUpTo(eqTo(GenesisEpochNumber))(any[TraceContext])
           verify(retransmissionsManagerMock, never)
             .handleMessage(
               any[CryptoProvider[ProgrammableUnitTestEnv]],
@@ -876,6 +878,7 @@ class IssConsensusModuleTest
                   StateTransferBehavior(
                     `DefaultEpochLength`,
                     `GenesisEpochNumber`,
+                    `catchUpToEpochNumber`,
                     `aTopologyInfo`,
                     GenesisEpochInfo,
                     EpochStore.Epoch(GenesisEpochInfo, Seq()),

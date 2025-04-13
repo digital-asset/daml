@@ -95,3 +95,26 @@ object CryptoProvider {
         HashPurpose.BftSignedRetransmissionMessage
     }
 }
+
+final case class DelegationCryptoProvider[E <: Env[E]](
+    signer: CryptoProvider[E],
+    verifier: CryptoProvider[E],
+) extends CryptoProvider[E] {
+  override def signHash(hash: Hash)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
+    signer.signHash(hash)
+
+  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
+      message: MessageT,
+      authenticatedMessageType: AuthenticatedMessageType,
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
+    signer.signMessage(message, authenticatedMessageType)
+
+  override def verifySignature(hash: Hash, member: BftNodeId, signature: Signature)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
+    verifier.verifySignature(hash, member, signature)
+}

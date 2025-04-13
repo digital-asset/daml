@@ -46,6 +46,8 @@ sealed trait UnlessShutdown[+A] extends Product with Serializable {
     */
   def onShutdown[B >: A](ifShutdown: => B): B
 
+  def tapOnShutdown(ifShutdown: => Unit): this.type
+
   /** Returns whether the outcome is an actual outcome */
   def isOutcome: Boolean
 }
@@ -60,6 +62,7 @@ object UnlessShutdown {
       F.map(f(result))(Outcome(_))
     override def toRight[L](aborted: => L): Either[L, A] = Right(result)
     override def onShutdown[B >: A](ifShutdown: => B): A = result
+    override def tapOnShutdown(ifShutdown: => Unit): this.type = this
     override def isOutcome: Boolean = true
 
   }
@@ -74,6 +77,10 @@ object UnlessShutdown {
     ): F[UnlessShutdown[B]] = F.pure(this)
     override def toRight[L](aborted: => L): Either[L, Nothing] = Left(aborted)
     override def onShutdown[B >: Nothing](ifShutdown: => B): B = ifShutdown
+    override def tapOnShutdown(ifShutdown: => Unit): this.type = {
+      ifShutdown
+      this
+    }
     override def isOutcome: Boolean = false
   }
   type AbortedDueToShutdown = AbortedDueToShutdown.type

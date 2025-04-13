@@ -30,7 +30,12 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.
 import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{SynchronizerId, TopologyManagerError}
+import com.digitalasset.canton.topology.transaction.ValidatingTopologyMappingChecks
+import com.digitalasset.canton.topology.{
+  SynchronizerId,
+  TopologyManagerError,
+  TopologyStateProcessor,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
 
@@ -60,14 +65,20 @@ class TopologyTransactionProcessor(
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TopologyTransactionHandling(
-      insecureIgnoreMissingExtraKeySignatures = false,
-      pureCrypto,
       store,
       timeouts,
       loggerFactory,
     )
     with NamedLogging
     with FlagCloseable {
+
+  override protected lazy val stateProcessor: TopologyStateProcessor =
+    TopologyStateProcessor.forTransactionProcessing(
+      store,
+      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      pureCrypto,
+      loggerFactory,
+    )
 
   private val initialised = new AtomicBoolean(false)
 
@@ -453,6 +464,8 @@ class TopologyTransactionProcessor(
             effectiveTimestamp,
             txs,
             expectFullAuthorization = false,
+            // during regular transaction processing, missing signing key signatures are never permitted
+            transactionMayHaveMissingSigningKeySignatures = false,
           )
       )
       (validated, _) = validationResult

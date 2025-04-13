@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.integration.tests.topology
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.data.topology.ListOwnerToKeyMappingResult
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
+import com.digitalasset.canton.crypto.SigningKeyUsage.{IdentityDelegation, Namespace, Protocol}
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
@@ -21,7 +23,12 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.{ForceFlag, ForceFlags}
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+  CanSignSpecificMappings,
+}
+import com.digitalasset.canton.topology.{ForceFlag, ForceFlags, PartyId, TopologyManagerError}
 import com.digitalasset.daml.lf.archive.DarParser
 
 import java.io.File
@@ -100,14 +107,27 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       targetKey = delegationKey,
     )
 
+    // fails if the target key does not have the correct `IdentityDelegation` usage
+    val keyWithWrongUsage = participant1.keys.secret
+      .generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
+    loggerFactory.assertThrowsAndLogs[CommandFailure](
+      participant1.topology.identifier_delegations.propose(
+        participant1.id.uid,
+        targetKey = keyWithWrongUsage,
+      ),
+      _.errorMessage should include(
+        s"The key ${keyWithWrongUsage.id} must include a ${SigningKeyUsage.IdentityDelegation} usage."
+      ),
+    )
+
     eventually() {
       val delegation = participant1.topology.identifier_delegations
         .list(store = daId, filterUid = participant1.id.filterString)
         .headOption
         .value
 
-      val expectedDelegation = IdentifierDelegation(
-        participant1.id.uid,
+      val expectedDelegation = IdentifierDelegation.tryCreate(
+        participant1.uid,
         delegationKey,
       )
 
@@ -131,7 +151,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
         .loneElement
 
       rootNSD.namespace shouldBe rootNamespace
-      rootNSD.isRootDelegation shouldBe true
+      rootNSD.canSign(NamespaceDelegation.code) shouldBe true
       rootNSD.target.id shouldBe rootNamespace.fingerprint
 
       // generate a new signing key and register a root namespace delegation
@@ -149,13 +169,30 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       participant1.topology.namespace_delegations.propose_delegation(
         participant1.namespace,
         rootDelegationKey,
-        isRootDelegation = true,
+        CanSignAllMappings,
       )
 
       participant1.topology.namespace_delegations.propose_delegation(
         rootNamespace,
         delegationKey,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
+      )
+
+      // fails if the target key does not have the correct `Namespace` usage
+      val keyWithWrongUsage = participant1.keys.secret
+        .generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
+
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        participant1.topology.namespace_delegations
+          .propose_delegation(
+            participant1.namespace,
+            keyWithWrongUsage,
+            CanSignAllMappings,
+          ),
+        _.errorMessage should include(
+          s"The key ${keyWithWrongUsage.id} must include " +
+            s"a ${SigningKeyUsage.Namespace} usage."
+        ),
       )
 
       val NSDs = participant1.topology.namespace_delegations
@@ -167,12 +204,16 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
 
       NSDs should contain theSameElementsAs Seq(
         rootNSD,
-        NamespaceDelegation.tryCreate(rootNamespace, rootDelegationKey, isRootDelegation = true),
-        NamespaceDelegation.tryCreate(rootNamespace, delegationKey, isRootDelegation = false),
+        NamespaceDelegation.tryCreate(rootNamespace, rootDelegationKey, CanSignAllMappings),
+        NamespaceDelegation.tryCreate(
+          rootNamespace,
+          delegationKey,
+          CanSignAllButNamespaceDelegations,
+        ),
       )
 
       // now let's revoke them again in reverse order, because $rootDelegationKey might have been used
-      // to sign $delegationKey and we would get a warning when removing $rootDelegationKey first.
+      // to sign $delegationKey, and we would get a warning when removing $rootDelegationKey first.
       participant1.topology.namespace_delegations.propose_revocation(
         rootNamespace,
         delegationKey,
@@ -189,6 +230,45 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
         .map(_.item)
         .loneElement shouldBe rootNSD
     }
+
+    "propose_delegation with a delegation restriction" in { implicit env =>
+      import env.*
+      // create a new key
+      val restrictedKey =
+        participant1.keys.secret
+          .generate_signing_key(usage =
+            SigningKeyUsage.ProtocolWithProofOfOwnership.incl(SigningKeyUsage.Namespace)
+          )
+
+      // restrict the key to only be used for PTK
+      participant1.topology.namespace_delegations
+        .propose_delegation(
+          participant1.namespace,
+          restrictedKey,
+          CanSignSpecificMappings(PartyToKeyMapping),
+        )
+
+      // cannot sign a PTP
+      loggerFactory.assertThrowsAndLogs[CommandFailure](
+        participant1.topology.party_to_participant_mappings.propose(
+          PartyId.tryCreate("nsd-test", participant1.namespace),
+          Seq((participant1.id, ParticipantPermission.Submission)),
+          signedBy = Seq(restrictedKey.fingerprint),
+        ),
+        _.shouldBeCommandFailure(TopologyManagerError.NoAppropriateSigningKeyInStore),
+      )
+
+      participant1.topology.party_to_key_mappings.propose(
+        PartyToKeyMapping.tryCreate(
+          PartyId.tryCreate("nsd-test", participant1.namespace),
+          PositiveInt.one,
+          NonEmpty(Seq, restrictedKey),
+        ),
+        serial = PositiveInt.one,
+        signedBy = Some(restrictedKey.fingerprint),
+      )
+    }
+
   }
 
   "owner_to_key_mappings" in { implicit env =>
@@ -234,6 +314,88 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       signingKeys.size shouldBe 2
       signingKeys should not contain okmSigningKey // signing key must have been rotated
     }
+
+    def otkForP1(key: SigningPublicKey) =
+      participant1.topology.owner_to_key_mappings.propose(
+        OwnerToKeyMapping(
+          participant1.id.member,
+          NonEmpty(Seq, key),
+        ),
+        serial = initialOkmSerial.tryAdd(5),
+        signedBy = Seq(key.id),
+      )
+
+    // Fails when creating an OTK signedBy by key that lacks `Namespace` or `IdentityDelegation` usage
+    val keyWithWrongUsage =
+      participant1.keys.secret.generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
+    loggerFactory.assertThrowsAndLogs[CommandFailure](
+      otkForP1(keyWithWrongUsage),
+      _.message should include("Topology transaction is not properly authorized"),
+      _.message should include(
+        "INVALID_ARGUMENT/An error occurred. Please contact the operator " +
+          "and inquire about the request"
+      ),
+    )
+
+    // If a key is a root or intermediate namespace key and includes `Namespace`, it can be used to authorize an OTK.
+    val intermediateKey = participant1.keys.secret.generate_signing_key(
+      "intermediateKey",
+      NonEmpty.mk(Set, Namespace, Protocol): NonEmpty[Set[SigningKeyUsage]],
+    )
+    participant1.topology.namespace_delegations.propose_delegation(
+      participant1.namespace,
+      intermediateKey,
+      CanSignAllButNamespaceDelegations,
+    )
+    otkForP1(intermediateKey)
+
+  }
+
+  "party_to_key_mappings" in { implicit env =>
+    import env.*
+
+    val bob = participant1.ledger_api.parties.allocate("Bob")
+
+    def ptkForP1(key: SigningPublicKey) =
+      participant1.topology.party_to_key_mappings.propose(
+        PartyToKeyMapping
+          .create(
+            bob.party,
+            PositiveInt.one,
+            NonEmpty.mk(Seq, key),
+          )
+          .valueOrFail("create party to key mapping"),
+        serial = PositiveInt.one,
+        signedBy = Some(key.id),
+      )
+
+    // Fails when creating an PTK signedBy by key that lacks `Namespace` or `IdentityDelegation` usage
+    val keyWithWrongUsage =
+      participant1.keys.secret.generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
+    loggerFactory.assertThrowsAndLogs[CommandFailure](
+      ptkForP1(keyWithWrongUsage),
+      _.message should include("Topology transaction is not properly authorized"),
+      _.message should include(
+        "INVALID_ARGUMENT/An error occurred. Please contact the operator " +
+          "and inquire about the request"
+      ),
+    )
+
+    // If a key is a root or intermediate namespace key and includes `Namespace`, it can be used to authorize an OTK.
+    val delegatedKey = participant1.keys.secret.generate_signing_key(
+      "intermediateKey",
+      NonEmpty.mk(Set, Namespace, IdentityDelegation, Protocol): NonEmpty[Set[SigningKeyUsage]],
+    )
+    participant1.topology.namespace_delegations.propose_delegation(
+      participant1.namespace,
+      delegatedKey,
+      CanSignAllButNamespaceDelegations,
+    )
+    participant1.topology.identifier_delegations.propose(
+      participant1.id.uid,
+      delegatedKey,
+    )
+    ptkForP1(delegatedKey)
   }
 
   "vetted_packages.propose" in { implicit env =>
@@ -323,6 +485,9 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       )
       .getMessage should include("Cannot both add and remove a packageId: ")
 
+    participant1.topology.synchronisation.await_idle()
+    sequencer1.topology.synchronisation.await_idle()
+    mediator1.topology.synchronisation.await_idle()
   }
 
   "transactions.genesis_state" should {

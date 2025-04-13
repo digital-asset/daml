@@ -11,6 +11,8 @@ import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Duration
+
 class CompletionServiceRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
@@ -128,7 +130,8 @@ class CompletionServiceRequestValidatorTest
           code = OUT_OF_RANGE,
           description =
             s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ledgerEnd.value.unwrap + 1}) is after ledger end (${ledgerEnd.value.unwrap})",
-          metadata = Map.empty,
+          metadata = Map("definite_answer" -> "false", "category" -> "12"),
+          retryDelay = Seq(Duration.ofSeconds(1L)),
         )
       }
 

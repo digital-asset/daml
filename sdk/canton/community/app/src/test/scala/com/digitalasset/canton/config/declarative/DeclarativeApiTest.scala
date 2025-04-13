@@ -31,7 +31,9 @@ class DeclarativeApiTest
   )(implicit val executionContext: ExecutionContext)
       extends DeclarativeApi[Map[String, Int], Int] {
 
-    val metrics =
+    override val file: File = new File("not-used")
+
+    override val metrics =
       new DeclarativeApiMetrics(MetricName("test"), metricsFactory(new HistogramInventory()))(
         MetricsContext.Empty
       )
@@ -55,8 +57,6 @@ class DeclarativeApiTest
       this.responses.set(responses)
       this.want.set(want)
       super.runSync(
-        metrics,
-        new File("not-used"),
       ) shouldBe expect
       this.state.toMap shouldBe have.getOrElse(want)
       checkMetric("test.declarative_api.items", items)

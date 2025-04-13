@@ -5,6 +5,9 @@ syntax = "proto3";
 
 package com.digitalasset.canton.admin.participant.v30;
 
+import "google/protobuf/timestamp.proto";
+import "scalapb/scalapb.proto";
+
 /**
  * The PartyManagementService allows modifying party hosting on participants.
  */
@@ -14,14 +17,27 @@ service PartyManagementService {
   // Performs some checks synchronously and then starts the replication asynchronously.
   rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
 
+  // Status endpoint that given an add_party_request_id returns status information about progress,
+  // completion, or errors of a previous call to AddPartyAsync on the source or target
+  // participant.
+  //
+  // Note that the status reflects the state as perceived by the local participant and does not
+  // imply the state of remote participants. The status on the target participant is more
+  // authoritative as the target participant drives the process of adding the party. For example
+  // when the target participant status indicates "completed", the party has been added
+  // successfully.
+  rpc GetAddPartyStatus(GetAddPartyStatusRequest) returns (GetAddPartyStatusResponse);
+
   // Export the ACS for the given parties from the participant
   rpc ExportAcs(ExportAcsRequest) returns (stream ExportAcsResponse);
 }
 
 message AddPartyAsyncRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
   // The party to replicate
   // Required
-  string party_uid = 1;
+  string party_id = 1;
   // The synchronizer in which to replicate the party
   // Required
   string synchronizer_id = 2;
@@ -36,8 +52,92 @@ message AddPartyAsyncRequest {
 }
 
 message AddPartyAsyncResponse {
-  // A identifier used to uniquely track add party activity
-  string party_replication_id = 1;
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // The identifier used to uniquely track the add party request.
+  string add_party_request_id = 1;
+}
+
+message GetAddPartyStatusRequest {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // The add party request ID returned by AddPartyAsync
+  // Required
+  string add_party_request_id = 1;
+}
+
+message GetAddPartyStatusResponse {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  string party_id = 1;
+  string synchronizer_id = 2;
+  string source_participant_uid = 3;
+  string target_participant_uid = 4;
+
+  message Status {
+    // The add-party request has been submitted by the target participant, or accepted by the
+    // source participant.
+    message ProposalProcessed {
+      optional uint32 topology_serial = 1;
+    }
+    // The add-party request has been observed as agreed to by all participants.
+    message AgreementAccepted {
+      string sequencer_uid = 1;
+      optional uint32 topology_serial = 2;
+    }
+    // The PartyToParticipant topology transaction has been authorized by all party and
+    // participant signers.
+    message TopologyAuthorized {
+      string sequencer_uid = 1;
+      uint32 topology_serial = 2;
+      // The timestamp at which the ACS snapshot for replication is taken.
+      google.protobuf.Timestamp timestamp = 3;
+    }
+    // The local participant has connected to the sequencer channel for ACS replication.
+    message ConnectionEstablished {
+      string sequencer_uid = 1;
+      uint32 topology_serial = 2;
+      google.protobuf.Timestamp timestamp = 3;
+    }
+    // The local participant is ready for ACS replication or has started replicating the ACS.
+    message ReplicatingAcs {
+      string sequencer_uid = 1;
+      uint32 topology_serial = 2;
+      google.protobuf.Timestamp timestamp = 3;
+      uint32 contracts_replicated = 4;
+    }
+    // The local participant has completed its part of the ACS replication.
+    message Completed {
+      string sequencer_uid = 1;
+      uint32 topology_serial = 2;
+      google.protobuf.Timestamp timestamp = 3;
+      uint32 contracts_replicated = 4;
+    }
+    // The add-party request has failed after the specified last successful status.
+    message Error {
+      string error_message = 1;
+      Status status_prior_to_error = 2;
+    }
+
+    oneof status {
+      // Party Replication Daml admin workflow proposal and agreement handling
+      ProposalProcessed proposal_processed = 1;
+      AgreementAccepted agreement_accepted = 2;
+
+      // Topology management
+      TopologyAuthorized topology_authorized = 3;
+
+      // Party Replication ACS replication
+      ConnectionEstablished connection_established = 4;
+      ReplicatingAcs replicating_acs = 5;
+      Completed completed = 6;
+
+      // Error indicating that party replication has failed.
+      Error error = 7;
+    }
+  }
+
+  Status status = 5;
 }
 
 message ExportAcsTargetSynchronizer {

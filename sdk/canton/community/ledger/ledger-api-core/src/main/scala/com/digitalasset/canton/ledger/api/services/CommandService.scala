@@ -4,6 +4,8 @@
 package com.digitalasset.canton.ledger.api.services
 
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentRequest,
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
@@ -22,6 +24,10 @@ trait CommandService {
   def submitAndWaitForTransaction(
       request: SubmitAndWaitForTransactionRequest
   )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForTransactionResponse]
+
+  def submitAndWaitForReassignment(
+      request: SubmitAndWaitForReassignmentRequest
+  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForReassignmentResponse]
 
   def submitAndWaitForTransactionTree(
       request: SubmitAndWaitRequest
