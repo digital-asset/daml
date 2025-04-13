@@ -13,9 +13,6 @@ import java.util.Set;
 public interface UpdateClient {
 
   Flowable<Transaction> getTransactions(
-      Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
-
-  Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
       Long begin,
       Optional<Long> end,
@@ -23,15 +20,28 @@ public interface UpdateClient {
       boolean verbose);
 
   Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFormat transactionFormat);
+
+  Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFormat transactionFormat, String accessToken);
+
+  // Method will be removed in 3.4
+  Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
+
+  // Method will be removed in 3.4
+  Flowable<Transaction> getTransactions(
       Long begin,
       Optional<Long> end,
       TransactionFilter filter,
       boolean verbose,
       String accessToken);
 
+  // Method will be removed in 3.4
   Flowable<TransactionTree> getTransactionsTrees(
       Long begin, Optional<Long> end, TransactionFilter filter, boolean verbose);
 
+  // Method will be removed in 3.4
   Flowable<TransactionTree> getTransactionsTrees(
       Long begin,
       Optional<Long> end,
@@ -39,14 +49,18 @@ public interface UpdateClient {
       boolean verbose,
       String accessToken);
 
+  // Method will be removed in 3.4
   Single<TransactionTree> getTransactionTreeByOffset(Long offset, Set<String> requestingParties);
 
+  // Method will be removed in 3.4
   Single<TransactionTree> getTransactionTreeByOffset(
       Long offset, Set<String> requestingParties, String accessToken);
 
+  // Method will be removed in 3.4
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties);
 
+  // Method will be removed in 3.4
   Single<TransactionTree> getTransactionTreeById(
       String transactionId, Set<String> requestingParties, String accessToken);
 

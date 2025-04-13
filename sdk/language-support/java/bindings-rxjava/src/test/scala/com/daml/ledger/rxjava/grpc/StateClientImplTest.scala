@@ -8,7 +8,7 @@ import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator.nonEmptyLedgerContent
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
 import io.reactivex.Observable
-import org.scalacheck.Shrink.shrinkAny // disable shrinking for Gen.nonEmptyListOf (see https://github.com/typelevel/scalacheck/issues/129)
+import org.scalacheck.Shrink.shrinkAny
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -34,7 +34,7 @@ class StateClientImplTest
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (acsClient, _) =>
       val currentEnd = acsClient.getLedgerEnd.blockingGet()
       val acs = acsClient
-        .getActiveContracts(filterNothing, true, currentEnd)
+        .getActiveContracts(eventsForNothing(false), currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       acs.blockingIterable().asScala.size shouldBe 0
     }
@@ -47,7 +47,7 @@ class StateClientImplTest
     ) { (acsClient, _) =>
       val currentEnd = acsClient.getLedgerEnd.blockingGet()
       val acs = acsClient
-        .getActiveContracts(filterNothing, true, currentEnd)
+        .getActiveContracts(eventsForNothing(false), currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       acs.blockingIterable().asScala.size shouldBe 1
     }
@@ -59,7 +59,7 @@ class StateClientImplTest
       (acsClient, _) =>
         val currentEnd = acsClient.getLedgerEnd.blockingGet()
         val acs = acsClient
-          .getActiveContracts(filterNothing, true, currentEnd)
+          .getActiveContracts(eventsForNothing(false), currentEnd)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         acs.blockingIterable().asScala.size shouldBe 10
     }
@@ -72,7 +72,7 @@ class StateClientImplTest
       val verbose = true
       val currentEnd = acsClient.getLedgerEnd.blockingGet()
       acsClient
-        .getActiveContracts(filterNothing, verbose, currentEnd)
+        .getActiveContracts(eventsForNothing(verbose), currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
         .asScala
@@ -84,7 +84,7 @@ class StateClientImplTest
 
   behavior of "[1.3] StateClientImpl.getActiveContracts"
 
-  "StateClientImpl.getActiveContracts" should "fail with insufficient authorization" in {
+  "StateClientImpl.getActiveContracts using transaction filter" should "fail with insufficient authorization" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
       (acsClient, _) =>
         expectUnauthenticated {
@@ -98,11 +98,37 @@ class StateClientImplTest
     }
   }
 
-  "StateClientImpl.getActiveContracts" should "succeed with sufficient authorization" in {
+  "StateClientImpl.getActiveContracts" should "fail with insufficient authorization" in {
+    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
+      (acsClient, _) =>
+        expectUnauthenticated {
+          acsClient
+            .getActiveContracts(eventsFor(someParty), 0L, emptyToken)
+            .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+            .blockingIterable()
+            .asScala
+            .size
+        }
+    }
+  }
+
+  "StateClientImpl.getActiveContracts using transaction filter" should "succeed with sufficient authorization" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
       (acsClient, _) =>
         acsClient
           .getActiveContracts(filterFor(someParty), false, 0L, somePartyReadToken)
+          .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
+          .blockingIterable()
+          .asScala
+          .size shouldEqual 0
+    }
+  }
+
+  "StateClientImpl.getActiveContracts" should "succeed with sufficient authorization" in {
+    ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
+      (acsClient, _) =>
+        acsClient
+          .getActiveContracts(eventsFor(someParty), 0L, somePartyReadToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingIterable()
           .asScala
