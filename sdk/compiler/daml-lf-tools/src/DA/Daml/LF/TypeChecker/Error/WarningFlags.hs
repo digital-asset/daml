@@ -1,11 +1,22 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE KindSignatures #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
+{-# LANGUAGE TypeOperators #-}
+
 -- | This module defines the logic around flags
 module DA.Daml.LF.TypeChecker.Error.WarningFlags (
         module DA.Daml.LF.TypeChecker.Error.WarningFlags
     ) where
 
+import Data.Kind (Type)
 import Options.Applicative
 import qualified Text.PrettyPrint.ANSI.Leijen as PAL
 import qualified Data.List as L
@@ -79,19 +90,6 @@ instance Contravariant WarningFlags where
       , dwfFlags = fmap (contramap f) dwfFlags
       }
 
-splitWarningFlags :: WarningFlags (Either err1 err2) -> (WarningFlags err1, WarningFlags err2)
-splitWarningFlags flags = (contramap Left flags, contramap Right flags)
-
-combineParsers :: WarningFlagParser err1 -> WarningFlagParser err2 -> WarningFlagParser (Either err1 err2)
-combineParsers left right =
-  WarningFlagParser
-    { dwfpDefault = either (dwfpDefault left) (dwfpDefault right)
-    , dwfpFlagParsers =
-        (fmap . fmap . fmap) (modifyWfFilter (flip either (const False))) (dwfpFlagParsers left) ++
-        (fmap . fmap . fmap) (modifyWfFilter (either (const False))) (dwfpFlagParsers right)
-    , dwfpSuggestFlag = either (dwfpSuggestFlag left) (dwfpSuggestFlag right)
-    }
-
 parseWarningFlag
   :: WarningFlagParser err
   -> String -> Either String (WarningFlag err)
@@ -138,3 +136,86 @@ runParser parser =
       , "Disable warnings and errors with -Wno-<name>"
       , "Available names are: " <> PAL.string (namesAsList parser)
       ]
+
+
+data Product (xs :: [Type]) where
+  ProdZ :: Product '[]
+  ProdT :: a -> Product xs -> Product (a ': xs)
+
+class ProductTupleIso xs tuple | xs -> tuple, tuple -> xs where
+  toTuple :: Product xs -> tuple
+  fromTuple :: tuple -> Product xs
+
+instance ProductTupleIso '[a, b] (a, b) where
+  toTuple (ProdT a (ProdT b ProdZ)) = (a, b)
+  fromTuple (a, b) = (ProdT a (ProdT b ProdZ))
+
+instance ProductTupleIso '[a, b, c] (a, b, c) where
+  toTuple (ProdT a (ProdT b (ProdT c ProdZ))) = (a, b, c)
+  fromTuple (a, b, c) = (ProdT a (ProdT b (ProdT c ProdZ)))
+
+instance ProductTupleIso '[a, b, c, d] (a, b, c, d) where
+  toTuple (ProdT a (ProdT b (ProdT c (ProdT d ProdZ)))) = (a, b, c, d)
+  fromTuple (a, b, c, d) = (ProdT a (ProdT b (ProdT c (ProdT d ProdZ))))
+
+data Sum (rest :: [Type]) where
+  SumL :: a -> Sum (a ': xs)
+  SumR :: Sum xs -> Sum (a ': xs)
+
+eitherSum :: (l -> x) -> (Sum r -> x) -> Sum (l ': r) -> x
+eitherSum lx _  (SumL l) = lx l
+eitherSum _  rx (SumR r) = rx r
+
+type WarningFlagParsers xs = WarningFlagParser (Sum xs)
+
+voidParser :: WarningFlagParsers '[]
+voidParser = mkWarningFlagParser (const (error "voidParser: should not be able to get a flag with SumR")) []
+
+--combineParsers :: WarningFlagParser left -> WarningFlagParser (Sum rest) -> WarningFlagParser (Sum (left ': rest))
+--combineParsers left rest =
+--  WarningFlagParser
+--    { dwfpDefault = eitherSum (dwfpDefault left) (dwfpDefault rest)
+--    , dwfpFlagParsers =
+--        (fmap . fmap . fmap) (modifyWfFilter (flip eitherSum (const False))) (dwfpFlagParsers left) ++
+--        (fmap . fmap . fmap) (modifyWfFilter (eitherSum (const False))) (dwfpFlagParsers rest)
+--    , dwfpSuggestFlag = eitherSum (dwfpSuggestFlag left) (dwfpSuggestFlag rest)
+--    }
+
+combineParsers :: (ProductTupleIso (CombineParsersType xs) r, CombineParsers xs) => r -> WarningFlagParser (Sum xs)
+combineParsers = combineParsersInternal . fromTuple
+
+class CombineParsers (xs :: [Type]) where
+  type CombineParsersType xs :: [Type]
+  combineParsersInternal :: Product (CombineParsersType xs) -> WarningFlagParser (Sum xs)
+
+instance CombineParsers '[] where
+  type CombineParsersType '[] = '[]
+  combineParsersInternal ProdZ = voidParser
+
+instance CombineParsers xs => CombineParsers (a ': xs) where
+  type CombineParsersType (a ': xs) = WarningFlagParser a ': CombineParsersType xs
+  combineParsersInternal (ProdT left restSum) =
+    let rest = combineParsersInternal restSum
+    in
+    WarningFlagParser
+      { dwfpDefault = eitherSum (dwfpDefault left) (dwfpDefault rest)
+      , dwfpFlagParsers =
+          (fmap . fmap . fmap) (modifyWfFilter (flip eitherSum (const False))) (dwfpFlagParsers left) ++
+          (fmap . fmap . fmap) (modifyWfFilter (eitherSum (const False))) (dwfpFlagParsers rest)
+      , dwfpSuggestFlag = eitherSum (dwfpSuggestFlag left) (dwfpSuggestFlag rest)
+      }
+
+splitWarningFlags :: (ProductTupleIso (SplitWarningFlagsType xs) r, SplitWarningFlags xs) => WarningFlags (Sum xs) -> r
+splitWarningFlags = toTuple . splitWarningFlagsInternal
+
+class SplitWarningFlags xs where
+  type SplitWarningFlagsType xs :: [Type]
+  splitWarningFlagsInternal :: WarningFlags (Sum xs) -> Product (SplitWarningFlagsType xs)
+
+instance SplitWarningFlags '[] where
+  type SplitWarningFlagsType '[] = '[]
+  splitWarningFlagsInternal = const ProdZ
+
+instance SplitWarningFlags rest => SplitWarningFlags (a ': rest) where
+  type SplitWarningFlagsType (a ': rest) = WarningFlags a ': SplitWarningFlagsType rest
+  splitWarningFlagsInternal a = ProdT (contramap SumL a) (splitWarningFlagsInternal (contramap SumR a))

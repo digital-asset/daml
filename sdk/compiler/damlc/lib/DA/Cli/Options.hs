@@ -1,6 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DataKinds #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
@@ -21,7 +22,7 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
-import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import DA.Daml.LF.TypeChecker.Error.WarningFlags
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 import qualified DA.Daml.LFConversion.Errors as LFConversion
 
@@ -577,14 +578,8 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         "Typecheck upgrades."
         idm
 
-    optWarningFlags :: Parser (WarningFlags.WarningFlags InlineDamlCustomWarnings, WarningFlags.WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags.WarningFlags LFConversion.ErrorOrWarning)
-    optWarningFlags = split3 <$> WarningFlags.runParser warningFlagParser
-      where
-      split3 flags123 =
-        let (flags1, flags23) = WarningFlags.splitWarningFlags flags123
-            (flags2, flags3) = WarningFlags.splitWarningFlags flags23
-        in
-        (flags1, flags2, flags3)
+    optWarningFlags :: Parser (WarningFlags InlineDamlCustomWarnings, WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags LFConversion.ErrorOrWarning)
+    optWarningFlags = splitWarningFlags <$> runParser warningFlagParser
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do

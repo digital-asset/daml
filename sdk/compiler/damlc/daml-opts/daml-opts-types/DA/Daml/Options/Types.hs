@@ -3,6 +3,7 @@
 
 {-# OPTIONS_GHC -Wno-orphans #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE DataKinds #-}
 
 module DA.Daml.Options.Types
     ( Options(..)
@@ -175,13 +176,13 @@ inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
         WarningFlags.AsWarning -> "-W" <> toName inlineWarning
         WarningFlags.Hidden -> "-Wno-" <> toName inlineWarning
 
-warningFlagParser :: WarningFlags.WarningFlagParser (Either InlineDamlCustomWarnings (Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning))
+warningFlagParser :: WarningFlags.WarningFlagParsers '[InlineDamlCustomWarnings, TypeCheckerError.ErrorOrWarning, LFConversion.ErrorOrWarning]
 warningFlagParser =
   WarningFlags.combineParsers
-    inlineDamlCustomWarningsParser
-    (WarningFlags.combineParsers
-      TypeCheckerError.warningFlagParserTypeChecker
-      LFConversion.warningFlagParserLFConversion)
+    ( inlineDamlCustomWarningsParser
+    , TypeCheckerError.warningFlagParserTypeChecker
+    , LFConversion.warningFlagParserLFConversion
+    )
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
