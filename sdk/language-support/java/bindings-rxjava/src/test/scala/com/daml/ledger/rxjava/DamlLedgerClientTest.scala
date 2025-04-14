@@ -11,6 +11,7 @@ import com.daml.ledger.rxjava.grpc.helpers._
 import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitResponse,
@@ -237,6 +238,7 @@ class DamlLedgerClientTest
       Future.successful(SubmitAndWaitResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForReassignmentResponse.defaultInstance),
       Future.successful(genGetTimeResponse),
       Future.successful(GetEventsByContractIdResponse.defaultInstance),
       Future.successful(ListPackagesResponse(Seq("id1"))),

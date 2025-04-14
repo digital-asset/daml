@@ -5,6 +5,7 @@ package com.daml.ledger.rxjava.grpc
 
 import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitResponse,
@@ -47,6 +48,7 @@ class CommandClientImplTest
       Future.successful(SubmitAndWaitResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
+      Future.successful(SubmitAndWaitForReassignmentResponse.defaultInstance),
       authService,
     ) _
   }

@@ -7,6 +7,7 @@ import com.digitalasset.canton.auth.Authorizer
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitResponse,
@@ -45,6 +46,7 @@ object LedgerServicesImpls {
       submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+      submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
       getTimeResponse: Future[GetTimeResponse],
       getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
       listPackagesResponse: Future[ListPackagesResponse],
@@ -64,6 +66,7 @@ object LedgerServicesImpls {
       submitAndWaitResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
+      submitAndWaitForReassignmentResponse,
       authorizer,
     )(ec)
     val (timeServiceDef, timeService) =
