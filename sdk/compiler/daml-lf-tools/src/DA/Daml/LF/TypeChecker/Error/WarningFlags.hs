@@ -15,34 +15,37 @@ data WarningFlagStatus
 
 data WarningFlagSpec err
   = WarningFlagSpec
-    { dwfsName :: String
-    , dwfsHidden :: Bool
-    , dwfsFilter :: err -> Bool
+    { wfsName :: String
+    , wfsHidden :: Bool
+    , wfsFilter :: err -> Bool
     }
 
 specToFlag :: WarningFlagSpec err -> WarningFlagStatus -> WarningFlag err
-specToFlag spec status = WarningFlag { rfStatus = status, rfName = dwfsName spec, rfFilter = dwfsFilter spec }
+specToFlag spec status = WarningFlag { wfStatus = status, wfName = wfsName spec, wfFilter = wfsFilter spec }
 
 data WarningFlag err
   = WarningFlag
-    { rfName :: String
-    , rfStatus :: WarningFlagStatus
-    , rfFilter :: err -> Bool
+    { wfName :: String
+    , wfStatus :: WarningFlagStatus
+    , wfFilter :: err -> Bool
     }
+
+modifyWfFilter :: ((subErr -> Bool) -> superErr -> Bool) -> WarningFlag subErr -> WarningFlag superErr
+modifyWfFilter f flag = flag { wfFilter = f $ wfFilter flag }
 
 mkWarningFlagParser :: (err -> WarningFlagStatus) -> [WarningFlagSpec err] -> WarningFlagParser err
 mkWarningFlagParser dwfpDefault specs =
   WarningFlagParser
     { dwfpDefault = dwfpDefault
     , dwfpFlagParsers = map specToMapEntry specs
-    , dwfpSuggestFlag = \err -> dwfsName <$> L.find (specCanMatchErr err) specs
+    , dwfpSuggestFlag = \err -> wfsName <$> L.find (specCanMatchErr err) specs
     }
   where
     specToMapEntry :: WarningFlagSpec err -> (String, WarningFlagStatus -> WarningFlag err)
-    specToMapEntry spec = (dwfsName spec, specToFlag spec)
+    specToMapEntry spec = (wfsName spec, specToFlag spec)
 
     specCanMatchErr :: err -> WarningFlagSpec err -> Bool
-    specCanMatchErr err spec = not (dwfsHidden spec) && dwfsFilter spec err
+    specCanMatchErr err spec = not (wfsHidden spec) && wfsFilter spec err
 
 data WarningFlagParser err = WarningFlagParser
   { dwfpDefault :: err -> WarningFlagStatus
@@ -56,7 +59,7 @@ data WarningFlags err = WarningFlags
   }
 
 instance Contravariant WarningFlag where
-  contramap f flag = flag { rfFilter = rfFilter flag . f }
+  contramap f = modifyWfFilter (. f)
 
 instance Contravariant WarningFlagParser where
   contramap f WarningFlagParser {..} =
@@ -81,13 +84,10 @@ combineParsers left right =
   WarningFlagParser
     { dwfpDefault = either (dwfpDefault left) (dwfpDefault right)
     , dwfpFlagParsers =
-        (fmap . fmap . fmap) (mapFlagFilter (flip either (const False))) (dwfpFlagParsers left) ++
-        (fmap . fmap . fmap) (mapFlagFilter (either (const False))) (dwfpFlagParsers right)
+        (fmap . fmap . fmap) (modifyWfFilter (flip either (const False))) (dwfpFlagParsers left) ++
+        (fmap . fmap . fmap) (modifyWfFilter (either (const False))) (dwfpFlagParsers right)
     , dwfpSuggestFlag = either (dwfpSuggestFlag left) (dwfpSuggestFlag right)
     }
-
-mapFlagFilter :: ((subErr -> Bool) -> superErr -> Bool) -> WarningFlag subErr -> WarningFlag superErr
-mapFlagFilter f flag = flag { rfFilter = f (rfFilter flag) }
 
 parseWarningFlag
   :: WarningFlagParser err
@@ -108,9 +108,9 @@ namesAsList WarningFlagParser {dwfpFlagParsers} = L.intercalate ", " (map fst dw
 
 getWarningStatus :: WarningFlags err -> err -> WarningFlagStatus
 getWarningStatus WarningFlags { dwfDefault, dwfFlags } err =
-  case filter (\flag -> rfFilter flag err) dwfFlags of
+  case filter (\flag -> wfFilter flag err) dwfFlags of
     [] -> dwfDefault err
-    xs -> rfStatus (last xs)
+    xs -> wfStatus (last xs)
 
 mkWarningFlags :: WarningFlagParser err -> [WarningFlag err] -> WarningFlags err
 mkWarningFlags parser flags = WarningFlags
