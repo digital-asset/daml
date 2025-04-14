@@ -116,6 +116,7 @@ message RecordField {
 
 // Unique identifier of an entity.
 // Throughout this API, the following terminology is being used:
+//
 //   - if a Daml package-id is encoded in the package_id field, it is referred to as using a "package-id reference format"
 //   - if a Daml package-name is encoded in the package_id field, it is referred to as using a "package-name reference format"
 message Identifier {
