@@ -135,7 +135,6 @@ private class NodeBuilderV1(
           packageName,
           templateId,
           arg,
-          _agreementText @ _,
           signatories,
           stakeholders,
           keyOpt,
