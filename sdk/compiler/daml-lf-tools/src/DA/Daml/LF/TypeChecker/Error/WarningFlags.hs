@@ -1,10 +1,13 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+-- | This module defines the logic around flags
 module DA.Daml.LF.TypeChecker.Error.WarningFlags (
         module DA.Daml.LF.TypeChecker.Error.WarningFlags
     ) where
 
+import Options.Applicative
+import qualified Text.PrettyPrint.ANSI.Leijen as PAL
 import qualified Data.List as L
 import Data.Functor.Contravariant
 
@@ -120,3 +123,18 @@ mkWarningFlags parser flags = WarningFlags
 
 addWarningFlags :: [WarningFlag err] -> WarningFlags err -> WarningFlags err
 addWarningFlags newFlags flags = flags { dwfFlags = dwfFlags flags ++ newFlags }
+
+runParser :: WarningFlagParser a -> Parser (WarningFlags a)
+runParser parser =
+  mkWarningFlags parser <$>
+    many (Options.Applicative.option
+      (eitherReader (parseWarningFlag parser))
+      (short 'W' <> helpDoc (Just helpStr)))
+  where
+  helpStr =
+    PAL.vcat
+      [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
+      , "Turn a warning into an error with -Werror=<name>"
+      , "Disable warnings and errors with -Wno-<name>"
+      , "Available names are: " <> PAL.string (namesAsList parser)
+      ]

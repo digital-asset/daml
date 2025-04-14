@@ -25,8 +25,6 @@ import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 import qualified DA.Daml.LFConversion.Errors as LFConversion
 
-import qualified Text.PrettyPrint.ANSI.Leijen as PAL
-
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
 
@@ -580,25 +578,13 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         idm
 
     optWarningFlags :: Parser (WarningFlags.WarningFlags InlineDamlCustomWarnings, WarningFlags.WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags.WarningFlags LFConversion.ErrorOrWarning)
-    optWarningFlags =
-      split3 . WarningFlags.mkWarningFlags warningFlagParser <$>
-        many (Options.Applicative.option
-          (eitherReader (WarningFlags.parseWarningFlag warningFlagParser))
-          (short 'W' <> helpDoc (Just helpStr)))
+    optWarningFlags = split3 <$> WarningFlags.runParser warningFlagParser
       where
       split3 flags123 =
         let (flags1, flags23) = WarningFlags.splitWarningFlags flags123
             (flags2, flags3) = WarningFlags.splitWarningFlags flags23
         in
         (flags1, flags2, flags3)
-
-      helpStr =
-        PAL.vcat
-          [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
-          , "Turn a warning into an error with -Werror=<name>"
-          , "Disable warnings and errors with -Wno-<name>"
-          , "Available names are: " <> PAL.string (WarningFlags.namesAsList warningFlagParser)
-          ]
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
