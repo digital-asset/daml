@@ -341,7 +341,8 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
 // https://code.visualstudio.com/api/extension-guides/webview
 async function showReleaseNotes(version: string) {
   try {
-    const releaseNotesUrl = "https://blog.daml.com/release-notes/" + version;
+    const releaseNotesUrl =
+      "https://blog.digitalasset.com/developers/release-notes/" + version;
     const res = await fetch(releaseNotesUrl);
     if (res.ok) {
       const panel = vscode.window.createWebviewPanel(
