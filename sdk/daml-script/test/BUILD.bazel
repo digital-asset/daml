@@ -313,7 +313,7 @@ da_scala_test_suite(
 
 da_scala_test(
     name = "upgrade-test",
-    size = "large",
+    size = "enormous",
     srcs = ["src/main/scala/com/digitalasset/daml/lf/engine/script/test/UpgradesIT.scala"],
     data = [
         ":upgrade-test-files",
