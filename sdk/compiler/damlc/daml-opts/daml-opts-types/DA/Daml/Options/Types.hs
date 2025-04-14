@@ -164,16 +164,16 @@ inlineDamlCustomWarningsParser = WarningFlags.mkDamlWarningFlagParser
   ]
 
 inlineDamlCustomWarningToGhcFlag :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings -> [String]
-inlineDamlCustomWarningToGhcFlag flags = mapMaybe go [minBound..maxBound]
+inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
   where
     toName :: InlineDamlCustomWarnings -> String
     toName DisableDeprecatedExceptions = "x-exceptions"
 
     go inlineWarning =
       case WarningFlags.getWarningStatus flags inlineWarning of
-        WarningFlags.AsError -> Just $ "-Werror=" <> toName inlineWarning
-        WarningFlags.AsWarning -> Nothing -- "-W" <> toName inlineWarning
-        WarningFlags.Hidden -> Just $ "-Wno-" <> toName inlineWarning
+        WarningFlags.AsError -> "-Werror=" <> toName inlineWarning
+        WarningFlags.AsWarning -> "-W" <> toName inlineWarning
+        WarningFlags.Hidden -> "-Wno-" <> toName inlineWarning
 
 type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
 
