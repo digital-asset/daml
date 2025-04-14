@@ -24,7 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
-import DA.Daml.LF.TypeChecker.Error.WarningFlags (DamlWarningFlags)
+import DA.Daml.LF.TypeChecker.Error.WarningFlags (WarningFlags)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.LF.TypeChecker.WarnInvalidDependencies as WarnInvalidDependencies
 import DA.Daml.Options (expandSdkPackages)
@@ -113,7 +113,7 @@ buildDar ::
     -> NormalizedFilePath
     -> FromDalf
     -> UpgradeInfo
-    -> DamlWarningFlags TypeCheckerError.ErrorOrWarning
+    -> WarningFlags TypeCheckerError.ErrorOrWarning
     -> Maybe ProjectPath
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
 buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath = do

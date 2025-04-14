@@ -8,77 +8,77 @@ module DA.Daml.LF.TypeChecker.Error.WarningFlags (
 import qualified Data.List as L
 import Data.Functor.Contravariant
 
-data DamlWarningFlagStatus
+data WarningFlagStatus
   = AsError -- -Werror=<name>
   | AsWarning -- -W<name> or -Wwarn=<name> or -Wno-error=<name>
   | Hidden -- -Wno-<name>
 
-data DamlWarningFlagSpec err
-  = DamlWarningFlagSpec
+data WarningFlagSpec err
+  = WarningFlagSpec
     { dwfsName :: String
     , dwfsHidden :: Bool
     , dwfsFilter :: err -> Bool
     }
 
-specToFlag :: DamlWarningFlagSpec err -> DamlWarningFlagStatus -> DamlWarningFlag err
-specToFlag spec status = RawDamlWarningFlag { rfStatus = status, rfName = dwfsName spec, rfFilter = dwfsFilter spec }
+specToFlag :: WarningFlagSpec err -> WarningFlagStatus -> WarningFlag err
+specToFlag spec status = WarningFlag { rfStatus = status, rfName = dwfsName spec, rfFilter = dwfsFilter spec }
 
-data DamlWarningFlag err
-  = RawDamlWarningFlag
+data WarningFlag err
+  = WarningFlag
     { rfName :: String
-    , rfStatus :: DamlWarningFlagStatus
+    , rfStatus :: WarningFlagStatus
     , rfFilter :: err -> Bool
     }
 
-mkDamlWarningFlagParser :: (err -> DamlWarningFlagStatus) -> [DamlWarningFlagSpec err] -> DamlWarningFlagParser err
-mkDamlWarningFlagParser dwfpDefault specs =
-  DamlWarningFlagParser
+mkWarningFlagParser :: (err -> WarningFlagStatus) -> [WarningFlagSpec err] -> WarningFlagParser err
+mkWarningFlagParser dwfpDefault specs =
+  WarningFlagParser
     { dwfpDefault = dwfpDefault
     , dwfpFlagParsers = map specToMapEntry specs
     , dwfpSuggestFlag = \err -> dwfsName <$> L.find (specCanMatchErr err) specs
     }
   where
-    specToMapEntry :: DamlWarningFlagSpec err -> (String, DamlWarningFlagStatus -> DamlWarningFlag err)
+    specToMapEntry :: WarningFlagSpec err -> (String, WarningFlagStatus -> WarningFlag err)
     specToMapEntry spec = (dwfsName spec, specToFlag spec)
 
-    specCanMatchErr :: err -> DamlWarningFlagSpec err -> Bool
+    specCanMatchErr :: err -> WarningFlagSpec err -> Bool
     specCanMatchErr err spec = not (dwfsHidden spec) && dwfsFilter spec err
 
-data DamlWarningFlagParser err = DamlWarningFlagParser
-  { dwfpDefault :: err -> DamlWarningFlagStatus
-  , dwfpFlagParsers :: [(String, DamlWarningFlagStatus -> DamlWarningFlag err)]
+data WarningFlagParser err = WarningFlagParser
+  { dwfpDefault :: err -> WarningFlagStatus
+  , dwfpFlagParsers :: [(String, WarningFlagStatus -> WarningFlag err)]
   , dwfpSuggestFlag :: err -> Maybe String
   }
 
-data DamlWarningFlags err = DamlWarningFlags
-  { dwfDefault :: err -> DamlWarningFlagStatus
-  , dwfFlags :: [DamlWarningFlag err]
+data WarningFlags err = WarningFlags
+  { dwfDefault :: err -> WarningFlagStatus
+  , dwfFlags :: [WarningFlag err]
   }
 
-instance Contravariant DamlWarningFlag where
+instance Contravariant WarningFlag where
   contramap f flag = flag { rfFilter = rfFilter flag . f }
 
-instance Contravariant DamlWarningFlagParser where
-  contramap f DamlWarningFlagParser {..} =
-    DamlWarningFlagParser
+instance Contravariant WarningFlagParser where
+  contramap f WarningFlagParser {..} =
+    WarningFlagParser
       { dwfpDefault = dwfpDefault . f
       , dwfpFlagParsers = (fmap . fmap . fmap) (contramap f) dwfpFlagParsers
       , dwfpSuggestFlag = dwfpSuggestFlag . f
       }
 
-instance Contravariant DamlWarningFlags where
-  contramap f DamlWarningFlags {..} =
-    DamlWarningFlags
+instance Contravariant WarningFlags where
+  contramap f WarningFlags {..} =
+    WarningFlags
       { dwfDefault = dwfDefault . f
       , dwfFlags = fmap (contramap f) dwfFlags
       }
 
-splitDamlWarningFlags :: DamlWarningFlags (Either err1 err2) -> (DamlWarningFlags err1, DamlWarningFlags err2)
-splitDamlWarningFlags flags = (contramap Left flags, contramap Right flags)
+splitWarningFlags :: WarningFlags (Either err1 err2) -> (WarningFlags err1, WarningFlags err2)
+splitWarningFlags flags = (contramap Left flags, contramap Right flags)
 
-combineParsers :: DamlWarningFlagParser err1 -> DamlWarningFlagParser err2 -> DamlWarningFlagParser (Either err1 err2)
+combineParsers :: WarningFlagParser err1 -> WarningFlagParser err2 -> WarningFlagParser (Either err1 err2)
 combineParsers left right =
-  DamlWarningFlagParser
+  WarningFlagParser
     { dwfpDefault = either (dwfpDefault left) (dwfpDefault right)
     , dwfpFlagParsers =
         (fmap . fmap . fmap) (mapFlagFilter (flip either (const False))) (dwfpFlagParsers left) ++
@@ -86,13 +86,13 @@ combineParsers left right =
     , dwfpSuggestFlag = either (dwfpSuggestFlag left) (dwfpSuggestFlag right)
     }
 
-mapFlagFilter :: ((subErr -> Bool) -> superErr -> Bool) -> DamlWarningFlag subErr -> DamlWarningFlag superErr
+mapFlagFilter :: ((subErr -> Bool) -> superErr -> Bool) -> WarningFlag subErr -> WarningFlag superErr
 mapFlagFilter f flag = flag { rfFilter = f (rfFilter flag) }
 
-parseRawDamlWarningFlag
-  :: DamlWarningFlagParser err
-  -> String -> Either String (DamlWarningFlag err)
-parseRawDamlWarningFlag parser@DamlWarningFlagParser { dwfpFlagParsers } = \case
+parseWarningFlag
+  :: WarningFlagParser err
+  -> String -> Either String (WarningFlag err)
+parseWarningFlag parser@WarningFlagParser { dwfpFlagParsers } = \case
   ('e':'r':'r':'o':'r':'=':name) -> parseNameE name AsError
   ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> parseNameE name AsWarning
   ('n':'o':'-':name) -> parseNameE name Hidden
@@ -103,20 +103,20 @@ parseRawDamlWarningFlag parser@DamlWarningFlagParser { dwfpFlagParsers } = \case
     Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> namesAsList parser
     Just flag -> Right (flag status)
 
-namesAsList :: DamlWarningFlagParser err -> String
-namesAsList DamlWarningFlagParser {dwfpFlagParsers} = L.intercalate ", " (map fst dwfpFlagParsers)
+namesAsList :: WarningFlagParser err -> String
+namesAsList WarningFlagParser {dwfpFlagParsers} = L.intercalate ", " (map fst dwfpFlagParsers)
 
-getWarningStatus :: DamlWarningFlags err -> err -> DamlWarningFlagStatus
-getWarningStatus DamlWarningFlags { dwfDefault, dwfFlags } err =
+getWarningStatus :: WarningFlags err -> err -> WarningFlagStatus
+getWarningStatus WarningFlags { dwfDefault, dwfFlags } err =
   case filter (\flag -> rfFilter flag err) dwfFlags of
     [] -> dwfDefault err
     xs -> rfStatus (last xs)
 
-mkDamlWarningFlags :: DamlWarningFlagParser err -> [DamlWarningFlag err] -> DamlWarningFlags err
-mkDamlWarningFlags parser flags = DamlWarningFlags
+mkWarningFlags :: WarningFlagParser err -> [WarningFlag err] -> WarningFlags err
+mkWarningFlags parser flags = WarningFlags
   { dwfFlags = flags
   , dwfDefault = dwfpDefault parser
   }
 
-addDamlWarningFlags :: [DamlWarningFlag err] -> DamlWarningFlags err -> DamlWarningFlags err
-addDamlWarningFlags newFlags flags = flags { dwfFlags = dwfFlags flags ++ newFlags }
+addWarningFlags :: [WarningFlag err] -> WarningFlags err -> WarningFlags err
+addWarningFlags newFlags flags = flags { dwfFlags = dwfFlags flags ++ newFlags }

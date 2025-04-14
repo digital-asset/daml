@@ -436,7 +436,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
-    ~(optInlineDamlCustomWarningFlags, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optDamlWarningFlags
+    ~(optInlineDamlCustomWarningFlags, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     optForceUtilityPackage <- forceUtilityPackageOpt
 
@@ -579,16 +579,16 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         "Typecheck upgrades."
         idm
 
-    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags InlineDamlCustomWarnings, WarningFlags.DamlWarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags.DamlWarningFlags LFConversion.ErrorOrWarning)
-    optDamlWarningFlags =
-      split3 . WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$>
+    optWarningFlags :: Parser (WarningFlags.WarningFlags InlineDamlCustomWarnings, WarningFlags.WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags.WarningFlags LFConversion.ErrorOrWarning)
+    optWarningFlags =
+      split3 . WarningFlags.mkWarningFlags warningFlagParser <$>
         many (Options.Applicative.option
-          (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
+          (eitherReader (WarningFlags.parseWarningFlag warningFlagParser))
           (short 'W' <> helpDoc (Just helpStr)))
       where
       split3 flags123 =
-        let (flags1, flags23) = WarningFlags.splitDamlWarningFlags flags123
-            (flags2, flags3) = WarningFlags.splitDamlWarningFlags flags23
+        let (flags1, flags23) = WarningFlags.splitWarningFlags flags123
+            (flags2, flags3) = WarningFlags.splitWarningFlags flags23
         in
         (flags1, flags2, flags3)
 
@@ -597,7 +597,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
           [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
           , "Turn a warning into an error with -Werror=<name>"
           , "Disable warnings and errors with -Wno-<name>"
-          , "Available names are: " <> PAL.string (WarningFlags.namesAsList damlWarningFlagParser)
+          , "Available names are: " <> PAL.string (WarningFlags.namesAsList warningFlagParser)
           ]
 
     optUpgradeInfo :: Parser UpgradeInfo

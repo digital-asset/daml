@@ -19,16 +19,16 @@ module DA.Daml.LF.TypeChecker.Error(
     UnerrorableWarning,
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
-    DamlWarningFlag(..),
-    DamlWarningFlags(..),
-    DamlWarningFlagStatus(..),
-    parseRawDamlWarningFlag,
+    WarningFlag(..),
+    WarningFlags(..),
+    WarningFlagStatus(..),
+    parseWarningFlag,
     getWarningStatus,
     upgradeInterfacesFlagSpec,
     upgradeExceptionsFlagSpec,
     templateInterfaceDependsOnScriptFlagSpec,
-    damlWarningFlagParserTypeChecker,
-    mkDamlWarningFlags,
+    warningFlagParserTypeChecker,
+    mkWarningFlags,
     combineParsers
     ) where
 
@@ -340,8 +340,8 @@ instance Pretty ErrorOrWarning where
         ]
     pprintDep (pkgId, meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
 
-damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
-damlWarningFlagParserTypeChecker = mkDamlWarningFlagParser
+warningFlagParserTypeChecker :: WarningFlagParser ErrorOrWarning
+warningFlagParserTypeChecker = mkWarningFlagParser
   (\case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
       WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
@@ -374,8 +374,8 @@ damlWarningFlagParserTypeChecker = mkDamlWarningFlagParser
   , templateHasNewInterfaceInstanceFlagSpec
   ]
 
-upgradedTemplateChangedFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-upgradedTemplateChangedFlagSpec = DamlWarningFlagSpec "upgraded-template-expression-changed" False $
+upgradedTemplateChangedFlagSpec :: WarningFlagSpec ErrorOrWarning
+upgradedTemplateChangedFlagSpec = WarningFlagSpec "upgraded-template-expression-changed" False $
     \case
         WEUpgradedTemplateChangedPrecondition {} -> True
         WEUpgradedTemplateChangedSignatories {} -> True
@@ -385,60 +385,60 @@ upgradedTemplateChangedFlagSpec = DamlWarningFlagSpec "upgraded-template-express
         WEUpgradedTemplateChangedKeyMaintainers {} -> True
         _ -> False
 
-upgradedChoiceChangedFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-upgradedChoiceChangedFlagSpec = DamlWarningFlagSpec "upgraded-choice-expression-changed" False $
+upgradedChoiceChangedFlagSpec :: WarningFlagSpec ErrorOrWarning
+upgradedChoiceChangedFlagSpec = WarningFlagSpec "upgraded-choice-expression-changed" False $
     \case
         WEUpgradedChoiceChangedControllers {} -> True
         WEUpgradedChoiceChangedObservers {} -> True
         WEUpgradedChoiceChangedAuthorizers {} -> True
         _ -> False
 
-couldNotExtractUpgradedExpressionFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-couldNotExtractUpgradedExpressionFlagSpec = DamlWarningFlagSpec "could-not-extract-upgraded-expression" False $
+couldNotExtractUpgradedExpressionFlagSpec :: WarningFlagSpec ErrorOrWarning
+couldNotExtractUpgradedExpressionFlagSpec = WarningFlagSpec "could-not-extract-upgraded-expression" False $
     \case
         WECouldNotExtractForUpgradeChecking {} -> True
         _ -> False
 
-upgradeInterfacesFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-upgradeInterfacesFlagSpec = DamlWarningFlagSpec "upgrade-interfaces" False $
+upgradeInterfacesFlagSpec :: WarningFlagSpec ErrorOrWarning
+upgradeInterfacesFlagSpec = WarningFlagSpec "upgrade-interfaces" False $
     \case
         WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
         WEUpgradeShouldDefineIfaceWithoutImplementation {} -> True
         WEUpgradeShouldDefineTplInSeparatePackage {} -> True
         _ -> False
 
-upgradeExceptionsFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-upgradeExceptionsFlagSpec = DamlWarningFlagSpec "upgrade-exceptions" False $
+upgradeExceptionsFlagSpec :: WarningFlagSpec ErrorOrWarning
+upgradeExceptionsFlagSpec = WarningFlagSpec "upgrade-exceptions" False $
     \case
         WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> True
         _ -> False
 
-upgradeDependencyMetadataFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-upgradeDependencyMetadataFlagSpec = DamlWarningFlagSpec "upgrade-dependency-metadata" False $
+upgradeDependencyMetadataFlagSpec :: WarningFlagSpec ErrorOrWarning
+upgradeDependencyMetadataFlagSpec = WarningFlagSpec "upgrade-dependency-metadata" False $
     \case
         WEDependencyHasUnparseableVersion {} -> True
         _ -> False
 
-unusedDependencyFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-unusedDependencyFlagSpec = DamlWarningFlagSpec "unused-dependency" False $
+unusedDependencyFlagSpec :: WarningFlagSpec ErrorOrWarning
+unusedDependencyFlagSpec = WarningFlagSpec "unused-dependency" False $
     \case
         WEUnusedDependency {} -> True
         _ -> False
 
-ownUpgradeDependencyFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-ownUpgradeDependencyFlagSpec = DamlWarningFlagSpec "upgrades-own-dependency" False $
+ownUpgradeDependencyFlagSpec :: WarningFlagSpec ErrorOrWarning
+ownUpgradeDependencyFlagSpec = WarningFlagSpec "upgrades-own-dependency" False $
     \case
         WEOwnUpgradeDependency {} -> True
         _ -> False
 
-templateInterfaceDependsOnScriptFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-templateInterfaceDependsOnScriptFlagSpec = DamlWarningFlagSpec "template-interface-depends-on-daml-script" False $
+templateInterfaceDependsOnScriptFlagSpec :: WarningFlagSpec ErrorOrWarning
+templateInterfaceDependsOnScriptFlagSpec = WarningFlagSpec "template-interface-depends-on-daml-script" False $
     \case
         WETemplateInterfaceDependsOnScript {} -> True
         _ -> False
 
-templateHasNewInterfaceInstanceFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-templateHasNewInterfaceInstanceFlagSpec = DamlWarningFlagSpec "template-has-new-interface-instance" False $
+templateHasNewInterfaceInstanceFlagSpec :: WarningFlagSpec ErrorOrWarning
+templateHasNewInterfaceInstanceFlagSpec = WarningFlagSpec "template-has-new-interface-instance" False $
     \case
         WEForbiddenNewImplementation {} -> True
         _ -> False
@@ -586,7 +586,7 @@ instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
     EErrorOrWarning err ->
-      case dwfpSuggestFlag damlWarningFlagParserTypeChecker err of
+      case dwfpSuggestFlag warningFlagParserTypeChecker err of
         Just name ->
           vcat
             [ pPrint err
@@ -995,7 +995,7 @@ instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
     WErrorToWarning err ->
-      case dwfpSuggestFlag damlWarningFlagParserTypeChecker err of
+      case dwfpSuggestFlag warningFlagParserTypeChecker err of
         Just name ->
           vcat
             [ pPrint err

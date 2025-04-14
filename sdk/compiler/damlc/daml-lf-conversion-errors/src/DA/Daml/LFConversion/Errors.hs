@@ -20,15 +20,15 @@ import DA.Daml.LF.TypeChecker.Error.WarningFlags
 
 import "ghc-lib" TyCoRep
 
-damlWarningFlagParserLFConversion :: DamlWarningFlagParser ErrorOrWarning
-damlWarningFlagParserLFConversion =
-  mkDamlWarningFlagParser
+warningFlagParserLFConversion :: WarningFlagParser ErrorOrWarning
+warningFlagParserLFConversion =
+  mkWarningFlagParser
     (\case
         LargeTuple _ -> AsWarning)
     [warnLargeTuplesFlagSpec]
 
-warnLargeTuplesFlagSpec :: DamlWarningFlagSpec ErrorOrWarning
-warnLargeTuplesFlagSpec = DamlWarningFlagSpec
+warnLargeTuplesFlagSpec :: WarningFlagSpec ErrorOrWarning
+warnLargeTuplesFlagSpec = WarningFlagSpec
   "large-tuples"
   True
   (\case

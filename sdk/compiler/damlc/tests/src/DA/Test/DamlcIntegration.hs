@@ -301,14 +301,14 @@ getIntegrationTests registerTODO scriptService (packageDbPath, packageFlags) = d
                 , optPackageImports = packageFlags
                 , optDetailLevel = PrettyLevel (-1)
                 , optEnableInterfaces = EnableInterfaces True
-                , optDamlWarningFlags =
-                    WarningFlags.addDamlWarningFlags
+                , optWarningFlags =
+                    WarningFlags.addWarningFlags
                       [ WarningFlags.toLeft (WarningFlags.specToFlag upgradeInterfacesFlagSpec WarningFlags.AsWarning)
                       , WarningFlags.toLeft (WarningFlags.specToFlag upgradeExceptionsFlagSpec WarningFlags.AsWarning)
                       , -- Almost every test will report this, so we disable it at root
                         WarningFlags.toLeft (WarningFlags.specToFlag templateInterfaceDependsOnScriptFlagSpec WarningFlags.Hidden)
                       ]
-                      (optDamlWarningFlags opts0)
+                      (optWarningFlags opts0)
                 }
 
               mkIde options = do

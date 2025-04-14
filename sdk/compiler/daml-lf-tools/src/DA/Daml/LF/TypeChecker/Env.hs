@@ -32,7 +32,7 @@ module DA.Daml.LF.TypeChecker.Env(
     emptyGamma,
     SomeErrorOrWarning(..),
     getWarningStatusF,
-    damlWarningFlags,
+    warningFlags,
     ) where
 
 import           Control.Lens hiding (Context)
@@ -56,7 +56,7 @@ data Gamma = Gamma
     -- ^ The packages in scope.
   , _lfVersion :: Version
     -- ^ The Daml-LF version of the package being type checked.
-  , _damlWarningFlags :: DamlWarningFlags ErrorOrWarning
+  , _warningFlags :: WarningFlags ErrorOrWarning
     -- ^ Function for relaxing errors into warnings and strictifying warnings into errors
   }
 
@@ -68,9 +68,9 @@ class SomeErrorOrWarning d where
 getLfVersion :: MonadGamma m => m Version
 getLfVersion = view lfVersion
 
-getWarningStatusF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> ErrorOrWarning -> m DamlWarningFlagStatus
+getWarningStatusF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> ErrorOrWarning -> m WarningFlagStatus
 getWarningStatusF getter warnableError = do
-  flags <- view (getter . damlWarningFlags)
+  flags <- view (getter . warningFlags)
   pure (getWarningStatus flags warnableError)
 
 getWorld :: MonadGamma m => m World
@@ -104,7 +104,7 @@ match p e x = either (const (throwWithContext e)) pure (matching p x)
 -- | Environment containing only the packages in scope but no type or term
 -- variables.
 emptyGamma :: World -> Version -> Gamma
-emptyGamma world version = Gamma ContextNone mempty mempty world version (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
+emptyGamma world version = Gamma ContextNone mempty mempty world version (mkWarningFlags warningFlagParserTypeChecker [])
 
 -- | Run a computation in the current environment extended by a new type
 -- variable/kind binding. Does not fail on shadowing.

@@ -318,6 +318,6 @@ bignumericTests = testGroup "BigNumeric"
         let dummyEnv = ConversionEnv
               { convModuleFilePath = toNormalizedFilePath' ""
               , convRange = Nothing
-              , convWarningFlags = mkDamlWarningFlags damlWarningFlagParserLFConversion []
+              , convWarningFlags = mkWarningFlags warningFlagParserLFConversion []
               }
         in runConvertM dummyEnv $ convertRationalBigNumeric (numerator r) (denominator r)

@@ -40,11 +40,11 @@ module DA.Daml.Options.Types
     , defaultUiWarnBadInterfaceInstances
     , defaultUiWarnBadExceptions
     , defaultUpgradeInfo
-    , damlWarningFlagParser
+    , warningFlagParser
     , inlineDamlCustomWarningsParser
     , inlineDamlCustomWarningToGhcFlag
-    , TypeCheckerError.damlWarningFlagParserTypeChecker
-    , LFConversion.damlWarningFlagParserLFConversion
+    , TypeCheckerError.warningFlagParserTypeChecker
+    , LFConversion.warningFlagParserLFConversion
     , InlineDamlCustomWarnings (..)
     ) where
 
@@ -144,9 +144,9 @@ data Options = Options
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
   -- unit-id, as script service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
-  , optTypecheckerWarningFlags :: WarningFlags.DamlWarningFlags TypeCheckerError.ErrorOrWarning
-  , optLfConversionWarningFlags :: WarningFlags.DamlWarningFlags LFConversion.ErrorOrWarning
-  , optInlineDamlCustomWarningFlags :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings
+  , optTypecheckerWarningFlags :: WarningFlags.WarningFlags TypeCheckerError.ErrorOrWarning
+  , optLfConversionWarningFlags :: WarningFlags.WarningFlags LFConversion.ErrorOrWarning
+  , optInlineDamlCustomWarningFlags :: WarningFlags.WarningFlags InlineDamlCustomWarnings
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
   }
@@ -155,15 +155,15 @@ data InlineDamlCustomWarnings
   = DisableDeprecatedExceptions
   deriving (Enum, Bounded, Ord, Eq, Show)
 
-inlineDamlCustomWarningsParser :: WarningFlags.DamlWarningFlagParser InlineDamlCustomWarnings
-inlineDamlCustomWarningsParser = WarningFlags.mkDamlWarningFlagParser
+inlineDamlCustomWarningsParser :: WarningFlags.WarningFlagParser InlineDamlCustomWarnings
+inlineDamlCustomWarningsParser = WarningFlags.mkWarningFlagParser
   (\case
     DisableDeprecatedExceptions -> WarningFlags.AsWarning)
-  [ WarningFlags.DamlWarningFlagSpec "deprecated-exceptions" True $ \case
+  [ WarningFlags.WarningFlagSpec "deprecated-exceptions" True $ \case
       DisableDeprecatedExceptions -> True
   ]
 
-inlineDamlCustomWarningToGhcFlag :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings -> [String]
+inlineDamlCustomWarningToGhcFlag :: WarningFlags.WarningFlags InlineDamlCustomWarnings -> [String]
 inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
   where
     toName :: InlineDamlCustomWarnings -> String
@@ -175,13 +175,13 @@ inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
         WarningFlags.AsWarning -> "-W" <> toName inlineWarning
         WarningFlags.Hidden -> "-Wno-" <> toName inlineWarning
 
-damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser (Either InlineDamlCustomWarnings (Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning))
-damlWarningFlagParser =
+warningFlagParser :: WarningFlags.WarningFlagParser (Either InlineDamlCustomWarnings (Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning))
+warningFlagParser =
   WarningFlags.combineParsers
     inlineDamlCustomWarningsParser
     (WarningFlags.combineParsers
-      TypeCheckerError.damlWarningFlagParserTypeChecker
-      LFConversion.damlWarningFlagParserLFConversion)
+      TypeCheckerError.warningFlagParserTypeChecker
+      LFConversion.warningFlagParserLFConversion)
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -326,9 +326,9 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
-        , optTypecheckerWarningFlags = WarningFlags.mkDamlWarningFlags TypeCheckerError.damlWarningFlagParserTypeChecker []
-        , optLfConversionWarningFlags = WarningFlags.mkDamlWarningFlags LFConversion.damlWarningFlagParserLFConversion []
-        , optInlineDamlCustomWarningFlags = WarningFlags.mkDamlWarningFlags inlineDamlCustomWarningsParser []
+        , optTypecheckerWarningFlags = WarningFlags.mkWarningFlags TypeCheckerError.warningFlagParserTypeChecker []
+        , optLfConversionWarningFlags = WarningFlags.mkWarningFlags LFConversion.warningFlagParserLFConversion []
+        , optInlineDamlCustomWarningFlags = WarningFlags.mkWarningFlags inlineDamlCustomWarningsParser []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
         }
