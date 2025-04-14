@@ -341,16 +341,25 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
 // https://code.visualstudio.com/api/extension-guides/webview
 async function showReleaseNotes(version: string) {
   try {
-    const releaseNotesUrl = "https://blog.daml.com/release-notes/" + version;
+    const releaseNotesUrl =
+      "https://blog.digitalasset.com/developers/release-notes/" + version;
     const res = await fetch(releaseNotesUrl);
     if (res.ok) {
       const panel = vscode.window.createWebviewPanel(
         "releaseNotes", // Identifies the type of the webview. Used internally
         `New Daml SDK ${version} Available`, // Title of the panel displayed to the user
         vscode.ViewColumn.One, // Editor column to show the new webview panel in
-        {}, // No webview options for now
+        {
+          enableScripts: true, // New release notes use JS scripts
+        },
       );
-      panel.webview.html = await res.text();
+      let text = await res.text();
+      // Frame breaking logic needs to exclude vscode, replace here until website is updated.
+      // (VSCode doesn't set a referrer, so we check its empty after checking self isn't top)
+      text = text.replace("self===top", 'self===top||document.referrer===""');
+      // Some local urls are used for icons, throws warnings in vscode console as they become local to vscode
+      text = text.replace(/\"\/hubfs/g, '"https://blog.digitalasset.com/hubfs');
+      panel.webview.html = text;
     }
   } catch (_error) {}
 }
