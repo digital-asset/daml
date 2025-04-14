@@ -146,9 +146,9 @@ data Options = Options
   , optUpgradeInfo :: UpgradeInfo
   , optTypecheckerWarningFlags :: WarningFlags.DamlWarningFlags TypeCheckerError.ErrorOrWarning
   , optLfConversionWarningFlags :: WarningFlags.DamlWarningFlags LFConversion.ErrorOrWarning
+  , optInlineDamlCustomWarningFlags :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
-  , optInlineDamlCustomWarnings :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings
   }
 
 data InlineDamlCustomWarnings
@@ -328,9 +328,9 @@ defaultOptions mbVersion =
         , optUpgradeInfo = defaultUpgradeInfo
         , optTypecheckerWarningFlags = WarningFlags.mkDamlWarningFlags TypeCheckerError.damlWarningFlagParserTypeChecker []
         , optLfConversionWarningFlags = WarningFlags.mkDamlWarningFlags LFConversion.damlWarningFlagParserLFConversion []
+        , optInlineDamlCustomWarningFlags = WarningFlags.mkDamlWarningFlags inlineDamlCustomWarningsParser []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
-        , optInlineDamlCustomWarnings = WarningFlags.mkDamlWarningFlags inlineDamlCustomWarningsParser []
         }
 
 defaultUpgradeInfo :: UpgradeInfo

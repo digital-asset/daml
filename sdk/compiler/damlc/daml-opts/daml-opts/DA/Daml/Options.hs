@@ -505,7 +505,7 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
   liftIO $ initUniqSupply 0 1
 
   let
-    ghcCustomOpts = optGhcCustomOpts ++ inlineDamlCustomWarningToGhcFlag optInlineDamlCustomWarnings
+    ghcCustomOpts = optGhcCustomOpts ++ inlineDamlCustomWarningToGhcFlag optInlineDamlCustomWarningFlags
 
   unless (null ghcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags

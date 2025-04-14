@@ -436,7 +436,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
-    ~(optInlineDamlCustomWarnings, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optDamlWarningFlags
+    ~(optInlineDamlCustomWarningFlags, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optDamlWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     optForceUtilityPackage <- forceUtilityPackageOpt
 
