@@ -22,7 +22,11 @@ import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
 }
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  SubmittedTransaction,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
@@ -74,13 +78,13 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private def t1InstanceFor(party: Party): FatContractInstance =
     FatContractInstance.fromThinInstance(
       version = TransactionVersion.VDev,
-        packageName = pkg.pkgName,
-        template = "T1",
-        arg = ValueRecord(
-          Some("T1"),
-          ImmArray((Some[Name]("party"), ValueParty(party))),
-        ),
-      )
+      packageName = pkg.pkgName,
+      template = "T1",
+      arg = ValueRecord(
+        Some("T1"),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
+      ),
+    )
 
   private def x1InstanceFor(party: Party): FatContractInstance =
     FatContractInstance.fromThinInstance(

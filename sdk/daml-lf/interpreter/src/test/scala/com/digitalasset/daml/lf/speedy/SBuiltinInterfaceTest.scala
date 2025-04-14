@@ -694,13 +694,13 @@ object EvalHelpers {
     )
 
   def evalSExpr(
-                 e: SExpr,
-                 packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
-                 getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
-                 getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
-                 getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
-                 compiledPackages: PureCompiledPackages,
-                 committers: Set[Ref.Party],
+      e: SExpr,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+      getPkg: PartialFunction[Ref.PackageId, CompiledPackages] = PartialFunction.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      compiledPackages: PureCompiledPackages,
+      committers: Set[Ref.Party],
   ): Try[Either[SError, SValue]] = {
     val machine =
       Speedy.Machine.fromUpdateSExpr(

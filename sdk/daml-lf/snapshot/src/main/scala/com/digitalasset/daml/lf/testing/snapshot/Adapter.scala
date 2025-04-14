@@ -66,9 +66,10 @@ final class Adapter(
     )
 
   def adapt(coinst: FatContractInstance): FatContractInstance =
-    coinst.toImplementation.copy(templateId = adapt(coinst.templateId),
+    coinst.toImplementation.copy(
+      templateId = adapt(coinst.templateId),
       createArg = adapt(coinst.createArg),
-      contractKeyWithMaintainers = coinst.contractKeyWithMaintainers.map(adapt)
+      contractKeyWithMaintainers = coinst.contractKeyWithMaintainers.map(adapt),
     )
 
   def adapt(gkey: GlobalKey): GlobalKey =

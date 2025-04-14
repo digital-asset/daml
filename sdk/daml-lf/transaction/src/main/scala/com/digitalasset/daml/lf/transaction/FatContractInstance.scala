@@ -43,20 +43,20 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   )
 
   private[lf] def toThinInstance: Value.ThinContractInstance =
-      Value.ThinContractInstance(
-        packageName,
-        templateId,
-        createArg,
-      )
-
-  private[lf] def toVersionedThinInstance: Value.VersionedThinContractInstance =
-    Versioned(
-      version,
     Value.ThinContractInstance(
       packageName,
       templateId,
       createArg,
     )
+
+  private[lf] def toVersionedThinInstance: Value.VersionedThinContractInstance =
+    Versioned(
+      version,
+      Value.ThinContractInstance(
+        packageName,
+        templateId,
+        createArg,
+      ),
     )
 }
 
@@ -123,11 +123,11 @@ object FatContractInstance {
   private[this] val DummyParties = TreeSet(Ref.Party.assertFromString("DummyParty"))
 
   def fromThinInstance(
-                        version: TransactionVersion,
-                        packageName: Ref.PackageName,
-                        template: Ref.Identifier,
-                        arg: Value,
-                      ): FatContractInstance =
+      version: TransactionVersion,
+      packageName: Ref.PackageName,
+      template: Ref.Identifier,
+      arg: Value,
+  ): FatContractInstance =
     FatContractInstanceImpl(
       version = version,
       contractId = DummyCid,

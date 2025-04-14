@@ -122,11 +122,11 @@ object Node {
   object Create {
 
     def apply(
-               coid: ContractId,
-               contract: VersionedThinContractInstance,
-               signatories: Set[Party],
-               stakeholders: Set[Party],
-               key: Option[GlobalKeyWithMaintainers],
+        coid: ContractId,
+        contract: VersionedThinContractInstance,
+        signatories: Set[Party],
+        stakeholders: Set[Party],
+        key: Option[GlobalKeyWithMaintainers],
     ): Create =
       Create(
         coid = coid,

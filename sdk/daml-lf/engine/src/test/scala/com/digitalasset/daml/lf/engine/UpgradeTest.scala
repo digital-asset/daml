@@ -1753,15 +1753,15 @@ object UpgradeTest {
 
     val clientContract: FatContractInstance = FatContractInstance.fromThinInstance(
       langVersion,
-        clientPkg.pkgName,
-        clientTplId,
-        ValueRecord(
-          Some(clientTplId),
-          ImmArray(
-            Some("p": Name) -> ValueParty(alice)
-          ),
+      clientPkg.pkgName,
+      clientTplId,
+      ValueRecord(
+        Some(clientTplId),
+        ImmArray(
+          Some("p": Name) -> ValueParty(alice)
         ),
-      )
+      ),
+    )
 
     val globalContractArg: ValueRecord = ValueRecord(
       Some(v1TplId),

@@ -53,14 +53,14 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
         FatContractInstance.fromThinInstance(
-          version  = langVersion,
-            miniTestsPkg.pkgName,
-            TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
-            ValueRecord(
-              Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
-              ImmArray((Some[Name]("p"), ValueParty(party))),
-            ),
-          )
+          version = langVersion,
+          miniTestsPkg.pkgName,
+          TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
+          ValueRecord(
+            Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
+            ImmArray((Some[Name]("p"), ValueParty(party))),
+          ),
+        )
     )
 
   private def freshEngine = new Engine(

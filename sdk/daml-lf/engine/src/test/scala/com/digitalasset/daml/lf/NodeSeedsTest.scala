@@ -51,23 +51,23 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     FatContractInstance.fromThinInstance(
       transaction.TransactionVersion.VDev,
       mainPkg.pkgName,
-        requestTmplId,
-        Value.ValueRecord(
-          None,
-          ImmArray(None -> Value.ValueParty(operator), None -> Value.ValueParty(investor)),
-        ),
+      requestTmplId,
+      Value.ValueRecord(
+        None,
+        ImmArray(None -> Value.ValueParty(operator), None -> Value.ValueParty(investor)),
+      ),
     )
   val roleTmplId =
     Ref.Identifier(mainPkgId, Ref.QualifiedName.assertFromString("Demonstrator:RegistrarRole"))
   val roleCid: Value.ContractId = Value.ContractId.V1.assertFromString(
     "002000000000000000000000000000000000000000000000000000000000000000"
   )
-  val roleContract =   FatContractInstance.fromThinInstance(
+  val roleContract = FatContractInstance.fromThinInstance(
     transaction.TransactionVersion.VDev,
-      mainPkg.pkgName,
-      roleTmplId,
-      Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
-    )
+    mainPkg.pkgName,
+    roleTmplId,
+    Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(operator))),
+  )
   val contracts = Map(requestCid -> requestContract, roleCid -> roleContract)
 
   implicit val loggingContext: LoggingContext = LoggingContext.empty

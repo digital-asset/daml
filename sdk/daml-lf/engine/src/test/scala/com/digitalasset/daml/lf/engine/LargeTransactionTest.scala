@@ -11,7 +11,12 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.script.IdeLedger
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, SubmittedTransaction, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  Node,
+  SubmittedTransaction,
+  VersionedTransaction,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command._
