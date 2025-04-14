@@ -81,16 +81,10 @@ combineParsers left right =
   DamlWarningFlagParser
     { dwfpDefault = either (dwfpDefault left) (dwfpDefault right)
     , dwfpFlagParsers =
-        (fmap . fmap . fmap) toLeft (dwfpFlagParsers left) ++
-        (fmap . fmap . fmap) toRight (dwfpFlagParsers right)
+        (fmap . fmap . fmap) (mapFlagFilter (flip either (const False))) (dwfpFlagParsers left) ++
+        (fmap . fmap . fmap) (mapFlagFilter (either (const False))) (dwfpFlagParsers right)
     , dwfpSuggestFlag = either (dwfpSuggestFlag left) (dwfpSuggestFlag right)
     }
-
-toLeft :: DamlWarningFlag err -> DamlWarningFlag (Either err x)
-toLeft = mapFlagFilter (\x -> either x (const False))
-
-toRight :: DamlWarningFlag err -> DamlWarningFlag (Either x err)
-toRight = mapFlagFilter (\x -> either (const False) x)
 
 mapFlagFilter :: ((subErr -> Bool) -> superErr -> Bool) -> DamlWarningFlag subErr -> DamlWarningFlag superErr
 mapFlagFilter f flag = flag { rfFilter = f (rfFilter flag) }
