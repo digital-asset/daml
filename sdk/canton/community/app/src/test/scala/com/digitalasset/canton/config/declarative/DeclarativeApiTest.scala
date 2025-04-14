@@ -115,7 +115,7 @@ class DeclarativeApiTest
           state.put(k, desired)
         }
       },
-      rm = { k =>
+      rm = { (k, _) =>
         responseOr("rm", k) {
           state.remove(k)
         }

@@ -5,7 +5,7 @@
 
 module Daml.Script.Internal.Questions
   ( module Daml.Script.Internal.Questions.Commands
-#ifdef DAML_CCTP
+#ifdef DAML_CRYPTO
   , module Daml.Script.Internal.Questions.Crypto
 #endif
   , module Daml.Script.Internal.Questions.Exceptions
@@ -21,7 +21,7 @@ module Daml.Script.Internal.Questions
   ) where
 
 import Daml.Script.Internal.Questions.Commands
-#ifdef DAML_CCTP
+#ifdef DAML_CRYPTO
 import Daml.Script.Internal.Questions.Crypto
 #endif
 import Daml.Script.Internal.Questions.Exceptions

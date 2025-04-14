@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.config
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -41,7 +40,7 @@ import monocle.macros.syntax.lens.*
   *   Configuration for the traffic purchased entry manager.
   */
 final case class SequencerNodeConfig(
-    override val init: SequencerNodeInitConfig = SequencerNodeInitConfig(),
+    override val init: InitConfig = InitConfig(),
     publicApi: PublicServerConfig = PublicServerConfig(),
     override val adminApi: AdminServerConfig = AdminServerConfig(),
     override val storage: StorageConfig = StorageConfig.Memory(),
@@ -55,6 +54,11 @@ final case class SequencerNodeConfig(
     replication: Option[ReplicationConfig] = None,
     override val topology: TopologyConfig = TopologyConfig(),
     trafficConfig: SequencerTrafficConfig = SequencerTrafficConfig(),
+    // 45 seconds before the default ack interval on participants is 1 minute
+    // So slightly below to maximize the chance of them going through
+    acknowledgementsConflateWindow: Option[PositiveFiniteDuration] = Some(
+      PositiveFiniteDuration.ofSeconds(45)
+    ),
 ) extends LocalNodeConfig
     with ConfigDefaults[DefaultPorts, SequencerNodeConfig]
     with UniformCantonConfigValidation {
@@ -110,18 +114,4 @@ object SequencerNodeConfig {
   implicit val sequencerNodeConfigCantonConfigValidator
       : CantonConfigValidator[SequencerNodeConfig] =
     CantonConfigValidatorDerivation[SequencerNodeConfig]
-}
-
-/** SequencerNodeInitConfig supports and defaults to auto-init
-  */
-final case class SequencerNodeInitConfig(
-    identity: Option[InitConfigBase.Identity] = Some(InitConfigBase.Identity()),
-    state: Option[StateConfig] = None,
-) extends config.InitConfigBase
-    with UniformCantonConfigValidation
-
-object SequencerNodeInitConfig {
-  implicit val sequencerNodeInitConfigCantonConfigValidator
-      : CantonConfigValidator[SequencerNodeInitConfig] =
-    CantonConfigValidatorDerivation[SequencerNodeInitConfig]
 }

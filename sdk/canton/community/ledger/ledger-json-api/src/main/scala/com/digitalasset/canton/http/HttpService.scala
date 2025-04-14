@@ -157,16 +157,6 @@ class HttpService(
             },
           )
 
-          meteringReportService = new MeteringReportService(
-            { case (jwt, request) =>
-              implicit lc =>
-                ledgerClientJwt
-                  .getMeteringReport(ledgerClient)(directEc, traceContext)(jwt, request)(
-                    lc
-                  )
-            }
-          )
-
           ledgerHealthService = HealthGrpc.stub(channel)
 
           healthService = new HealthService(() => ledgerHealthService.check(HealthCheckRequest()))
@@ -193,7 +183,6 @@ class HttpService(
             contractsService,
             partiesService,
             packageManagementService,
-            meteringReportService,
             healthService,
             v2Routes,
             encoder,

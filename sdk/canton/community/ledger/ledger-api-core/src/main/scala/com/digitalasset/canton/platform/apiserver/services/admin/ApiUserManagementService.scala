@@ -39,7 +39,6 @@ import com.digitalasset.canton.ledger.participant.state.index.IndexPartyManageme
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.withEnrichedLoggingContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -222,7 +221,7 @@ private[apiserver] final class ApiUserManagementService(
     }
 
   private def resolveAuthenticatedUserContext(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Future[AuthenticatedUserContext] =
     AuthorizationInterceptor
       .extractClaimSetFromContext()
@@ -450,7 +449,7 @@ private[apiserver] final class ApiUserManagementService(
   }
 
   private def handleUpdatePathResult[T](userId: Ref.UserId, result: update.Result[T])(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Future[T] =
     result match {
       case Left(e: update.UpdatePathError) =>
@@ -469,7 +468,7 @@ private[apiserver] final class ApiUserManagementService(
       isParticipantAdmin: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
   ): Future[Unit] = {
     val parties = userParties(rights)
     val partiesExistingInPartyRecordStore =
@@ -493,7 +492,7 @@ private[apiserver] final class ApiUserManagementService(
       identityProviderId: IdentityProviderId,
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
   ): Future[Unit] =
     indexKnownParties(partiesWithoutRecord.toList).flatMap { partiesKnown =>
       val unknownParties = partiesWithoutRecord -- partiesKnown
@@ -512,7 +511,7 @@ private[apiserver] final class ApiUserManagementService(
   private def partiesNotExistsError(
       unknownParties: Set[Ref.Party],
       identityProviderId: IdentityProviderId,
-  )(implicit errorLogger: ContextualizedErrorLogger) = {
+  )(implicit errorLogger: ErrorLoggingContext) = {
     val message =
       s"Provided parties have not been found in " +
         s"identity_provider_id=`${identityProviderId.toRequestString}`: [${unknownParties.mkString(",")}]."
@@ -527,7 +526,7 @@ private[apiserver] final class ApiUserManagementService(
       id: IdentityProviderId
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLogger: ContextualizedErrorLogger,
+      errorLogger: ErrorLoggingContext,
   ): Future[Unit] =
     identityProviderExists(id)
       .flatMap { idpExists =>
@@ -553,7 +552,7 @@ private[apiserver] final class ApiUserManagementService(
 
   private def fromProtoRight(
       right: proto.Right
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, UserRight] =
+  )(implicit errorLogger: ErrorLoggingContext): Either[StatusRuntimeException, UserRight] =
     right match {
       case proto.Right(_: proto.Right.Kind.ParticipantAdmin) =>
         Right(UserRight.ParticipantAdmin)
@@ -583,7 +582,7 @@ private[apiserver] final class ApiUserManagementService(
   private def fromProtoRights(
       rights: Seq[proto.Right]
   )(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Either[StatusRuntimeException, Set[UserRight]] =
     rights.toList.traverse(fromProtoRight).map(_.toSet)
 
@@ -642,7 +641,7 @@ object ApiUserManagementService {
       .getOrElse("")
 
   def decodeUserIdFromPageToken(pageToken: String)(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Option[Ref.UserId]] =
     if (pageToken.isEmpty) {
       Right(None)
@@ -666,7 +665,7 @@ object ApiUserManagementService {
     }
 
   private def invalidPageToken(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): StatusRuntimeException =
     RequestValidationErrors.InvalidArgument
       .Reject("Invalid page token")
@@ -674,7 +673,7 @@ object ApiUserManagementService {
 
   def handleResult[T](operation: String)(
       result: UserManagementStore.Result[T]
-  )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
+  )(implicit errorLogger: ErrorLoggingContext): Future[T] =
     result match {
       case Left(UserManagementStore.PermissionDenied(id)) =>
         Future.failed(

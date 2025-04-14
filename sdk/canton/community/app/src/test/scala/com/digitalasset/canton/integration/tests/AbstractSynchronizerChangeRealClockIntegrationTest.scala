@@ -105,7 +105,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
 
     checkUnassignment(paintSynchronizerId, iouSynchronizerId, painter)
 
-    paintOfferReassignmentId.unassignedEvent
+    paintOfferReassignmentId.events.loneElement
   }
 
   protected def assignmentAndPaintOfferAcceptance(
@@ -174,7 +174,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
 
     P4.ledger_api.commands.submit_assign(
       painter,
-      paintHouseUnassigned.unassignedEvent.unassignId,
+      paintHouseUnassigned.unassignId,
       iouSynchronizerId,
       paintSynchronizerId,
     )

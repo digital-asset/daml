@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
+import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.RpcError
@@ -96,16 +97,48 @@ class TopologyAdministrationGroup(
                       |defining a so-called namespace, where the signing key has the ultimate control over
                       |issuing new identifiers.
                       |During initialisation, we have to pick such a unique identifier.
-                      |By default, initialisation happens automatically, but it can be turned off by setting the auto-init
-                      |option to false.
+                      |By default, initialisation happens automatically, but it can be changed to either initialize
+                      |manually or to read a set of identities and certificates from a file.
+                      |
                       |Automatic node initialisation is usually turned off to preserve the identity of a participant or synchronizer
-                      |node (during major version upgrades) or if the topology transactions are managed through
-                      |a different topology manager than the one integrated into this node.""")
-  def init_id(identifier: UniqueIdentifier, waitForReady: Boolean = true): Unit = {
+                      |node (during major version upgrades) or if the root namespace key of the node is
+                      |kept offline.
+                      |
+                      |Optionally, a set of delegations can be provided if the root namespace key is not available.
+                      |These delegations can be either in files or passed as objects. Their version needs to match the
+                      |necessary protocol version of the synchronizers we are going to connect to.
+                      |""")
+  def init_id(
+      identifier: UniqueIdentifier,
+      delegations: Seq[GenericSignedTopologyTransaction] = Seq.empty,
+      delegationFiles: Seq[String] = Seq.empty,
+      waitForReady: Boolean = true,
+  ): Unit = {
     if (waitForReady) instance.health.wait_for_ready_for_id()
+    val certs = delegationFiles.traverse(
+      BinaryFileUtil
+        .readByteStringFromFile(_)
+        .flatMap(bytes =>
+          SignedTopologyTransaction
+            .fromByteString(
+              ProtocolVersionValidation.NoValidation,
+              ProtocolVersionValidation.NoValidation,
+              bytes,
+            )
+            .leftMap(_.message)
+        )
+    )
 
     consoleEnvironment.run {
-      adminCommand(TopologyAdminCommands.Init.InitId(identifier.toProtoPrimitive))
+      ConsoleCommandResult.fromEither(certs).flatMap { fileBasedDelegations =>
+        adminCommand(
+          TopologyAdminCommands.Init.InitId(
+            identifier = identifier.identifier.toProtoPrimitive,
+            namespace = identifier.namespace.toProtoPrimitive,
+            delegations = delegations ++ fileBasedDelegations,
+          )
+        )
+      }
     }
   }
 

@@ -53,6 +53,7 @@ abstract class SubmissionRequestAmplificationIntegrationTest
     maxBaseTrafficAccumulationDuration = config.PositiveFiniteDuration.ofSeconds(1L),
     setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
     enforceRateLimiting = true,
+    baseEventCost = NonNegativeLong.zero,
   )
 
   override lazy val environmentDefinition: EnvironmentDefinition =

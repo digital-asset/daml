@@ -591,38 +591,24 @@ class OutputModuleTest
           val topologyActivationTime = TopologyActivationTime(anotherTimestamp.immediateSuccessor)
 
           Table(
-            ("Pending Canton topology changes", "first block mode", "last block mode"),
+            ("Pending Canton topology changes", "block mode"),
             (
               false,
-              OrderedBlockForOutput.Mode.FromConsensus,
               OrderedBlockForOutput.Mode.FromConsensus,
             ),
             (
               true,
               OrderedBlockForOutput.Mode.FromConsensus,
-              OrderedBlockForOutput.Mode.FromConsensus,
             ),
             (
               false,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
+              OrderedBlockForOutput.Mode.FromStateTransfer,
             ),
             (
               true,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
+              OrderedBlockForOutput.Mode.FromStateTransfer,
             ),
-            (
-              false,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-            ),
-            (
-              true,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-            ),
-          ).forEvery { case (pendingChanges, firstBlockMode, lastBlockMode) =>
+          ).forEvery { case (pendingChanges, blockMode) =>
             val store = spy(createOutputMetadataStore[ProgrammableUnitTestEnv])
             val topologyProviderMock = mock[OrderingTopologyProvider[ProgrammableUnitTestEnv]]
             val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
@@ -651,14 +637,14 @@ class OutputModuleTest
               completeBlockData(
                 BlockNumber.First,
                 commitTimestamp = aTimestamp,
-                mode = firstBlockMode,
+                mode = blockMode,
               )
             val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfSynchronizer = false
               completeBlockData(
                 BlockNumber(BlockNumber.First + 1L),
                 commitTimestamp = anotherTimestamp,
                 lastInEpoch = true,
-                mode = lastBlockMode,
+                mode = blockMode,
               )
 
             output.receive(Output.Start)
@@ -693,12 +679,12 @@ class OutputModuleTest
             )
 
             val piped3 = context.runPipedMessages()
-            piped3 should contain only Output.TopologyFetched(
-              lastBlockMode,
-              EpochNumber(1L), // Epoch number
-              newOrderingTopology,
-              newCryptoProvider,
-            )
+            piped3 should contain only
+              Output.TopologyFetched(
+                EpochNumber(1L), // Epoch number
+                newOrderingTopology,
+                newCryptoProvider,
+              )
 
             // All blocks have now been output to the subscription
             subscriptionBlocks should have size 2
@@ -719,7 +705,6 @@ class OutputModuleTest
               piped4 should matchPattern {
                 case Seq(
                       Output.MetadataStoredForNewEpoch(
-                        `lastBlockMode`,
                         1L, // Epoch number
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
@@ -743,7 +728,6 @@ class OutputModuleTest
                 secondEpochNumber,
                 Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
-                lastBlockMode,
               )
             )
 
@@ -766,7 +750,6 @@ class OutputModuleTest
         )
 
         // the behavior will always be the same across block modes, so the chosen one is irrelevant
-        val aBlockMode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock
         val aTopologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue)
         val anOrderingTopology =
           OrderingTopology.forTesting(
@@ -779,7 +762,6 @@ class OutputModuleTest
         val aCryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
         output.receive(
           TopologyFetched(
-            aBlockMode,
             secondEpochNumber,
             anOrderingTopology,
             aCryptoProvider,
@@ -791,13 +773,11 @@ class OutputModuleTest
             secondEpochNumber,
             aNewMembership,
             aCryptoProvider,
-            aBlockMode,
           )
         )
 
         output.receive(
           TopologyFetched(
-            aBlockMode,
             EpochNumber.First,
             anOrderingTopology,
             aCryptoProvider,
@@ -812,7 +792,6 @@ class OutputModuleTest
               EpochNumber.First,
               aNewMembership,
               aCryptoProvider,
-              aBlockMode,
             )
           )
         order
@@ -822,7 +801,6 @@ class OutputModuleTest
               secondEpochNumber,
               aNewMembership,
               aCryptoProvider,
-              aBlockMode,
             )
           )
 
@@ -847,7 +825,7 @@ class OutputModuleTest
             aTimestamp,
             lastInEpoch = false, // Do not complete the epoch!
             EpochNumber.First,
-            mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+            mode = OrderedBlockForOutput.Mode.FromStateTransfer,
           )
         val blockNumber2 = BlockNumber(BlockNumber.First + 1L)
         val blockData2 =
@@ -855,7 +833,7 @@ class OutputModuleTest
             blockNumber2,
             anotherTimestamp,
             epochNumber = EpochNumber(EpochNumber.First + 1L),
-            mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+            mode = OrderedBlockForOutput.Mode.FromStateTransfer,
           )
 
         output.receive(Output.Start)
@@ -916,7 +894,6 @@ class OutputModuleTest
             secondEpochNumber,
             Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
-            OrderedBlockForOutput.Mode.FromConsensus,
           )
         )
         succeed
@@ -1149,6 +1126,7 @@ class OutputModuleTest
         areTherePendingTopologyChangesInOnboardingEpoch,
         failingCryptoProvider,
         initialOrderingTopology,
+        None,
       )
     new OutputModule(
       startupState,

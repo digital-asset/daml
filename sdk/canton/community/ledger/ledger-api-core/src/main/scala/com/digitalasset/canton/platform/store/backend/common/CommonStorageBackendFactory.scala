@@ -12,12 +12,8 @@ import com.digitalasset.canton.platform.store.backend.localstore.{
   UserManagementStorageBackend,
   UserManagementStorageBackendImpl,
 }
-import com.digitalasset.canton.platform.store.cache.LedgerEndCache
 
 trait CommonStorageBackendFactory extends StorageBackendFactory {
-
-  override val createMeteringParameterStorageBackend: MeteringParameterStorageBackend =
-    MeteringParameterStorageBackendImpl
 
   override val createIntegrityStorageBackend: IntegrityStorageBackend =
     IntegrityStorageBackendImpl
@@ -30,14 +26,6 @@ trait CommonStorageBackendFactory extends StorageBackendFactory {
 
   override val createIdentityProviderConfigStorageBackend: IdentityProviderStorageBackend =
     IdentityProviderStorageBackendImpl
-
-  override def createMeteringStorageReadBackend(
-      ledgerEndCache: LedgerEndCache
-  ): MeteringStorageReadBackend =
-    MeteringStorageBackendReadTemplate
-
-  def createMeteringStorageWriteBackend: MeteringStorageWriteBackend =
-    MeteringStorageBackendWriteTemplate
 
   override def createPartyRecordStorageBackend: PartyRecordStorageBackend =
     PartyRecordStorageBackendImpl

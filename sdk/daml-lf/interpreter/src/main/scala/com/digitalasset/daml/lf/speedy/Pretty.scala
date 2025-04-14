@@ -159,15 +159,15 @@ private[lf] object Pretty {
             text("Attempt to downgrade ") & prettyValue(false)(actualValue) /
               text(s" to the variant or enum constructor type ${expectedType.pretty}")
         }
-      case CCTP(error) =>
+      case Crypto(error) =>
         error match {
-          case CCTP.MalformedByteEncoding(value, cause) =>
+          case Crypto.MalformedByteEncoding(value, cause) =>
             text("Invalid byte encoding format for") & text(value) & text(":") /
               text(cause)
-          case CCTP.MalformedSignature(signature, cause) =>
+          case Crypto.MalformedSignature(signature, cause) =>
             text("Malformed signature for") & text(signature) & text(":") /
               text(cause)
-          case CCTP.MalformedKey(key, cause) =>
+          case Crypto.MalformedKey(key, cause) =>
             text("Malformed public key for") & text(key) & text(":") /
               text(cause)
         }

@@ -743,10 +743,12 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .getOrElse(consoleEnvironment.raiseError("No synchronizer owners specified."))
 
       val mediators = mediatorsToSequencers.keys.toSeq
+
       val identityTransactions =
         (sequencers ++ mediators ++ synchronizerOwners).flatMap(
           _.topology.transactions.identity_transactions()
         )
+
       synchronizerOwners.foreach(
         _.topology.transactions.load(
           identityTransactions,
@@ -776,13 +778,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .mapFilter(_.selectOp[TopologyChangeOp.Replace])
         .distinct
 
-      val orderingMap =
-        Seq(
-          NamespaceDelegation.code,
-          OwnerToKeyMapping.code,
-          DecentralizedNamespaceDefinition.code,
-        ).zipWithIndex.toMap
-          .withDefaultValue(5)
+      // remember order of transactions in the initial topology state
+      // so we don't mess up certificate chains
+      val orderingMap = initialTopologyState.zipWithIndex.map { case (tx, idx) =>
+        (tx.mapping.uniqueKey, idx)
+      }.toMap
 
       val merged = initialTopologyState
         .groupBy1(_.hash)
@@ -794,7 +794,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           }.updateIsProposal(isProposal = false)
         )
         .toSeq
-        .sortBy(tx => orderingMap(tx.mapping.code))
+        .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
 
       val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>

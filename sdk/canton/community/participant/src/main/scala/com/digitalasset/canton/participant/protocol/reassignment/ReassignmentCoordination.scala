@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.protocol.ReassignmentSynchronizer
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ApplicationShutdown,
   ReassignmentProcessorError,
@@ -43,6 +44,7 @@ class ReassignmentCoordination(
     ],
     recentTimeProofFor: RecentTimeProofProvider,
     reassignmentSubmissionFor: SynchronizerId => Option[ReassignmentSubmissionHandle],
+    pendingUnassignments: Source[SynchronizerId] => Option[ReassignmentSynchronizer],
     val staticSynchronizerParameterFor: Traced[SynchronizerId] => Option[
       StaticSynchronizerParameters
     ],
@@ -50,6 +52,24 @@ class ReassignmentCoordination(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
+
+  def addPendingUnassignment(reassignmentId: ReassignmentId) =
+    pendingUnassignments(reassignmentId.sourceSynchronizer)
+      .foreach(_.add(reassignmentId))
+
+  def completeUnassignment(reassignmentId: ReassignmentId): Unit =
+    pendingUnassignments(reassignmentId.sourceSynchronizer)
+      .foreach(_.completePhase7(reassignmentId))
+
+  // Todo(i25029): Add the ability to interrupt the wait for unassignment completion in specific cases
+  def waitForStartedUnassignmentToCompletePhase7(
+      reassignmentId: ReassignmentId
+  ): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.outcomeF(
+      pendingUnassignments(reassignmentId.sourceSynchronizer)
+        .flatMap(_.find(reassignmentId))
+        .getOrElse(Future.successful(()))
+    )
 
   private[reassignment] def awaitSynchronizerTime(
       synchronizerId: ReassignmentTag[SynchronizerId],
@@ -336,6 +356,7 @@ object ReassignmentCoordination {
       reassignmentTimeProofFreshnessProportion: NonNegativeInt,
       syncPersistentStateManager: SyncPersistentStateManager,
       submissionHandles: SynchronizerId => Option[ReassignmentSubmissionHandle],
+      pendingUnassignments: Source[SynchronizerId] => Option[ReassignmentSynchronizer],
       syncCryptoApi: SyncCryptoApiParticipantProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
@@ -363,6 +384,7 @@ object ReassignmentCoordination {
       reassignmentStoreFor = synchronizerDataFor,
       recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = submissionHandles,
+      pendingUnassignments = pendingUnassignments,
       staticSynchronizerParameterFor = staticSynchronizerParametersGetter,
       syncCryptoApi = syncCryptoApi,
       loggerFactory = loggerFactory,

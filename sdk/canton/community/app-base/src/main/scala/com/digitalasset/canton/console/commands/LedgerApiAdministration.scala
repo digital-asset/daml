@@ -960,7 +960,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): AssignedWrapper =
-        submitReassignment(submitter, waitForParticipants, timeout)(commandId =>
+        submitReassignments(submitter, waitForParticipants, timeout)(commandId =>
           submit_assign_async(
             submitter = submitter,
             unassignId = unassignId,
@@ -999,10 +999,40 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
       ): UnassignedWrapper =
-        submitReassignment(submitter, waitForParticipants, timeout)(commandId =>
-          submit_unassign_async(
+        submit_unassignments(
+          submitter,
+          Seq(contractId),
+          source,
+          target,
+          workflowId,
+          userId,
+          submissionId,
+          waitForParticipants,
+          timeout,
+        )
+
+      @Help.Summary(
+        "Submit assign commands and wait for the resulting reassignment, returning the reassignment or failing otherwise",
+        FeatureFlag.Testing,
+      )
+      @Help.Description(
+        """See `submit_unassign` for the parameters."""
+      )
+      def submit_unassignments(
+          submitter: PartyId,
+          contractIds: Seq[LfContractId],
+          source: SynchronizerId,
+          target: SynchronizerId,
+          workflowId: String = "",
+          userId: String = userId,
+          submissionId: String = UUID.randomUUID().toString,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+      ): UnassignedWrapper =
+        submitReassignments(submitter, waitForParticipants, timeout)(commandId =>
+          submit_unassignments_async(
             submitter = submitter,
-            contractId = contractId,
+            contractIds = contractIds,
             source = source,
             target = target,
             workflowId = workflowId,
@@ -1033,10 +1063,40 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           submissionId: String = UUID.randomUUID().toString,
           waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
-      ): (UnassignedWrapper, AssignedWrapper) = {
-        val unassigned = submit_unassign(
+      ): (UnassignedWrapper, AssignedWrapper) =
+        submit_reassignments(
           submitter,
-          contractId,
+          Seq(contractId),
+          source,
+          target,
+          workflowId,
+          userId,
+          submissionId,
+          waitForParticipants,
+          timeout,
+        )
+
+      @Help.Summary(
+        "Combines `submit_unassign` and `submit_assign` in a single macro",
+        FeatureFlag.Testing,
+      )
+      @Help.Description(
+        """See `submit_unassign` and `submit_assign` for the parameters."""
+      )
+      def submit_reassignments(
+          submitter: PartyId,
+          contractIds: Seq[LfContractId],
+          source: SynchronizerId,
+          target: SynchronizerId,
+          workflowId: String = "",
+          userId: String = userId,
+          submissionId: String = UUID.randomUUID().toString,
+          waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
+          timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+      ): (UnassignedWrapper, AssignedWrapper) = {
+        val unassigned = submit_unassignments(
+          submitter,
+          contractIds,
           source,
           target,
           workflowId,
@@ -1047,7 +1107,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         )
         val assigned = submit_assign(
           submitter,
-          unassigned.unassignedEvent.unassignId,
+          unassigned.unassignId,
           source,
           target,
           workflowId,
@@ -1061,7 +1121,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
 
       // TODO(#15429) this could be improved to use pointwise lookups similarly to submit as soon as the pointwise lookups
       // for reassignments are available over the Ladger API.
-      private def submitReassignment(
+      private def submitReassignments(
           submitter: PartyId,
           waitForParticipants: Map[ParticipantReference, PartyId],
           timeout: config.NonNegativeDuration,
@@ -1141,6 +1201,33 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           commandId: String = UUID.randomUUID().toString,
           submissionId: String = UUID.randomUUID().toString,
       ): Unit = check(FeatureFlag.Testing) {
+        submit_unassignments_async(
+          submitter,
+          Seq(contractId),
+          source,
+          target,
+          workflowId,
+          userId,
+          commandId,
+          submissionId,
+        )
+      }
+
+      @Help.Summary("Submit unassign commands asynchronously", FeatureFlag.Testing)
+      @Help.Description(
+        """Provides access to the command submission service of the Ledger API.
+          |See https://docs.daml.com/app-dev/services.html for documentation of the parameters."""
+      )
+      def submit_unassignments_async(
+          submitter: PartyId,
+          contractIds: Seq[LfContractId],
+          source: SynchronizerId,
+          target: SynchronizerId,
+          workflowId: String = "",
+          userId: String = userId,
+          commandId: String = UUID.randomUUID().toString,
+          submissionId: String = UUID.randomUUID().toString,
+      ): Unit = check(FeatureFlag.Testing) {
         consoleEnvironment.run {
           ledgerApiCommand(
             LedgerApiCommands.CommandSubmissionService.SubmitUnassignCommand(
@@ -1149,7 +1236,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               commandId = commandId,
               submitter = submitter.toLf,
               submissionId = submissionId,
-              contractId = contractId,
+              contractIds = contractIds,
               source = source,
               target = target,
             )
@@ -2085,32 +2172,6 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
 
     }
 
-    @Help.Summary("Retrieve the ledger metering", FeatureFlag.Testing)
-    @Help.Group("Metering")
-    object metering extends Helpful {
-
-      @Help.Summary("Get the ledger metering report", FeatureFlag.Testing)
-      @Help.Description("""Returns the current ledger metering report
-           from: required from timestamp (inclusive)
-           to: optional to timestamp
-           user_id: optional user id to which we want to restrict the report
-          """)
-      def get_report(
-          from: CantonTimestamp,
-          to: Option[CantonTimestamp] = None,
-          userId: Option[String] = None,
-      ): String =
-        check(FeatureFlag.Testing)(consoleEnvironment.run {
-          ledgerApiCommand(
-            LedgerApiCommands.Metering.GetReport(
-              from,
-              to,
-              userId,
-            )
-          )
-        })
-    }
-
     @Help.Summary("Interact with the time service", FeatureFlag.Testing)
     @Help.Group("Time")
     object time {
@@ -2366,10 +2427,40 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
             waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
             timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
         ): Reassignment =
+          submit_unassignments(
+            submitter,
+            Seq(contractId),
+            source,
+            target,
+            workflowId,
+            userId,
+            submissionId,
+            waitForParticipants,
+            timeout,
+          )
+
+        @Help.Summary(
+          "Submit assign commands and wait for the resulting java codegen reassignment, returning the reassignment or failing otherwise",
+          FeatureFlag.Testing,
+        )
+        @Help.Description(
+          """See `submit_unassign` for the parameters."""
+        )
+        def submit_unassignments(
+            submitter: PartyId,
+            contractIds: Seq[LfContractId],
+            source: SynchronizerId,
+            target: SynchronizerId,
+            workflowId: String = "",
+            userId: String = userId,
+            submissionId: String = UUID.randomUUID().toString,
+            waitForParticipants: Map[ParticipantReference, PartyId] = Map.empty,
+            timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
+        ): Reassignment =
           ledger_api.commands
-            .submit_unassign(
+            .submit_unassignments(
               submitter,
-              contractId,
+              contractIds,
               source,
               target,
               workflowId,

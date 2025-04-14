@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidFie
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NotFound.PackageNamesNotFound
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageRef}
@@ -33,14 +33,14 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 class SchemaProcessors(
-    fetchSignatures: ContextualizedErrorLogger => PackageSignatures
+    fetchSignatures: ErrorLoggingContext => PackageSignatures
 )(implicit executionContext: ExecutionContext) {
 
   def contractArgFromJsonToProto(
       template: value.Identifier,
       jsonArgsValue: ujson.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -52,7 +52,7 @@ class SchemaProcessors(
       template: value.Identifier,
       protoArgs: value.Record,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -65,7 +65,7 @@ class SchemaProcessors(
       choiceName: IdString.Name,
       jsonArgsValue: ujson.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -81,7 +81,7 @@ class SchemaProcessors(
       choiceName: IdString.Name,
       protoArgs: value.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -96,7 +96,7 @@ class SchemaProcessors(
       template: value.Identifier,
       protoArgs: value.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -108,7 +108,7 @@ class SchemaProcessors(
       template: value.Identifier,
       protoArgs: ujson.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -121,7 +121,7 @@ class SchemaProcessors(
       choiceName: IdString.Name,
       v: value.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[ujson.Value] =
     for {
       templateId <- resolveIdentifier(template).toFuture
@@ -137,7 +137,7 @@ class SchemaProcessors(
       choiceName: IdString.Name,
       value: ujson.Value,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[Option[Value]] = value match {
     case ujson.Null => Future(None)
     case _ =>
@@ -152,14 +152,14 @@ class SchemaProcessors(
   }
 
   private def invalidChoiceException(templateId: Ref.Identifier, choiceName: IdString.Name)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): StatusRuntimeException =
     InvalidArgument.Reject(s"Invalid template:$templateId or choice:$choiceName").asGrpcError
 
   private def resolveIdentifier(
       template: value.Identifier
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.Identifier] =
     PackageRef
       .fromString(template.packageId)
@@ -176,14 +176,14 @@ class SchemaProcessors(
       packageName: String,
       template: Identifier,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, value.Identifier] =
     for {
       packageNameRef <- Ref.PackageName
         .fromString(packageName)
         .left
         .map(err => invalidField("package name", err))
-      result <- fetchSignatures(contextualizedErrorLogger).view
+      result <- fetchSignatures(errorLoggingContext).view
         .filter(_._2.metadata.name == packageNameRef)
         .maxByOption { case (_pkgId, signature) => signature.metadata.version }
         .toRight(PackageNamesNotFound.Reject(Set(packageNameRef)).asGrpcError)
@@ -193,14 +193,14 @@ class SchemaProcessors(
     } yield result
 
   private def prepareProtoDict(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[Dictionary[Converter[ujson.Value, Value]]] =
-    memoizedDictionaries(contextualizedErrorLogger).map(_._1)
+    memoizedDictionaries(errorLoggingContext).map(_._1)
 
   private def prepareJsonDict(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[Dictionary[Converter[value.Value, ujson.Value]]] =
-    memoizedDictionaries(contextualizedErrorLogger).map(_._2)
+    memoizedDictionaries(errorLoggingContext).map(_._2)
 
   private def computeProtoDict(
       signatures: PackageSignatures
@@ -230,20 +230,20 @@ class SchemaProcessors(
       .fold(error => throw new IllegalStateException(error), identity)
   }
 
-  private val memoizedDictionaries: ContextualizedErrorLogger => Future[(ProtoDict, JsonDict)] = {
+  private val memoizedDictionaries: ErrorLoggingContext => Future[(ProtoDict, JsonDict)] = {
     val ref = new AtomicReference[Option[(PackageSignatures, Future[(ProtoDict, JsonDict)])]]()
 
-    (contextualizedErrorLogger: ContextualizedErrorLogger) =>
+    (errorLoggingContext: ErrorLoggingContext) =>
       {
         ref.updateAndGet { curr =>
-          val currentSignatures = fetchSignatures(contextualizedErrorLogger)
+          val currentSignatures = fetchSignatures(errorLoggingContext)
           curr match {
             case curr @ Some((signatures, _dictF))
                 // Use identity instead to avoid deep equality comparison of the packageMeta
                 if signatures eq currentSignatures =>
               curr
             case _other =>
-              contextualizedErrorLogger.debug(
+              errorLoggingContext.debug(
                 "Package metadata view changed or not initialized. Recomputing converter dictionaries."
               )
               Some(
@@ -255,7 +255,7 @@ class SchemaProcessors(
                   // (gRPC API or other JSON endpoints could still be working fine)
                   .thereafter {
                     case Failure(error) =>
-                      contextualizedErrorLogger.error(
+                      errorLoggingContext.error(
                         "Failed to compute JSON API converter dictionaries. This is likely a programming error. Please contact support",
                         error,
                       )
@@ -276,7 +276,7 @@ class SchemaProcessors(
   }
 
   private def extractTemplateValue[V](map: Map[Ref.Identifier, V])(key: Ref.Identifier)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[V] =
     map
       .get(key)

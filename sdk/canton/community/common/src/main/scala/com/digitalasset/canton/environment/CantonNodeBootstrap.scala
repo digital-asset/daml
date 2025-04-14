@@ -5,7 +5,10 @@ package com.digitalasset.canton.environment
 
 import better.files.File
 import cats.data.{EitherT, OptionT}
+import cats.syntax.either.*
+import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
+import cats.syntax.traverse.*
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
@@ -19,9 +22,10 @@ import com.digitalasset.canton.concurrent.{
   FutureSupervisor,
 }
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.{
   CryptoConfig,
-  InitConfigBase,
+  IdentityConfig,
   LocalNodeConfig,
   ProcessingTimeout,
   TestingConfigInternal,
@@ -80,17 +84,26 @@ import com.digitalasset.canton.topology.client.{
   IdentityProvidingServiceClient,
   SynchronizerTopologyClient,
 }
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
+import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.PositiveSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
   OwnerToKeyMapping,
   SignedTopologyTransaction,
   TopologyChangeOp,
   TopologyMapping,
+  ValidatingTopologyMappingChecks,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
-import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{
+  BinaryFileUtil,
+  FutureUnlessShutdownUtil,
+  MonadUtil,
+  SimpleExecutionQueue,
+}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import com.digitalasset.canton.watchdog.WatchdogService
 import io.grpc.ServerServiceDefinition
@@ -98,6 +111,7 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
 
+import java.io.IOException
 import java.util.concurrent.{Executors, ScheduledExecutorService}
 import scala.annotation.unused
 import scala.concurrent.{ExecutionContext, Future}
@@ -212,7 +226,6 @@ abstract class CantonNodeBootstrapImpl[
     )
 
   protected val cryptoConfig: CryptoConfig = config.crypto
-  protected val initConfig: InitConfigBase = config.init
   protected val tracerProvider: TracerProvider = arguments.tracerProvider
   protected implicit val tracer: Tracer = tracerProvider.tracer
   protected val initQueue: SimpleExecutionQueue = new SimpleExecutionQueue(
@@ -383,8 +396,7 @@ abstract class CantonNodeBootstrapImpl[
           val (healthService, livenessService) = mkNodeHealthService(storage)
           addCloseable(healthService)
           addCloseable(livenessService)
-          val (healthReporter, grpcHealthServer, httpHealthServer) =
-            mkHealthComponents(healthService, livenessService)
+
           arguments.parameterConfig.watchdog
             .filter(_.enabled)
             .foreach { watchdogConfig =>
@@ -397,53 +409,25 @@ abstract class CantonNodeBootstrapImpl[
               )
               addCloseable(watchdog)
             }
-          grpcHealthServer.foreach(addCloseable)
-          httpHealthServer.foreach(addCloseable)
+
           addCloseable(storage)
-          Some(new SetupCrypto(storage, healthReporter, healthService))
+          Some(new SetupCrypto(storage, healthService, livenessService))
         }
     }
 
   private class SetupCrypto(
       val storage: Storage,
-      val healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
-  ) extends BootstrapStage[T, SetupNodeId](
+      livenessService: LivenessHealthService,
+  ) extends BootstrapStage[T, SetupAdminApi](
         description = "Init crypto module",
         bootstrapStageCallback,
       )
       with HasCloseContext {
 
-    private def createAdminServerRegistry(
-        adminToken: CantonAdminToken
-    ): CantonMutableHandlerRegistry = {
-      // The admin-API services
-      logger.info(s"Starting admin-api services on $adminApiConfig")
-      val openTelemetry = new DefaultOpenTelemetry(tracerProvider.openTelemetry)
-      val builder = CantonServerBuilder
-        .forConfig(
-          adminApiConfig,
-          Some(adminToken),
-          executionContext,
-          bootstrapStageCallback.loggerFactory,
-          parameters.loggingConfig.api,
-          parameters.tracing,
-          arguments.metrics.grpcMetrics,
-          openTelemetry,
-        )
-
-      val registry = builder.mutableHandlerRegistry()
-
-      val server = builder.build
-        .start()
-      addCloseable(LifeCycle.toCloseableServer(server, logger, "AdminServer"))
-      addCloseable(registry)
-      registry
-    }
-
     override protected def attempt()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
+    ): EitherT[FutureUnlessShutdown, String, Option[SetupAdminApi]] = {
       // we check the memory configuration before starting the node
       MemoryConfigChecker.check(parameters.startupMemoryCheckConfig, logger)
 
@@ -467,51 +451,12 @@ abstract class CantonNodeBootstrapImpl[
           )
           .map { crypto =>
             addCloseable(crypto)
-            // admin token is taken from the config or created per session
-            val adminToken: CantonAdminToken = adminTokenConfig
-              .fold(CantonAdminToken.create(crypto.pureCrypto))(token =>
-                CantonAdminToken(secret = token)
-              )
-            val adminServerRegistry = createAdminServerRegistry(adminToken)
-
-            adminServerRegistry.addServiceU(bindNodeStatusService())
-
-            adminServerRegistry.addServiceU(
-              StatusServiceGrpc.bindService(
-                new GrpcStatusService(
-                  arguments.writeHealthDumpToFile,
-                  parameters.processingTimeouts,
-                  bootstrapStageCallback.loggerFactory,
-                ),
-                executionContext,
-              )
-            )
-            adminServerRegistry
-              .addServiceU(ProtoReflectionService.newInstance().bindService(), withLogging = false)
-            adminServerRegistry.addServiceU(
-              ApiInfoServiceGrpc.bindService(
-                new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
-                executionContext,
-              )
-            )
-            adminServerRegistry.addServiceU(
-              VaultServiceGrpc.bindService(
-                new GrpcVaultService(
-                  crypto,
-                  parameters.enablePreviewFeatures,
-                  bootstrapStageCallback.loggerFactory,
-                ),
-                executionContext,
-              )
-            )
             Some(
-              new SetupNodeId(
+              new SetupAdminApi(
                 storage,
                 crypto,
-                adminServerRegistry,
-                adminToken,
-                healthReporter,
                 healthService,
+                livenessService,
               )
             )
           }
@@ -519,6 +464,110 @@ abstract class CantonNodeBootstrapImpl[
     }
   }
 
+  private class SetupAdminApi(
+      val storage: Storage,
+      val crypto: Crypto,
+      healthService: DependenciesHealthService,
+      livenessService: LivenessHealthService,
+  ) extends BootstrapStage[T, SetupNodeId](
+        description = "Stage Admin API",
+        bootstrapStageCallback,
+      )
+      with HasCloseContext {
+
+    private def createAdminServerRegistry(
+        adminToken: CantonAdminToken
+    ): Either[String, CantonMutableHandlerRegistry] = {
+      // The admin-API services
+      logger.info(s"Starting admin-api services on $adminApiConfig")
+      val openTelemetry = new DefaultOpenTelemetry(tracerProvider.openTelemetry)
+      val builder = CantonServerBuilder
+        .forConfig(
+          adminApiConfig,
+          Some(adminToken),
+          executionContext,
+          bootstrapStageCallback.loggerFactory,
+          arguments.parameterConfig.loggingConfig.api,
+          arguments.parameterConfig.tracing,
+          arguments.metrics.grpcMetrics,
+          openTelemetry,
+        )
+
+      val registry = builder.mutableHandlerRegistry()
+
+      val serverE = Either.catchOnly[IOException](
+        builder.build
+          .start()
+      )
+      serverE
+        .map { server =>
+          addCloseable(LifeCycle.toCloseableServer(server, logger, "AdminServer"))
+          addCloseable(registry)
+          registry
+        }
+        .leftMap(err => err.getMessage)
+    }
+
+    override protected def attempt()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, Option[SetupNodeId]] = {
+      // admin token is taken from the config or created per session
+      val adminToken: CantonAdminToken = adminTokenConfig
+        .fold(CantonAdminToken.create(crypto.pureCrypto))(token => CantonAdminToken(secret = token))
+      createAdminServerRegistry(adminToken).map { adminServerRegistry =>
+        val (healthReporter, grpcHealthServer, httpHealthServer) =
+          mkHealthComponents(healthService, livenessService)
+        grpcHealthServer.foreach(addCloseable)
+        httpHealthServer.foreach(addCloseable)
+
+        adminServerRegistry.addServiceU(bindNodeStatusService())
+
+        adminServerRegistry.addServiceU(
+          StatusServiceGrpc.bindService(
+            new GrpcStatusService(
+              arguments.writeHealthDumpToFile,
+              arguments.parameterConfig.processingTimeouts,
+              bootstrapStageCallback.loggerFactory,
+            ),
+            executionContext,
+          )
+        )
+        adminServerRegistry
+          .addServiceU(ProtoReflectionService.newInstance().bindService(), withLogging = false)
+        adminServerRegistry.addServiceU(
+          ApiInfoServiceGrpc.bindService(
+            new GrpcApiInfoService(CantonGrpcUtil.ApiName.AdminApi),
+            executionContext,
+          )
+        )
+
+        adminServerRegistry.addServiceU(
+          VaultServiceGrpc.bindService(
+            new GrpcVaultService(
+              crypto,
+              arguments.parameterConfig.enablePreviewFeatures,
+              bootstrapStageCallback.loggerFactory,
+            ),
+            executionContext,
+          )
+        )
+
+        Some(
+          new SetupNodeId(
+            storage,
+            crypto,
+            adminServerRegistry,
+            adminToken,
+            healthReporter,
+            healthService,
+          )
+        ): Option[SetupNodeId]
+      }
+    }.toEitherT[FutureUnlessShutdown]
+  }
+
+  private type SetupNodeIdResult =
+    (UniqueIdentifier, Seq[PositiveSignedTopologyTransaction])
   private class SetupNodeId(
       storage: Storage,
       val crypto: Crypto,
@@ -526,11 +575,15 @@ abstract class CantonNodeBootstrapImpl[
       adminToken: CantonAdminToken,
       healthReporter: GrpcHealthReporter,
       healthService: DependenciesHealthService,
-  ) extends BootstrapStageWithStorage[T, GenerateOrAwaitNodeTopologyTx, UniqueIdentifier](
+  ) extends BootstrapStageWithStorage[
+        T,
+        GenerateOrAwaitNodeTopologyTx,
+        SetupNodeIdResult,
+      ](
         description = "Init node id",
-        bootstrapStageCallback,
-        storage,
-        config.init.autoInit,
+        bootstrap = bootstrapStageCallback,
+        storage = storage,
+        autoInit = !config.init.identity.isManual,
       )
       with HasCloseContext
       with GrpcIdentityInitializationService.Callback {
@@ -557,9 +610,11 @@ abstract class CantonNodeBootstrapImpl[
         adminV30.IdentityInitializationServiceGrpc
           .bindService(
             new GrpcIdentityInitializationService(
-              clock,
-              this,
-              bootstrapStageCallback.loggerFactory,
+              clock = clock,
+              bootstrap = this,
+              // if init is manual, then we expect the user to call the init_id endpoint of the initialization service
+              nodeInitViaApi = config.init.identity.isManual,
+              loggerFactory = bootstrapStageCallback.loggerFactory,
             ),
             executionContext,
           )
@@ -569,14 +624,20 @@ abstract class CantonNodeBootstrapImpl[
 
     override protected def stageCompleted(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Option[UniqueIdentifier]] = initializationStore.uid
+    ): FutureUnlessShutdown[Option[SetupNodeIdResult]] =
+      initializationStore.uid.map(_.map { uid =>
+        logger.info(s"Resuming with existing uid $uid")
+        (uid, Seq.empty)
+      })
 
     override protected def buildNextStage(
-        uid: UniqueIdentifier
-    ): EitherT[FutureUnlessShutdown, String, GenerateOrAwaitNodeTopologyTx] =
+        result: SetupNodeIdResult
+    ): EitherT[FutureUnlessShutdown, String, GenerateOrAwaitNodeTopologyTx] = {
+      val (uid, transactions) = result
       EitherT.rightT(
         new GenerateOrAwaitNodeTopologyTx(
           uid,
+          transactions,
           authorizedStore,
           storage,
           crypto,
@@ -586,9 +647,172 @@ abstract class CantonNodeBootstrapImpl[
           healthService,
         )
       )
+    }
 
-    override protected def autoCompleteStage()
-        : EitherT[FutureUnlessShutdown, String, Option[UniqueIdentifier]] =
+    override protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[
+      SetupNodeIdResult
+    ]] =
+      (config.init.identity match {
+        case IdentityConfig.External(identifier, namespace, certificates) =>
+          initWithExternal(identifier, namespace, certificates).map(Some(_))
+        case IdentityConfig.Auto(identifier) =>
+          autoInitIdentifier(identifier).map(uid =>
+            Some((uid, Seq.empty[PositiveSignedTopologyTransaction]))
+          )
+        case IdentityConfig.Manual =>
+          // This should never be called, as the stage is not auto-completable
+          EitherT.leftT("Manual initialization should never run auto-complete")
+      })
+
+    /** validate the certificates and the uid provided externally
+      *
+      * verify that they are sufficient for the given namespace of the node. this is the same code
+      * path for both, the api init call and the declarative config
+      *
+      * @param transactions
+      *   the list of namespace delegation transactions that delegate the namespace to this node the
+      *   node needs to have access to a key which can create topology transactions on behalf of
+      *   this node. if the list is empty, then the node needs to have access to the root key.
+      */
+    private def validateTransactionsAndComputeUid(
+        identifier: String,
+        namespace: Option[String],
+        transactions: Seq[PositiveSignedTopologyTransaction],
+    ): EitherT[FutureUnlessShutdown, String, UniqueIdentifier] = {
+      val temporaryTopologyStore =
+        new InMemoryTopologyStore(
+          AuthorizedStore,
+          ProtocolVersion.latest,
+          this.loggerFactory,
+          this.timeouts,
+        )
+      val processor = new TopologyStateProcessor(
+        store = temporaryTopologyStore,
+        outboxQueue = None,
+        topologyMappingChecks =
+          new ValidatingTopologyMappingChecks(temporaryTopologyStore, this.loggerFactory),
+        insecureIgnoreMissingExtraKeySignatures = false,
+        crypto.pureCrypto,
+        this.loggerFactory,
+      )
+      for {
+        txs <- EitherT
+          .right(
+            processor.validateAndApplyAuthorization(
+              SequencedTime(CantonTimestamp.Epoch),
+              EffectiveTime(CantonTimestamp.Epoch),
+              transactions,
+              expectFullAuthorization = true,
+            )
+          )
+          .map(_._1)
+        // fail if one tx did not validate, they all must be valid
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          txs.find(_.rejectionReason.nonEmpty).toLeft(()).leftMap { failed =>
+            s"Failed to validate transaction ${failed.mapping} with reason ${failed.rejectionReason}"
+          }
+        )
+        // find namespaces in certs
+        namespacesFromCert <- EitherT.fromEither[FutureUnlessShutdown](
+          transactions.map(_.mapping).traverse {
+            case nd: NamespaceDelegation =>
+              Right(nd.namespace)
+            case mp => Left(s"Expected only namespace delegations, found $mp")
+          }
+        )
+        // bail if there is more than one
+        _ <- EitherT.cond[FutureUnlessShutdown](
+          namespacesFromCert.toSet.sizeIs <= 1,
+          (),
+          s"Expected only one namespace in the certificates, found ${namespacesFromCert.toSet.size}",
+        )
+        // validate namespace. if both are provided, they need to match
+        targetNamespace <- (
+          namespace,
+          namespacesFromCert.headOption,
+        ) match {
+          case (Some(cfg), Some(cert)) =>
+            EitherT.cond[FutureUnlessShutdown](
+              cfg == cert.unwrap,
+              cert,
+              s"Provided namespace '$cfg' does not match the certificate ${cert.unwrap} '",
+            )
+          case (Some(cfg), None) =>
+            EitherT.fromEither[FutureUnlessShutdown](Fingerprint.fromString(cfg).map(Namespace(_)))
+          case (None, Some(cert)) => EitherT.rightT[FutureUnlessShutdown, String](cert)
+          case (None, None) =>
+            EitherT.leftT[FutureUnlessShutdown, Namespace]("No namespace or certificate provided")
+        }
+        // build uid
+        uid <- EitherT.fromEither[FutureUnlessShutdown](
+          UniqueIdentifier.create(identifier, targetNamespace)
+        )
+        // verify that we have at least one signing key authorized by the topology transactions,
+        // or we have access to the root key
+        possibleKeys = transactions
+          .map(_.mapping)
+          .collect { case nd: NamespaceDelegation =>
+            nd.target.fingerprint
+          } :+ targetNamespace.fingerprint
+        _ <- possibleKeys
+          .findM(key => crypto.cryptoPrivateStore.existsSigningKey(key))
+          .leftMap(_.toString)
+          .subflatMap(
+            _.toRight(
+              "No signing key found locally for the provided namespace. The certificates are for: " + possibleKeys
+                .map(_.unwrap)
+                .mkString(", ")
+            )
+          )
+      } yield uid
+    }
+
+    private def initWithExternal(
+        identifier: String,
+        namespace: Option[String],
+        transactions: Seq[java.io.File],
+    ): EitherT[FutureUnlessShutdown, String, SetupNodeIdResult] = {
+      import com.digitalasset.canton.version.*
+      import com.digitalasset.canton.topology.transaction.*
+      for {
+        parsedTransactions <- EitherT.fromEither[FutureUnlessShutdown](
+          MonadUtil.sequentialTraverse(transactions) { file =>
+            BinaryFileUtil
+              .readByteStringFromFile(file.getPath)
+              .flatMap { bytes =>
+                SignedTopologyTransaction
+                  .fromByteString(
+                    // no validation of the protocol version, as the local topology manager is not tied to a specific version.
+                    // this is consistent with the behaviour if you just add topology transactions into the authorized store
+                    // (which is what we do here).
+                    ProtocolVersionValidation.NoValidation,
+                    ProtocolVersionValidation.NoValidation,
+                    bytes,
+                  )
+                  .leftMap(_.message)
+              }
+              .flatMap(
+                _.selectOp[TopologyChangeOp.Replace]
+                  .toRight(
+                    s"File $file does not contain a topology replacement transaction, but a remove"
+                  )
+              )
+              .leftMap(str => s"Failed to parse certificate from file $file: $str")
+          }
+        )
+        uid <- validateTransactionsAndComputeUid(identifier, namespace, parsedTransactions)
+        _ <- EitherT.right[String](initializationStore.setUid(uid))
+      } yield {
+        logger.info(
+          s"Initializing with external provided uid=$uid with ${parsedTransactions.length} namespace delegations"
+        )
+        (uid, parsedTransactions)
+      }
+    }
+
+    private def autoInitIdentifier(
+        identifier: NodeIdentifierConfig
+    ): EitherT[FutureUnlessShutdown, String, UniqueIdentifier] =
       for {
         // create namespace key
         namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(
@@ -596,10 +820,7 @@ abstract class CantonNodeBootstrapImpl[
           SigningKeyUsage.NamespaceOnly,
         )
         // create id
-        identifierName =
-          arguments.config.init.identity
-            .flatMap(_.nodeIdentifier.identifierName)
-            .getOrElse(name.unwrap)
+        identifierName = identifier.identifierName.getOrElse(name.unwrap)
         uid <- EitherT
           .fromEither[FutureUnlessShutdown](
             UniqueIdentifier
@@ -608,19 +829,34 @@ abstract class CantonNodeBootstrapImpl[
           .leftMap(err => s"Failed to convert name to identifier: $err")
         _ <- EitherT
           .right[String](initializationStore.setUid(uid))
-      } yield Option(uid)
+      } yield {
+        logger.info(s"Auto-initialized with uid=$uid")
+        uid
+      }
 
-    override def initializeWithProvidedId(uid: UniqueIdentifier)(implicit
+    override def initializeViaApi(
+        identifier: String,
+        namespace: String,
+        transactions: Seq[PositiveSignedTopologyTransaction],
+    )(implicit
         traceContext: TraceContext
     ): EitherT[Future, String, Unit] =
-      completeWithExternal(
-        EitherT.right(
-          initializationStore
-            .setUid(uid)
-            .failOnShutdownToAbortException("CantonNodeBootstrapImpl.initializeWithProvidedId")
-            .map(_ => uid)
-        )
-      ).onShutdown(Left("Node has been shutdown"))
+      validateTransactionsAndComputeUid(
+        identifier,
+        Option.when(namespace.nonEmpty)(namespace),
+        transactions,
+      )
+        .flatMap { uid =>
+          completeWithExternal(
+            EitherT.right(
+              initializationStore
+                .setUid(uid)
+                .failOnShutdownToAbortException("CantonNodeBootstrapImpl.initializeWithProvidedId")
+                .map(_ => (uid, transactions))
+            )
+          )
+        }
+        .onShutdown(Left("Node has been shutdown"))
 
     override def getId: Option[UniqueIdentifier] = next.map(_.nodeId)
     override def isInitialized: Boolean = getId.isDefined
@@ -628,6 +864,9 @@ abstract class CantonNodeBootstrapImpl[
 
   private class GenerateOrAwaitNodeTopologyTx(
       val nodeId: UniqueIdentifier,
+      transactions: Seq[
+        PositiveSignedTopologyTransaction
+      ], // transactions that were added during init
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
       storage: Storage,
       crypto: Crypto,
@@ -637,9 +876,9 @@ abstract class CantonNodeBootstrapImpl[
       healthService: DependenciesHealthService,
   ) extends BootstrapStageWithStorage[T, BootstrapStageOrLeaf[T], Unit](
         description = "generate-or-await-node-topology-tx",
-        bootstrapStageCallback,
-        storage,
-        config.init.autoInit,
+        bootstrap = bootstrapStageCallback,
+        storage = storage,
+        autoInit = config.init.generateTopologyTransactionsAndKeys,
       ) {
 
     override def getAdminToken: Option[String] = Some(adminToken.secret)
@@ -725,7 +964,17 @@ abstract class CantonNodeBootstrapImpl[
     ): EitherT[FutureUnlessShutdown, String, Unit] = {
       // Register the observer first so that it does not race with the removal when the stage has finished.
       topologyManager.addObserver(topologyManagerObserver)
-      super.start()
+      // Add any topology transactions that were passed as part of the init process
+      // This is not crash safe if we crash between storing the node-id and adding the transactions,
+      // but a crash can recovered (use manual for anything).
+      topologyManager
+        .add(
+          transactions,
+          forceChanges = ForceFlags.none,
+          expectFullAuthorization = true,
+        )
+        .leftMap(_.cause)
+        .flatMap(_ => super.start())
     }
 
     override def waitingFor: Option[WaitingForExternalInput] = Some(WaitingForNodeTopology)
@@ -777,27 +1026,106 @@ abstract class CantonNodeBootstrapImpl[
       )
     }
 
+    /** Figure out the key we should be using to sign topology transactions
+      *
+      * We either use a delegated key (to which we have access) if we have certificates in our
+      * store. Otherwise, we use the root key.
+      *
+      * If we have no certificates, we need to create a new root certificate. This is signalled
+      * using the Boolean flag in the return value.
+      */
+    private def determineTopologySigningKeyAndNeedForRootCertificate()
+        : EitherT[FutureUnlessShutdown, String, (Boolean, SigningPublicKey)] =
+      EitherT
+        .right(
+          authorizedStore
+            .findPositiveTransactions(
+              CantonTimestamp.MaxValue,
+              asOfInclusive = false,
+              isProposal = false,
+              types = Seq(NamespaceDelegation.code),
+              filterUid = None,
+              filterNamespace = Some(Seq(nodeId.namespace)),
+            )
+        )
+        .flatMap { existing =>
+          val possible = existing.collectOfMapping[NamespaceDelegation].result.map(_.mapping.target)
+          if (possible.isEmpty) {
+            crypto.cryptoPublicStore
+              .signingKey(nodeId.fingerprint)
+              .toRight(
+                s"Performing auto-init but can't find key ${nodeId.fingerprint} from previous step"
+              )
+              .map(key => (true, key))
+          } else {
+            // reverse so we find the lowest permissible one
+            possible.reverse
+              .findM(key => crypto.cryptoPrivateStore.existsSigningKey(key.fingerprint))
+              .leftMap(_.toString)
+              .subflatMap {
+                case None =>
+                  Left(
+                    "No matching signing key found in private crypto store. I was looking for:\n  " + possible
+                      .mkString("\n  ")
+                  )
+                case Some(key) => Right((false, key))
+              }
+          }
+        }
+
+    private def createNsd(
+        rootNamespaceFp: Fingerprint,
+        targetKey: SigningPublicKey,
+        isRootDelegation: Boolean,
+    ): EitherT[FutureUnlessShutdown, String, Unit] = for {
+      nsd <- EitherT.fromEither[FutureUnlessShutdown](
+        NamespaceDelegation.create(
+          Namespace(rootNamespaceFp),
+          targetKey,
+          isRootDelegation = isRootDelegation,
+        )
+      )
+      _ <- authorizeStateUpdate(
+        Seq(rootNamespaceFp),
+        nsd,
+        ProtocolVersion.latest,
+      )
+    } yield ()
+
     override protected def autoCompleteStage()
         : EitherT[FutureUnlessShutdown, String, Option[Unit]] =
       for {
-        namespaceKey <- crypto.cryptoPublicStore
-          .signingKey(nodeId.fingerprint)
-          .toRight(
-            s"Performing auto-init but can't find key ${nodeId.fingerprint} from previous step"
-          )
-        // init topology manager
-        nsd <- EitherT.fromEither[FutureUnlessShutdown](
-          NamespaceDelegation.create(
-            Namespace(namespaceKey.fingerprint),
-            namespaceKey,
-            isRootDelegation = true,
-          )
-        )
-        _ <- authorizeStateUpdate(
-          Seq(namespaceKey.fingerprint),
-          nsd,
-          ProtocolVersion.latest,
-        )
+        lookupKeyAndNeedRootCert <- determineTopologySigningKeyAndNeedForRootCertificate()
+        (needRootCert, rootTopologySingingKey) = lookupKeyAndNeedRootCert
+        // create root certificate if needed
+        _ <-
+          if (needRootCert)
+            createNsd(
+              rootTopologySingingKey.fingerprint,
+              rootTopologySingingKey,
+              isRootDelegation = true,
+            )
+          else EitherT.rightT[FutureUnlessShutdown, String](())
+        // create intermediate certificate if desired
+        topologySigningKey <-
+          if (
+            config.init.generateIntermediateKey && rootTopologySingingKey.fingerprint == nodeId.namespace.fingerprint
+          ) {
+            logger.info("Creating intermediate certificate for node")
+            for {
+              intermediateKey <- CantonNodeBootstrapImpl
+                .getOrCreateSigningKey(crypto)(
+                  s"$name-intermediate-${SigningKeyUsage.Namespace}",
+                  SigningKeyUsage.NamespaceOnly,
+                )
+              _ <- createNsd(
+                rootTopologySingingKey.fingerprint,
+                intermediateKey,
+                isRootDelegation = false,
+              )
+            } yield intermediateKey
+          } else EitherT.rightT[FutureUnlessShutdown, String](rootTopologySingingKey)
+
         // all nodes need two signing keys: (1) for sequencer authentication and (2) for protocol signing
         sequencerAuthKey <- CantonNodeBootstrapImpl
           .getOrCreateSigningKey(crypto)(
@@ -828,7 +1156,7 @@ abstract class CantonNodeBootstrapImpl[
         // register the keys
         _ <- authorizeStateUpdate(
           Seq(
-            namespaceKey.fingerprint,
+            topologySigningKey.fingerprint,
             sequencerAuthKey.fingerprint,
             signingKey.fingerprint,
           ),

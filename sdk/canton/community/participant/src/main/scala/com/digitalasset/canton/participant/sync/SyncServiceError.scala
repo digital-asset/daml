@@ -56,11 +56,9 @@ object SyncServiceInjectionError extends InjectionErrorGroup {
   }
 
   @Explanation(
-    "This errors results if a command is submitted to a participant that is not connected to any synchronizer."
+    "This error results when specific requests are submitted to a participant that is not connected to any synchronizer."
   )
-  @Resolution(
-    "Connect your participant to the synchronizer where the given parties are hosted."
-  )
+  @Resolution("Connect your participant to a synchronizer.")
   object NotConnectedToAnySynchronizer
       extends ErrorCode(
         id = "NOT_CONNECTED_TO_ANY_SYNCHRONIZER",

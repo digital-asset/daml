@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter}
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, RpcError}
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.{CreatedEvent, ExercisedEvent}
 import com.google.protobuf
@@ -15,9 +16,11 @@ import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
 import com.google.protobuf.util.JsonFormat
 import io.circe.generic.extras.Configuration
+import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder, Json}
 import sttp.tapir.CodecFormat.TextPlain
+import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
 import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
@@ -78,27 +81,47 @@ object JsSchema {
   )
 
   object JsServicesCommonCodecs {
-    implicit val jsTransactionRW: Codec[JsTransaction] = deriveCodec
+    import io.circe.generic.extras.auto.*
+    implicit val jsTransactionRW: Codec[JsTransaction] = deriveConfiguredCodec
 
-    implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveCodec
+    implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveRelaxedCodec
+
+    implicit val wildcardFilterRW: Codec[transaction_filter.WildcardFilter] =
+      deriveRelaxedCodec
+    implicit val templateFilterRW: Codec[transaction_filter.TemplateFilter] =
+      deriveRelaxedCodec
+    implicit val interfaceFilterRW: Codec[transaction_filter.InterfaceFilter] =
+      deriveRelaxedCodec
+
+    implicit val identifierFilterWildcardRW
+        : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.WildcardFilter] =
+      deriveRelaxedCodec
+
+    implicit val identifierFilterTemplateRW
+        : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.TemplateFilter] =
+      deriveRelaxedCodec
+    implicit val identifierFilterInterfaceRW
+        : Codec[transaction_filter.CumulativeFilter.IdentifierFilter.InterfaceFilter] =
+      deriveRelaxedCodec
+
+    implicit val identifierFilterRW: Codec[transaction_filter.CumulativeFilter.IdentifierFilter] =
+      deriveConfiguredCodec // ADT
+
+    implicit val cumulativeFilterRW: Codec[transaction_filter.CumulativeFilter] =
+      deriveRelaxedCodec
+
+    implicit val filtersRW: Codec[transaction_filter.Filters] = deriveRelaxedCodec
+    implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] =
+      deriveRelaxedCodec
+    implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveRelaxedCodec
+    implicit val transactionShapeRW: Codec[transaction_filter.TransactionShape] =
+      deriveConfiguredCodec // ADT
+    implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] =
+      deriveRelaxedCodec
 
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
       Schema.oneOfWrapped
-    implicit val filtersRW: Codec[transaction_filter.Filters] = deriveCodec
-    implicit val cumulativeFilterRW: Codec[transaction_filter.CumulativeFilter] = deriveCodec
-    implicit val identifierFilterRW: Codec[transaction_filter.CumulativeFilter.IdentifierFilter] =
-      deriveCodec
-    implicit val wildcardFilterRW: Codec[transaction_filter.WildcardFilter] =
-      deriveCodec
-    implicit val templateFilterRW: Codec[transaction_filter.TemplateFilter] =
-      deriveCodec
-    implicit val interfaceFilterRW: Codec[transaction_filter.InterfaceFilter] =
-      deriveCodec
-    implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] = deriveCodec
-    implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveCodec
-    implicit val transactionShapeRW: Codec[transaction_filter.TransactionShape] = deriveCodec
-    implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] = deriveCodec
 
   }
 
@@ -228,11 +251,12 @@ object JsSchema {
 
   }
   object DirectScalaPbRwImplicits {
-    import sttp.tapir.generic.auto.*
+    import io.circe.generic.extras.auto.*
     import sttp.tapir.json.circe.*
+    import sttp.tapir.generic.auto.*
 
-    implicit val om: Codec[ObjectMeta] = deriveCodec
-    implicit val traceContext: Codec[TraceContext] = deriveCodec
+    implicit val om: Codec[ObjectMeta] = deriveRelaxedCodec
+    implicit val traceContext: Codec[TraceContext] = deriveRelaxedCodec
     implicit val encodeDuration: Encoder[Duration] =
       Encoder.encodeString.contramap[Duration](_.toString)
 
@@ -249,12 +273,13 @@ object JsSchema {
         Try(protobuf.ByteString.copyFrom(Base64.getDecoder.decode(str)))
     }
 
-    implicit val field: Codec[scalapb.UnknownFieldSet.Field] = deriveCodec
-    implicit val unknownFieldSet: Codec[scalapb.UnknownFieldSet] = deriveCodec
+    // proto classes use default values
+    implicit val durationRW: Codec[protobuf.duration.Duration] = deriveConfiguredCodec
 
-    implicit val fieldMask: Codec[FieldMask] = deriveCodec
-    implicit val unknownFieldSetSchema: Schema[scalapb.UnknownFieldSet] =
-      Schema.string[scalapb.UnknownFieldSet]
+    implicit val field: Codec[scalapb.UnknownFieldSet.Field] = deriveConfiguredCodec
+    implicit val unknownFieldSet: Codec[scalapb.UnknownFieldSet] = deriveConfiguredCodec
+
+    implicit val fieldMask: Codec[FieldMask] = deriveConfiguredCodec
 
     implicit val encodeTimestamp: Encoder[protobuf.timestamp.Timestamp] =
       Encoder.encodeInstant.contramap[protobuf.timestamp.Timestamp] { timestamp =>
@@ -294,40 +319,50 @@ object JsSchema {
     implicit val decodeIdentifier: Decoder[com.daml.ledger.api.v2.value.Identifier] =
       Decoder.decodeString.map(IdentifierConverter.fromJson)
 
-    implicit val jsEvent: Codec[JsEvent.Event] = deriveCodec
-    implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveCodec
-    implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveCodec
-    implicit val jsExercisedEvent: Codec[JsEvent.ExercisedEvent] = deriveCodec
+    implicit val jsEvent: Codec[JsEvent.Event] = deriveConfiguredCodec
+    implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveConfiguredCodec
+    implicit val jsArchivedEvent: Codec[JsEvent.ArchivedEvent] = deriveConfiguredCodec
+    implicit val jsExercisedEvent: Codec[JsEvent.ExercisedEvent] = deriveConfiguredCodec
 
-    implicit val any: Codec[com.google.protobuf.any.Any] = deriveCodec
-    implicit val jsStatus: Codec[JsStatus] = deriveCodec
-    implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveCodec
+    implicit val any: Codec[com.google.protobuf.any.Any] = deriveConfiguredCodec
+    implicit val jsStatus: Codec[JsStatus] = deriveConfiguredCodec
+    implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveConfiguredCodec
 
-    implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveCodec
-    implicit val jsTopologyTransaction: Codec[JsTopologyTransaction] = deriveCodec
+    implicit val jsTransactionTree: Codec[JsTransactionTree] = deriveConfiguredCodec
+    implicit val jsTopologyTransaction: Codec[JsTopologyTransaction] = deriveConfiguredCodec
     implicit val jsSubmitAndWaitForTransactionTreeResponse
-        : Codec[JsSubmitAndWaitForTransactionTreeResponse] = deriveCodec
-    implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveCodec
-    implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveCodec
-    implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveCodec
-    implicit val jsTopologyEvent: Codec[JsTopologyEvent.Event] = deriveCodec
-    implicit val jsParticipantAuthorizationAdded
-        : Codec[JsTopologyEvent.ParticipantAuthorizationAdded] = deriveCodec
+        : Codec[JsSubmitAndWaitForTransactionTreeResponse] = deriveConfiguredCodec
+    implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveConfiguredCodec
+    implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveConfiguredCodec
+    implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveConfiguredCodec
+    implicit val jsTopologyEvent: Codec[JsTopologyEvent.Event] = deriveConfiguredCodec
     implicit val jsParticipantAuthorizationChanged
-        : Codec[JsTopologyEvent.ParticipantAuthorizationChanged] = deriveCodec
+        : Codec[JsTopologyEvent.ParticipantAuthorizationChanged] = deriveConfiguredCodec
     implicit val jsParticipantAuthorizationRevoked
-        : Codec[JsTopologyEvent.ParticipantAuthorizationRevoked] = deriveCodec
+        : Codec[JsTopologyEvent.ParticipantAuthorizationRevoked] = deriveConfiguredCodec
 
-    implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveCodec
+    implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveRelaxedCodec
     implicit val offsetCheckpointSynchronizerTime: Codec[offset_checkpoint.SynchronizerTime] =
-      deriveCodec
+      deriveRelaxedCodec
 
     implicit val grpcStatusRW: Codec[
       com.google.rpc.status.Status
-    ] = deriveCodec
+    ] = deriveConfiguredCodec
 
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+
+    implicit val unknownFieldSetSchema: Schema[scalapb.UnknownFieldSet] =
+      Schema.string[scalapb.UnknownFieldSet]
+
     implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
+
+    implicit val durationSchema: Schema[protobuf.duration.Duration] =
+      implicitly[Derived[Schema[protobuf.duration.Duration]]].value
+        .modify(_.unknownFields)(
+          _.copy(isOptional = true).description(
+            "This field is automatically added as part of protobuf to json mapping"
+          )
+        )
 
     implicit val timestampSchema: Schema[protobuf.timestamp.Timestamp] = Schema.string
 
@@ -336,6 +371,8 @@ object JsSchema {
     )
 
     implicit val structSchema: Schema[protobuf.struct.Struct] = Schema.any
+
+    implicit val jsEventCreatedSchema: Schema[JsEvent.CreatedEvent] = Schema.derived
 
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsEventSchema: Schema[JsEvent.Event] =

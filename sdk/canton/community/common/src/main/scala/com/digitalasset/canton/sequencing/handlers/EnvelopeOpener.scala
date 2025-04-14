@@ -8,7 +8,7 @@ import com.digitalasset.base.error.{Alarm, AlarmErrorCode, Explanation, Resoluti
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope}
 import com.digitalasset.canton.sequencing.{ApplicationHandler, EnvelopeBox, HandlerResult}
@@ -35,7 +35,7 @@ object EnvelopeOpener {
       handler: ApplicationHandler[Box, DefaultOpenEnvelope]
   )(implicit
       Box: EnvelopeBox[Box],
-      logger: ContextualizedErrorLogger,
+      logger: ErrorLoggingContext,
   ): ApplicationHandler[Box, ClosedEnvelope] = handler.replace {
     val opener = new EnvelopeOpener[Box](protocolVersion, hashOps)
     closedEvent =>

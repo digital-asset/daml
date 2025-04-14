@@ -16,7 +16,8 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.metrics.InstrumentedGraph.*
 import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.base.error.DamlErrorWithDefiniteAnswer
-import com.digitalasset.canton.config
+import com.digitalasset.base.error.utils.DecodedCantonError
+import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -28,13 +29,13 @@ import com.digitalasset.canton.ledger.api.{
   UpdateFormat,
   UpdateId,
 }
-import com.digitalasset.canton.ledger.error.CommonErrors
+import com.digitalasset.canton.ledger.error.LedgerApiErrors.InterfaceViewUpgradeFailureWrapper
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.ledger.participant.state.index.*
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -63,17 +64,20 @@ import com.digitalasset.canton.platform.{
   PruneBuffers,
   TemplatePartiesFilter,
 }
+import com.digitalasset.canton.{config, logging}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageRef, TypeConRef, UserId}
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import scalaz.syntax.tag.ToTagOps
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.Future
+import scala.util.{Failure, Success, Try}
 
 private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
@@ -84,9 +88,14 @@ private[index] class IndexServiceImpl(
     pruneBuffers: PruneBuffers,
     dispatcher: () => Dispatcher[Offset],
     fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
-    getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
+    getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
     metrics: LedgerApiServerMetrics,
     idleStreamOffsetCheckpointTimeout: config.NonNegativeFiniteDuration,
+    getPreferredPackageVersion: logging.LoggingContextWithTrace => Ref.PackageName => Set[
+      Ref.PackageId
+    ] => FutureUnlessShutdown[
+      Option[Ref.PackageId]
+    ],
     override protected val loggerFactory: NamedLoggerFactory,
 ) extends IndexService
     with NamedLogging {
@@ -116,6 +125,7 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[Offset],
       updateFormat: UpdateFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
     val isTailingStream = endInclusive.isEmpty
 
@@ -139,6 +149,7 @@ private[index] class IndexServiceImpl(
                   getPackageMetadataSnapshot = getPackageMetadataSnapshot,
                   updateFormat = updateFormat,
                   alwaysPopulateArguments = false,
+                  interfaceViewPackageUpgrade,
                 )
               (startInclusive, endInclusive) =>
                 Source(memoInternalUpdateFormat().toList)
@@ -211,6 +222,7 @@ private[index] class IndexServiceImpl(
       endInclusive: Option[Offset],
       eventFormat: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContext)
     withValidatedFilter(
       eventFormat,
@@ -237,6 +249,7 @@ private[index] class IndexServiceImpl(
                   getPackageMetadataSnapshot,
                   eventFormat,
                   alwaysPopulateArguments = true,
+                  interfaceViewPackageUpgrade,
                 )
               (startInclusive, endInclusive) =>
                 Source(memoFilter().toList)
@@ -325,6 +338,7 @@ private[index] class IndexServiceImpl(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     implicit val errorLoggingContext = ErrorLoggingContext(logger, loggingContext)
     foldToSource {
       val currentPackageMetadata = getPackageMetadataSnapshot(errorLoggingContext)
@@ -343,6 +357,7 @@ private[index] class IndexServiceImpl(
               eventFormat,
               currentPackageMetadata,
               alwaysPopulateArguments = false,
+              interfaceViewPackageUpgrade,
             ).toList
           ).flatMapConcat { case InternalEventFormat(templateFilter, eventProjectionProperties) =>
             ledgerDao.updateReader
@@ -357,6 +372,7 @@ private[index] class IndexServiceImpl(
       }
     }
   }
+
   override def lookupActiveContract(
       forParties: Set[Ref.Party],
       contractId: ContractId,
@@ -369,6 +385,7 @@ private[index] class IndexServiceImpl(
       updateId: UpdateId,
       transactionFormat: TransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
     checkUnknownIdentifiers(transactionFormat.eventFormat, currentPackageMetadata).left
       .map(_.asGrpcError)
@@ -379,6 +396,7 @@ private[index] class IndexServiceImpl(
             eventFormat = transactionFormat.eventFormat,
             metadata = currentPackageMetadata,
             alwaysPopulateArguments = false,
+            interfaceViewPackageUpgrade,
           ).map(internalEventFormat =>
             InternalTransactionFormat(
               internalEventFormat = internalEventFormat,
@@ -398,14 +416,28 @@ private[index] class IndexServiceImpl(
   override def getTransactionTreeById(
       updateId: UpdateId,
       requestingParties: Set[Ref.Party],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Future[Option[GetTransactionTreeResponse]] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     updatesReader
-      .lookupTransactionTreeById(updateId.unwrap, requestingParties)
+      .lookupTransactionTreeById(
+        updateId.unwrap,
+        requestingParties,
+        EventProjectionProperties(
+          verbose = true,
+          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+        )(
+          interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
+        ),
+      )
+  }
 
   override def getTransactionByOffset(
       offset: Offset,
       transactionFormat: TransactionFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
     checkUnknownIdentifiers(transactionFormat.eventFormat, currentPackageMetadata).left
       .map(_.asGrpcError)
@@ -416,6 +448,7 @@ private[index] class IndexServiceImpl(
             eventFormat = transactionFormat.eventFormat,
             metadata = currentPackageMetadata,
             alwaysPopulateArguments = false,
+            interfaceViewPackageUpgrade,
           ).map(internalEventFormat =>
             InternalTransactionFormat(
               internalEventFormat = internalEventFormat,
@@ -436,6 +469,7 @@ private[index] class IndexServiceImpl(
       lookupKey: LookupKey,
       updateFormat: UpdateFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetUpdateResponse]] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
     checkUnknownIdentifiers(updateFormat, currentPackageMetadata).left
       .map(_.asGrpcError)
@@ -447,6 +481,7 @@ private[index] class IndexServiceImpl(
             getPackageMetadataSnapshot = getPackageMetadataSnapshot,
             updateFormat = updateFormat,
             alwaysPopulateArguments = false,
+            interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
           ).apply()
 
           internalUpdateFormatO match {
@@ -463,14 +498,26 @@ private[index] class IndexServiceImpl(
       requestingParties: Set[Ref.Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[GetTransactionTreeResponse]] =
+  ): Future[Option[GetTransactionTreeResponse]] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     updatesReader
-      .lookupTransactionTreeByOffset(offset, requestingParties)
+      .lookupTransactionTreeByOffset(
+        offset,
+        requestingParties,
+        EventProjectionProperties(
+          verbose = true,
+          templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
+        )(
+          interfaceViewPackageUpgrade = interfaceViewPackageUpgrade
+        ),
+      )
+  }
 
   override def getEventsByContractId(
       contractId: ContractId,
       eventFormat: EventFormat,
   )(implicit loggingContext: LoggingContextWithTrace): Future[GetEventsByContractIdResponse] = {
+    val interfaceViewPackageUpgrade = createViewUpgradeMemoized
     val currentPackageMetadata = getPackageMetadataSnapshot(implicitly)
     checkUnknownIdentifiers(eventFormat, currentPackageMetadata).left
       .map(_.asGrpcError)
@@ -483,6 +530,7 @@ private[index] class IndexServiceImpl(
               eventFormat,
               currentPackageMetadata,
               alwaysPopulateArguments = false,
+              interfaceViewPackageUpgrade,
             ),
           ),
       )
@@ -527,17 +575,6 @@ private[index] class IndexServiceImpl(
     pruneBuffers(pruneUpToInclusive)
     ledgerDao.prune(pruneUpToInclusive, pruneAllDivulgedContracts, incompletReassignmentOffsets)
   }
-
-  override def getMeteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
-    ledgerDao.meteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-    )
 
   override def currentLedgerEnd(): Future[Option[Offset]] =
     Future.successful(ledgerEnd())
@@ -597,15 +634,129 @@ private[index] class IndexServiceImpl(
       loggingContext: LoggingContextWithTrace
   ): Future[(Option[Offset], Option[Offset])] =
     ledgerDao.pruningOffsets
+
+  private def createViewUpgradeMemoized(implicit
+      loggingContextWithTrace: LoggingContextWithTrace
+  ): InterfaceViewPackageUpgrade = {
+    val memoizedSelection =
+      TrieMap.empty[(Identifier, Ref.PackageName), Future[Either[Status, Ref.PackageId]]]
+    val contextualizedErrorLogger = ErrorLoggingContext(logger, loggingContextWithTrace)
+    implicit val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
+
+    def handlePreferredPackageVersionError(
+        computeUpgradeResult: Try[Option[Ref.PackageId]],
+        packageName: Ref.PackageName,
+    ): Try[Either[Status, PackageId]] =
+      computeUpgradeResult match {
+        case Success(Some(value)) => Success(Right[Status, Ref.PackageId](value))
+        case Success(None) =>
+          Success(
+            Left[Status, Ref.PackageId](
+              LedgerApiErrors.NoVettedInterfaceImplementationPackage
+                .Reject(packageName)
+                .asGrpcStatus
+            )
+          )
+        case Failure(sre: StatusRuntimeException) =>
+          DecodedCantonError
+            .fromStatusRuntimeException(sre)
+            .fold(
+              errorCodeDecodeFailure => {
+                logger.warn(s"Could not decode error: $errorCodeDecodeFailure")
+                Failure(sre)
+              },
+              decodedError =>
+                // TODO(#23334): Make the NotConnectedToAnySynchronizer error available to this module
+                //               and use its reference code id directly instead of the String representation
+                if (decodedError.code.id == "NOT_CONNECTED_TO_ANY_SYNCHRONIZER") {
+                  Success(
+                    Left(InterfaceViewUpgradeFailureWrapper(decodedError).asGrpcStatus)
+                  )
+                } else Failure(sre),
+            )
+        case Failure(otherFailure) => Failure(otherFailure)
+      }
+
+    def computeUpgradeViewPackage(
+        packageName: Ref.PackageName,
+        packageIdsWithInterfaceInstance: Set[Ref.PackageId],
+    )(implicit
+        loggingContextWithTrace: LoggingContextWithTrace
+    ): Future[Either[Status, Ref.PackageId]] =
+      getPreferredPackageVersion(loggingContextWithTrace)(packageName)(
+        packageIdsWithInterfaceInstance
+      )
+        .failOnShutdownToAbortException("getPackagePreference for stream construction")
+        .transform(handlePreferredPackageVersionError(_, packageName))
+
+    // Computes the package-id for up/downgrading the interface instance used for computing an interface view.
+    // The selection picks the highest-versioned vetted package-id for the package name of the original create event.
+    // For performance reasons, the result is memoized for the entire lifetime of a stream / query
+    (interfaceId: Identifier, originalCreateTemplate: Identifier) => {
+      val packageMetadataSnapshot = getPackageMetadataSnapshot(contextualizedErrorLogger)
+      val packageIdVersionMap = packageMetadataSnapshot.packageIdVersionMap
+
+      packageIdVersionMap
+        .get(originalCreateTemplate.packageId)
+        .map { case (name, _version) => Future.successful(name) }
+        .getOrElse(
+          // Expectation is that all the callers are Ledger API-internal
+          // and have implicitly or explicitly validated that the requested package-id is known
+          // (i.e. it is in the packageIdVersionMap)
+          Future.failed(
+            LedgerApiErrors.InternalError
+              .Generic(
+                s"PackageId ${originalCreateTemplate.packageId} not found in the packageIdVersionMap ($packageIdVersionMap)"
+              )
+              .asGrpcError
+          )
+        )
+        .flatMap { packageName =>
+          val directImplementationsOfInterface =
+            packageMetadataSnapshot.interfacesImplementedBy.getOrElse(interfaceId, Set.empty)
+          memoizedSelection
+            .getOrElseUpdate(
+              interfaceId -> packageName,
+              computeUpgradeViewPackage(
+                packageName = packageName,
+                // Used to filter down the candidate package-ids for upgrade that actually implement the interface
+                // to ensure that the interface view can be computed.
+                // If no direct implementations are vetted, the view computation fails with NO_VETTED_INTERFACE_IMPLEMENTATION_PACKAGE
+                packageIdsWithInterfaceInstance = directImplementationsOfInterface.map(_.packageId),
+              ),
+            )
+            .map(result =>
+              result.map(upgradedViewPackageId =>
+                originalCreateTemplate.copy(packageId = upgradedViewPackageId)
+              )
+            )
+        }
+    }
+  }
 }
 
 object IndexServiceImpl {
+
+  trait InterfaceViewPackageUpgrade {
+
+    /** Computes an optimal package-id of the ``originalCreateTemplate`` interface instance that's
+      * used for rendering a view for interface ``interfaceId``.
+      *
+      * @return
+      *   the identifier for the ``originalCreateTemplate`` with the package-id adjusted to the
+      *   selection result
+      */
+    def upgrade(
+        interfaceId: Identifier,
+        originalCreateTemplate: Identifier,
+    ): Future[Either[Status, Identifier]]
+  }
 
   private[index] def checkUnknownIdentifiers(
       apiEventFormat: EventFormat,
       metadata: PackageMetadata,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ErrorLoggingContext
   ): Either[DamlErrorWithDefiniteAnswer, Unit] = {
     val unknownPackageNames = Set.newBuilder[Ref.PackageName]
     val unknownTemplateIds = Set.newBuilder[Identifier]
@@ -708,7 +859,7 @@ object IndexServiceImpl {
       apiUpdateFormat: UpdateFormat,
       metadata: PackageMetadata,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ErrorLoggingContext
   ): Either[DamlErrorWithDefiniteAnswer, Unit] = for {
     _ <- apiUpdateFormat.includeTransactions
       .map(transactionFormat => checkUnknownIdentifiers(transactionFormat.eventFormat, metadata))
@@ -727,7 +878,7 @@ object IndexServiceImpl {
       metadata: PackageMetadata,
   )(
       source: => Source[T, NotUsed]
-  )(implicit errorLogger: ContextualizedErrorLogger): Source[T, NotUsed] =
+  )(implicit errorLogger: ErrorLoggingContext): Source[T, NotUsed] =
     foldToSource(
       for {
         _ <- checkUnknownIdentifiers(apiUpdateFormat, metadata)(errorLogger).left
@@ -741,7 +892,7 @@ object IndexServiceImpl {
       metadata: PackageMetadata,
   )(
       source: => Source[T, NotUsed]
-  )(implicit errorLogger: ContextualizedErrorLogger): Source[T, NotUsed] =
+  )(implicit errorLogger: ErrorLoggingContext): Source[T, NotUsed] =
     foldToSource(
       for {
         _ <- checkUnknownIdentifiers(apiEventFormat, metadata)(errorLogger).left
@@ -752,7 +903,7 @@ object IndexServiceImpl {
   private[index] def validatedAcsActiveAtOffset[T](
       activeAt: Option[Offset],
       ledgerEnd: Option[Offset],
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
+  )(implicit errorLogger: ErrorLoggingContext): Either[StatusRuntimeException, Unit] =
     Either.cond(
       activeAt <= ledgerEnd,
       (),
@@ -767,11 +918,12 @@ object IndexServiceImpl {
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedInternalUpdateFormat(
-      getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
+      getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
       updateFormat: UpdateFormat,
       alwaysPopulateArguments: Boolean, // TODO(#23504) remove the field since it will always be false after removing transaction trees
+      interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ErrorLoggingContext
   ): () => Option[InternalUpdateFormat] = {
     @volatile var metadata: PackageMetadata = null
     @volatile var internalTransactionFormat: Option[InternalTransactionFormat] = None
@@ -785,6 +937,7 @@ object IndexServiceImpl {
             eventFormat = transactionFormat.eventFormat,
             metadata = metadata,
             alwaysPopulateArguments = alwaysPopulateArguments,
+            interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
           ).map(internalEventFormat =>
             InternalTransactionFormat(
               internalEventFormat = internalEventFormat,
@@ -797,6 +950,7 @@ object IndexServiceImpl {
             eventFormat = eventFormat,
             metadata = metadata,
             alwaysPopulateArguments = alwaysPopulateArguments,
+            interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
           )
         )
       }
@@ -822,11 +976,12 @@ object IndexServiceImpl {
   // TODO(#23504) cleanup
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedTransactionFilterProjection(
-      getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
+      getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata,
       eventFormat: EventFormat,
       alwaysPopulateArguments: Boolean,
+      interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      contextualizedErrorLogger: ErrorLoggingContext
   ): () => Option[(TemplatePartiesFilter, EventProjectionProperties)] = {
     @volatile var metadata: PackageMetadata = null
     @volatile var filters: Option[(TemplatePartiesFilter, EventProjectionProperties)] = None
@@ -838,6 +993,7 @@ object IndexServiceImpl {
           eventFormat,
           metadata,
           alwaysPopulateArguments,
+          interfaceViewPackageUpgrade,
         ).map(internalEventFormat =>
           (internalEventFormat.templatePartiesFilter, internalEventFormat.eventProjectionProperties)
         )
@@ -849,7 +1005,8 @@ object IndexServiceImpl {
       eventFormat: EventFormat,
       metadata: PackageMetadata,
       alwaysPopulateArguments: Boolean,
-  ): Option[InternalEventFormat] = {
+      interfaceViewPackageUpgrade: InterfaceViewPackageUpgrade,
+  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Option[InternalEventFormat] = {
     val templateFilter: Map[Identifier, Option[Set[Party]]] =
       IndexServiceImpl.templateFilter(metadata, eventFormat)
 
@@ -862,9 +1019,10 @@ object IndexServiceImpl {
       val eventProjectionProperties = EventProjectionProperties(
         eventFormat = eventFormat,
         interfaceImplementedBy =
-          interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
+          interfaceId => interfacesImplementedByWithUpgrades(metadata, interfaceId),
         resolveTypeConRef = metadata.resolveTypeConRef,
         alwaysPopulateArguments = alwaysPopulateArguments,
+        interfaceViewPackageUpgrade = interfaceViewPackageUpgrade,
       )
       Some(
         InternalEventFormat(
@@ -878,19 +1036,46 @@ object IndexServiceImpl {
     }
   }
 
+  // TODO(#23903): Unit test coverage
+  private def interfacesImplementedByWithUpgrades(
+      metadata: PackageMetadata,
+      interfaceId: Ref.Identifier,
+  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Set[Identifier] =
+    metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty).flatMap {
+      originalInterfaceImplementation =>
+        val packageIdVersionMap = metadata.packageIdVersionMap
+        val (packageName, _packageVersion) =
+          packageIdVersionMap.getOrElse(
+            originalInterfaceImplementation.packageId,
+            // The original implementation template-id is extracted from the package metadata
+            // hence its package name must be present in the packageIdVersionMap
+            throw LedgerApiErrors.InternalError
+              .Generic(
+                s"Package-name missing for original implementor package-id ${originalInterfaceImplementation.packageId} from packageIdVersionMap: $packageIdVersionMap"
+              )
+              .asGrpcError,
+          )
+        metadata.resolveTypeConRef(
+          Ref.TypeConRef(
+            Ref.PackageRef.Name(packageName),
+            originalInterfaceImplementation.qualifiedName,
+          )
+        )
+    }
+
   private def templateIds(
       metadata: PackageMetadata,
       cumulativeFilter: CumulativeFilter,
-  ): Set[Identifier] = {
+  )(implicit contextualizedErrorLogger: ErrorLoggingContext): Set[Identifier] = {
     val fromInterfacesDefs = cumulativeFilter.interfaceFilters.view
       .map(_.interfaceTypeRef)
-      .flatMap(metadata.resolveTypeConRef(_))
-      .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty).view)
+      .flatMap(metadata.resolveTypeConRef)
+      .flatMap(interfacesImplementedByWithUpgrades(metadata, _).view)
       .toSet
 
     val fromTemplateDefs = cumulativeFilter.templateFilters.view
       .map(_.templateTypeRef)
-      .flatMap(metadata.resolveTypeConRef(_))
+      .flatMap(metadata.resolveTypeConRef)
 
     fromInterfacesDefs ++ fromTemplateDefs
   }
@@ -898,6 +1083,8 @@ object IndexServiceImpl {
   private[index] def templateFilter(
       metadata: PackageMetadata,
       eventFormat: EventFormat,
+  )(implicit
+      contextualizedErrorLogger: ErrorLoggingContext
   ): Map[Identifier, Option[Set[Party]]] = {
     val templatesFilterByParty =
       eventFormat.filtersByParty.view.foldLeft(Map.empty[Identifier, Option[Set[Party]]]) {

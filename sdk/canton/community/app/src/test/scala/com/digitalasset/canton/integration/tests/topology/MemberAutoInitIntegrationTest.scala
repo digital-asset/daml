@@ -9,9 +9,9 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.NodeStatus.NotInitialized
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, ParticipantStatus, WaitingForId}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.InitConfigBase.{Identity, NodeIdentifierConfig}
+import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{DbConfig, IdentityConfig}
 import com.digitalasset.canton.console.{
   LocalInstanceReference,
   LocalParticipantReference,
@@ -44,30 +44,23 @@ trait MemberAutoInitIntegrationTest
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3S2M2_Manual
+      .addConfigTransform(
+        ConfigTransforms.disableAutoInit(Set("mediator2", "sequencer2", "participant2"))
+      )
       .addConfigTransforms(
         ConfigTransforms.updateMediatorConfig("mediator1")(
           _.focus(_.init.identity).replace(assignIdentity("themediator"))
         ),
-        ConfigTransforms.updateMediatorConfig("mediator2")(
-          _.focus(_.init.identity).replace(None)
-        ),
         ConfigTransforms.updateSequencerConfig("sequencer1")(
           _.focus(_.init.identity).replace(assignIdentity("thesequencer"))
-        ),
-        ConfigTransforms.updateSequencerConfig("sequencer2")(
-          _.focus(_.init.identity).replace(None)
         ),
         ConfigTransforms.updateParticipantConfig("participant1")(
           _.focus(_.init.identity).replace(assignIdentity("theparticipant"))
         ),
-        ConfigTransforms.updateParticipantConfig("participant2")(
-          _.focus(_.init.identity).replace(None)
-        ),
       )
 
-  private def assignIdentity(name: String): Option[Identity] = Some(
-    Identity(nodeIdentifier = NodeIdentifierConfig.Explicit(name))
-  )
+  private def assignIdentity(name: String): IdentityConfig =
+    IdentityConfig.Auto(identifier = NodeIdentifierConfig.Explicit(name))
 
   protected val remedy: String => String => String => ResultOfTaggedAsInvocationOnString =
     operabilityTest("Nodes")("Node identity")
@@ -104,7 +97,7 @@ trait MemberAutoInitIntegrationTest
     participant.health.maybe_ping(participant.id) should not be empty
   }
 
-  "Auto-init is set to true" when_ { setting =>
+  "Automatic node initialization is enabled" when_ { setting =>
     def createCase(
         nodeFromEnv: TestConsoleEnvironment => LocalInstanceReference,
         base: String,
@@ -158,7 +151,7 @@ trait MemberAutoInitIntegrationTest
     }
   }
 
-  "Auto-init is set to false" when_ { setting =>
+  "Manual initialization is turned on" when_ { setting =>
     def createCase(
         nodeFromEnv: TestConsoleEnvironment => LocalInstanceReference,
         base: String,

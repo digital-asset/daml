@@ -6,7 +6,11 @@ package com.digitalasset.canton.integration.tests.sequencer.reference
 import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeNumeric, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeLong,
+  NonNegativeNumeric,
+  PositiveInt,
+}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
@@ -24,6 +28,7 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
       Seq(
         reduceSequencerClientAcknowledgementInterval,
         increaseParticipant3AcknowledgementInterval,
+        reduceSequencerAcknowledgementConflateWindow,
         ConfigTransforms.useStaticTime,
       ),
       loggerFactory,
@@ -43,6 +48,7 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
           maxBaseTrafficAccumulationDuration = config.PositiveFiniteDuration.ofSeconds(1L),
           setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
           enforceRateLimiting = true,
+          baseEventCost = NonNegativeLong.zero,
         )
         sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,

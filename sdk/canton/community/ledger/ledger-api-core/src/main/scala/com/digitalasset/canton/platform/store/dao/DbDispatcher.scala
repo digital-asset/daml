@@ -21,7 +21,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   withEnrichedLoggingContext,
 }
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -124,7 +123,7 @@ private[dao] final class DbDispatcherImpl private[dao] (
   private def handleError(
       throwable: Throwable
   )(implicit loggingContext: LoggingContextWithTrace): Nothing = {
-    implicit val errorLoggingContext: ContextualizedErrorLogger =
+    implicit val errorLoggingContext: ErrorLoggingContext =
       ErrorLoggingContext(logger, loggingContext)
 
     throwable match {

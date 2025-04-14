@@ -3,31 +3,48 @@
 
 package com.digitalasset.canton.logging
 
-import com.digitalasset.base.error.BaseError
+import com.digitalasset.base.error.{BaseError, BaseErrorLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.scalalogging.Logger
+import org.slf4j
 import org.slf4j.MDC
 import org.slf4j.event.Level
+import org.slf4j.helpers.NOPLogger
 
 /** Enriches a [[com.digitalasset.canton.tracing.TraceContext]] with a fixed logger and a set of
   * properties. Use this class as an implicit parameter of methods inside helper classes whose class
   * name shall not show up in the log line as part of the logger name. Instead, the logger name and
   * properties are fixed when this object is created, which typically happens at a call site further
   * up via [[NamedLogging.errorLoggingContext]].
-  *
-  * This class is primarily used with the `com.daml.error` framework for logging an error when it is
-  * created.
-  *
   * @see
   *   [[NamedLoggingContext]] for another variant where the logger name is not fixed
   * @see
   *   [[NamedLogging.errorLoggingContext]] converts
   */
-abstract class ErrorLoggingContextBase(
+trait ErrorLoggingContext extends BaseErrorLogger {
+  def properties: Map[String, String]
+  def correlationId: Option[String]
+  def traceId: Option[String]
+  def traceContext: TraceContext
+
+  def debug(message: String): Unit
+  def debug(message: String, throwable: Throwable): Unit
+  def info(message: String): Unit
+  def info(message: String, throwable: Throwable): Unit
+  def warn(message: String): Unit
+  def warn(message: String, throwable: Throwable): Unit
+  def error(message: String): Unit
+  def error(message: String, throwable: Throwable): Unit
+  def withContext[A](context: Map[String, String])(body: => A): A
+  def noTracingLogger: Logger
+  def logger: TracedLogger
+}
+
+abstract class AbstractErrorLoggingContext(
     logger: TracedLogger,
     properties: Map[String, String],
     traceContext: TraceContext,
-) extends ContextualizedErrorLogger {
+) extends ErrorLoggingContext {
 
   override def traceId: Option[String] = traceContext.traceId
 
@@ -45,7 +62,7 @@ abstract class ErrorLoggingContextBase(
     // for text logging, we'll use the err-context string, for json logging, we use the arguments and ignore the err-context
     val arguments = mergedContext ++ Map(
       "error-code" -> err.code.codeStr(correlationId),
-      "err-context" -> ("{" + ContextualizedErrorLogger.formatContextAsString(mergedContext) + "}"),
+      "err-context" -> ("{" + ErrorLoggingContext.formatContextAsString(mergedContext) + "}"),
     ) ++ properties
     val message = err.code.toMsg(err.cause, correlationId, None)
     withContext(arguments) {
@@ -85,29 +102,49 @@ abstract class ErrorLoggingContextBase(
     try body
     finally context.keys.foreach(key => MDC.remove(key))
   }
-}
 
-final case class ErrorLoggingContext(
-    logger: TracedLogger,
-    properties: Map[String, String],
-    traceContext: TraceContext,
-) extends ErrorLoggingContextBase(logger, properties, traceContext) {
   override def correlationId: Option[String] = traceContext.traceId
-  def noTracingLogger: Logger = NamedLogging.loggerWithoutTracing(logger)
-}
 
-final case class LedgerErrorLoggingContext(
-    logger: TracedLogger,
-    properties: Map[String, String],
-    traceContext: TraceContext,
-    explicitCorrelationId: String,
-) extends ErrorLoggingContextBase(logger, properties, traceContext) {
-  override def correlationId: Option[String] = Some(explicitCorrelationId)
+  def noTracingLogger: Logger = NamedLogging.loggerWithoutTracing(logger)
+
 }
 
 object ErrorLoggingContext {
-  def apply(logger: TracedLogger, loggingContext: LoggingContextWithTrace): ErrorLoggingContext =
-    ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+
+  private final case class Impl(
+      logger: TracedLogger,
+      properties: Map[String, String],
+      traceContext: TraceContext,
+  ) extends AbstractErrorLoggingContext(logger, properties, traceContext)
+
+  private final case class WithExplicitCorrelationId(
+      logger: TracedLogger,
+      properties: Map[String, String],
+      traceContext: TraceContext,
+      explicitCorrelationId: String,
+  ) extends AbstractErrorLoggingContext(logger, properties, traceContext) {
+    override def correlationId: Option[String] = Some(explicitCorrelationId)
+  }
+
+  def apply(
+      logger: TracedLogger,
+      loggingContext: LoggingContextWithTrace,
+  ): ErrorLoggingContext =
+    Impl(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+
+  def apply(
+      logger: TracedLogger,
+      properties: Map[String, String],
+      traceContext: TraceContext,
+  ): ErrorLoggingContext = Impl(logger, properties, traceContext)
+
+  def withExplicitCorrelationId(
+      logger: TracedLogger,
+      properties: Map[String, String],
+      traceContext: TraceContext,
+      explicitCorrelationId: String,
+  ): ErrorLoggingContext =
+    WithExplicitCorrelationId(logger, properties, traceContext, explicitCorrelationId)
 
   def forClass(
       loggerFactory: NamedLoggerFactory,
@@ -115,7 +152,7 @@ object ErrorLoggingContext {
       properties: Map[String, String] = Map.empty,
       traceContext: TraceContext = TraceContext.empty,
   ): ErrorLoggingContext =
-    ErrorLoggingContext(
+    Impl(
       TracedLogger(loggerFactory.getLogger(clazz)),
       properties,
       traceContext,
@@ -130,9 +167,9 @@ object ErrorLoggingContext {
       logger: TracedLogger,
       loggingContextWithTrace: LoggingContextWithTrace,
       submissionIdO: Option[String],
-  ): ContextualizedErrorLogger = submissionIdO match {
+  ): ErrorLoggingContext = submissionIdO match {
     case Some(submissionId) =>
-      LedgerErrorLoggingContext(
+      WithExplicitCorrelationId(
         logger,
         loggingContextWithTrace.toPropertiesMap,
         loggingContextWithTrace.traceContext,
@@ -145,4 +182,42 @@ object ErrorLoggingContext {
         loggingContextWithTrace.traceContext,
       )
   }
+
+  /** Formats the context as a string for logging */
+  def formatContextAsString(contextMap: Map[String, String]): String =
+    contextMap
+      .filter(_._2.nonEmpty)
+      .toSeq
+      .sortBy(_._1)
+      .map { case (k, v) =>
+        s"$k=$v"
+      }
+      .mkString(", ")
+
 }
+
+class NoLogging(
+    val properties: Map[String, String],
+    val correlationId: Option[String],
+    val traceId: Option[String] = None,
+) extends ErrorLoggingContext {
+  private val underlying: slf4j.Logger = NOPLogger.NOP_LOGGER
+
+  override def logError(err: BaseError, extra: Map[String, String]): Unit = ()
+  override def debug(message: String): Unit = ()
+  override def debug(message: String, throwable: Throwable): Unit = ()
+  override def info(message: String): Unit = ()
+  override def info(message: String, throwable: Throwable): Unit = ()
+  override def warn(message: String): Unit = ()
+  override def warn(message: String, throwable: Throwable): Unit = ()
+  override def error(message: String): Unit = ()
+  override def error(message: String, throwable: Throwable): Unit = ()
+  override def withContext[A](context: Map[String, String])(body: => A): A = body
+  override def traceContext: TraceContext = TraceContext.empty
+  override def noTracingLogger: Logger = Logger(underlying)
+  override def logger: TracedLogger =
+    Logger.takingImplicit[TraceContext](underlying)(CanLogTraceContext)
+
+}
+
+object NoLogging extends NoLogging(properties = Map.empty, correlationId = None, traceId = None)

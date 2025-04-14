@@ -51,8 +51,9 @@ import com.digitalasset.canton.participant.protocol.TestProcessingSteps.{
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.*
 import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.UnsequencedSubmissionMap
-import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.*
+import com.digitalasset.canton.participant.store.{SyncPersistentState, *}
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.{
   DefaultParticipantStateValues,

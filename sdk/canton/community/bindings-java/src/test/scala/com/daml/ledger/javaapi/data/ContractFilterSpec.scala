@@ -17,82 +17,175 @@ class ContractFilterSpec extends AnyFlatSpec with Matchers {
 
   behavior of classOf[ContractFilter[_]].getSimpleName
 
+  private def templateCumulativeFilter(expectedIncluded: Boolean) = new CumulativeFilter(
+    Collections.emptyMap[Identifier, Filter.Interface](),
+    Collections
+      .singletonMap(
+        TestHelpers.Tmpl.templateId,
+        if (expectedIncluded) Filter.Template.INCLUDE_CREATED_EVENT_BLOB
+        else Filter.Template.HIDE_CREATED_EVENT_BLOB,
+      ),
+    Optional.empty(),
+  )
+
+  private def interfaceCumulativeFilter(expectedIncluded: Boolean) = new CumulativeFilter(
+    Collections
+      .singletonMap(
+        TestHelpers.Tmpl.interfaceId,
+        if (expectedIncluded) Filter.Interface.INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB
+        else Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB,
+      ),
+    Collections.emptyMap[Identifier, Filter.Template](),
+    Optional.empty(),
+  )
+
+  private def assertFilters(
+      contractFilter: ContractFilter[_],
+      expectedIncluded: Boolean,
+      expectedVerbose: Boolean,
+      expectedShape: TransactionShape,
+      cumulativeFilter: Boolean => CumulativeFilter,
+  ) = {
+    val expectedCumulativeFilter = cumulativeFilter(expectedIncluded)
+
+    val expectedPartyToFilters = Map[String, Filter](
+      "Alice" -> expectedCumulativeFilter,
+      "Bob" -> expectedCumulativeFilter,
+    ).asJava
+
+    val expectedEventFormatWithParties = new EventFormat(
+      expectedPartyToFilters,
+      Optional.empty(),
+      expectedVerbose,
+    )
+
+    val expectedWildcardEventFormat = new EventFormat(
+      Map.empty[String, Filter].asJava,
+      Optional.of(expectedCumulativeFilter),
+      expectedVerbose,
+    )
+
+    val expectedTransactionFormatWithParties = new TransactionFormat(
+      expectedEventFormatWithParties,
+      expectedShape,
+    )
+
+    val expectedWildcardTransactionFormat = new TransactionFormat(
+      expectedWildcardEventFormat,
+      expectedShape,
+    )
+
+    contractFilter.transactionFilter(Optional.of(partiesSet)) shouldBe new TransactionFilter(
+      expectedPartyToFilters,
+      Optional.empty(),
+    )
+
+    contractFilter.transactionFilter(Optional.empty()) shouldBe new TransactionFilter(
+      Collections.emptyMap(),
+      Optional.of(expectedCumulativeFilter),
+    )
+
+    contractFilter.eventFormat(Optional.of(partiesSet)) shouldBe expectedEventFormatWithParties
+    contractFilter.eventFormat(Optional.empty()) shouldBe expectedWildcardEventFormat
+
+    contractFilter.transactionFormat(
+      Optional.of(partiesSet)
+    ) shouldBe expectedTransactionFormatWithParties
+    contractFilter.transactionFormat(Optional.empty()) shouldBe expectedWildcardTransactionFormat
+
+    contractFilter.updateFormat(Optional.of(partiesSet)) shouldBe new UpdateFormat(
+      Optional.of(expectedTransactionFormatWithParties),
+      Optional.of(expectedEventFormatWithParties),
+      Optional.empty(),
+    )
+
+    contractFilter.updateFormat(Optional.empty()) shouldBe new UpdateFormat(
+      Optional.of(expectedWildcardTransactionFormat),
+      Optional.of(expectedWildcardEventFormat),
+      Optional.empty(),
+    )
+  }
+
   it should "correctly allow constructing a transaction filter for templates" in {
-    def assertCreatedEventBlob(contractFilter: ContractFilter[_], expectIncluded: Boolean) = {
-      val expectedCumulativeFilter = new CumulativeFilter(
-        Collections.emptyMap[Identifier, Filter.Interface](),
-        Collections
-          .singletonMap(
-            TestHelpers.Tmpl.templateId,
-            if (expectIncluded) Filter.Template.INCLUDE_CREATED_EVENT_BLOB
-            else Filter.Template.HIDE_CREATED_EVENT_BLOB,
-          ),
-        Optional.empty(),
-      )
-
-      contractFilter.transactionFilter(Optional.of(partiesSet)) shouldBe new TransactionFilter(
-        Map[String, Filter](
-          "Alice" -> expectedCumulativeFilter,
-          "Bob" -> expectedCumulativeFilter,
-        ).asJava,
-        Optional.empty(),
-      )
-
-      contractFilter.transactionFilter(Optional.empty()) shouldBe new TransactionFilter(
-        Collections.emptyMap(),
-        Optional.of(expectedCumulativeFilter),
-      )
-    }
-
     ContractFilter
       .of(new TmplCompanion)
       // Assert default behavior of transactionFilter
-      .tap(assertCreatedEventBlob(_, expectIncluded = false))
+      .tap(
+        assertFilters(
+          _,
+          expectedIncluded = false,
+          expectedVerbose = false,
+          expectedShape = TransactionShape.ACS_DELTA,
+          templateCumulativeFilter,
+        )
+      )
       // Now enable created event blob
-      .pipe(_.withIncludeCreatedEventBlob(true))
-      .tap(assertCreatedEventBlob(_, expectIncluded = true))
+      .withIncludeCreatedEventBlob(true)
+      .withVerbose(true)
+      .withTransactionShape(TransactionShape.LEDGER_EFFECTS)
+      .tap(
+        assertFilters(
+          _,
+          expectedIncluded = true,
+          expectedVerbose = true,
+          expectedShape = TransactionShape.LEDGER_EFFECTS,
+          templateCumulativeFilter,
+        )
+      )
       // Now disable created event blob
-      .pipe(_.withIncludeCreatedEventBlob(false))
-      .tap(assertCreatedEventBlob(_, expectIncluded = false))
+      .withIncludeCreatedEventBlob(false)
+      .withVerbose(false)
+      .withTransactionShape(TransactionShape.ACS_DELTA)
+      .tap(
+        assertFilters(
+          _,
+          expectedIncluded = false,
+          expectedVerbose = false,
+          expectedShape = TransactionShape.ACS_DELTA,
+          templateCumulativeFilter,
+        )
+      )
   }
 
   it should "correctly allow constructing a transaction filter for interfaces" in {
-    def assertCreatedEventBlob(contractFilter: ContractFilter[_], expectIncluded: Boolean) = {
-      val expectedCumulativeFilter = new CumulativeFilter(
-        Collections
-          .singletonMap(
-            TestHelpers.Tmpl.interfaceId,
-            if (expectIncluded) Filter.Interface.INCLUDE_VIEW_INCLUDE_CREATED_EVENT_BLOB
-            else Filter.Interface.INCLUDE_VIEW_HIDE_CREATED_EVENT_BLOB,
-          ),
-        Collections.emptyMap[Identifier, Filter.Template](),
-        Optional.empty(),
-      )
-
-      contractFilter.transactionFilter(Optional.of(partiesSet)) shouldBe new TransactionFilter(
-        Map[String, Filter](
-          "Alice" -> expectedCumulativeFilter,
-          "Bob" -> expectedCumulativeFilter,
-        ).asJava,
-        Optional.empty(),
-      )
-
-      contractFilter.transactionFilter(Optional.empty()) shouldBe new TransactionFilter(
-        Collections.emptyMap(),
-        Optional.of(expectedCumulativeFilter),
-      )
-    }
-
     ContractFilter
       .of(new IfaceCompanion)
       // Assert default behavior of transactionFilter
-      .tap(assertCreatedEventBlob(_, expectIncluded = false))
+      .tap(
+        assertFilters(
+          _,
+          expectedIncluded = false,
+          expectedVerbose = false,
+          expectedShape = TransactionShape.ACS_DELTA,
+          interfaceCumulativeFilter,
+        )
+      )
       // Now enable created event blob
-      .pipe(_.withIncludeCreatedEventBlob(true))
-      .tap(assertCreatedEventBlob(_, expectIncluded = true))
+      .withIncludeCreatedEventBlob(true)
+      .withVerbose(true)
+      .withTransactionShape(TransactionShape.LEDGER_EFFECTS)
+      .tap(
+        assertFilters(
+          _,
+          expectedIncluded = true,
+          expectedVerbose = true,
+          expectedShape = TransactionShape.LEDGER_EFFECTS,
+          interfaceCumulativeFilter,
+        )
+      )
       // Now disable created event blob
-      .pipe(_.withIncludeCreatedEventBlob(false))
-      .tap(assertCreatedEventBlob(_, expectIncluded = false))
+      .withIncludeCreatedEventBlob(false)
+      .withVerbose(false)
+      .withTransactionShape(TransactionShape.ACS_DELTA)
+      .tap(
+        assertFilters(
+          _,
+          expectedIncluded = false,
+          expectedVerbose = false,
+          expectedShape = TransactionShape.ACS_DELTA,
+          interfaceCumulativeFilter,
+        )
+      )
   }
 
 }

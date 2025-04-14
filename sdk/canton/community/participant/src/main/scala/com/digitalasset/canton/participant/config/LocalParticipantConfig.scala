@@ -326,9 +326,6 @@ object TestingTimeServiceConfig {
   * @param warnIfOverloadedFor
   *   If all incoming commands have been rejected due to PARTICIPANT_BACKPRESSURE during this
   *   interval, the participant will log a warning.
-  * @param excludeInfrastructureTransactions
-  *   If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded
-  *   from participant metering.
   * @param journalGarbageCollectionDelay
   *   How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation
@@ -358,7 +355,6 @@ final case class ParticipantNodeParameterConfig(
       config.NonNegativeFiniteDuration.ofSeconds(20)
     ),
     ledgerApiServer: LedgerApiServerParametersConfig = LedgerApiServerParametersConfig(),
-    excludeInfrastructureTransactions: Boolean = true,
     engine: CantonEngineConfig = CantonEngineConfig(),
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),

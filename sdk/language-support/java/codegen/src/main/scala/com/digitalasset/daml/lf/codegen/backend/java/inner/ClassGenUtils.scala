@@ -50,6 +50,8 @@ private[inner] object ClassGenUtils {
 
   val templateIdFieldName = "TEMPLATE_ID"
   val templateIdWithPackageIdFieldName = "TEMPLATE_ID_WITH_PACKAGE_ID"
+  val interfaceIdFieldName = "INTERFACE_ID"
+  val interfaceIdWithPackageIdFieldName = "INTERFACE_ID_WITH_PACKAGE_ID"
   val packageIdFieldName = "PACKAGE_ID"
   val packageNameFieldName = "PACKAGE_NAME"
   val packageVersionFieldName = "PACKAGE_VERSION"
@@ -61,6 +63,38 @@ private[inner] object ClassGenUtils {
       pkgName: PackageName,
       moduleName: String,
       name: String,
+  ): Seq[FieldSpec] =
+    generateEntityIdFields(
+      pkgId,
+      pkgName,
+      moduleName,
+      name,
+      templateIdFieldName,
+      templateIdWithPackageIdFieldName,
+    )
+
+  def generateInterfaceIdFields(
+      pkgId: PackageId,
+      pkgName: PackageName,
+      moduleName: String,
+      name: String,
+  ): Seq[FieldSpec] =
+    generateEntityIdFields(
+      pkgId,
+      pkgName,
+      moduleName,
+      name,
+      interfaceIdFieldName,
+      interfaceIdWithPackageIdFieldName,
+    )
+
+  def generateEntityIdFields(
+      pkgId: PackageId,
+      pkgName: PackageName,
+      moduleName: String,
+      name: String,
+      entityIdFieldName: String,
+      entityIdWithPackageIdFieldName: String,
   ): Seq[FieldSpec] = {
     val packageRef = PackageRef.Name(pkgName)
     def idField(fieldName: String, pkg: String) =
@@ -81,8 +115,8 @@ private[inner] object ClassGenUtils {
         )
         .build()
     Seq(
-      idField(templateIdFieldName, packageRef.toString),
-      idField(templateIdWithPackageIdFieldName, pkgId.toString),
+      idField(entityIdFieldName, packageRef.toString),
+      idField(entityIdWithPackageIdFieldName, pkgId.toString),
     )
   }
 

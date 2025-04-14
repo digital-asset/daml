@@ -21,6 +21,7 @@ import com.digitalasset.canton.console.{
   LocalSequencerReference,
 }
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
 import com.digitalasset.canton.integration.bootstrap.NetworkBootstrapper
 import com.digitalasset.canton.integration.plugins.{
@@ -65,6 +66,7 @@ trait TrafficControlTest
 
   protected val enableSequencerRestart: Boolean = true
 
+  private val baseEventCost = 500L
   private val trafficControlParameters = TrafficControlParameters(
     maxBaseTrafficAmount = NonNegativeNumeric.tryCreate(20 * 1000L),
     readVsWriteScalingFactor = InternalTrafficControlParameters.DefaultReadVsWriteScalingFactor,
@@ -72,6 +74,7 @@ trait TrafficControlTest
     maxBaseTrafficAccumulationDuration = config.PositiveFiniteDuration.ofSeconds(1L),
     setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
     enforceRateLimiting = true,
+    baseEventCost = NonNegativeLong.tryCreate(baseEventCost),
   )
 
   protected val pruningWindow = config.NonNegativeFiniteDuration.ofSeconds(5)
@@ -264,6 +267,21 @@ trait TrafficControlTest
       val trafficState2 = participant1.traffic_control.traffic_state(daId)
       trafficState2.extraTrafficPurchased.value shouldBe topUpAmount
     }
+  }
+
+  "charge for time proofs" in { implicit env =>
+    import env.*
+    val clock = env.environment.simClock.value
+    clock.advance(Duration.ofSeconds(1))
+    val trafficBeforeCommand = getTrafficForMember(participant1).value
+    participant1.runningNode.value.getNode.value.sync
+      .lookupSynchronizerTimeTracker(daId)
+      .value
+      .fetchTimeProof()
+      .futureValueUS
+      .discard
+    val trafficAfterCommand = getTrafficForMember(participant1).value
+    (trafficBeforeCommand.baseTrafficRemainder.value - trafficAfterCommand.baseTrafficRemainder.value) shouldBe baseEventCost
   }
 
   "succeed to run a big transaction with enough credit" in { implicit env =>

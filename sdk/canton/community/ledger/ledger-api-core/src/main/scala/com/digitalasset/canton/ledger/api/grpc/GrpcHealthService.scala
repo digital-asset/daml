@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -65,7 +65,7 @@ class GrpcHealthService(
 
   private def matchResponse(
       componentName: Option[String]
-  )(implicit errorLogger: ContextualizedErrorLogger): Try[HealthCheckResponse] =
+  )(implicit errorLogger: ErrorLoggingContext): Try[HealthCheckResponse] =
     componentName
       .collect {
         case component if !healthChecks.hasComponent(component) =>

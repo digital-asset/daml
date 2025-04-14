@@ -10,7 +10,10 @@ import com.daml.ledger.api.v2.event.CreatedEvent.toJavaProto
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.value.{Identifier, Record}
 import com.daml.ledger.javaapi.data.CreatedEvent.fromProto as createdEventFromProto
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UnassignedWrapper
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
+  AssignedWrapper,
+  UnassignedWrapper,
+}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedContractEntry
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
@@ -30,7 +33,6 @@ import com.digitalasset.canton.integration.tests.ActiveContractsIntegrationTest.
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.GrpcAdminCommandSupport.ParticipantReferenceOps
 import com.digitalasset.canton.integration.util.GrpcServices.StateService
-import com.digitalasset.canton.integration.util.HasReassignmentCommandsHelpers.SingleReassignmentEvent
 import com.digitalasset.canton.integration.util.{
   AcsInspection,
   HasCommandRunnersHelpers,
@@ -253,25 +255,23 @@ class ActiveContractsIntegrationTest
         beginOffsetExclusive = startOffset,
         endOffsetInclusive = Some(endOffset),
       )
-
-      updates.size shouldBe 1
-      updates.headOption.flatMap(_.createEvent)
-    }.value
+      updates.map(_.createEvents)
+    }.flatten.loneElement
     val contract = Iou.Contract.fromCreatedEvent(createdEventFromProto(toJavaProto(createdEvent)))
     ContractData(contract, createdEvent)
   }
 
   private def submitAssignment(
-      out: SingleReassignmentEvent[proto.reassignment.UnassignedEvent],
+      out: UnassignedWrapper,
       submitter: PartyId,
       participantOverride: Option[LocalParticipantReference],
   )(implicit
       env: TestConsoleEnvironment
-  ): (SingleReassignmentEvent[proto.reassignment.AssignedEvent], Completion) =
+  ): (AssignedWrapper, Completion) =
     assign(
-      unassignId = out.event.unassignId,
-      source = SynchronizerId.tryFromString(out.event.source),
-      target = SynchronizerId.tryFromString(out.event.target),
+      unassignId = out.unassignId,
+      source = SynchronizerId.tryFromString(out.source),
+      target = SynchronizerId.tryFromString(out.target),
       submittingParty = submitter.toLf,
       participantOverride = participantOverride,
     )
@@ -304,32 +304,34 @@ class ActiveContractsIntegrationTest
   private def buildExpectedActiveContractsFromAssigned(
       party: PartyId
   )(
-      activationFromAssigned: Seq[SingleReassignmentEvent[proto.reassignment.AssignedEvent]]
+      activationFromAssigned: Seq[AssignedWrapper]
   ): Seq[WrappedContractEntry] =
-    activationFromAssigned
-      .map { assignedEvent =>
-        WrappedContractEntry(
-          proto.state_service.GetActiveContractsResponse.ContractEntry.ActiveContract(
-            proto.state_service.ActiveContract(
-              createdEvent = Some(normalizeEvent(assignedEvent.event.getCreatedEvent, party)),
-              synchronizerId = assignedEvent.event.target,
-              reassignmentCounter = assignedEvent.event.reassignmentCounter,
+    activationFromAssigned.flatMap(
+      _.events
+        .map { assignedEvent =>
+          WrappedContractEntry(
+            proto.state_service.GetActiveContractsResponse.ContractEntry.ActiveContract(
+              proto.state_service.ActiveContract(
+                createdEvent = Some(normalizeEvent(assignedEvent.getCreatedEvent, party)),
+                synchronizerId = assignedEvent.target,
+                reassignmentCounter = assignedEvent.reassignmentCounter,
+              )
             )
           )
-        )
-      }
+        }
+    )
 
   private def buildExpectedIncompletesUnassigned(party: PartyId)(
       incompleteUnassigned: Seq[
-        (ContractData, SingleReassignmentEvent[proto.reassignment.UnassignedEvent])
+        (ContractData, UnassignedWrapper)
       ]
   ): Seq[WrappedContractEntry] = incompleteUnassigned
     .filter { case (_, event) =>
-      event.event.witnessParties.contains(party.toProtoPrimitive)
+      event.events.view.flatMap(_.witnessParties).toSet.contains(party.toProtoPrimitive)
     }
     .map { case (contractData, unassigned) =>
       val expectedCreatedEvent = normalizeEvent(contractData.createdEvent, party)
-      val expectedUnassigned = normalizeEvent(unassigned.event, party)
+      val expectedUnassigned = normalizeEvent(unassigned.events.loneElement, party)
 
       val expectedIncompleteUnassignment = proto.state_service.IncompleteUnassigned(
         createdEvent = Some(expectedCreatedEvent),
@@ -344,9 +346,9 @@ class ActiveContractsIntegrationTest
 
   private def buildExpectedResponse(party: PartyId)(
       activationFromCreate: Seq[(CreatedEvent, SynchronizerId, ReassignmentCounter)],
-      activationFromAssigned: Seq[SingleReassignmentEvent[proto.reassignment.AssignedEvent]],
+      activationFromAssigned: Seq[AssignedWrapper],
       incompletesUnassigned: Seq[
-        (ContractData, SingleReassignmentEvent[proto.reassignment.UnassignedEvent])
+        (ContractData, UnassignedWrapper)
       ],
   ): Seq[WrappedContractEntry] = {
     val activeContractsFromCreate =
@@ -381,12 +383,12 @@ class ActiveContractsIntegrationTest
       val observer = party2
 
       val unassignmentData =
-        TrieMap[Int, (ContractData, SingleReassignmentEvent[proto.reassignment.UnassignedEvent])]()
+        TrieMap[Int, (ContractData, UnassignedWrapper)]()
 
       // Utility method to check ACS
       def checkACS(participant: LocalParticipantReference, ledgerEnd: Long)(
           activationFromCreate: Seq[(CreatedEvent, SynchronizerId, ReassignmentCounter)],
-          activationFromAssigned: Seq[SingleReassignmentEvent[proto.reassignment.AssignedEvent]],
+          activationFromAssigned: Seq[AssignedWrapper],
           incompletesUnassigned: Seq[Int], // References contracts in the TrieMap
       ): Assertion = {
         val expectedResponse = buildExpectedResponse(
@@ -591,11 +593,11 @@ class ActiveContractsIntegrationTest
         participantOverride = Some(participant1),
       )
 
-      unassignment1.event.reassignmentCounter shouldBe 1
+      unassignment1.events.loneElement.reassignmentCounter shouldBe 1
       getReassignmentCountersFromACS() shouldBe List(1)
 
       val (assignment1, _) = submitAssignment(unassignment1, signatory, Some(participant1))
-      assignment1.event.reassignmentCounter shouldBe 1
+      assignment1.events.loneElement.reassignmentCounter shouldBe 1
       getReassignmentCountersFromACS() shouldBe List(1)
 
       val (unassignment2, _) = unassign(
@@ -605,11 +607,11 @@ class ActiveContractsIntegrationTest
         submittingParty = signatory.toLf,
         participantOverride = Some(participant1),
       )
-      unassignment2.event.reassignmentCounter shouldBe 2
+      unassignment2.events.loneElement.reassignmentCounter shouldBe 2
       getReassignmentCountersFromACS() shouldBe List(2)
 
       val (assignment2, _) = submitAssignment(unassignment2, signatory, Some(participant1))
-      assignment2.event.reassignmentCounter shouldBe 2
+      assignment2.events.loneElement.reassignmentCounter shouldBe 2
       getReassignmentCountersFromACS() shouldBe List(2)
 
       IouSyntax.archive(participant1)(contract.contract, signatory)
@@ -718,7 +720,7 @@ class ActiveContractsIntegrationTest
       )
 
       def checkACS(
-          activeOn: Option[SingleReassignmentEvent[proto.reassignment.AssignedEvent]],
+          activeOn: Option[AssignedWrapper],
           incompleteReassignment: Boolean,
           templates: Seq[TemplateId],
       ): Assertion = {
@@ -776,7 +778,7 @@ class ActiveContractsIntegrationTest
       )
 
       def checkACS(
-          activeOn: Option[SingleReassignmentEvent[proto.reassignment.AssignedEvent]],
+          activeOn: Option[AssignedWrapper],
           incompleteReassignment: Boolean,
           acsFor: PartyId,
       ): Assertion = {
@@ -840,7 +842,7 @@ class ActiveContractsIntegrationTest
   private def assertObservationOfUnassignedEvent(
       participant: LocalParticipantReference,
       observer: PartyId,
-      out: SingleReassignmentEvent[proto.reassignment.UnassignedEvent],
+      out: UnassignedWrapper,
       startFromExclusive: Long,
   ) = {
     val unassignedUniqueId = participant.ledger_api.updates
@@ -850,12 +852,12 @@ class ActiveContractsIntegrationTest
         completeAfter = PositiveInt.one,
         resultFilter = _.isUnassignment,
       )
-      .collect { case UnassignedWrapper(_, unassignedEvent) =>
-        (unassignedEvent.source, unassignedEvent.unassignId)
+      .collect { case unassigned: UnassignedWrapper =>
+        (unassigned.source, unassigned.unassignId)
       }
       .loneElement
 
-    unassignedUniqueId shouldBe (out.event.source, out.event.unassignId)
+    unassignedUniqueId shouldBe (out.source, out.unassignId)
   }
 }
 

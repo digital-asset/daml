@@ -108,7 +108,6 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
             _packageName,
             _templateId,
             _arg,
-            _agreementText,
             _signatories,
             _stakeholders,
             _key,

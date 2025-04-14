@@ -345,7 +345,6 @@ components:
       required:
       - seconds
       - nanos
-      - unknownFields
       properties:
         seconds:
           type: integer
@@ -354,6 +353,8 @@ components:
           type: integer
           format: int32
         unknownFields:
+          description: This field is automatically added as part of protobuf to json
+            mapping
           type: string
     DeduplicationOffset:
       title: DeduplicationOffset
@@ -1512,8 +1513,27 @@ components:
         indicates the subset of the requested parties that can see the event
         in question.
       oneOf:
+      - $ref: '#/components/schemas/ParticipantAuthorizationAdded'
       - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
       - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
+    ParticipantAuthorizationAdded:
+      title: ParticipantAuthorizationAdded
+      type: object
+      required:
+      - partyId
+      - participantId
+      - participantPermission
+      properties:
+        partyId:
+          description: Required
+          type: string
+        participantId:
+          description: Required
+          type: string
+        participantPermission:
+          description: Required
+          type: integer
+          format: int32
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object

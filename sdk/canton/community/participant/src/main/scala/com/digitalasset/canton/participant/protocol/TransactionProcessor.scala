@@ -44,7 +44,7 @@ import com.digitalasset.canton.participant.protocol.validation.{
   ModelConformanceChecker,
   TransactionConfirmationResponsesFactory,
 }
-import com.digitalasset.canton.participant.store.SyncEphemeralState
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker

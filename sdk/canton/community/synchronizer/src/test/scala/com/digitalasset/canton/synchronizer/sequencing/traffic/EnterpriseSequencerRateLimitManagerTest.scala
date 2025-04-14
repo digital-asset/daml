@@ -235,6 +235,7 @@ class EnterpriseSequencerRateLimitManagerTest
           same(sequencingFactor),
           any[Map[GroupRecipient, Set[Member]]],
           any[ProtocolVersion],
+          any[NonNegativeLong],
         )(any[TraceContext])
     ).thenReturn(eventCostDetails)
 
@@ -307,6 +308,7 @@ class EnterpriseSequencerRateLimitManagerTest
           same(senderFactor),
           any[Map[GroupRecipient, Set[Member]]],
           any[ProtocolVersion],
+          any[NonNegativeLong],
         )(any[TraceContext])
     )
       .thenReturn(eventCostDetails)
@@ -326,6 +328,7 @@ class EnterpriseSequencerRateLimitManagerTest
           any[PositiveInt],
           any[Map[GroupRecipient, Set[Member]]],
           any[ProtocolVersion],
+          any[NonNegativeLong],
         )(any[TraceContext])
     )
       .thenReturn(eventCostDetails)
@@ -922,6 +925,7 @@ class EnterpriseSequencerRateLimitManagerTest
           same(sequencerFactor),
           any[Map[GroupRecipient, Set[Member]]],
           any[ProtocolVersion],
+          any[NonNegativeLong],
         )(any[TraceContext])
     )
       .thenReturn(eventCostDetails)

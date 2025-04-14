@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.daml.lf.data.Ref
@@ -18,7 +18,7 @@ trait ValidateUpgradingPackageResolutions {
   def apply(
       rawUserPackageIdPreferences: Seq[String]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[
     StatusRuntimeException,
     ValidatedCommandPackageResolutionsSnapshot,
@@ -26,17 +26,17 @@ trait ValidateUpgradingPackageResolutions {
 }
 
 class ValidateUpgradingPackageResolutionsImpl(
-    getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata
+    getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata
 ) extends ValidateUpgradingPackageResolutions {
   def apply(
       rawUserPackageIdPreferences: Seq[String]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[
     StatusRuntimeException,
     ValidatedCommandPackageResolutionsSnapshot,
   ] = {
-    val packageMetadataSnapshot = getPackageMetadataSnapshot(contextualizedErrorLogger)
+    val packageMetadataSnapshot = getPackageMetadataSnapshot(errorLoggingContext)
     val packageResolutionMapSnapshot = packageMetadataSnapshot.packageIdVersionMap
     val participantPackagePreferenceMapSnapshot =
       packageMetadataSnapshot.packageNameMap.view.mapValues {
@@ -98,7 +98,7 @@ object ValidateUpgradingPackageResolutions {
   val Empty: ValidateUpgradingPackageResolutions =
     new ValidateUpgradingPackageResolutions {
       override def apply(userPackageIdPreferences: Seq[String])(implicit
-          contextualizedErrorLogger: ContextualizedErrorLogger
+          errorLoggingContext: ErrorLoggingContext
       ): Either[StatusRuntimeException, ValidatedCommandPackageResolutionsSnapshot] =
         Right(
           ValidatedCommandPackageResolutionsSnapshot(

@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.ledger.api.v2.value as api
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.digitalasset.canton.ledger.api.Value
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueUnit}
@@ -23,7 +23,7 @@ abstract class ValueValidator {
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ImmArray[(Option[Ref.Name], Value)]] =
     recordFields
       .foldLeft[Either[StatusRuntimeException, BackStack[(Option[Ref.Name], Value)]]](
@@ -39,7 +39,7 @@ abstract class ValueValidator {
       .map(_.toImmArray)
 
   def validateRecord(rec: api.Record)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Lf.ValueRecord] =
     for {
       recId <- validateOptionalIdentifier(rec.recordId)
@@ -47,7 +47,7 @@ abstract class ValueValidator {
     } yield Lf.ValueRecord(recId, fields)
 
   def validateValue(v0: api.Value)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Value] = v0.sum match {
     case Sum.ContractId(cId) =>
       ContractId
@@ -150,12 +150,12 @@ abstract class ValueValidator {
   private[validation] def validateOptionalIdentifier(
       variantIdO: Option[api.Identifier]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Option[Ref.Identifier]] =
     variantIdO.map(validateIdentifier(_).map(Some.apply)).getOrElse(Right(None))
 
   def requireIdentifier(s: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.Name] =
     Ref.Name.fromString(s).left.map(invalidArgument)
 
@@ -163,7 +163,7 @@ abstract class ValueValidator {
       s: String,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, T] =
     if (s.isEmpty)
       Left(missingField(fieldName))
@@ -174,7 +174,7 @@ abstract class ValueValidator {
       s: String,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.Name] =
     requireNonEmptyParsedId(Ref.Name.fromString)(s, fieldName)
 
@@ -182,7 +182,7 @@ abstract class ValueValidator {
       s: String,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.PackageId] =
     requireNonEmptyParsedId(Ref.PackageId.fromString)(s, fieldName)
 
@@ -190,19 +190,19 @@ abstract class ValueValidator {
       s: String,
       fieldName: String,
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.DottedName] =
     Ref.DottedName.fromString(s).left.map(invalidField(fieldName, _))
 
   def requirePresence[T](option: Option[T], fieldName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, T] =
     option.fold[Either[StatusRuntimeException, T]](
       Left(missingField(fieldName))
     )(Right(_))
 
   def validateIdentifier(identifier: api.Identifier)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.Identifier] =
     for {
       qualifiedName <- validateTemplateQualifiedName(identifier.moduleName, identifier.entityName)
@@ -210,7 +210,7 @@ abstract class ValueValidator {
     } yield Ref.Identifier(packageId, qualifiedName)
 
   def validateTemplateQualifiedName(moduleName: String, entityName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Ref.QualifiedName] =
     for {
       mn <- requireDottedName(moduleName, "module_name")

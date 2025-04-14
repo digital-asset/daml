@@ -111,6 +111,14 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       sequencerSnapshotAdditionalInfo.flatMap(_.nodeActiveAt.get(bootstrapTopologyInfo.thisNode))
     val firstBlockNumberInOnboardingEpoch = thisNodeFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
     val previousBftTimeForOnboarding = thisNodeFirstKnownAt.flatMap(_.previousBftTime)
+
+    val initialLowerBound = thisNodeFirstKnownAt.flatMap { data =>
+      for {
+        epoch <- data.epochNumber
+        blockNumber <- data.firstBlockNumberInEpoch
+      } yield (epoch, blockNumber)
+    }
+
     val onboardingEpochCouldAlterOrderingTopology =
       thisNodeFirstKnownAt
         .flatMap(_.epochCouldAlterOrderingTopology)
@@ -124,6 +132,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
         onboardingEpochCouldAlterOrderingTopology,
         bootstrapTopologyInfo.currentCryptoProvider,
         bootstrapTopologyInfo.currentTopology,
+        initialLowerBound,
       )
     new OrderingModuleSystemInitializer[E](
       ModuleFactories(

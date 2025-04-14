@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.declarative
 
 import cats.implicits.{catsSyntaxOptionId, toTraverseOps}
 import cats.syntax.either.*
+import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfig
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.SynchronizerConnectivity.ListConnectedSynchronizers
 import com.digitalasset.canton.admin.api.client.commands.{
@@ -20,8 +21,9 @@ import com.digitalasset.canton.config.ClientConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.GrpcAdminCommandRunner
 import com.digitalasset.canton.console.declarative.DeclarativeApi.UpdateResult
-import com.digitalasset.canton.crypto.Fingerprint
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.ledger.api
+import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.lifecycle.{CloseContext, LifeCycle, RunOnClosing}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.networking.Endpoint
@@ -53,6 +55,7 @@ import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import com.digitalasset.daml.lf.archive.DarParser
 import com.google.protobuf.ByteString
+import com.google.protobuf.field_mask.FieldMask
 import pureconfig.error.CannotConvert
 
 import java.io.{File, FileInputStream}
@@ -72,6 +75,10 @@ import scala.concurrent.ExecutionContext
   *   which parties should be allocated
   * @param removeParties
   *   if true, then any "excess party" found on the node will be deleted
+  * @param idps
+  *   which identity providers should be allocated
+  * @param removeIdps
+  *   if true, any excess idp found on the node will be deleted
   * @param users
   *   which users should be allocated
   * @param removeUsers
@@ -87,15 +94,17 @@ final case class DeclarativeParticipantConfig(
     dars: Seq[DeclarativeDarConfig] = Seq(),
     parties: Seq[DeclarativePartyConfig] = Seq(),
     removeParties: Boolean = false,
+    idps: Seq[DeclarativeIdpConfig] = Seq(),
+    removeIdps: Boolean = false,
     users: Seq[DeclarativeUserConfig] = Seq(),
     removeUsers: Boolean = false,
-    connections: NonEmpty[Seq[DeclarativeConnectionConfig]],
+    connections: Seq[DeclarativeConnectionConfig],
     removeConnections: Boolean = false,
 )
 
 /** Declarative dar definition
   *
-  * @param path
+  * @param location
   *   the path (or URL) to the dar or dar directory
   * @param requestHeaders
   *   optionally add additional request headers to download the dar
@@ -103,7 +112,7 @@ final case class DeclarativeParticipantConfig(
   *   which package id should be expected as the main package
   */
 final case class DeclarativeDarConfig(
-    path: String,
+    location: String,
     requestHeaders: Map[String, String] = Map(),
     expectedMainPackage: Option[String] = None,
 )
@@ -111,17 +120,14 @@ final case class DeclarativeDarConfig(
 /** Declarative party definition
   *
   * @param id
-  *   the prefix of the party
-  * @param namespace
-  *   the namespace (defaults to the participants namespace)
+  *   the id of the party (can be prefix only which will be extended with the participant-suffix)
   * @param synchronizers
   *   if not empty, the party will be added to the selected synchronizers only, refered to by alias
   * @param permission
   *   the permission of the hosting participant
   */
 final case class DeclarativePartyConfig(
-    id: String,
-    namespace: Option[Namespace],
+    party: String,
     synchronizers: Seq[String] = Seq.empty,
     permission: ParticipantPermission = ParticipantPermission.Submission,
 )
@@ -148,9 +154,26 @@ final case class DeclarativeUserRightsConfig(
     identityProviderAdmin: Boolean = false,
 )
 
+/** Declarative Idp config
+  */
+final case class DeclarativeIdpConfig(
+    identityProviderId: String,
+    isDeactivated: Boolean = false,
+    jwksUrl: String,
+    issuer: String,
+    audience: Option[String] = None,
+) {
+
+  // TODO(#25043) move to config validation
+  def apiIdentityProviderId: IdentityProviderId.Id =
+    IdentityProviderId.Id.assertFromString(identityProviderId)
+  def apiJwksUrl: JwksUrl = JwksUrl.assertFromString(jwksUrl)
+
+}
+
 /** Declaratively control users
   *
-  * @param id
+  * @param user
   *   the user id
   * @param primaryParty
   *   the primary party that should be used for the user
@@ -164,7 +187,7 @@ final case class DeclarativeUserRightsConfig(
   *   the rights granted to the party
   */
 final case class DeclarativeUserConfig(
-    id: String,
+    user: String,
     primaryParty: Option[String] = None,
     isDeactivated: Boolean = false,
     annotations: Map[String, String] = Map.empty,
@@ -345,10 +368,17 @@ class DeclarativeParticipantApi(
   override protected def sync(config: DeclarativeParticipantConfig, context: ParticipantId)(implicit
       traceContext: TraceContext
   ): Either[String, UpdateResult] =
+    // TODO(#25043) the "remove" process will likely cause noise as we need to run the order
+    //   in reverse. it will still work but just be noisy. need to fix that.
     for {
       connections <- syncConnections(
         config.connections,
         config.removeConnections,
+        config.checkSelfConsistency,
+      )
+      idps <- syncIdps(
+        config.idps,
+        config.removeIdps,
         config.checkSelfConsistency,
       )
       parties <- syncParties(
@@ -363,13 +393,13 @@ class DeclarativeParticipantApi(
         config.checkSelfConsistency,
         config.fetchedDarDirectory,
       )
-    } yield Seq(connections, parties, users, dars).foldLeft(UpdateResult())(_.merge(_))
+    } yield Seq(connections, idps, parties, users, dars).foldLeft(UpdateResult())(_.merge(_))
 
   private def createDarDirectoryIfNecessary(
       fetchedDarDirectory: File,
       dars: Seq[DeclarativeDarConfig],
   ): Either[String, Unit] =
-    if (dars.exists(_.path.startsWith("http"))) {
+    if (dars.exists(_.location.startsWith("http"))) {
       Either.cond(
         (fetchedDarDirectory.isDirectory && fetchedDarDirectory.canWrite) || fetchedDarDirectory
           .mkdirs(),
@@ -468,7 +498,11 @@ class DeclarativeParticipantApi(
       }
       .flatMap { synchronizerIds =>
         val wanted = parties.flatMap { p =>
-          val party = UniqueIdentifier.tryCreate(p.id, p.namespace.getOrElse(nodeNamespace))
+          val party =
+            if (p.party.contains(UniqueIdentifier.delimiter))
+              UniqueIdentifier.tryFromProtoPrimitive(p.party)
+            else
+              UniqueIdentifier.tryCreate(p.party, nodeNamespace)
           synchronizerIds
             .filter(s =>
               p.synchronizers.isEmpty || p.synchronizers.contains(s.synchronizerAlias.unwrap)
@@ -503,7 +537,7 @@ class DeclarativeParticipantApi(
           upd = { case ((uid, synchronizerId), wantPermission, _) =>
             createTopologyTx(uid, synchronizerId, wantPermission)
           },
-          rm = { case (u, s) => removeParty(u, s) },
+          rm = { case ((u, s), current) => removeParty(u, s) },
           await = Some(awaitLedgerApiServer),
         )
       }
@@ -519,42 +553,53 @@ class DeclarativeParticipantApi(
   ): Either[String, UpdateResult] = {
 
     def fetchUsers(limit: PositiveInt): Either[String, Seq[(String, DeclarativeUserConfig)]] =
-      queryLedgerApi(
-        LedgerApiCommands.Users.List(
-          filterUser = "",
-          pageToken = "",
-          pageSize = limit.unwrap,
-          identityProviderId = "",
-        )
-      ).flatMap(_.users.filter(_.id != "participant_admin").traverse {
-        case LedgerApiUser(id, primaryParty, isDeactivated, metadata, identityProviderId) =>
-          queryLedgerApi(
-            LedgerApiCommands.Users.Rights.List(id = id, identityProviderId = identityProviderId)
-          ).map { rights =>
-            (
-              id,
-              DeclarativeUserConfig(
-                id = id,
-                primaryParty = primaryParty.map(_.toProtoPrimitive),
-                isDeactivated = isDeactivated,
-                annotations = metadata.annotations,
-                identityProviderId = identityProviderId,
-                rights = DeclarativeUserRightsConfig(
-                  actAs = rights.actAs.map(_.toProtoPrimitive),
-                  readAs = rights.readAs.map(_.toProtoPrimitive),
-                  participantAdmin = rights.participantAdmin,
-                  identityProviderAdmin = rights.identityProviderAdmin,
-                  readAsAnyParty = rights.readAsAnyParty,
-                ),
-              )(resourceVersion = metadata.resourceVersion),
+      for {
+        // meeh, we need to iterate over all idps to load all users
+        idps <- queryLedgerApi(
+          LedgerApiCommands.IdentityProviderConfigs.List()
+        ).map(_.map(_.identityProviderId))
+        users <- (idps :+ "") // empty string to load default idp
+          .traverse(idp =>
+            queryLedgerApi(
+              LedgerApiCommands.Users.List(
+                filterUser = "",
+                pageToken = "",
+                pageSize = limit.unwrap,
+                identityProviderId = idp,
+              )
             )
-          }
-      })
+          )
+          .map(_.flatMap(_.users.filter(_.id != "participant_admin")))
+        parsedUsers <- users.traverse {
+          case LedgerApiUser(id, primaryParty, isDeactivated, metadata, identityProviderId) =>
+            queryLedgerApi(
+              LedgerApiCommands.Users.Rights.List(id = id, identityProviderId = identityProviderId)
+            ).map { rights =>
+              (
+                id,
+                DeclarativeUserConfig(
+                  user = id,
+                  primaryParty = primaryParty.map(_.toProtoPrimitive),
+                  isDeactivated = isDeactivated,
+                  annotations = metadata.annotations,
+                  identityProviderId = identityProviderId,
+                  rights = DeclarativeUserRightsConfig(
+                    actAs = rights.actAs.map(_.toProtoPrimitive),
+                    readAs = rights.readAs.map(_.toProtoPrimitive),
+                    participantAdmin = rights.participantAdmin,
+                    identityProviderAdmin = rights.identityProviderAdmin,
+                    readAsAnyParty = rights.readAsAnyParty,
+                  ),
+                )(resourceVersion = metadata.resourceVersion),
+              )
+            }
+        }
+      } yield parsedUsers.take(limit.value)
 
     def createUser(user: DeclarativeUserConfig): Either[String, Unit] =
       queryLedgerApi(
         LedgerApiCommands.Users.Create(
-          id = user.id,
+          id = user.user,
           actAs = user.rights.actAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
           primaryParty = user.primaryParty.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
           readAs = user.rights.readAs.map(PartyId.tryFromProtoPrimitive).map(_.toLf),
@@ -575,7 +620,7 @@ class DeclarativeParticipantApi(
       if (desired.needsUserChange(existing)) {
         queryLedgerApi(
           LedgerApiCommands.Users.Update(
-            id = desired.id,
+            id = desired.user,
             identityProviderId = existing.identityProviderId,
             primaryPartyUpdate = Option.when(desired.primaryParty != existing.primaryParty)(
               desired.primaryParty.map(PartyId.tryFromProtoPrimitive)
@@ -655,7 +700,7 @@ class DeclarativeParticipantApi(
       if (desired.identityProviderId != existing.identityProviderId) {
         queryLedgerApi(
           LedgerApiCommands.Users.UpdateIdp(
-            id = desired.id,
+            id = desired.user,
             sourceIdentityProviderId = existing.identityProviderId,
             targetIdentityProviderId = desired.identityProviderId,
           )
@@ -666,18 +711,24 @@ class DeclarativeParticipantApi(
       "users",
       removeExcess,
       checkSelfConsistency,
-      users.map(user => (user.id, user.mapPartiesToNamespace(participantId.uid.namespace))),
+      users.map(user => (user.user, user.mapPartiesToNamespace(participantId.uid.namespace))),
       fetch = fetchUsers,
       add = { case (_, user) => createUser(user) },
       upd = { case (_, desired, existing) =>
         for {
           _ <- updateUser(desired, existing)
-          _ <- updateRights(desired.id, desired.identityProviderId)(desired.rights, existing.rights)
           _ <- updateUserIdp(desired, existing)
+          _ <- updateRights(desired.user, desired.identityProviderId)(
+            desired.rights,
+            existing.rights,
+          )
         } yield ()
       },
-      rm = id =>
-        queryLedgerApi(LedgerApiCommands.Users.Delete(id, identityProviderId = "")).map(_ => ()),
+      rm = (id, v) => {
+        queryLedgerApi(
+          LedgerApiCommands.Users.Delete(id, identityProviderId = v.identityProviderId)
+        ).map(_ => ())
+      },
     )
   }
 
@@ -717,7 +768,9 @@ class DeclarativeParticipantApi(
         .map(_.map { case (synchronizerConnectionConfig, _) => synchronizerConnectionConfig }
           .map(toDeclarative))
 
-    def removeSynchronizerConnection(synchronizerAlias: SynchronizerAlias): Either[String, Unit] =
+    def removeSynchronizerConnection(
+        synchronizerAlias: SynchronizerAlias
+    ): Either[String, Unit] =
       // cannot really remove connections for now, just disconnect and disable
       for {
         currentO <- queryAdminApi(
@@ -774,10 +827,73 @@ class DeclarativeParticipantApi(
         else
           update(config)
       },
-      rm = removeSynchronizerConnection,
+      rm = (alias, _) => removeSynchronizerConnection(alias),
       compare = Some { case (x, y) => x.isEquivalent(y) },
     )
 
+  }
+
+  private def syncIdps(
+      idps: Seq[DeclarativeIdpConfig],
+      removeIdps: Boolean,
+      checkSelfConsistent: Boolean,
+  )(implicit traceContext: TraceContext): Either[String, UpdateResult] = {
+
+    def toDeclarative(api: IdentityProviderConfig): DeclarativeIdpConfig = DeclarativeIdpConfig(
+      identityProviderId = api.identityProviderId,
+      isDeactivated = api.isDeactivated,
+      jwksUrl = api.jwksUrl,
+      issuer = api.issuer,
+      audience = Option.when(api.audience.nonEmpty)(api.audience),
+    )
+
+    def fetchIdps(): Either[String, Seq[(String, DeclarativeIdpConfig)]] =
+      queryLedgerApi(
+        LedgerApiCommands.IdentityProviderConfigs.List()
+      ).map(_.map(c => (c.identityProviderId, toDeclarative(c))))
+
+    def add(config: DeclarativeIdpConfig): Either[String, Unit] =
+      queryLedgerApi(
+        LedgerApiCommands.IdentityProviderConfigs.Create(
+          identityProviderId = config.apiIdentityProviderId,
+          isDeactivated = config.isDeactivated,
+          jwksUrl = config.apiJwksUrl,
+          issuer = config.issuer,
+          audience = config.audience,
+        )
+      ).map(_ => ())
+
+    def update(config: DeclarativeIdpConfig): Either[String, Unit] =
+      queryLedgerApi(
+        LedgerApiCommands.IdentityProviderConfigs.Update(
+          identityProviderConfig = api.IdentityProviderConfig(
+            identityProviderId = config.apiIdentityProviderId,
+            isDeactivated = config.isDeactivated,
+            jwksUrl = config.apiJwksUrl,
+            issuer = config.issuer,
+            audience = config.audience,
+          ),
+          updateMask = FieldMask(Seq("is_deactivated", "jwks_url", "audience", "issuer")),
+        )
+      ).map(_ => ())
+
+    def removeIdp(idpName: String): Either[String, Unit] =
+      queryLedgerApi(
+        LedgerApiCommands.IdentityProviderConfigs.Delete(
+          identityProviderId = IdentityProviderId.Id.assertFromString(idpName)
+        )
+      ).map(_ => ())
+
+    run[String, DeclarativeIdpConfig](
+      "idps",
+      removeExcess = removeIdps,
+      checkSelfConsistent = checkSelfConsistent,
+      want = idps.map(c => (c.identityProviderId, c)),
+      fetch = _ => fetchIdps(),
+      add = { case (_, config) => add(config) },
+      upd = { case (_, config, _) => update(config) },
+      rm = (idp, _) => removeIdp(idp),
+    )
   }
 
   private val matchDar = "([^/]+).dar".r
@@ -785,24 +901,24 @@ class DeclarativeParticipantApi(
   private def mirrorDarsIfNecessary(fetchDarDirectory: File, dars: Seq[DeclarativeDarConfig])(
       implicit traceContext: TraceContext
   ): Seq[(File, Option[String])] = dars.flatMap { dar =>
-    if (dar.path.startsWith("http")) {
+    if (dar.location.startsWith("http")) {
       val matched = matchDar
-        .findFirstMatchIn(dar.path)
+        .findFirstMatchIn(dar.location)
       if (matched.isEmpty) {
-        logger.warn(s"Cannot fetch DAR from URL without .dar extension: ${dar.path}")
+        logger.warn(s"Cannot fetch DAR from URL without .dar extension: ${dar.location}")
       }
       matched.flatMap { matched =>
         val output = new File(fetchDarDirectory, matched.matched)
-        logger.info(s"Downloading ${dar.path} to $output")
+        logger.info(s"Downloading ${dar.location} to $output")
         BinaryFileUtil
-          .downloadFile(dar.path, output.toString, dar.requestHeaders)
+          .downloadFile(dar.location, output.toString, dar.requestHeaders)
           .leftMap { err =>
-            logger.warn(s"Failed to download ${dar.path}: $err")
+            logger.warn(s"Failed to download ${dar.location}: $err")
           }
           .toOption
           .map(_ => (output, dar.expectedMainPackage))
       }.toList
-    } else List((new File(dar.path), dar.expectedMainPackage))
+    } else List((new File(dar.location), dar.expectedMainPackage))
   }
 
   private def computeWanted(dars: Seq[(File, Option[String])])(implicit
@@ -836,7 +952,10 @@ class DeclarativeParticipantApi(
     def fetchDars(limit: PositiveInt): Either[String, Seq[(String, String)]] =
       for {
         dars <- queryAdminApi(ParticipantAdminCommands.Package.ListDars(filterName = "", limit))
-      } yield dars.map(_.mainPackageId).map((_, "<ignored string>"))
+      } yield dars
+        .filterNot(_.name == "AdminWorkflows")
+        .map(_.mainPackageId)
+        .map((_, "<ignored string>"))
     run[String, String](
       "dars",
       removeExcess = false,
@@ -857,7 +976,7 @@ class DeclarativeParticipantApi(
         ).map(_ => ())
       },
       upd = { case (hash, desired, existing) => Either.unit },
-      rm = _ => Either.unit, // not implemented in canton yet
+      rm = (_, _) => Either.unit, // not implemented in canton yet
       onlyCheckKeys = true,
     )
 
@@ -888,13 +1007,7 @@ object DeclarativeParticipantApi {
     implicit val declarativeParticipantConfigReader: ConfigReader[DeclarativeParticipantConfig] = {
       implicit val darConfigReader: ConfigReader[DeclarativeDarConfig] =
         deriveReader[DeclarativeDarConfig]
-      implicit val namespaceReader: ConfigReader[Namespace] = ConfigReader.fromString[Namespace] {
-        str =>
-          Fingerprint
-            .fromString(str)
-            .map(Namespace(_))
-            .leftMap(err => CannotConvert(str, "Namespace", err))
-      }
+
       implicit val permissionReader: ConfigReader[ParticipantPermission] =
         ConfigReader.fromString[ParticipantPermission] { str =>
           str.toUpperCase match {
@@ -920,6 +1033,8 @@ object DeclarativeParticipantApi {
             .leftMap(err => CannotConvert(parsed.customTrustCertificates.toString, "bytes", err))
             .map(_ => parsed)
         }
+      implicit val idpConfigReader: ConfigReader[DeclarativeIdpConfig] =
+        deriveReader[DeclarativeIdpConfig]
       implicit val connectionConfigReader: ConfigReader[DeclarativeConnectionConfig] =
         deriveReader[DeclarativeConnectionConfig]
       deriveReader[DeclarativeParticipantConfig]

@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.multisynchronizer
 
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.ReassignmentWrapper
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
+  AssignedWrapper,
+  UnassignedWrapper,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalSequencerReference
@@ -102,7 +105,8 @@ abstract class RepairServiceIntegrationTest
           )
 
           val (assignedEventsO, unassignedEventsO) = updates.collect {
-            case t: ReassignmentWrapper => t.event.assigned -> t.event.unassigned
+            case t: AssignedWrapper => (t.events, Nil)
+            case t: UnassignedWrapper => (Nil, t.events)
           }.unzip
 
           val unassignedEvents = unassignedEventsO.flatten

@@ -116,7 +116,6 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           participantId = participantId,
           participantDataSourceConfig = DbSupport.ParticipantDataSourceConfig(jdbcUrl),
           config = indexerConfig,
-          excludedPackageIds = Set.empty,
           metrics = LedgerApiServerMetrics.ForTesting,
           inMemoryState = inMemoryState,
           apiUpdaterFlow = updaterFlow,
@@ -171,6 +170,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest with HasEx
           ),
           queryExecutionContext = executorService,
           commandExecutionContext = executorService,
+          getPackagePreference = _ => _ => _ => FutureUnlessShutdown.pure(None),
         )
       } yield indexService -> indexer
 

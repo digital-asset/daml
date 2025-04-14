@@ -29,7 +29,6 @@ import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogg
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.TimerAndTrackOnShutdownSyntax
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
   ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
@@ -76,7 +75,7 @@ class ApiInteractiveSubmissionService(
   ): FutureUnlessShutdown[PrepareResponseP] = {
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(request.traceContext)
-    val errorLogger: ContextualizedErrorLogger =
+    val errorLogger: ErrorLoggingContext =
       ErrorLoggingContext.fromOption(
         logger,
         loggingContextWithTrace,
@@ -119,7 +118,7 @@ class ApiInteractiveSubmissionService(
     )
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)
-    val errorLogger: ContextualizedErrorLogger =
+    val errorLogger: ErrorLoggingContext =
       ErrorLoggingContext.fromOption(
         logger,
         loggingContextWithTrace,

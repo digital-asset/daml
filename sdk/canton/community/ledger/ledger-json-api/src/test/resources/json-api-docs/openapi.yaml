@@ -1,4 +1,4 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
   version: 3.3.0-SNAPSHOT
@@ -1517,52 +1517,6 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
-  /v2/metering/report/{user-id}:
-    get:
-      description: Metering report that provides information necessary for billing
-        participant and application operators.
-      operationId: getV2MeteringReportUser-id
-      parameters:
-      - name: user-id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: from
-        in: query
-        required: true
-        schema:
-          type: string
-          format: date-time
-      - name: to
-        in: query
-        required: false
-        schema:
-          type: string
-          format: date-time
-      responses:
-        '200':
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetMeteringReportResponse'
-        '400':
-          description: 'Invalid value for: query parameter from, Invalid value for:
-            query parameter to, Invalid value for: headers'
-          content:
-            text/plain:
-              schema:
-                type: string
-        default:
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JsCantonError'
-      security:
-      - httpAuth: []
-      - apiKeyAuth: []
   /v2/interactive-submission/prepare:
     post:
       description: Prepare commands for signing
@@ -2488,7 +2442,6 @@ components:
       required:
       - seconds
       - nanos
-      - unknownFields
       properties:
         seconds:
           type: integer
@@ -2497,6 +2450,8 @@ components:
           type: integer
           format: int32
         unknownFields:
+          description: This field is automatically added as part of protobuf to json
+            mapping
           type: string
     Empty:
       title: Empty
@@ -2568,6 +2523,7 @@ components:
         indicates the subset of the requested parties that can see the event
         in question.
       oneOf:
+      - $ref: '#/components/schemas/ParticipantAuthorizationAdded'
       - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
       - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
     EventFormat:
@@ -3026,43 +2982,6 @@ components:
             If positive, the absolute offset of the ledger as viewed by the participant.
           type: integer
           format: int64
-    GetMeteringReportRequest:
-      title: GetMeteringReportRequest
-      description: Authorized if and only if the authenticated user is a participant
-        admin.
-      type: object
-      required:
-      - userId
-      properties:
-        from:
-          description: |-
-            The from timestamp (inclusive).
-            Required.
-          type: string
-        to:
-          description: |-
-            The to timestamp (exclusive).
-            If not provided, the server will default to its current time.
-          type: string
-        userId:
-          description: |-
-            If set to a non-empty value, then the report will only be generated for that user.
-            Optional.
-          type: string
-    GetMeteringReportResponse:
-      title: GetMeteringReportResponse
-      type: object
-      properties:
-        request:
-          $ref: '#/components/schemas/GetMeteringReportRequest'
-          description: The actual request that was executed.
-        reportGenerationTime:
-          description: The time at which the report was computed.
-          type: string
-        meteringReportJson:
-          description: |-
-            The metering report json.  For a JSON Schema definition of the JSon see:
-            https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
     GetPackageStatusResponse:
       title: GetPackageStatusResponse
       type: object
@@ -3341,6 +3260,20 @@ components:
         properties:
           Unrecognized:
             $ref: '#/components/schemas/Unrecognized3'
+    Identifier:
+      title: Identifier
+      type: object
+      required:
+      - packageId
+      - moduleName
+      - entityName
+      properties:
+        packageId:
+          type: string
+        moduleName:
+          type: string
+        entityName:
+          type: string
     IdentifierFilter:
       title: IdentifierFilter
       oneOf:
@@ -4764,6 +4697,24 @@ components:
     ParticipantAdmin1:
       title: ParticipantAdmin
       type: object
+    ParticipantAuthorizationAdded:
+      title: ParticipantAuthorizationAdded
+      type: object
+      required:
+      - partyId
+      - participantId
+      - participantPermission
+      properties:
+        partyId:
+          description: Required
+          type: string
+        participantId:
+          description: Required
+          type: string
+        participantPermission:
+          description: Required
+          type: integer
+          format: int32
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -5413,9 +5364,10 @@ components:
     Tuple2_String_String:
       title: Tuple2_String_String
       type: array
-      prefixItems:
-      - type: string
-      - type: string
+      maxItems: 2
+      minItems: 2
+      items:
+        type: string
     UnassignCommand:
       title: UnassignCommand
       description: Unassign a contract

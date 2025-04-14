@@ -103,7 +103,7 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
       fetch: PositiveInt => Either[String, Seq[(K, V)]],
       add: (K, V) => Either[String, Unit],
       upd: (K, V, V) => Either[String, Unit],
-      rm: K => Either[String, Unit],
+      rm: (K, V) => Either[String, Unit],
       compare: Option[(V, V) => Boolean] = None,
       await: Option[Seq[K] => Either[String, Boolean]] = None,
       onlyCheckKeys: Boolean = false,
@@ -148,7 +148,7 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
       val toRemove = have.keySet.diff(want.map(_._1).toSet)
       if (removeExcess) {
         toRemove.foldLeft(result) { case (acc, id) =>
-          acc.accumulate(addOrUpdate = false)(wrapResult(id, "remove", rm(id)))
+          acc.accumulate(addOrUpdate = false)(wrapResult(id, "remove", rm(id, have(id))))
         }
       } else {
         if (toRemove.nonEmpty) {

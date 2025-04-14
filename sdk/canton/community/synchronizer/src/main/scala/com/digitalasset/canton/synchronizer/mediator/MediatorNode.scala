@@ -135,7 +135,7 @@ final case class MediatorNodeConfig(
     override val storage: StorageConfig = StorageConfig.Memory(),
     override val crypto: CryptoConfig = CryptoConfig(),
     replication: Option[ReplicationConfig] = None,
-    override val init: InitConfig = InitConfig(identity = Some(InitConfigBase.Identity())),
+    override val init: InitConfig = InitConfig(),
     timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
     override val sequencerClient: SequencerClientConfig = SequencerClientConfig(),
     caching: CachingConfigs = CachingConfigs(),
@@ -259,7 +259,7 @@ class MediatorNodeBootstrap(
         "wait-for-mediator-to-synchronizer-init",
         bootstrapStageCallback,
         storage,
-        config.init.autoInit,
+        false, // this stage does not have auto-init
       )
       with GrpcMediatorInitializationService.Callback {
 

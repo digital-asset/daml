@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdRequest
 import com.digitalasset.canton.ledger.api.messages.event
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, EventFormat, TemplateWildcardFilter}
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 object EventQueryServiceRequestValidator {
@@ -18,7 +18,7 @@ object EventQueryServiceRequestValidator {
   def validateEventsByContractId(
       req: GetEventsByContractIdRequest
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Result[event.GetEventsByContractIdRequest] =
     for {
       contractId <- requireContractId(req.contractId, "contract_id")
@@ -64,7 +64,7 @@ object EventQueryServiceRequestValidator {
 //  def validateEventsByContractKey(
 //      req: GetEventsByContractKeyRequest
 //  )(implicit
-//      contextualizedErrorLogger: ContextualizedErrorLogger
+//      errorLoggingContext: ErrorLoggingContext
 //  ): Result[event.GetEventsByContractKeyRequest] = {
 //
 //    for {

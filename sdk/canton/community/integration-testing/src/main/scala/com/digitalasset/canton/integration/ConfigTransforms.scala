@@ -360,12 +360,6 @@ object ConfigTransforms {
   def useTestingTimeService: LocalParticipantConfig => LocalParticipantConfig =
     _.focus(_.testingTime).replace(Some(TestingTimeServiceConfig.MonotonicTime))
 
-  /** Disable exclusion of infrastructure from transaction metering */
-  def meterInfrastructure: ConfigTransform =
-    updateAllParticipantConfigs_(
-      _.focus(_.parameters.excludeInfrastructureTransactions).replace(false)
-    )
-
   def updateContractIdSeeding(seeding: Seeding): ConfigTransform =
     updateAllParticipantConfigs_(
       _.focus(_.parameters.ledgerApiServer.contractIdSeeding).replace(seeding)
@@ -498,44 +492,55 @@ object ConfigTransforms {
           throw new IllegalArgumentException("Stable commands are already enabled")
       }
 
-  /** Configures auto-init option for all nodes. Sequencer nodes are imperatively set with auto-init
-    * \== false and this cannot be modified.
+  /** Configures auto-init option for all nodes.
     *
     * @param identity
-    *   controls how the node identity (prefix of the unique identifier) is determined. If defined
-    *   the node will be set to auto-init.
+    *   controls how the node identity (prefix of the unique identifier) is determined.
     * @param listNodeNamesO
     *   the list of nodes to apply the new configuration to. If None it applies the transformation
     *   to all nodes.
     */
   private def setAutoInit(
-      identity: Option[InitConfigBase.Identity],
+      identity: IdentityConfig,
+      autoGenerateTopologyTxsAndKeys: Boolean,
       listNodeNamesO: Option[Set[String]],
   ) =
     updateAllSequencerConfigs { case (name, config) =>
       listNodeNamesO match {
         case Some(listNodeNames) if listNodeNames.contains(name) =>
-          config.focus(_.init.identity).replace(identity)
+          config
+            .focus(_.init.identity)
+            .replace(identity)
+            .focus(_.init.generateTopologyTransactionsAndKeys)
+            .replace(autoGenerateTopologyTxsAndKeys)
         case _ => config
       }
     }
       .compose(updateAllMediatorConfigs { case (name, config) =>
         listNodeNamesO match {
           case Some(listNodeNames) if listNodeNames.contains(name) =>
-            config.focus(_.init.identity).replace(identity)
+            config
+              .focus(_.init.identity)
+              .replace(identity)
+              .focus(_.init.generateTopologyTransactionsAndKeys)
+              .replace(autoGenerateTopologyTxsAndKeys)
           case _ => config
         }
       })
       .compose(updateAllParticipantConfigs { case (name, config) =>
         listNodeNamesO match {
           case Some(listNodeNames) if listNodeNames.contains(name) =>
-            config.focus(_.init.identity).replace(identity)
+            config
+              .focus(_.init.identity)
+              .replace(identity)
+              .focus(_.init.generateTopologyTransactionsAndKeys)
+              .replace(autoGenerateTopologyTxsAndKeys)
           case _ => config
         }
       })
 
   def disableAutoInit(listNodeNames: Set[String]): ConfigTransform =
-    setAutoInit(None, Some(listNodeNames))
+    setAutoInit(IdentityConfig.Manual, autoGenerateTopologyTxsAndKeys = false, Some(listNodeNames))
 
   /** For performance tests...
     */

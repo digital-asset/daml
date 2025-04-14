@@ -33,11 +33,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SubmissionTrackingData,
 }
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
-import com.digitalasset.canton.participant.store.{
-  ReassignmentLookup,
-  SyncEphemeralState,
-  SyncEphemeralStateLookup,
-}
+import com.digitalasset.canton.participant.store.ReassignmentLookup
+import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -152,7 +149,7 @@ trait ProcessingSteps[
     * @param mediator
     *   The mediator ID to use for this submission
     * @param ephemeralState
-    *   Read-only access to the [[com.digitalasset.canton.participant.store.SyncEphemeralState]]
+    *   Read-only access to the [[com.digitalasset.canton.participant.sync.SyncEphemeralState]]
     * @param recentSnapshot
     *   A recent snapshot of the topology state to be used for submission
     */

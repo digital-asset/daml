@@ -24,7 +24,6 @@ import com.digitalasset.canton.topology.transaction.{
   NamespaceDelegation,
   OwnerToKeyMapping,
 }
-import monocle.macros.syntax.lens.*
 
 trait ManualParticipantSetupIntegrationTest
     extends CommunityIntegrationTest
@@ -32,14 +31,7 @@ trait ManualParticipantSetupIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S1M1_Manual
-      .addConfigTransforms(
-        ConfigTransforms.updateParticipantConfig("participant2")(
-          _.focus(_.init.identity).replace(None)
-        ),
-        ConfigTransforms.updateParticipantConfig("participant3")(
-          _.focus(_.init.identity).replace(None)
-        ),
-      )
+      .addConfigTransform(ConfigTransforms.disableAutoInit(Set("participant2", "participant3")))
 
   "create a participant based on the identity of another participant" in { implicit env =>
     import env.*

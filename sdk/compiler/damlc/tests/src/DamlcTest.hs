@@ -1308,7 +1308,8 @@ testsForDamlcTest damlc scriptDar = testGroup "damlc test" $
               ]
             let file = dir </> "Main.daml"
             T.writeFileUtf8 file $ T.unlines
-                  [ "module Main where"
+                  [ "{-# OPTIONS_GHC -Wno-x-exceptions #-}"
+                  , "module Main where"
                   , "import Daml.Script"
                   , "import DA.Exception"
                   , ""

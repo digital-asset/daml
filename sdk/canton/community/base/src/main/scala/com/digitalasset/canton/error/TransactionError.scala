@@ -4,7 +4,7 @@
 package com.digitalasset.canton.error
 
 import com.digitalasset.base.error.ErrorCode
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 
 trait TransactionError extends CantonBaseError {
@@ -25,7 +25,7 @@ trait TransactionErrorPrettyPrinting extends TransactionError with PrettyPrintin
         cause,
         correlationId = None,
         limit = None,
-      ) + "; " + ContextualizedErrorLogger.formatContextAsString(
+      ) + "; " + ErrorLoggingContext.formatContextAsString(
         context
       )
     )

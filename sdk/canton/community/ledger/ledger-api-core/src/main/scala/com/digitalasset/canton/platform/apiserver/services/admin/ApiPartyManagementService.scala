@@ -118,7 +118,7 @@ private[apiserver] final class ApiPartyManagementService private (
       logging.partyStrings(request.parties)
     ) { implicit loggingContext =>
       implicit val errorLoggingContext: ErrorLoggingContext =
-        new ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+        ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
       logger.info(s"Getting parties, ${loggingContext.serializeFiltered("parties")}.")
       withValidation {
         for {
@@ -195,7 +195,7 @@ private[apiserver] final class ApiPartyManagementService private (
     import com.digitalasset.canton.ledger.error.CommonErrors
 
     def timedOut(key: PartyAllocation.TrackerKey)(implicit
-        errorLogger: ContextualizedErrorLogger
+        errorLogger: ErrorLoggingContext
     ): StatusRuntimeException =
       CommonErrors.RequestTimeOut
         .Reject(
@@ -206,7 +206,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
     def duplicated(
         key: PartyAllocation.TrackerKey
-    )(implicit errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    )(implicit errorLogger: ErrorLoggingContext): StatusRuntimeException =
       CommonErrors.RequestAlreadyInFlight
         .Reject(requestId = key.submissionId)
         .asGrpcError
@@ -225,7 +225,7 @@ private[apiserver] final class ApiPartyManagementService private (
         s"Allocating party, ${loggingContext.serializeFiltered("submissionId", "parties")}."
       )
       implicit val errorLoggingContext: ErrorLoggingContext =
-        new ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+        ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
       import com.digitalasset.canton.config.NonNegativeFiniteDuration
 
       withValidation {
@@ -315,7 +315,7 @@ private[apiserver] final class ApiPartyManagementService private (
     case Failure(e: StatusRuntimeException) if e.getStatus.getCode == ALREADY_EXISTS =>
       Failure(
         ValidationErrors.invalidArgument(e.getStatus.getDescription)(
-          LedgerErrorLoggingContext(
+          ErrorLoggingContext.withExplicitCorrelationId(
             logger,
             loggingContext.toPropertiesMap,
             loggingContext.traceContext,
@@ -510,7 +510,7 @@ private[apiserver] final class ApiPartyManagementService private (
       party: Ref.Party,
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[Unit] =
     partyRecordStore.getPartyRecordO(party).flatMap {
       case Right(Some(party)) if party.identityProviderId != identityProviderId =>
@@ -547,7 +547,7 @@ private[apiserver] final class ApiPartyManagementService private (
     validatedResult.fold(Future.failed, Future.successful).flatMap(f)
 
   private def handleUpdatePathResult[T](party: Ref.Party, result: update.Result[T])(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Future[T] =
     result match {
       case Left(e: update.UpdatePathError) =>
@@ -562,7 +562,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
   private def handlePartyRecordStoreResult[T](operation: String)(
       result: PartyRecordStore.Result[T]
-  )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
+  )(implicit errorLogger: ErrorLoggingContext): Future[T] =
     result match {
       case Left(PartyRecordStore.PartyNotFound(party)) =>
         Future.failed(
@@ -688,7 +688,7 @@ private[apiserver] object ApiPartyManagementService {
     )
 
   def decodePartyFromPageToken(pageToken: String)(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Option[Ref.Party]] =
     if (pageToken.isEmpty) {
       Right(None)
@@ -712,7 +712,7 @@ private[apiserver] object ApiPartyManagementService {
     }
 
   private def invalidPageToken(details: String)(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): StatusRuntimeException = {
     errorLogger.info(s"Invalid page token: $details")
     RequestValidationErrors.InvalidArgument

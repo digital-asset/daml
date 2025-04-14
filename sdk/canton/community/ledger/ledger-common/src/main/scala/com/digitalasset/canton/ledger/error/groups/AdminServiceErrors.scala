@@ -11,7 +11,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AdminServicesErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 
 @Explanation("Errors raised by Ledger API admin services.")
 object AdminServiceErrors extends AdminServicesErrorGroup {
@@ -32,7 +32,7 @@ object AdminServiceErrors extends AdminServicesErrorGroup {
       ) {
 
     final case class Reject(_message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = _message
         )
@@ -48,7 +48,7 @@ object AdminServiceErrors extends AdminServicesErrorGroup {
       ) {
 
     final case class Reject(_message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = _message
         )
@@ -65,7 +65,7 @@ object AdminServiceErrors extends AdminServicesErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated, // Should have been caught by the participant
       ) {
     final case class Reject(_message: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = _message
         )
