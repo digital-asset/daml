@@ -22,6 +22,8 @@ import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
+import qualified DA.Daml.LFConversion.Errors as LFConversion
 
 import qualified Text.PrettyPrint.ANSI.Leijen as PAL
 
@@ -434,7 +436,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
-    ~(optInlineDamlCustomWarnings, optDamlWarningFlags) <- optDamlWarningFlags
+    ~(optInlineDamlCustomWarnings, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optDamlWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     optForceUtilityPackage <- forceUtilityPackageOpt
 
@@ -577,13 +579,19 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         "Typecheck upgrades."
         idm
 
-    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags InlineDamlCustomWarnings, WarningFlags.DamlWarningFlags ErrorOrWarning)
+    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags InlineDamlCustomWarnings, WarningFlags.DamlWarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags.DamlWarningFlags LFConversion.ErrorOrWarning)
     optDamlWarningFlags =
-      WarningFlags.splitDamlWarningFlags . WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$>
+      split3 . WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$>
         many (Options.Applicative.option
           (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
           (short 'W' <> helpDoc (Just helpStr)))
       where
+      split3 flags123 =
+        let (flags1, flags23) = WarningFlags.splitDamlWarningFlags flags123
+            (flags2, flags3) = WarningFlags.splitDamlWarningFlags flags23
+        in
+        (flags1, flags2, flags3)
+
       helpStr =
         PAL.vcat
           [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"

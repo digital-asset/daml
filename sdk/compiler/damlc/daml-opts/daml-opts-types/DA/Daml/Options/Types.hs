@@ -20,7 +20,6 @@ module DA.Daml.Options.Types
     , PackageFlag(..)
     , ModRenaming(..)
     , PackageArg(..)
-    , ErrorOrWarning
     , IgnoreDataDepVisibility(..)
     , ForceUtilityPackage(..)
     , defaultOptions
@@ -145,7 +144,8 @@ data Options = Options
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
   -- unit-id, as script service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
-  , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
+  , optTypecheckerWarningFlags :: WarningFlags.DamlWarningFlags TypeCheckerError.ErrorOrWarning
+  , optLfConversionWarningFlags :: WarningFlags.DamlWarningFlags LFConversion.ErrorOrWarning
   , optIgnoreDataDepVisibility :: IgnoreDataDepVisibility
   , optForceUtilityPackage :: ForceUtilityPackage
   , optInlineDamlCustomWarnings :: WarningFlags.DamlWarningFlags InlineDamlCustomWarnings
@@ -175,9 +175,7 @@ inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
         WarningFlags.AsWarning -> "-W" <> toName inlineWarning
         WarningFlags.Hidden -> "-Wno-" <> toName inlineWarning
 
-type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
-
-damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser (Either InlineDamlCustomWarnings ErrorOrWarning)
+damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser (Either InlineDamlCustomWarnings (Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning))
 damlWarningFlagParser =
   WarningFlags.combineParsers
     inlineDamlCustomWarningsParser
@@ -328,12 +326,8 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
-        , optDamlWarningFlags =
-            WarningFlags.mkDamlWarningFlags
-              (WarningFlags.combineParsers
-                TypeCheckerError.damlWarningFlagParserTypeChecker
-                LFConversion.damlWarningFlagParserLFConversion)
-              []
+        , optTypecheckerWarningFlags = WarningFlags.mkDamlWarningFlags TypeCheckerError.damlWarningFlagParserTypeChecker []
+        , optLfConversionWarningFlags = WarningFlags.mkDamlWarningFlags LFConversion.damlWarningFlagParserLFConversion []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
         , optInlineDamlCustomWarnings = WarningFlags.mkDamlWarningFlags inlineDamlCustomWarningsParser []

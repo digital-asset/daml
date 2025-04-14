@@ -245,6 +245,7 @@ da_haskell_library(
         "//compiler/damlc/daml-ide",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
