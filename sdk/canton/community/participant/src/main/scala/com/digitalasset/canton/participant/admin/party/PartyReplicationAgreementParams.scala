@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.admin.workflows.java.canton.internal 
 import com.digitalasset.canton.topology.*
 
 final case class PartyReplicationAgreementParams private (
-    partyReplicationId: Hash,
+    requestId: Hash,
     partyId: PartyId,
     synchronizerId: SynchronizerId,
     sourceParticipantId: ParticipantId,
@@ -27,7 +27,7 @@ object PartyReplicationAgreementParams {
   ): Either[String, PartyReplicationAgreementParams] =
     for {
       _ <- Either.cond(c.partyReplicationId.nonEmpty, (), "Empty party replication id")
-      partyReplicationId <- Hash
+      requestId <- Hash
         .fromHexString(c.partyReplicationId)
         .leftMap(err => s"Invalid party replication id: $err")
       partyId <-
@@ -64,12 +64,27 @@ object PartyReplicationAgreementParams {
       )
       serial <- serialIntO.traverse(PositiveInt.create).leftMap(_.message)
     } yield PartyReplicationAgreementParams(
-      partyReplicationId,
+      requestId,
       partyId,
       synchronizerId,
       sourceParticipantId,
       targetParticipantId,
       sequencerId,
       serial,
+    )
+
+  def fromProposal(
+      proposal: PartyReplicationProposalParams,
+      sourceParticipantId: ParticipantId,
+      sequencerId: SequencerId,
+  ): PartyReplicationAgreementParams =
+    PartyReplicationAgreementParams(
+      proposal.requestId,
+      proposal.partyId,
+      proposal.synchronizerId,
+      sourceParticipantId,
+      proposal.targetParticipantId,
+      sequencerId,
+      proposal.serial,
     )
 }

@@ -27,6 +27,8 @@ import org.slf4j.event.Level.{ERROR, INFO}
 
 import java.sql.{SQLNonTransientException, SQLTransientException}
 import java.time.Duration
+import java.util.concurrent.TimeUnit
+import scala.concurrent.duration
 import scala.concurrent.duration.*
 
 class ErrorFactoriesSpec
@@ -440,6 +442,7 @@ class ErrorFactoriesSpec
             "OFFSET_AFTER_LEDGER_END",
             Map("category" -> "12", "definite_answer" -> "false", "test" -> getClass.getSimpleName),
           ),
+          ErrorDetails.RetryInfoDetail(duration.Duration(1, TimeUnit.SECONDS)),
           expectedCorrelationIdRequestInfo,
         ),
         logLevel = Level.INFO,

@@ -11,6 +11,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 }
 import com.digitalasset.canton.admin.api.client.data.PackageDescription.PackageContents
 import com.digitalasset.canton.admin.api.client.data.{
+  AddPartyStatus,
   DarContents,
   DarDescription,
   InFlightCount,
@@ -483,7 +484,7 @@ object ParticipantAdminCommands {
       override protected def createRequest(): Either[String, v30.AddPartyAsyncRequest] =
         Right(
           v30.AddPartyAsyncRequest(
-            partyUid = party.uid.toProtoPrimitive,
+            partyId = party.toProtoPrimitive,
             synchronizerId = synchronizerId.toProtoPrimitive,
             sourceParticipantUid = sourceParticipant.fold("")(_.uid.toProtoPrimitive),
             serial = serial.fold(0)(_.value),
@@ -497,7 +498,31 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.AddPartyAsyncResponse
-      ): Either[String, String] = Right(response.partyReplicationId)
+      ): Either[String, String] = Right(response.addPartyRequestId)
+    }
+
+    final case class GetAddPartyStatus(requestId: String)
+        extends GrpcAdminCommand[
+          v30.GetAddPartyStatusRequest,
+          v30.GetAddPartyStatusResponse,
+          AddPartyStatus,
+        ] {
+      override type Svc = PartyManagementServiceStub
+
+      override def createService(channel: ManagedChannel): PartyManagementServiceStub =
+        v30.PartyManagementServiceGrpc.stub(channel)
+
+      override protected def createRequest(): Either[String, v30.GetAddPartyStatusRequest] =
+        Right(v30.GetAddPartyStatusRequest(requestId))
+
+      override protected def submitRequest(
+          service: PartyManagementServiceStub,
+          request: v30.GetAddPartyStatusRequest,
+      ): Future[v30.GetAddPartyStatusResponse] = service.getAddPartyStatus(request)
+
+      override protected def handleResponse(
+          response: v30.GetAddPartyStatusResponse
+      ): Either[String, AddPartyStatus] = AddPartyStatus.fromProtoV30(response).leftMap(_.toString)
     }
 
     final case class ExportAcs(

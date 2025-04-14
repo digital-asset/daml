@@ -13,9 +13,9 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.transaction.NamespaceDelegation
-import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
+import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, ReferencedAuthorizations}
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
+import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, TopologyMapping}
 import com.digitalasset.canton.topology.{Namespace, TopologyManagerError, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
@@ -34,9 +34,7 @@ import scala.concurrent.ExecutionContext
   * For '''namespaces''': select the key with the longest certificate chain from the root
   * certificate. This way we always favor keys that are not the root certificate key. We define
   * chainLength(ns, k) as number of namespace delegations required to construct a valid certificate
-  * chain from the root certificate of namespace ns to the target key k. The same mechanism holds
-  * true in case the authorization requires a root delegation, with the additional restriction that
-  * only root delegations are taken into account.
+  * chain from the root certificate of namespace ns to the target key k.
   *
   * If there are multiple keys with the same chainLength, sort the keys lexicographically and take
   * the last one. While this decision is arbitrary (because there is no other criteria easily
@@ -79,7 +77,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
 
   private def filterKnownKeysForNamespace(
       namespace: Namespace,
-      requireRoot: Boolean,
+      mappingToAuthorize: TopologyMapping.Code,
       returnAllValidKeys: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -93,7 +91,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
       .parFlatTraverse { delegations =>
         delegations
           .collect {
-            case (delegation, level) if delegation.mapping.isRootDelegation || !requireRoot =>
+            case (delegation, level) if delegation.mapping.canSign(mappingToAuthorize) =>
               (delegation.mapping.target.fingerprint, level)
           }
           .parFilterA { case (fingerprint, _) =>
@@ -110,7 +108,10 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
           }
       }
 
-  private def filterKnownKeysForUID(uid: UniqueIdentifier, returnAllValidKeys: Boolean)(implicit
+  private def filterKnownKeysForUID(
+      uid: UniqueIdentifier,
+      returnAllValidKeys: Boolean,
+  )(implicit
       traceContext: TraceContext
   ) = {
     // namespaceCheck to verify that the IDDs are still fully authorized by their respective signing keys
@@ -120,7 +121,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
       .parTraverseFilter { idd =>
         val isIddAuthorized = namespaceCheck.existsAuthorizedKeyIn(
           idd.signingKeys,
-          requireRoot = false,
+          Code.IdentifierDelegation,
         )
         if (isIddAuthorized) {
           cryptoPrivateStore
@@ -172,18 +173,9 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
 
       knownNsKeys = referencedAuth.namespaces.toSeq
         .parFlatTraverse(namespace =>
-          filterKnownKeysForNamespace(namespace, requireRoot = false, returnAllValidKeys)
+          filterKnownKeysForNamespace(namespace, toSign.mapping.code, returnAllValidKeys)
             .map { keys =>
               if (keys.nonEmpty) logger.debug(s"Keys for $namespace: $keys")
-              keys
-            }
-        )
-
-      knownRootNsKeys = referencedAuth.namespacesWithRoot.toSeq
-        .parFlatTraverse(namespace =>
-          filterKnownKeysForNamespace(namespace, requireRoot = true, returnAllValidKeys)
-            .map { keys =>
-              if (keys.nonEmpty) logger.debug(s"Keys for root $namespace: $keys")
               keys
             }
         )
@@ -198,7 +190,7 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
               // we try to find keys that could sign on behalf of the uid's namespace.
               filterKnownKeysForNamespace(
                 uid.namespace,
-                requireRoot = false,
+                toSign.mapping.code,
                 returnAllValidKeys,
               ).map { namespaceKeys =>
                 if (namespaceKeys.nonEmpty)
@@ -221,10 +213,10 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
           if (keys.nonEmpty) logger.debug(s"Keys for extra keys: $keys")
           keys
         }
-
       selfSigned = EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
         toSign.mapping match {
-          case NamespaceDelegation(ns, target, true) if ns.fingerprint == target.fingerprint =>
+          case nsd @ NamespaceDelegation(ns, target, _)
+              if ns.fingerprint == target.fingerprint && nsd.canSign(Code.NamespaceDelegation) =>
             Seq(target.fingerprint)
           case _ => Seq.empty
         }
@@ -232,7 +224,6 @@ class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
 
       allKnownKeysEligibleForSigning <- Seq(
         knownNsKeys,
-        knownRootNsKeys,
         knownUidKeys,
         knownExtraKeys,
         selfSigned,

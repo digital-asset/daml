@@ -437,7 +437,6 @@ class ParticipantNodeBootstrap(
           indexedStringStore,
           persistentState.map(_.acsCounterParticipantConfigStore).value,
           parameters,
-          config.topology,
           crypto,
           clock,
           tryGetPackageDependencyResolver(),
@@ -710,6 +709,7 @@ class ParticipantNodeBootstrap(
           arguments.testingConfig,
           ledgerApiIndexerContainer,
           connectedSynchronizersLookupContainer,
+          () => triggerDeclarativeChange(),
         )
 
         _ = {

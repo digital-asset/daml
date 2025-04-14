@@ -32,6 +32,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.OwnerToKeyMapping
 import com.digitalasset.canton.topology.{Namespace, UniqueIdentifier}
 import monocle.macros.syntax.lens.*
@@ -216,7 +217,7 @@ trait MemberAutoInitIntegrationTest
           node.topology.namespace_delegations.propose_delegation(
             namespace,
             namespaceKey,
-            isRootDelegation = true,
+            CanSignAllMappings,
           )
           logger.debug(s"Adding owner-to-key mappings for manual-$base")
           node.topology.owner_to_key_mappings.propose(

@@ -143,10 +143,10 @@ abstract class RepairServiceIntegrationTest
 
         val cid = IouSyntax.createIou(participant1)(payer, payer).id.toLf
 
-        participant1.ledger_api.commands.submit_reassign(payer, cid, daId, acmeId)
-        participant1.ledger_api.commands.submit_reassign(payer, cid, acmeId, daId)
-        participant1.ledger_api.commands.submit_reassign(payer, cid, daId, acmeId)
-        participant1.ledger_api.commands.submit_reassign(payer, cid, acmeId, daId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), daId, acmeId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), acmeId, daId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), daId, acmeId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), acmeId, daId)
 
         val beforeAssignation = participant1.ledger_api.state.acs
           .active_contracts_of_party(payer)

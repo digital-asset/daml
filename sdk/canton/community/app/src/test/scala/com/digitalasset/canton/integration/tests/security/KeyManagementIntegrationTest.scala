@@ -21,6 +21,7 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 import com.digitalasset.canton.util.OptionUtil
 import org.scalatest.Assertion
 
@@ -84,7 +85,7 @@ trait KeyManagementIntegrationTestHelper extends KeyManagementTestHelper {
     node.topology.namespace_delegations.propose_delegation(
       node.namespace,
       intermediateKey,
-      isRootDelegation = false,
+      CanSignAllButNamespaceDelegations,
     )
 
     // architecture-handbook-entry-end: CreateNamespaceIntermediateKey

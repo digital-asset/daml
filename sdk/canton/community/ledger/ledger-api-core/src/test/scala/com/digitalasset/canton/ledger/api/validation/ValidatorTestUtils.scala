@@ -7,15 +7,19 @@ import com.daml.grpc.GrpcStatus
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.messages.update
 import com.digitalasset.canton.ledger.api.{CumulativeFilter, InterfaceFilter, TemplateFilter}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.rpc.error_details
+import com.google.rpc.error_details.RetryInfo
 import io.grpc.Status.Code
 import io.grpc.StatusRuntimeException
 import org.scalatest.*
 import org.scalatest.matchers.should.Matchers
 
-trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
+import java.time.Duration
+
+trait ValidatorTestUtils extends Matchers with Inside with OptionValues with EitherValues {
   self: Suite =>
 
   protected val includedModule = "includedModule"
@@ -85,20 +89,36 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
       code: Code,
       description: String,
       metadata: Map[String, String] = Map.empty,
+      retryDelay: Seq[Duration] = Seq.empty,
   ): Assertion =
-    inside(request)(isError(code, description, metadata))
+    inside(request)(isError(code, description, metadata, retryDelay))
   protected def isError(
       expectedCode: Code,
       expectedDescription: String,
       metadata: Map[String, String],
+      retryDelay: Seq[Duration],
   ): PartialFunction[Either[StatusRuntimeException, _], Assertion] = { case Left(err) =>
     err.getStatus should have(Symbol("code")(expectedCode))
     err.getStatus should have(Symbol("description")(expectedDescription))
-    GrpcStatus
+    val details = GrpcStatus
       .toProto(err.getStatus, err.getTrailers)
       .details
-      .flatMap(_.unpack[error_details.ErrorInfo].metadata)
-      .toMap should contain allElementsOf metadata
+    val errorInfoMetadata: Map[String, String] = details
+      .collect {
+        case any if any.is[error_details.ErrorInfo] =>
+          any.unpack[error_details.ErrorInfo].metadata
+      }
+      .flatten
+      .toMap
+    errorInfoMetadata should contain allElementsOf metadata
+    val retryInfoMetadata: Seq[Duration] = details.collect {
+      case any if any.is[error_details.RetryInfo] =>
+        val retryDelay = any
+          .unpack[RetryInfo]
+          .getRetryDelay
+        ProtoConverter.DurationConverter.fromProtoPrimitive(retryDelay).value
+    }
+    retryInfoMetadata should contain allElementsOf retryDelay
   }
 
 }

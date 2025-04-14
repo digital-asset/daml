@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.base.error.RpcError
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, ProtoDeserializationFailure}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.crypto.*
@@ -17,6 +18,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.v30.TopologyMapping.Mapping
 import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId as AdminTopologyStoreId
 import com.digitalasset.canton.topology.admin.v30
@@ -36,8 +38,8 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
-    managers: => Seq[TopologyManager[TopologyStoreId, PureCrypto]],
+class GrpcTopologyManagerWriteService(
+    managers: => Seq[TopologyManager[TopologyStoreId]],
     temporaryStoreRegistry: TemporaryStoreRegistry,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -133,7 +135,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
     CantonGrpcUtil.mapErrNewEUS(result.map(tx => v30.AuthorizeResponse(Some(tx.toProtoV30))))
   }
 
-  private def deserializeTopologyMapping(mapping: Mapping) =
+  private def deserializeTopologyMapping(mapping: Mapping): ParsingResult[TopologyMapping] =
     mapping match {
       case Mapping.Empty => FieldNotSet("mapping").asLeft
       case Mapping.DecentralizedNamespaceDefinition(mapping) =>
@@ -301,7 +303,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       store: Option[v30.StoreId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, TopologyManager[TopologyStoreId, PureCrypto]] =
+  ): EitherT[FutureUnlessShutdown, RpcError, TopologyManager[TopologyStoreId]] =
     for {
       targetStore <- EitherT.fromEither[FutureUnlessShutdown](
         ProtoConverter
@@ -377,7 +379,11 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       protocolVersion <- ProtocolVersion
         .fromProtoPrimitive(request.protocolVersion)
         .leftMap(ProtoDeserializationFailure.Wrap(_))
-      storeId <- TemporaryStore.create(request.name).leftMap(ProtoDeserializationFailure.Wrap(_))
+      storeId <- TemporaryStore
+        .create(request.name)
+        .leftMap(err =>
+          ProtoDeserializationFailure.Wrap(ProtoDeserializationError.StringConversionError(err))
+        )
       _ <- temporaryStoreRegistry.createStore(storeId, protocolVersion)
     } yield {
       CreateTemporaryTopologyStoreResponse(

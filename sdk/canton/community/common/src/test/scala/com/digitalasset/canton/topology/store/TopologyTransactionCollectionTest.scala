@@ -67,7 +67,7 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
   private lazy val removeDOP3 =
     mkSynchronizerParametersChange(SynchronizerId(uid3), Remove, serial = PositiveInt.three)
   private lazy val replaceIDD1 = mkStoredTransaction(
-    IdentifierDelegation(uid1, factory.SigningKeys.key1)
+    IdentifierDelegation.tryCreate(uid1, factory.SigningKeys.key1)
   )
 
   "StoredTopologyTransactions" should {

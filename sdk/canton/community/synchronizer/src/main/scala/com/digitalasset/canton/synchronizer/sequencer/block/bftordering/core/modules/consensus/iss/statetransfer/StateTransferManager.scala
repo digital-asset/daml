@@ -186,7 +186,6 @@ class StateTransferManager[E <: Env[E]](
   ): StateTransferMessageResult =
     message match {
       case request @ StateTransferMessage.BlockTransferRequest(epoch, from) =>
-        // TODO(#24717) authorize/handle the request only `from` the expected node
         validator
           .validateBlockTransferRequest(request, orderingTopologyInfo.currentMembership)
           .fold(
@@ -206,6 +205,7 @@ class StateTransferManager[E <: Env[E]](
         StateTransferMessageResult.Continue
 
       case response: StateTransferMessage.BlockTransferResponse =>
+        // TODO(#25082) consider authorizing/handling a response only if it comes `from` the requested node
         if (inStateTransfer) {
           handleBlockTransferResponse(
             response,
@@ -235,6 +235,7 @@ class StateTransferManager[E <: Env[E]](
       //  multiple times in a row, resulting in uneven load balancing for certain periods. On the other hand, shuffling
       //  is more straightforward code-wise. A potentially irrelevant implication is that the order in which nodes
       //  are chosen is less predictable (e.g., by malicious nodes), and, at the same time, harder to reason about.
+      // TODO(#24940) consider not rotating when everything runs smoothly
       val servingNode =
         nodeShuffler
           .shuffle(membership.otherNodes.toSeq)

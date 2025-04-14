@@ -8,7 +8,10 @@ import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.digitalasset.canton.auth.{Authorizer, RequiredClaim}
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.auth.RequiredClaims
-import com.digitalasset.canton.ledger.api.auth.services.CommandServiceAuthorization.getSubmitAndWaitForTransactionClaims
+import com.digitalasset.canton.ledger.api.auth.services.CommandServiceAuthorization.{
+  getSubmitAndWaitForReassignmentClaims,
+  getSubmitAndWaitForTransactionClaims,
+}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import io.grpc.ServerServiceDefinition
@@ -33,6 +36,13 @@ final class CommandServiceAuthorization(
   ): Future[SubmitAndWaitForTransactionResponse] =
     authorizer.rpc(service.submitAndWaitForTransaction)(
       getSubmitAndWaitForTransactionClaims(request)*
+    )(request)
+
+  override def submitAndWaitForReassignment(
+      request: SubmitAndWaitForReassignmentRequest
+  ): Future[SubmitAndWaitForReassignmentResponse] =
+    authorizer.rpc(service.submitAndWaitForReassignment)(
+      getSubmitAndWaitForReassignmentClaims(request)*
     )(request)
 
   override def submitAndWait(
@@ -80,10 +90,25 @@ object CommandServiceAuthorization {
       )).distinct
   }
 
+  def getSubmitAndWaitForReassignmentClaims(
+      request: SubmitAndWaitForReassignmentRequest
+  ): List[RequiredClaim[SubmitAndWaitForReassignmentRequest]] =
+    (RequiredClaims.submissionClaims(
+      actAs = request.reassignmentCommands.fold(Set.empty[String])(c => Set(c.submitter)),
+      readAs = Set.empty,
+      userIdL = userIdForReassignmentL,
+    ) ::: request.eventFormat.toList
+      .flatMap(
+        RequiredClaims.eventFormatClaims[SubmitAndWaitForReassignmentRequest]
+      )).distinct
+
   val userIdL: Lens[SubmitAndWaitRequest, String] =
     Lens.unit[SubmitAndWaitRequest].commands.userId
 
   val userIdForTransactionL: Lens[SubmitAndWaitForTransactionRequest, String] =
     Lens.unit[SubmitAndWaitForTransactionRequest].commands.userId
+
+  val userIdForReassignmentL: Lens[SubmitAndWaitForReassignmentRequest, String] =
+    Lens.unit[SubmitAndWaitForReassignmentRequest].reassignmentCommands.userId
 
 }

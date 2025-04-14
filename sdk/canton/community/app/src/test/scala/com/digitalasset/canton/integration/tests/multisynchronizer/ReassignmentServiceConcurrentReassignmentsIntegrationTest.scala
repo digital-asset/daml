@@ -105,7 +105,9 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
       val cid = contract.id.toLf
 
       val unassignId =
-        participant1.ledger_api.commands.submit_unassign(signatory, cid, daId, acmeId).unassignId
+        participant1.ledger_api.commands
+          .submit_unassign(signatory, Seq(cid), daId, acmeId)
+          .unassignId
 
       // Check unassignment
       assertNotInLedgerAcsSync(
@@ -232,7 +234,9 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
 
         // unassignment contract
         val unassignId =
-          participant1.ledger_api.commands.submit_unassign(signatory, cid, daId, acmeId).unassignId
+          participant1.ledger_api.commands
+            .submit_unassign(signatory, Seq(cid), daId, acmeId)
+            .unassignId
 
         eventually() {
           // make sure the unassignment is completed on P2

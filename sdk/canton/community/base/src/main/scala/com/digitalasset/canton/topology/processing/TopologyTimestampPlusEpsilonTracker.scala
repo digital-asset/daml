@@ -38,7 +38,7 @@ import scala.concurrent.ExecutionContext
   * so that all computations can be performed without reading from the database.
   */
 class TopologyTimestampPlusEpsilonTracker(
-    store: TopologyStore[TopologyStoreId.SynchronizerStore],
+    store: TopologyStore[TopologyStoreId],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)

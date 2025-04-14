@@ -74,7 +74,7 @@ class AssignmentBeforeUnassignmentIntegrationTest
     participant2.synchronizers.disconnect(daName)
 
     val unassignId = participant1.ledger_api.commands
-      .submit_unassign(aliceId, contract.id.toLf, daId, acmeId)
+      .submit_unassign(aliceId, Seq(contract.id.toLf), daId, acmeId)
       .unassignId
 
     participant1.ledger_api.commands.submit_assign(

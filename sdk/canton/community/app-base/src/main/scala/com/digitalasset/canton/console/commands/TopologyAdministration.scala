@@ -842,16 +842,21 @@ class TopologyAdministrationGroup(
   @Help.Summary("Manage namespace delegations")
   @Help.Group("Namespace delegations")
   object namespace_delegations extends Helpful {
-    @Help.Summary("Propose a new namespace delegation")
+
+    @Help.Summary(
+      "Propose a new namespace delegation that is restricted to certain topology mapping types"
+    )
     @Help.Description(
       """A namespace delegation allows the owner of a namespace to delegate signing privileges for
-        |topology transactions on behalf of said namespace to additional signing keys.
+        topology transactions on behalf of said namespace to additional signing keys.
 
         namespace: the namespace for which the target key can be used to sign topology transactions
         targetKey: the target key to be used for signing topology transactions on behalf of the namespace
-        isRootDelegation: when set to true, the target key may authorize topology transactions with any kind of mapping,
-                          including other namespace delegations.
-                          when set to false, the target key may not authorize other namespace delegations for this namespace.
+        delegationRestriction: the types of topology mappings for which targetKey can sign. Can be one of the following values:
+                               - CanSignAllMappings: the target key can sign all topology mappings that are currently known or will be added in future releases.
+                               - CanSignAllButNamespaceDelegations: the target key can sign all topology mappings that are currently known or will be added in future releases,
+                                                                    except for namespace delegations.
+                               - CanSignSpecificMappings(TopologyMapping.Code*): the target key can only sign the specified topology mappings.
 
         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
                                propagated to connected synchronizers, if applicable.
@@ -871,7 +876,7 @@ class TopologyAdministrationGroup(
     def propose_delegation(
         namespace: Namespace,
         targetKey: SigningPublicKey,
-        isRootDelegation: Boolean,
+        delegationRestriction: DelegationRestriction,
         store: TopologyStoreId = TopologyStoreId.Authorized,
         mustFullyAuthorize: Boolean = true,
         serial: Option[PositiveInt] = None,
@@ -883,7 +888,7 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, NamespaceDelegation] =
       runAdminCommand(
         TopologyAdminCommands.Write.Propose(
-          NamespaceDelegation.create(namespace, targetKey, isRootDelegation),
+          NamespaceDelegation.create(namespace, targetKey, delegationRestriction),
           signedBy = signedBy,
           store = store,
           serial = serial,
@@ -1028,8 +1033,8 @@ class TopologyAdministrationGroup(
         signedBy: Seq[Fingerprint] = Seq.empty,
         change: TopologyChangeOp = TopologyChangeOp.Replace,
     ): SignedTopologyTransaction[TopologyChangeOp, IdentifierDelegation] = {
-      val command = TopologyAdminCommands.Write.Propose(
-        mapping = IdentifierDelegation(
+      val command = new TopologyAdminCommands.Write.Propose(
+        mapping = IdentifierDelegation.create(
           identifier = uid,
           target = targetKey,
         ),
@@ -1039,6 +1044,7 @@ class TopologyAdministrationGroup(
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
         waitToBecomeEffective = synchronize,
+        forceChanges = ForceFlags.none,
       )
       runAdminCommand(command)
     }

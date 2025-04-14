@@ -13,7 +13,6 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   SignatureFormat as InteractiveSignatureFormat,
   SinglePartySignatures,
 }
-import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommand
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.crypto.{
   Fingerprint,
@@ -29,16 +28,13 @@ import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.topology.{PartyId as TopologyPartyId, SynchronizerId}
-import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.version.HashingSchemeVersion.V2
-import com.digitalasset.daml.lf.data.Time
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
 
 import java.time.{Duration, Instant}
 import scala.annotation.nowarn
-import scala.util.Try
 
 class SubmitRequestValidator(
     commandsValidator: CommandsValidator
@@ -237,56 +233,10 @@ class SubmitRequestValidator(
       errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, submission.SubmitReassignmentRequest] =
     for {
-      reassignmentCommand <- requirePresence(req.reassignmentCommands, "reassignment_commands")
-      submitter <- requirePartyField(reassignmentCommand.submitter, "submitter")
-      userId <- requireUserId(reassignmentCommand.userId, "user_id")
-      commandId <- requireCommandId(reassignmentCommand.commandId, "command_id")
-      submissionId <- requireSubmissionId(reassignmentCommand.submissionId, "submission_id")
-      workflowId <- validateOptional(Some(reassignmentCommand.workflowId).filter(_.nonEmpty))(
-        requireWorkflowId(_, "workflow_id")
+      commands <- requirePresence(req.reassignmentCommands, "reassignment_commands")
+      submitReassignmentRequest <- commandsValidator.validateReassignmentCommands(
+        commands
       )
-      reassignmentCommands <- reassignmentCommand.commands.traverse {
-        _.command match {
-          case ReassignmentCommand.Command.Empty =>
-            Left(ValidationErrors.missingField("command"))
-          case assignCommand: ReassignmentCommand.Command.AssignCommand =>
-            for {
-              sourceSynchronizerId <- requireSynchronizerId(assignCommand.value.source, "source")
-              targetSynchronizerId <- requireSynchronizerId(assignCommand.value.target, "target")
-              longUnassignId <- Try(assignCommand.value.unassignId.toLong).toEither.left.map(_ =>
-                ValidationErrors.invalidField("unassign_id", "Invalid unassign ID")
-              )
-              timestampUnassignId <- Time.Timestamp
-                .fromLong(longUnassignId)
-                .left
-                .map(_ => ValidationErrors.invalidField("unassign_id", "Invalid unassign ID"))
-            } yield Left(
-              submission.AssignCommand(
-                sourceSynchronizerId = Source(sourceSynchronizerId),
-                targetSynchronizerId = Target(targetSynchronizerId),
-                unassignId = timestampUnassignId,
-              )
-            )
-          case unassignCommand: ReassignmentCommand.Command.UnassignCommand =>
-            for {
-              sourceSynchronizerId <- requireSynchronizerId(unassignCommand.value.source, "source")
-              targetSynchronizerId <- requireSynchronizerId(unassignCommand.value.target, "target")
-              cid <- requireContractId(unassignCommand.value.contractId, "contract_id")
-            } yield Right(
-              submission.UnassignCommand(
-                sourceSynchronizerId = Source(sourceSynchronizerId),
-                targetSynchronizerId = Target(targetSynchronizerId),
-                contractId = cid,
-              )
-            )
-        }
-      }
-    } yield submission.SubmitReassignmentRequest(
-      submitter = submitter,
-      userId = userId,
-      commandId = commandId,
-      submissionId = submissionId,
-      workflowId = workflowId,
-      reassignmentCommands = reassignmentCommands,
-    )
+    } yield submitReassignmentRequest
+
 }

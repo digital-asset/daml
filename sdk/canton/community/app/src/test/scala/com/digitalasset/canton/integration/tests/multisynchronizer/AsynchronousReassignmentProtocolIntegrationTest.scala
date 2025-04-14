@@ -131,13 +131,18 @@ final class AsynchronousReassignmentProtocolIntegrationTest
     participant1.ledger_api.commands
       .submit_unassign_async(
         aliceId,
-        LfContractId.assertFromString(iou1.id.contractId),
+        Seq(LfContractId.assertFromString(iou1.id.contractId)),
         daId,
         acmeId,
       )
 
     participant1.ledger_api.commands
-      .submit_unassign_async(bobId, LfContractId.assertFromString(iou2.id.contractId), daId, acmeId)
+      .submit_unassign_async(
+        bobId,
+        Seq(LfContractId.assertFromString(iou2.id.contractId)),
+        daId,
+        acmeId,
+      )
 
     val reassignmentStore = participant1.underlying.value.sync.syncPersistentStateManager
       .get(acmeId)
@@ -185,14 +190,14 @@ final class AsynchronousReassignmentProtocolIntegrationTest
     val unassign1 = participant1.ledger_api.commands
       .submit_unassign(
         aliceId,
-        LfContractId.assertFromString(iou1.id.contractId),
+        Seq(LfContractId.assertFromString(iou1.id.contractId)),
         daId,
         acmeId,
       )
       .unassignId
 
     val unassign2 = participant1.ledger_api.commands
-      .submit_unassign(bobId, LfContractId.assertFromString(iou2.id.contractId), daId, acmeId)
+      .submit_unassign(bobId, Seq(LfContractId.assertFromString(iou2.id.contractId)), daId, acmeId)
       .unassignId
 
     val until: Promise[Unit] = Promise[Unit]()

@@ -43,6 +43,10 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -797,18 +801,18 @@ class TestingOwnerWithKeys(
       NamespaceDelegation.tryCreate(
         Namespace(namespaceKey.fingerprint),
         namespaceKey,
-        isRootDelegation = true,
+        CanSignAllMappings,
       )
     )
     val ns1k2 = mkAdd(
       NamespaceDelegation.tryCreate(
         Namespace(namespaceKey.fingerprint),
         key2,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
       )
     )
-    val id1k1 = mkAdd(IdentifierDelegation(uid, key1))
-    val id2k2 = mkAdd(IdentifierDelegation(uid2, key2))
+    val id1k1 = mkAdd(IdentifierDelegation.tryCreate(uid, key1))
+    val id2k2 = mkAdd(IdentifierDelegation.tryCreate(uid2, key2))
     val seq_okm_k2 = mkAddMultiKey(
       OwnerToKeyMapping(sequencerId, NonEmpty(Seq, key2)),
       NonEmpty(Set, namespaceKey, key2),
@@ -852,14 +856,14 @@ class TestingOwnerWithKeys(
       NamespaceDelegation.tryCreate(
         Namespace(participant1.fingerprint),
         key2,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
       )
     )
     val p2_nsk2 = mkAdd(
       NamespaceDelegation.tryCreate(
         Namespace(participant2.fingerprint),
         key2,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
       )
     )
 
@@ -1016,10 +1020,16 @@ class TestingOwnerWithKeys(
       signingKeys,
       isProposal,
     )
-  private def genSignKey(
+
+  def genSignKey(
       name: String,
-      usage: NonEmpty[Set[SigningKeyUsage]] =
-        NonEmpty.mk(Set, SigningKeyUsage.Namespace, SigningKeyUsage.Protocol),
+      // TODO(#25072): Create keys with a single usage and change the tests accordingly
+      usage: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(
+        Set,
+        SigningKeyUsage.Namespace,
+        SigningKeyUsage.IdentityDelegation,
+        SigningKeyUsage.Protocol,
+      ),
       keySpecO: Option[SigningKeySpec] = None,
   ): SigningPublicKey =
     Await

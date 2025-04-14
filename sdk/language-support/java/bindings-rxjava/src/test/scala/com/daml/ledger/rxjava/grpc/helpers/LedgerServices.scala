@@ -18,6 +18,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitResponse,
@@ -210,6 +211,7 @@ final class LedgerServices(val name: String) {
       submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+      submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
       authService: AuthService = AuthServiceWildcard,
       accessToken: java.util.Optional[String] = java.util.Optional.empty[String],
   )(f: (CommandClientImpl, CommandServiceImpl) => Any): Any = {
@@ -217,6 +219,7 @@ final class LedgerServices(val name: String) {
       submitAndWaitResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
+      submitAndWaitForReassignmentResponse,
       authorizer,
     )(executionContext)
     withServerAndChannel(authService, Seq(service)) { channel =>
@@ -255,6 +258,7 @@ final class LedgerServices(val name: String) {
       submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+      submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
       getTimeResponse: Future[GetTimeResponse],
       getEventsByContractIdResponse: Future[GetEventsByContractIdResponse],
       listPackagesResponse: Future[ListPackagesResponse],
@@ -270,6 +274,7 @@ final class LedgerServices(val name: String) {
       submitAndWaitResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
+      submitAndWaitForReassignmentResponse,
       getTimeResponse,
       getEventsByContractIdResponse,
       listPackagesResponse,

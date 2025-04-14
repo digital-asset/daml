@@ -79,6 +79,32 @@ object JsSchema {
       viewStatus: JsStatus,
       viewValue: Option[Json],
   )
+  object JsReassignmentEvent {
+    sealed trait JsReassignmentEvent
+
+    final case class JsAssignmentEvent(
+        source: String,
+        target: String,
+        unassignId: String,
+        submitter: String,
+        reassignmentCounter: Long,
+        createdEvent: CreatedEvent,
+    ) extends JsReassignmentEvent
+
+    final case class JsUnassignedEvent(value: reassignment.UnassignedEvent)
+        extends JsReassignmentEvent
+
+  }
+
+  final case class JsReassignment(
+      updateId: String,
+      commandId: String,
+      workflowId: String,
+      offset: Long,
+      events: Seq[JsReassignmentEvent.JsReassignmentEvent],
+      traceContext: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
+      recordTime: com.google.protobuf.timestamp.Timestamp,
+  )
 
   object JsServicesCommonCodecs {
     import io.circe.generic.extras.auto.*
@@ -122,6 +148,19 @@ object JsSchema {
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
       Schema.oneOfWrapped
+
+    implicit val jsReassignment: Codec[JsReassignment] = deriveConfiguredCodec
+
+    implicit val jsReassignmentEventRW: Codec[JsReassignmentEvent.JsReassignmentEvent] =
+      deriveConfiguredCodec
+
+    implicit val jsReassignmentEventJsUnassignedEventRW
+        : Codec[JsReassignmentEvent.JsUnassignedEvent] =
+      deriveConfiguredCodec
+
+    implicit val jsReassignmentEventJsAssignedEventRW
+        : Codec[JsReassignmentEvent.JsAssignmentEvent] =
+      deriveConfiguredCodec
 
   }
 

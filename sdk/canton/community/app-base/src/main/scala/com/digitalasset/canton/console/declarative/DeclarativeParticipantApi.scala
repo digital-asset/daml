@@ -26,6 +26,7 @@ import com.digitalasset.canton.ledger.api
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.lifecycle.{CloseContext, LifeCycle, RunOnClosing}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
+import com.digitalasset.canton.metrics.DeclarativeApiMetrics
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
@@ -60,6 +61,7 @@ import pureconfig.error.CannotConvert
 
 import java.io.{File, FileInputStream}
 import java.util.zip.ZipInputStream
+import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
 /** Declarative participant config
@@ -98,7 +100,7 @@ final case class DeclarativeParticipantConfig(
     removeIdps: Boolean = false,
     users: Seq[DeclarativeUserConfig] = Seq(),
     removeUsers: Boolean = false,
-    connections: Seq[DeclarativeConnectionConfig],
+    connections: Seq[DeclarativeConnectionConfig] = Seq(),
     removeConnections: Boolean = false,
 )
 
@@ -163,7 +165,6 @@ final case class DeclarativeIdpConfig(
     issuer: String,
     audience: Option[String] = None,
 ) {
-
   // TODO(#25043) move to config validation
   def apiIdentityProviderId: IdentityProviderId.Id =
     IdentityProviderId.Id.assertFromString(identityProviderId)
@@ -195,14 +196,26 @@ final case class DeclarativeUserConfig(
     rights: DeclarativeUserRightsConfig = DeclarativeUserRightsConfig(),
 )(val resourceVersion: String = "") {
 
-  def mapPartiesToNamespace(namespace: Namespace): DeclarativeUserConfig = {
+  /** map party names to namespace and filter out parties that are not yet registered
+    *
+    * the ledger api server needs to know the parties that we add to a user. that requires a
+    * synchronizer connection. therefore, we filter here the parties that are not yet registered as
+    * otherwise the ledger api server will throw errors
+    */
+  def mapPartiesToNamespace(
+      namespace: Namespace,
+      filterParty: String => Boolean,
+  ): DeclarativeUserConfig = {
     def mapParty(party: String): String =
       if (party.contains(UniqueIdentifier.delimiter)) party
       else
         UniqueIdentifier.tryCreate(party, namespace).toProtoPrimitive
     copy(
-      primaryParty = primaryParty.map(mapParty),
-      rights = rights.copy(actAs = rights.actAs.map(mapParty), readAs = rights.readAs.map(mapParty)),
+      primaryParty = primaryParty.map(mapParty).filter(filterParty),
+      rights = rights.copy(
+        actAs = rights.actAs.map(mapParty).filter(filterParty),
+        readAs = rights.readAs.map(mapParty).filter(filterParty),
+      ),
     )(resourceVersion)
   }
 
@@ -312,6 +325,8 @@ class DeclarativeParticipantApi(
     adminToken: => Option[CantonAdminToken],
     runnerFactory: String => GrpcAdminCommandRunner,
     val closeContext: CloseContext,
+    val file: File,
+    val metrics: DeclarativeApiMetrics,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
     extends DeclarativeApi[DeclarativeParticipantConfig, ParticipantId] {
@@ -481,8 +496,12 @@ class DeclarativeParticipantApi(
         parties: Seq[(UniqueIdentifier, SynchronizerId)]
     ): Either[String, Boolean] =
       for {
-        observed <- queryLedgerApi(
-          LedgerApiCommands.PartyManagementService.ListKnownParties(identityProviderId = "")
+        idps <- queryLedgerApi(LedgerApiCommands.IdentityProviderConfigs.List())
+        // loop over all idps and include default one
+        observed <- (idps.map(_.identityProviderId) :+ "").flatTraverse(idp =>
+          queryLedgerApi(
+            LedgerApiCommands.PartyManagementService.ListKnownParties(identityProviderId = idp)
+          )
         )
         observedUids <- observed
           .traverse(details => UniqueIdentifier.fromProtoPrimitive(details.party, "party"))
@@ -493,9 +512,6 @@ class DeclarativeParticipantApi(
       }
 
     queryAdminApi(ListConnectedSynchronizers())
-      .flatMap { found =>
-        Either.cond(found.nonEmpty, found, "No connected synchronizer found. Cannot sync parties")
-      }
       .flatMap { synchronizerIds =>
         val wanted = parties.flatMap { p =>
           val party =
@@ -551,6 +567,21 @@ class DeclarativeParticipantApi(
   )(implicit
       traceContext: TraceContext
   ): Either[String, UpdateResult] = {
+
+    // temporarily cache the available parties
+    val idpParties = mutable.Map[String, Set[String]]()
+    def getIdpParties(idp: String): Either[String, Set[String]] =
+      idpParties.get(idp) match {
+        case Some(parties) => Right(parties)
+        case None =>
+          queryLedgerApi(
+            LedgerApiCommands.PartyManagementService.ListKnownParties(identityProviderId = idp)
+          ).map { parties =>
+            val partySet = parties.map(_.party).toSet
+            idpParties.put(idp, partySet).discard
+            partySet
+          }
+      }
 
     def fetchUsers(limit: PositiveInt): Either[String, Seq[(String, DeclarativeUserConfig)]] =
       for {
@@ -707,29 +738,56 @@ class DeclarativeParticipantApi(
         )
       } else Either.unit
 
-    run[String, DeclarativeUserConfig](
-      "users",
-      removeExcess,
-      checkSelfConsistency,
-      users.map(user => (user.user, user.mapPartiesToNamespace(participantId.uid.namespace))),
-      fetch = fetchUsers,
-      add = { case (_, user) => createUser(user) },
-      upd = { case (_, desired, existing) =>
-        for {
-          _ <- updateUser(desired, existing)
-          _ <- updateUserIdp(desired, existing)
-          _ <- updateRights(desired.user, desired.identityProviderId)(
-            desired.rights,
-            existing.rights,
+    def activePartyFilter(idp: String, user: String): Either[String, String => Boolean] =
+      getIdpParties(idp).map { parties => party =>
+        {
+          if (!parties.contains(party)) {
+            logger.info(s"User $user refers to party $party not yet known to the ledger api server")
+            false
+          } else true
+        }
+      }
+
+    val wantedE =
+      users.traverse { user =>
+        activePartyFilter(user.identityProviderId, user.user).map { filter =>
+          (
+            user.user,
+            user.mapPartiesToNamespace(
+              participantId.uid.namespace,
+              filter,
+            ),
           )
-        } yield ()
-      },
-      rm = (id, v) => {
-        queryLedgerApi(
-          LedgerApiCommands.Users.Delete(id, identityProviderId = v.identityProviderId)
-        ).map(_ => ())
-      },
-    )
+
+        }
+      }
+    wantedE.flatMap { wanted =>
+      run[String, DeclarativeUserConfig](
+        "users",
+        removeExcess,
+        checkSelfConsistency,
+        want = wanted,
+        fetch = fetchUsers,
+        add = { case (_, user) =>
+          createUser(user)
+        },
+        upd = { case (_, desired, existing) =>
+          for {
+            _ <- updateUser(desired, existing)
+            _ <- updateUserIdp(desired, existing)
+            _ <- updateRights(desired.user, desired.identityProviderId)(
+              desired.rights,
+              existing.rights,
+            )
+          } yield ()
+        },
+        rm = (id, v) => {
+          queryLedgerApi(
+            LedgerApiCommands.Users.Delete(id, identityProviderId = v.identityProviderId)
+          ).map(_ => ())
+        },
+      )
+    }
   }
 
   private def syncConnections(

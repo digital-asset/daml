@@ -191,7 +191,13 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
 
     val unassignId =
       participant2.ledger_api.commands
-        .submit_unassign(bob, cid, daId, acmeId, waitForParticipants = Map(participant1 -> alice))
+        .submit_unassign(
+          bob,
+          Seq(cid),
+          daId,
+          acmeId,
+          waitForParticipants = Map(participant1 -> alice),
+        )
         .unassignId
 
     val reassignmentStore = participant1.underlying.value.sync.syncPersistentStateManager

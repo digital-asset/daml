@@ -9,6 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{InstanceReference, LocalInstanceReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.OwnerToKeyMapping
 
 trait TopologyManagementHelper { this: BaseTest =>
@@ -121,7 +122,7 @@ trait TopologyManagementHelper { this: BaseTest =>
     node.topology.namespace_delegations.propose_delegation(
       namespace,
       namespaceKey,
-      isRootDelegation = true,
+      CanSignAllMappings,
     )
 
     // assign new keys to this node. only participants need an encryption key,

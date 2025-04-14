@@ -84,18 +84,36 @@ import com.digitalasset.canton.topology.client.{
   IdentityProvidingServiceClient,
   SynchronizerTopologyClient,
 }
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, SynchronizerStore}
+import com.digitalasset.canton.topology.processing.{
+  EffectiveTime,
+  InitialTopologySnapshotValidator,
+  SequencedTime,
+}
+import com.digitalasset.canton.topology.store.TopologyStoreId.{
+  AuthorizedStore,
+  SynchronizerStore,
+  TemporaryStore,
+}
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
-import com.digitalasset.canton.topology.store.{InitializationStore, TopologyStore, TopologyStoreId}
+import com.digitalasset.canton.topology.store.{
+  InitializationStore,
+  StoredTopologyTransaction,
+  StoredTopologyTransactions,
+  TopologyStore,
+  TopologyStoreId,
+}
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.PositiveSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.{
+  DelegationRestriction,
   NamespaceDelegation,
   OwnerToKeyMapping,
   SignedTopologyTransaction,
   TopologyChangeOp,
   TopologyMapping,
-  ValidatingTopologyMappingChecks,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.{
@@ -103,6 +121,7 @@ import com.digitalasset.canton.util.{
   FutureUnlessShutdownUtil,
   MonadUtil,
   SimpleExecutionQueue,
+  SingleUseCell,
 }
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseProtocolVersion}
 import com.digitalasset.canton.watchdog.WatchdogService
@@ -141,6 +160,8 @@ trait CantonNodeBootstrap[+T <: CantonNode]
 
   def metrics: BaseMetrics
 
+  /** register trigger which can be fired if the declarative state change should be triggered */
+  def registerDeclarativeChangeTrigger(trigger: () => Unit): Unit
 }
 
 object CantonNodeBootstrap {
@@ -235,6 +256,12 @@ abstract class CantonNodeBootstrapImpl[
     loggerFactory,
     crashOnFailure = parameters.exitOnFatalFailures,
   )
+
+  protected val declarativeChangeTrigger = new SingleUseCell[() => Unit]()
+  protected def triggerDeclarativeChange(): Unit =
+    declarativeChangeTrigger.get.foreach(trigger => trigger())
+  override def registerDeclarativeChangeTrigger(trigger: () => Unit): Unit =
+    declarativeChangeTrigger.putIfAbsent(trigger).discard
 
   // This absolutely must be a "def", because it is used during class initialization.
   protected def connectionPoolForParticipant: Boolean = false
@@ -681,37 +708,36 @@ abstract class CantonNodeBootstrapImpl[
     ): EitherT[FutureUnlessShutdown, String, UniqueIdentifier] = {
       val temporaryTopologyStore =
         new InMemoryTopologyStore(
-          AuthorizedStore,
+          TemporaryStore.tryCreate(identifier),
           ProtocolVersion.latest,
           this.loggerFactory,
           this.timeouts,
         )
-      val processor = new TopologyStateProcessor(
-        store = temporaryTopologyStore,
-        outboxQueue = None,
-        topologyMappingChecks =
-          new ValidatingTopologyMappingChecks(temporaryTopologyStore, this.loggerFactory),
-        insecureIgnoreMissingExtraKeySignatures = false,
+
+      val snapshotValidator = new InitialTopologySnapshotValidator(
+        ProtocolVersion.latest,
         crypto.pureCrypto,
+        temporaryTopologyStore,
+        this.timeouts,
         this.loggerFactory,
       )
+
       for {
-        txs <- EitherT
-          .right(
-            processor.validateAndApplyAuthorization(
-              SequencedTime(CantonTimestamp.Epoch),
-              EffectiveTime(CantonTimestamp.Epoch),
-              transactions,
-              expectFullAuthorization = true,
+        // fails if one tx did not validate, they all must be valid
+        _ <- snapshotValidator.validateAndApplyInitialTopologySnapshot(
+          StoredTopologyTransactions(
+            transactions.map(tx =>
+              StoredTopologyTransaction(
+                sequenced = SequencedTime(CantonTimestamp.Epoch),
+                validFrom = EffectiveTime(CantonTimestamp.Epoch),
+                validUntil = None,
+                transaction = tx,
+                rejectionReason = None,
+              )
             )
           )
-          .map(_._1)
-        // fail if one tx did not validate, they all must be valid
-        _ <- EitherT.fromEither[FutureUnlessShutdown](
-          txs.find(_.rejectionReason.nonEmpty).toLeft(()).leftMap { failed =>
-            s"Failed to validate transaction ${failed.mapping} with reason ${failed.rejectionReason}"
-          }
         )
+
         // find namespaces in certs
         namespacesFromCert <- EitherT.fromEither[FutureUnlessShutdown](
           transactions.map(_.mapping).traverse {
@@ -1076,13 +1102,13 @@ abstract class CantonNodeBootstrapImpl[
     private def createNsd(
         rootNamespaceFp: Fingerprint,
         targetKey: SigningPublicKey,
-        isRootDelegation: Boolean,
+        delegationRestriction: DelegationRestriction,
     ): EitherT[FutureUnlessShutdown, String, Unit] = for {
       nsd <- EitherT.fromEither[FutureUnlessShutdown](
         NamespaceDelegation.create(
           Namespace(rootNamespaceFp),
           targetKey,
-          isRootDelegation = isRootDelegation,
+          delegationRestriction,
         )
       )
       _ <- authorizeStateUpdate(
@@ -1103,7 +1129,7 @@ abstract class CantonNodeBootstrapImpl[
             createNsd(
               rootTopologySingingKey.fingerprint,
               rootTopologySingingKey,
-              isRootDelegation = true,
+              CanSignAllMappings,
             )
           else EitherT.rightT[FutureUnlessShutdown, String](())
         // create intermediate certificate if desired
@@ -1121,7 +1147,7 @@ abstract class CantonNodeBootstrapImpl[
               _ <- createNsd(
                 rootTopologySingingKey.fingerprint,
                 intermediateKey,
-                isRootDelegation = false,
+                CanSignAllButNamespaceDelegations,
               )
             } yield intermediateKey
           } else EitherT.rightT[FutureUnlessShutdown, String](rootTopologySingingKey)

@@ -21,7 +21,13 @@ sealed trait CatchupDetector {
       node: BftNodeId,
       epochNumber: EpochNumber,
   ): Boolean
-  def shouldCatchUp(localEpoch: EpochNumber)(implicit traceContext: TraceContext): Boolean
+
+  /** If a node should start catching up, returns a minimum epoch number it should transfer to
+    * (without interruptions). Otherwise, None.
+    */
+  def shouldCatchUpTo(localEpoch: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): Option[EpochNumber]
 }
 
 final class DefaultCatchupDetector(
@@ -80,21 +86,30 @@ final class DefaultCatchupDetector(
     updated
   }
 
-  override def shouldCatchUp(
+  override def shouldCatchUpTo(
       localEpoch: EpochNumber
-  )(implicit traceContext: TraceContext): Boolean = {
-    val behindEnoughNodes =
-      latestKnownNodeEpochs.count { case (_, nodeEpoch) =>
-        nodeEpoch >= localEpoch + MinimumEpochDeltaToTriggerCatchUp
-      } >= membership.orderingTopology.weakQuorum
+  )(implicit traceContext: TraceContext): Option[EpochNumber] = {
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    var aheadNodesNeeded = membership.orderingTopology.weakQuorum
+    val latestEpochNumberThatHasWeakQuorum =
+      latestKnownNodeEpochs
+        .groupBy { case (_, epochNumber) => epochNumber }
+        .view
+        .mapValues(_.size)
+        .toSeq
+        .sortBy { case (epochNumber, _) => -epochNumber }
+        .foldLeft(EpochNumber.First) { case (acc, (epochNumber, nodes)) =>
+          aheadNodesNeeded -= nodes
+          if (aheadNodesNeeded > 0) acc else epochNumber
+        }
 
-    if (behindEnoughNodes) {
+    if (latestEpochNumberThatHasWeakQuorum >= localEpoch + MinimumEpochDeltaToTriggerCatchUp) {
       logger.debug(
         s"Detected need for catch-up state transfer while in epoch $localEpoch; epochs are $latestKnownNodeEpochs"
       )
-    }
-
-    behindEnoughNodes
+      // Take -1 because the latest one may be in progress
+      Some(EpochNumber(latestEpochNumberThatHasWeakQuorum - 1))
+    } else None
   }
 }
 

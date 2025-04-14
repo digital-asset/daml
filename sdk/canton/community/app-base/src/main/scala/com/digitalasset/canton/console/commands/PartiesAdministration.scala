@@ -18,6 +18,7 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{
+  AddPartyStatus,
   ListConnectedSynchronizersResult,
   ListPartiesResult,
   PartyDetails,
@@ -358,7 +359,7 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Summary("Add a previously existing party to the local participant", FeatureFlag.Preview)
   @Help.Description(
     """Initiate adding a previously existing party to this participant on the specified synchronizer.
-      |Performs some checks synchronously and then initiates party replication asynchronously. The returned `id`
+      |Performs some checks synchronously and then initiates party replication asynchronously. The returned `addPartyRequestId`
       |parameter allows identifying asynchronous progress and errors."""
   )
   def add_party_async(
@@ -375,6 +376,19 @@ class ParticipantPartiesAdministrationGroup(
           sourceParticipant,
           serial,
         )
+      )
+    }
+  }
+
+  @Help.Summary("Obtain status on a pending `add_party_async` call", FeatureFlag.Preview)
+  @Help.Description(
+    """Retrieve status information on a party previously added via the `add_party_async` endpoint
+      |by specifying the previously returned `addPartyRequestId` parameter."""
+  )
+  def get_add_party_status(addPartyRequestId: String): AddPartyStatus = check(FeatureFlag.Preview) {
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.GetAddPartyStatus(addPartyRequestId)
       )
     }
   }

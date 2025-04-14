@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.store
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
@@ -22,7 +23,6 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
@@ -58,8 +58,9 @@ import scala.reflect.ClassTag
 
 sealed trait TopologyStoreId extends PrettyPrinting with Product with Serializable {
   def dbString: LengthLimitedString
-  def isAuthorizedStore: Boolean
-  def isSynchronizerStore: Boolean
+  def isAuthorizedStore: Boolean = false
+  def isSynchronizerStore: Boolean = false
+  def isTemporaryStore: Boolean = false
 }
 
 object TopologyStoreId {
@@ -75,7 +76,6 @@ object TopologyStoreId {
     override protected def pretty: Pretty[this.type] =
       prettyOfParam(_.synchronizerId)
 
-    override def isAuthorizedStore: Boolean = false
     override def isSynchronizerStore: Boolean = true
   }
 
@@ -89,15 +89,12 @@ object TopologyStoreId {
     )
 
     override def isAuthorizedStore: Boolean = true
-    override def isSynchronizerStore: Boolean = false
   }
 
   final case class TemporaryStore(name: String185) extends TopologyStoreId {
     override def dbString: LengthLimitedString = TemporaryStore.withTempMarker(name)
 
-    override def isAuthorizedStore: Boolean = false
-
-    override def isSynchronizerStore: Boolean = false
+    override def isTemporaryStore: Boolean = true
 
     override protected def pretty: Pretty[TemporaryStore.this.type] =
       prettyOfString(_.dbString.unwrap)
@@ -111,9 +108,11 @@ object TopologyStoreId {
     private[TemporaryStore] def withTempMarker(name: String185): String185 =
       String185.tryCreate(s"$prefix$name$suffix")
 
-    def create(name: String): ParsingResult[TemporaryStore] =
-      ProtoConverter.parseLengthLimitedString(String185, name).map(TemporaryStore(_))
+    def create(name: String): Either[String, TemporaryStore] =
+      String185.create(name).map(TemporaryStore(_))
 
+    def tryCreate(name: String): TemporaryStore =
+      create(name).valueOr(err => throw new IllegalArgumentException(err))
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))

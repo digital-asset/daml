@@ -68,7 +68,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val unassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
-        cid.toLf,
+        Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )
@@ -134,7 +134,7 @@ sealed trait RollbackUnassignmentIntegrationTest
 
     val (unassigned, _) = participant1.ledger_api.commands.submit_reassign(
       alice,
-      cid.toLf,
+      Seq(cid.toLf),
       source = acmeId,
       target = daId,
     )
@@ -176,7 +176,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val unassignmentId = participant1.ledger_api.commands
       .submit_reassign(
         alice,
-        cid.toLf,
+        Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )
@@ -202,7 +202,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val unassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
-        cid.toLf,
+        Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )

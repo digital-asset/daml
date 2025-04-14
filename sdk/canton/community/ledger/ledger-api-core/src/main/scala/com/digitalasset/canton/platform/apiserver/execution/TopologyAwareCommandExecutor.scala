@@ -36,11 +36,13 @@ import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.engine.Error.{Package, Preprocessing}
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
 
-import scala.collection.View
 import scala.collection.immutable.SortedSet
+import scala.collection.{MapView, View, mutable}
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
+// TODO(#23334): Consider introducing performance observability metrics
+//               due to the high computational complexity of the algorithm
 /** Command executor that performs the topology-aware package selection algorithm for command
   * interpretation.
   *
@@ -73,7 +75,6 @@ private[execution] class TopologyAwareCommandExecutor(
 
     val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
 
-    def logDebug(msg: String): Unit = logger.debug(s"Phase 1: $msg")
     val pkgSelectionDesc = "topology-aware package selection command processing"
 
     val userSpecifiedPreferenceMap: Map[LfPackageName, SortedSet[OrderablePackageId]] =
@@ -147,6 +148,7 @@ private[execution] class TopologyAwareCommandExecutor(
             routingSynchronizerState = routingSynchronizerState,
           )
         )
+      _ = logTrace(s"Using package preference set for pass 1: $packagePreferenceSetPass1")
       commandsWithPackageSelectionForPass1 =
         commands.copy(packagePreferenceSet = packagePreferenceSetPass1)
       commandInterpretationResult <- EitherT(
@@ -210,10 +212,12 @@ private[execution] class TopologyAwareCommandExecutor(
           routingSynchronizerState = routingSynchronizerState,
         )
       )
-      (preselectedSynchronizerId, packagePreferenceSet) = preselectedSynchronizerAndPreferenceSet
+      (preselectedSynchronizerId, packagePreferenceSetPass2) =
+        preselectedSynchronizerAndPreferenceSet
+      _ = logTrace(s"Using package preference set for pass 2: $packagePreferenceSetPass2")
       interpretationResult <- EitherT(
         commandInterpreter.interpret(
-          commands.copy(packagePreferenceSet = packagePreferenceSet),
+          commands.copy(packagePreferenceSet = packagePreferenceSetPass2),
           submissionSeed,
         )
       ).leftMap(refinePackageNotFoundError(_, packageMetadataSnapshot.packageNameMap.keySet))
@@ -336,7 +340,7 @@ private[execution] class TopologyAwareCommandExecutor(
       forExternallySigned: Boolean,
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
-      tc: TraceContext
+      loggingContextWithTrace: LoggingContextWithTrace
   ): FutureUnlessShutdown[(SynchronizerId, Set[LfPackageId])] = {
     val draftTransaction = interpretationResultFromPass1.transaction.transaction
     val knownPackagesMap: Map[PackageId, (PackageName, canton.LfPackageVersion)] =
@@ -397,8 +401,12 @@ private[execution] class TopologyAwareCommandExecutor(
       draftPartyPackages: Map[LfPartyId, Set[LfPackageName]],
       userSpecifiedPreferenceMap: Map[LfPackageName, SortedSet[OrderablePackageId]],
   )(implicit
-      tc: TraceContext
+      loggingContextWithTrace: LoggingContextWithTrace
   ): FutureUnlessShutdown[NonEmpty[Map[SynchronizerId, Set[LfPackageId]]]] = {
+    logTrace(
+      s"Computing per-synchronizer package preference sets using the draft transaction's party-packages ($draftPartyPackages)"
+    )
+
     val syncsPartiesPackagePreferencesMap: Map[
       SynchronizerId,
       Map[LfPartyId, Map[LfPackageName, SortedSet[OrderablePackageId]]],
@@ -415,16 +423,23 @@ private[execution] class TopologyAwareCommandExecutor(
     ] =
       syncsPartiesPackagePreferencesMap.filter {
         case (
-              _syncId,
+              syncId,
               partiesPackageMap: Map[LfPartyId, Map[LfPackageName, SortedSet[
                 OrderablePackageId
               ]]],
             ) =>
-          draftPartyPackages.forall { case (party, draftPackageNamesForParty) =>
-            partiesPackageMap
-              .get(party)
-              .exists(packageMap => draftPackageNamesForParty.subsetOf(packageMap.keySet))
-          }
+          draftPartyPackages
+            .forall { case (party, draftPackageNamesForParty: Set[LfPackageName]) =>
+              partiesPackageMap
+                .get(party)
+                .exists(packageMap => draftPackageNamesForParty.subsetOf(packageMap.keySet))
+            }
+            .tap { synchronizerValid =>
+              if (!synchronizerValid)
+                logTrace(
+                  s"Synchronizer $syncId discarded: the draft transaction's party-packages do not satisfy the topology-based package map ($partiesPackageMap)"
+                )
+            }
       }
 
     val perSynchronizerPreferenceSet = syncsPartiesPackageMapAfterDraftIntersection.view
@@ -441,21 +456,26 @@ private[execution] class TopologyAwareCommandExecutor(
               : Map[LfPackageName, SortedSet[OrderablePackageId]] =
             partyPackagesTopology.view.values.flatten.groupMapReduce(_._1)(_._2)(_ intersect _)
 
-          // If an package preference set intersection for any package name for a synchronizer ultimately leads to 0,
-          // the synchronizer should be discarded
+          // If a package preference set intersection for any package name for a synchronizer ultimately leads to 0,
+          // the synchronizer is discarded
           View(topologyAndDraftTransactionBasedPackageMap)
-            .filterNot(_.exists(_._2.isEmpty))
+            .filterNot { packageMap =>
+              val hasEmptyPreferenceForPackageName = packageMap.exists(_._2.isEmpty)
+              if (hasEmptyPreferenceForPackageName)
+                logTrace(
+                  s"Synchronizer $syncId discarded: empty package preference after party dimension reduction for package-name $packageMap"
+                )
+              hasEmptyPreferenceForPackageName
+            }
             .map(syncId -> _)
       }
-      .map { case (syncId, topologyAndDraftTransactionBasedPackageMap) =>
-        syncId -> topologyAndDraftTransactionBasedPackageMap.view.map {
-          case (pkgName, topologyBasedPreferenceSetForPkgName) =>
-            mergeWithUserBasedPreferenceAndPickHighest(
-              userSpecifiedPreferenceMap,
-              pkgName,
-              topologyBasedPreferenceSetForPkgName,
-            )
-        }.toSet
+      .flatMap { case (syncId, topologyAndDraftTransactionBasedPackageMap) =>
+        pickVersionsWithRestrictions(
+          synchronizerId = syncId,
+          draftTransactionPackages = draftPartyPackages.values.flatten.toSet,
+          topologyPackageMap = topologyAndDraftTransactionBasedPackageMap,
+          userSpecifiedPreferenceMap = userSpecifiedPreferenceMap,
+        )
       }
       .toMap
 
@@ -471,6 +491,80 @@ private[execution] class TopologyAwareCommandExecutor(
             .asGrpcError
         )
       )
+  }
+
+  private def pickVersionsWithRestrictions(
+      synchronizerId: SynchronizerId,
+      draftTransactionPackages: Set[LfPackageName],
+      topologyPackageMap: Map[LfPackageName, SortedSet[OrderablePackageId]],
+      userSpecifiedPreferenceMap: Map[LfPackageName, SortedSet[OrderablePackageId]],
+  )(implicit
+      loggingContextWithTrace: LoggingContextWithTrace
+  ): Option[(SynchronizerId, Set[LfPackageId])] = {
+    val packageMapAfterDepsVettingRestrictions
+        : MapView[LfPackageName, SortedSet[OrderablePackageId]] =
+      preserveOnlyPackagesWithAllDependenciesVetted(topologyPackageMap)
+
+    val allDraftTxPackageNamesHaveCandidates = !packageMapAfterDepsVettingRestrictions.exists {
+      case (pkgName, candidatesView) => draftTransactionPackages(pkgName) && candidatesView.isEmpty
+    }
+
+    def preferenceSetWithUserPrefs: Set[LfPackageId] =
+      packageMapAfterDepsVettingRestrictions.flatMap { case (packageName, candidates) =>
+        // Discard package-names with no candidates
+        Option
+          .when(candidates.nonEmpty)(
+            mergeWithUserBasedPreferenceAndPickHighest(
+              userSpecifiedPreferenceMap = userSpecifiedPreferenceMap,
+              pkgName = packageName,
+              topologyBasedPreferenceSetForPkgName = SortedSet.from(candidates),
+            )
+          )
+          .tap {
+            case None =>
+              logTrace(
+                s"Discarding package-name $packageName: no candidates after dependency vetting restrictions"
+              )
+            case Some(_) => ()
+          }
+          .toList
+      }.toSet
+
+    // If there are package-names referred in the draft transaction without vetted package-id candidates, discard synchronizer
+    Option
+      .when(allDraftTxPackageNamesHaveCandidates)(synchronizerId -> preferenceSetWithUserPrefs)
+      .tap {
+        case None =>
+          logTrace(
+            s"Synchronizer $synchronizerId discarded: package-name appearing in draft transaction but without candidates after dependency vetting restrictions ($packageMapAfterDepsVettingRestrictions)"
+          )
+        case Some(_) => ()
+      }
+  }
+
+  private def preserveOnlyPackagesWithAllDependenciesVetted(
+      topologyPackageMap: Map[LfPackageName, SortedSet[OrderablePackageId]]
+  )(implicit
+      loggingContextWithTrace: LoggingContextWithTrace
+  ): MapView[LfPackageName, SortedSet[OrderablePackageId]] = {
+    val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
+    val dependencyGraph: Map[PackageId, Set[PackageId]] =
+      packageMetadataSnapshot.packages.view.mapValues(_.directDeps).toMap
+
+    val allVettedPackages = topologyPackageMap.view.values.flatMap(_.map(_.pkdId)).toSet
+
+    val allDepsVettedForCached: mutable.Map[LfPackageId, Boolean] = mutable.Map.empty
+
+    // Note: Keeping it simple without tailrec since the dependency graph depth should be limited
+    def allDepsVettedFor(pkgId: LfPackageId): Boolean = {
+      val dependencies = dependencyGraph(pkgId)
+
+      dependencies.subsetOf(allVettedPackages) &&
+      dependencies.forall(dep => allDepsVettedForCached.getOrElseUpdate(dep, allDepsVettedFor(dep)))
+    }
+
+    // For each package-name from the topology package map, validate that all its dependencies are vetted
+    topologyPackageMap.view.mapValues(_.filter(pkg => allDepsVettedFor(pkg.pkdId)))
   }
 
   private def toOrderedPackagePreferenceMap(
@@ -515,6 +609,14 @@ private[execution] class TopologyAwareCommandExecutor(
 
       case other => other
     }
+
+  private def logDebug(msg: => String)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Unit = logger.debug(s"Phase 1: $msg")
+
+  private def logTrace(msg: => String)(implicit
+      loggingContextWithTrace: LoggingContextWithTrace
+  ): Unit = logger.trace(s"Phase 1: $msg")
 }
 
 private[execution] object TopologyAwareCommandExecutor {

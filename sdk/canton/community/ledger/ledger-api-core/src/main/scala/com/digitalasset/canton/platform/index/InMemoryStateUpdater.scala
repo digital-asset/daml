@@ -283,7 +283,8 @@ private[platform] object InMemoryStateUpdater {
     }
     // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
     // it is expected to be okay to run these in repair mode, as repair operations are not related to tracking
-    trackSubmissions(inMemoryState.submissionTracker, result.updates)
+    trackTransactionSubmissions(inMemoryState.transactionSubmissionTracker, result.updates)
+    trackReassignmentSubmissions(inMemoryState.reassignmentSubmissionTracker, result.updates)
     // can be done at any point in the pipeline, it is for debugging only
     trackCommandProgress(inMemoryState.commandProgressTracker, result.updates)
 
@@ -294,7 +295,7 @@ private[platform] object InMemoryStateUpdater {
     )
   }
 
-  private def trackSubmissions(
+  private def trackTransactionSubmissions(
       submissionTracker: SubmissionTracker,
       updates: Vector[TransactionLogUpdate],
   ): Unit =
@@ -305,6 +306,21 @@ private[platform] object InMemoryStateUpdater {
 
         case txRejected: TransactionLogUpdate.TransactionRejected =>
           Some(txRejected.completionStreamResponse)
+      }
+      .flatten
+      .foreach(submissionTracker.onCompletion)
+
+  private def trackReassignmentSubmissions(
+      submissionTracker: SubmissionTracker,
+      updates: Vector[TransactionLogUpdate],
+  ): Unit =
+    updates.view
+      .collect {
+        case txRejected: TransactionLogUpdate.TransactionRejected =>
+          Some(txRejected.completionStreamResponse)
+
+        case reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted =>
+          reassignmentAccepted.completionStreamResponse
       }
       .flatten
       .foreach(submissionTracker.onCompletion)

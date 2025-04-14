@@ -108,7 +108,7 @@ sealed trait MultipleProtocolVersionReassignmentIntegrationTest
     )
 
     def executeReassignment(): Unit =
-      participant1.ledger_api.commands.submit_reassign(party, cid1, sourceId, targetId)
+      participant1.ledger_api.commands.submit_reassign(party, Seq(cid1), sourceId, targetId)
 
     executeReassignment()
 

@@ -4,12 +4,14 @@
 package com.digitalasset.canton.ledger.api
 
 import com.daml.ledger.api.v2.command_service.{
+  SubmitAndWaitForReassignmentRequest,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v2.command_submission_service.SubmitRequest
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommands
 import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
 import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters, TransactionFormat}
 import com.google.protobuf.timestamp.Timestamp
@@ -41,21 +43,34 @@ object MockMessages {
       prefetchContractKeys = Nil,
     )
 
+  val reassignmentCommands: ReassignmentCommands =
+    ReassignmentCommands(
+      workflowId = workflowId,
+      userId = userId,
+      submitter = party,
+      commandId = commandId,
+      submissionId = "",
+      commands = Nil,
+    )
+
   val submitRequest: SubmitRequest = SubmitRequest(Some(commands))
 
+  private val eventFormat =
+    EventFormat(
+      filtersByParty = Map(party -> Filters(cumulative = Nil)),
+      filtersForAnyParty = None,
+      verbose = true,
+    )
+
   private val transactionFormat = TransactionFormat(
-    eventFormat = Some(
-      EventFormat(
-        filtersByParty = Map(party -> Filters(cumulative = Nil)),
-        filtersForAnyParty = None,
-        verbose = true,
-      )
-    ),
+    eventFormat = Some(eventFormat),
     transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
   )
 
   val submitAndWaitRequest: SubmitAndWaitRequest = SubmitAndWaitRequest(Some(commands))
   val submitAndWaitForTransactionRequest: SubmitAndWaitForTransactionRequest =
     SubmitAndWaitForTransactionRequest(Some(commands), Some(transactionFormat))
+  val submitAndWaitForReassignmentRequest: SubmitAndWaitForReassignmentRequest =
+    SubmitAndWaitForReassignmentRequest(Some(reassignmentCommands), Some(eventFormat))
 
 }
