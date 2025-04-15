@@ -1422,7 +1422,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         targs: ImmArray[(Option[Name], Value)],
     ) =
       assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = basicTestsPkg.pkgName,
           template = TypeConName(basicTestsPkgId, tid),
           arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
@@ -1565,7 +1565,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     val fetchedContract =
       assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = basicTestsPkg.pkgName,
           template = TypeConName(basicTestsPkgId, fetchedStrTid),
           arg = ValueRecord(
@@ -1613,7 +1613,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val lookerUpCid = toContractId("2")
     val lookerUpInst =
       assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = basicTestsPkg.pkgName,
           template = TypeConName(basicTestsPkgId, lookerUpTemplate),
           arg =
@@ -1960,7 +1960,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val fetcherTemplateId = Identifier(basicTestsPkgId, fetcherTemplate)
       val fetcherCid = toContractId("2")
       val fetcherInst = assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = basicTestsPkg.pkgName,
           template = TypeConName(basicTestsPkgId, fetcherTemplate),
           arg = ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
@@ -2029,7 +2029,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val cid = toContractId("BasicTests:WithKey:1")
     val fetcherCid = toContractId("42")
     val fetcherInst = assertAsVersionedContract(
-      ContractInstance(
+      ThinContractInstance(
         packageName = basicTestsPkg.pkgName,
         template = fetcherId,
         arg = ValueRecord(
@@ -2209,7 +2209,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val cid = toContractId("1")
     val contracts = Map(
       cid -> assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = exceptionsPkg.pkgName,
           template = TypeConName(exceptionsPkgId, "Exceptions:K"),
           arg = ValueRecord(
@@ -2360,7 +2360,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val cid = toContractId("1")
     val contracts = Map(
       cid -> assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = exceptionsPkg.pkgName,
           template = TypeConName(exceptionsPkgId, "Exceptions:K"),
           arg = ValueRecord(
@@ -2439,7 +2439,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     val cid = toContractId("1")
     val contracts = Map(
       cid -> assertAsVersionedContract(
-        ContractInstance(
+        ThinContractInstance(
           packageName = exceptionsPkg.pkgName,
           template = TypeConName(exceptionsPkgId, "Exceptions:K"),
           arg = ValueRecord(
@@ -2667,7 +2667,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
   val withKeyContractInst: VersionedContractInstance =
     assertAsVersionedContract(
-      ContractInstance(
+      ThinContractInstance(
         packageName = basicTestsPkg.pkgName,
         template = TypeConName(basicTestsPkgId, withKeyTemplate),
         arg = ValueRecord(
@@ -2684,7 +2684,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     Map(
       toContractId("BasicTests:Simple:1") ->
         assertAsVersionedContract(
-          ContractInstance(
+          ThinContractInstance(
             packageName = basicTestsPkg.pkgName,
             template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
             arg = ValueRecord(
@@ -2695,7 +2695,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         ),
       toContractId("BasicTests:CallablePayout:1") ->
         assertAsVersionedContract(
-          ContractInstance(
+          ThinContractInstance(
             packageName = basicTestsPkg.pkgName,
             template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
             arg = ValueRecord(

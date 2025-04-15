@@ -26,7 +26,7 @@ import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, TransactionVe
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
-  ContractInstance,
+  ThinContractInstance,
   ValueContractId,
   ValueList,
   ValueParty,
@@ -76,7 +76,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private def t1InstanceFor(party: Party): VersionedContractInstance =
     Versioned(
       TransactionVersion.VDev,
-      ContractInstance(
+      ThinContractInstance(
         pkg.pkgName,
         "T1",
         ValueRecord(
@@ -89,7 +89,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   private def x1InstanceFor(party: Party): VersionedContractInstance =
     Versioned(
       TransactionVersion.VDev,
-      ContractInstance(
+      ThinContractInstance(
         pkg.pkgName,
         "X1",
         ValueRecord(

@@ -1326,7 +1326,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               )
               val globalContract = Versioned(
                 version = TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
+                Value.ThinContractInstance(
                   packageName = templateDefsV1Pkg.pkgName,
                   template = templateId,
                   arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
