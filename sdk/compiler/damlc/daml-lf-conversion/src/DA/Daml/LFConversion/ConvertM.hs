@@ -18,7 +18,7 @@ module DA.Daml.LFConversion.ConvertM (
     StandaloneError(..),
     ErrorOrWarning(..),
     InvalidInterfaceError(..),
-    warningFlagParserLFConversion,
+    warningFlagParser,
   ) where
 
 import           DA.Daml.LFConversion.Errors

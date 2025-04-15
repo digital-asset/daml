@@ -27,7 +27,7 @@ module DA.Daml.LF.TypeChecker.Error(
     upgradeInterfacesFlagSpec,
     upgradeExceptionsFlagSpec,
     templateInterfaceDependsOnScriptFlagSpec,
-    warningFlagParserTypeChecker,
+    warningFlagParser,
     mkWarningFlags,
     combineParsers
     ) where
@@ -340,8 +340,8 @@ instance Pretty ErrorOrWarning where
         ]
     pprintDep (pkgId, meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
 
-warningFlagParserTypeChecker :: WarningFlagParser ErrorOrWarning
-warningFlagParserTypeChecker = mkWarningFlagParser
+warningFlagParser :: WarningFlagParser ErrorOrWarning
+warningFlagParser = mkWarningFlagParser
   (\case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
       WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
@@ -586,7 +586,7 @@ instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
     EErrorOrWarning err ->
-      case dwfpSuggestFlag warningFlagParserTypeChecker err of
+      case dwfpSuggestFlag warningFlagParser err of
         Just name ->
           vcat
             [ pPrint err
@@ -995,7 +995,7 @@ instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
     WErrorToWarning err ->
-      case dwfpSuggestFlag warningFlagParserTypeChecker err of
+      case dwfpSuggestFlag warningFlagParser err of
         Just name ->
           vcat
             [ pPrint err

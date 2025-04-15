@@ -579,7 +579,7 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         idm
 
     optWarningFlags :: Parser (WarningFlags InlineDamlCustomWarnings, WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags LFConversion.ErrorOrWarning)
-    optWarningFlags = splitWarningFlags <$> runParser warningFlagParser
+    optWarningFlags = splitWarningFlags <$> runParser allWarningFlagParsers
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do

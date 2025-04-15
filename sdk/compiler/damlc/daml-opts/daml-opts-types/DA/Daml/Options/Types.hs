@@ -41,11 +41,9 @@ module DA.Daml.Options.Types
     , defaultUiWarnBadInterfaceInstances
     , defaultUiWarnBadExceptions
     , defaultUpgradeInfo
-    , warningFlagParser
-    , inlineDamlCustomWarningsParser
+    , allWarningFlagParsers
+    , warningFlagParserInlineDamlCustom
     , inlineDamlCustomWarningToGhcFlag
-    , TypeCheckerError.warningFlagParserTypeChecker
-    , LFConversion.warningFlagParserLFConversion
     , InlineDamlCustomWarnings (..)
     ) where
 
@@ -156,8 +154,8 @@ data InlineDamlCustomWarnings
   = DisableDeprecatedExceptions
   deriving (Enum, Bounded, Ord, Eq, Show)
 
-inlineDamlCustomWarningsParser :: WarningFlags.WarningFlagParser InlineDamlCustomWarnings
-inlineDamlCustomWarningsParser = WarningFlags.mkWarningFlagParser
+warningFlagParserInlineDamlCustom :: WarningFlags.WarningFlagParser InlineDamlCustomWarnings
+warningFlagParserInlineDamlCustom = WarningFlags.mkWarningFlagParser
   (\case
     DisableDeprecatedExceptions -> WarningFlags.AsWarning)
   [ WarningFlags.WarningFlagSpec "deprecated-exceptions" True $ \case
@@ -176,12 +174,12 @@ inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
         WarningFlags.AsWarning -> "-W" <> toName inlineWarning
         WarningFlags.Hidden -> "-Wno-" <> toName inlineWarning
 
-warningFlagParser :: WarningFlags.WarningFlagParsers '[InlineDamlCustomWarnings, TypeCheckerError.ErrorOrWarning, LFConversion.ErrorOrWarning]
-warningFlagParser =
+allWarningFlagParsers :: WarningFlags.WarningFlagParsers '[InlineDamlCustomWarnings, TypeCheckerError.ErrorOrWarning, LFConversion.ErrorOrWarning]
+allWarningFlagParsers =
   WarningFlags.combineParsers
-    ( inlineDamlCustomWarningsParser
-    , TypeCheckerError.warningFlagParserTypeChecker
-    , LFConversion.warningFlagParserLFConversion
+    ( warningFlagParserInlineDamlCustom
+    , TypeCheckerError.warningFlagParser
+    , LFConversion.warningFlagParser
     )
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
@@ -327,9 +325,9 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
-        , optTypecheckerWarningFlags = WarningFlags.mkWarningFlags TypeCheckerError.warningFlagParserTypeChecker []
-        , optLfConversionWarningFlags = WarningFlags.mkWarningFlags LFConversion.warningFlagParserLFConversion []
-        , optInlineDamlCustomWarningFlags = WarningFlags.mkWarningFlags inlineDamlCustomWarningsParser []
+        , optTypecheckerWarningFlags = WarningFlags.mkWarningFlags TypeCheckerError.warningFlagParser []
+        , optLfConversionWarningFlags = WarningFlags.mkWarningFlags LFConversion.warningFlagParser []
+        , optInlineDamlCustomWarningFlags = WarningFlags.mkWarningFlags warningFlagParserInlineDamlCustom []
         , optIgnoreDataDepVisibility = IgnoreDataDepVisibility False
         , optForceUtilityPackage = ForceUtilityPackage False
         }
