@@ -1,10 +1,7 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
@@ -148,15 +145,15 @@ class ProductTupleIso xs tuple | xs -> tuple, tuple -> xs where
 
 instance ProductTupleIso '[a, b] (a, b) where
   toTuple (ProdT a (ProdT b ProdZ)) = (a, b)
-  fromTuple (a, b) = (ProdT a (ProdT b ProdZ))
+  fromTuple (a, b) = ProdT a (ProdT b ProdZ)
 
 instance ProductTupleIso '[a, b, c] (a, b, c) where
   toTuple (ProdT a (ProdT b (ProdT c ProdZ))) = (a, b, c)
-  fromTuple (a, b, c) = (ProdT a (ProdT b (ProdT c ProdZ)))
+  fromTuple (a, b, c) = ProdT a (ProdT b (ProdT c ProdZ))
 
 instance ProductTupleIso '[a, b, c, d] (a, b, c, d) where
   toTuple (ProdT a (ProdT b (ProdT c (ProdT d ProdZ)))) = (a, b, c, d)
-  fromTuple (a, b, c, d) = (ProdT a (ProdT b (ProdT c (ProdT d ProdZ))))
+  fromTuple (a, b, c, d) = ProdT a (ProdT b (ProdT c (ProdT d ProdZ)))
 
 data Sum (rest :: [Type]) where
   SumL :: a -> Sum (a ': xs)
