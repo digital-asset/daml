@@ -2,6 +2,43 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- | This module defines the logic around flags
+--
+-- A parser for a set of warning flags for warnings of type `err` is a
+-- `WarningFlagParser err`. It is constructed using `mkWarningFlagParser`, which
+-- takes multiple WarningFlagSpecs (one for each flag), and a total function
+-- which defines a default value for each possible warning (`dwfpDefault`).
+--
+-- The WarningFlagSpec specifies the name of a flag (`wfsName`), whether it
+-- should show up in the help (`wfsHidden`), and which errs it targets
+-- (`wfsFilter`). This lets a flag to target multiple possible warnings - for
+-- example, the `upgraded-template-expression-changed` affects the warning level
+-- for the following warnings:
+--   WEUpgradedTemplateChangedPrecondition,
+--   WEUpgradedTemplateChangedSignatories,
+--   WEUpgradedTemplateChangedObservers,
+--   WEUpgradedTemplateChangedAgreement,
+--   WEUpgradedTemplateChangedKeyExpression,
+--   WEUpgradedTemplateChangedKeyMaintainers
+--
+-- The `WarningFlagParser err` parses flags according to its specs from the
+-- command line to produce a `WarningFlags err` datatype - this datatype
+-- contains the same default function, and generates a WarningFlag for each flag
+-- that was specified on the command line. WarningFlag datatype copies verbatim
+-- the name and filter from the WarningFlagSpec that it originates from, along
+-- with the warning level that was specified.
+--
+-- The `WarningFlags err` datatype can be queried with `getWarningStatus` to get
+-- the WarningFlagStatus for any warning of type `err`. If the user specified
+-- the warning level for a flag which matches the warning, that warning level
+-- will be returned. If no flag was specified matching the warning, the
+-- warning's default level will be returned from `dwfDefault`.
+--
+-- A tuple of N WarningFlagParsers can be combined with combineParsers to
+-- produce a parser that will parse flags which match `Sum [err1, err2, ..., errN]`.
+-- The resulting `WarningFlags (Sum [err1, ..., errN])` can be split into a
+-- tuple of N new WarningFlags datatypes for each error type:
+-- `(WarningFlags err1, WarningFlags err2, ..., WarningFlags errN)`
+
 module DA.Daml.LF.TypeChecker.Error.WarningFlags (
         module DA.Daml.LF.TypeChecker.Error.WarningFlags
     ) where
