@@ -586,7 +586,7 @@ instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
     EErrorOrWarning err ->
-      case dwfpSuggestFlag warningFlagParser err of
+      case wfpSuggestFlag warningFlagParser err of
         Just name ->
           vcat
             [ pPrint err
@@ -995,7 +995,7 @@ instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
     WErrorToWarning err ->
-      case dwfpSuggestFlag warningFlagParser err of
+      case wfpSuggestFlag warningFlagParser err of
         Just name ->
           vcat
             [ pPrint err
