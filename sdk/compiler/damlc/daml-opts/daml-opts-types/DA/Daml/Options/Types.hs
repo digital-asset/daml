@@ -63,6 +63,7 @@ import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
 import System.FilePath
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import Data.HList
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 import qualified DA.Daml.LFConversion.Errors as LFConversion
 import DA.Daml.LF.TypeChecker.Upgrade (UpgradeInfo(..))
@@ -177,10 +178,9 @@ inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
 allWarningFlagParsers :: WarningFlags.WarningFlagParsers '[InlineDamlCustomWarnings, TypeCheckerError.ErrorOrWarning, LFConversion.ErrorOrWarning]
 allWarningFlagParsers =
   WarningFlags.combineParsers
-    ( warningFlagParserInlineDamlCustom
-    , TypeCheckerError.warningFlagParser
-    , LFConversion.warningFlagParser
-    )
+    (ProdT warningFlagParserInlineDamlCustom
+      (ProdT TypeCheckerError.warningFlagParser
+        (ProdT LFConversion.warningFlagParser ProdZ)))
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show

@@ -1,7 +1,6 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE DataKinds #-}
@@ -20,46 +19,6 @@ import Data.Functor.Contravariant
 data Product (xs :: [Type]) where
   ProdZ :: Product '[]
   ProdT :: a -> Product xs -> Product (a ': xs)
-
-class ProductTupleIso xs tuple | xs -> tuple, tuple -> xs where
-  toTuple :: Product xs -> tuple
-  fromTuple :: tuple -> Product xs
-
-instance ProductTupleIso '[x1, x2] (x1, x2) where
-  toTuple (ProdT x1 (ProdT x2 ProdZ)) = (x1, x2)
-  fromTuple (x1, x2) = ProdT x1 (ProdT x2 ProdZ)
-
-instance ProductTupleIso '[x1, x2, x3] (x1, x2, x3) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 ProdZ))) = (x1, x2, x3)
-  fromTuple (x1, x2, x3) = ProdT x1 (ProdT x2 (ProdT x3 ProdZ))
-
-instance ProductTupleIso '[x1, x2, x3, x4] (x1, x2, x3, x4) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 ProdZ)))) = (x1, x2, x3, x4)
-  fromTuple (x1, x2, x3, x4) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 ProdZ)))
-
-instance ProductTupleIso '[x1, x2, x3, x4, x5] (x1, x2, x3, x4, x5) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 ProdZ))))) = (x1, x2, x3, x4, x5)
-  fromTuple (x1, x2, x3, x4, x5) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 ProdZ))))
-
-instance ProductTupleIso '[x1, x2, x3, x4, x5, x6] (x1, x2, x3, x4, x5, x6) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 ProdZ)))))) = (x1, x2, x3, x4, x5, x6)
-  fromTuple (x1, x2, x3, x4, x5, x6) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 ProdZ)))))
-
-instance ProductTupleIso '[x1, x2, x3, x4, x5, x6, x7] (x1, x2, x3, x4, x5, x6, x7) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 ProdZ))))))) = (x1, x2, x3, x4, x5, x6, x7)
-  fromTuple (x1, x2, x3, x4, x5, x6, x7) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 ProdZ))))))
-
-instance ProductTupleIso '[x1, x2, x3, x4, x5, x6, x7, x8] (x1, x2, x3, x4, x5, x6, x7, x8) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 (ProdT x8 ProdZ)))))))) = (x1, x2, x3, x4, x5, x6, x7, x8)
-  fromTuple (x1, x2, x3, x4, x5, x6, x7, x8) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 (ProdT x8 ProdZ)))))))
-
-instance ProductTupleIso '[x1, x2, x3, x4, x5, x6, x7, x8, x9] (x1, x2, x3, x4, x5, x6, x7, x8, x9) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 (ProdT x8 (ProdT x9 ProdZ))))))))) = (x1, x2, x3, x4, x5, x6, x7, x8, x9)
-  fromTuple (x1, x2, x3, x4, x5, x6, x7, x8, x9) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 (ProdT x8 (ProdT x9 ProdZ))))))))
-
-instance ProductTupleIso '[x1, x2, x3, x4, x5, x6, x7, x8, x9, x10] (x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) where
-  toTuple (ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 (ProdT x8 (ProdT x9 (ProdT x10 ProdZ)))))))))) = (x1, x2, x3, x4, x5, x6, x7, x8, x9, x10)
-  fromTuple (x1, x2, x3, x4, x5, x6, x7, x8, x9, x10) = ProdT x1 (ProdT x2 (ProdT x3 (ProdT x4 (ProdT x5 (ProdT x6 (ProdT x7 (ProdT x8 (ProdT x9 (ProdT x10 ProdZ)))))))))
 
 data Sum (rest :: [Type]) where
   SumL :: a -> Sum (a ': xs)
@@ -108,10 +67,3 @@ instance (CombineF f, Contravariant f, Combine f xs) => Combine f (a ': xs) wher
     let rest = combine restSum
     in
     contramap toEither $ combineF (left, rest)
-
-combineFromTuple :: (ProductTupleIso (CombineType f xs) t, Combine f xs) => t -> f (Sum xs)
-combineFromTuple = combine . fromTuple
-
-splitToTuple :: (ProductTupleIso (SplitType f xs) t, Split f xs) => f (Sum xs) -> t
-splitToTuple = toTuple . split
-

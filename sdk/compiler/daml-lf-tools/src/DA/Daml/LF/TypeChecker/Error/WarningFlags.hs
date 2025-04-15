@@ -166,8 +166,8 @@ runParser parser =
 
 type WarningFlagParsers xs = WarningFlagParser (Sum xs)
 
-combineParsers :: (ProductTupleIso (CombineType WarningFlagParser xs) r, Combine WarningFlagParser xs) => r -> WarningFlagParsers xs
-combineParsers = combineFromTuple
+combineParsers :: Combine WarningFlagParser xs => Product (CombineType WarningFlagParser xs) -> WarningFlagParsers xs
+combineParsers = combine
 
 instance CombineF WarningFlagParser where
   combineF (left, rest) =
@@ -180,8 +180,8 @@ instance CombineF WarningFlagParser where
       }
   combineZ = mkWarningFlagParser (const (error "voidParser: should not be able to get a flag with SumR")) []
 
-splitWarningFlags :: (ProductTupleIso (SplitType WarningFlags xs) r, Split WarningFlags xs) => WarningFlags (Sum xs) -> r
-splitWarningFlags = splitToTuple
+splitWarningFlags :: Split WarningFlags xs => WarningFlags (Sum xs) -> Product (SplitType WarningFlags xs)
+splitWarningFlags = split
 
 instance SplitF WarningFlags where
   splitF a = (contramap Left a, contramap Right a)

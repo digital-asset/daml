@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
@@ -23,6 +24,7 @@ import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
 import DA.Daml.LF.TypeChecker.Error.WarningFlags
+import Data.HList
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 import qualified DA.Daml.LFConversion.Errors as LFConversion
 
@@ -579,7 +581,11 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         idm
 
     optWarningFlags :: Parser (WarningFlags InlineDamlCustomWarnings, WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags LFConversion.ErrorOrWarning)
-    optWarningFlags = splitWarningFlags <$> runParser allWarningFlagParsers
+    optWarningFlags = unwrap . splitWarningFlags <$> runParser allWarningFlagParsers
+      where
+      unwrap :: Product '[a, b, c] -> (a, b, c)
+      unwrap (ProdT inlineDamlCustomWarnings (ProdT typecheckerError (ProdT lfConversion ProdZ))) =
+        (inlineDamlCustomWarnings, typecheckerError, lfConversion)
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
