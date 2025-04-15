@@ -1,3 +1,6 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE FunctionalDependencies #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -5,7 +8,9 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE TypeOperators #-}
 
-module Data.HList where
+module Data.HList (
+        module Data.HList
+    ) where
 
 import Data.Kind (Type)
 import Data.Functor.Contravariant
@@ -109,3 +114,4 @@ combineFromTuple = combine . fromTuple
 
 splitToTuple :: (ProductTupleIso (SplitType f xs) t, Split f xs) => f (Sum xs) -> t
 splitToTuple = toTuple . split
+
