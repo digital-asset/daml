@@ -1,6 +1,8 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
+{-# OPTIONS_GHC -Wno-x-ledger-time #-}
+
 module LedgerTime where
 
 import DA.Assert ((===), assertDeadlineExceeded, assertWithinDeadline)
