@@ -54,8 +54,8 @@ object SubmissionTracker {
     override def duplicated(k: SubmissionKey)(implicit
         errorLogger: ErrorLoggingContext
     ): StatusRuntimeException =
-      ConsistencyErrors.DuplicateCommand
-        .Reject(existingCommandSubmissionId = Some(k.submissionId))
+      ConsistencyErrors.SubmissionAlreadyInFlight
+        .Reject()
         .asGrpcError
   }
 

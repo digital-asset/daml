@@ -811,8 +811,6 @@ class TestingOwnerWithKeys(
         CanSignAllButNamespaceDelegations,
       )
     )
-    val id1k1 = mkAdd(IdentifierDelegation.tryCreate(uid, key1))
-    val id2k2 = mkAdd(IdentifierDelegation.tryCreate(uid2, key2))
     val seq_okm_k2 = mkAddMultiKey(
       OwnerToKeyMapping(sequencerId, NonEmpty(Seq, key2)),
       NonEmpty(Set, namespaceKey, key2),
@@ -1027,7 +1025,6 @@ class TestingOwnerWithKeys(
       usage: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(
         Set,
         SigningKeyUsage.Namespace,
-        SigningKeyUsage.IdentityDelegation,
         SigningKeyUsage.Protocol,
       ),
       keySpecO: Option[SigningKeySpec] = None,

@@ -13,10 +13,12 @@ class EpochMetricsAccumulator {
   private val commitVotesAccumulator: TrieMap[BftNodeId, Long] = TrieMap.empty
   private val prepareVotesAccumulator: TrieMap[BftNodeId, Long] = TrieMap.empty
   private val viewsAccumulator = new AtomicLong(0L)
+  private val discardedMessagesAccumulator = new AtomicLong(0L)
 
   def prepareVotes: Map[BftNodeId, Long] = prepareVotesAccumulator.toMap
   def commitVotes: Map[BftNodeId, Long] = commitVotesAccumulator.toMap
   def viewsCount: Long = viewsAccumulator.get()
+  def discardedMessages: Long = discardedMessagesAccumulator.get()
 
   private def accumulate(accumulator: TrieMap[BftNodeId, Long])(
       values: Map[BftNodeId, Long]
@@ -34,10 +36,12 @@ class EpochMetricsAccumulator {
       views: Long,
       commits: Map[BftNodeId, Long],
       prepares: Map[BftNodeId, Long],
+      discardedMessageCount: Int,
   ): Unit = {
     viewsAccumulator.addAndGet(views).discard
     accumulate(commitVotesAccumulator)(commits)
     accumulate(prepareVotesAccumulator)(prepares)
+    discardedMessagesAccumulator.addAndGet(discardedMessageCount.toLong).discard
   }
 
 }

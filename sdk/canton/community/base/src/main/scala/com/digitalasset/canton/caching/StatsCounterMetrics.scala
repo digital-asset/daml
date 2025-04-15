@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.caching
 
-import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.caching.CacheMetrics
 import com.github.benmanes.caffeine.cache.RemovalCause
 import com.github.benmanes.caffeine.cache.stats.{CacheStats, StatsCounter}
 

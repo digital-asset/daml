@@ -603,7 +603,7 @@ class AuthorizerSpec
 
   private def contextWithClaims[R](claims: ClaimSet.Claims)(f: => R): R =
     io.grpc.Context.ROOT
-      .withValue(AuthorizationInterceptor.contextKeyClaimSet, claims)
+      .withValue(AuthInterceptor.contextKeyClaimSet, claims)
       .call(() => f)
 
   private def authorizer() = new Authorizer(

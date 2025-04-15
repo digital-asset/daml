@@ -140,12 +140,6 @@ class TopologyTransactionTest
       restrictedFromScala.toProto shouldBe restrictedDelegationProto
     }
 
-    "identifier delegations" should {
-      val id1 = mk(IdentifierDelegation.tryCreate(uid, publicKey))
-      val id2 = mk(IdentifierDelegation.tryCreate(uid2, publicKey))
-      runTest(id1, id2)
-    }
-
     "key to owner mappings" should {
       val k1 = mk(OwnerToKeyMapping(sequencerId, NonEmpty(Seq, publicKey)))
       val k2 = mk(OwnerToKeyMapping(sequencerId, NonEmpty(Seq, publicKey)))

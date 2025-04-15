@@ -75,7 +75,7 @@ final case class ParticipantProtocolConfig(
   * @param parameters
   *   general participant node parameters
   */
-final case class LocalParticipantConfig(
+final case class ParticipantNodeConfig(
     override val init: ParticipantInitConfig = ParticipantInitConfig(),
     override val crypto: CryptoConfig = CryptoConfig(),
     ledgerApi: LedgerApiServerConfig = LedgerApiServerConfig(),
@@ -89,9 +89,10 @@ final case class LocalParticipantConfig(
     features: EnterpriseParticipantFeaturesConfig = EnterpriseParticipantFeaturesConfig.default,
     override val monitoring: NodeMonitoringConfig = NodeMonitoringConfig(),
     override val topology: TopologyConfig = TopologyConfig(),
+    alphaDynamic: DeclarativeParticipantConfig = DeclarativeParticipantConfig(),
 ) extends LocalNodeConfig
     with BaseParticipantConfig
-    with ConfigDefaults[DefaultPorts, LocalParticipantConfig]
+    with ConfigDefaults[DefaultPorts, ParticipantNodeConfig]
     with UniformCantonConfigValidation {
   override def nodeTypeName: String = "participant"
 
@@ -102,7 +103,7 @@ final case class LocalParticipantConfig(
   def toRemoteConfig: RemoteParticipantConfig =
     RemoteParticipantConfig(adminApi.clientConfig, ledgerApi.clientConfig)
 
-  override def withDefaults(ports: DefaultPorts, edition: CantonEdition): LocalParticipantConfig =
+  override def withDefaults(ports: DefaultPorts, edition: CantonEdition): ParticipantNodeConfig =
     this
       .focus(_.ledgerApi.internalPort)
       .modify(ports.ledgerApiPort.setDefaultPort)
@@ -112,10 +113,10 @@ final case class LocalParticipantConfig(
       .modify(ReplicationConfig.withDefaultO(storage, _, edition))
 }
 
-object LocalParticipantConfig {
+object ParticipantNodeConfig {
   implicit val localParticipantConfigCantonConfigValidator
-      : CantonConfigValidator[LocalParticipantConfig] =
-    CantonConfigValidatorDerivation[LocalParticipantConfig]
+      : CantonConfigValidator[ParticipantNodeConfig] =
+    CantonConfigValidatorDerivation[ParticipantNodeConfig]
 }
 
 /** Enterprise features configuration

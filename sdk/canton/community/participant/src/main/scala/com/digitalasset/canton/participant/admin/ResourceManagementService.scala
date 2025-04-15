@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin
 import cats.Eval
 import com.digitalasset.canton.config.RequireTypes.NonNegativeNumeric
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.ParticipantBackpressure
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -25,19 +24,20 @@ class ResourceManagementService(
     store: Eval[ParticipantSettingsStore],
     val warnIfOverloadedDuring: Option[NonNegativeFiniteDuration],
     val metrics: ParticipantMetrics,
-) {
+) extends AutoCloseable {
 
   private val lastSuccess: AtomicReference[CantonTimestamp] =
     new AtomicReference[CantonTimestamp](CantonTimestamp.now())
   private val lastWarning: AtomicReference[CantonTimestamp] =
     new AtomicReference[CantonTimestamp](CantonTimestamp.now())
 
-  metrics
+  override def close(): Unit =
+    gauge.close()
+
+  private val gauge = metrics
     .registerMaxInflightValidationRequest(() =>
       resourceLimits.maxInflightValidationRequests.map(_.unwrap)
     )
-    .discard
-
   private val rateLimiterRef: AtomicReference[Option[RateLimiter]] = new AtomicReference(
     createLimiter(store.value.settings.resourceLimits)
   )

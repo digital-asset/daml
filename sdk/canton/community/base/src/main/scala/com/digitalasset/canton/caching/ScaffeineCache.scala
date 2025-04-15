@@ -5,7 +5,7 @@ package com.digitalasset.canton.caching
 
 import cats.syntax.flatMap.*
 import cats.{FlatMap, Functor}
-import com.daml.metrics.CacheMetrics
+import com.digitalasset.canton.caching.CacheMetrics
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

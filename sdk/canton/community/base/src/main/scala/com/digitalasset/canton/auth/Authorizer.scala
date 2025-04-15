@@ -19,7 +19,7 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success, Try}
 
 /** A simple helper that allows services to use authorization claims that have been stored by
-  * [[AuthorizationInterceptor]].
+  * [[AuthInterceptor]].
   */
 final class Authorizer(
     now: () => Instant,
@@ -167,7 +167,7 @@ final class Authorizer(
     * skipping required authorization checks.
     */
   private def authenticatedClaimsFromContext(): Try[ClaimSet.Claims] =
-    AuthorizationInterceptor
+    AuthInterceptor
       .extractClaimSetFromContext()
       .flatMap {
         case ClaimSet.Unauthenticated =>

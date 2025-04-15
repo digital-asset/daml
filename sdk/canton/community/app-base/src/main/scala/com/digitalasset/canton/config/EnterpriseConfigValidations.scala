@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.CommunityConfigValidations.formatNodeList
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.SequencerConfig
@@ -162,7 +162,7 @@ object EnterpriseConfigValidations extends ConfigValidations {
     def allReplicatedParticipants(nodes: List[(String, LocalNodeConfig)]): Boolean =
       nodes
         .map(_._2)
-        .forall(PartialFunction.cond(_) { case cfg: LocalParticipantConfig =>
+        .forall(PartialFunction.cond(_) { case cfg: ParticipantNodeConfig =>
           cfg.replication.exists(_.isEnabled)
         })
 

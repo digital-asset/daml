@@ -138,8 +138,6 @@ object TopologyMapping {
     import v30.Enums.TopologyMappingCode as v30Code
     case object NamespaceDelegation
         extends Code("nsd", v30Code.TOPOLOGY_MAPPING_CODE_NAMESPACE_DELEGATION)
-    case object IdentifierDelegation
-        extends Code("idd", v30Code.TOPOLOGY_MAPPING_CODE_IDENTIFIER_DELEGATION)
     case object DecentralizedNamespaceDefinition
         extends Code("dnd", v30Code.TOPOLOGY_MAPPING_CODE_DECENTRALIZED_NAMESPACE_DEFINITION)
 
@@ -157,8 +155,6 @@ object TopologyMapping {
     case object PartyToParticipant
         extends Code("ptp", v30Code.TOPOLOGY_MAPPING_CODE_PARTY_TO_PARTICIPANT)
 
-    // reserved Code(10), was AuthorityOf
-
     case object SynchronizerParametersState
         extends Code("dop", v30Code.TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_PARAMETERS_STATE)
     case object MediatorSynchronizerState
@@ -166,11 +162,9 @@ object TopologyMapping {
     case object SequencerSynchronizerState
         extends Code("sds", v30Code.TOPOLOGY_MAPPING_CODE_SEQUENCER_SYNCHRONIZER_STATE)
 
-    // reserved Code(14), was OffboardParticipant
-
     case object PurgeTopologyTransaction
         extends Code("ptt", v30Code.TOPOLOGY_MAPPING_CODE_PURGE_TOPOLOGY_TXS)
-    // Don't reuse It was the TrafficControlState code mapping
+
     case object SequencingDynamicParametersState
         extends Code("sep", v30Code.TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE)
     case object PartyToKeyMapping
@@ -178,7 +172,6 @@ object TopologyMapping {
 
     lazy val all: Seq[Code] = Seq(
       NamespaceDelegation,
-      IdentifierDelegation,
       DecentralizedNamespaceDefinition,
       OwnerToKeyMapping,
       SynchronizerTrustCertificate,
@@ -212,15 +205,13 @@ object TopologyMapping {
   // Small wrapper to not have to work with a tuple3 (Set[Namespace], Set[Uid], Set[Fingerprint])
   final case class ReferencedAuthorizations(
       namespaces: Set[Namespace] = Set.empty,
-      uids: Set[UniqueIdentifier] = Set.empty,
       extraKeys: Set[Fingerprint] = Set.empty,
   ) extends PrettyPrinting {
     def isEmpty: Boolean =
-      namespaces.isEmpty && uids.isEmpty && extraKeys.isEmpty
+      namespaces.isEmpty && extraKeys.isEmpty
 
     override protected def pretty: Pretty[ReferencedAuthorizations.this.type] = prettyOfClass(
       paramIfNonEmpty("namespaces", _.namespaces),
-      paramIfNonEmpty("uids", _.uids),
       paramIfNonEmpty("extraKeys", _.extraKeys),
     )
   }
@@ -239,7 +230,6 @@ object TopologyMapping {
         ): ReferencedAuthorizations =
           ReferencedAuthorizations(
             namespaces = x.namespaces ++ y.namespaces,
-            uids = x.uids ++ y.uids,
             extraKeys = x.extraKeys ++ y.extraKeys,
           )
       }
@@ -263,60 +253,26 @@ object TopologyMapping {
   object RequiredAuth {
 
     final case class RequiredNamespaces(
-        namespaces: Set[Namespace]
-    ) extends RequiredAuth {
-      override def satisfiedByActualAuthorizers(
-          provided: ReferencedAuthorizations
-      ): Either[ReferencedAuthorizations, Unit] = {
-        val missing = namespaces.filter(ns => !provided.namespaces(ns))
-        Either.cond(
-          missing.isEmpty,
-          (),
-          ReferencedAuthorizations(namespaces = missing),
-        )
-      }
-
-      override def referenced: ReferencedAuthorizations =
-        ReferencedAuthorizations(namespaces = namespaces)
-
-      override protected def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
-        unnamedParam(_.namespaces)
-      )
-    }
-
-    /** Required authorizations for a set of UIDs
-      *
-      * @param extraKeys
-      *   any additional key that needs to authorize the topology transaction, used to verify that
-      *   an owner really owns the key
-      */
-    final case class RequiredUids(
-        uids: Set[UniqueIdentifier],
+        namespaces: Set[Namespace],
         extraKeys: Set[Fingerprint] = Set.empty,
     ) extends RequiredAuth {
       override def satisfiedByActualAuthorizers(
           provided: ReferencedAuthorizations
       ): Either[ReferencedAuthorizations, Unit] = {
-        val missingUids =
-          uids.filter(uid => !provided.uids(uid) && !provided.namespaces(uid.namespace))
-        val missingExtraKeys = extraKeys -- provided.extraKeys
-        val missingAuth =
-          ReferencedAuthorizations(uids = missingUids, extraKeys = missingExtraKeys)
+        val missingNamespaces = namespaces.filter(ns => !provided.namespaces(ns))
+        val missingKeys = extraKeys.filter(key => !provided.extraKeys(key))
         Either.cond(
-          missingAuth.isEmpty,
+          missingNamespaces.isEmpty && missingKeys.isEmpty,
           (),
-          missingAuth,
+          ReferencedAuthorizations(namespaces = missingNamespaces, extraKeys = missingKeys),
         )
       }
 
-      override def referenced: ReferencedAuthorizations = ReferencedAuthorizations(
-        uids = uids,
-        extraKeys = extraKeys,
-      )
+      override def referenced: ReferencedAuthorizations =
+        ReferencedAuthorizations(namespaces = namespaces, extraKeys = extraKeys)
 
-      override protected def pretty: Pretty[RequiredUids.this.type] = prettyOfClass(
-        paramIfNonEmpty("uids", _.uids),
-        paramIfNonEmpty("extraKeys", _.extraKeys),
+      override protected def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
+        unnamedParam(_.namespaces)
       )
     }
 
@@ -344,7 +300,6 @@ object TopologyMapping {
       case Mapping.Empty =>
         Left(ProtoDeserializationError.TransactionDeserialization("No mapping set"))
       case Mapping.NamespaceDelegation(value) => NamespaceDelegation.fromProtoV30(value)
-      case Mapping.IdentifierDelegation(value) => IdentifierDelegation.fromProtoV30(value)
       case Mapping.DecentralizedNamespaceDefinition(value) =>
         DecentralizedNamespaceDefinition.fromProtoV30(value)
       case Mapping.OwnerToKeyMapping(value) => OwnerToKeyMapping.fromProtoV30(value)
@@ -377,7 +332,7 @@ sealed trait TopologyMappingCompanion extends Serializable {
   require(Code.all.contains(code), s"The code for $this is not listed in TopologyMapping.Code.all")
 }
 
-/** Represents a restriction of namespace or identifier delegations to specific mapping types.
+/** Represents a restriction of namespace to specific mapping types.
   */
 sealed trait DelegationRestriction extends Product with Serializable {
   def canSign(mappingToSign: Code): Boolean
@@ -697,83 +652,6 @@ object DecentralizedNamespaceDefinition extends TopologyMappingCompanion {
   }
 }
 
-/** An identifier delegation
-  *
-  * entrusts a public-key to do any change with respect to the identifier {(X,I) => p_k}
-  */
-final case class IdentifierDelegation private (
-    identifier: UniqueIdentifier,
-    target: SigningPublicKey,
-) extends TopologyMapping {
-
-  override def companion: IdentifierDelegation.type = IdentifierDelegation
-
-  def toProto: v30.IdentifierDelegation =
-    v30.IdentifierDelegation(
-      uniqueIdentifier = identifier.toProtoPrimitive,
-      targetKey = Some(target.toProtoV30),
-    )
-
-  override def toProtoV30: v30.TopologyMapping =
-    v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.IdentifierDelegation(
-        toProto
-      )
-    )
-
-  override def namespace: Namespace = identifier.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(identifier)
-
-  override def restrictedToSynchronizer: Option[SynchronizerId] = None
-
-  override def requiredAuth(
-      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredNamespaces(Set(namespace))
-
-  override def uniqueKey: MappingHash =
-    IdentifierDelegation.uniqueKey(identifier, target.fingerprint)
-}
-
-object IdentifierDelegation extends TopologyMappingCompanion {
-
-  def create(
-      identifier: UniqueIdentifier,
-      target: SigningPublicKey,
-  ): Either[String, IdentifierDelegation] =
-    // The key must have `IdentityDelegation` listed as a usage to be eligible as the target of an identifier delegation.
-    Either.cond(
-      SigningKeyUsage.matchesRelevantUsages(target.usage, SigningKeyUsage.IdentityDelegationOnly),
-      IdentifierDelegation(identifier, target),
-      s"The key ${target.id} must include a ${SigningKeyUsage.IdentityDelegation} usage.",
-    )
-
-  protected[canton] def tryCreate(
-      identifier: UniqueIdentifier,
-      target: SigningPublicKey,
-  ): IdentifierDelegation =
-    create(identifier, target).valueOr(err => throw new IllegalArgumentException(err))
-
-  def uniqueKey(identifier: UniqueIdentifier, targetKey: Fingerprint): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(identifier.toProtoPrimitive).add(targetKey.unwrap))
-
-  override def code: Code = Code.IdentifierDelegation
-
-  def fromProtoV30(
-      value: v30.IdentifierDelegation
-  ): ParsingResult[IdentifierDelegation] =
-    for {
-      identifier <- UniqueIdentifier.fromProtoPrimitive(value.uniqueIdentifier, "unique_identifier")
-      target <- ProtoConverter.parseRequired(
-        SigningPublicKey.fromProtoV30,
-        "target_key",
-        value.targetKey,
-      )
-      identifierDelegation <- create(identifier, target).leftMap(
-        InvariantViolation(None, _)
-      )
-    } yield identifierDelegation
-}
-
 /** A topology mapping that maps to a set of public keys for which ownership has to be proven. */
 sealed trait KeyMapping extends Product with Serializable {
   def mappedKeys: NonEmpty[Seq[PublicKey]]
@@ -820,7 +698,7 @@ final case class OwnerToKeyMapping(
       .flatMap(_.mapping.keys.map(_.fingerprint).forgetNE)
       .toSet
     val newKeys = keys.filter(_.isSigning).map(_.fingerprint).toSet -- previouslyRegisteredKeys
-    RequiredUids(Set(member.uid), extraKeys = newKeys)
+    RequiredNamespaces(Set(member.namespace), extraKeys = newKeys)
   }
 
   override def uniqueKey: MappingHash = OwnerToKeyMapping.uniqueKey(member)
@@ -896,7 +774,7 @@ final case class PartyToKeyMapping private (
       .flatMap(_.mapping.signingKeys.forgetNE)
       .toSet
     val newKeys = signingKeys.toSet -- previouslyRegisteredKeys
-    RequiredUids(Set(party.uid), newKeys.map(_.fingerprint))
+    RequiredNamespaces(Set(party.namespace), newKeys.map(_.fingerprint))
   }
 
   override def uniqueKey: MappingHash = PartyToKeyMapping.uniqueKey(party)
@@ -994,7 +872,7 @@ final case class SynchronizerTrustCertificate(
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
-    RequiredUids(Set(participantId.uid))
+    RequiredNamespaces(Set(participantId.namespace))
 
   override def uniqueKey: MappingHash =
     SynchronizerTrustCertificate.uniqueKey(participantId, synchronizerId)
@@ -1144,7 +1022,7 @@ final case class ParticipantSynchronizerPermission(
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
-    RequiredUids(Set(synchronizerId.uid))
+    RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash =
     ParticipantSynchronizerPermission.uniqueKey(synchronizerId, participantId)
@@ -1235,7 +1113,7 @@ final case class PartyHostingLimits(
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
-    RequiredUids(Set(synchronizerId.uid))
+    RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash = PartyHostingLimits.uniqueKey(synchronizerId, partyId)
 }
@@ -1337,7 +1215,7 @@ final case class VettedPackages private (
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth =
-    RequiredUids(Set(participantId.uid))
+    RequiredNamespaces(Set(participantId.namespace))
 
   override def uniqueKey: MappingHash = VettedPackages.uniqueKey(participantId)
 }
@@ -1500,14 +1378,16 @@ final case class PartyToParticipant private (
             && removedParticipants.sizeCompare(1) == 0
           ) {
             // This scenario can either be authorized by the party or the single participant removed from the mapping
-            RequiredUids(Set(partyId.uid)).or(RequiredUids(removedParticipants))
+            RequiredNamespaces(Set(partyId.namespace)).or(
+              RequiredNamespaces(removedParticipants.map(_.namespace))
+            )
           } else {
             // all other cases requires the party's and the new (possibly) new participants' signature
-            RequiredUids(Set(partyId.uid) ++ addedParticipants)
+            RequiredNamespaces(Set(partyId.namespace) ++ addedParticipants.map(_.namespace))
           }
       }
       .getOrElse(
-        RequiredUids(Set(partyId.uid) ++ participants.map(_.participantId.uid))
+        RequiredNamespaces(Set(partyId.namespace) ++ participants.map(_.participantId.namespace))
       )
 
   override def uniqueKey: MappingHash = PartyToParticipant.uniqueKey(partyId)
@@ -1598,7 +1478,7 @@ final case class SynchronizerParametersState(
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
+  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash = SynchronizerParametersState.uniqueKey(synchronizerId)
 }
@@ -1655,7 +1535,7 @@ final case class DynamicSequencingParametersState(
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
+  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash = SynchronizerParametersState.uniqueKey(synchronizerId)
 }
@@ -1724,7 +1604,7 @@ final case class MediatorSynchronizerState private (
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
+  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash = MediatorSynchronizerState.uniqueKey(synchronizerId, group)
 }
@@ -1825,7 +1705,7 @@ final case class SequencerSynchronizerState private (
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
+  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash = SequencerSynchronizerState.uniqueKey(synchronizerId)
 }
@@ -1909,7 +1789,7 @@ final case class PurgeTopologyTransaction private (
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(synchronizerId.uid))
+  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
   override def uniqueKey: MappingHash = PurgeTopologyTransaction.uniqueKey(synchronizerId)
 }

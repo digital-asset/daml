@@ -8,6 +8,7 @@ import cats.implicits.catsSyntaxParallelTraverse1
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
 import com.digitalasset.canton.ledger.api.Commands
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerState, SyncService}
@@ -35,6 +36,7 @@ import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.engine.Error.{Package, Preprocessing}
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
+import io.grpc.StatusRuntimeException
 
 import scala.collection.immutable.SortedSet
 import scala.collection.{MapView, View, mutable}
@@ -368,6 +370,7 @@ private[execution] class TopologyAwareCommandExecutor(
           )
 
       perSynchronizerPreferenceSet <- computePerSynchronizerPackagePreferenceSet(
+        prescribedSynchronizerIdO = interpretationResultFromPass1.optSynchronizerId,
         synchronizersPartiesVettingState = synchronizersPartiesVettingState,
         knownPackagesMap = knownPackagesMap,
         draftPartyPackages = draftPartyPackages,
@@ -396,6 +399,7 @@ private[execution] class TopologyAwareCommandExecutor(
     transaction.rootNodes.iterator.flatMap(_.requiredAuthorizers).toSet
 
   private def computePerSynchronizerPackagePreferenceSet(
+      prescribedSynchronizerIdO: Option[SynchronizerId],
       synchronizersPartiesVettingState: Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]],
       knownPackagesMap: Map[PackageId, (PackageName, canton.LfPackageVersion)],
       draftPartyPackages: Map[LfPartyId, Set[LfPackageName]],
@@ -482,16 +486,26 @@ private[execution] class TopologyAwareCommandExecutor(
     NonEmpty
       .from(perSynchronizerPreferenceSet)
       .map(FutureUnlessShutdown.pure)
-      .getOrElse(
-        FutureUnlessShutdown.failed(
-          CommandExecutionErrors.PackageSelectionFailed
-            .Reject(
-              "No synchronizers satisfy the draft transaction topology requirements"
-            )
-            .asGrpcError
-        )
-      )
+      .getOrElse(FutureUnlessShutdown.failed(buildSelectionFailedError(prescribedSynchronizerIdO)))
   }
+
+  private def buildSelectionFailedError(prescribedSynchronizerIdO: Option[SynchronizerId])(implicit
+      tc: TraceContext
+  ): StatusRuntimeException =
+    prescribedSynchronizerIdO
+      .map { prescribedSynchronizerId =>
+        InvalidPrescribedSynchronizerId
+          .Generic(
+            prescribedSynchronizerId,
+            "The prescribed synchronizer does not satisfy the package selection topology requirements",
+          )
+          .asGrpcError
+      }
+      .getOrElse(
+        CommandExecutionErrors.PackageSelectionFailed
+          .Reject("No synchronizers satisfy the draft transaction topology requirements")
+          .asGrpcError
+      )
 
   private def pickVersionsWithRestrictions(
       synchronizerId: SynchronizerId,
@@ -598,13 +612,13 @@ private[execution] class TopologyAwareCommandExecutor(
       case ErrorCause.DamlLf(Package(Package.MissingPackage(Ref.PackageRef.Name(pkgName), context)))
           if locallyStoredPackageNames(pkgName) =>
         ErrorCause.RoutingFailed(
-          CommandExecutionErrors.PackageNameDiscarded.Reject(pkgName, context)
+          CommandExecutionErrors.PackageNameDiscardedDueToUnvettedPackages.Reject(pkgName, context)
         )
 
       case ErrorCause.DamlLf(Preprocessing(Preprocessing.UnresolvedPackageName(pkgName, context)))
           if locallyStoredPackageNames(pkgName) =>
         ErrorCause.RoutingFailed(
-          CommandExecutionErrors.PackageNameDiscarded.Reject(pkgName, context)
+          CommandExecutionErrors.PackageNameDiscardedDueToUnvettedPackages.Reject(pkgName, context)
         )
 
       case other => other

@@ -63,6 +63,7 @@ class EpochState[E <: Env[E]](
       nextEpoch,
       epoch,
       metricsAccumulator.viewsCount,
+      metricsAccumulator.discardedMessages,
       metricsAccumulator.prepareVotes,
       metricsAccumulator.commitVotes,
     )

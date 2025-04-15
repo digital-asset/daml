@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.{CantonConfig, ConfigErrors, GCLoggingConf
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.{Environment, EnvironmentFactory}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.JarResourceUtils
 import com.digitalasset.canton.version.ReleaseVersion
 import com.sun.management.GarbageCollectionNotificationInfo
@@ -25,7 +25,8 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.slf4j.LoggerFactory
 
 import java.lang.management.ManagementFactory
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.{AtomicLong, AtomicReference}
 import javax.management.openmbean.CompositeData
 import javax.management.{NotificationEmitter, NotificationListener}
 import scala.jdk.CollectionConverters.*
@@ -128,79 +129,89 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
     }
   }))
   logger.debug("Registered shutdown-hook.")
-  val sandboxConfig = JarResourceUtils.extractFileFromJar("sandbox/sandbox.conf")
-  val sandboxBotstrap = JarResourceUtils.extractFileFromJar("sandbox/bootstrap.canton")
-  val configFiles = cliOptions.command
-    .collect { case Sandbox => sandboxConfig }
-    .toList
-    .concat(cliOptions.configFiles)
-  val bootstrapFile = cliOptions.command
-    .collect { case Sandbox => sandboxBotstrap }
-    .orElse(cliOptions.bootstrapScriptPath)
-
-  val cantonConfig: CantonConfig = {
-    val mergedUserConfigsE = NonEmpty.from(configFiles) match {
-      case None if cliOptions.configMap.isEmpty =>
-        Left(ConfigErrors.NoConfigFiles.Error())
-      case None => Right(ConfigFactory.empty())
-      case Some(neConfigFiles) => CantonConfig.parseAndMergeJustCLIConfigs(neConfigFiles)
-    }
-    val mergedUserConfigs =
-      mergedUserConfigsE.valueOr { _ =>
-        sys.exit(1)
-      }
-
+  private object Config {
+    val sandboxConfig = JarResourceUtils.extractFileFromJar("sandbox/sandbox.conf")
+    val sandboxBotstrap = JarResourceUtils.extractFileFromJar("sandbox/bootstrap.canton")
+    val configFiles = cliOptions.command
+      .collect { case Sandbox => sandboxConfig }
+      .toList
+      .concat(cliOptions.configFiles)
+    val bootstrapFile = cliOptions.command
+      .collect { case Sandbox => sandboxBotstrap }
+      .orElse(cliOptions.bootstrapScriptPath)
     val configFromMap = {
       import scala.jdk.CollectionConverters.*
       ConfigFactory.parseMap(cliOptions.configMap.asJava)
     }
-    val finalConfig = CantonConfig.mergeConfigs(mergedUserConfigs, Seq(configFromMap))
 
-    val loadedConfig = loadConfig(finalConfig) match {
-      case Left(_) =>
-        if (configFiles.sizeCompare(1) > 0)
-          writeConfigToTmpFile(mergedUserConfigs)
-        sys.exit(1)
-      case Right(loaded) =>
-        if (cliOptions.manualStart) withManualStart(loaded)
-        else loaded
+    def loadConfigFromFiles(
+        loggingString: String = "Starting up with resolved config"
+    )(implicit traceContext: TraceContext): Either[CantonConfigError, CantonConfig] = {
+      val mergedUserConfigsE = NonEmpty.from(configFiles) match {
+        case None if cliOptions.configMap.isEmpty =>
+          Left(ConfigErrors.NoConfigFiles.Error())
+        case None => Right(ConfigFactory.empty())
+        case Some(neConfigFiles) => CantonConfig.parseAndMergeJustCLIConfigs(neConfigFiles)
+      }
+      for {
+        mergedUserConfigs <- mergedUserConfigsE
+        finalConfig = CantonConfig.mergeConfigs(mergedUserConfigs, Seq(configFromMap))
+        loadedConfig <- loadConfig(finalConfig)
+          .leftMap { err =>
+            // if loading failed and there is more than one file, writing it into a temporary file
+            if (configFiles.sizeCompare(1) > 0) {
+              writeConfigToTmpFile(mergedUserConfigs)
+            }
+            err
+          }
+          .map { loaded =>
+            if (cliOptions.manualStart) withManualStart(loaded)
+            else loaded
+          }
+      } yield {
+        if (loadedConfig.monitoring.logging.logConfigOnStartup) {
+          // we have two ways to log the config. both have their pro and cons.
+          // full means we include default values. in such a case, it's hard to figure
+          // out what really the config settings are.
+          // the other method just uses the loaded `Config` object that doesn't have default
+          // values, but therefore needs a separate way to handle the rendering
+          logger.info(
+            s"$loggingString\n" +
+              (if (loadedConfig.monitoring.logging.logConfigWithDefaults)
+                 loadedConfig.dumpString
+               else
+                 CantonConfig.renderForLoggingOnStartup(finalConfig))
+          )
+        }
+        loadedConfig
+      }
     }
-    if (loadedConfig.monitoring.logging.logConfigOnStartup) {
-      // we have two ways to log the config. both have their pro and cons.
-      // full means we include default values. in such a case, it's hard to figure
-      // out what really the config settings are.
-      // the other method just uses the loaded `Config` object that doesn't have default
-      // values, but therefore needs a separate way to handle the rendering
-      logger.info(
-        "Starting up with resolved config:\n" +
-          (if (loadedConfig.monitoring.logging.logConfigWithDefaults)
-             loadedConfig.dumpString
-           else
-             CantonConfig.renderForLoggingOnStartup(finalConfig))
+    val startupConfig = loadConfigFromFiles().valueOr { err =>
+      logger.error(s"Failed to read config at startup: $err")
+      sys.exit(1)
+    }
+
+    private def writeConfigToTmpFile(mergedUserConfigs: Config) = {
+      val tmp = File.newTemporaryFile("canton-config-error-", ".conf")
+      logger.error(
+        s"An error occurred after parsing a config file that was obtained by merging multiple config " +
+          s"files. The resulting merged-together config file, for which the error occurred, was written to '$tmp'."
       )
+      tmp
+        .write(
+          mergedUserConfigs
+            .root()
+            .render(CantonConfig.defaultConfigRenderer)
+        )
+        .discard
     }
-    loadedConfig
+
   }
 
-  installGCLogging(loggerFactory, cantonConfig.monitoring.logging.jvmGc)
-
-  private def writeConfigToTmpFile(mergedUserConfigs: Config) = {
-    val tmp = File.newTemporaryFile("canton-config-error-", ".conf")
-    logger.error(
-      s"An error occurred after parsing a config file that was obtained by merging multiple config " +
-        s"files. The resulting merged-together config file, for which the error occurred, was written to '$tmp'."
-    )
-    tmp
-      .write(
-        mergedUserConfigs
-          .root()
-          .render(CantonConfig.defaultConfigRenderer)
-      )
-      .discard
-  }
+  installGCLogging(loggerFactory, Config.startupConfig.monitoring.logging.jvmGc)
 
   // verify that run script and bootstrap script aren't mixed
-  if (bootstrapFile.isDefined) {
+  if (Config.bootstrapFile.isDefined) {
     cliOptions.command match {
       case Some(Command.RunScript(_)) =>
         logger.error("--bootstrap script and run script are mutually exclusive")
@@ -213,23 +224,27 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   }
 
   private lazy val bootstrapScript: Option[CantonScript] =
-    bootstrapFile.map(CantonScriptFromFile.apply)
+    Config.bootstrapFile.map(CantonScriptFromFile.apply)
 
-  val environment = environmentFactory.create(cantonConfig, loggerFactory)
+  val environment = environmentFactory.create(Config.startupConfig, loggerFactory)
   val runner: Runner = cliOptions.command match {
     case Some(Command.Sandbox) =>
+      startupConfigFileMonitoring(environment)
       new ServerRunner(
         bootstrapScript,
         loggerFactory,
         cliOptions.exitAfterBootstrap,
         cliOptions.dars,
       )
-    case Some(Command.Daemon) => new ServerRunner(bootstrapScript, loggerFactory)
+    case Some(Command.Daemon) =>
+      startupConfigFileMonitoring(environment)
+      new ServerRunner(bootstrapScript, loggerFactory)
     case Some(Command.RunScript(script)) => ConsoleScriptRunner(script, loggerFactory)
     case Some(Command.Generate(target)) =>
-      Generate.process(target, cantonConfig)
+      Generate.process(target, Config.startupConfig)
       sys.exit(0)
     case _ =>
+      startupConfigFileMonitoring(environment)
       new ConsoleInteractiveRunner(
         cliOptions.noTty,
         bootstrapScript,
@@ -245,6 +260,46 @@ abstract class CantonAppDriver extends App with NamedLogging with NoTracing {
   }
 
   def loadConfig(config: Config): Either[CantonConfigError, CantonConfig]
+
+  private def startupConfigFileMonitoring(environment: Environment): Unit =
+    TraceContext.withNewTraceContext { implicit traceContext =>
+      def modificationTimestamp(): Long =
+        Config.configFiles.map(_.lastModified()).foldLeft(0L) { case (acc, item) =>
+          Math.max(acc, item)
+        }
+
+      val lastModified = new AtomicLong(modificationTimestamp())
+      def updateDeclarativeApi(): Unit = {
+        val modified = modificationTimestamp()
+        val previous = lastModified.getAndSet(modified)
+        if (modified != previous) {
+          val loaded =
+            Config.loadConfigFromFiles("Reloaded config after file change").leftMap(_.toString)
+          environment.pokeOrUpdateConfig(newConfig = Some(loaded))
+        } else {
+          environment.pokeOrUpdateConfig(newConfig = None)
+        }
+
+      }
+
+      def refresh(update: Boolean, interval: config.NonNegativeFiniteDuration): Unit = {
+        if (update) updateDeclarativeApi()
+        environment.scheduler
+          .schedule(
+            (() => refresh(update = true, interval)): Runnable,
+            interval.duration.toMillis,
+            TimeUnit.MILLISECONDS,
+          )
+          .discard
+      }
+
+      environment.config.parameters.stateRefreshInterval match {
+        case None => ()
+        case Some(interval) =>
+          logger.debug(s"Starting config file monitoring at interval=$interval")
+          refresh(update = false, interval)
+      }
+    }
 
 }
 

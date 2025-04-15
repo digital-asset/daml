@@ -8,7 +8,6 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PrepareSubmissionResponse,
   PreparedTransaction,
 }
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
@@ -21,6 +20,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
+import com.digitalasset.canton.{LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, SubmissionId, UserId}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
@@ -33,7 +33,6 @@ object InteractiveSubmissionService {
       submitterInfo: state.SubmitterInfo,
       transactionMeta: state.TransactionMeta,
       transaction: SubmittedTransaction,
-      dependsOnLedgerTime: Boolean,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       inputContracts: Map[ContractId, FatContractInstance],
       synchronizerId: SynchronizerId,
@@ -47,6 +46,7 @@ object InteractiveSubmissionService {
       preparedTransaction: PreparedTransaction,
       serializationVersion: HashingSchemeVersion,
       synchronizerId: SynchronizerId,
+      ledgerEffectiveTime: LfTimestamp,
   )
 }
 
@@ -55,9 +55,7 @@ trait InteractiveSubmissionService {
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[PrepareSubmissionResponse]
 
-  def execute(
-      request: ExecuteRequest
-  )(implicit
+  def execute(request: ExecuteRequest)(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[ExecuteSubmissionResponse]
 

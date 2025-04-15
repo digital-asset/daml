@@ -37,7 +37,7 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-transaction:
     post:
-      description: Submit a batch of commands and wait for the flat transactions response
+      description: Submit a batch of commands and wait for the transaction response
       operationId: postV2CommandsSubmit-and-wait-for-transaction
       requestBody:
         content:
@@ -52,6 +52,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForTransactionResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/submit-and-wait-for-reassignment:
+    post:
+      description: Submit a batch of reassignment commands and wait for the reassignment
+        response
+      operationId: postV2CommandsSubmit-and-wait-for-reassignment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAndWaitForReassignmentRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsSubmitAndWaitForReassignmentResponse'
         '400':
           description: 'Invalid value for: body, Invalid value for: headers'
           content:
@@ -1668,6 +1701,7 @@ components:
       properties:
         partyDetails:
           $ref: '#/components/schemas/PartyDetails'
+          description: ''
     Any:
       title: Any
       type: object
@@ -1719,6 +1753,8 @@ components:
         templateId:
           description: |-
             The template of the archived contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         witnessParties:
@@ -1744,6 +1780,9 @@ components:
             The interfaces implemented by the target template that have been
             matched from the interface filter query.
             Populated only in case interface filters with include_interface_view set.
+
+            If defined, the identifier uses the package-id reference format.
+
             Optional
           type: array
           items:
@@ -2061,6 +2100,9 @@ components:
         templateId:
           description: |-
             The template of the contract the client wants to create.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         createArguments:
@@ -2088,6 +2130,9 @@ components:
         templateId:
           description: |-
             The template of contract the client wants to create.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         createArguments:
@@ -2107,6 +2152,7 @@ components:
       properties:
         identityProviderConfig:
           $ref: '#/components/schemas/IdentityProviderConfig'
+          description: ''
     CreateUserRequest:
       title: CreateUserRequest
       description: |2-
@@ -2175,6 +2221,8 @@ components:
         templateId:
           description: |-
             The template of the created contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         contractKey:
@@ -2418,6 +2466,8 @@ components:
         templateId:
           description: |-
             The template id of the contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         contractId:
@@ -2579,6 +2629,9 @@ components:
         templateId:
           description: |-
             The template of contract the client wants to exercise.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         contractKey:
@@ -2608,6 +2661,9 @@ components:
         templateId:
           description: |-
             The template of contract the client wants to exercise.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         contractId:
@@ -2667,11 +2723,15 @@ components:
         templateId:
           description: |-
             The template of the target contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         interfaceId:
           description: |-
             The interface where the choice is defined, if inherited.
+            If defined, the identifier uses the package-id reference format.
+
             Optional
           type: string
         choice:
@@ -2737,6 +2797,9 @@ components:
             If the event is consuming, the interfaces implemented by the target template that have been
             matched from the interface filter query.
             Populated only in case interface filters with include_interface_view set.
+
+            The identifier uses the package-id reference format.
+
             Optional
           type: array
           items:
@@ -2757,6 +2820,7 @@ components:
       - supported
       properties:
         supported:
+          description: ''
           type: boolean
     ExperimentalFeatures:
       title: ExperimentalFeatures
@@ -2765,8 +2829,10 @@ components:
       properties:
         staticTime:
           $ref: '#/components/schemas/ExperimentalStaticTime'
+          description: ''
         commandInspectionService:
           $ref: '#/components/schemas/ExperimentalCommandInspectionService'
+          description: ''
     ExperimentalStaticTime:
       title: ExperimentalStaticTime
       description: Ledger is in the static time mode and exposes a time service.
@@ -2775,6 +2841,7 @@ components:
       - supported
       properties:
         supported:
+          description: ''
           type: boolean
     FeaturesDescriptor:
       title: FeaturesDescriptor
@@ -2849,12 +2916,12 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             Templates to include in the served snapshot, per party.
             Optional, if specified event_format must be unset, if not specified event_format must be set.
         verbose:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
             Optional, if specified event_format must be unset.
@@ -2883,6 +2950,7 @@ components:
       type: object
       properties:
         connectedSynchronizers:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/ConnectedSynchronizer'
@@ -2899,7 +2967,7 @@ components:
           type: string
         requestingParties:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             The parties whose events the client expects to see.
             The events associated with the contract id will only be returned if the requesting parties includes
             at least one party that is a stakeholder of the event. For a definition of stakeholders see
@@ -2923,6 +2991,7 @@ components:
       properties:
         identityProviderConfig:
           $ref: '#/components/schemas/IdentityProviderConfig'
+          description: ''
     GetLatestPrunedOffsetsResponse:
       title: GetLatestPrunedOffsetsResponse
       type: object
@@ -3025,8 +3094,8 @@ components:
             Optional
     GetTransactionByIdRequest:
       title: GetTransactionByIdRequest
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - updateId
@@ -3039,7 +3108,7 @@ components:
           type: string
         requestingParties:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             The parties whose events the client expects to see.
             Events that are not visible for the parties in this collection will not be present in the response.
             Each element must be a valid PartyIdString (as described in ``value.proto``).
@@ -3061,8 +3130,8 @@ components:
             - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
     GetTransactionByOffsetRequest:
       title: GetTransactionByOffsetRequest
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - offset
@@ -3076,7 +3145,7 @@ components:
           format: int64
         requestingParties:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             The parties whose events the client expects to see.
             Events that are not visible for the parties in this collection will not be present in the response.
             Each element must be a valid PartyIdString (as described in ``value.proto``).
@@ -3158,13 +3227,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -3381,6 +3450,9 @@ components:
             The interface that a matching contract must implement.
             The ``interface_id`` needs to be valid: corresponding interface should be defined in
             one of the available packages at the time of the query.
+            Both package-name and package-id reference formats for the identifier are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         includeInterfaceView:
@@ -3788,8 +3860,8 @@ components:
             Optional
     JsGetTransactionResponse:
       title: JsGetTransactionResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - transaction
@@ -3799,8 +3871,8 @@ components:
           description: Required
     JsGetTransactionTreeResponse:
       title: JsGetTransactionTreeResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - transaction
@@ -3818,8 +3890,8 @@ components:
           $ref: '#/components/schemas/Update'
     JsGetUpdateTreesResponse:
       title: JsGetUpdateTreesResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - update
@@ -3874,6 +3946,8 @@ components:
         interfaceId:
           description: |-
             The interface implemented by the matched event.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         viewStatus:
@@ -4062,18 +4136,8 @@ components:
     JsReassignmentEvent:
       title: JsReassignmentEvent
       oneOf:
-      - type: object
-        required:
-        - JsAssignmentEvent
-        properties:
-          JsAssignmentEvent:
-            $ref: '#/components/schemas/JsAssignmentEvent'
-      - type: object
-        required:
-        - JsUnassignedEvent
-        properties:
-          JsUnassignedEvent:
-            $ref: '#/components/schemas/JsUnassignedEvent'
+      - $ref: '#/components/schemas/JsAssignmentEvent'
+      - $ref: '#/components/schemas/JsUnassignedEvent'
     JsStatus:
       title: JsStatus
       type: object
@@ -4090,6 +4154,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Any'
+    JsSubmitAndWaitForReassignmentResponse:
+      title: JsSubmitAndWaitForReassignmentResponse
+      type: object
+      required:
+      - reassignment
+      properties:
+        reassignment:
+          $ref: '#/components/schemas/JsReassignment'
+          description: |-
+            The reassignment that resulted from the submitted reassignment command.
+            The reassignment might contain no events (request conditions result in filtering out all of them).
+            Required
     JsSubmitAndWaitForTransactionRequest:
       title: JsSubmitAndWaitForTransactionRequest
       description: These commands are executed as a single atomic transaction.
@@ -4120,8 +4196,8 @@ components:
             Required
     JsSubmitAndWaitForTransactionTreeResponse:
       title: JsSubmitAndWaitForTransactionTreeResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - transactionTree
@@ -4263,7 +4339,7 @@ components:
     JsTransactionTree:
       title: JsTransactionTree
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -4346,7 +4422,6 @@ components:
           $ref: '#/components/schemas/UnassignedEvent'
     Kind:
       title: Kind
-      description: Required
       oneOf:
       - type: object
         required:
@@ -4389,6 +4464,7 @@ components:
       type: object
       properties:
         identityProviderConfigs:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/IdentityProviderConfig'
@@ -4571,6 +4647,7 @@ components:
           type: integer
           format: int64
         synchronizerTimes:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/SynchronizerTime'
@@ -5064,7 +5141,9 @@ components:
       properties:
         format:
           $ref: '#/components/schemas/SignatureFormat'
+          description: ''
         signature:
+          description: ''
           type: string
         signedBy:
           description: The fingerprint/id of the keypair used to create this signature
@@ -5124,6 +5203,22 @@ components:
             $ref: '#/components/schemas/Any'
         unknownFields:
           type: string
+    SubmitAndWaitForReassignmentRequest:
+      title: SubmitAndWaitForReassignmentRequest
+      description: This reassignment is executed as a single atomic update.
+      type: object
+      properties:
+        reassignmentCommands:
+          $ref: '#/components/schemas/ReassignmentCommands'
+          description: |-
+            The reassignment commands to be submitted.
+            Required
+        eventFormat:
+          $ref: '#/components/schemas/EventFormat'
+          description: |-
+            Optional
+            If no event_format provided, the result will contain no events.
+            The events in the result, will take shape TRANSACTION_SHAPE_ACS_DELTA.
     SubmitAndWaitResponse:
       title: SubmitAndWaitResponse
       type: object
@@ -5204,6 +5299,9 @@ components:
             A template for which the payload should be included in the response.
             The ``template_id`` needs to be valid: corresponding template should be defined in
             one of the available packages at the time of the query.
+            Both package-name and package-id reference formats for the identifier are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         includeCreatedEventBlob:
@@ -5261,6 +5359,7 @@ components:
           description: https://www.w3.org/TR/trace-context/
           type: string
         tracestate:
+          description: ''
           type: string
     Transaction:
       title: Transaction
@@ -5275,7 +5374,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -5329,7 +5428,7 @@ components:
     TransactionTree:
       title: TransactionTree
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -5340,7 +5439,7 @@ components:
     TreeEvent:
       title: TreeEvent
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Each tree event message type below contains a ``witness_parties`` field which
         indicates the subset of the requested parties that can see the event
         in question.
@@ -5436,6 +5535,8 @@ components:
         templateId:
           description: |-
             The template of the reassigned contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         source:

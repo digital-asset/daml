@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant
 
 import cats.syntax.option.*
 import com.digitalasset.canton.DefaultDamlValues.*
-import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.{CommandId, DefaultDamlValues, LfPartyId, UserId, WorkflowId}
@@ -64,6 +64,7 @@ object DefaultParticipantStateValues {
       workflowId.map(_.unwrap),
       submissionTime.toLf,
       submissionSeed,
+      timeBoundaries = LedgerTimeBoundaries.unconstrained,
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,

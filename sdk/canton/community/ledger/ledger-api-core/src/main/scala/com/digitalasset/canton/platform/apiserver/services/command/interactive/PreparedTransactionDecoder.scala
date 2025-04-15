@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.interactive.{
   interactive_submission_service as iss,
 }
 import com.daml.ledger.api.v2.value as lapiValue
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   TransactionData,
@@ -34,7 +35,6 @@ import com.digitalasset.canton.platform.apiserver.services.command.interactive.P
 import com.digitalasset.canton.protocol.{LfNode, LfNodeId}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
@@ -53,7 +53,7 @@ import io.scalaland.chimney.{PartialTransformer, Transformer}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
+import scala.util.{Failure, Success, Try}
 
 object PreparedTransactionDecoder {
   final case class DeserializationResult(
@@ -158,6 +158,10 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   private implicit val timestampTransformer: PartialTransformer[Long, lf.data.Time.Timestamp] =
     PartialTransformer(src => lf.data.Time.Timestamp.fromLong(src).toResult)
+
+  private implicit val optionalTimestampTransformer
+      : PartialTransformer[Option[Long], Option[lf.data.Time.Timestamp]] =
+    PartialTransformer.derive[Option[Long], Option[lf.data.Time.Timestamp]]
 
   private implicit val packageNameTransformer: PartialTransformer[String, lf.data.Ref.PackageName] =
     PartialTransformer(src => lf.data.Ref.PackageName.fromString(src).toResult)
@@ -369,34 +373,43 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       )
     }
 
+  private implicit def timeBoundariesTransformer
+      : PartialTransformer[iss.Metadata, LedgerTimeBoundaries] =
+    PartialTransformer { src =>
+      for {
+        min <- src.minLedgerEffectiveTime.transformIntoPartial[Option[Time.Timestamp]]
+        max <- src.maxLedgerEffectiveTime.transformIntoPartial[Option[Time.Timestamp]]
+      } yield LedgerTimeBoundaries.fromConstraints(min, max)
+    }
+
   private def requireField[A](optA: Option[A], field: String)(implicit
       errorLoggingContext: ErrorLoggingContext
   ): Future[A] =
     Future.fromTry(
       optA.toRight(RequestValidationErrors.MissingField.Reject(field).asGrpcError).toTry
     )
-  def extractLedgerEffectiveTime(executeRequest: ExecuteRequest)(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ErrorLoggingContext,
-  ): Future[Option[Time.Timestamp]] = {
-    implicit val traceContext: TraceContext = loggingContext.traceContext
-    for {
-      metadataProto <- requireField(executeRequest.preparedTransaction.metadata, "metadata")
-      letE = metadataProto.ledgerEffectiveTime.traverse(Time.Timestamp.fromLong)
-      let <- letE.toResult.toFutureWithLoggedFailures(
-        "Failed to deserialize transaction meta",
-        logger,
-      )
-    } yield let
-  }
+
+  private def checkTimeWithinBounds[A](
+      ledgerEffectiveTime: Time.Timestamp,
+      timeRange: Time.Range,
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Future[Unit] =
+    Future.fromTry(
+      if (timeRange.min <= ledgerEffectiveTime && ledgerEffectiveTime <= timeRange.max) {
+        Success(())
+      } else {
+        Failure(
+          RequestValidationErrors.LedgerTimeOutsideBounds
+            .Reject(ledgerEffectiveTime, timeRange)
+            .asGrpcError
+        )
+      }
+    )
 
   /** Decodes a prepared transaction back into a DeserializationResult that can be submitted.
     */
-  def deserialize(
-      executeRequest: ExecuteRequest,
-      ledgerEffectiveTime: Time.Timestamp,
-  )(implicit
+  def deserialize(executeRequest: ExecuteRequest)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ErrorLoggingContext,
@@ -430,7 +443,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
               executeRequest.signatures,
               transactionUUID = transactionUUID,
               mediatorGroup = mediatorGroup,
-              usesLedgerEffectiveTime = metadataProto.ledgerEffectiveTime.isDefined,
             )
           ),
         )
@@ -461,16 +473,24 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
               .transformIntoPartial[ImmArray[(NodeId, lf.crypto.Hash)]]
               .map(Some(_)),
           )
+          .withFieldComputedPartial(
+            _.timeBoundaries,
+            _.transformIntoPartial[LedgerTimeBoundaries],
+          )
           // Unused field
           .withFieldConst(_.optByKeyNodes, None)
           // Workflow ID is not supported for interactive submissions
           .withFieldConst(_.workflowId, None)
           .withFieldConst(
             _.ledgerEffectiveTime,
-            ledgerEffectiveTime,
+            executeRequest.ledgerEffectiveTime,
           )
           .transform
           .toFutureWithLoggedFailures("Failed to deserialize transaction meta", logger)
+      _ <- checkTimeWithinBounds(
+        executeRequest.ledgerEffectiveTime,
+        transactionMeta.timeBoundaries.range,
+      )
       transaction <- transactionProto
         .transformIntoPartial[lf.transaction.VersionedTransaction]
         .toFutureWithLoggedFailures("Failed to deserialize transaction", logger)
@@ -511,7 +531,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         synchronizerId = synchronizerId,
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
-        dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,
         globalKeyMapping = globalKeyMapping,
         inputContracts = inputContracts,
       )
