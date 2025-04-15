@@ -97,20 +97,28 @@ instance Bounded Time where
     minBound = microsecondsSinceEpochToTime (-62135596800000000)
     maxBound = microsecondsSinceEpochToTime 253402300799999999
 
--- | True iff the ledger time of the transaction is less than the given time.
+{-# WARNING in "x-ledger-time" isLedgerTimeLT "This is an alpha feature. It can change without notice." #-}
+-- | HIDE
+-- True iff the ledger time of the transaction is less than the given time.
 isLedgerTimeLT: Time -> Update Bool
 isLedgerTimeLT = primitive @"ULedgerTimeLT"
 
--- | True iff the ledger time of the transaction is less than or equal to the given time.
+{-# WARNING in "x-ledger-time" isLedgerTimeLE "This is an alpha feature. It can change without notice." #-}
+-- | HIDE
+-- True iff the ledger time of the transaction is less than or equal to the given time.
 isLedgerTimeLE: Time -> Update Bool
 isLedgerTimeLE time
   | time == maxBound @Time = error $ "Can not compare against the maximum time bound"
   | otherwise = isLedgerTimeLT (addRelTime time (microseconds 1))
 
--- | True iff the ledger time of the transaction is greater than the given time.
+{-# WARNING in "x-ledger-time" isLedgerTimeGT "This is an alpha feature. It can change without notice." #-}
+-- | HIDE
+-- True iff the ledger time of the transaction is greater than the given time.
 isLedgerTimeGT: Time -> Update Bool
 isLedgerTimeGT time = fmap not (isLedgerTimeLE time)
 
--- | True iff the ledger time of the transaction is greater than or equal to the given time.
+{-# WARNING in "x-ledger-time" isLedgerTimeGE "This is an alpha feature. It can change without notice." #-}
+-- | HIDE
+-- True iff the ledger time of the transaction is greater than or equal to the given time.
 isLedgerTimeGE: Time -> Update Bool
 isLedgerTimeGE time = fmap not (isLedgerTimeLT time)
