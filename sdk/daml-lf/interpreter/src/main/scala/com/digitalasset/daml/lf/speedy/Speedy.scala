@@ -684,7 +684,7 @@ private[lf] object Speedy {
 
     private[speedy] var lastCommand: Option[Command] = None
 
-    def transactionTrace(maxLength: Int): String = {
+    def transactionTrace(numOfExerciseNodes: Int): String = {
       def prettyTypeId(typeId: TypeConName): String =
         s"${typeId.packageId.take(8)}:${typeId.qualifiedName}"
       def prettyCoid(coid: V.ContractId): String = coid.coid.take(10)

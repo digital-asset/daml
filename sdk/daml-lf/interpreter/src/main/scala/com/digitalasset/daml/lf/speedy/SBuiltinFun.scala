@@ -1862,7 +1862,12 @@ private[lf] object SBuiltinFun {
 
       val time = getSTimestamp(args, 0)
 
-      machine.needTime(now => Control.Value(SBool(now < time)))
+      machine.needTime(now => {
+        // We only generate a transaction trace for the last exercise command
+        val message = machine.transactionTrace(1)
+        machine.traceLog.add(message, machine.getLastLocation)(machine.loggingContext)
+        Control.Value(SBool(now < time))
+      })
     }
   }
 
