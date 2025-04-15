@@ -168,16 +168,6 @@ type WarningFlagParsers xs = WarningFlagParser (Sum xs)
 voidParser :: WarningFlagParsers '[]
 voidParser = mkWarningFlagParser (const (error "voidParser: should not be able to get a flag with SumR")) []
 
---combineParsers :: WarningFlagParser left -> WarningFlagParser (Sum rest) -> WarningFlagParser (Sum (left ': rest))
---combineParsers left rest =
---  WarningFlagParser
---    { dwfpDefault = eitherSum (dwfpDefault left) (dwfpDefault rest)
---    , dwfpFlagParsers =
---        (fmap . fmap . fmap) (modifyWfFilter (flip eitherSum (const False))) (dwfpFlagParsers left) ++
---        (fmap . fmap . fmap) (modifyWfFilter (eitherSum (const False))) (dwfpFlagParsers rest)
---    , dwfpSuggestFlag = eitherSum (dwfpSuggestFlag left) (dwfpSuggestFlag rest)
---    }
-
 combineParsers :: (ProductTupleIso (CombineParsersType xs) r, CombineParsers xs) => r -> WarningFlagParser (Sum xs)
 combineParsers = combineParsersInternal . fromTuple
 
