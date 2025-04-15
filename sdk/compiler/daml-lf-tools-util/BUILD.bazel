@@ -4,7 +4,7 @@
 load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
 
 da_haskell_library(
-    name = "daml-lf-tools",
+    name = "daml-lf-tools-util",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
         "ansi-wl-pprint",
@@ -33,33 +33,8 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-lf-util",
-        "//compiler/daml-lf-tools-util",
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/da-hs-base",
-    ],
-)
-
-da_haskell_test(
-    name = "tests",
-    srcs = glob(["tests/**/*.hs"]),
-    data = [],
-    hackage_deps = [
-        "base",
-        "containers",
-        "filepath",
-        "tasty",
-        "tasty-hunit",
-        "text",
-    ],
-    main_function = "DA.Daml.LF.Simplifier.Tests.main",
-    src_strip_prefix = "tests",
-    visibility = ["//visibility:public"],
-    deps = [
-        ":daml-lf-tools",
-        "//compiler/daml-lf-ast",
-        "//libs-haskell/bazel-runfiles",
-        "//libs-haskell/da-hs-base",
-        "//libs-haskell/test-utils",
     ],
 )
