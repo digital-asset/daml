@@ -113,7 +113,6 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 import Language.Haskell.HLint4
 
 import Development.IDE.Core.Rules.Daml.SpanInfo
-import Data.Functor.Contravariant
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -268,7 +267,7 @@ generateRawDalfRule opts =
                     DamlEnv{envEnableInterfaces} <- getDamlServiceEnv
                     modIface <- hm_iface . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion envEnableInterfaces (contramap Right (optDamlWarningFlags opts)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                    case convertModule lfVersion envEnableInterfaces (optLfConversionWarningFlags opts) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                         Left e -> return ([e], Nothing)
                         Right (v, conversionWarnings) -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -301,7 +300,7 @@ generateDalfRule opts =
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
         let lfDiags = LF.checkModule world lfVersion rawDalf
-            upgradeDiags = Upgrade.checkModule world rawDalf (map (Upgrade.dalfPackageToUpgradedPkg . snd) (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (contramap Left (optDamlWarningFlags opts)) upgradedPackage
+            upgradeDiags = Upgrade.checkModule world rawDalf (map (Upgrade.dalfPackageToUpgradedPkg . snd) (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (optTypecheckerWarningFlags opts) upgradedPackage
         pure $! second (rawDalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -429,7 +428,7 @@ generateSerializedDalfRule options =
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 modIface = hm_iface modInfo
-                            case convertModule lfVersion envEnableInterfaces (contramap Right (optDamlWarningFlags options)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                            case convertModule lfVersion envEnableInterfaces (optLfConversionWarningFlags options) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                                 Left e -> pure ([e], Nothing)
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing

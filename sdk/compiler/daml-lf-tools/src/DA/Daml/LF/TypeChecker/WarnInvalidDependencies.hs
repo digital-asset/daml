@@ -22,12 +22,12 @@ checkPackage
   -> [LF.DalfPackage]
   -> LF.Version
   -> UpgradeInfo
-  -> DamlWarningFlags ErrorOrWarning
+  -> WarningFlags ErrorOrWarning
   -> [LF.DalfPackage]
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkPackage pkg deps version upgradeInfo flags rootDeps mbUpgradedPackage = 
-  case runGamma (LF.initWorldSelf (LF.dalfPackagePkg <$> deps) pkg) version $ withReaderT (set damlWarningFlags flags) check of
+  case runGamma (LF.initWorldSelf (LF.dalfPackagePkg <$> deps) pkg) version $ withReaderT (set warningFlags flags) check of
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
   where

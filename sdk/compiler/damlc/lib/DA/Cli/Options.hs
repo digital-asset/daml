@@ -1,6 +1,8 @@
 -- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE GADTs #-}
 module DA.Cli.Options
   ( module DA.Cli.Options
   ) where
@@ -21,9 +23,10 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
-import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
-
-import qualified Text.PrettyPrint.ANSI.Leijen as PAL
+import DA.Daml.LF.TypeChecker.Error.WarningFlags
+import Data.HList
+import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
+import qualified DA.Daml.LFConversion.Errors as LFConversion
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -144,13 +147,6 @@ debugOpt = fmap Debug $
 newtype InitPkgDb = InitPkgDb Bool
 initPkgDbOpt :: Parser InitPkgDb
 initPkgDbOpt = InitPkgDb <$> flagYesNoAuto "init-package-db" True "Initialize package database" idm
-
-disableDeprecatedExceptionsOpt :: Parser DisableDeprecatedExceptions
-disableDeprecatedExceptionsOpt = DisableDeprecatedExceptions <$>
-  switch
-    (  long "disable-deprecated-exceptions-warning"
-    <> help "Disable the warning for deprecated exceptions. Note that exceptions will be removed in a future version, use at your own risk."
-    )
 
 newtype EnableMultiPackage = EnableMultiPackage {getEnableMultiPackage :: Bool}
 enableMultiPackageOpt :: Parser EnableMultiPackage
@@ -441,10 +437,9 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
-    optDamlWarningFlags <- optDamlWarningFlags
+    ~(optInlineDamlCustomWarningFlags, optTypecheckerWarningFlags, optLfConversionWarningFlags) <- optWarningFlags
     optIgnoreDataDepVisibility <- optIgnoreDataDepVisibility
     optForceUtilityPackage <- forceUtilityPackageOpt
-    optDisableDeprecatedExceptions <- disableDeprecatedExceptionsOpt
 
     return Options{..}
   where
@@ -585,23 +580,12 @@ optionsParser numProcessors enableScriptService parsePkgName parseDlintUsage = d
         "Typecheck upgrades."
         idm
 
-    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
-    optDamlWarningFlags =
-      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$> many optRawDamlWarningFlag
-
-    optRawDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
-    optRawDamlWarningFlag =
-      Options.Applicative.option
-        (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
-        (short 'W' <> helpDoc (Just helpStr))
+    optWarningFlags :: Parser (WarningFlags InlineDamlCustomWarnings, WarningFlags TypeCheckerError.ErrorOrWarning, WarningFlags LFConversion.ErrorOrWarning)
+    optWarningFlags = unwrap . splitWarningFlags <$> runParser allWarningFlagParsers
       where
-      helpStr =
-        PAL.vcat
-          [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
-          , "Turn a warning into an error with -Werror=<name>"
-          , "Disable warnings and errors with -Wno-<name>"
-          , "Available names are: " <> PAL.string (WarningFlags.namesAsList damlWarningFlagParser)
-          ]
+      unwrap :: Product '[a, b, c] -> (a, b, c)
+      unwrap (ProdT inlineDamlCustomWarnings (ProdT typecheckerError (ProdT lfConversion ProdZ))) =
+        (inlineDamlCustomWarnings, typecheckerError, lfConversion)
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
