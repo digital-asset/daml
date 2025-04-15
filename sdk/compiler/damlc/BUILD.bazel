@@ -239,6 +239,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//compiler/daml-lf-tools-util",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-desugar",
         "//compiler/damlc/daml-doc",
