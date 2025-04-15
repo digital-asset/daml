@@ -159,7 +159,7 @@ warningFlagParserInlineDamlCustom :: WarningFlags.WarningFlagParser InlineDamlCu
 warningFlagParserInlineDamlCustom = WarningFlags.mkWarningFlagParser
   (\case
     DisableDeprecatedExceptions -> WarningFlags.AsWarning)
-  [ WarningFlags.WarningFlagSpec "deprecated-exceptions" True $ \case
+  [ WarningFlags.WarningFlagSpec "deprecated-exceptions" False $ \case
       DisableDeprecatedExceptions -> True
   ]
 

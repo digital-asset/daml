@@ -64,6 +64,9 @@ data WarningFlagSpec err
 specToFlag :: WarningFlagSpec err -> WarningFlagStatus -> WarningFlag err
 specToFlag spec status = WarningFlag { wfStatus = status, wfName = wfsName spec, wfFilter = wfsFilter spec }
 
+modifyWfsFilter :: ((subErr -> Bool) -> superErr -> Bool) -> WarningFlagSpec subErr -> WarningFlagSpec superErr
+modifyWfsFilter f flag = flag { wfsFilter = f $ wfsFilter flag }
+
 data WarningFlag err
   = WarningFlag
     { wfName :: String
@@ -71,26 +74,20 @@ data WarningFlag err
     , wfFilter :: err -> Bool
     }
 
-modifyWfFilter :: ((subErr -> Bool) -> superErr -> Bool) -> WarningFlag subErr -> WarningFlag superErr
-modifyWfFilter f flag = flag { wfFilter = f $ wfFilter flag }
-
 mkWarningFlagParser :: (err -> WarningFlagStatus) -> [WarningFlagSpec err] -> WarningFlagParser err
 mkWarningFlagParser wfpDefault specs =
   WarningFlagParser
     { wfpDefault = wfpDefault
-    , wfpFlagParsers = map specToMapEntry specs
+    , wfpFlagParsers = specs
     , wfpSuggestFlag = \err -> wfsName <$> L.find (specCanMatchErr err) specs
     }
   where
-    specToMapEntry :: WarningFlagSpec err -> (String, WarningFlagStatus -> WarningFlag err)
-    specToMapEntry spec = (wfsName spec, specToFlag spec)
-
     specCanMatchErr :: err -> WarningFlagSpec err -> Bool
     specCanMatchErr err spec = not (wfsHidden spec) && wfsFilter spec err
 
 data WarningFlagParser err = WarningFlagParser
   { wfpDefault :: err -> WarningFlagStatus
-  , wfpFlagParsers :: [(String, WarningFlagStatus -> WarningFlag err)]
+  , wfpFlagParsers :: [WarningFlagSpec err]
   , wfpSuggestFlag :: err -> Maybe String
   }
 
@@ -99,14 +96,17 @@ data WarningFlags err = WarningFlags
   , wfFlags :: [WarningFlag err]
   }
 
+instance Contravariant WarningFlagSpec where
+  contramap f WarningFlagSpec {..} = WarningFlagSpec { wfsName, wfsHidden, wfsFilter = wfsFilter . f }
+
 instance Contravariant WarningFlag where
-  contramap f = modifyWfFilter (. f)
+  contramap f WarningFlag {..} = WarningFlag { wfName, wfStatus, wfFilter = wfFilter . f }
 
 instance Contravariant WarningFlagParser where
   contramap f WarningFlagParser {..} =
     WarningFlagParser
       { wfpDefault = wfpDefault . f
-      , wfpFlagParsers = (fmap . fmap . fmap) (contramap f) wfpFlagParsers
+      , wfpFlagParsers = fmap (contramap f) wfpFlagParsers
       , wfpSuggestFlag = wfpSuggestFlag . f
       }
 
@@ -127,12 +127,12 @@ parseWarningFlag parser@WarningFlagParser { wfpFlagParsers } = \case
   ('w':'a':'r':'n':'=':name) -> parseNameE name AsWarning
   name -> parseNameE name AsWarning
   where
-  parseNameE name status = case lookup name wfpFlagParsers of
+  parseNameE name status = case L.find (\spec -> wfsName spec == name) wfpFlagParsers of
     Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> namesAsList parser
-    Just flag -> Right (flag status)
+    Just WarningFlagSpec{..} -> Right (WarningFlag { wfName = wfsName, wfFilter = wfsFilter, wfStatus = status })
 
 namesAsList :: WarningFlagParser err -> String
-namesAsList WarningFlagParser {wfpFlagParsers} = L.intercalate ", " (map fst wfpFlagParsers)
+namesAsList WarningFlagParser {wfpFlagParsers} = L.intercalate ", " (map wfsName (filter (not . wfsHidden) wfpFlagParsers))
 
 getWarningStatus :: WarningFlags err -> err -> WarningFlagStatus
 getWarningStatus WarningFlags { wfDefault, wfFlags } err =
@@ -174,8 +174,8 @@ instance CombineF WarningFlagParser where
     WarningFlagParser
       { wfpDefault = either (wfpDefault left) (wfpDefault rest)
       , wfpFlagParsers =
-          (fmap . fmap . fmap) (modifyWfFilter (flip either (const False))) (wfpFlagParsers left) ++
-          (fmap . fmap . fmap) (modifyWfFilter (either (const False))) (wfpFlagParsers rest)
+          fmap (modifyWfsFilter (flip either (const False))) (wfpFlagParsers left) ++
+          fmap (modifyWfsFilter (either (const False))) (wfpFlagParsers rest)
       , wfpSuggestFlag = either (wfpSuggestFlag left) (wfpSuggestFlag rest)
       }
   combineZ = mkWarningFlagParser (const (error "voidParser: should not be able to get a flag with SumR")) []
