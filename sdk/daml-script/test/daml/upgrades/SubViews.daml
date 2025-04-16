@@ -1,0 +1,221 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module SubViews (main) where
+
+import UpgradeTestLib
+import qualified V1.SubViewsAsset as V1
+import qualified V2.SubViewsAsset as V2
+import SubViewsInterface
+import SubViewsMain
+import PackageIds
+import DA.Foldable
+import DA.Optional
+import DA.Text
+
+{- PACKAGE
+name: sub-views-asset
+versions: 2
+-}
+
+{- MODULE
+package: sub-views-asset
+contents: |
+  module SubViewsAsset where
+
+  template Asset
+    with
+      sig : Party
+      extra : Optional Text                         -- @V2
+    where
+      signatory sig
+  
+      choice Cycle : ContractId Asset
+        with
+          ctl : Party
+          factoryId : ContractId AssetFactory
+        controller ctl
+          do exercise factoryId (CreateAsset sig)
+
+  template AssetFactory
+    with
+      sig : Party
+      extra : Optional Text                         -- @V2
+    where
+      signatory sig
+  
+      choice CreateAsset : ContractId Asset
+        with
+          ctl : Party
+        controller ctl
+          do
+            create (Asset sig)                     -- @V1
+            create (Asset sig extra)               -- @V2
+-}
+
+{- PACKAGE
+name: sub-views-iface
+versions: 1
+depends: |
+  sub-views-asset-1.0.0
+  sub-views-asset-2.0.0
+-}
+
+{- MODULE
+package: sub-views-iface
+contents: |
+  module SubViewsInterface where
+
+  import qualified V1.SubViewsAsset as V1
+  import qualified V2.SubViewsAsset as V2
+  
+  data AssetIView = AssetIView {}
+    deriving (Eq, Show)
+  
+  data I1View = I1View {}
+    deriving (Eq, Show)
+  
+  interface I1 where
+    viewtype I1View
+  
+    i1Choice : ContractId V1.AssetFactory -> Update (ContractId V1.Asset)
+  
+    choice I1Choice : ContractId V1.Asset
+      with
+        ctl : Party
+        factoryId : ContractId V1.AssetFactory
+      controller ctl
+        do i1Choice this factoryId
+  
+  
+  data I2View = I2View {}
+    deriving (Eq, Show)
+  
+  interface I2 where
+    viewtype I2View
+  
+    i2Choice : ContractId V2.Asset -> ContractId V2.AssetFactory -> Update (ContractId V2.Asset)
+  
+    choice I2Choice : ContractId V2.Asset
+      with
+        ctl : Party
+        cid : ContractId V2.Asset
+        factoryId : ContractId V2.AssetFactory
+      controller ctl
+        do i2Choice this cid factoryId
+-}
+
+{- PACKAGE
+name: sub-views-main
+versions: 1
+depends: |
+  sub-views-iface-1.0.0
+  sub-views-asset-1.0.0
+  sub-views-asset-2.0.0
+-}
+
+{- MODULE
+package: sub-views-main
+contents: |
+  module SubViewsMain where
+
+  import SubViewsInterface
+  import qualified V1.SubViewsAsset as V1
+  import qualified V2.SubViewsAsset as V2
+
+  template Top
+    with
+      party : Party
+    where
+      signatory party
+  
+      nonconsuming choice MkTransaction : ContractId V2.Asset
+        with
+          top1 : ContractId I1
+          top2 : ContractId I2
+          factoryId1 : ContractId V1.AssetFactory
+          factoryId2 : ContractId V2.AssetFactory
+        controller party
+          do cid <- exercise top1 (I1Choice party factoryId1)
+             exercise top2 (I2Choice party (coerceContractId @V1.Asset @V2.Asset cid) factoryId2)
+  
+  template Top1
+    with
+      sig : Party
+      obs : Party
+    where
+      signatory sig
+      observer obs
+  
+      interface instance I1 for Top1 where
+        view = I1View
+        i1Choice factoryId = exercise factoryId (V1.CreateAsset sig)
+  
+  template Top2
+    with
+      sig : Party
+      obs : Party
+    where
+      signatory sig
+      observer obs
+  
+      interface instance I2 for Top2 where
+        view = I2View
+        i2Choice cid factoryId = exercise cid (V2.Cycle sig factoryId)
+-}
+
+main : TestTree
+main = tests
+  [ ("a complex command involving upgrades, interfaces and many sub-views doesn't lead to a ledger fork", manySubViews)
+  ]
+
+{-
+Creates a transaction of the following shape, then archives #cid2 in a second transaction. Since p1, p2, p3, p4 and p5
+are hosted by different participants, this creates many different views. Since #cid2 is disclosed to most parties,
+archiving it successfully gives us some confidence that the transaction didn't create a ledger fork.
+
+  │   disclosed to: p1
+  └─> p1 exercises MkTransaction on #top with top1 = #top1; top2 = #top2; factoryId1 = #factory1; factoryId2 = #factory2
+
+      │   disclosed to: p1, p2
+      └─> p1 exercises I1Choice on #top1 with ctl = p1; factoryId = #factory1
+
+          │   disclosed to: p1, p2, p3
+          └─> p1 exercises CreateAsset (v1) on #factory1 with ctl = p1
+
+              │   disclosed to: p1, p2, p3
+              │   divulged to: p4
+              └─> p3 creates #cid = ScuViewAsset:Asset (v1) with sig = p3
+
+
+      │   disclosed to: p1, p4
+      └─> p1 exercises I2Choice on #top2 with ctl = p1; cid = cid; factoryId = #factory2
+
+          │   disclosed to: p1, p4, p3
+          └─> p1 exercises Cycle (v2) on #cid (upgraded to v2) with ctl = p1; factoryId = #factory2
+
+              │   disclosed to: p1, p4, p3, p5
+              └─> p3 exercises CreateAsset (v2) on #factory2 with ctl = p3
+
+                  │   disclosed to (since): p1, p4, p3, p5
+                  └─> p5 creates #cid2 = ScuViewAsset:Asset (v2) with sig = p5; extra = some "extra"
+-}
+manySubViews = test do
+  p1 <- allocatePartyOn "p1" participant0
+  p2 <- allocatePartyOn "p2" participant1
+  p3 <- allocateReplicatedPartyOn "p3" participant2 [participant0]
+  p4 <- allocatePartyOn "p4" participant3
+  p5 <- allocateReplicatedPartyOn "p5" participant4 [participant0]
+
+  top <- submit p1 (createCmd Top { party = p1 })
+  top1 <- toInterfaceContractId @I1 <$> submit p1 (createCmd Top1 { sig = p1, obs = p2 })
+  top2 <- toInterfaceContractId @I2 <$> submit p1 (createCmd Top2 { sig = p1, obs = p4 })
+  factory1 <- submit p3 (createCmd V1.AssetFactory { sig = p3 })
+  factory2 <- submit p5 (createCmd V2.AssetFactory { sig = p5, extra = Some "extra" })
+
+  asset <- (actAs p1 <> readAs [p3, p5]) `submit` (exerciseCmd top (MkTransaction top1 top2 factory1 factory2))
+  p5 `submit` (archiveCmd asset)
+
+  pure ()

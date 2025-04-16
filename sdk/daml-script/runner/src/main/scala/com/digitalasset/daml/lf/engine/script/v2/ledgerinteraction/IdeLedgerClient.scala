@@ -1032,4 +1032,18 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
+
+  override def importParty(party: Ref.Party)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = Future.successful(())
+
+  override def exportParty(party: Ref.Party, toParticipantId: String)(implicit
+      ec: ExecutionContext,
+      esf: ExecutionSequencerFactory,
+      mat: Materializer,
+  ): Future[Unit] = Future.successful(())
+
+  override def getParticipantUid: String = ""
 }

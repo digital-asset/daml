@@ -421,7 +421,46 @@ object ScriptF {
   }
   final case class AllocParty(
       idHint: String,
-      participant: Option[Participant],
+      participants: List[Participant],
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+      def replicateParty(
+          party: Party,
+          fromClient: ScriptLedgerClient,
+          toParticipant: Participant,
+      ): Future[Unit] = for {
+        toClient <- env.clients.getParticipant(Some(toParticipant)) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        _ <- toClient.importParty(party)
+        _ <- fromClient.exportParty(party, toClient.getParticipantUid)
+      } yield ()
+
+      val mainParticipant = participants.headOption
+      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
+      for {
+        mainClient <- env.clients.getParticipant(mainParticipant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        party <- mainClient.allocateParty(idHint)
+        _ <- Future.traverse(additionalParticipants)(toParticipant =>
+          replicateParty(party, mainClient, toParticipant)
+        )
+      } yield {
+        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
+        SEValue(SParty(party))
+      }
+    }
+  }
+  final case class ReplicateParty(
+      party: Party,
+      participant: Participant,
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
@@ -429,17 +468,19 @@ object ScriptF {
         esf: ExecutionSequencerFactory,
     ): Future[SExpr] =
       for {
-        client <- env.clients.getParticipant(participant) match {
+        toClient <- env.clients.getParticipant(Some(participant)) match {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
-        party <- client.allocateParty(idHint)
-
+        _ <- toClient.importParty(party)
+        fromClient <- env.clients.getPartiesParticipant(OneAnd(party, Set.empty)) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        _ <- fromClient.exportParty(party, toClient.getParticipantUid)
       } yield {
-        participant.foreach(env.addPartyParticipantMapping(party, _))
-        SEValue(SParty(party))
+        SEValue(SUnit)
       }
-
   }
   final case class ListKnownParties(
       participant: Option[Participant]
@@ -980,11 +1021,11 @@ object ScriptF {
 
   private def parseAllocParty(v: SValue): Either[String, AllocParty] =
     v match {
-      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantName)) =>
+      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantNames)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantNames <- Converter.toParticipantNames(participantNames)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName)
+        } yield AllocParty(idHint, participantNames)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
@@ -992,7 +1033,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- Converter.toOptionalParticipantName(participantName)
         } yield ListKnownParties(participantName)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
@@ -1056,7 +1097,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(user, rights, participant)) =>
         for {
           user <- Converter.toUser(user)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
           rights <- Converter.toList(rights, Converter.toUserRight)
         } yield CreateUser(user, rights, participant)
       case _ => Left(s"Exected CreateUser payload but got $v")
@@ -1067,7 +1108,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield GetUser(userId, participant)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
@@ -1077,7 +1118,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield DeleteUser(userId, participant)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
@@ -1086,7 +1127,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participant)) =>
         for {
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield ListAllUsers(participant)
       case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
@@ -1097,7 +1138,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield GrantUserRights(userId, rights, participant)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
@@ -1108,7 +1149,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield RevokeUserRights(userId, rights, participant)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
@@ -1118,7 +1159,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield ListUserRights(userId, participant)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
@@ -1140,7 +1181,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(packages, participant)) =>
         for {
           packageIds <- Converter.toList(packages, toReadablePackageId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield wrap(packageIds, participant)
       case _ => Left(s"Expected (Vet|Unvet)Packages payload but got $v")
     }

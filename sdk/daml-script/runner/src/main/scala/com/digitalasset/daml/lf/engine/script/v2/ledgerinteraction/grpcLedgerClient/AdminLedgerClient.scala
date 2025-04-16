@@ -25,7 +25,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class AdminLedgerClient private[grpcLedgerClient] (
     val channel: Channel,
     token: Option[String],
-    participantId: String,
+    val participantUid: String,
 )(implicit ec: ExecutionContext)
     extends Closeable {
 
@@ -46,6 +46,12 @@ class AdminLedgerClient private[grpcLedgerClient] (
   private[grpcLedgerClient] val topologyWriteServiceStub =
     AdminLedgerClient.stub(
       admin_topology.TopologyManagerWriteServiceGrpc.stub(channel),
+      token,
+    )
+
+  private[grpcLedgerClient] val synchronizerConnectivityStub =
+    AdminLedgerClient.stub(
+      admin_participant.SynchronizerConnectivityServiceGrpc.stub(channel),
       token,
     )
 
@@ -79,9 +85,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
       vettedPackages <- listVettedPackages()
       newVettedPackages = packageIds.map(pkgId =>
         protocol.VettedPackages.VettedPackage(pkgId, None, None)
-      ) ++ vettedPackages(participantId)
+      ) ++ vettedPackages(participantUid)
       _ <- topologyWriteServiceStub.authorize(
-        makeAuthorizeRequest(participantId, newVettedPackages)
+        makeAuthorizeRequest(participantUid, newVettedPackages)
       )
     } yield ()
   }
@@ -90,11 +96,11 @@ class AdminLedgerClient private[grpcLedgerClient] (
     val packageIdsSet = packageIds.toSet
     for {
       vettedPackages <- listVettedPackages()
-      newVettedPackages = vettedPackages(participantId).filterNot(pkg =>
+      newVettedPackages = vettedPackages(participantUid).filterNot(pkg =>
         packageIdsSet.contains(pkg.packageId)
       )
       _ <- topologyWriteServiceStub.authorize(
-        makeAuthorizeRequest(participantId, newVettedPackages)
+        makeAuthorizeRequest(participantUid, newVettedPackages)
       )
     } yield ()
   }
@@ -216,6 +222,123 @@ class AdminLedgerClient private[grpcLedgerClient] (
           case UploadDarResponse(hash) => Right(hash.head)
         }
       }
+
+  def importParty(partyId: String): Future[Unit] = {
+    for {
+      synchronizerId <- getSynchronizerId
+      hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+      _ <- topologyWriteServiceStub.authorize(
+        makePartyReplicationAuthorizeRequest(
+          hostingParticipants,
+          partyId,
+          participantUid,
+          synchronizerId,
+        )
+      )
+    } yield ()
+  }
+
+  def exportParty(partyId: String, toParticipantUid: String): Future[Unit] = {
+    for {
+      synchronizerId <- getSynchronizerId
+      hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+      _ <- topologyWriteServiceStub.authorize(
+        makePartyReplicationAuthorizeRequest(
+          hostingParticipants,
+          partyId,
+          toParticipantUid,
+          synchronizerId,
+        )
+      )
+    } yield ()
+  }
+
+  private[this] def getSynchronizerId: Future[String] =
+    synchronizerConnectivityStub
+      .listConnectedSynchronizers(admin_participant.ListConnectedSynchronizersRequest())
+      .map(_.connectedSynchronizers.head.synchronizerId)
+
+  private[this] def listHostingParticipants(
+      partyId: String,
+      synchronizerId: String,
+  ): Future[Seq[protocol.PartyToParticipant.HostingParticipant]] =
+    topologyReadServiceStub
+      .listPartyToParticipant(makeListPartyToParticipantRequest(synchronizerId))
+      .map(
+        _.results.view
+          .collectFirst {
+            case result if result.item.get.party == partyId =>
+              result.item.get.participants
+          }
+          .getOrElse(Seq.empty)
+      )
+
+  private[this] def makeListPartyToParticipantRequest(
+      synchronizerId: String
+  ): admin_topology.ListPartyToParticipantRequest =
+    admin_topology.ListPartyToParticipantRequest(
+      baseQuery = Some(
+        admin_topology.BaseQuery(
+          store = Some(
+            admin_topology.StoreId(
+              admin_topology.StoreId.Store.Synchronizer(
+                admin_topology.StoreId.Synchronizer(synchronizerId)
+              )
+            )
+          ),
+          proposals = false,
+          operation = protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED,
+          timeQuery = admin_topology.BaseQuery.TimeQuery
+            .HeadState(com.google.protobuf.empty.Empty()),
+          filterSignedKey = "",
+          protocolVersion = None,
+        )
+      ),
+      filterParty = "",
+      filterParticipant = "",
+    )
+
+  private[this] def makePartyReplicationAuthorizeRequest(
+      currentHostingParticipants: Seq[protocol.PartyToParticipant.HostingParticipant],
+      partyId: String,
+      participantId: String,
+      synchronizerId: String,
+  ): admin_topology.AuthorizeRequest = {
+    val newEntry = protocol.PartyToParticipant.HostingParticipant(
+      participantId,
+      protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+    )
+    admin_topology.AuthorizeRequest(
+      admin_topology.AuthorizeRequest.Type.Proposal(
+        admin_topology.AuthorizeRequest.Proposal(
+          protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+          0, // will be picked by the participant
+          Some(
+            protocol.TopologyMapping(
+              protocol.TopologyMapping.Mapping.PartyToParticipant(
+                protocol.PartyToParticipant(
+                  partyId,
+                  1,
+                  newEntry +: currentHostingParticipants,
+                )
+              )
+            )
+          ),
+        )
+      ),
+      mustFullyAuthorize = false,
+      forceChanges = Seq.empty,
+      signedBy = Seq.empty,
+      store = Some(
+        admin_topology.StoreId(
+          admin_topology.StoreId.Store.Synchronizer(
+            admin_topology.StoreId.Synchronizer(synchronizerId)
+          )
+        )
+      ),
+      waitToBecomeEffective = Some(com.google.protobuf.duration.Duration(1, 0)),
+    )
+  }
 
   override def close(): Unit = GrpcChannel.close(channel)
 }
