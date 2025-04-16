@@ -49,7 +49,7 @@ case object BuildInfo {{
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val stableProtocolVersions = List()
+  val stableProtocolVersions = List("33")
   val betaProtocolVersions = List()
   override val toString: String = {{
      "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, stableProtocolVersions: %s, betaProtocolVersions: %s".format(
@@ -1100,7 +1100,7 @@ daml_compile(
 copy_file(
     name = "community_participant_admin-workflows_dar",
     src = ":community_participant_admin-workflows.dar",
-    out = "community_participant_resources/AdminWorkflows.dar",
+    out = "community_participant_resources/dar/AdminWorkflows.dar",
 )
 
 copy_file(
