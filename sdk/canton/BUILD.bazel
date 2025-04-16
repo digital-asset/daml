@@ -390,7 +390,7 @@ da_scala_library(
         ":base_errors",
         ":base_grpc-utils",
         ":base_util-external",
-        ":community_base",
+#        ":community_base",
         ":community_util-logging",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
