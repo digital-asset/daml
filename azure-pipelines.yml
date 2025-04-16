@@ -130,9 +130,9 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
-        if [ -d sdk ]; then
-          cd sdk
-        fi
+        # Note: The last branch that doesn't have the sdk subdirectory is 2.7.x,
+        # and I don't think we're planning any releases from that branch
+        cd sdk || exit 1
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
