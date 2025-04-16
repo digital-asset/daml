@@ -27,7 +27,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.metrics.MetricValue
 import com.digitalasset.canton.participant.config.{
   BaseParticipantConfig,
-  LocalParticipantConfig,
+  ParticipantNodeConfig,
   RemoteParticipantConfig,
 }
 import com.digitalasset.canton.participant.{ParticipantNode, ParticipantNodeBootstrap}
@@ -711,7 +711,7 @@ class LocalParticipantReference(
   override private[console] val nodes = consoleEnvironment.environment.participants
 
   @Help.Summary("Return participant config")
-  def config: LocalParticipantConfig =
+  def config: ParticipantNodeConfig =
     consoleEnvironment.environment.config.participantsByString(name)
 
   override def runningNode: Option[ParticipantNodeBootstrap] =

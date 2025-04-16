@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.indexer.parallel
 
 import com.digitalasset.canton.RepairCounter
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
@@ -45,6 +45,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
     workflowId = None,
     submissionTime = Time.Timestamp.assertFromLong(3),
     submissionSeed = someHash,
+    timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,

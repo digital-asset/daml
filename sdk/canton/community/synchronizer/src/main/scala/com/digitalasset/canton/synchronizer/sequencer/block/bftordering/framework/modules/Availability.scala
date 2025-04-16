@@ -146,7 +146,7 @@ object Availability {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(
               RemoteBatch.fromProtoAvailabilityMessage
@@ -225,7 +225,7 @@ object Availability {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(
               RemoteBatchAcknowledged.fromAvailabilityMessage
@@ -343,7 +343,7 @@ object Availability {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(
               FetchRemoteBatchData.fromAvailabilityMessage
@@ -417,7 +417,7 @@ object Availability {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(
               RemoteBatchDataFetched.fromAvailabilityMessage

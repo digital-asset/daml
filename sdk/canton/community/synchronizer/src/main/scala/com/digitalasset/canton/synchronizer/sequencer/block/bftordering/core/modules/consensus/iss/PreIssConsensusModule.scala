@@ -77,6 +77,7 @@ final class PreIssConsensusModule[E <: Env[E]](
             dependencies.p2pNetworkOut,
             abort,
             previousEpochsCommitCerts,
+            metrics,
             loggerFactory,
           ),
           random,

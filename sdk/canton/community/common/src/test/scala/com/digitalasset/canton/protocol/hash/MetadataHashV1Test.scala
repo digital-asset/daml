@@ -11,22 +11,23 @@ import org.scalatest.wordspec.AnyWordSpecLike
 class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with HashUtilsTest {
 
   "Metadata Encoding" should {
-    val metadataHash = Hash
-      .fromHexStringRaw("bdf59f1d269c1df19683ee6d6c144deec7733c9dec1d3356c8bf98076a16e950")
+    val expectedMetadataHash = Hash
+      .fromHexStringRaw("2a0690693367f70fbe83e5e99df6930dbd2336618a3a0721bb6fa3bcc88d5a53")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
       TransactionMetadataHashBuilder
         .hashTransactionMetadataV1(metadata)
-        .toHexString shouldBe metadataHash.toHexString
+        .toHexString shouldBe expectedMetadataHash.toHexString
     }
 
     "explain encoding" in {
       val hashTracer = HashTracer.StringHashTracer(true)
-      TransactionMetadataHashBuilder.hashTransactionMetadataV1(
+
+      val actualMetadataHash = TransactionMetadataHashBuilder.hashTransactionMetadataV1(
         metadata,
         hashTracer,
-      ) shouldBe metadataHash
+      )
 
       hashTracer.result shouldBe """'00000030' # Hash Purpose
                                    |'01' # 01 (Metadata Encoding Version)
@@ -47,9 +48,12 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
                                    |# Synchronizer Id
                                    |'0000000e' # 14 (int)
                                    |'73796e6368726f6e697a65724964' # synchronizerId (string)
-                                   |# Ledger Effective Time
+                                   |# Min Time Boundary
                                    |'01' # Some
-                                   |'0000000000000000' # 0 (long)
+                                   |'000000000000aaaa' # 43690 (long)
+                                   |# Max Time Boundary
+                                   |'01' # Some
+                                   |'000000000000bbbb' # 48059 (long)
                                    |# Submission Time
                                    |'0000000000000000' # 0 (long)
                                    |# Disclosed Contracts
@@ -133,7 +137,10 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
                                    |  '626f62' # bob (string)
                                    |'010ee30a2b17bd729bc5ccada01a62bfb7283641610feb5913fb46b2972368a4' # Disclosed Contract
                                    |""".stripMargin
-      assertStringTracer(hashTracer, metadataHash)
+
+      actualMetadataHash shouldBe expectedMetadataHash
+
+      assertStringTracer(hashTracer, expectedMetadataHash)
     }
   }
 

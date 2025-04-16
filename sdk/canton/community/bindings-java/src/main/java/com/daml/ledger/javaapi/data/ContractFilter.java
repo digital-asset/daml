@@ -110,6 +110,7 @@ public final class ContractFilter<Ct> {
     return companion.fromCreatedEvent(createdEvent);
   }
 
+  /** Method will be removed in 3.4.0 */
   public TransactionFilter transactionFilter(Optional<Set<String>> parties) {
     return transactionFilter(filter, parties);
   }

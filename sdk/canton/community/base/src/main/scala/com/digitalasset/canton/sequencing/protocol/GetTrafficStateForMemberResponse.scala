@@ -31,7 +31,7 @@ object GetTrafficStateForMemberResponse
   override val name: String = "GetTrafficStateForMemberResponse"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.GetTrafficStateForMemberResponse
     )(
       supportedProtoVersion(_)(fromProtoV30),

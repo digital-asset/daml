@@ -40,7 +40,7 @@ object SubscriptionRequest extends VersioningCompanion[SubscriptionRequest] {
   override val name: String = "SubscriptionRequest"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SubscriptionRequest)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SubscriptionRequest)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

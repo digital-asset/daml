@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.handlers
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.error.FatalError
@@ -20,7 +21,6 @@ import com.digitalasset.canton.sequencing.protocol.Envelope
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{SequencerCounter, config}
 
 import java.time.temporal.ChronoUnit
 import scala.concurrent.ExecutionContext
@@ -55,8 +55,8 @@ class TimeLimitingApplicationEventHandler(
                 )
                 .getOrElse(CantonTimestamp.MaxValue)
             val data = ApplicationEventHandlerTimeoutData(
-              batches.head1.counter,
-              batches.last1.counter,
+              batches.head1.timestamp,
+              batches.last1.timestamp,
               boxedEnvelopes.value.map(_.traceContext),
               now,
             )
@@ -81,8 +81,8 @@ class TimeLimitingApplicationEventHandler(
 
 object TimeLimitingApplicationEventHandler extends HasLoggerName {
   private final case class ApplicationEventHandlerTimeoutData(
-      sequencerCounterStart: SequencerCounter,
-      sequencerCounterEnd: SequencerCounter,
+      startSequencingTimestamp: CantonTimestamp,
+      endSequencingTimestamp: CantonTimestamp,
       traceIds: Seq[TraceContext],
       start: CantonTimestamp,
   )(implicit val traceContext: TraceContext)
@@ -104,7 +104,7 @@ object TimeLimitingApplicationEventHandler extends HasLoggerName {
       dataF = None
       dataO.foreach { data =>
         logger.trace(
-          show"Processing of event batch with sequencer counters ${data.sequencerCounterStart} to ${data.sequencerCounterEnd} started at ${data.start} completed."
+          show"Processing of event batch with sequencing timestamps ${data.startSequencingTimestamp} to ${data.endSequencingTimestamp} started at ${data.start} completed."
         )(data.traceContext)
       }
     }
@@ -112,14 +112,14 @@ object TimeLimitingApplicationEventHandler extends HasLoggerName {
     def trigger(at: CantonTimestamp): Unit =
       dataF.foreach {
         case data @ ApplicationEventHandlerTimeoutData(
-              sequencerCounterStart,
-              sequencerCounterEnd,
+              startSequencingTimestamp,
+              endSequencingTimestamp,
               traceIds,
               start,
             ) =>
           implicit val traceContext: TraceContext = data.traceContext
           val msg =
-            show"Processing of event batch with sequencer counters $sequencerCounterStart to $sequencerCounterEnd started at $start did not complete by $at. Affected trace IDs: $traceIds"
+            show"Processing of event batch with sequencing timestamps $startSequencingTimestamp to $endSequencingTimestamp started at $start did not complete by $at. Affected trace IDs: $traceIds"
           if (exitOnTimeout) FatalError.exitOnFatalError(msg, logger)
           else logger.error(msg)
       }

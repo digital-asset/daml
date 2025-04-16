@@ -44,7 +44,7 @@ object Stakeholders extends HasVersionedMessageCompanion[Stakeholders] {
   override def name: String = "Stakeholders"
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.Stakeholders)(fromProtoV30),
       _.toProtoV30,
     )

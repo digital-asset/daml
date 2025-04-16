@@ -61,17 +61,24 @@ class StoreBasedSynchronizerOutboxTest
   private lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
   private lazy val publicKey =
-    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.NamespaceOrIdentityDelegation)
+    crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.NamespaceOnly)
   private lazy val namespace = Namespace(publicKey.id)
   private lazy val synchronizer = SynchronizerAlias.tryCreate("target")
+  private def mkPTP(name: String) = PartyToParticipant.tryCreate(
+    PartyId(UniqueIdentifier.tryCreate(name, namespace)),
+    PositiveInt.one,
+    Seq.empty,
+  )
+  private val rootCert = txAddFromMapping(
+    NamespaceDelegation.tryCreate(namespace, publicKey, CanSignAllMappings)
+  )
   private lazy val transactions =
-    Seq[TopologyMapping](
-      NamespaceDelegation.tryCreate(namespace, publicKey, CanSignAllMappings),
-      IdentifierDelegation.tryCreate(UniqueIdentifier.tryCreate("alpha", namespace), publicKey),
-      IdentifierDelegation.tryCreate(UniqueIdentifier.tryCreate("beta", namespace), publicKey),
-      IdentifierDelegation.tryCreate(UniqueIdentifier.tryCreate("gamma", namespace), publicKey),
-      IdentifierDelegation.tryCreate(UniqueIdentifier.tryCreate("delta", namespace), publicKey),
-    ).map(txAddFromMapping)
+    rootCert +: Seq(
+      "alpha",
+      "beta",
+      "gamma",
+      "delta",
+    ).map(mkPTP).map(txAddFromMapping)
   private lazy val slice1 = transactions.slice(0, 2)
   private lazy val slice2 = transactions.slice(slice1.length, transactions.length)
 
@@ -365,13 +372,7 @@ class StoreBasedSynchronizerOutboxTest
         mk(transactions.length)
 
       val midRevert = transactions(2).reverse
-      val another =
-        txAddFromMapping(
-          IdentifierDelegation.tryCreate(
-            UniqueIdentifier.tryCreate("eta", namespace),
-            publicKey,
-          )
-        )
+      val another = txAddFromMapping(mkPTP("eta"))
 
       for {
         _ <- outboxConnected(manager, handle, client, source, target)

@@ -39,16 +39,16 @@ class SequencedEventMonotonicityChecker(
     * detected.
     */
   def flow[E]: Flow[
-    WithKillSwitch[Either[E, OrdinarySerializedEvent]],
-    WithKillSwitch[Either[E, OrdinarySerializedEvent]],
+    WithKillSwitch[Either[E, SequencedSerializedEvent]],
+    WithKillSwitch[Either[E, SequencedSerializedEvent]],
     NotUsed,
   ] =
-    Flow[WithKillSwitch[Either[E, OrdinarySerializedEvent]]]
+    Flow[WithKillSwitch[Either[E, SequencedSerializedEvent]]]
       .statefulMap(() => initialState)(
         (state, eventAndKillSwitch) =>
           eventAndKillSwitch.traverse {
             case left @ Left(_) => state -> Emit(left)
-            case Right(event) => onNext(state, event).map(_.map(Right(_)))
+            case Right(event) => onNext(state, event).map(_.map(_ => Right(event)))
           },
         _ => None,
       )
@@ -69,8 +69,8 @@ class SequencedEventMonotonicityChecker(
     *   when a monotonicity violation is detected
     */
   def handler(
-      handler: OrdinaryApplicationHandler[ClosedEnvelope]
-  ): OrdinaryApplicationHandler[ClosedEnvelope] = {
+      handler: SequencedApplicationHandler[ClosedEnvelope]
+  ): SequencedApplicationHandler[ClosedEnvelope] = {
     // Application handlers must be called sequentially, so a plain var is good enough here
     @SuppressWarnings(Array("org.wartremover.warts.Var"))
     var state: State = initialState
@@ -94,12 +94,16 @@ class SequencedEventMonotonicityChecker(
 
   private def onNext(
       state: State,
-      event: OrdinarySerializedEvent,
-  ): (State, Action[OrdinarySerializedEvent]) = state match {
+      event: SequencedSerializedEvent,
+  ): (State, Action[SequencedSerializedEvent]) = state match {
     case Failed => (state, Drop)
     case GoodState(previousEventTimestamp) =>
-      val monotonic = event.previousTimestamp == previousEventTimestamp
-        && event.previousTimestamp.forall(event.timestamp > _)
+      // Note that here we only check the monotonicity of the event timestamps,
+      // not the presence of gaps in the event stream by checking the previousTimestamp.
+      // That is done by the SequencedEventValidator, which checks for the fork
+      val monotonic = previousEventTimestamp.forall { previous =>
+        event.timestamp > previous
+      }
       if (monotonic) {
         val nextState = GoodState(Some(event.timestamp))
         nextState -> Emit(event)
@@ -123,7 +127,7 @@ object SequencedEventMonotonicityChecker {
   }
   private final case class MonotonicityFailure(
       previousEventTimestamp: Option[CantonTimestamp],
-      event: OrdinarySerializedEvent,
+      event: SequencedSerializedEvent,
   ) extends Action[Nothing] {
     def message: String =
       s"Timestamps do not increase monotonically or previous event timestamp does not match. Expected previousTimestamp=$previousEventTimestamp, but received ${event.signedEvent.content}"

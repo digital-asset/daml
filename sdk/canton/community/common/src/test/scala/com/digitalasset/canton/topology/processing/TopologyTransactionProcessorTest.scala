@@ -281,7 +281,7 @@ abstract class TopologyTransactionProcessorTest
         // after a restart, we need to fetch pre-existing authorizations from our store
         // simulate this one by one
         val store = mkStore()
-        val block1 = List(ns1k1_k1, ns1k2_k1, id1ak4_k2, okm1bk5k1E_k4)
+        val block1 = List(ns1k1_k1, ns1k2_k1, okm1bk5k1E_k2)
         block1.zipWithIndex.foreach { case (elem, idx) =>
           val proc = mk(store)._1
           process(proc, ts(idx), idx.toLong, List(elem))

@@ -211,7 +211,7 @@ object DbSequencerStateManagerStore {
 
     override def versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoCodec.storage(
-        ReleaseProtocolVersion(ProtocolVersion.v33),
+        ReleaseProtocolVersion(ProtocolVersion.v34),
         v30.AggregatedSignaturesOfSender,
       )(
         supportedProtoVersion(_)(fromProtoV30),

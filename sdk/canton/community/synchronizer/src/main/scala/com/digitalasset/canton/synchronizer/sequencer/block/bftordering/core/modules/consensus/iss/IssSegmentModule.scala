@@ -259,6 +259,9 @@ class IssSegmentModule[E <: Env[E]](
             segmentState.currentView + 1,
             segmentState.commitVotes,
             segmentState.prepareVotes,
+            segmentState.discardedMessageCount,
+            segmentState.retransmittedMessages,
+            segmentState.retransmittedCommitCertificates,
           )
           viewChangeTimeoutManager.cancelTimeout()
         }

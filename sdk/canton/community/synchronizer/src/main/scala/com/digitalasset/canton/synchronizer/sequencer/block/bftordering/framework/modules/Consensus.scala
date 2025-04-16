@@ -165,7 +165,7 @@ object Consensus {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.RetransmissionMessage)(
             supportedProtoVersionMemoized(_)(
               fromProtoRetransmissionMessage
@@ -242,7 +242,7 @@ object Consensus {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.RetransmissionMessage)(
             supportedProtoVersionMemoized(_)(
               fromProtoRetransmissionMessage
@@ -318,7 +318,7 @@ object Consensus {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.StateTransferMessage)(
             supportedProtoVersionMemoized(_)(
               fromProtoStateTransferMessage
@@ -391,7 +391,7 @@ object Consensus {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.StateTransferMessage)(
             supportedProtoVersionMemoized(_)(
               fromProtoStateTransferMessage

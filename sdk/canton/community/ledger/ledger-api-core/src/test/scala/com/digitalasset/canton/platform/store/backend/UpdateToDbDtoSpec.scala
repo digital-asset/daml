@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
   Added,
@@ -1806,6 +1806,7 @@ object UpdateToDbDtoSpec {
     workflowId = Some(someWorkflowId),
     submissionTime = Time.Timestamp.assertFromLong(3),
     submissionSeed = someHash,
+    timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,

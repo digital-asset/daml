@@ -14,7 +14,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{RepairUpdate, TransactionMeta, Update}
 import com.digitalasset.canton.lifecycle.{
@@ -35,7 +35,7 @@ import com.digitalasset.canton.participant.admin.repair.RepairService.{
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
-import com.digitalasset.canton.participant.store.{SyncPersistentState, *}
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.SyncEphemeralStateFactory
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
@@ -963,6 +963,7 @@ final class RepairService(
         workflowId = None,
         submissionTime = repair.timestamp.toLf,
         submissionSeed = Update.noOpSeed,
+        timeBoundaries = LedgerTimeBoundaries.unconstrained,
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,
@@ -1003,6 +1004,7 @@ final class RepairService(
         workflowId = workflowIdProvider(),
         submissionTime = repair.timestamp.toLf,
         submissionSeed = Update.noOpSeed,
+        timeBoundaries = LedgerTimeBoundaries.unconstrained,
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,

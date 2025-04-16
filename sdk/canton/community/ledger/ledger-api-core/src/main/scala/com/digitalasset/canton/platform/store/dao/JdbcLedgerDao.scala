@@ -480,6 +480,7 @@ private class JdbcLedgerDao(
                 workflowId = workflowId,
                 submissionTime = null, // not used for DbDto generation
                 submissionSeed = null, // not used for DbDto generation
+                timeBoundaries = null, // not used for DbDto generation
                 optUsedPackages = None, // not used for DbDto generation
                 optNodeSeeds = None, // not used for DbDto generation
                 optByKeyNodes = None, // not used for DbDto generation

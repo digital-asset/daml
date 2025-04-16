@@ -42,7 +42,7 @@ class DbKmsMetadataStore(
         storage.profile,
         deserialize = v => SigningKeyUsage.fromDbTypeToSigningKeyUsage(v),
       )
-      .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(Set(arr.toSeq*))))
+      .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(Set(arr.flatten.toSeq*))))
 
   implicit val kmsMetadataGetter: GetResult[KmsMetadata] =
     GetResult

@@ -36,7 +36,7 @@ class CantonLedgerApiServerFactory(
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
-  def createHaConfig(config: LocalParticipantConfig)(implicit
+  def createHaConfig(config: ParticipantNodeConfig)(implicit
       traceContext: TraceContext
   ): HaConfig =
     config.storage match {
@@ -64,7 +64,7 @@ class CantonLedgerApiServerFactory(
       sync: CantonSyncService,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       ledgerApiIndexer: Eval[LedgerApiIndexer],
-      config: LocalParticipantConfig,
+      config: ParticipantNodeConfig,
       parameters: ParticipantNodeParameters,
       metrics: LedgerApiServerMetrics,
       httpApiMetrics: HttpApiMetrics,

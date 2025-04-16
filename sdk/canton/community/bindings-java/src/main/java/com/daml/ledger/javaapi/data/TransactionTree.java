@@ -15,6 +15,11 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+/**
+ * Helper wrapper of a grpc message used in GetUpdateTrees, GetTransactionTreeById,
+ * GetTransactionTreeByOffset, and SubmitAndWaitForTransactionTree calls. Class will be removed in
+ * 3.4.0.
+ */
 public final class TransactionTree {
 
   @NonNull private final String updateId;

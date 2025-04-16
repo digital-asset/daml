@@ -13,7 +13,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule, TracedLogger}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.sequencer.SynchronizerSequencingTestUtils.*
@@ -161,7 +161,7 @@ class SequencerReaderTestV2
         member: Member,
         timestampInclusive: Option[CantonTimestamp],
         take: Int,
-    ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
+    ): FutureUnlessShutdown[Seq[SequencedSerializedEvent]] =
       loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
         FutureUnlessShutdown.outcomeF(
           valueOrFail(reader.readV2(member, timestampInclusive).failOnShutdown)(
@@ -186,7 +186,7 @@ class SequencerReaderTestV2
     def readWithQueue(
         member: Member,
         timestampInclusive: Option[CantonTimestamp],
-    ): SinkQueueWithCancel[OrdinarySerializedEvent] =
+    ): SinkQueueWithCancel[SequencedSerializedEvent] =
       Source
         .future(
           valueOrFail(reader.readV2(member, timestampInclusive).failOnShutdown)(
@@ -209,8 +209,8 @@ class SequencerReaderTestV2
       }
 
     def pullFromQueue(
-        queue: SinkQueueWithCancel[OrdinarySerializedEvent]
-    ): FutureUnlessShutdown[Option[OrdinarySerializedEvent]] =
+        queue: SinkQueueWithCancel[SequencedSerializedEvent]
+    ): FutureUnlessShutdown[Option[SequencedSerializedEvent]] =
       loggerFactory.assertLogsSeq(SuppressionRule.Level(Level.WARN))(
         FutureUnlessShutdown.outcomeF(queue.pull()),
         ignoreWarningsFromLackOfTopologyUpdates,
@@ -297,7 +297,7 @@ class SequencerReaderTestV2
       } yield {
         forAll(events.zipWithIndex) { case (event, n) =>
           val expectedPreviousEventTimestamp = if (n == 0) None else Some(ts0.plusSeconds(n.toLong))
-          event.counter shouldBe SequencerCounter(n)
+          event.timestamp shouldBe ts0.plusSeconds(n + 1L)
           event.previousTimestamp shouldBe expectedPreviousEventTimestamp
         }
       }
@@ -316,10 +316,8 @@ class SequencerReaderTestV2
         _ <- storeAndWatermark(delivers)
         events <- readAsSeq(alice, Some(ts0.plusSeconds(6)), 15)
       } yield {
-        events.headOption.value.counter shouldBe SequencerCounter(5)
-        events.headOption.value.timestamp shouldBe ts0.plusSeconds(6)
         events.headOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(5))
-        events.lastOption.value.counter shouldBe SequencerCounter(19)
+        events.headOption.value.timestamp shouldBe ts0.plusSeconds(6)
         events.lastOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(19))
         events.lastOption.value.timestamp shouldBe ts0.plusSeconds(20)
       }
@@ -338,10 +336,10 @@ class SequencerReaderTestV2
         _ <- storeAndWatermark(delivers)
         queue = readWithQueue(alice, timestampInclusive = None)
         // read off all of the initial delivers
-        _ <- MonadUtil.sequentialTraverse(delivers.zipWithIndex.map(_._2)) { expectedCounter =>
+        _ <- MonadUtil.sequentialTraverse(delivers.zipWithIndex.map(_._2)) { idx =>
           for {
             eventO <- pullFromQueue(queue)
-          } yield eventO.value.counter shouldBe SequencerCounter(expectedCounter)
+          } yield eventO.value.timestamp shouldBe ts0.plusSeconds(idx + 1L)
         }
         // start reading the next event
         nextEventF = pullFromQueue(queue)
@@ -358,7 +356,6 @@ class SequencerReaderTestV2
         nextEventO <- nextEventF
         _ = queue.cancel() // cancel the queue now we're done with it
       } yield {
-        nextEventO.value.counter shouldBe SequencerCounter(5)
         nextEventO.value.previousTimestamp shouldBe Some(ts0.plusSeconds(5))
         nextEventO.value.timestamp shouldBe ts0.plusSeconds(6)
       } // it'll be alices fifth event
@@ -455,10 +452,8 @@ class SequencerReaderTestV2
         } yield {
           // this assertion is a bit redundant as we're actually just looking for the prior fetch to complete rather than get stuck
           events should have size 15
-          events.headOption.value.counter shouldBe SequencerCounter(10)
           events.headOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(10))
           events.headOption.value.timestamp shouldBe ts0.plusSeconds(11)
-          events.lastOption.value.counter shouldBe SequencerCounter(24)
           events.lastOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(24))
           events.lastOption.value.timestamp shouldBe ts0.plusSeconds(25)
         }
@@ -508,11 +503,12 @@ class SequencerReaderTestV2
           lastEventRead = readEvents.lastOption.value.value
           checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
             aliceId,
-            lastEventRead.counter + 1,
+            SequencerCounter(
+              100L
+            ), // lastEventRead should be 19L, but we can use any offset above that
           )
         } yield {
           // check it created a checkpoint for the last event we read
-          checkpointForLastEventO.value.counter shouldBe lastEventRead.counter
           checkpointForLastEventO.value.timestamp shouldBe lastEventRead.timestamp
           checkpointForLastEventO.value.latestTopologyClientTimestamp shouldBe Some(
             CantonTimestamp.ofEpochSecond(11)
@@ -564,8 +560,6 @@ class SequencerReaderTestV2
           )(
             anyTraceContext
           )
-          // but only emitted events starting from 15
-          events.headOption.value.counter shouldBe SequencerCounter(15)
           // our deliver events start at ts0+1s and as alice is registered before the first deliver event their first
           // event (0) is for ts0+1s.
           // event 15 should then have ts ts0+16s
@@ -727,7 +721,6 @@ class SequencerReaderTestV2
           sequencingTimestamp: CantonTimestamp,
           messageId: MessageId,
           topologyTimestamp: CantonTimestamp,
-          sequencerCounter: Long,
       )
 
       def filterForTopologyTimestamps[A]: PartialFunction[
@@ -751,7 +744,7 @@ class SequencerReaderTestV2
                     ),
                   ),
                 ),
-                idx,
+                _idx,
               ),
               previousTimestamp,
             ) =>
@@ -761,7 +754,6 @@ class SequencerReaderTestV2
             timestamp,
             messageId,
             topologyTimestamp,
-            idx.toLong,
           )
       }
 
@@ -773,9 +765,6 @@ class SequencerReaderTestV2
               aliceEvents <- readAsSeq(alice, timestampInclusive = None, delivers.length)
             } yield {
               aliceEvents.length shouldBe delivers.length
-              aliceEvents.map(_.counter) shouldBe (SequencerCounter(0) until SequencerCounter(
-                delivers.length.toLong
-              ))
               val deliverWithTopologyTimestamps =
                 aliceEvents.zip(delivers).zipWithIndex.zip(previousTimestamps).collect {
                   filterForTopologyTimestamps
@@ -787,12 +776,10 @@ class SequencerReaderTestV2
                       sequencingTimestamp,
                       messageId,
                       topologyTimestamp,
-                      sc,
                     ) =>
                   val expectedSequencedEvent =
                     if (topologyTimestamp + topologyTimestampTolerance >= sequencingTimestamp)
                       Deliver.create(
-                        SequencerCounter(sc),
                         previousTimestamp,
                         sequencingTimestamp,
                         synchronizerId,
@@ -804,7 +791,6 @@ class SequencerReaderTestV2
                       )
                     else
                       DeliverError.create(
-                        SequencerCounter(sc),
                         previousTimestamp,
                         sequencingTimestamp,
                         synchronizerId,
@@ -830,8 +816,6 @@ class SequencerReaderTestV2
               bobEvents <- readAsSeq(bob, timestampInclusive = None, delivers.length)
             } yield {
               bobEvents.length shouldBe delivers.length
-              bobEvents.map(_.counter) shouldBe (0L until delivers.length.toLong)
-                .map(SequencerCounter(_))
               val deliverWithTopologyTimestamps =
                 bobEvents.zip(delivers).zipWithIndex.zip(previousTimestamps).collect {
                   filterForTopologyTimestamps
@@ -843,12 +827,10 @@ class SequencerReaderTestV2
                       sequencingTimestamp,
                       _messageId,
                       topologyTimestamp,
-                      sc,
                     ) =>
                   val expectedSequencedEvent =
                     if (topologyTimestamp + topologyTimestampTolerance >= sequencingTimestamp)
                       Deliver.create(
-                        SequencerCounter(sc),
                         previousTimestamp,
                         sequencingTimestamp,
                         synchronizerId,
@@ -860,7 +842,6 @@ class SequencerReaderTestV2
                       )
                     else
                       Deliver.create(
-                        SequencerCounter(sc),
                         previousTimestamp,
                         sequencingTimestamp,
                         synchronizerId,
@@ -931,11 +912,13 @@ class SequencerReaderTestV2
           // close the queue before we make any assertions
           _ = queue.cancel()
           lastEventRead = readEvents.lastOption.value.value
-          _ = logger.debug(s"Fetching checkpoint for event with counter ${lastEventRead.counter}")
+          _ = logger.debug(
+            s"Fetching checkpoint for the last event with timestamp ${lastEventRead.timestamp}"
+          )
           checkpointForLastEventO <-
             store.fetchClosestCheckpointBefore(
               aliceId,
-              lastEventRead.counter + 1,
+              SequencerCounter(100L),
             )
         } yield {
           // check it created a checkpoint for a recent event

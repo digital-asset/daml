@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.SerializedEventOrErrorHandler
+import com.digitalasset.canton.sequencing.SequencedEventOrErrorHandler
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
@@ -46,7 +46,7 @@ class DirectSequencerSubscriptionFactory(
   def createV2[E](
       timestamp: Option[CantonTimestamp],
       member: Member,
-      handler: SerializedEventOrErrorHandler[E],
+      handler: SequencedEventOrErrorHandler[E],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, SequencerSubscription[E]] = {

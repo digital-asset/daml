@@ -116,7 +116,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
 
     override def readInternal(member: Member, offset: SequencerCounter)(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
       EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError](
         Source.empty
           .viaMat(KillSwitches.single)(Keep.right)
@@ -125,7 +125,7 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
 
     override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
       EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError](
         Source.empty
           .viaMat(KillSwitches.single)(Keep.right)

@@ -142,8 +142,6 @@ class GrpcTopologyManagerWriteService(
         DecentralizedNamespaceDefinition.fromProtoV30(mapping)
       case Mapping.NamespaceDelegation(mapping) =>
         NamespaceDelegation.fromProtoV30(mapping)
-      case Mapping.IdentifierDelegation(mapping) =>
-        IdentifierDelegation.fromProtoV30(mapping)
       case Mapping.SynchronizerParametersState(mapping) =>
         SynchronizerParametersState.fromProtoV30(mapping)
       case Mapping.SequencingDynamicParametersState(mapping) =>
