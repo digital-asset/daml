@@ -43,6 +43,8 @@ import java.security.{
   SignatureException,
 }
 import java.security.spec.{InvalidKeySpecException, X509EncodedKeySpec}
+import java.time.Duration
+import java.time.temporal.ChronoUnit
 import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
@@ -1862,7 +1864,24 @@ private[lf] object SBuiltinFun {
 
       val time = getSTimestamp(args, 0)
 
-      machine.needTime(now => Control.Value(SBool(now < time)))
+      machine.needTime(now => {
+        val Time.Range(lb, ub) = machine.getTimeBoundaries
+        // We only generate a transaction trace for the last exercise command
+        val message = machine.transactionTrace(1)
+        machine.traceLog.add(message, machine.getLastLocation)(machine.loggingContext)
+
+        if (now < time) {
+          machine.setTimeBoundaries(
+            Time.Range(lb, ub.min(time.subtract(Duration.of(1, ChronoUnit.MICROS))))
+          )
+
+          Control.Value(SBool(true))
+        } else {
+          machine.setTimeBoundaries(Time.Range(lb.max(time), ub))
+
+          Control.Value(SBool(false))
+        }
+      })
     }
   }
 

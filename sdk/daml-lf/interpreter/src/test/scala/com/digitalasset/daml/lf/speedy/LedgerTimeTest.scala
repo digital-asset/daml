@@ -33,20 +33,62 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] val now = Time.Timestamp.now()
   private[this] val nowP1 = now.addMicros(1)
+  private[this] val nowP2 = now.addMicros(2)
 
   "ledger time primitives" - {
     "ledgerTimeLT" in {
-      val testData = Table[Time.Timestamp, Time.Timestamp, Boolean](
-        ("now", "time", "result"),
-        (nowP1, now, false),
-        (now, now, false),
-        (now, nowP1, true),
+      val testData = Table[Time.Timestamp, Time.Timestamp, Boolean, Time.Range](
+        ("now", "time", "result", "updated-time-boundary"),
+        (nowP1, now, false, Time.Range(nowP1, nowP1)),
+        (now, now, false, Time.Range(now, now)),
+        (now, nowP1, true, Time.Range(now, now)),
+        (now, nowP2, true, Time.Range(now, now)),
+        (now, Time.Timestamp.MinValue, false, Time.Range(now, now)),
+        (now, Time.Timestamp.MaxValue, true, Time.Range(now, now)),
+        (
+          Time.Timestamp.MinValue,
+          now,
+          true,
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+        ),
+        (
+          Time.Timestamp.MaxValue,
+          now,
+          false,
+          Time.Range(Time.Timestamp.MaxValue, Time.Timestamp.MaxValue),
+        ),
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          false,
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+        ),
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MaxValue,
+          true,
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+        ),
+        (
+          Time.Timestamp.MaxValue,
+          Time.Timestamp.MinValue,
+          false,
+          Time.Range(Time.Timestamp.MaxValue, Time.Timestamp.MaxValue),
+        ),
+        (
+          Time.Timestamp.MaxValue,
+          Time.Timestamp.MaxValue,
+          false,
+          Time.Range(Time.Timestamp.MaxValue, Time.Timestamp.MaxValue),
+        ),
       )
 
-      forEvery(testData) { (now, time, expected) =>
+      forEvery(testData) { (now, time, expected, expectedTimeBoundaries) =>
         inside(runTimeMachine("ledger_time_lt", now, time)) {
-          case (Success(Right(SValue.SBool(`expected`))), messages) =>
-            messages shouldBe Seq("queried time")
+          case (Success(Right(SValue.SBool(`expected`))), actualTimeBoundaries, messages) =>
+            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
+            messages shouldBe Seq("queried time", "")
+            actualTimeBoundaries shouldBe expectedTimeBoundaries
         }
       }
     }
@@ -73,7 +115,7 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
       )
     )
 
-    (result, traceLog.getMessages)
+    (result, machine.getTimeBoundaries, traceLog.getMessages)
   }
 }
 
