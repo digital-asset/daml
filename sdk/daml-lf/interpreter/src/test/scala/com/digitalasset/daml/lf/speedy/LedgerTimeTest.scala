@@ -39,14 +39,36 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
     "ledgerTimeLT" in {
       val testData = Table[Time.Timestamp, Time.Timestamp, Time.Range, Option[Boolean], Time.Range](
         ("now", "time", "time-boundary", "result", "updated-time-boundary"),
+        // now > time
+        // - lb < ub
+        //   + time < lb
+        (nowP2, now, Time.Range(nowP1, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        //   + time == lb
         (nowP2, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        //   + time > lb
         (nowP2, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
-        (nowP2, now, Time.Range(now, nowP2), Some(false), Time.Range(now, nowP2)),
-        (nowP2, nowP1, Time.Range(now, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        // - lb == ub
+        //   + time < lb
+        (nowP2, now, Time.Range(nowP1, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        //   + time == lb
+        (nowP2, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        //   + time > lb
         (nowP2, nowP1, Time.Range(now, now), None, Time.Range(now, now)), // Speedy crash expected
-        (now, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+
+        // now == time
+        // - lb < ub
+        //   + time < lb
+        (now, now, Time.Range(nowP1, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        //   + time == lb
         (now, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        //   + time > lb
         (nowP1, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        // - lb == ub
+        //   + time < lb
+        (now, now, Time.Range(nowP1, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        //   + time == lb
+        (now, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        //   + time > lb
         (
           nowP2,
           nowP2,
@@ -54,15 +76,17 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
           None,
           Time.Range(nowP1, nowP1),
         ), // Speedy crash expected
-        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+
+        // now < time
+        // - lb < ub
+        //   + time-1 < ub
         (now, nowP1, Time.Range(now, nowP1), Some(true), Time.Range(now, now)),
-        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        //   + time-1 == ub
         (now, nowP2, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
-        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
-        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
-        (now, nowP1, Time.Range(now, nowP1), Some(true), Time.Range(now, now)),
-        (now, nowP2, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
-        (now, nowP2, Time.Range(nowP1, nowP1), Some(true), Time.Range(nowP1, nowP1)),
+        //   + time-1 > ub
+        (now, Time.Timestamp.MaxValue, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        // - lb == ub
+        //   + time-1 < ub
         (
           now,
           nowP1,
@@ -70,26 +94,10 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
           None,
           Time.Range(nowP1, nowP1),
         ), // Speedy crash expected
-        (now, Time.Timestamp.MinValue, Time.Range(now, now), Some(false), Time.Range(now, now)),
-        (nowP1, now, Time.Range(Time.Timestamp.MinValue, now), Some(false), Time.Range(now, now)),
-        (
-          Time.Timestamp.MinValue,
-          Time.Timestamp.MinValue,
-          Time.Range(now, now),
-          Some(false),
-          Time.Range(now, now),
-        ),
-        (now, now, Time.Range(Time.Timestamp.MinValue, now), Some(false), Time.Range(now, now)),
-        (Time.Timestamp.MinValue, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
-        (now, Time.Timestamp.MaxValue, Time.Range(now, now), Some(true), Time.Range(now, now)),
-        (now, nowP1, Time.Range(now, Time.Timestamp.MaxValue), Some(true), Time.Range(now, now)),
-        (
-          Time.Timestamp.MinValue,
-          Time.Timestamp.MaxValue,
-          Time.Range(now, now),
-          Some(true),
-          Time.Range(now, now),
-        ),
+        //   + time-1 == ub
+        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        //   + time-1 > ub
+        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
       )
 
       forEvery(testData) { (now, time, timeBoundaries, expectedResult, expectedTimeBoundaries) =>
