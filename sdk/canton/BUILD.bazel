@@ -49,7 +49,7 @@ case object BuildInfo {{
   val scalaVersion: String = "{scala_version}"
   val sbtVersion: String = "bazel"
   val damlLibrariesVersion: String = "{sdk_version}"
-  val stableProtocolVersions = List()
+  val stableProtocolVersions = List("33")
   val betaProtocolVersions = List()
   override val toString: String = {{
      "version: %s, scalaVersion: %s, sbtVersion: %s, damlLibrariesVersion: %s, stableProtocolVersions: %s, betaProtocolVersions: %s".format(
@@ -916,13 +916,13 @@ scala_library(
         "@maven//:io_circe_circe_generic_2_13",
         "@maven//:io_circe_circe_generic_extras_2_13",
         "@maven//:io_circe_circe_parser_2_13",
+        "@maven//:io_circe_circe_yaml_2_13",
+        "@maven//:io_circe_circe_yaml_common_2_13",
         "@maven//:io_grpc_grpc_api",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_protostuff_protostuff_compiler",
-        "@maven//:io_protostuff_protostuff_parser",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
-        "@maven//:org_antlr_antlr4_runtime",  # needed for io_protostuff_protostuff_parser
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_apache_pekko_pekko_http_2_13",
         "@maven//:org_apache_pekko_pekko_http_core_2_13",
@@ -1100,7 +1100,7 @@ daml_compile(
 copy_file(
     name = "community_participant_admin-workflows_dar",
     src = ":community_participant_admin-workflows.dar",
-    out = "community_participant_resources/AdminWorkflows.dar",
+    out = "community_participant_resources/dar/AdminWorkflows.dar",
 )
 
 copy_file(
@@ -1186,10 +1186,12 @@ scala_library(
         "//libs-scala/timer-utils",
         "//observability/metrics",
         "//observability/tracing",
+        "@maven//:com_chuusai_shapeless_2_13",
         "@maven//:com_github_ben_manes_caffeine_caffeine",
         "@maven//:com_github_blemale_scaffeine_2_13",
         "@maven//:com_github_pathikrit_better_files_2_13",
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
+        "@maven//:com_github_pureconfig_pureconfig_generic_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_lihaoyi_pprint_2_13",

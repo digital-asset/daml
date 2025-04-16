@@ -64,7 +64,7 @@ object PackageServiceTest {
   def readCantonExamplesBytes(): Array[Byte] =
     Files.readAllBytes(Paths.get(BaseTest.CantonExamplesPath))
 
-  private val AdminWorkflowsPath = getResourcePath("AdminWorkflows.dar")
+  private val AdminWorkflowsPath = getResourcePath("dar/AdminWorkflows.dar")
   def loadAdminWorkflowsDar(): archive.Dar[Archive] =
     loadDar(AdminWorkflowsPath)
 

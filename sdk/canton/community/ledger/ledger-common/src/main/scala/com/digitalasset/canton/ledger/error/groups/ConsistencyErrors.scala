@@ -252,11 +252,20 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
       |If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger.
       |"""
   )
-  // This command deduplication error is currently used only by Canton.
-  // It is defined here so that the general command deduplication documentation can refer to it.
   object SubmissionAlreadyInFlight
       extends ErrorCode(
         id = "SUBMISSION_ALREADY_IN_FLIGHT",
         ErrorCategory.ContentionOnSharedResources,
-      )
+      ) {
+    // used by Ledger API command tracking
+    final case class Reject(
+        override val definiteAnswer: Boolean = false
+    )(implicit
+        loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            "A submission with the given change ID (user ID, command ID, actAs) and submission ID is already in flight",
+          definiteAnswer = definiteAnswer,
+        )
+  }
 }

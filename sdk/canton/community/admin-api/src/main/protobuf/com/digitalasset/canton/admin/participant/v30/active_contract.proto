@@ -12,7 +12,7 @@ import "scalapb/scalapb.proto";
 // TODO(#24610) – Remove; replaced by the new ActiveContract that uses LAPI active contract
 // Schema definition for the exported ACS snapshot
 message ActiveContractOld {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // The ID of the synchronizer where the contract was assigned at the time of the export
   // Required
@@ -48,7 +48,7 @@ message Contract {
 
 // Schema definition for the exported active contract
 message ActiveContract {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   // Opaque active contract, assumed to be the bytes of a LAPI active contract
   // Required

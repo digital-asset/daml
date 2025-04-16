@@ -55,8 +55,8 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   // we don't care about any values of this config, so just mock
-  lazy val participant1Config: LocalParticipantConfig = ConfigStubs.participant
-  lazy val participant2Config: LocalParticipantConfig = ConfigStubs.participant
+  lazy val participant1Config: ParticipantNodeConfig = ConfigStubs.participant
+  lazy val participant2Config: ParticipantNodeConfig = ConfigStubs.participant
 
   lazy val sampleConfig: CantonConfig = CantonConfig(
     sequencers = Map(
@@ -81,7 +81,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
     def config: CantonConfig = sampleConfig
 
     private val createParticipantMock =
-      mock[(String, LocalParticipantConfig) => ParticipantNodeBootstrap]
+      mock[(String, ParticipantNodeConfig) => ParticipantNodeBootstrap]
     private val createSequencerMock =
       mock[(String, SequencerNodeConfig) => SequencerNodeBootstrap]
     private val createMediatorMock =
@@ -141,7 +141,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 
         override def create(
             arguments: NodeFactoryArguments[
-              LocalParticipantConfig,
+              ParticipantNodeConfig,
               ParticipantNodeParameters,
               ParticipantMetrics,
             ],
@@ -199,7 +199,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         idMatcher: => String,
         create: => ParticipantNodeBootstrap,
     ): Unit =
-      when(createParticipantMock(idMatcher, any[LocalParticipantConfig])).thenAnswer(create)
+      when(createParticipantMock(idMatcher, any[ParticipantNodeConfig])).thenAnswer(create)
 
     protected def setupSequencerFactory(id: String, create: => SequencerNodeBootstrap): Unit =
       when(createSequencerMock(eqTo(id), any[SequencerNodeConfig])).thenAnswer(create)

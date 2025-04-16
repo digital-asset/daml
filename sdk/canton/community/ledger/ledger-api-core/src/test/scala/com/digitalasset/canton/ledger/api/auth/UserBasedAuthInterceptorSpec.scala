@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.daml.tracing.NoOpTelemetry
-import com.digitalasset.canton.auth.{AuthService, AuthorizationInterceptor, ClaimSet}
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
+import com.digitalasset.canton.auth.{AuthInterceptor, AuthService, ClaimSet}
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,7 +22,7 @@ import org.slf4j.event.Level
 
 import scala.concurrent.{Future, Promise}
 
-class UserBasedAuthorizationInterceptorSpec
+class UserBasedAuthInterceptorSpec
     extends AsyncFlatSpec
     with MockitoSugar
     with Matchers
@@ -30,15 +30,15 @@ class UserBasedAuthorizationInterceptorSpec
     with BaseTest
     with HasExecutionContext {
 
-  private val className = classOf[AuthorizationInterceptor].getSimpleName
+  private val className = classOf[AuthInterceptor].getSimpleName
 
   behavior of s"$className.interceptCall"
 
-  private val AuthorizationInterceptorSuppressionRule: SuppressionRule =
-    SuppressionRule.forLogger[AuthorizationInterceptor] && SuppressionRule.Level(Level.ERROR)
+  private val AuthInterceptorSuppressionRule: SuppressionRule =
+    SuppressionRule.forLogger[AuthInterceptor] && SuppressionRule.Level(Level.ERROR)
 
   it should "close the ServerCall with a V2 status code on decoding failure" in {
-    loggerFactory.assertLogs(AuthorizationInterceptorSuppressionRule)(
+    loggerFactory.assertLogs(AuthInterceptorSuppressionRule)(
       within = testServerCloseError { case (actualStatus, actualMetadata) =>
         actualStatus.getCode shouldBe Status.Code.INTERNAL
         actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id> with tid <no-tid>"
@@ -79,8 +79,8 @@ class UserBasedAuthorizationInterceptorSpec
       ()
     }
 
-    val authorizationInterceptor =
-      new UserBasedAuthorizationInterceptor(
+    val authInterceptor =
+      new UserBasedAuthInterceptor(
         List(authService, identityProviderAwareAuthService),
         Some(userManagementService),
         NoOpTelemetry,
@@ -97,7 +97,7 @@ class UserBasedAuthorizationInterceptorSpec
       .thenReturn(Future.successful(ClaimSet.Unauthenticated))
     when(authService.decodeMetadata(any[Metadata], any[String])(anyTraceContext))
       .thenReturn(failedMetadataDecode)
-    authorizationInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
+    authInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
 
     promise.future.map { _ =>
       verify(serverCall).close(statusCaptor.capture, metadataCaptor.capture)

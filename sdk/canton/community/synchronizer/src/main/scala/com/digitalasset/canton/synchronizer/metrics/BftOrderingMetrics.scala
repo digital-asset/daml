@@ -414,10 +414,21 @@ class BftOrderingMetrics private[metrics] (
 
       object labels {
         val VotingSequencer: String = "voting-sequencer"
+        val Epoch: String = "epoch"
       }
 
       private val prepareGauges = mutable.Map[BftNodeId, Gauge[Double]]()
       private val commitGauges = mutable.Map[BftNodeId, Gauge[Double]]()
+
+      val discardedRepeatedMessageMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "discarded-messages",
+          summary = "Discarded messages",
+          description =
+            "Discarded network messages received during an epoch, either due to being repeated (too many retransmissions), invalid or from a stale view",
+          qualification = MetricQualification.Traffic,
+        )
+      )
 
       def prepareVotesPercent(node: BftNodeId): Gauge[Double] =
         getOrElseUpdateGauge(

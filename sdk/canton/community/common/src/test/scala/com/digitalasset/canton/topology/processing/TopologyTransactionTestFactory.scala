@@ -62,11 +62,6 @@ class TopologyTransactionTestFactory(
   val ns3k3_k3 = mkAdd(createNs(ns3, key3, CanSignAllMappings), key3)
   val ns6k3_k6 = mkAdd(createNs(ns6, key3, CanSignAllButNamespaceDelegations), key6)
   val ns6k6_k6 = mkAdd(createNs(ns6, key6, CanSignAllMappings), key6)
-  val id1ak4_k1 = mkAdd(IdentifierDelegation.tryCreate(uid1a, key4), key1)
-  val id1ak4_k2 = mkAdd(IdentifierDelegation.tryCreate(uid1a, key4), key2)
-  val id1ak6_k4 = mkAdd(IdentifierDelegation.tryCreate(uid1a, key6), key4)
-
-  val id6k4_k1 = mkAdd(IdentifierDelegation.tryCreate(uid6, key4), key1)
 
   val okm1ak5k1E_k2 =
     mkAddMultiKey(
@@ -78,10 +73,10 @@ class TopologyTransactionTestFactory(
       OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
       NonEmpty(Set, key1, key5),
     )
-  val okm1bk5k1E_k4 =
+  val okm1bk5k1E_k2 =
     mkAddMultiKey(
       OwnerToKeyMapping(participant1, NonEmpty(Seq, key5, EncryptionKeys.key1)),
-      NonEmpty(Set, key4, key5),
+      NonEmpty(Set, key2, key5),
     )
 
   val sequencer1 = SequencerId(UniqueIdentifier.tryCreate("sequencer1", ns1))
@@ -194,9 +189,11 @@ class TopologyTransactionTestFactory(
     NonEmpty(Set, key1, key8, key9),
     serial = PositiveInt.two,
   )
-  val dns1Idd = mkAddMultiKey(
-    IdentifierDelegation
-      .tryCreate(UniqueIdentifier.tryCreate("test", dns1.mapping.namespace), key4),
+  val dns1trustCert = mkAddMultiKey(
+    SynchronizerTrustCertificate(
+      ParticipantId(UniqueIdentifier.tryCreate("test", dns1.mapping.namespace)),
+      synchronizerId1,
+    ),
     NonEmpty(Set, key1, key8, key9),
   )
   val dns2 = mkAdd(

@@ -208,7 +208,7 @@ trait MemberAutoInitIntegrationTest
           // waiting for ready-for-id is automatically done in init_id,
           // but doing it explicitly here for the purpose of the test
           node.health.wait_for_ready_for_id()
-          node.topology.init_id(
+          node.topology.init_id_from_uid(
             UniqueIdentifier.tryCreate("manual-" + base, namespace)
           )
 

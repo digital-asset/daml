@@ -87,7 +87,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantNodeBootstrap(
     arguments: CantonNodeBootstrapCommonArguments[
-      LocalParticipantConfig,
+      ParticipantNodeConfig,
       ParticipantNodeParameters,
       ParticipantMetrics,
     ],
@@ -104,7 +104,7 @@ class ParticipantNodeBootstrap(
     executionSequencerFactory: ExecutionSequencerFactory,
 ) extends CantonNodeBootstrapImpl[
       ParticipantNode,
-      LocalParticipantConfig,
+      ParticipantNodeConfig,
       ParticipantNodeParameters,
       ParticipantMetrics,
     ](arguments) {
@@ -838,6 +838,7 @@ class ParticipantNodeBootstrap(
         addCloseable(synchronizerAliasManager)
         addCloseable(syncPersistentStateManager)
         addCloseable(synchronizerRegistry)
+        addCloseable(resourceManagementService)
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable((() => packageServiceContainer.closeCurrent()): AutoCloseable)
@@ -846,6 +847,17 @@ class ParticipantNodeBootstrap(
         addCloseable(ephemeralState.participantEventPublisher)
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)
+        // TODO(#25118) clean up cache metrics on shutdown wherever they are initialized
+        addCloseable(new AutoCloseable {
+          override def close(): Unit =
+            Seq(
+              metrics.ledgerApiServer.execution.cache.keyState.stateCache,
+              metrics.ledgerApiServer.execution.cache.contractState.stateCache,
+              metrics.ledgerApiServer.identityProviderConfigStore.verifierCache,
+              metrics.ledgerApiServer.identityProviderConfigStore.idpConfigCache,
+              metrics.ledgerApiServer.userManagement.cache,
+            ).foreach(_.closeAcquired())
+        })
         addCloseable(ledgerApiServer)
         addCloseable(ledgerApiDependentServices)
         addCloseable(packageDependencyResolver)
@@ -894,7 +906,7 @@ class ParticipantNodeBootstrap(
       executionContext,
     )
 
-  override def config: LocalParticipantConfig = arguments.config
+  override def config: ParticipantNodeConfig = arguments.config
 
   /** If set to `Some(path)`, every sequencer client will record all received events to the
     * directory `path`.
@@ -949,7 +961,7 @@ object ParticipantNodeBootstrap {
 class ParticipantNode(
     val id: ParticipantId,
     val metrics: ParticipantMetrics,
-    val config: LocalParticipantConfig,
+    val config: ParticipantNodeConfig,
     nodeParameters: ParticipantNodeParameters,
     val storage: Storage,
     override protected val clock: Clock,

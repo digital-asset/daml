@@ -395,7 +395,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
       // be validated with delegations that are restricted to the respective mapping.
       def generateTestMappings(uid: UniqueIdentifier): Seq[TopologyMapping] = {
         import Factory.*
-        import SigningKeys.{key2, key3, key4, key5}
+        import SigningKeys.{key2, key4, key5}
 
         val participantId = ParticipantId(uid)
         val synchronizerId = SynchronizerId(uid)
@@ -403,7 +403,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
 
         val testMappings = Seq(
           NamespaceDelegation.tryCreate(uid.namespace, key2, CanSignAllButNamespaceDelegations),
-          IdentifierDelegation.tryCreate(uid, key3),
           DecentralizedNamespaceDefinition
             .create(
               DecentralizedNamespaceDefinition.computeNamespace(Set(uid.namespace)),
@@ -683,7 +682,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           res <- validate(
             validator,
             ts(1),
-            List(ns1k1_k1, ns1k3_k2, id1ak4_k2, ns1k2_k1, ns6k3_k6, id1ak4_k1),
+            List(ns1k1_k1, ns1k3_k2, ns1k2_k1, ns6k3_k6),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -693,59 +692,14 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
             res,
             Seq(
               None,
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key2.fingerprint))),
               None,
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key6.fingerprint))),
-              None,
             ),
           )
         }
       }
 
-    }
-
-    "observing identifier delegations" should {
-      "succeed if transaction is properly authorized" in {
-        val validator = mk()
-        import Factory.*
-        for {
-          res <- validate(
-            validator,
-            ts(0),
-            List(ns1k1_k1, id1ak4_k1, ns1k2_k1, id1ak4_k2),
-            Map.empty,
-            expectFullAuthorization = true,
-          )
-        } yield {
-          check(res, Seq(None, None, None, None))
-        }
-      }
-      "fail if transaction is not properly authorized" in {
-        val validator = mk()
-        import Factory.*
-        for {
-          res <- validate(
-            validator,
-            ts(0),
-            List(id1ak4_k1, ns1k1_k1, id1ak4_k1, id6k4_k1, id1ak6_k4),
-            Map.empty,
-            expectFullAuthorization = true,
-          )
-        } yield {
-          check(
-            res,
-            Seq(
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
-              None,
-              None,
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
-              // fails because IDDs cannot be signed by keys authorized by other IDDs
-              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key4.fingerprint))),
-            ),
-          )
-        }
-      }
     }
 
     "observing normal delegations" should {
@@ -757,12 +711,12 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           res <- validate(
             validator,
             ts(0),
-            List(ns1k1_k1, ns1k2_k1, okm1ak5k1E_k2, p1p1B_k2, id1ak4_k1, ns6k6_k6, p1p6_k2k6),
+            List(ns1k1_k1, ns1k2_k1, okm1ak5k1E_k2, p1p1B_k2, ns6k6_k6, p1p6_k2k6),
             Map.empty,
             expectFullAuthorization = true,
           )
         } yield {
-          check(res, Seq(None, None, None, None, None, None, None))
+          check(res, Seq(None, None, None, None, None, None))
         }
       }
       "fail if transaction is not properly authorized" in {
@@ -806,35 +760,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
 
         }
       }
-      "succeed with loading existing identifier delegations" in {
-        val store: InMemoryTopologyStore[TopologyStoreId.AuthorizedStore] =
-          new InMemoryTopologyStore(
-            TopologyStoreId.AuthorizedStore,
-            testedProtocolVersion,
-            loggerFactory,
-            timeouts,
-          )
-        val validator = mk(store)
-        import Factory.*
-        for {
-          _ <- store.update(
-            SequencedTime(ts(0)),
-            EffectiveTime(ts(0)),
-            removeMapping = Map.empty,
-            removeTxs = Set.empty,
-            additions = List(ns1k1_k1, ns6k6_k6, id1ak4_k1).map(ValidatedTopologyTransaction(_)),
-          )
-          res <- validate(
-            validator,
-            ts(1),
-            List(ns1k2_k1, p1p6_k2k6, p1p1B_k2),
-            Map.empty,
-            expectFullAuthorization = true,
-          )
-        } yield {
-          check(res, Seq(None, None, None))
-        }
-      }
     }
 
     "observing removals" should {
@@ -842,17 +767,16 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         val validator = mk()
         import Factory.*
         val Rns1k2_k1 = mkTrans(ns1k2_k1.transaction.reverse)
-        val Rid1ak4_k1 = mkTrans(id1ak4_k1.transaction.reverse)
         for {
           res <- validate(
             validator,
             ts(0),
-            List(ns1k1_k1, ns1k2_k1, id1ak4_k1, Rns1k2_k1, Rid1ak4_k1),
+            List(ns1k1_k1, ns1k2_k1, Rns1k2_k1),
             Map.empty,
             expectFullAuthorization = true,
           )
         } yield {
-          check(res, Seq(None, None, None, None, None))
+          check(res, Seq(None, None, None))
         }
       }
 
@@ -860,12 +784,11 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
         val validator = mk()
         import Factory.*
         val Rns1k2_k1 = mkTrans(ns1k2_k1.transaction.reverse)
-        val Rid1ak4_k1 = mkTrans(id1ak4_k1.transaction.reverse)
         for {
           res <- validate(
             validator,
             ts(0),
-            List(ns1k1_k1, ns1k2_k1, id1ak4_k1, Rns1k2_k1, Rid1ak4_k1, okm1ak5k1E_k2, p1p6_k2),
+            List(ns1k1_k1, ns1k2_k1, Rns1k2_k1, okm1ak5k1E_k2, p1p6_k2),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -873,8 +796,6 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           check(
             res,
             Seq(
-              None,
-              None,
               None,
               None,
               None,
@@ -1161,7 +1082,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
           resultUnauthorizedIDD <- validate(
             validator,
             ts(3),
-            List(dns1Idd),
+            List(dns1trustCert),
             Map.empty,
             expectFullAuthorization = true,
           )

@@ -7,7 +7,7 @@ import com.digitalasset.canton.GeneratorsLf.*
 import com.digitalasset.canton.config.GeneratorsConfig.*
 import com.digitalasset.canton.config.PositiveFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveLong
-import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
+import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
 import com.digitalasset.canton.topology.GeneratorsTopology.*
@@ -127,6 +127,16 @@ object InteractiveSubmissionGenerators {
   private implicit val genDeduplicationPeriodArb: Arbitrary[DeduplicationPeriod] =
     Arbitrary(Gen.oneOf(genDeduplicationDuration, genDeduplicationOffset))
 
+  private implicit val timeBoundariesGen: Gen[LedgerTimeBoundaries] = for {
+    t1 <- Gen.option(Arbitrary.arbitrary[Time.Timestamp])
+    t2 <- Gen.option(Arbitrary.arbitrary[Time.Timestamp])
+  } yield {
+    (t1, t2) match {
+      case (Some(t1), Some(t2)) if t1 > t2 => LedgerTimeBoundaries(Time.Range(t2, t1))
+      case _ => LedgerTimeBoundaries.fromConstraints(t1, t2)
+    }
+  }
+
   private implicit val submitterInfoGen: Gen[SubmitterInfo] = for {
     actAs <- Arbitrary.arbitrary[List[LfPartyId]]
     readAs <- Arbitrary.arbitrary[List[LfPartyId]]
@@ -149,6 +159,7 @@ object InteractiveSubmissionGenerators {
     workflowIdO <- Gen.option(lfWorkflowIdArb.arbitrary)
     submissionTime <- Arbitrary.arbitrary[Time.Timestamp]
     submissionSeed <- Arbitrary.arbitrary[crypto.Hash]
+    timeBoundaries <- timeBoundariesGen
     usedPackagesO <- Arbitrary.arbitrary[Option[Set[LfPackageId]]]
     optNodeSeedsO <- Gen
       .listOfN(transaction.nodes.size, Arbitrary.arbitrary[crypto.Hash])
@@ -159,6 +170,7 @@ object InteractiveSubmissionGenerators {
     workflowIdO,
     submissionTime,
     submissionSeed,
+    timeBoundaries,
     usedPackagesO,
     Some(ImmArray.from(optNodeSeedsO)),
     optByKeyNodeO,
@@ -185,7 +197,6 @@ object InteractiveSubmissionGenerators {
     synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
     transaction <- versionedTransactionGenerator.map(SubmittedTransaction(_))
     transactionMeta <- transactionMetaGen(transaction)
-    dependsOnLedgerTime <- Arbitrary.arbBool.arbitrary
     interpretationTimeNanos <- Gen.long
     globalKeyMapping <- globalKeyMappingGen
     inputContracts <- Gen.listOfN(1, inputContractsGen).map(ImmArray.from)
@@ -193,7 +204,6 @@ object InteractiveSubmissionGenerators {
     submitterInfo,
     transactionMeta,
     transaction,
-    dependsOnLedgerTime,
     globalKeyMapping,
     inputContracts.map(fci => fci.contractId -> fci).toSeq.toMap,
     synchronizerId,

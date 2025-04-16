@@ -376,6 +376,7 @@ components:
           description: https://www.w3.org/TR/trace-context/
           type: string
         tracestate:
+          description: ''
           type: string
     SynchronizerTime:
       title: SynchronizerTime
@@ -427,6 +428,7 @@ components:
           type: integer
           format: int64
         synchronizerTimes:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/SynchronizerTime'
@@ -445,12 +447,12 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             Templates to include in the served snapshot, per party.
             Optional, if specified event_format must be unset, if not specified event_format must be set.
         verbose:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
             Optional, if specified event_format must be unset.
@@ -477,7 +479,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -591,6 +593,9 @@ components:
             The interface that a matching contract must implement.
             The ``interface_id`` needs to be valid: corresponding interface should be defined in
             one of the available packages at the time of the query.
+            Both package-name and package-id reference formats for the identifier are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         includeInterfaceView:
@@ -627,6 +632,9 @@ components:
             A template for which the payload should be included in the response.
             The ``template_id`` needs to be valid: corresponding template should be defined in
             one of the available packages at the time of the query.
+            Both package-name and package-id reference formats for the identifier are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         includeCreatedEventBlob:
@@ -822,6 +830,8 @@ components:
         templateId:
           description: |-
             The template of the created contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         contractKey:
@@ -916,6 +926,8 @@ components:
         interfaceId:
           description: |-
             The interface implemented by the matched event.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         viewStatus:
@@ -1065,6 +1077,8 @@ components:
         templateId:
           description: |-
             The template of the reassigned contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         source:
@@ -1156,13 +1170,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -1723,6 +1737,8 @@ components:
         templateId:
           description: |-
             The template of the archived contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         witnessParties:
@@ -1748,6 +1764,9 @@ components:
             The interfaces implemented by the target template that have been
             matched from the interface filter query.
             Populated only in case interface filters with include_interface_view set.
+
+            If defined, the identifier uses the package-id reference format.
+
             Optional
           type: array
           items:
@@ -1793,11 +1812,15 @@ components:
         templateId:
           description: |-
             The template of the target contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         interfaceId:
           description: |-
             The interface where the choice is defined, if inherited.
+            If defined, the identifier uses the package-id reference format.
+
             Optional
           type: string
         choice:
@@ -1863,6 +1886,9 @@ components:
             If the event is consuming, the interfaces implemented by the target template that have been
             matched from the interface filter query.
             Populated only in case interface filters with include_interface_view set.
+
+            The identifier uses the package-id reference format.
+
             Optional
           type: array
           items:
@@ -1874,8 +1900,8 @@ components:
       - $ref: '#/components/schemas/JsGetUpdateTreesResponse'
     JsGetUpdateTreesResponse:
       title: JsGetUpdateTreesResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - update
@@ -1929,7 +1955,7 @@ components:
     TransactionTree:
       title: TransactionTree
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -1940,7 +1966,7 @@ components:
     JsTransactionTree:
       title: JsTransactionTree
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -2014,7 +2040,7 @@ components:
     TreeEvent:
       title: TreeEvent
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Each tree event message type below contains a ``witness_parties`` field which
         indicates the subset of the requested parties that can see the event
         in question.

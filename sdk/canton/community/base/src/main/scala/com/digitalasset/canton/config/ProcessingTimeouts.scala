@@ -47,6 +47,9 @@ import scala.concurrent.duration.*
   * @param sequencedEventProcessingBound
   *   Maximum time we allow for locally processing a sequenced event. If local processing takes
   *   longer, the node will emit an error or crash.
+  * @param dynamicStateConsistencyTimeout
+  *   Timeout for dynamic state consistency checks. When we apply some state changes, we sometimes
+  *   need to wait until they are applied to the entire node.
   */
 final case class ProcessingTimeout(
     unbounded: NonNegativeDuration = DefaultProcessingTimeouts.unbounded,
@@ -68,6 +71,7 @@ final case class ProcessingTimeout(
       DefaultProcessingTimeouts.topologyChangeWarnDelay,
     sequencedEventProcessingBound: NonNegativeDuration =
       DefaultProcessingTimeouts.sequencedEventProcessingBound,
+    dynamicStateConsistencyTimeout: NonNegativeDuration = NonNegativeDuration.ofSeconds(60),
 ) extends UniformCantonConfigValidation
 
 object ProcessingTimeout {
