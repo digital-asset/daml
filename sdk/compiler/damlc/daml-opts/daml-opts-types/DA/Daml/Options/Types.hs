@@ -153,14 +153,25 @@ data Options = Options
 
 data InlineDamlCustomWarnings
   = DisableDeprecatedExceptions
+  | CryptoTextIsAlpha
+  | LedgerTimeIsAlpha
   deriving (Enum, Bounded, Ord, Eq, Show)
 
 warningFlagParserInlineDamlCustom :: WarningFlags.WarningFlagParser InlineDamlCustomWarnings
 warningFlagParserInlineDamlCustom = WarningFlags.mkWarningFlagParser
   (\case
-    DisableDeprecatedExceptions -> WarningFlags.AsWarning)
+    DisableDeprecatedExceptions -> WarningFlags.AsWarning
+    CryptoTextIsAlpha -> WarningFlags.AsWarning
+    LedgerTimeIsAlpha -> WarningFlags.AsWarning)
   [ WarningFlags.WarningFlagSpec "deprecated-exceptions" False $ \case
       DisableDeprecatedExceptions -> True
+      _ -> False
+  , WarningFlags.WarningFlagSpec "crypto-text-is-alpha" False $ \case
+      CryptoTextIsAlpha -> True
+      _ -> False
+  , WarningFlags.WarningFlagSpec "ledger-time-is-alpha" False $ \case
+      LedgerTimeIsAlpha -> True
+      _ -> False
   ]
 
 inlineDamlCustomWarningToGhcFlag :: WarningFlags.WarningFlags InlineDamlCustomWarnings -> [String]
@@ -168,6 +179,8 @@ inlineDamlCustomWarningToGhcFlag flags = map go [minBound..maxBound]
   where
     toName :: InlineDamlCustomWarnings -> String
     toName DisableDeprecatedExceptions = "x-exceptions"
+    toName LedgerTimeIsAlpha = "x-ledger-time"
+    toName CryptoTextIsAlpha = "x-crypto"
 
     go inlineWarning =
       case WarningFlags.getWarningStatus flags inlineWarning of
