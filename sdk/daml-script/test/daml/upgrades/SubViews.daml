@@ -1,0 +1,206 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module SubViews (main) where
+
+import UpgradeTestLib
+import qualified V1.SubViewsAsset as V1
+import qualified V2.SubViewsAsset as V2
+import SubViewsInterface
+import SubViewsMain
+import PackageIds
+import DA.Foldable
+import DA.Optional
+import DA.Text
+
+{- PACKAGE
+name: sub-views-asset
+versions: 2
+-}
+
+{- MODULE
+package: sub-views-asset
+contents: |
+  module SubViewsAsset where
+
+  template Asset
+    with
+      sig : Party
+      extra : Optional Text                         -- @V2
+    where
+      signatory sig
+  
+      choice Cycle : ContractId Asset
+        with
+          ctl : Party
+          factoryId : ContractId AssetFactory
+        controller ctl
+          do exercise factoryId (CreateAsset sig)
+
+  template AssetFactory
+    with
+      sig : Party
+      extra : Optional Text                         -- @V2
+    where
+      signatory sig
+  
+      choice CreateAsset : ContractId Asset
+        with
+          ctl : Party
+        controller ctl
+          do
+            create (Asset sig)                     -- @V1
+            create (Asset sig extra)               -- @V2
+-}
+
+{- PACKAGE
+name: sub-views-iface
+versions: 1
+depends: |
+  sub-views-asset-1.0.0
+  sub-views-asset-2.0.0
+-}
+
+{- MODULE
+package: sub-views-iface
+contents: |
+  module SubViewsInterface where
+
+  import qualified V1.SubViewsAsset as V1
+  import qualified V2.SubViewsAsset as V2
+  
+  data AssetIView = AssetIView {}
+    deriving (Eq, Show)
+  
+  data I1View = I1View {}
+    deriving (Eq, Show)
+  
+  interface I1 where
+    viewtype I1View
+  
+    i1Choice : ContractId V1.AssetFactory -> Update (ContractId V1.Asset)
+  
+    choice I1Choice : ContractId V1.Asset
+      with
+        ctl : Party
+        factoryId : ContractId V1.AssetFactory
+      controller ctl
+        do i1Choice this factoryId
+  
+  
+  data I2View = I2View {}
+    deriving (Eq, Show)
+  
+  interface I2 where
+    viewtype I2View
+  
+    i2Choice : ContractId V2.Asset -> ContractId V2.AssetFactory -> Update (ContractId V2.Asset)
+  
+    choice I2Choice : ContractId V2.Asset
+      with
+        ctl : Party
+        cid : ContractId V2.Asset
+        factoryId : ContractId V2.AssetFactory
+      controller ctl
+        do i2Choice this cid factoryId
+-}
+
+{- PACKAGE
+name: sub-views-main
+versions: 1
+depends: |
+  sub-views-iface-1.0.0
+  sub-views-asset-1.0.0
+  sub-views-asset-2.0.0
+-}
+
+{- MODULE
+package: sub-views-main
+contents: |
+  module SubViewsMain where
+
+  import SubViewsInterface
+  import qualified V1.SubViewsAsset as V1
+  import qualified V2.SubViewsAsset as V2
+
+  template Top
+    with
+      party : Party
+    where
+      signatory party
+  
+      nonconsuming choice MkTransaction : ContractId V2.Asset
+        with
+          top1 : ContractId I1
+          top2 : ContractId I2
+          factoryId1 : ContractId V1.AssetFactory
+          factoryId2 : ContractId V2.AssetFactory
+        controller party
+          do cid <- exercise top1 (I1Choice party factoryId1)
+             exercise top2 (I2Choice party (coerceContractId @V1.Asset @V2.Asset cid) factoryId2)
+  
+  template Top1
+    with
+      sig : Party
+      obs : Party
+    where
+      signatory sig
+      observer obs
+  
+      interface instance I1 for Top1 where
+        view = I1View
+        i1Choice factoryId = exercise factoryId (V1.CreateAsset sig)
+  
+  template Top2
+    with
+      sig : Party
+      obs : Party
+    where
+      signatory sig
+      observer obs
+  
+      interface instance I2 for Top2 where
+        view = I2View
+        i2Choice cid factoryId = exercise cid (V2.Cycle sig factoryId)
+-}
+
+interfacesV1 : PackageId
+interfacesV1 = getPackageId "interfaces-1.0.0"
+
+interfacesAltV1 : PackageId
+interfacesAltV1 = getPackageId "interfaces-alt-1.0.0"
+
+interfacesV2 : PackageId
+interfacesV2 = getPackageId "interfaces-2.0.0"
+
+interfacesAltV2 : PackageId
+interfacesAltV2 = getPackageId "interfaces-alt-2.0.0"
+
+interfacesV3 : PackageId
+interfacesV3 = getPackageId "interfaces-3.0.0"
+
+-- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
+main : TestTree
+main = tests
+  [ ("works", works)
+  ]
+
+works = test do
+  p1 <- allocateParty "p1"
+  p2 <- allocateParty "p2"
+  p3 <- allocateParty "p3"
+  p4 <- allocateParty "p4"
+  p5 <- allocateParty "p5"
+
+  top <- submit p1 (createCmd Top { party = p1 })
+  top1 <- toInterfaceContractId @I1 <$> submit p1 (createCmd Top1 { sig = p1, obs = p2 })
+  top2 <- toInterfaceContractId @I2 <$> submit p1 (createCmd Top2 { sig = p1, obs = p4 })
+  factory1 <- submit p3 (createCmd V1.AssetFactory { sig = p3 })
+  factory2 <- submit p5 (createCmd V2.AssetFactory { sig = p5, extra = Some "extra" })
+
+  asset <- (actAs p1 <> readAs [p3, p5]) `submit` (exerciseCmd top (MkTransaction top1 top2 factory1 factory2))
+  p5 `submit` (archiveCmd asset)
+
+  pure ()
