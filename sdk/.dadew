@@ -9,7 +9,7 @@
         "jdk",
         "maven-3.6.1",
         "msys2",
-        "nodejs-18_x",
+        "nodejs-18",
         "nsis-3.04",
         "python-3.8.2",
         "stack",
