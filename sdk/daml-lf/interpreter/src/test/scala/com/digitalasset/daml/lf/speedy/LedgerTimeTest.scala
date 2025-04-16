@@ -33,26 +33,103 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] val now = Time.Timestamp.now()
   private[this] val nowP1 = now.addMicros(1)
+  private[this] val nowP2 = now.addMicros(2)
 
   "ledger time primitives" - {
     "ledgerTimeLT" in {
-      val testData = Table[Time.Timestamp, Time.Timestamp, Boolean](
-        ("now", "time", "result"),
-        (nowP1, now, false),
-        (now, now, false),
-        (now, nowP1, true),
+      val testData = Table[Time.Timestamp, Time.Timestamp, Time.Range, Option[Boolean], Time.Range](
+        ("now", "time", "time-boundary", "result", "updated-time-boundary"),
+        // now > time
+        // - lb < ub
+        //   + time < lb
+        (nowP2, now, Time.Range(nowP1, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        //   + time == lb
+        (nowP2, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        //   + time > lb
+        (nowP2, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        // - lb == ub
+        //   + time < lb
+        (nowP2, now, Time.Range(nowP1, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        //   + time == lb
+        (nowP2, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        //   + time > lb
+        (nowP2, nowP1, Time.Range(now, now), None, Time.Range(now, now)), // Speedy crash expected
+
+        // now == time
+        // - lb < ub
+        //   + time < lb
+        (now, now, Time.Range(nowP1, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        //   + time == lb
+        (now, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        //   + time > lb
+        (nowP1, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        // - lb == ub
+        //   + time < lb
+        (now, now, Time.Range(nowP1, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        //   + time == lb
+        (now, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        //   + time > lb
+        (
+          nowP2,
+          nowP2,
+          Time.Range(nowP1, nowP1),
+          None,
+          Time.Range(nowP1, nowP1),
+        ), // Speedy crash expected
+
+        // now < time
+        // - lb < ub
+        //   + time-1 < ub
+        (now, nowP1, Time.Range(now, nowP1), Some(true), Time.Range(now, now)),
+        //   + time-1 == ub
+        (now, nowP2, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        //   + time-1 > ub
+        (now, Time.Timestamp.MaxValue, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        // - lb == ub
+        //   + time-1 < ub
+        (
+          now,
+          nowP1,
+          Time.Range(nowP1, nowP1),
+          None,
+          Time.Range(nowP1, nowP1),
+        ), // Speedy crash expected
+        //   + time-1 == ub
+        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        //   + time-1 > ub
+        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
       )
 
-      forEvery(testData) { (now, time, expected) =>
-        inside(runTimeMachine("ledger_time_lt", now, time)) {
-          case (Success(Right(SValue.SBool(`expected`))), messages) =>
-            messages shouldBe Seq("queried time")
+      forEvery(testData) { (now, time, timeBoundaries, expectedResult, expectedTimeBoundaries) =>
+        inside(runTimeMachine("ledger_time_lt", now, time, timeBoundaries)) {
+          case (Success(Right(SValue.SBool(actualResult))), actualTimeBoundaries, messages) =>
+            Some(actualResult) shouldBe expectedResult
+            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
+            messages shouldBe Seq("queried time", "")
+            actualTimeBoundaries shouldBe expectedTimeBoundaries
+
+          case (
+                Success(Left(SError.SErrorCrash(location, cause))),
+                actualTimeBoundaries,
+                messages,
+              ) =>
+            expectedResult shouldBe None
+            location shouldBe "com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine.needTime"
+            cause shouldBe "unexpected exception java.lang.AssertionError: assertion failed when running continuation of question NeedTime"
+            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
+            messages shouldBe Seq("queried time", "")
+            actualTimeBoundaries shouldBe expectedTimeBoundaries
         }
       }
     }
   }
 
-  private def runTimeMachine(builtin: String, now: Time.Timestamp, time: Time.Timestamp) = {
+  private def runTimeMachine(
+      builtin: String,
+      now: Time.Timestamp,
+      time: Time.Timestamp,
+      timeBoundaries: Time.Range,
+  ) = {
     val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
     val pkgs = PureCompiledPackages.Empty(compilerConfig)
     val builtinSExpr = pkgs.compiler.unsafeCompile(e"""\(time: Timestamp) -> $builtin time""")
@@ -66,6 +143,9 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
         Set.empty,
         traceLog = traceLog,
       )
+
+    machine.setTimeBoundaries(timeBoundaries)
+
     val result = Try(
       SpeedyTestLib.run(
         machine,
@@ -73,7 +153,7 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
       )
     )
 
-    (result, traceLog.getMessages)
+    (result, machine.getTimeBoundaries, traceLog.getMessages)
   }
 }
 
