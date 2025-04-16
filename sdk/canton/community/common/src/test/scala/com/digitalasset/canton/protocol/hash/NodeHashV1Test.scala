@@ -819,7 +819,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
     )
 
     val defaultHash = Hash
-      .fromHexStringRaw("b8216db44814a527c84f462fd012e81c31601e03936f1fdad77a0161a254454f")
+      .fromHexStringRaw("adcef14ae479ab5b9424a89d5bf28ee666f336a5463f65b097d587120123d019")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -839,7 +839,7 @@ class NodeHashV1Test extends BaseTest with AnyWordSpecLike with Matchers with Ha
       hashTracer.result shouldBe s"""'00000030' # Hash Purpose
                                       |'02' # 02 (Hashing Scheme Version)
                                       |'154f334d24a8a5e4d0ce51ac87d93821b3256f885f21d3f779a1640abf481983' # Transaction
-                                      |'bdf59f1d269c1df19683ee6d6c144deec7733c9dec1d3356c8bf98076a16e950' # Metadata
+                                      |'2a0690693367f70fbe83e5e99df6930dbd2336618a3a0721bb6fa3bcc88d5a53' # Metadata
                                       |""".stripMargin
       assertStringTracer(hashTracer, hash)
     }

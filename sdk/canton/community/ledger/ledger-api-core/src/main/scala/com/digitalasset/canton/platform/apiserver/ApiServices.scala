@@ -376,8 +376,6 @@ object ApiServices {
         val interactiveSubmissionService =
           InteractiveSubmissionServiceImpl.createApiService(
             syncService,
-            timeProvider,
-            timeProviderType,
             seedService,
             commandExecutor,
             metrics,

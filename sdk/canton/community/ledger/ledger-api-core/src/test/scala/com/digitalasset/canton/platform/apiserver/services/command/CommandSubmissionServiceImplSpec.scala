@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.services.command
 
 import cats.data.EitherT
-import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
+import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{CommandId, Commands, DisclosedContract}
@@ -278,6 +278,7 @@ class CommandSubmissionServiceImplSpec
       workflowId = None,
       submissionTime = Time.Timestamp.Epoch,
       submissionSeed = Hash.hashPrivateKey("SomeHash"),
+      timeBoundaries = LedgerTimeBoundaries.unconstrained,
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,

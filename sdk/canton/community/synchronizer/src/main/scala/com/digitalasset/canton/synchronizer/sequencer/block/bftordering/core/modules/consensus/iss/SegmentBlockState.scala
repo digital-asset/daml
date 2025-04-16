@@ -42,6 +42,8 @@ class SegmentBlockState(
   private var commitCertificate: Option[CommitCertificate] = None
   private var unconfirmedStorageCommitCertificate: Option[CommitCertificate] = None
 
+  private var discardedMessageCount: Int = 0
+
   completedBlock.foreach { b =>
     commitCertificate = Some(b.commitCertificate)
   }
@@ -103,11 +105,15 @@ class SegmentBlockState(
   def processMessage(
       msg: SignedMessage[PbftNormalCaseMessage]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] =
-    if (isComplete) Seq.empty
-    else if (views(currentViewNumber).processMessage(msg))
-      advance()
-    else
+    if (isComplete) {
+      discardedMessageCount += 1
       Seq.empty
+    } else if (views(currentViewNumber).processMessage(msg))
+      advance()
+    else {
+      discardedMessageCount += 1
+      Seq.empty
+    }
 
   def processMessagesStored(pbftMessagesStored: PbftMessagesStored)(implicit
       traceContext: TraceContext
@@ -142,4 +148,6 @@ class SegmentBlockState(
 
   def prepareVoters: Iterable[BftNodeId] = views.values.flatMap(_.prepareVoters)
   def commitVoters: Iterable[BftNodeId] = views.values.flatMap(_.commitVoters)
+  def discardedMessages: Int = discardedMessageCount
+
 }

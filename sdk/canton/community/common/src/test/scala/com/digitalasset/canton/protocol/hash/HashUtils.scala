@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol.hash
 import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer.StringHashTracer
 import com.digitalasset.daml.lf.data.Ref.IdString
@@ -49,7 +50,12 @@ trait HashUtilsTest { this: Matchers =>
     transactionUUID = transactionUUID,
     mediatorGroup = 0,
     synchronizerId = "synchronizerId",
-    ledgerEffectiveTime = Some(Time.Timestamp.Epoch),
+    timeBoundaries = LedgerTimeBoundaries(
+      Time.Range(
+        Time.Timestamp.assertFromLong(0xaaaa),
+        Time.Timestamp.assertFromLong(0xbbbb),
+      )
+    ),
     submissionTime = Time.Timestamp.Epoch,
     disclosedContracts = SortedMap(
       cid1 -> node1,

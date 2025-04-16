@@ -19,7 +19,7 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.language.{LookupError, Reference}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -316,6 +316,29 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"The submitted command is missing a mandatory field: $missingField",
           extraContext = Map("field_name" -> missingField),
+        )
+  }
+
+  @Explanation(
+    """This error is emitted when an attempt is made to submit a transaction with at a time that is outside the ledger time bounds required by the transaction."""
+  )
+  @Resolution(
+    "If the time bounds are in the future then retry within the time bounds, if in the past a new transaction needs to be prepared with a current or future time"
+  )
+  object LedgerTimeOutsideBounds
+      extends ErrorCode(
+        id = "LEDGER_TIME_OUTSIDE_BOUNDS",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(ledgerEffectiveTime: Time.Timestamp, timeBoundaries: Time.Range)(
+        implicit loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"The submitted command with a ledger effective time of $ledgerEffectiveTime is outside of the bounds required by the transaction $timeBoundaries",
+          extraContext = Map(
+            "ledger_effective_time" -> ledgerEffectiveTime.toString,
+            "time_boundaries" -> timeBoundaries.toString,
+          ),
         )
   }
 

@@ -24,7 +24,7 @@ import com.digitalasset.canton.participant.admin.grpc.{
 }
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
 import com.digitalasset.canton.participant.admin.{AdminWorkflowServices, PackageService}
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
@@ -46,7 +46,7 @@ import scala.concurrent.{ExecutionContextExecutor, blocking}
   * down temporarily (e.g. for ledger pruning).
   */
 class StartableStoppableLedgerApiDependentServices(
-    config: LocalParticipantConfig,
+    config: ParticipantNodeConfig,
     parameters: ParticipantNodeParameters,
     packageServiceE: Eval[PackageService],
     syncService: CantonSyncService,

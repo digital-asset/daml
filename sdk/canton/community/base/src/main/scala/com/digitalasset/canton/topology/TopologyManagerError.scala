@@ -281,7 +281,7 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
     """This error indicates that the attempt to add a transaction was rejected, as the signing key is not authorized within the current state."""
   )
   @Resolution(
-    """Inspect the topology state and ensure that valid namespace or identifier delegations of the signing key exist or upload them before adding this transaction."""
+    """Inspect the topology state and ensure that a valid namespace delegations of the signing key exists or upload one before adding this transaction."""
   )
   object UnauthorizedTransaction extends AlarmErrorCode(id = "TOPOLOGY_UNAUTHORIZED_TRANSACTION") {
 

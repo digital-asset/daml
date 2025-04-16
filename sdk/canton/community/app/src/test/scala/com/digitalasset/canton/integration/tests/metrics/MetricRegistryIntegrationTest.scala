@@ -7,7 +7,10 @@ import com.daml.metrics.MetricsFilterConfig
 import com.daml.metrics.api.MetricQualification
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
+import com.digitalasset.canton.integration.plugins.{
+  UseCommunityReferenceBlockSequencer,
+  UsePostgres,
+}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -29,6 +32,7 @@ sealed trait MetricRegistryIntegrationTest
 
   override def beforeAll(): Unit =
     super.beforeAll()
+
   override def afterAll(): Unit = {
     super.afterAll()
     Option(targetDir.list()).foreach { files =>
@@ -129,9 +133,47 @@ sealed trait MetricRegistryIntegrationTest
         new File(targetDir, _) should exist
       )
     }
+    nodes.local.stop()
   }
+
+  "verify that metrics don't complain on restart" when {
+
+    "starting sequencer" in { implicit env =>
+      import env.*
+      loggerFactory.assertLogs(
+        sequencer1.start()
+      )
+    }
+    "starting mediator" in { implicit env =>
+      import env.*
+      loggerFactory.assertLogs(
+        mediator1.start()
+      )
+    }
+
+    "starting participant" in { implicit env =>
+      import env.*
+      loggerFactory.assertLogs(
+        participant1.start()
+      )
+    }
+    "reconnecting participant" in { implicit env =>
+      import env.*
+      loggerFactory.assertLogs(
+        participant1.synchronizers.connect_local(sequencer1, daName)
+      )
+    }
+    "pinging participant" in { implicit env =>
+      import env.*
+      loggerFactory.assertLogs(
+        participant1.health.ping(participant1)
+      )
+    }
+  }
+
 }
 
 class MetricRegistryIntegrationTestDefault extends MetricRegistryIntegrationTest {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(new UsePostgres(loggerFactory))
+  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

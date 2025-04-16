@@ -80,7 +80,6 @@ class SecretKeyAdministration(
       |The optional name argument allows you to store an associated string for your convenience.
       |The usage specifies the intended use for the signing key that can be:
       | - Namespace: for the root namespace key that defines a node's identity and signs topology requests;
-      | - IdentityDelegation: for a signing key that acts as a delegation key for the root namespace and that can also be used to sign topology requests;
       | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
       | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
       |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
@@ -120,7 +119,6 @@ class SecretKeyAdministration(
       |The id for the KMS signing key.
       |The usage specifies the intended use for the signing key that can be:
       | - Namespace: for the root namespace key that defines a node's identity and signs topology requests;
-      | - IdentityDelegation: for a signing key that acts as a delegation key for the root namespace and that can also be used to sign topology requests;
       | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
       | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
       |The optional name argument allows you to store an associated string for your convenience."""

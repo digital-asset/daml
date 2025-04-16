@@ -16,17 +16,19 @@ class EpochMetricsAccumulatorTest extends AsyncWordSpec with BaseTest {
     "accumulate votes and views" in {
       val accumulator = new EpochMetricsAccumulator()
 
-      accumulator.accumulate(3, Map(node1 -> 3), Map(node1 -> 2, node2 -> 2))
+      accumulator.accumulate(3, Map(node1 -> 3), Map(node1 -> 2, node2 -> 2), 5)
 
       accumulator.viewsCount shouldBe 3
       accumulator.commitVotes shouldBe Map(node1 -> 3)
       accumulator.prepareVotes shouldBe Map(node1 -> 2, node2 -> 2)
+      accumulator.discardedMessages shouldBe 5
 
-      accumulator.accumulate(2, Map(node1 -> 2, node2 -> 2), Map(node3 -> 2, node2 -> 2))
+      accumulator.accumulate(2, Map(node1 -> 2, node2 -> 2), Map(node3 -> 2, node2 -> 2), 10)
 
       accumulator.viewsCount shouldBe 5
       accumulator.commitVotes shouldBe Map(node1 -> 5, node2 -> 2)
       accumulator.prepareVotes shouldBe Map(node1 -> 2, node2 -> 4, node3 -> 2)
+      accumulator.discardedMessages shouldBe 15
     }
   }
 }

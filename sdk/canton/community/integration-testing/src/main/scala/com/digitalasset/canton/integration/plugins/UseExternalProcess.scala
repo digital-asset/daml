@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.integration.EnvironmentSetupPlugin
 import com.digitalasset.canton.integration.plugins.UseExternalProcess.{RunVersion, ShutdownPhase}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.config.{LocalParticipantConfig, RemoteParticipantConfig}
+import com.digitalasset.canton.participant.config.{ParticipantNodeConfig, RemoteParticipantConfig}
 import com.digitalasset.canton.synchronizer.mediator.{MediatorNodeConfig, RemoteMediatorConfig}
 import com.digitalasset.canton.synchronizer.sequencer.config.{
   RemoteSequencerConfig,
@@ -214,7 +214,7 @@ class UseExternalProcess(
   ): (CantonConfig, CantonParameters) = {
     // computes new config but doesn't update the config used by a background process yet
     val (localParticipants, remoteParticipants) =
-      splitLocalAndRemote[LocalParticipantConfig, RemoteParticipantConfig](
+      splitLocalAndRemote[ParticipantNodeConfig, RemoteParticipantConfig](
         config.participantsByString,
         externalParticipants,
         _.toRemoteConfig,

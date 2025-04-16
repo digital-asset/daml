@@ -103,7 +103,7 @@ object DynamicValue {
   }
   implicit class TextMapExtension(value: DynamicValue) {
     def textMap: IterableOnce[(String, DynamicValue)] =
-      value.asInstanceOf[IterableOnce[(String, DynamicValue)]]
+      value.inner.asInstanceOf[IterableOnce[(String, DynamicValue)]]
   }
 
   /** Map with arbitrarily-typed keys and values. Codecs should maintain stable order of key-value

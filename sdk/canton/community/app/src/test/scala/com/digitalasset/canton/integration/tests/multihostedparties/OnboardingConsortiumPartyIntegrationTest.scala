@@ -159,7 +159,7 @@ sealed trait OnboardingConsortiumPartyIntegrationTest extends ConsortiumPartyInt
           logger.debug("Onboarding: Export ACS from P1")
           participant1.parties.export_acs(
             Set(consortiumPartyId),
-            acsFilename,
+            exportFilePath = acsFilename,
             ledgerOffset = partyAddedOnP4Offset,
           )
 
