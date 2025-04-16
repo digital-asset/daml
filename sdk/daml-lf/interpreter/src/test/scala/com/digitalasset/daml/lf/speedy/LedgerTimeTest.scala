@@ -37,55 +37,77 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
 
   "ledger time primitives" - {
     "ledgerTimeLT" in {
-      val testData = Table[Time.Timestamp, Time.Timestamp, Boolean, Time.Range](
-        ("now", "time", "result", "updated-time-boundary"),
-        (nowP1, now, false, Time.Range(nowP1, nowP1)),
-        (now, now, false, Time.Range(now, now)),
-        (now, nowP1, true, Time.Range(now, now)),
-        (now, nowP2, true, Time.Range(now, now)),
-        (now, Time.Timestamp.MinValue, false, Time.Range(now, now)),
-        (now, Time.Timestamp.MaxValue, true, Time.Range(now, now)),
+      val testData = Table[Time.Timestamp, Time.Timestamp, Time.Range, Option[Boolean], Time.Range](
+        ("now", "time", "time-boundary", "result", "updated-time-boundary"),
+        (nowP2, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        (nowP2, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        (nowP2, now, Time.Range(now, nowP2), Some(false), Time.Range(now, nowP2)),
+        (nowP2, nowP1, Time.Range(now, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        (nowP2, nowP1, Time.Range(now, now), None, Time.Range(now, now)), // Speedy crash expected
+        (now, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        (now, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        (nowP1, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
         (
-          Time.Timestamp.MinValue,
+          nowP2,
+          nowP2,
+          Time.Range(nowP1, nowP1),
+          None,
+          Time.Range(nowP1, nowP1),
+        ), // Speedy crash expected
+        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (now, nowP1, Time.Range(now, nowP1), Some(true), Time.Range(now, now)),
+        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (now, nowP2, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (now, nowP1, Time.Range(now, nowP1), Some(true), Time.Range(now, now)),
+        (now, nowP2, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        (now, nowP2, Time.Range(nowP1, nowP1), Some(true), Time.Range(nowP1, nowP1)),
+        (
           now,
-          true,
-          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
-        ),
-        (
-          Time.Timestamp.MaxValue,
-          now,
-          false,
-          Time.Range(Time.Timestamp.MaxValue, Time.Timestamp.MaxValue),
-        ),
+          nowP1,
+          Time.Range(nowP1, nowP1),
+          None,
+          Time.Range(nowP1, nowP1),
+        ), // Speedy crash expected
+        (now, Time.Timestamp.MinValue, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        (nowP1, now, Time.Range(Time.Timestamp.MinValue, now), Some(false), Time.Range(now, now)),
         (
           Time.Timestamp.MinValue,
           Time.Timestamp.MinValue,
-          false,
-          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+          Time.Range(now, now),
+          Some(false),
+          Time.Range(now, now),
         ),
+        (now, now, Time.Range(Time.Timestamp.MinValue, now), Some(false), Time.Range(now, now)),
+        (Time.Timestamp.MinValue, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (now, Time.Timestamp.MaxValue, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (now, nowP1, Time.Range(now, Time.Timestamp.MaxValue), Some(true), Time.Range(now, now)),
         (
           Time.Timestamp.MinValue,
           Time.Timestamp.MaxValue,
-          true,
-          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
-        ),
-        (
-          Time.Timestamp.MaxValue,
-          Time.Timestamp.MinValue,
-          false,
-          Time.Range(Time.Timestamp.MaxValue, Time.Timestamp.MaxValue),
-        ),
-        (
-          Time.Timestamp.MaxValue,
-          Time.Timestamp.MaxValue,
-          false,
-          Time.Range(Time.Timestamp.MaxValue, Time.Timestamp.MaxValue),
+          Time.Range(now, now),
+          Some(true),
+          Time.Range(now, now),
         ),
       )
 
-      forEvery(testData) { (now, time, expected, expectedTimeBoundaries) =>
-        inside(runTimeMachine("ledger_time_lt", now, time)) {
-          case (Success(Right(SValue.SBool(`expected`))), actualTimeBoundaries, messages) =>
+      forEvery(testData) { (now, time, timeBoundaries, expectedResult, expectedTimeBoundaries) =>
+        inside(runTimeMachine("ledger_time_lt", now, time, timeBoundaries)) {
+          case (Success(Right(SValue.SBool(actualResult))), actualTimeBoundaries, messages) =>
+            Some(actualResult) shouldBe expectedResult
+            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
+            messages shouldBe Seq("queried time", "")
+            actualTimeBoundaries shouldBe expectedTimeBoundaries
+
+          case (
+                Success(Left(SError.SErrorCrash(location, cause))),
+                actualTimeBoundaries,
+                messages,
+              ) =>
+            expectedResult shouldBe None
+            location shouldBe "com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine.needTime"
+            cause shouldBe "unexpected exception java.lang.AssertionError: assertion failed when running continuation of question NeedTime"
             // Empty string is due to use of transactionTrace and no commands being in the transaction tree
             messages shouldBe Seq("queried time", "")
             actualTimeBoundaries shouldBe expectedTimeBoundaries
@@ -94,7 +116,12 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
-  private def runTimeMachine(builtin: String, now: Time.Timestamp, time: Time.Timestamp) = {
+  private def runTimeMachine(
+      builtin: String,
+      now: Time.Timestamp,
+      time: Time.Timestamp,
+      timeBoundaries: Time.Range,
+  ) = {
     val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
     val pkgs = PureCompiledPackages.Empty(compilerConfig)
     val builtinSExpr = pkgs.compiler.unsafeCompile(e"""\(time: Timestamp) -> $builtin time""")
@@ -108,6 +135,9 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
         Set.empty,
         traceLog = traceLog,
       )
+
+    machine.setTimeBoundaries(timeBoundaries)
+
     val result = Try(
       SpeedyTestLib.run(
         machine,

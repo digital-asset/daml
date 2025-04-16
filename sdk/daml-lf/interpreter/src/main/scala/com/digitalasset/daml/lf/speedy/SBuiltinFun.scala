@@ -1850,7 +1850,11 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.needTime(time => Control.Value(STimestamp(time)))
+      machine.needTime(time => {
+        machine.setTimeBoundaries(Time.Range(time, time))
+
+        Control.Value(STimestamp(time))
+      })
     }
   }
 

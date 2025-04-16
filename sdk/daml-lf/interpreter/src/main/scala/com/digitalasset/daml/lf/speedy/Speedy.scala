@@ -223,7 +223,6 @@ private[lf] object Speedy {
     ): Control[Question.Update] = {
       Control.Question(
         Question.Update.NeedTime { time =>
-          setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
             "NeedTime",
@@ -450,9 +449,6 @@ private[lf] object Speedy {
 
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
-
-    private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
-      setTimeBoundaries(Time.Range(min = time, max = time))
 
     def getTimeBoundaries: Time.Range =
       timeBoundaries
