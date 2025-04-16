@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.client.RequestSigner
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -26,13 +26,7 @@ import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
-import com.digitalasset.canton.{
-  BaseTest,
-  FailOnShutdown,
-  HasExecutionContext,
-  SequencerCounter,
-  config,
-}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, config}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -145,10 +139,10 @@ class SequencerTest
     def readAsSeq(
         member: Member,
         limit: Int,
-        sc: SequencerCounter = SequencerCounter(0),
-    ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
+        startingTimestamp: Option[CantonTimestamp] = None,
+    ): FutureUnlessShutdown[Seq[SequencedSerializedEvent]] =
       FutureUnlessShutdown.outcomeF(
-        valueOrFail(sequencer.readInternal(member, sc).failOnShutdown)(
+        valueOrFail(sequencer.readInternalV2(member, startingTimestamp).failOnShutdown)(
           s"read for $member"
         ) flatMap {
           _.take(limit.toLong)

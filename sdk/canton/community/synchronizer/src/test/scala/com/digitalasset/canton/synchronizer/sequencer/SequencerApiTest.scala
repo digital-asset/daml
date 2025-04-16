@@ -19,7 +19,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.synchronizer.block.update.BlockChunkProcessor
@@ -162,10 +162,10 @@ abstract class SequencerApiTest
           messages <- readForMembers(List(sender), sequencer)
         } yield {
           val details = EventDetails(
-            SequencerCounter(0),
-            sender,
-            Some(request.messageId),
-            defaultExpectedTrafficReceipt,
+            previousTimestamp = None,
+            to = sender,
+            messageId = Some(request.messageId),
+            trafficReceipt = defaultExpectedTrafficReceipt,
             EnvelopeDetails(messageContent, recipients),
           )
           checkMessages(List(details), messages)
@@ -217,7 +217,8 @@ abstract class SequencerApiTest
                 )) or
                 include("Started gathering segment status") or
                 include("Broadcasting epoch status") or
-                include("Scheduling pruning in 1 hour"))
+                include("Scheduling pruning in 1 hour") or
+                include("Got a retransmission request from"))
             },
           )
         } yield {
@@ -266,10 +267,10 @@ abstract class SequencerApiTest
           )
         } yield {
           val details = EventDetails(
-            SequencerCounter.Genesis,
-            sender,
-            Some(request1.messageId),
-            defaultExpectedTrafficReceipt,
+            previousTimestamp = None,
+            to = sender,
+            messageId = Some(request1.messageId),
+            trafficReceipt = defaultExpectedTrafficReceipt,
             EnvelopeDetails(normalMessageContent, recipients),
           )
           checkMessages(List(details), messages)
@@ -291,9 +292,9 @@ abstract class SequencerApiTest
 
         val expectedDetailsForMembers = readFor.map { member =>
           EventDetails(
-            SequencerCounter.Genesis,
-            member,
-            Option.when(member == sender)(request.messageId),
+            previousTimestamp = None,
+            to = member,
+            messageId = Option.when(member == sender)(request.messageId),
             if (member == sender) defaultExpectedTrafficReceipt else None,
             EnvelopeDetails(messageContent, recipients.forMember(member, Set.empty).value),
           )
@@ -341,9 +342,9 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p6,
-                Some(request1.messageId),
+                previousTimestamp = None,
+                to = p6,
+                messageId = Some(request1.messageId),
                 defaultExpectedTrafficReceipt,
               )
             ),
@@ -353,9 +354,9 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p9,
-                Some(request2.messageId),
+                previousTimestamp = None,
+                to = p9,
+                messageId = Some(request2.messageId),
                 defaultExpectedTrafficReceipt,
               )
             ),
@@ -365,8 +366,8 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p10,
+                previousTimestamp = None,
+                to = p10,
                 messageId = None,
                 trafficReceipt = None,
                 EnvelopeDetails(messageContent, Recipients.cc(p10)),
@@ -552,10 +553,10 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p11,
-                Some(request1.messageId),
-                defaultExpectedTrafficReceipt,
+                previousTimestamp = None,
+                to = p11,
+                messageId = Some(request1.messageId),
+                trafficReceipt = defaultExpectedTrafficReceipt,
               )
             ),
             reads11,
@@ -563,15 +564,15 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p12,
-                Some(request1.messageId),
-                defaultExpectedTrafficReceipt,
+                previousTimestamp = None,
+                to = p12,
+                messageId = Some(request2.messageId),
+                trafficReceipt = defaultExpectedTrafficReceipt,
                 EnvelopeDetails(content2, recipients2, envs1(1).signatures ++ envs2(1).signatures),
               ),
               EventDetails(
-                SequencerCounter.Genesis,
-                p13,
+                previousTimestamp = None,
+                to = p13,
                 messageId = None,
                 trafficReceipt = None,
                 EnvelopeDetails(content1, recipients1, envs1(0).signatures ++ envs2(0).signatures),
@@ -583,8 +584,8 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis + 1,
-                p11,
+                previousTimestamp = reads11.headOption.map(_._2.timestamp),
+                to = p11,
                 messageId = None,
                 trafficReceipt = None,
                 EnvelopeDetails(content1, recipients1, envs1(0).signatures ++ envs2(0).signatures),
@@ -672,10 +673,10 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p14,
-                Some(request1.messageId),
-                defaultExpectedTrafficReceipt,
+                previousTimestamp = None,
+                to = p14,
+                messageId = Some(request1.messageId),
+                trafficReceipt = defaultExpectedTrafficReceipt,
               )
             ),
             reads14,
@@ -696,8 +697,8 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis + 2,
-                p14,
+                previousTimestamp = reads14.headOption.map(_._2.timestamp),
+                to = p14,
                 messageId = None,
                 trafficReceipt = None,
                 deliveredEnvelopeDetails,
@@ -708,10 +709,10 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p15,
-                Some(messageId3),
-                defaultExpectedTrafficReceipt,
+                previousTimestamp = None,
+                to = p15,
+                messageId = Some(messageId3),
+                trafficReceipt = defaultExpectedTrafficReceipt,
                 deliveredEnvelopeDetails,
               )
             ),
@@ -901,10 +902,10 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p1,
-                Some(requestFromP1.messageId),
-                defaultExpectedTrafficReceipt,
+                previousTimestamp = None,
+                to = p1,
+                messageId = Some(requestFromP1.messageId),
+                trafficReceipt = defaultExpectedTrafficReceipt,
               )
             ),
             readsForP1,
@@ -914,10 +915,10 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p2,
-                Some(requestFromP2.messageId),
-                defaultExpectedTrafficReceipt,
+                previousTimestamp = None,
+                to = p2,
+                messageId = Some(requestFromP2.messageId),
+                trafficReceipt = defaultExpectedTrafficReceipt,
               )
             ),
             readsForP2,
@@ -927,10 +928,10 @@ abstract class SequencerApiTest
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                p3,
-                None,
-                None,
+                previousTimestamp = None,
+                to = p3,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(messageContent, Recipients.cc(p3)),
               )
             ),
@@ -991,7 +992,7 @@ trait SequencerApiTestUtils
       firstSequencerCounter: SequencerCounter = SequencerCounter.Genesis,
   )(implicit
       materializer: Materializer
-  ): FutureUnlessShutdown[Seq[(Member, OrdinarySerializedEvent)]] =
+  ): FutureUnlessShutdown[Seq[(Member, SequencedSerializedEvent)]] =
     members
       .parTraverseFilter { member =>
         for {
@@ -1027,7 +1028,7 @@ trait SequencerApiTestUtils
   )
 
   case class EventDetails(
-      counter: SequencerCounter,
+      previousTimestamp: Option[CantonTimestamp],
       to: Member,
       messageId: Option[MessageId],
       trafficReceipt: Option[TrafficReceipt],
@@ -1061,7 +1062,7 @@ trait SequencerApiTestUtils
 
   protected def checkMessages(
       expectedMessages: Seq[EventDetails],
-      receivedMessages: Seq[(Member, OrdinarySerializedEvent)],
+      receivedMessages: Seq[(Member, SequencedSerializedEvent)],
   ): Assertion = {
 
     receivedMessages.length shouldBe expectedMessages.length
@@ -1072,14 +1073,20 @@ trait SequencerApiTestUtils
     forAll(sortReceived.zip(sortExpected)) { case ((member, message), expectedMessage) =>
       withClue(s"Member mismatch")(member shouldBe expectedMessage.to)
 
-      withClue(s"Sequencer counter is wrong") {
-        message.counter shouldBe expectedMessage.counter
+      withClue(s"Message id is wrong") {
+        expectedMessage.messageId.foreach(_ =>
+          message.signedEvent.content match {
+            case Deliver(_, _, _, messageId, _, _, _) =>
+              messageId shouldBe expectedMessage.messageId
+            case _ => fail(s"Expected a deliver $expectedMessage, received error $message")
+          }
+        )
       }
 
       val event = message.signedEvent.content
 
       event match {
-        case Deliver(_, _, _, _, messageIdO, batch, _, trafficReceipt) =>
+        case Deliver(_, _, _, messageIdO, batch, _, trafficReceipt) =>
           withClue(s"Received the wrong number of envelopes for recipient $member") {
             batch.envelopes.length shouldBe expectedMessage.envs.length
           }
@@ -1106,7 +1113,7 @@ trait SequencerApiTestUtils
   }
 
   def checkRejection(
-      got: Seq[(Member, OrdinarySerializedEvent)],
+      got: Seq[(Member, SequencedSerializedEvent)],
       sender: Member,
       expectedMessageId: MessageId,
       expectedTrafficReceipt: Option[TrafficReceipt],
@@ -1115,7 +1122,6 @@ trait SequencerApiTestUtils
       case Seq((`sender`, event)) =>
         event.signedEvent.content match {
           case DeliverError(
-                _counter,
                 _previousTimestamp,
                 _timestamp,
                 _synchronizerId,

@@ -316,11 +316,13 @@ class TopologyTransactionProcessor(
       override def apply(
           tracedBatch: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
       ): HandlerResult =
-        MonadUtil.sequentialTraverseMonoid(tracedBatch.value) {
-          _.withTraceContext { implicit traceContext =>
+        MonadUtil.sequentialTraverseMonoid(tracedBatch.value) { withCounter =>
+          withCounter.withTraceContext { implicit traceContext =>
             {
-              case Deliver(sc, _, ts, _, _, batch, topologyTimestampO, _) =>
-                logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
+              case Deliver(_, ts, _, _, batch, topologyTimestampO, _) =>
+                logger.debug(
+                  s"Processing sequenced event with counter ${withCounter.counter} and timestamp $ts"
+                )
                 val sequencedTime = SequencedTime(ts)
                 val envelopesForRightSynchronizer = ProtocolMessage.filterSynchronizerEnvelopes(
                   batch.envelopes,
@@ -333,15 +335,15 @@ class TopologyTransactionProcessor(
                     .report()
                 )
                 val broadcasts = validateEnvelopes(
-                  sc,
+                  withCounter.counter,
                   sequencedTime,
                   topologyTimestampO,
                   envelopesForRightSynchronizer,
                 )
-                internalProcessEnvelopes(sc, sequencedTime, broadcasts)
+                internalProcessEnvelopes(withCounter.counter, sequencedTime, broadcasts)
               case err: DeliverError =>
                 internalProcessEnvelopes(
-                  err.counter,
+                  withCounter.counter,
                   SequencedTime(err.timestamp),
                   Nil,
                 )

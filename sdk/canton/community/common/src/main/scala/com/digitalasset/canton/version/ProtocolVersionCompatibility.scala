@@ -218,7 +218,7 @@ object SynchronizerProtocolVersion {
 
 /** Wrapper around a [[ProtocolVersion]] so we can verify during configuration loading that
   * participant operators only configure a minimum [[ProtocolVersion]] in
-  * [[com.digitalasset.canton.participant.config.LocalParticipantConfig]] which is supported by the
+  * [[com.digitalasset.canton.participant.config.ParticipantNodeConfig]] which is supported by the
   * corresponding participant release.
   */
 final case class ParticipantProtocolVersion(version: ProtocolVersion)

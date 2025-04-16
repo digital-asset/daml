@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.metrics
 
-import com.daml.metrics.CacheMetrics
 import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.*
 import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification}
+import com.digitalasset.canton.caching.CacheMetrics
 
 private[metrics] final class ExecutionHistograms(val prefix: MetricName)(implicit
     inventory: HistogramInventory
@@ -199,6 +199,11 @@ final class ExecutionMetrics private[metrics] (
     }
 
     val contractState: ContractStateMetrics = new ContractStateMetrics
+
+    def closeAcquiredMetrics(): Unit = {
+      contractState.stateCache.closeAcquired()
+      keyState.stateCache.closeAcquired()
+    }
 
   }
 

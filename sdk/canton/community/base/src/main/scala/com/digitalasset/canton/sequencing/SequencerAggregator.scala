@@ -22,6 +22,7 @@ import com.digitalasset.canton.sequencing.SequencerAggregator.{
   SequencerAggregatorError,
 }
 import com.digitalasset.canton.sequencing.protocol.SignedContent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -51,23 +52,23 @@ class SequencerAggregator(
   def sequencerTrustThreshold: PositiveInt = configRef.get().sequencerTrustThreshold
 
   private case class SequencerMessageData(
-      eventBySequencer: Map[SequencerId, OrdinarySerializedEvent],
+      eventBySequencer: Map[SequencerId, SequencedSerializedEvent],
       promise: PromiseUnlessShutdown[Either[SequencerAggregatorError, SequencerId]],
   )
 
   /** Queue containing received and not yet handled events. Used for batched processing.
     */
-  private val receivedEvents: BlockingQueue[OrdinarySerializedEvent] =
-    new ArrayBlockingQueue[OrdinarySerializedEvent](eventInboxSize.unwrap)
+  private val receivedEvents: BlockingQueue[SequencedSerializedEvent] =
+    new ArrayBlockingQueue[SequencedSerializedEvent](eventInboxSize.unwrap)
 
   private val sequenceData = mutable.TreeMap.empty[CantonTimestamp, SequencerMessageData]
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var cursor: Option[CantonTimestamp] = None
 
-  def eventQueue: BlockingQueue[OrdinarySerializedEvent] = receivedEvents
+  def eventQueue: BlockingQueue[SequencedSerializedEvent] = receivedEvents
 
-  private def hash(message: OrdinarySerializedEvent) =
+  private def hash(message: SequencedSerializedEvent) =
     SignedContent.hashContent(
       cryptoPureApi,
       message.signedEvent.content,
@@ -76,9 +77,9 @@ class SequencerAggregator(
 
   @VisibleForTesting
   def combine(
-      messages: NonEmpty[Seq[OrdinarySerializedEvent]]
-  ): Either[SequencerAggregatorError, OrdinarySerializedEvent] = {
-    val message: OrdinarySerializedEvent = messages.head1
+      messages: NonEmpty[Seq[SequencedSerializedEvent]]
+  ): Either[SequencerAggregatorError, SequencedSerializedEvent] = {
+    val message: SequencedSerializedEvent = messages.head1
     val expectedMessageHash = hash(message)
     val hashes: NonEmpty[Set[Hash]] = messages.map(hash).toSet
     for {
@@ -95,13 +96,13 @@ class SequencerAggregator(
         .map(_.traceContext)
         .getOrElse(message.traceContext)
 
-      message.copy(signedEvent = message.signedEvent.copy(signatures = combinedSignatures))(
+      SequencedEventWithTraceContext(message.signedEvent.copy(signatures = combinedSignatures))(
         potentiallyNonEmptyTraceContext
       )
     }
   }
 
-  private def addEventToQueue(event: OrdinarySerializedEvent): Unit = {
+  private def addEventToQueue(event: SequencedSerializedEvent): Unit = {
     implicit val traceContext: TraceContext = event.traceContext
     logger.debug(
       show"Storing event in the event inbox.\n${event.signedEvent.content}"
@@ -120,14 +121,14 @@ class SequencerAggregator(
   }
 
   private def addEventToQueue(
-      messages: NonEmpty[List[OrdinarySerializedEvent]]
+      messages: NonEmpty[List[SequencedSerializedEvent]]
   ): Either[SequencerAggregatorError, Unit] =
     combine(messages).map(addEventToQueue)
 
   @SuppressWarnings(Array("com.digitalasset.canton.SynchronizedFuture"))
   def combineAndMergeEvent(
       sequencerId: SequencerId,
-      message: OrdinarySerializedEvent,
+      message: SequencedSerializedEvent,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -189,7 +190,7 @@ class SequencerAggregator(
 
   private def updatedSequencerMessageData(
       sequencerId: SequencerId,
-      message: OrdinarySerializedEvent,
+      message: SequencedSerializedEvent,
   ): SequencerMessageData = {
     implicit val traceContext = message.traceContext
     val promise = PromiseUnlessShutdown.supervised[Either[SequencerAggregatorError, SequencerId]](

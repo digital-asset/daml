@@ -25,7 +25,7 @@ import com.digitalasset.canton.integration.bootstrap.{
   NetworkTopologyDescription,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.synchronizer.config.SynchronizerParametersConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
@@ -161,7 +161,7 @@ object EnvironmentDefinition extends LazyLogging {
       InstanceName.tryCreate(s"mediator$i") -> MediatorNodeConfig()
     }.toMap
     val participants = (1 to numParticipants).map { i =>
-      InstanceName.tryCreate(s"participant$i") -> LocalParticipantConfig()
+      InstanceName.tryCreate(s"participant$i") -> ParticipantNodeConfig()
     }.toMap
 
     val configWithDefaults = CantonConfig(

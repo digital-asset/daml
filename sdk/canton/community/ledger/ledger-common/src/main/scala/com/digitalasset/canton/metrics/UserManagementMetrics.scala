@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.metrics
 
+import com.daml.metrics.DatabaseMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
-import com.daml.metrics.{CacheMetrics, DatabaseMetrics}
+import com.digitalasset.canton.caching.CacheMetrics
 
 // Private constructor to avoid being instantiated multiple times by accident
 class UserManagementMetrics private[metrics] (

@@ -33,8 +33,8 @@ import scala.util.{Failure, Success}
   */
 private[service] class DirectSequencerSubscription[E](
     member: Member,
-    source: Sequencer.EventSource,
-    handler: SerializedEventOrErrorHandler[E],
+    source: Sequencer.SequencedEventSource,
+    handler: SequencedEventOrErrorHandler[E],
     override protected val timeouts: ProcessingTimeout,
     baseLoggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, materializer: Materializer)

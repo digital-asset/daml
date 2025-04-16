@@ -43,7 +43,7 @@ trait ManagedSubscription extends FlagCloseable with CloseNotification {
   * will cause the subscription to close.
   */
 private[service] class GrpcManagedSubscription[T](
-    createSubscription: SerializedEventOrErrorHandler[SequencedEventError] => EitherT[
+    createSubscription: SequencedEventOrErrorHandler[SequencedEventError] => EitherT[
       FutureUnlessShutdown,
       CreateSubscriptionError,
       SequencerSubscription[SequencedEventError],
@@ -53,7 +53,7 @@ private[service] class GrpcManagedSubscription[T](
     val expireAt: Option[CantonTimestamp],
     override protected val timeouts: ProcessingTimeout,
     baseLoggerFactory: NamedLoggerFactory,
-    toSubscriptionResponse: OrdinarySerializedEvent => T,
+    toSubscriptionResponse: SequencedSerializedEvent => T,
 )(implicit ec: ExecutionContext)
     extends ManagedSubscription
     with NamedLogging {
@@ -80,7 +80,7 @@ private[service] class GrpcManagedSubscription[T](
   // as the underlying channel is cancelled we can no longer send a response
   observer.setOnCancelHandler(() => signalAndClose(NoSignal))
 
-  private val handler: SerializedEventOrErrorHandler[SequencedEventError] = {
+  private val handler: SequencedEventOrErrorHandler[SequencedEventError] = {
     case Right(event) =>
       implicit val traceContext: TraceContext = event.traceContext
       FutureUnlessShutdown

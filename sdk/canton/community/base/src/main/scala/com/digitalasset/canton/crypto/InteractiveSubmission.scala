@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
@@ -56,7 +57,7 @@ object InteractiveSubmission {
         transactionUUID: UUID,
         mediatorGroup: Int,
         synchronizerId: SynchronizerId,
-        ledgerEffectiveTime: Option[Time.Timestamp],
+        timeBoundaries: LedgerTimeBoundaries,
         submissionTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, FatContractInstance],
     ) = new TransactionMetadataForHashing(
@@ -65,7 +66,7 @@ object InteractiveSubmission {
       transactionUUID = transactionUUID,
       mediatorGroup = mediatorGroup,
       synchronizerId = synchronizerId,
-      ledgerEffectiveTime = ledgerEffectiveTime,
+      timeBoundaries = timeBoundaries,
       submissionTime = submissionTime,
       disclosedContracts = SortedMap.from(disclosedContracts),
     )
@@ -79,7 +80,7 @@ object InteractiveSubmission {
         transactionUUID: UUID,
         mediatorGroup: Int,
         synchronizerId: SynchronizerId,
-        ledgerEffectiveTime: Option[Time.Timestamp],
+        timeBoundaries: LedgerTimeBoundaries,
         submissionTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, SerializableContract],
     ): TransactionMetadataForHashing = {
@@ -99,7 +100,7 @@ object InteractiveSubmission {
         transactionUUID,
         mediatorGroup,
         synchronizerId,
-        ledgerEffectiveTime,
+        timeBoundaries,
         submissionTime,
         SortedMap.from(asFatContracts),
       )
@@ -112,7 +113,7 @@ object InteractiveSubmission {
       transactionUUID: UUID,
       mediatorGroup: Int,
       synchronizerId: SynchronizerId,
-      ledgerEffectiveTime: Option[Time.Timestamp],
+      timeBoundaries: LedgerTimeBoundaries,
       submissionTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
@@ -139,7 +140,7 @@ object InteractiveSubmission {
       metadata.transactionUUID,
       metadata.mediatorGroup,
       metadata.synchronizerId.toProtoPrimitive,
-      metadata.ledgerEffectiveTime,
+      metadata.timeBoundaries,
       metadata.submissionTime,
       metadata.disclosedContracts,
     )

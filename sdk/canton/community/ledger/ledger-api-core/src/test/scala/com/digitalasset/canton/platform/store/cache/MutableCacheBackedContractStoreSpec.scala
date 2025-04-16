@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueRecord, ValueText}
+import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -389,7 +389,7 @@ object MutableCacheBackedContractStoreSpec {
       ImmArray.Empty,
     )
     val contractInstance =
-      ThinContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
+      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

@@ -171,7 +171,6 @@ class ProtocolProcessorTest
           UnlessShutdown.Outcome(
             Success(
               Deliver.create(
-                SequencerCounter(0),
                 None,
                 CantonTimestamp.Epoch,
                 synchronizer,

@@ -104,23 +104,6 @@ object ListDecentralizedNamespaceDefinitionResult {
     } yield ListDecentralizedNamespaceDefinitionResult(context, item)
 }
 
-final case class ListIdentifierDelegationResult(
-    context: BaseResult,
-    item: IdentifierDelegation,
-)
-
-object ListIdentifierDelegationResult {
-  def fromProtoV30(
-      value: v30.ListIdentifierDelegationResponse.Result
-  ): ParsingResult[ListIdentifierDelegationResult] =
-    for {
-      contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV30(contextProto)
-      itemProto <- ProtoConverter.required("item", value.item)
-      item <- IdentifierDelegation.fromProtoV30(itemProto)
-    } yield ListIdentifierDelegationResult(context, item)
-}
-
 final case class ListOwnerToKeyMappingResult(
     context: BaseResult,
     item: OwnerToKeyMapping,

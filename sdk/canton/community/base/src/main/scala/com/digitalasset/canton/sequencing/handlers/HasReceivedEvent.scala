@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.handlers
 
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.concurrent.{Future, Promise}
@@ -23,8 +23,8 @@ class HasReceivedEvent {
   */
 object HasReceivedEvent {
   def apply[E](
-      handler: SerializedEventHandler[E]
-  ): (HasReceivedEvent, SerializedEventHandler[E]) = {
+      handler: SequencedEventHandler[E]
+  ): (HasReceivedEvent, SequencedEventHandler[E]) = {
     val hasReceivedEvent = new HasReceivedEvent
 
     (

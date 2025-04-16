@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
 
 trait ContractAuthenticator {
 
@@ -69,7 +69,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
         .create(
           Versioned(
             contract.version,
-            ThinContractInstance(
+            ContractInstance(
               contract.packageName,
               contract.templateId,
               contract.createArg,

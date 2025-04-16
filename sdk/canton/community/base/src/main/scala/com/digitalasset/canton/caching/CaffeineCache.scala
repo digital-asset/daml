@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.caching
 
-import com.daml.metrics.CacheMetrics
+import com.digitalasset.canton.caching.CacheMetrics
 import com.github.benmanes.caffeine.cache as caffeine
 
 import scala.jdk.CollectionConverters.*
@@ -37,12 +37,14 @@ object CaffeineCache {
       cache.get(key, key => acquire(key))
 
     override def invalidateAll(): Unit = cache.invalidateAll()
+
   }
 
   private final class InstrumentedCaffeineCache[Key <: AnyRef, Value <: AnyRef](
       cache: caffeine.Cache[Key, Value],
       metrics: CacheMetrics,
   ) extends ConcurrentCache[Key, Value] {
+
     installMetrics(metrics, cache)
 
     private val delegate = new SimpleCaffeineCache(cache)

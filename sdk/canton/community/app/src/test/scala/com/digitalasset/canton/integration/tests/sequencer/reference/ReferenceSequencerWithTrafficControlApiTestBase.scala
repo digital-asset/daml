@@ -624,10 +624,10 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
             Seq(
               // Receipt to sender for message1
               EventDetails(
-                SequencerCounter.Genesis,
-                sender,
-                Some(request1.messageId),
-                Some(
+                previousTimestamp = None,
+                to = sender,
+                messageId = Some(request1.messageId),
+                trafficReceipt = Some(
                   TrafficReceipt(
                     consumedCost = NonNegativeLong.tryCreate(messageContent.length.toLong),
                     extraTrafficConsumed = NonNegativeLong.tryCreate(messageContent.length.toLong),
@@ -637,10 +637,10 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
               ),
               // Event to p11 recipient
               EventDetails(
-                SequencerCounter.Genesis,
-                p11,
-                None,
-                Option.empty[TrafficReceipt],
+                previousTimestamp = None,
+                to = p11,
+                messageId = None,
+                trafficReceipt = Option.empty[TrafficReceipt],
                 EnvelopeDetails(messageContent, Recipients.cc(p11)),
               ),
             ),
@@ -651,10 +651,10 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
             Seq(
               // Receipt to sender for message2
               EventDetails(
-                SequencerCounter.Genesis + 1,
-                sender,
-                Some(request2.messageId),
-                Some(
+                previousTimestamp = messages1.headOption.map(_._2.timestamp),
+                to = sender,
+                messageId = Some(request2.messageId),
+                trafficReceipt = Some(
                   TrafficReceipt(
                     consumedCost = NonNegativeLong.tryCreate(messageContent2.length.toLong),
                     extraTrafficConsumed = NonNegativeLong.tryCreate(
@@ -666,10 +666,10 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
               ),
               // Event to p11 recipient
               EventDetails(
-                SequencerCounter.Genesis + 1,
-                p11,
-                None,
-                Option.empty[TrafficReceipt],
+                previousTimestamp = messages1.lastOption.map(_._2.timestamp),
+                to = p11,
+                messageId = None,
+                trafficReceipt = Option.empty[TrafficReceipt],
                 EnvelopeDetails(messageContent2, Recipients.cc(p11)),
               ),
             ),
@@ -812,10 +812,10 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                sender,
-                Some(request1.messageId),
-                Some(
+                previousTimestamp = None,
+                to = sender,
+                messageId = Some(request1.messageId),
+                trafficReceipt = Some(
                   TrafficReceipt(
                     consumedCost = NonNegativeLong.tryCreate(messageContent.length.toLong),
                     extraTrafficConsumed = NonNegativeLong.tryCreate(messageContent.length.toLong),
@@ -824,17 +824,17 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
                 ),
               ),
               EventDetails(
-                SequencerCounter.Genesis,
-                p11,
-                None,
-                None,
+                previousTimestamp = None,
+                to = p11,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(messageContent, recipients),
               ),
               EventDetails(
-                SequencerCounter.Genesis,
-                p12,
-                None,
-                None,
+                previousTimestamp = None,
+                to = p12,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(messageContent, recipients),
               ),
             ),
@@ -984,10 +984,10 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
               checkMessages(
                 Seq(
                   EventDetails(
-                    SequencerCounter(1),
-                    sender,
-                    Some(request.messageId),
-                    Some(
+                    previousTimestamp = messages.headOption.map(_._2.timestamp),
+                    to = sender,
+                    messageId = Some(request.messageId),
+                    trafficReceipt = Some(
                       TrafficReceipt(
                         consumedCost = NonNegativeLong.tryCreate(messageContent.length.toLong),
                         extraTrafficConsumed =
@@ -1118,17 +1118,18 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           checkMessages(
             Seq(
               EventDetails(
-                SequencerCounter.Genesis,
-                sender,
-                Some(request.messageId),
-                Option.empty[TrafficReceipt], // Sequencers are not subject to traffic control, so even in their deliver receipt there's not traffic receipt
+                previousTimestamp = None,
+                to = sender,
+                messageId = Some(request.messageId),
+                trafficReceipt =
+                  Option.empty[TrafficReceipt], // Sequencers are not subject to traffic control, so even in their deliver receipt there's not traffic receipt
                 EnvelopeDetails(messageContent, recipients),
               ),
               EventDetails(
-                SequencerCounter.Genesis,
-                p11,
-                None,
-                None,
+                previousTimestamp = None,
+                to = p11,
+                messageId = None,
+                trafficReceipt = None,
                 EnvelopeDetails(messageContent, recipients),
               ),
             ),

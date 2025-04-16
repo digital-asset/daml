@@ -14,7 +14,6 @@ import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext, config}
 import org.scalatest.Assertion
 
-import java.io.File
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
@@ -30,8 +29,6 @@ class DeclarativeApiTest
       checkSelfConsistent: Boolean = true,
   )(implicit val executionContext: ExecutionContext)
       extends DeclarativeApi[Map[String, Int], Int] {
-
-    override val file: File = new File("not-used")
 
     override val metrics =
       new DeclarativeApiMetrics(MetricName("test"), metricsFactory(new HistogramInventory()))(
@@ -81,10 +78,6 @@ class DeclarativeApiTest
     override protected def prepare(config: Map[String, Int])(implicit
         traceContext: TraceContext
     ): Either[String, Int] = Right(1)
-    override protected def readConfig(file: File)(implicit
-        traceContext: TraceContext
-    ): Either[String, Map[String, Int]] =
-      Right(want.get())
 
     private def responseOr(str: String, k: String)(
         default: => Unit
@@ -214,18 +207,6 @@ class DeclarativeApiTest
           expect = false,
         ),
         _.warningMessage should include("NOT GOOD"),
-      )
-    }
-
-    "error while reading file" in {
-      val f = new TestApi() {
-        override protected def readConfig(file: File)(implicit
-            traceContext: TraceContext
-        ): Either[String, Map[String, Int]] = Left("NO CONFIG NO CRY")
-      }
-      loggerFactory.assertLogs(
-        f.runTest(Map(), expect = false, errors = -1, items = 0),
-        _.warningMessage should include("NO CONFIG NO CRY"),
       )
     }
 

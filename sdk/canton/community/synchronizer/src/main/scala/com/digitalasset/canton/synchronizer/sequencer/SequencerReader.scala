@@ -32,8 +32,8 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySerializedEvent}
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.sequencing.{GroupAddressResolver, SequencedSerializedEvent}
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.synchronizer.sequencer.SequencerReader.ReadState
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
@@ -144,7 +144,7 @@ class SequencerReader(
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     performUnlessClosingEitherUSF(functionFullName)(for {
       registeredTopologyClientMember <- EitherT
         .fromOptionF(
@@ -214,7 +214,7 @@ class SequencerReader(
 
   def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     performUnlessClosingEitherUSF(functionFullName)(for {
       registeredTopologyClientMember <- EitherT
         .fromOptionF(
@@ -366,7 +366,7 @@ class SequencerReader(
 
     private def signValidatedEvent(
         unsignedEventData: UnsignedEventData
-    ): EitherT[FutureUnlessShutdown, SequencedEventError, OrdinarySerializedEvent] = {
+    ): EitherT[FutureUnlessShutdown, SequencedEventError, SequencedSerializedEvent] = {
       val UnsignedEventData(
         event,
         topologySnapshotO,
@@ -376,14 +376,15 @@ class SequencerReader(
       ) = unsignedEventData
       implicit val traceContext: TraceContext = eventTraceContext
       logger.trace(
-        s"Latest topology client timestamp for $member at counter ${event.counter} / ${event.timestamp} is $previousTopologyClientTimestamp / $latestTopologyClientTimestamp"
+        s"Latest topology client timestamp for $member at sequencing timestamp ${event.timestamp} is $previousTopologyClientTimestamp / $latestTopologyClientTimestamp"
       )
 
       val res = for {
         signingSnapshot <- OptionT
           .fromOption[FutureUnlessShutdown](topologySnapshotO)
           .getOrElseF {
-            val warnIfApproximate = event.counter > SequencerCounter.Genesis
+            val warnIfApproximate =
+              event.previousTimestamp.nonEmpty // warn if we are not at genesis
             SyncCryptoClient.getSnapshotForTimestamp(
               syncCryptoApi,
               event.timestamp,
@@ -393,7 +394,7 @@ class SequencerReader(
             )
           }
         _ = logger.debug(
-          s"Signing event with counter ${event.counter} / timestamp ${event.timestamp} for $member"
+          s"Signing event with sequencing timestamp ${event.timestamp} for $member"
         )
         signed <- performUnlessClosingUSF("sign-event")(
           signEvent(event, signingSnapshot).value
@@ -590,7 +591,6 @@ class SequencerReader(
                 unvalidatedEvent.timestamp,
               )
             DeliverError.create(
-              counter,
               previousTimestamp,
               unvalidatedEvent.timestamp,
               synchronizerId,
@@ -604,7 +604,6 @@ class SequencerReader(
             )
           } else {
             Deliver.create(
-              counter,
               previousTimestamp,
               unvalidatedEvent.timestamp,
               synchronizerId,
@@ -676,7 +675,7 @@ class SequencerReader(
         initialReadState: ReadState,
     )(implicit
         traceContext: TraceContext
-    ): Sequencer.EventSource = {
+    ): Sequencer.SequencedEventSource = {
       val unvalidatedEventsSrc = unvalidatedEventsSourceFromCheckpoint(initialReadState)
       val validatedEventSrc = unvalidatedEventsSrc.statefulMapAsyncUSAndDrain(
         initialReadState.latestTopologyClientRecipientTimestamp
@@ -784,7 +783,7 @@ class SequencerReader(
     )(implicit traceContext: TraceContext): EitherT[
       FutureUnlessShutdown,
       SequencerSubscriptionError.TombstoneEncountered.Error,
-      OrdinarySerializedEvent,
+      SequencedSerializedEvent,
     ] =
       for {
         signedEvent <- SignedContent
@@ -802,7 +801,7 @@ class SequencerReader(
               logger.debug(s"Generating tombstone due to: $err")
               val error =
                 SequencerSubscriptionError.TombstoneEncountered.Error(
-                  event.counter,
+                  event.timestamp,
                   member,
                   topologySnapshot.ipsSnapshot.timestamp,
                 )
@@ -811,7 +810,7 @@ class SequencerReader(
             case err =>
               throw new IllegalStateException(s"Signing failed with an unexpected error: $err")
           }
-      } yield OrdinarySequencedEvent(signedEvent)(traceContext)
+      } yield SequencedEventWithTraceContext(signedEvent)(traceContext)
 
     private def trafficReceiptForNonSequencerSender(
         senderMemberId: SequencerMemberId,
@@ -833,6 +832,7 @@ class SequencerReader(
           CantonTimestamp
         ], // None for until the first topology event, otherwise contains the latest topology event timestamp
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[SequencedEvent[ClosedEnvelope]] = {
+      counter: Unit
       val timestamp = event.timestamp
       event.event match {
         case DeliverStoreEvent(
@@ -885,7 +885,6 @@ class SequencerReader(
           } yield {
             val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, memberGroupRecipients)
             Deliver.create[ClosedEnvelope](
-              counter,
               previousTimestamp,
               timestamp,
               synchronizerId,
@@ -907,7 +906,6 @@ class SequencerReader(
             ) =>
           FutureUnlessShutdown.pure(
             Deliver.create[ClosedEnvelope](
-              counter,
               previousTimestamp,
               timestamp,
               synchronizerId,
@@ -924,7 +922,6 @@ class SequencerReader(
             .valueOr(err => throw new DbDeserializationException(err.toString))
           FutureUnlessShutdown.pure(
             DeliverError.create(
-              counter,
               previousTimestamp,
               timestamp,
               synchronizerId,

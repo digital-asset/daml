@@ -279,7 +279,6 @@ object ReassignmentDataHelpers {
     val batch = Batch.of(protocolVersion, allEnvelopes*)
 
     val deliver = Deliver.create(
-      SequencerCounter(0),
       None,
       sequencingTime,
       synchronizerId,

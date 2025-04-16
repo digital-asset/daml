@@ -8,6 +8,10 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
+/**
+ * Helper wrapper of a grpc message used in GetTransactionById and GetTransactionByOffset calls.
+ * Class will be removed in 3.4.0.
+ */
 public final class GetTransactionResponse {
 
   @NonNull private final Transaction transaction;

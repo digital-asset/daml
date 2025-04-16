@@ -123,37 +123,6 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class ListIdentifierDelegation(
-        query: BaseQuery,
-        filterUid: String,
-        filterTargetKey: Option[Fingerprint],
-    ) extends BaseCommand[
-          v30.ListIdentifierDelegationRequest,
-          v30.ListIdentifierDelegationResponse,
-          Seq[ListIdentifierDelegationResult],
-        ] {
-
-      override protected def createRequest(): Either[String, v30.ListIdentifierDelegationRequest] =
-        Right(
-          new v30.ListIdentifierDelegationRequest(
-            baseQuery = Some(query.toProtoV1),
-            filterUid = filterUid,
-            filterTargetKeyFingerprint = filterTargetKey.map(_.toProtoPrimitive).getOrElse(""),
-          )
-        )
-
-      override protected def submitRequest(
-          service: TopologyManagerReadServiceStub,
-          request: v30.ListIdentifierDelegationRequest,
-      ): Future[v30.ListIdentifierDelegationResponse] =
-        service.listIdentifierDelegation(request)
-
-      override protected def handleResponse(
-          response: v30.ListIdentifierDelegationResponse
-      ): Either[String, Seq[ListIdentifierDelegationResult]] =
-        response.results.traverse(ListIdentifierDelegationResult.fromProtoV30).leftMap(_.toString)
-    }
-
     final case class ListOwnerToKeyMapping(
         query: BaseQuery,
         filterKeyOwnerType: Option[MemberCode],

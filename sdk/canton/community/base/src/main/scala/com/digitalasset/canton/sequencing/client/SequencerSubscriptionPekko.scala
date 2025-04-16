@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.client
 
 import com.digitalasset.canton.health.HealthComponent
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitch
@@ -18,6 +18,6 @@ import scala.concurrent.Future
   * after having been closed through the [[org.apache.pekko.stream.KillSwitch]].
   */
 final case class SequencerSubscriptionPekko[+E](
-    source: Source[WithKillSwitch[Either[E, OrdinarySerializedEvent]], (KillSwitch, Future[Done])],
+    source: Source[WithKillSwitch[Either[E, SequencedSerializedEvent]], (KillSwitch, Future[Done])],
     health: HealthComponent,
 )
