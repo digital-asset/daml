@@ -1062,7 +1062,7 @@ object DbReassignmentStore {
       tryCreateDeliveredUnassignmentResult(cryptoApi)(
         bytes = result,
         // This hardcoded value is admissible because of the upcoming removal of the delivered unassignment result
-        sourceProtocolVersion = Source(ProtocolVersion.v33),
+        sourceProtocolVersion = Source(ProtocolVersion.v34),
       )
   }
 

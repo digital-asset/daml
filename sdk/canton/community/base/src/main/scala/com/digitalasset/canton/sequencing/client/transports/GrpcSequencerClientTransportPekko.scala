@@ -13,14 +13,14 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencer.api.v30
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.client.{
   SequencerSubscriptionPekko,
   SubscriptionErrorRetryPolicyPekko,
 }
 import com.digitalasset.canton.sequencing.protocol.{SubscriptionRequestV2, SubscriptionResponse}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -140,7 +140,7 @@ class GrpcSequencerClientTransportPekko(
 
   private def deserializeSubscriptionResponse[R: HasProtoTraceContext](subscriptionResponseP: R)(
       fromProto: (R, TraceContext) => ParsingResult[SubscriptionResponse]
-  ): ParsingResult[OrdinarySerializedEvent] = {
+  ): ParsingResult[SequencedSerializedEvent] = {
     // we take the unusual step of immediately trying to deserialize the trace-context
     // so it is available here for logging
     implicit val traceContext: TraceContext = SerializableTraceContext
@@ -150,9 +150,7 @@ class GrpcSequencerClientTransportPekko(
       .unwrap
     logger.debug("Received a message from the sequencer.")
     fromProto(subscriptionResponseP, traceContext).map { response =>
-      OrdinarySequencedEvent(response.signedSequencedEvent)(
-        response.traceContext
-      )
+      SequencedEventWithTraceContext(response.signedSequencedEvent)(response.traceContext)
     }
   }
 

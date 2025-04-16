@@ -70,8 +70,6 @@ abstract class ConcurrentCache[Key, Value] extends Cache[Key, Value] {
 
 object Cache {
 
-  type Size = Long
-
   /** A cache that discards all writes, and therefore always responds with no value. */
   def none[Key, Value]: ConcurrentCache[Key, Value] = new NoCache
 }

@@ -187,8 +187,8 @@ class SubmissionTrackerSpec
       // Expect duplicate error
       assertError(
         actual = actualStatusRuntimeException,
-        expected = ConsistencyErrors.DuplicateCommand
-          .Reject(existingCommandSubmissionId = Some(submissionId))
+        expected = ConsistencyErrors.SubmissionAlreadyInFlight
+          .Reject()
           .asGrpcError,
       )
       succeed

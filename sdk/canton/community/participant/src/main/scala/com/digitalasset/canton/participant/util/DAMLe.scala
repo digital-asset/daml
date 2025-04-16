@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.util
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
@@ -46,7 +46,7 @@ object DAMLe {
       metadata: TransactionMetadata,
       keyResolver: LfKeyResolver,
       usedPackages: Set[PackageId],
-      usesLedgerTime: Boolean,
+      timeBoundaries: LedgerTimeBoundaries,
   )
 
   def newEngine(
@@ -286,7 +286,7 @@ class DAMLe(
       TransactionMetadata.fromLf(ledgerTime, metadata),
       metadata.globalKeyMapping,
       metadata.usedPackages,
-      metadata.dependsOnTime,
+      LedgerTimeBoundaries(metadata.timeBoundaries),
     )
   }
 

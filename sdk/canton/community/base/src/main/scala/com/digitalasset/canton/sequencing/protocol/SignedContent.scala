@@ -116,7 +116,7 @@ object SignedContent
   override def name: String = "SignedContent"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SignedContent)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SignedContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

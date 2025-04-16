@@ -153,7 +153,8 @@ trait MessageDispatcherTest {
           .thenReturn(processingRequestHandlerF)
         when(
           processor.processResult(
-            any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]]
+            any[SequencerCounter],
+            any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]],
           )(anyTraceContext)
         )
           .thenReturn(processingResultHandlerF)
@@ -289,13 +290,11 @@ trait MessageDispatcherTest {
 
   private def mkDeliver(
       batch: Batch[DefaultOpenEnvelope],
-      sc: SequencerCounter = SequencerCounter(0),
       ts: CantonTimestamp = CantonTimestamp.Epoch,
       messageId: Option[MessageId] = None,
       topologyTimestampO: Option[CantonTimestamp] = None,
   ): Deliver[DefaultOpenEnvelope] =
     Deliver.create(
-      sc,
       None,
       ts,
       synchronizerId,
@@ -528,22 +527,28 @@ trait MessageDispatcherTest {
 
     def checkProcessResult(processor: AnyProcessor): Assertion = {
       verify(processor).processResult(
-        any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]]
+        any[SequencerCounter],
+        any[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]],
       )(anyTraceContext)
       succeed
     }
 
-    def signAndTrace(
-        event: RawProtocolEvent
+    def signAddCounterAndTrace(
+        counter: SequencerCounter,
+        event: RawProtocolEvent,
     ): Traced[Seq[WithOpeningErrors[PossiblyIgnoredProtocolEvent]]] =
-      Traced(Seq(NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))))
+      Traced(Seq(NoOpeningErrors(OrdinarySequencedEvent(counter, signEvent(event))(traceContext))))
 
-    def handle(sut: Fixture, event: RawProtocolEvent)(checks: => Assertion): Future[Assertion] =
+    def handle(sut: Fixture, counter: SequencerCounter, event: RawProtocolEvent)(
+        checks: => Assertion
+    ): Future[Assertion] =
       for {
         _ <- sut.messageDispatcher
-          .handleAll(signAndTrace(event))
+          .handleAll(signAddCounterAndTrace(counter, event))
           .flatMap(_.unwrap)
-          .onShutdown(fail(s"Encountered shutdown while handling $event"))
+          .onShutdown(
+            fail(s"Encountered shutdown while handling $event with sequencer counter $counter")
+          )
       } yield {
         checks
       }
@@ -555,7 +560,6 @@ trait MessageDispatcherTest {
         val ts = CantonTimestamp.Epoch
         val prefix = TimeProof.timeEventMessageIdPrefix
         val deliver = SequencerTestUtils.mockDeliver(
-          sc = sc.v,
           timestamp = ts,
           synchronizerId = synchronizerId,
           messageId = Some(MessageId.tryCreate(s"$prefix testing")),
@@ -567,7 +571,7 @@ trait MessageDispatcherTest {
             checkTickTopologyProcessor(sut, sc, ts).discard
           }
 
-        handle(sut, deliver) {
+        handle(sut, sc, deliver) {
           checkTicks(sut, sc, ts)
         }.futureValue
       }
@@ -592,7 +596,6 @@ trait MessageDispatcherTest {
         val event =
           mkDeliver(
             Batch.of(testedProtocolVersion, setTrafficPurchasedMsg -> Recipients.cc(participantId)),
-            sc,
             ts,
           )
 
@@ -607,7 +610,7 @@ trait MessageDispatcherTest {
           FutureUnlessShutdown.unit
         }
 
-        handle(sut, event) {
+        handle(sut, sc, event) {
           verify(sut.trafficProcessor).processSetTrafficPurchasedEnvelopes(
             isEq(ts),
             isEq(None),
@@ -624,8 +627,8 @@ trait MessageDispatcherTest {
         val sc = SequencerCounter(1)
         val ts = CantonTimestamp.ofEpochSecond(1)
         val event =
-          mkDeliver(Batch.of(testedProtocolVersion, idTx -> Recipients.cc(participantId)), sc, ts)
-        handle(sut, event) {
+          mkDeliver(Batch.of(testedProtocolVersion, idTx -> Recipients.cc(participantId)), ts)
+        handle(sut, sc, event) {
           checkTicks(sut, sc, ts)
         }.futureValue
       }
@@ -638,10 +641,9 @@ trait MessageDispatcherTest {
         val ts = CantonTimestamp.ofEpochSecond(2)
         val event = mkDeliver(
           Batch.of(testedProtocolVersion, commitment -> Recipients.cc(participantId)),
-          sc,
           ts,
         )
-        handle(sut, event) {
+        handle(sut, sc, event) {
           verify(sut.acsCommitmentProcessor)
             .apply(isEq(ts), any[Traced[List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]]])
           checkTicks(sut, sc, ts)
@@ -675,11 +677,11 @@ trait MessageDispatcherTest {
 
       val event = mkDeliver(
         Batch.of[ProtocolMessage](testedProtocolVersion, idTx -> Recipients.cc(participantId)),
-        sc,
         ts,
       )
 
-      val result = sut.messageDispatcher.handleAll(signAndTrace(event)).unwrap.futureValue
+      val result =
+        sut.messageDispatcher.handleAll(signAddCounterAndTrace(sc, event)).unwrap.futureValue
 
       result shouldBe UnlessShutdown.AbortedDueToShutdown
       verify(sut.acsCommitmentProcessor, never)
@@ -709,11 +711,11 @@ trait MessageDispatcherTest {
 
       val event = mkDeliver(
         Batch.of[ProtocolMessage](testedProtocolVersion, idTx -> Recipients.cc(participantId)),
-        sc,
         ts,
       )
 
-      val result = sut.messageDispatcher.handleAll(signAndTrace(event)).unwrap.futureValue
+      val result =
+        sut.messageDispatcher.handleAll(signAddCounterAndTrace(sc, event)).unwrap.futureValue
       val abort = result.traverse(_.unwrap).unwrap.futureValue
 
       abort.flatten shouldBe UnlessShutdown.AbortedDueToShutdown
@@ -749,13 +751,14 @@ trait MessageDispatcherTest {
           encryptedUnknownTestViewMessage -> Recipients.cc(participantId),
           rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup),
         ),
-        SequencerCounter(11),
         CantonTimestamp.ofEpochSecond(11),
       )
 
       val error = loggerFactory
         .assertLogs(
-          sut.messageDispatcher.handleAll(signAndTrace(event)).failed,
+          sut.messageDispatcher
+            .handleAll(signAddCounterAndTrace(SequencerCounter(11), event))
+            .failed,
           loggerFactory.checkLogsInternalError[IllegalArgumentException](
             _.getMessage should include(show"No processor for view type $UnknownTestViewType")
           ),
@@ -788,13 +791,14 @@ trait MessageDispatcherTest {
             testedProtocolVersion,
             unknownTestMediatorResult -> Recipients.cc(participantId),
           ),
-          SequencerCounter(12),
           CantonTimestamp.ofEpochSecond(11),
         )
 
       val error = loggerFactory
         .assertLogs(
-          sut.messageDispatcher.handleAll(signAndTrace(event)).failed,
+          sut.messageDispatcher
+            .handleAll(signAddCounterAndTrace(SequencerCounter(12), event))
+            .failed,
           loggerFactory.checkLogsInternalError[IllegalArgumentException](
             _.getMessage should include(show"No processor for view type $UnknownTestViewType")
           ),
@@ -818,12 +822,11 @@ trait MessageDispatcherTest {
       val event =
         mkDeliver(
           Batch.of(testedProtocolVersion, txForeignSynchronizer -> Recipients.cc(participantId)),
-          sc,
           ts,
         )
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
-        handle(sut, event) {
+        handle(sut, sc, event) {
           verify(sut.topologyProcessor).apply(
             isEq(sc),
             isEq(SequencedTime(ts)),
@@ -871,10 +874,9 @@ trait MessageDispatcherTest {
               view -> Recipients.cc(participantId),
               rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup),
             ),
-            sc,
             ts,
           )
-        handle(sut, event) {
+        handle(sut, sc, event) {
           checkProcessRequest(processor(sut), ts, initRc, sc)
           checkTickTopologyProcessor(sut, sc, ts)
           checkTickRequestTracker(sut, sc, ts)
@@ -962,7 +964,7 @@ trait MessageDispatcherTest {
           val ts = CantonTimestamp.ofEpochSecond(index.toLong)
           withClueF(s"at batch $index:") {
             loggerFactory.assertLogsUnordered(
-              handle(sut, mkDeliver(batch, sc, ts)) {
+              handle(sut, sc, mkDeliver(batch, ts)) {
                 // never tick the request counter
                 sut.requestCounterAllocator.peek shouldBe initRc
                 checkNotProcessRequest(processor(sut))
@@ -1041,7 +1043,7 @@ trait MessageDispatcherTest {
             val ts = CantonTimestamp.ofEpochSecond(index.toLong)
             withClueF(s"at batch $index") {
               loggerFactory.assertThrowsAndLogsAsync[IllegalArgumentException](
-                handle(sut, mkDeliver(batch, sc, ts))(succeed),
+                handle(sut, sc, mkDeliver(batch, ts))(succeed),
                 _.getMessage should include(
                   "Received batch with encrypted views and root hash messages addressed to multiple mediators"
                 ),
@@ -1115,7 +1117,7 @@ trait MessageDispatcherTest {
             val ts = CantonTimestamp.ofEpochSecond(index.toLong)
             withClueF(s"at batch $index") {
               loggerFactory.assertLogsUnordered(
-                handle(sut, mkDeliver(batch, sc, ts)) {
+                handle(sut, sc, mkDeliver(batch, ts)) {
                   checkProcessRequest(processor(sut), ts, initRc, sc)
                   checkTickTopologyProcessor(sut, sc, ts)
                   checkTickRequestTracker(sut, sc, ts)
@@ -1153,10 +1155,9 @@ trait MessageDispatcherTest {
               view -> Recipients.cc(participantId),
               rootHashMessage -> Recipients.cc(MemberRecipient(participantId), mediatorGroup),
             ),
-            sc,
             ts,
           )
-        handle(sut, event) {
+        handle(sut, sc, event) {
           checkNotProcessRequest(processor(sut))
           checkTickTopologyProcessor(sut, sc, ts)
           checkTickRequestTracker(sut, sc, ts)
@@ -1182,7 +1183,7 @@ trait MessageDispatcherTest {
         def check(result: ProtocolMessage, processor: ProcessorOfFixture): Future[Assertion] = {
           val sut = mk()
           val batch = Batch.of(testedProtocolVersion, result -> Recipients.cc(participantId))
-          handle(sut, mkDeliver(batch)) {
+          handle(sut, SequencerCounter.Genesis, mkDeliver(batch)) {
             checkTickTopologyProcessor(sut)
             checkTickRequestTracker(sut)
             checkProcessResult(processor(sut))
@@ -1204,7 +1205,7 @@ trait MessageDispatcherTest {
         val sut = mk()
         loggerFactory
           .assertLogsUnordered(
-            handle(sut, mkDeliver(batch)) {
+            handle(sut, SequencerCounter.Genesis, mkDeliver(batch)) {
               checkTicks(sut)
             },
             _.warningMessage should include(
@@ -1229,17 +1230,16 @@ trait MessageDispatcherTest {
           testedProtocolVersion,
           MalformedMediatorConfirmationRequestResult -> Recipients.cc(participantId),
         )
-        val deliver1 =
-          mkDeliver(dummyBatch, SequencerCounter(0), CantonTimestamp.Epoch, messageId1.some)
-        val deliver2 = mkDeliver(
+        val deliver1 = SequencerCounter(0) ->
+          mkDeliver(dummyBatch, CantonTimestamp.Epoch, messageId1.some)
+        val deliver2 = SequencerCounter(1) -> mkDeliver(
           dummyBatch,
-          SequencerCounter(1),
           CantonTimestamp.ofEpochSecond(1),
           messageId2.some,
         )
-        val deliver3 = mkDeliver(dummyBatch, SequencerCounter(2), CantonTimestamp.ofEpochSecond(2))
-        val deliverError4 = DeliverError.create(
-          SequencerCounter(3),
+        val deliver3 =
+          SequencerCounter(2) -> mkDeliver(dummyBatch, CantonTimestamp.ofEpochSecond(2))
+        val deliverError4 = SequencerCounter(3) -> DeliverError.create(
           None,
           CantonTimestamp.ofEpochSecond(3),
           synchronizerId,
@@ -1249,9 +1249,10 @@ trait MessageDispatcherTest {
           Option.empty[TrafficReceipt],
         )
 
-        val sequencedEvents = Seq(deliver1, deliver2, deliver3, deliverError4).map(event =>
-          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))
-        )
+        val sequencedEvents = Seq(deliver1, deliver2, deliver3, deliverError4).map {
+          case (counter, event) =>
+            NoOpeningErrors(OrdinarySequencedEvent(counter, signEvent(event))(traceContext))
+        }
 
         sut.messageDispatcher
           .handleAll(Traced(sequencedEvents))
@@ -1266,7 +1267,7 @@ trait MessageDispatcherTest {
             messageId2 -> SequencedSubmission(CantonTimestamp.ofEpochSecond(1)),
           ),
         )
-        checkObserveDeliverError(sut, deliverError4)
+        checkObserveDeliverError(sut, deliverError4._2)
 
       }
 
@@ -1279,30 +1280,27 @@ trait MessageDispatcherTest {
           testedProtocolVersion,
           MalformedMediatorConfirmationRequestResult -> Recipients.cc(participantId),
         )
-        val deliver1 = mkDeliver(
+        val deliver1 = SequencerCounter(0) -> mkDeliver(
           dummyBatch,
-          SequencerCounter(0),
           CantonTimestamp.Epoch,
           messageId1.some,
         )
-        val deliver2 = mkDeliver(
+        val deliver2 = SequencerCounter(1) -> mkDeliver(
           dummyBatch,
-          SequencerCounter(1),
           CantonTimestamp.ofEpochSecond(1),
           messageId2.some,
         )
 
         // Same messageId as `deliver1` but sequenced later
-        val deliver3 = mkDeliver(
+        val deliver3 = SequencerCounter(2) -> mkDeliver(
           dummyBatch,
-          SequencerCounter(2),
           CantonTimestamp.ofEpochSecond(2),
           messageId1.some,
         )
 
-        val sequencedEvents = Seq(deliver1, deliver2, deliver3).map(event =>
-          NoOpeningErrors(OrdinarySequencedEvent(signEvent(event))(traceContext))
-        )
+        val sequencedEvents = Seq(deliver1, deliver2, deliver3).map { case (counter, event) =>
+          NoOpeningErrors(OrdinarySequencedEvent(counter, signEvent(event))(traceContext))
+        }
 
         loggerFactory
           .assertLogs(

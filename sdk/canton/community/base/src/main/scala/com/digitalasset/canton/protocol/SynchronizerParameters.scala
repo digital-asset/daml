@@ -108,7 +108,7 @@ object StaticSynchronizerParameters
   // Note: if you need static synchronizer parameters for testing, look at BaseTest.defaultStaticSynchronizerParametersWith
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.StaticSynchronizerParameters
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -495,7 +495,7 @@ final case class DynamicSynchronizerParameters private (
 object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchronizerParameters] {
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.DynamicSynchronizerParameters
     )(
       supportedProtoVersion(_)(fromProtoV30),

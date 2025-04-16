@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
@@ -171,6 +171,7 @@ final class StoreBackedCommandInterpreter(
             commands.workflowId.map(_.unwrap),
             meta.submissionTime,
             submissionSeed,
+            LedgerTimeBoundaries(meta.timeBoundaries),
             Some(meta.usedPackages),
             Some(meta.nodeSeeds),
             Some(

@@ -26,7 +26,7 @@ import com.digitalasset.canton.participant.admin.party.{
   PartyReplicationAdminWorkflow,
   PartyReplicator,
 }
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
@@ -55,7 +55,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
   * individual application with their own ledger connection and acting independently.
   */
 class AdminWorkflowServices(
-    config: LocalParticipantConfig,
+    config: ParticipantNodeConfig,
     parameters: ParticipantNodeParameters,
     packageService: PackageService,
     syncService: CantonSyncService,

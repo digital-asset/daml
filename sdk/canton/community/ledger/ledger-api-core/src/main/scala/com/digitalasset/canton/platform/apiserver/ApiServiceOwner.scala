@@ -16,7 +16,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.{
@@ -205,7 +205,7 @@ object ApiServiceOwner {
         maxInboundMessageSize,
         address,
         tls,
-        new UserBasedAuthorizationInterceptor(
+        new UserBasedAuthInterceptor(
           authServices = authServices :+ new IdentityProviderAwareAuthService(
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,

@@ -8,7 +8,7 @@ import com.digitalasset.canton.admin.api.client.data.topology.ListOwnerToKeyMapp
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.crypto.SigningKeyUsage.{IdentityDelegation, Namespace, Protocol}
+import com.digitalasset.canton.crypto.SigningKeyUsage.{Namespace, Protocol}
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.{
@@ -97,45 +97,6 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
     trustCert1.item shouldBe expectedTrustCert1
   }
 
-  "identifier_delegations" in { implicit env =>
-    import env.*
-
-    val delegationKey = participant1.keys.secret
-      .generate_signing_key("test_key", SigningKeyUsage.IdentityDelegationOnly)
-    participant1.topology.identifier_delegations.propose(
-      participant1.id.uid,
-      targetKey = delegationKey,
-    )
-
-    // fails if the target key does not have the correct `IdentityDelegation` usage
-    val keyWithWrongUsage = participant1.keys.secret
-      .generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
-    loggerFactory.assertThrowsAndLogs[CommandFailure](
-      participant1.topology.identifier_delegations.propose(
-        participant1.id.uid,
-        targetKey = keyWithWrongUsage,
-      ),
-      _.errorMessage should include(
-        s"The key ${keyWithWrongUsage.id} must include a ${SigningKeyUsage.IdentityDelegation} usage."
-      ),
-    )
-
-    eventually() {
-      val delegation = participant1.topology.identifier_delegations
-        .list(store = daId, filterUid = participant1.id.filterString)
-        .headOption
-        .value
-
-      val expectedDelegation = IdentifierDelegation.tryCreate(
-        participant1.uid,
-        delegationKey,
-      )
-
-      delegation.context.serial shouldBe PositiveInt.one
-      delegation.item shouldBe expectedDelegation
-    }
-  }
-
   "namespace_delegations" when {
     "propose_delegation" in { implicit env =>
       import env.*
@@ -162,7 +123,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
         participant1.keys.secret
           .generate_signing_key(
             "delegation_key",
-            SigningKeyUsage.NamespaceOrIdentityDelegation,
+            SigningKeyUsage.NamespaceOnly,
           )
 
       // propose the namespace delegations
@@ -325,7 +286,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
         signedBy = Seq(key.id),
       )
 
-    // Fails when creating an OTK signedBy by key that lacks `Namespace` or `IdentityDelegation` usage
+    // Fails when creating an OTK signedBy by key that lacks `Namespace` usage
     val keyWithWrongUsage =
       participant1.keys.secret.generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
     loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -369,7 +330,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
         signedBy = Some(key.id),
       )
 
-    // Fails when creating an PTK signedBy by key that lacks `Namespace` or `IdentityDelegation` usage
+    // Fails when creating an PTK signedBy by key that lacks `Namespace` usage
     val keyWithWrongUsage =
       participant1.keys.secret.generate_signing_key("wrong_key", SigningKeyUsage.ProtocolOnly)
     loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -381,19 +342,15 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       ),
     )
 
-    // If a key is a root or intermediate namespace key and includes `Namespace`, it can be used to authorize an OTK.
+    // If a key is a root or intermediate namespace key and includes `Namespace`, it can be used to authorize an PTK.
     val delegatedKey = participant1.keys.secret.generate_signing_key(
       "intermediateKey",
-      NonEmpty.mk(Set, Namespace, IdentityDelegation, Protocol): NonEmpty[Set[SigningKeyUsage]],
+      NonEmpty.mk(Set, Namespace, Protocol): NonEmpty[Set[SigningKeyUsage]],
     )
     participant1.topology.namespace_delegations.propose_delegation(
       participant1.namespace,
       delegatedKey,
       CanSignAllButNamespaceDelegations,
-    )
-    participant1.topology.identifier_delegations.propose(
-      participant1.id.uid,
-      delegatedKey,
     )
     ptkForP1(delegatedKey)
   }

@@ -116,7 +116,7 @@ class SynchronizersFilterTest
       import SimpleTopology.*
 
       // LanguageVersion.VDev needs pv=dev so we use pv=6
-      val currentSynchronizerPV = ProtocolVersion.v33
+      val currentSynchronizerPV = ProtocolVersion.v34
       val filter =
         SynchronizersFilterForTx(
           Transactions.Create.tx(LfLanguageVersion.v2_dev),

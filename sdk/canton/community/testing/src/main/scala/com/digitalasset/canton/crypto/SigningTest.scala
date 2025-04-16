@@ -279,7 +279,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                 .sign(
                   hash,
                   publicKey.id,
-                  SigningKeyUsage.NamespaceOrIdentityDelegation,
+                  SigningKeyUsage.NamespaceOnly,
                   signingAlgorithmSpec,
                 )
                 .value
@@ -290,7 +290,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                 hash,
                 publicKey,
                 sig,
-                SigningKeyUsage.IdentityDelegationOnly,
+                SigningKeyUsage.NamespaceOnly,
               )
               _ = crypto.pureCrypto
                 .verifySignature(

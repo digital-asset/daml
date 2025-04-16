@@ -100,7 +100,7 @@ class GrpcVaultService(
             .map(keyPurposeList => NonEmpty.from(keyPurposeList))
           usageO <- filters.usage
             .traverse(usage => SigningKeyUsage.fromProtoEnum("usage", usage))
-            .map(keyUsageList => NonEmpty.from(keyUsageList.toSet))
+            .map(keyUsageList => NonEmpty.from(keyUsageList.flatten.toSet))
           _ = if (purposeO.exists(_.contains(KeyPurpose.Encryption)) && usageO.exists(_.nonEmpty))
             throw ProtoDeserializationFailure
               .WrapNoLoggingStr("Cannot specify a usage when listing encryption keys")

@@ -127,6 +127,7 @@ class ApiInteractiveSubmissionService(
     validator
       .validateExecute(
         request,
+        currentLedgerTime(),
         submissionIdGenerator,
         maxDeduplicationDuration,
       )(errorLogger)

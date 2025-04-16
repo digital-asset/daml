@@ -220,14 +220,12 @@ final class GeneratorsProtocol(
 
   private implicit val deliverErrorArb: Arbitrary[DeliverError] = Arbitrary(
     for {
-      sequencerCounter <- Arbitrary.arbitrary[SequencerCounter]
       pts <- Arbitrary.arbitrary[Option[CantonTimestamp]]
       ts <- Arbitrary.arbitrary[CantonTimestamp]
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       messageId <- Arbitrary.arbitrary[MessageId]
       error <- sequencerDeliverErrorArb.arbitrary
     } yield DeliverError.create(
-      sequencerCounter,
       previousTimestamp = pts,
       timestamp = ts,
       synchronizerId = synchronizerId,
@@ -318,12 +316,10 @@ object GeneratorsProtocol {
   ): Gen[Deliver[Env]] = for {
     previousTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
     timestamp <- Arbitrary.arbitrary[CantonTimestamp]
-    counter <- Arbitrary.arbitrary[SequencerCounter]
     messageIdO <- Gen.option(Arbitrary.arbitrary[MessageId])
     topologyTimestampO <- Gen.option(Arbitrary.arbitrary[CantonTimestamp])
     trafficReceipt <- Gen.option(Arbitrary.arbitrary[TrafficReceipt])
   } yield Deliver.create(
-    counter,
     previousTimestamp,
     timestamp,
     synchronizerId,

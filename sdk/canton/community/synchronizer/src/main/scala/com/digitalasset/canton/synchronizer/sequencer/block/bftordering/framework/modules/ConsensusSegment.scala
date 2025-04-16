@@ -283,7 +283,7 @@ object ConsensusSegment {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
               PrePrepare.fromProtoConsensusMessage
@@ -371,7 +371,7 @@ object ConsensusSegment {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
               Prepare.fromProtoConsensusMessage
@@ -461,7 +461,7 @@ object ConsensusSegment {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
               Commit.fromProtoConsensusMessage
@@ -558,7 +558,7 @@ object ConsensusSegment {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
               ViewChange.fromProtoConsensusMessage
@@ -675,7 +675,7 @@ object ConsensusSegment {
       override def versioningTable: VersioningTable = VersioningTable(
         ProtoVersion(30) ->
           VersionedProtoCodec(
-            ProtocolVersion.v33
+            ProtocolVersion.v34
           )(v30.ConsensusMessage)(
             supportedProtoVersionMemoized(_)(
               NewView.fromProtoConsensusMessage

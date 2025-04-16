@@ -178,7 +178,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       val idStr = TextFileUtil.tryReadStringFromFile(identityFile.toJava)
       val nodeId = UniqueIdentifier.tryFromProtoPrimitive(idStr)
       logger.info(s"Initializing node ${node.name} with uid ${nodeId.toString}")
-      node.topology.init_id(nodeId)
+      node.topology.init_id_from_uid(nodeId)
     }
 
     @tailrec
@@ -391,7 +391,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
         synchronizers.foreach(synchronizerId =>
           // wait to observe either the fully authorized party mapping or the proposal.
           // normally it would be a proposal, but it could be a fully authorized transaction, if
-          // the target participant signed a NamespaceDelegation or IdentifierDelegation for a
+          // the target participant signed a NamespaceDelegation for a
           // key available on the source participant
           ConsoleMacros.utils.retry_until_true(env.commandTimeouts.bounded)(
             sourceParticipant.topology.party_to_participant_mappings

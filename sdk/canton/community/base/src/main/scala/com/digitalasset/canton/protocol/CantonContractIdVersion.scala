@@ -19,7 +19,7 @@ object CantonContractIdVersion {
   def maximumSupportedVersion(
       protocolVersion: ProtocolVersion
   ): Either[String, CantonContractIdVersion] =
-    if (protocolVersion >= ProtocolVersion.v33) Right(AuthenticatedContractIdVersionV11)
+    if (protocolVersion >= ProtocolVersion.v34) Right(AuthenticatedContractIdVersionV11)
     else Left(s"No contract ID scheme found for ${protocolVersion.v}")
 
   def extractCantonContractIdVersion(

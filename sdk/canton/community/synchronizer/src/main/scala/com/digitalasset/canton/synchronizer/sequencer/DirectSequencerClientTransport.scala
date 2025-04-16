@@ -19,7 +19,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.transports.{
@@ -109,7 +109,7 @@ class DirectSequencerClientTransport(
       }
       .leftMap(_.toString)
 
-  override def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequestV2, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {
 

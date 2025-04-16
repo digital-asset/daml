@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol.hash
 
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
@@ -21,7 +22,7 @@ object TransactionMetadataHashBuilder {
       transactionUUID: UUID,
       mediatorGroup: Int,
       synchronizerId: String,
-      ledgerEffectiveTime: Option[Time.Timestamp],
+      timeBoundaries: LedgerTimeBoundaries,
       submissionTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
@@ -47,10 +48,16 @@ object TransactionMetadataHashBuilder {
       .withContext("Transaction UUID")(_.add(metadata.transactionUUID.toString))
       .withContext("Mediator Group")(_.add(metadata.mediatorGroup))
       .withContext("Synchronizer Id")(_.add(metadata.synchronizerId))
-      .withContext("Ledger Effective Time")(
+      .withContext("Min Time Boundary")(
         _.addOptional(
-          metadata.ledgerEffectiveTime.map(_.micros),
-          builder => (value: Long) => builder.add(value),
+          metadata.timeBoundaries.minConstraint,
+          b => (v: Time.Timestamp) => b.add(v.micros),
+        )
+      )
+      .withContext("Max Time Boundary")(
+        _.addOptional(
+          metadata.timeBoundaries.maxConstraint,
+          b => (v: Time.Timestamp) => b.add(v.micros),
         )
       )
       .withContext("Submission Time")(_.add(metadata.submissionTime.micros))

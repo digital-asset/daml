@@ -16,11 +16,7 @@ import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.base.error.ErrorResource
 import com.digitalasset.canton.auth.ClaimSet.Claims
-import com.digitalasset.canton.auth.{
-  AuthorizationChecksErrors,
-  AuthorizationInterceptor,
-  ClaimAdmin,
-}
+import com.digitalasset.canton.auth.{AuthInterceptor, AuthorizationChecksErrors, ClaimAdmin}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
 import com.digitalasset.canton.ledger.api.{
@@ -224,7 +220,7 @@ private[apiserver] final class ApiUserManagementService(
   private def resolveAuthenticatedUserContext(implicit
       errorLogger: ErrorLoggingContext
   ): Future[AuthenticatedUserContext] =
-    AuthorizationInterceptor
+    AuthInterceptor
       .extractClaimSetFromContext()
       .fold(
         fa = error =>

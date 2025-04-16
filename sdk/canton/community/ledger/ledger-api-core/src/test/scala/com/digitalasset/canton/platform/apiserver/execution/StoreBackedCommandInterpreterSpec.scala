@@ -266,7 +266,11 @@ class StoreBackedCommandInterpreterSpec
     val stakeholderContract = ContractState.Active(
       contractInstance = Versioned(
         LfTransactionVersion.minVersion,
-        ThinContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
+        ThinContractInstance(
+          packageName = packageName,
+          template = identifier,
+          arg = Value.ValueTrue,
+        ),
       ),
       ledgerEffectiveTime = Timestamp.now(),
       stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),

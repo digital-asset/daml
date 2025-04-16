@@ -30,7 +30,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.participant.config.{LocalParticipantConfig, ParticipantInitConfig}
+import com.digitalasset.canton.participant.config.{ParticipantInitConfig, ParticipantNodeConfig}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
@@ -98,8 +98,8 @@ abstract class RehydrationIntegrationTest
           ),
         ),
         participants = Map(
-          InstanceName.tryCreate(s"participant1") -> LocalParticipantConfig(),
-          InstanceName.tryCreate(s"participant2") -> LocalParticipantConfig(init =
+          InstanceName.tryCreate(s"participant1") -> ParticipantNodeConfig(),
+          InstanceName.tryCreate(s"participant2") -> ParticipantNodeConfig(init =
             ParticipantInitConfig(
               identity = IdentityConfig.Manual,
               generateTopologyTransactionsAndKeys = false,

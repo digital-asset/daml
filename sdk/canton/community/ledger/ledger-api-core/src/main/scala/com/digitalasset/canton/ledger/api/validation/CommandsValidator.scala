@@ -70,19 +70,11 @@ final class CommandsValidator(
       synchronizerIdO <- optionalSynchronizerId(prepareRequest.synchronizerId, "synchronizer_id")
       commandz <- requireNonEmpty(prepareRequest.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
-      ledgerEffectiveTime <- validateLedgerTime(
+      ledgerEffectiveTimestamp <- validateLedgerTime(
         currentLedgerTime,
         prepareRequest.minLedgerTime.flatMap(_.time.minLedgerTimeAbs),
         prepareRequest.minLedgerTime.flatMap(_.time.minLedgerTimeRel),
       )
-      ledgerEffectiveTimestamp <- Time.Timestamp
-        .fromInstant(ledgerEffectiveTime)
-        .left
-        .map(_ =>
-          invalidArgument(
-            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
-          )
-        )
       validatedDisclosedContracts <- validateDisclosedContracts.fromDisclosedContracts(
         prepareRequest.disclosedContracts
       )
@@ -138,19 +130,11 @@ final class CommandsValidator(
       )
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
-      ledgerEffectiveTime <- validateLedgerTime(
+      ledgerEffectiveTimestamp <- validateLedgerTime(
         currentLedgerTime,
         commands.minLedgerTimeAbs,
         commands.minLedgerTimeRel,
       )
-      ledgerEffectiveTimestamp <- Time.Timestamp
-        .fromInstant(ledgerEffectiveTime)
-        .left
-        .map(_ =>
-          invalidArgument(
-            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
-          )
-        )
       deduplicationPeriod <- validateDeduplicationPeriod(
         commands.deduplicationPeriod,
         maxDeduplicationDuration,
@@ -250,19 +234,30 @@ final class CommandsValidator(
       minLedgerTimeRel: Option[DurationP],
   )(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): Either[StatusRuntimeException, Instant] =
-    (minLedgerTimeAbs, minLedgerTimeRel) match {
-      case (None, None) => Right(currentTime)
-      case (Some(minAbs), None) =>
-        Right(currentTime.max(TimestampConversion.toInstant(minAbs)))
-      case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
-      case (Some(_), Some(_)) =>
-        Left(
+  ): Either[StatusRuntimeException, Time.Timestamp] =
+    for {
+      ledgerEffectiveTime <- (minLedgerTimeAbs, minLedgerTimeRel) match {
+        case (None, None) => Right(currentTime)
+        case (Some(minAbs), None) =>
+          Right(currentTime.max(TimestampConversion.toInstant(minAbs)))
+        case (None, Some(minRel)) => Right(currentTime.plus(DurationConversion.fromProto(minRel)))
+        case (Some(_), Some(_)) =>
+          Left(
+            invalidArgument(
+              "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"
+            )
+          )
+      }
+      ledgerEffectiveTimestamp <- Time.Timestamp
+        .fromInstant(ledgerEffectiveTime)
+        .left
+        .map(_ =>
           invalidArgument(
-            "min_ledger_time_abs cannot be specified at the same time as min_ledger_time_rel"
+            s"Can not represent command ledger time $ledgerEffectiveTime as a Daml timestamp"
           )
         )
-    }
+
+    } yield ledgerEffectiveTimestamp
 
   // Public because it is used by Canton.
   def validateInnerCommands(

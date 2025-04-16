@@ -30,7 +30,7 @@ import com.digitalasset.canton.networking.grpc.{
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.sequencer.api.v30.SubscriptionResponse
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
   SendAsyncClientError,
@@ -301,7 +301,7 @@ class GrpcSequencerClientTransport(
 
   override def subscribe[E](
       subscriptionRequest: SubscriptionRequestV2,
-      handler: SerializedEventHandler[E],
+      handler: SequencedEventHandler[E],
   )(implicit traceContext: TraceContext): SequencerSubscription[E] = {
 
     def mkSubscription(

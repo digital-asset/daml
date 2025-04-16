@@ -23,7 +23,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UpdateTreeWrapper
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.util.TestSubmissionService.{
   CommandsWithMetadata,
@@ -609,6 +609,7 @@ object TestSubmissionService {
         workflowIdO,
         submissionTime,
         submissionSeed,
+        timeBoundaries = LedgerTimeBoundaries.unconstrained,
         Some(usedPackages),
         Some(nodeSeeds),
         Some(byKeyNodes),

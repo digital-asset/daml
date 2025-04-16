@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
@@ -46,7 +48,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
-class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
+class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   private val self = BftNodeId("self")
   private val other1 = BftNodeId("other1")
   private val others = Set(other1)
@@ -98,6 +100,8 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       ),
     )
 
+  private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+
   def verifySentRequestNRetransmissionRequests(
       cryptoProvider: CryptoProvider[ProgrammableUnitTestEnv],
       networkOut: ModuleRef[P2PNetworkOut.Message],
@@ -117,7 +121,7 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     )
   }
 
-  "RetransmissionManager" should {
+  "RetransmissionsManager" should {
     "send request upon epoch start" in {
       val networkOut = mock[ModuleRef[P2PNetworkOut.Message]]
       implicit val context
@@ -149,6 +153,27 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         networkOut,
         wantedNumberOfInvocations = 1,
       )
+    }
+
+    "have round robin work across changing memberships" in {
+      val other1 = BftNodeId("other1")
+      val other2 = BftNodeId("other2")
+      val other3 = BftNodeId("other3")
+      val membership1 = Membership.forTesting(self, Set(other1, other2))
+      val membership2 = Membership.forTesting(self, Set(other1, other2, other3))
+      val membership3 = Membership.forTesting(self, Set(other1, other3))
+
+      val roundRobin = new RetransmissionsManager.NodeRoundRobin()
+
+      roundRobin.nextNode(membership1) shouldBe (other1)
+      roundRobin.nextNode(membership1) shouldBe (other2)
+      roundRobin.nextNode(membership1) shouldBe (other1)
+
+      roundRobin.nextNode(membership2) shouldBe (other2)
+      roundRobin.nextNode(membership2) shouldBe (other3)
+
+      roundRobin.nextNode(membership3) shouldBe (other1)
+      roundRobin.nextNode(membership3) shouldBe (other3)
     }
 
     "verify network messages" when {
@@ -389,12 +414,15 @@ class RetransmissionManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private def createManager(
       networkOut: ModuleRef[P2PNetworkOut.Message]
-  ): RetransmissionsManager[ProgrammableUnitTestEnv] =
+  ): RetransmissionsManager[ProgrammableUnitTestEnv] = {
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
     new RetransmissionsManager[ProgrammableUnitTestEnv](
       self,
       networkOut,
       fail(_),
       previousEpochsCommitCerts = Map.empty,
+      metrics,
       loggerFactory,
     )
+  }
 }

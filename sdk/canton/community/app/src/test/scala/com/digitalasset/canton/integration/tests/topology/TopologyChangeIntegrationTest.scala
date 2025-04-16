@@ -22,7 +22,7 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllButNamespaceDelegations,
   CanSignAllMappings,
 }
-import com.digitalasset.canton.topology.transaction.{ParticipantPermission, TopologyChangeOp}
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{Namespace, PartyId}
 
 import scala.concurrent.Future
@@ -56,7 +56,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       }
       .withSetup { implicit env =>
         import env.*
-        participant1.synchronizers.connect_multi("da", sequencers.all.map(_.sequencerConnection))
+        participant1.synchronizers.connect_multi(daName, sequencers.all.map(_.sequencerConnection))
       }
 
   "initial topology state" should {
@@ -115,7 +115,6 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
     val newNamespaceKey = "new-namespace-key"
     val rootDelegationKey = "root-delegation-key"
     val intermediateDelegationKey = "intermediate-delegation-key"
-    val identifierDelegationKey = "identifier-delegation-key"
     def getKey(str: String)(implicit env: TestConsoleEnvironment) =
       env.participant1.keys.secret
         .list(filterName = str)
@@ -128,12 +127,10 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
 
       val ns = participant1.keys.secret
         .generate_signing_key(newNamespaceKey, SigningKeyUsage.NamespaceOnly)
-      val ns2 = participant1.keys.secret
+      val key2 = participant1.keys.secret
         .generate_signing_key(rootDelegationKey, SigningKeyUsage.NamespaceOnly)
-      val ns3 = participant1.keys.secret
+      val key3 = participant1.keys.secret
         .generate_signing_key(intermediateDelegationKey, SigningKeyUsage.NamespaceOnly)
-      val delegate = participant1.keys.secret
-        .generate_signing_key(identifierDelegationKey, SigningKeyUsage.IdentityDelegationOnly)
       val party = PartyId.tryCreate("indirect", ns.fingerprint)
 
       participant1.topology.namespace_delegations.propose_delegation(
@@ -145,7 +142,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
 
       participant1.topology.namespace_delegations.propose_delegation(
         Namespace(ns.fingerprint),
-        ns2,
+        key2,
         CanSignAllMappings,
         signedBy = Seq(ns.fingerprint),
         synchronize = None,
@@ -153,28 +150,25 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
 
       participant1.topology.namespace_delegations.propose_delegation(
         Namespace(ns.fingerprint),
-        ns3,
+        key3,
         CanSignAllButNamespaceDelegations,
-        signedBy = Seq(ns2.fingerprint),
-        synchronize = None,
-      )
-
-      participant1.topology.identifier_delegations.propose(
-        party.uid,
-        delegate,
-        signedBy = Seq(ns3.fingerprint),
-        synchronize = None,
+        signedBy = Seq(key2.fingerprint),
       )
 
       participant1.topology.party_to_participant_mappings.propose(
         party,
         Seq((participant1.id, ParticipantPermission.Submission)),
-        signedBy = Seq(delegate.fingerprint, participant1.id.uid.namespace.fingerprint),
+        signedBy = Seq(key3.fingerprint, participant1.id.uid.namespace.fingerprint),
         synchronize = None,
       )
 
       eventually() {
         participant1.parties.list().map(_.party) should contain(party)
+      }
+
+      eventually() {
+        participant1.topology.party_to_participant_mappings
+          .list(daId, filterParty = party.filterString) should not be empty
       }
     }
 
@@ -184,18 +178,13 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       val ns = getKey(newNamespaceKey)
       val ns2 = getKey(rootDelegationKey)
       val ns3 = getKey(intermediateDelegationKey)
-      val delegate = getKey(identifierDelegationKey)
 
       val newNS2Key = participant1.keys.secret
         .generate_signing_key("2" + rootDelegationKey, SigningKeyUsage.NamespaceOnly)
       val newNS3Key = participant1.keys.secret.generate_signing_key(
         "2" + intermediateDelegationKey,
-        SigningKeyUsage.NamespaceOrIdentityDelegation,
+        SigningKeyUsage.NamespaceOnly,
       )
-      val delegateNew = participant1.keys.secret
-        .generate_signing_key("2" + identifierDelegationKey, SigningKeyUsage.IdentityDelegationOnly)
-      val party =
-        participant1.parties.list("indirect").headOption.valueOrFail("must be there").party
 
       // add new chains
       Seq(
@@ -210,21 +199,6 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
           synchronize = None,
         )
       }
-
-      // add new identifier delegation
-      participant1.topology.identifier_delegations.propose(
-        party.uid,
-        delegateNew,
-        signedBy = Seq(newNS3Key.fingerprint),
-      )
-
-      // remove old
-      participant1.topology.identifier_delegations.propose(
-        party.uid,
-        delegate,
-        signedBy = Seq(ns3.fingerprint),
-        change = TopologyChangeOp.Remove,
-      )
 
       // remove old authorizations
       Seq((ns3, newNS2Key), (ns2, ns)).foreach { case (currentKey, signedBy) =>
@@ -241,10 +215,9 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       import env.*
 
       val ns = getKey(newNamespaceKey)
-      val ns2 = getKey("2" + rootDelegationKey)
-      val ns3 = getKey("2" + intermediateDelegationKey)
-      val delegate = getKey("2" + identifierDelegationKey)
-      val delegateOld = getKey(identifierDelegationKey)
+      val key2 = getKey("2" + rootDelegationKey)
+      val key3 = getKey("2" + intermediateDelegationKey)
+      val key3Old = getKey(intermediateDelegationKey)
 
       val party =
         participant1.parties.list("indirect").headOption.valueOrFail("must be there").party
@@ -264,12 +237,12 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       // as we don't have cascading updates, the party to participant mapping should
       // still be there, but signed by the old key
       getSigningKeyOfPartyToParticipantMapping.forgetNE should contain theSameElementsAs Seq(
-        delegateOld.fingerprint,
+        key3Old.fingerprint,
         participant1.id.uid.namespace.fingerprint,
       )
 
       // renew the party to participant mapping using all keys
-      Seq(delegate, ns3, ns2, ns).zipWithIndex.foreach { case (key, idx) =>
+      Seq(key3, key2, ns).zipWithIndex.foreach { case (key, idx) =>
         val permission =
           if (idx % 2 == 0) ParticipantPermission.Confirmation
           else ParticipantPermission.Submission
@@ -313,7 +286,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
   "onboard a new participant" in { implicit env =>
     import env.*
 
-    participant2.synchronizers.connect_multi("da", sequencers.all.map(_.sequencerConnection))
+    participant2.synchronizers.connect_multi(daName, sequencers.all.map(_.sequencerConnection))
     participant2.health.maybe_ping(participant1) should not be empty
 
     def compare[T](fetch: ParticipantReference => Seq[T]) =
@@ -329,7 +302,6 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       .synchronizerId
 
     compare(_.topology.decentralized_namespaces.list(store = fs).map(_.item))
-    compare(_.topology.identifier_delegations.list(store = fs).map(_.item))
     compare(_.topology.namespace_delegations.list(store = fs).map(_.item))
     compare(_.topology.party_to_participant_mappings.list(synchronizerId = fs).map(_.item))
     compare(

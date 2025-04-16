@@ -9,7 +9,6 @@ import com.digitalasset.canton.config.{
   IdentityConfig,
   InitConfigBase,
   NonNegativeFiniteDuration,
-  StateConfig,
   UniformCantonConfigValidation,
 }
 import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
@@ -24,7 +23,6 @@ import com.digitalasset.canton.participant.config.ParticipantInitConfig.Particip
 final case class ParticipantInitConfig(
     identity: IdentityConfig = IdentityConfig.Auto(),
     ledgerApi: ParticipantLedgerApiInitConfig = ParticipantLedgerApiInitConfig(),
-    state: Option[StateConfig] = None,
     generateIntermediateKey: Boolean = false,
     generateTopologyTransactionsAndKeys: Boolean = true,
 ) extends InitConfigBase

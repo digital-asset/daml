@@ -847,7 +847,6 @@ final class UnassignmentProcessingStepsTest
           val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
             Batch.of(testedProtocolVersion, (signedResult, Recipients.cc(submittingParticipant)))
           Deliver.create(
-            SequencerCounter(0),
             None,
             CantonTimestamp.Epoch,
             sourceSynchronizer.unwrap,

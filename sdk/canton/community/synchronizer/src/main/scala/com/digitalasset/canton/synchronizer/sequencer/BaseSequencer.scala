@@ -137,21 +137,21 @@ abstract class BaseSequencer(
 
   override def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     readInternal(member, offset)
 
   override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     readInternalV2(member, timestamp)
 
   protected def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
   protected def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
   override def onClosed(): Unit =
     periodicHealthCheck.foreach(LifeCycle.close(_)(logger))

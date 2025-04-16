@@ -223,7 +223,9 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         import env.*
 
         val requestF = loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          sendRequest().value,
+          sendRequest(
+            4_000 // Use a longer gRPC deadline to account for retries and scheduling delays
+          ).value,
           logEntries => {
             logEntries should not be empty
             val (unavailableEntries, giveUpEntry) = logEntries.splitAt(logEntries.size - 1)

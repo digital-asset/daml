@@ -1,0 +1,3 @@
+// start participant node
+participant1.start()
+

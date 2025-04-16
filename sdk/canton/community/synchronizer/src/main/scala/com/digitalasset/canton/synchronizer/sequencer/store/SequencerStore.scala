@@ -371,7 +371,8 @@ object CounterCheckpoint {
       event: SequencedEvent[_],
       latestTopologyClientTimestamp: Option[CantonTimestamp],
   ): CounterCheckpoint =
-    CounterCheckpoint(event.counter, event.timestamp, latestTopologyClientTimestamp)
+    // TODO(#11834): Remove counter checkpoints
+    CounterCheckpoint(SequencerCounter.Genesis, event.timestamp, latestTopologyClientTimestamp)
 
   implicit def getResultCounterCheckpoint: GetResult[CounterCheckpoint] = GetResult { r =>
     val counter = r.<<[SequencerCounter]
