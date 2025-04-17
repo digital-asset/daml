@@ -210,17 +210,15 @@ foldlA2 fn init xs =
       fn acc x
    in foldl work (pure init) xs
 
-mapA2 fn xs =
-  let
-    work ys x = do
-      y <- fn x
-      return (y :: ys)
-   in foldlA2 work [] xs
+mapA2 fn [] = pure []
+mapA2 fn (x :: xs) = do
+  y <- fn x
+  ys <- mapA2 fn xs
+  return (y :: ys)
 
-sequence2 actions =
-  let
-    work ys action = do
-      y <- action
-      return (y :: ys)
-   in foldlA2 work [] actions
+sequence2 [] = pure []
+sequence2 (x :: xs) = do
+  y <- x
+  ys <- sequence2 xs
+  return (y :: ys)
 -- IMPLEMENTATIONS_END

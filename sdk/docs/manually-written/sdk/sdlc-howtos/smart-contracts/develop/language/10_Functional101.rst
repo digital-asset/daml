@@ -494,7 +494,7 @@ Intuitively, it's clear how to fix this: we want the compound action consisting 
 
 The ``A`` in ``mapA`` stands for "Action", and you'll find that many functions that have something to do with "looping" have an ``A`` equivalent. The most fundamental of all of these is ``foldlA : Action m => (b -> a -> m b) -> b -> [a] -> m b``, a left fold with side effects. Here the inner function has a side-effect indicated by the ``m`` so the end result ``m b`` also has a side effect: the sum of all the side effects of the inner function.
 
-To improve your familiarity with these concepts, try implementing ``foldlA`` in terms of ``foldl``, as well as ``sequence`` and ``mapA`` in terms of ``foldlA``. Here is one set of possible implementations:
+To improve your familiarity with these concepts, try implementing ``foldlA`` in terms of ``foldl``, as well as ``sequence`` and ``mapA`` using recursion or ``foldr``. Here is one set of possible implementations:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
