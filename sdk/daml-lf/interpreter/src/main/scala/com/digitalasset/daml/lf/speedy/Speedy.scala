@@ -225,8 +225,17 @@ private[lf] object Speedy {
         Question.Update.NeedTime { time =>
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
-            "NeedTime",
-            continue(time),
+            "NeedTime", {
+              require(
+                timeBoundaries.min <= time && time <= timeBoundaries.max,
+                s"NeedTime pre-condition failed: time $time lies outside time boundaries $timeBoundaries",
+              )
+
+              continue(time).ensuring(
+                timeBoundaries.min <= time && time <= timeBoundaries.max,
+                s"NeedTime post-condition failed: time $time lies outside time boundaries $timeBoundaries",
+              )
+            },
           )
         }
       )
