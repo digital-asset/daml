@@ -1,0 +1,14 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# $schema: https://raw.githubusercontent.com/DACH-NY/daml-assistant/refs/heads/json-schema/schema/component.schema.json
+# Edit as needed!
+
+spec:
+  commands:
+    - path: damlc
+      name: build
+      desc: Daml Compiler
+      exec-args: ['build']
+      aliases: ['build']
+
