@@ -27,6 +27,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-tools",
+        "//compiler/daml-lf-tools-util",
         "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",

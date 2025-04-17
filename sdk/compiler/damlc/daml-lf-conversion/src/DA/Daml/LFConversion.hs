@@ -81,7 +81,7 @@ module DA.Daml.LFConversion
     , ConversionEnv(..) -- exposed for testing
     ) where
 
-import           DA.Daml.LF.TypeChecker.Error.WarningFlags (DamlWarningFlags)
+import           DA.Daml.LF.TypeChecker.Error.WarningFlags (WarningFlags)
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
@@ -733,7 +733,7 @@ convertModule
     :: SdkVersioned
     => LF.Version
     -> EnableInterfaces
-    -> DamlWarningFlags ErrorOrWarning
+    -> WarningFlags ErrorOrWarning
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
     -> NormalizedFilePath
@@ -742,7 +742,7 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableInterfaces damlWarningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlags) $ do
+convertModule lfVersion enableInterfaces warningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing warningFlags) $ do
     let
       env = mkEnv lfVersion enableInterfaces pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details

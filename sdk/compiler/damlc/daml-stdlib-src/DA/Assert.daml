@@ -64,7 +64,7 @@ assertBeforeMsg msg time = do
     then assertFail msg
     else return ()
 
-{-# WARNING in "x-ledger-time" assertWithinDeadline "This is an alpha feature. It can change without notice." #-}
+{-# WARNING in "x-ledger-time" assertWithinDeadline ["This is an alpha feature. It can change without notice.", "Use `-Wno-ledger-time-is-alpha` to disable this warning."] #-}
 -- | HIDE
 -- Check whether the ledger time of the transaction is strictly before the given deadline.
 -- If it's not, abort with a message.
@@ -74,7 +74,7 @@ assertWithinDeadline name deadline = do
   when deadlineExceeded $ assertFail $
     "Ledger time is strictly before deadline '" <> name <> "' at " <> show deadline
 
-{-# WARNING in "x-ledger-time" assertDeadlineExceeded "This is an alpha feature. It can change without notice." #-}
+{-# WARNING in "x-ledger-time" assertDeadlineExceeded ["This is an alpha feature. It can change without notice.", "Use `-Wno-ledger-time-is-alpha` to disable this warning."] #-}
 -- | HIDE
 -- Check whether the ledger time of the transaction ia at or after the given deadline.
 -- If it's not, abort with a message.

@@ -39,7 +39,7 @@ type TcPreUpgradeM = TcMF PreUpgradingEnv
 data PreUpgradingEnv = PreUpgradingEnv
   { pueVersion :: Version
   , pueUpgradeInfo :: UpgradeInfo
-  , pueWarningFlags :: DamlWarningFlags ErrorOrWarning
+  , pueWarningFlags :: WarningFlags ErrorOrWarning
   }
 
 data UpgradeInfo = UpgradeInfo
@@ -85,13 +85,13 @@ shouldTypecheckM = asks $ shouldTypecheck . pueUpgradeInfo
 
 mkGamma :: PreUpgradingEnv -> World -> Gamma
 mkGamma PreUpgradingEnv { pueVersion, pueWarningFlags } world =
-    set damlWarningFlags pueWarningFlags (emptyGamma world pueVersion)
+    set warningFlags pueWarningFlags (emptyGamma world pueVersion)
 
 gammaM :: World -> TcPreUpgradeM Gamma
 gammaM world = asks (flip mkGamma world)
 
 {- HLINT ignore "Use nubOrd" -}
-extractDiagnostics :: Version -> UpgradeInfo -> DamlWarningFlags ErrorOrWarning -> TcPreUpgradeM () -> [Diagnostic]
+extractDiagnostics :: Version -> UpgradeInfo -> WarningFlags ErrorOrWarning -> TcPreUpgradeM () -> [Diagnostic]
 extractDiagnostics version upgradeInfo warningFlags action =
   case runGammaF (PreUpgradingEnv version upgradeInfo warningFlags) action of
     Left err -> [toDiagnostic err]
@@ -112,14 +112,14 @@ mkUpgradedPkgWithNameAndVersion presentPkgId presentPkg =
 
 checkPackage
   :: LF.Package
-  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> DamlWarningFlags ErrorOrWarning
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> WarningFlags ErrorOrWarning
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkPackage = checkPackageToDepth CheckOnlyMissingModules
 
 checkPackageToDepth
   :: CheckDepth -> LF.Package
-  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> DamlWarningFlags ErrorOrWarning
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> WarningFlags ErrorOrWarning
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkPackageToDepth checkDepth pkg deps version upgradeInfo warningFlags mbUpgradedPkg =
@@ -165,7 +165,7 @@ checkPackageSingle mbContext pkg externalPkgs = do
 
 checkModule
   :: LF.World -> LF.Module
-  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> DamlWarningFlags ErrorOrWarning
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> WarningFlags ErrorOrWarning
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkModule world0 module_ deps version upgradeInfo warningFlags mbUpgradedPkg =

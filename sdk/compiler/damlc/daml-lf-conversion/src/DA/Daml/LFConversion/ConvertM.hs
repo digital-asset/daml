@@ -18,8 +18,7 @@ module DA.Daml.LFConversion.ConvertM (
     StandaloneError(..),
     ErrorOrWarning(..),
     InvalidInterfaceError(..),
-    damlWarningFlagParserLFConversion,
-    warnLargeTuplesFlag
+    warningFlagParser,
   ) where
 
 import           DA.Daml.LFConversion.Errors
@@ -43,7 +42,7 @@ import           DA.Daml.LF.TypeChecker.Error.WarningFlags
 data ConversionEnv = ConversionEnv
   { convModuleFilePath :: !NormalizedFilePath
   , convRange :: !(Maybe SourceLoc)
-  , convWarningFlags :: DamlWarningFlags ErrorOrWarning
+  , convWarningFlags :: WarningFlags ErrorOrWarning
   }
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
@@ -112,7 +111,7 @@ conversionWarningRaw msg = do
       fileDiagnostic = (convModuleFilePath, ShowDiag, diagnostic)
   modify $ \s -> s { warnings = fileDiagnostic : warnings s }
 
-getErrorOrWarningStatus :: ErrorOrWarning -> ConvertM DamlWarningFlagStatus
+getErrorOrWarningStatus :: ErrorOrWarning -> ConvertM WarningFlagStatus
 getErrorOrWarningStatus errOrWarn = do
    warningFlags <- asks convWarningFlags
    pure (getWarningStatus warningFlags errOrWarn)
