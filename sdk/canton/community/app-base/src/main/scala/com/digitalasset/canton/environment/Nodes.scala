@@ -11,12 +11,12 @@ import cats.{Applicative, Id}
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.{DbConfig, LocalNodeConfig, ProcessingTimeout, StorageConfig}
 import com.digitalasset.canton.console.GrpcAdminCommandRunner
-import com.digitalasset.canton.console.declarative.DeclarativeApiManager
+import com.digitalasset.canton.console.declarative.{DeclarativeApiHandle, DeclarativeApiManager}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.*
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.resource.DbStorage.RetryConfig
 import com.digitalasset.canton.resource.{DbMigrations, DbMigrationsFactory}
 import com.digitalasset.canton.synchronizer.mediator.{
@@ -33,7 +33,6 @@ import com.digitalasset.canton.synchronizer.sequencer.{SequencerNode, SequencerN
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 
-import java.util.concurrent.ScheduledExecutorService
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 
@@ -106,7 +105,8 @@ private final case class StartingUp[T](
     node: T,
 ) extends ManagedNodeStage[T]
 
-private final case class Running[T](node: T) extends ManagedNodeStage[T]
+private final case class Running[T, C](node: T, declarativeHandle: Option[DeclarativeApiHandle[C]])
+    extends ManagedNodeStage[T]
 
 /** Nodes group that can start nodes with the provided configuration and factory */
 class ManagedNodes[
@@ -118,7 +118,7 @@ class ManagedNodes[
     create: (String, NodeConfig) => NodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     override protected val timeouts: ProcessingTimeout,
-    configs: Map[String, NodeConfig],
+    configs: => Map[String, NodeConfig],
     parametersFor: String => CantonNodeParameters,
     override val startUpGroup: Int,
     protected val loggerFactory: NamedLoggerFactory,
@@ -130,12 +130,11 @@ class ManagedNodes[
     with FlagCloseableAsync {
 
   private val nodes = TrieMap[InstanceName, ManagedNodeStage[NodeBootstrap]]()
-  override lazy val names: Seq[InstanceName] = configs.keys.toSeq
+  override def names(): Seq[InstanceName] = configs.keys.toSeq
 
-  override def running: Seq[NodeBootstrap] = nodes.values.toSeq.collect { case Running(node) =>
+  override def running: Seq[NodeBootstrap] = nodes.values.toSeq.collect { case Running(node, _) =>
     node
   }
-
   def startAndWait(name: InstanceName)(implicit
       traceContext: TraceContext
   ): Either[StartupError, Unit] =
@@ -151,35 +150,62 @@ class ManagedNodes[
         configs
           .get(name)
           .toRight(ConfigurationNotFound(name): StartupError)
-          .flatMap { c =>
-            declarativeManager
-              .map(_.verifyConfig(name, c))
-              .getOrElse(Either.unit)
-              .map(_ => c)
-              .leftMap(InvalidDeclarativeStateConfig(name, _))
-          }
       )
       .flatMap(startNode(name, _).map(_ => ()))
+
+  def pokeDeclarativeApis(
+      newConfig: Either[Unit, Boolean]
+  )(implicit traceContext: TraceContext): Unit = newConfig match {
+    case Right(true) =>
+      val currentConfig = configs
+      nodes.foreach {
+        case (name, Running(_, Some(handle))) =>
+          currentConfig
+            .get(name)
+            .foreach { config =>
+              handle.newConfig(config)
+            }
+        case _ =>
+      }
+    case Right(false) =>
+      nodes.foreach {
+        case (_, Running(_, Some(handle))) =>
+          handle.poke()
+        case _ =>
+      }
+    case Left(()) =>
+      nodes.foreach {
+        case (_, Running(_, Some(handle))) =>
+          handle.invalidConfig()
+        case _ =>
+      }
+  }
 
   private def startDeclarativeApi(
       instance: NodeBootstrap,
       name: InstanceName,
       config: NodeConfig,
-  ): EitherT[Future, String, Unit] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, Option[DeclarativeApiHandle[NodeConfig]]] =
     declarativeManager
       .map { manager =>
-        manager.started(
-          name,
-          config,
-          instance,
-        )
+        manager
+          .started(
+            name,
+            config,
+            instance,
+          )
+          .map(r => Some(r): Option[DeclarativeApiHandle[NodeConfig]])
       }
-      .getOrElse(EitherT.rightT(()))
+      .getOrElse(EitherT.rightT(None))
 
   private def startNode(
       name: InstanceName,
       config: NodeConfig,
-  ): EitherT[Future, StartupError, NodeBootstrap] = if (isClosing)
+  )(implicit traceContext: TraceContext): EitherT[Future, StartupError, NodeBootstrap] = if (
+    isClosing
+  )
     EitherT.leftT(ShutdownDuringStartup(name, "Won't start during shutdown"))
   else {
     // Does not run concurrently with itself as ensured by putIfAbsent below
@@ -187,7 +213,6 @@ class ManagedNodes[
         promise: Promise[Either[StartupError, NodeBootstrap]]
     ): EitherT[Future, StartupError, NodeBootstrap] = {
       val params = parametersFor(name)
-
       val startup = for {
         // start migration
         _ <- EitherT(Future(checkMigration(name, config.storage, params)))
@@ -196,7 +221,7 @@ class ManagedNodes[
           nodes.put(name, StartingUp(promise, instance)).discard
           instance
         }
-        _ <-
+        declarativeHandler <-
           instance
             .start()
             .flatMap(_ => startDeclarativeApi(instance, name, config))
@@ -205,9 +230,8 @@ class ManagedNodes[
               StartFailed(name, error): StartupError
             }
       } yield {
-
         // register the running instance
-        nodes.put(name, Running(instance)).discard
+        nodes.put(name, Running(instance, declarativeHandler)).discard
         instance
       }
       // remove node upon failure
@@ -221,7 +245,7 @@ class ManagedNodes[
       case None => runStartup(promise) // startup will run async
       case Some(PreparingDatabase(promise)) => EitherT(promise.future)
       case Some(StartingUp(promise, _)) => EitherT(promise.future)
-      case Some(Running(node)) => EitherT.rightT(node)
+      case Some(Running(node, _)) => EitherT.rightT(node)
     }
   }
 
@@ -257,7 +281,7 @@ class ManagedNodes[
   override def isRunning(name: InstanceName): Boolean = nodes.contains(name)
 
   override def getRunning(name: InstanceName): Option[NodeBootstrap] = nodes.get(name).collect {
-    case Running(node) => node
+    case Running(node, _) => node
   }
 
   override def getStarting(name: InstanceName): Option[NodeBootstrap] = nodes.get(name).collect {
@@ -268,13 +292,23 @@ class ManagedNodes[
       name: InstanceName
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ShutdownError, Unit] =
+  ): EitherT[Future, ShutdownError, Unit] = {
+    val node = nodes.get(name)
     for {
-      _ <- EitherT.fromEither[Future](
-        configs.get(name).toRight[ShutdownError](ConfigurationNotFound(name))
-      )
+      _ <-
+        // if node is not running and config does not exist, indicate that something is wrong
+        if (node.isEmpty) {
+          EitherT.fromEither[Future](
+            configs.get(name).toRight[ShutdownError](ConfigurationNotFound(name))
+          )
+        } else {
+          // we don't check this if the node is running as if someone actually changed the config and
+          // removed the node, we still want to be able to shut it down
+          EitherT.rightT(())
+        }
       _ <- nodes.get(name).traverse_(stopStage(name))
     } yield ()
+  }
 
   override def stopAndWait(name: InstanceName)(implicit
       traceContext: TraceContext
@@ -291,7 +325,7 @@ class ManagedNodes[
       // wait for the node to complete startup
       case PreparingDatabase(promise) => promise.future
       case StartingUp(promise, _) => promise.future
-      case Running(node) => Future.successful(Right(node))
+      case Running(node, _) => Future.successful(Right(node))
     }).transform {
       case Left(_) =>
         // we can remap a startup failure to a success here, as we don't want the
@@ -299,8 +333,8 @@ class ManagedNodes[
         Either.unit
       case Right(node) =>
         nodes.remove(name).foreach {
-          // if there were other processes messing with the node, we won't shutdown
-          case Running(current) if node == current =>
+          // if there were other processes messing with the node, we won't shut down
+          case Running(current, _) if node == current =>
             LifeCycle.close(node)(logger)
           case _ =>
             logger.info(s"Node $name has already disappeared.")
@@ -316,7 +350,7 @@ class ManagedNodes[
     }
   }
 
-  protected def runIfUsingDatabase[F[_]](storageConfig: StorageConfig)(
+  private def runIfUsingDatabase[F[_]](storageConfig: StorageConfig)(
       fn: DbConfig => F[Either[StartupError, Unit]]
   )(implicit F: Applicative[F]): F[Either[StartupError, Unit]] = storageConfig match {
     case dbConfig: DbConfig => fn(dbConfig)
@@ -391,17 +425,17 @@ class ManagedNodes[
 }
 
 class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
-    create: (String, LocalParticipantConfig) => B, // (nodeName, config) => bootstrap
+    create: (String, ParticipantNodeConfig) => B, // (nodeName, config) => bootstrap
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, LocalParticipantConfig],
+    configs: => Map[String, ParticipantNodeConfig],
     parametersFor: String => ParticipantNodeParameters,
     runnerFactory: String => GrpcAdminCommandRunner,
+    enableAlphaStateViaConfig: Boolean,
     loggerFactory: NamedLoggerFactory,
 )(implicit
-    protected val executionContext: ExecutionContextIdlenessExecutorService,
-    scheduler: ScheduledExecutorService,
-) extends ManagedNodes[N, LocalParticipantConfig, ParticipantNodeParameters, B](
+    protected val executionContext: ExecutionContextIdlenessExecutorService
+) extends ManagedNodes[N, ParticipantNodeConfig, ParticipantNodeParameters, B](
       create,
       migrationsFactory,
       timeouts,
@@ -409,9 +443,9 @@ class ParticipantNodes[B <: CantonNodeBootstrap[N], N <: CantonNode](
       parametersFor,
       startUpGroup = 2,
       loggerFactory,
-      Some(
+      Option.when(enableAlphaStateViaConfig)(
         DeclarativeApiManager
-          .forParticipants(runnerFactory, loggerFactory)
+          .forParticipants(runnerFactory, timeouts.dynamicStateConsistencyTimeout, loggerFactory)
       ),
     ) {}
 
@@ -419,7 +453,7 @@ class SequencerNodes(
     create: (String, SequencerNodeConfig) => SequencerNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, SequencerNodeConfig],
+    configs: => Map[String, SequencerNodeConfig],
     parameters: String => SequencerNodeParameters,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -442,7 +476,7 @@ class MediatorNodes(
     create: (String, MediatorNodeConfig) => MediatorNodeBootstrap,
     migrationsFactory: DbMigrationsFactory,
     timeouts: ProcessingTimeout,
-    configs: Map[String, MediatorNodeConfig],
+    configs: => Map[String, MediatorNodeConfig],
     parameters: String => MediatorNodeParameters,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)

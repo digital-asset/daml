@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.indexer.parallel
 
 import com.daml.metrics.api.testing.MetricValues
 import com.daml.metrics.api.{MetricHandle, MetricsContext}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -54,6 +54,7 @@ class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
       workflowId = None,
       submissionTime = Time.Timestamp.assertFromLong(3),
       submissionSeed = someHash,
+      timeBoundaries = LedgerTimeBoundaries.unconstrained,
       optUsedPackages = None,
       optNodeSeeds = None,
       optByKeyNodes = None,

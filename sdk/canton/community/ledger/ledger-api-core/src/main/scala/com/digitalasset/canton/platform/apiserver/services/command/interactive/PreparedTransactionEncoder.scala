@@ -315,13 +315,6 @@ final class PreparedTransactionEncoder(
     Transformer
       .definePartial[TransactionData, iss.Metadata]
       .withFieldComputed(_.submissionTime, _.transactionMeta.submissionTime.transformInto[Long])
-      .withFieldComputed(
-        _.ledgerEffectiveTime,
-        r =>
-          Option.when(r.dependsOnLedgerTime)(
-            r.transactionMeta.ledgerEffectiveTime.transformInto[Long]
-          ),
-      )
       .withFieldConstPartial(
         _.inputContracts,
         // The hashing algorithm expects disclosed contracts to be sorted by contract ID, so pre-sort them for the client
@@ -334,6 +327,14 @@ final class PreparedTransactionEncoder(
       .withFieldConst(_.synchronizerId, synchronizerId.transformInto[String])
       .withFieldConst(_.transactionUuid, transactionUUID.toString)
       .withFieldConst(_.mediatorGroup, mediatorGroup)
+      .withFieldComputed(
+        _.minLedgerEffectiveTime,
+        _.transactionMeta.timeBoundaries.minConstraint.map(_.transformInto[Long]),
+      )
+      .withFieldComputed(
+        _.maxLedgerEffectiveTime,
+        _.transactionMeta.timeBoundaries.maxConstraint.map(_.transformInto[Long]),
+      )
       .buildTransformer
 
   @VisibleForTesting

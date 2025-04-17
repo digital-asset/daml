@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.indexer.parallel
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.RepairCounter
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
@@ -1288,6 +1288,7 @@ class ParallelIndexerSubscriptionSpec
         submissionSeed = crypto.Hash.assertFromString(
           "01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086"
         ),
+        timeBoundaries = LedgerTimeBoundaries.unconstrained,
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,

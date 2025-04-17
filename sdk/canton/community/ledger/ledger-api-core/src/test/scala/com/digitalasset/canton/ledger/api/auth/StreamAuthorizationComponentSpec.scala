@@ -11,7 +11,7 @@ import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.{UpdateService, U
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.auth.{
-  AuthorizationInterceptor,
+  AuthInterceptor,
   Authorizer,
   Claim,
   ClaimPublic,
@@ -207,7 +207,7 @@ class StreamAuthorizationComponentSpec
           next: ServerCallHandler[ReqT, RespT],
       ): ServerCall.Listener[ReqT] = {
         val nextCtx =
-          Context.current.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSetFixture)
+          Context.current.withValue(AuthInterceptor.contextKeyClaimSet, claimSetFixture)
         Contexts.interceptCall(nextCtx, call, headers, next)
       }
     }

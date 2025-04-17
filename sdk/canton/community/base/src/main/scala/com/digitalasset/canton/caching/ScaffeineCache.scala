@@ -5,11 +5,11 @@ package com.digitalasset.canton.caching
 
 import cats.syntax.flatMap.*
 import cats.{FlatMap, Functor}
-import com.daml.metrics.CacheMetrics
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.metrics.CacheMetrics
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureUtil
 import com.github.blemale.scaffeine.{AsyncCache, AsyncLoadingCache, Scaffeine}

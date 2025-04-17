@@ -14,7 +14,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.{
   AuthorizedDecentralizedNamespaceDefinition,
-  AuthorizedIdentifierDelegation,
   AuthorizedNamespaceDelegation,
 }
 import com.digitalasset.canton.topology.store.*
@@ -22,24 +21,22 @@ import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.Gener
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
-import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, ReferencedAuthorizations}
+import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
 private[processing] final case class AuthorizationKeys(
-    uids: Set[UniqueIdentifier],
-    namespaces: Set[Namespace],
+    namespaces: Set[Namespace]
 ) {
   def ++(other: AuthorizationKeys): AuthorizationKeys = AuthorizationKeys(
-    uids ++ other.uids,
-    namespaces ++ other.namespaces,
+    namespaces ++ other.namespaces
   )
 }
 
 private object AuthorizationKeys {
 
-  val empty: AuthorizationKeys = AuthorizationKeys(Set.empty, Set.empty)
+  val empty: AuthorizationKeys = AuthorizationKeys(Set.empty)
 
   def required(
       toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping],
@@ -54,21 +51,18 @@ private object AuthorizationKeys {
       toValidate: TopologyTransaction[TopologyChangeOp, TopologyMapping]
   ): AuthorizationKeys =
     toValidate.mapping match {
-      case NamespaceDelegation(namespace, _, _) => AuthorizationKeys(Set.empty, Set(namespace))
+      case NamespaceDelegation(namespace, _, _) => AuthorizationKeys(Set(namespace))
       case DecentralizedNamespaceDefinition(_, _, owners) if toValidate.operation == Replace =>
         // In case of Replace, we need to preload the owner graphs so that we can construct the decentralized graph.
         // In case of a Remove, we do not need to preload anything, as we'll simply set the cache value to None.
-        AuthorizationKeys(Set.empty, owners.forgetNE)
-      case IdentifierDelegation(identifier, _) => AuthorizationKeys(Set(identifier), Set.empty)
+        AuthorizationKeys(owners.forgetNE)
       case _: TopologyMapping => AuthorizationKeys.empty
     }
 
   private def requiredForCheckingAuthorization(
       requiredAuth: ReferencedAuthorizations
-  ): AuthorizationKeys = {
-    val ReferencedAuthorizations(namespaces, uids, _extraKeys) = requiredAuth
-    AuthorizationKeys(uids, namespaces ++ uids.map(_.namespace))
-  }
+  ): AuthorizationKeys =
+    AuthorizationKeys(requiredAuth.namespaces)
 }
 
 /** validate topology transactions
@@ -82,10 +76,9 @@ private object AuthorizationKeys {
   *      a. for each transaction, verify that the authorization keys are valid. a key is a valid
   *         authorization if there is a certificate chain that originates from the root certificate
   *         at the time when the transaction is added (one by one).
-  *      a. if the transaction is a namespace or identifier delegation, update its impact on the
-  *         authorization set this means that if we add or remove a namespace delegation, then we
-  *         need to perform a cascading update that activates or deactivates states that depend on
-  *         this delegation.
+  *      a. if the transaction is a namespace, update its impact on the authorization set. This
+  *         means that if we add or remove a namespace delegation, then we need to perform a
+  *         cascading update that activates or deactivates states that depend on this delegation.
   *   1. finally, what we compute as the "authorized graph" is then used to compute the derived
   *      table of "namespace delegations"
   */
@@ -104,7 +97,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   /** Validates the provided topology transactions and applies the certificates to the auth state
     *
     * When receiving topology transactions we have to evaluate them and continuously apply any
-    * update to the namespace delegations or identifier delegations to the "head state".
+    * update to the namespace delegations to the "head state".
     *
     * And we use that "head state" to verify if the transactions are authorized or not.
     *
@@ -222,34 +215,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       ns -> (keysAuthorizeNamespace, keysUsed)
     }.toMap
 
-    val uidAuthorizations =
-      referencedAuth.uids.map { uid =>
-        // This succeeds because loading of uid.namespace is requested in AuthorizationKeys.requiredForCheckingAuthorization
-        val check = tryGetAuthorizationCheckForNamespace(uid.namespace)
-        val keysUsed = check.keysSupportingAuthorization(
-          unvalidatedSigningKeysCoveringHash,
-          toValidate.mapping.code,
-        )
-        val keysAuthorizeNamespace =
-          check.existsAuthorizedKeyIn(unvalidatedSigningKeysCoveringHash, toValidate.mapping.code)
-
-        val keyForUid =
-          // This succeeds because loading of uid is requested in AuthorizationKeys.requiredForCheckingAuthorization
-          tryGetIdentifierDelegationsForUid(uid)
-            .find(aid =>
-              // the signing key is the target of the identifier delegation
-              unvalidatedSigningKeysCoveringHash.contains(aid.mapping.target.id) &&
-                // the identifier delegation is signed by keys that are currently authorized to sign identifier delegations
-                check.existsAuthorizedKeyIn(
-                  aid.signingKeys,
-                  Code.IdentifierDelegation,
-                )
-            )
-            .map(_.mapping.target)
-
-        uid -> (keysAuthorizeNamespace || keyForUid.nonEmpty, keysUsed ++ keyForUid)
-      }.toMap
-
     val extraKeyAuthorizations =
       // assume extra keys are not found
       referencedAuth.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
@@ -279,13 +244,11 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
 
     val allKeysUsedForAuthorization =
       (namespaceAuthorizations.values ++
-        uidAuthorizations.values ++
         extraKeyAuthorizations.values).flatMap { case (_, keys) =>
         keys.map(k => k.id -> k)
       }.toMap
 
     logAuthorizations("Authorizations for namespaces", namespaceAuthorizations)
-    logAuthorizations("Authorizations for UIDs", uidAuthorizations)
     logAuthorizations("Authorizations for extraKeys", extraKeyAuthorizations)
 
     logger.debug(s"All keys used for authorization: ${allKeysUsedForAuthorization.keySet}")
@@ -333,7 +296,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       }.toSet
       val actual = ReferencedAuthorizations(
         namespaces = onlyFullyAuthorized(namespaceAuthorizations),
-        uids = onlyFullyAuthorized(uidAuthorizations),
         extraKeys = onlyFullyAuthorized(extraKeyAuthorizations),
       )
       (
@@ -434,10 +396,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
         processNamespaceDelegation(AuthorizedTopologyTransaction(sigTx))
       }
 
-      toValidate.selectMapping[IdentifierDelegation].foreach { sigTx =>
-        processIdentifierDelegation(AuthorizedTopologyTransaction(sigTx))
-      }
-
       toValidate.selectMapping[DecentralizedNamespaceDefinition].foreach { sigTx =>
         processDecentralizedNamespaceDefinition(AuthorizedTopologyTransaction(sigTx))
       }
@@ -492,22 +450,6 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
         }.map(_ => (toValidate, ReferencedAuthorizations.empty /* no missing authorizers */ ))
         result
       }
-
-  private def processIdentifierDelegation(
-      tx: AuthorizedIdentifierDelegation
-  )(implicit traceContext: TraceContext): Unit = {
-    val uid = tx.mapping.identifier
-    // This will succeed, because loading of the uid is requested in AuthorizationKeys.requiredForProcessing
-    val oldIDDs = tryGetIdentifierDelegationsForUid(uid)
-    val withTxRemoved = oldIDDs.filter(_.mapping.uniqueKey != tx.mapping.uniqueKey)
-    val newIDDs = tx.operation match {
-      case TopologyChangeOp.Replace =>
-        // We also need to remove the old mapping so that the new mapping actually *replaces* the old one.
-        withTxRemoved + tx
-      case TopologyChangeOp.Remove => withTxRemoved
-    }
-    identifierDelegationCache.put(uid, newIDDs).discard
-  }
 
   private def processNamespaceDelegation(
       tx: AuthorizedNamespaceDelegation

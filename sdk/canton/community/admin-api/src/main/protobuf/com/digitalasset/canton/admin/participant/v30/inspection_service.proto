@@ -73,7 +73,7 @@ message OpenCommitmentResponse {
 // Contract ids (cids) need to be authenticated, otherwise the cid does not uniquely identify the stakeholders and
 // the contract hash
 message CommitmentContractMeta {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   bytes cid = 1;
   int64 reassignment_counter = 2;
 }
@@ -96,7 +96,7 @@ message InspectCommitmentContractsResponse {
 }
 
 message CommitmentContract {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   bytes cid = 1;
   bool active_on_expected_synchronizer = 2;
   Contract serialized_contract = 3;
@@ -105,7 +105,7 @@ message CommitmentContract {
 
 message ContractState {
   message SynchronizerState {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
     string synchronizer_id = 1;
     // The Canton ACS has a few more states, e.g., "purged". However, we do not include them because they will likely
     // not be accessible over the ledger API when we switch to that.
@@ -119,21 +119,21 @@ message ContractState {
   }
 
   message Created {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   }
 
   message Assigned {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
     int64 reassignment_counter_target = 1;
     ReassignmentId reassignment_id = 2;
   }
 
   message Archived {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   }
 
   message Unassigned {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
     string target_synchronizer_id = 1;
     int64 reassignment_counter_src = 2;
     ReassignmentId reassignment_id = 3;
@@ -141,11 +141,11 @@ message ContractState {
 
   // the contract is unknown to the synchronizer, but may have existed in the past and have been pruned meanwhile
   message Unknown {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
   }
 
   message ReassignmentId {
-    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+    option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
     string source_synchronizer_id = 1;
     google.protobuf.Timestamp unassign_timestamp = 2;
   }

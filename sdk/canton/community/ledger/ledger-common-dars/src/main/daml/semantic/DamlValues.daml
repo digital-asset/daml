@@ -1,0 +1,23 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DamlValues where
+
+import DA.TextMap as TM
+
+template WithTextMap
+  with
+    owner : Party
+    items : TM.TextMap Text
+  where
+    signatory owner
+
+    choice WithTextMap_Expand : TM.TextMap Text
+      with
+        newItems : TM.TextMap Text
+      controller owner
+      do
+        let updated = TM.union items newItems
+        create this with
+          items = updated
+        return updated

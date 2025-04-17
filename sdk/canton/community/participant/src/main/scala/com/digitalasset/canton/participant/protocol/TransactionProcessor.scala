@@ -19,8 +19,8 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.InteractiveSubmission.TransactionMetadataForHashing
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.data.ViewType.TransactionViewType
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.error.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.SubmissionErrorGroup
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors
@@ -150,6 +150,7 @@ class TransactionProcessor(
       params.transaction,
       params.submitterInfo,
       params.disclosedContracts,
+      params.transactionMeta.timeBoundaries,
       cryptoSnapshot,
       protocolVersion,
     )
@@ -161,6 +162,7 @@ class TransactionProcessor(
       wfTransaction: WellFormedTransaction[WithoutSuffixes],
       submitterInfo: SubmitterInfo,
       disclosedContracts: Map[LfContractId, SerializableContract],
+      timeBoundaries: LedgerTimeBoundaries,
       cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
   )(implicit
@@ -178,9 +180,7 @@ class TransactionProcessor(
             transactionUUID = externallySignedSubmission.transactionUUID,
             mediatorGroup = externallySignedSubmission.mediatorGroup.value,
             synchronizerId = synchronizerId,
-            ledgerEffectiveTime = Option.when(externallySignedSubmission.usesLedgerEffectiveTime)(
-              wfTransaction.metadata.ledgerTime.toLf
-            ),
+            timeBoundaries = timeBoundaries,
             submissionTime = wfTransaction.metadata.submissionTime.toLf,
             disclosedContracts = disclosedContracts,
           ),

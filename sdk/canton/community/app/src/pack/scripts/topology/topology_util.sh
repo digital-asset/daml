@@ -5,6 +5,31 @@
 
 set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first error
 
+################################################
+# Low level utility function to manipulate bytes
+################################################
+
+# [start byte utility functions]
+# Encode bytes read from stdin to base64
+encode_to_base64() {
+  openssl base64 -e -A
+}
+
+# Decode base64 string to bytes
+decode_from_base64() {
+  openssl base64 -d
+}
+
+# Encode bytes read from stdin to hexadecimal
+encode_to_hex() {
+  xxd -ps -c 0
+}
+# [end byte utility functions]
+
+###################################
+# Canton specific utility functions
+###################################
+
 # Compute a Canton hash with multi-hash encoding and a hash purpose.
 # Arguments:
 #   $1 - Hash purpose (integer)
@@ -27,7 +52,7 @@ compute_canton_hash() {
 compute_canton_fingerprint() {
   # 12 is the hash purpose for public key fingerprints
   # https://github.com/digital-asset/canton/blob/main/community/base/src/main/scala/com/digitalasset/canton/crypto/HashPurpose.scala
-  compute_canton_hash 12 | xxd -ps -c 0
+  compute_canton_hash 12 | encode_to_hex
 }
 # [end compute_canton_fingerprint fn]
 
@@ -36,7 +61,7 @@ compute_canton_fingerprint() {
 # [start compute_canton_fingerprint_from_base64 fn]
 compute_canton_fingerprint_from_base64() {
   local public_key_base64="$1"
-  echo "$public_key_base64" | openssl base64 -d | compute_canton_fingerprint
+  echo "$public_key_base64" | decode_from_base64 | compute_canton_fingerprint
 }
 # [end compute_canton_fingerprint_from_base64 fn]
 
@@ -54,15 +79,27 @@ compute_topology_transaction_hash() {
 # Arguments:
 #   $1 - Path to the .proto file
 #   $2 - Type to convert to
-#   $3 - Output file path
+# Takes json input on stdin
 # [start convert_json_to_bin fn]
 convert_json_to_bin() {
     local proto_file="$1"
     local type="$2"
-    local output_file="$3"
-    buf convert "$proto_file" --validate --type="$type" --to="$output_file" --from -#format=json
+    buf convert "$proto_file" --validate --type="$type" --from -#format=json
 }
 # [end convert_json_to_bin fn]
+
+# Convert binary to JSON using buf.
+# Arguments:
+#   $1 - Path to the .proto file
+#   $2 - Type to convert to
+# Takes binary input on stdin
+# [start convert_bin_to_json fn]
+convert_bin_to_json() {
+    local proto_file="$1"
+    local type="$2"
+    buf convert "$proto_file" --validate --type="$type" --from -#format=binpb
+}
+# [end convert_bin_to_json fn]
 
 # Build a JSON object representing namespace delegation.
 # Arguments:
@@ -94,6 +131,21 @@ build_namespace_mapping() {
 EOF
 }
 # [end build_namespace_mapping fn]
+
+build_namespace_mapping_from_signing_key() {
+  local namespace="$1"
+  local signing_key="$2"
+  local is_root="$3"
+    cat <<EOF
+{
+  "namespace_delegation": {
+    "namespace": "$namespace",
+    "target_key": $signing_key,
+    "is_root_delegation": $is_root
+  }
+}
+EOF
+}
 
 # Build a topology transaction JSON object.
 # Arguments:
@@ -220,48 +272,67 @@ EOF
 sign_hash() {
   local private_key_file="$1"
   local transaction_hash_file="$2"
-  openssl pkeyutl -rawin -inkey "$private_key_file" -keyform DER -sign < "$transaction_hash_file" | openssl base64 -e -A | tr -d '\n'
+  openssl pkeyutl -rawin -inkey "$private_key_file" -keyform DER -sign < "$transaction_hash_file" | encode_to_base64
 }
 # [end sign_hash fn]
 
-# Serialize a topology transaction and encode it in base64.
+# Serialize a topology transaction to a versioned message in binary protobuf format.
 # Arguments:
 #   $1 - Mapping JSON string
-#   $2 - Synchronizer ID
-#   $3 - Output file path
-# [start serialize_transaction_base64 fn]
-serialize_transaction_base64() {
+#   $2 - serial number
+# [start serialize_topology_transaction_from_mapping_and_serial fn]
+serialize_topology_transaction_from_mapping_and_serial() {
   local mapping="$1"
   local serial="$2"
-  local serialized_transaction_file
-  serialized_transaction_file=$(mktemp)
   local transaction
   transaction=$(build_topology_transaction "$mapping" "$serial")
-  echo "$transaction" | convert_json_to_bin \
-      "$TOPOLOGY_PROTO" \
-      "com.digitalasset.canton.protocol.v30.TopologyTransaction" \
-      "$serialized_transaction_file"
-  openssl enc -base64 -A -in "$serialized_transaction_file"
+  json_to_serialized_versioned_message "$transaction" "$TOPOLOGY_PROTO" "com.digitalasset.canton.protocol.v30.TopologyTransaction"
 }
-# [end serialize_transaction_base64 fn]
+# [end serialize_topology_transaction_from_mapping_and_serial fn]
 
-# Serialize a base64-encoded transaction into a versioned binary format
+# Serialize a topology transaction to a versioned message in binary protobuf format.
 # Arguments:
-#   $1 - Base64-encoded transaction
-#   $2 - Output file path for the serialized versioned transaction
-# [start serialize_versioned_transaction fn]
-serialize_versioned_transaction() {
-  local transaction_base64=$1
-  local serialized_versioned_transaction_file="$2"
-  local versioned_transaction
-  versioned_transaction=$(build_versioned_transaction "$transaction_base64")
-  # Serialize it to binary
-  echo "$versioned_transaction" | convert_json_to_bin \
-      "$VERSION_WRAPPER_PROTO" \
-      "com.digitalasset.canton.version.v1.UntypedVersionedMessage" \
-      "$serialized_versioned_transaction_file"
+#   $1 - transaction as JSON
+# [start serialize_topology_transaction fn]
+serialize_topology_transaction() {
+  local transaction="$1"
+  json_to_serialized_versioned_message "$transaction" "$TOPOLOGY_PROTO" "com.digitalasset.canton.protocol.v30.TopologyTransaction"
 }
-# [end serialize_versioned_transaction fn]
+# [end serialize_topology_transaction fn]
+
+# Unwraps a serialized versioned message to JSON.
+# Arguments:
+#   $1 - proto file containing the type of the inner message
+#   $2 - proto message type of the inner message
+# Takes the serialized versioned message in binary format from stdin
+# [start serialized_versioned_message_to_json fn]
+serialized_versioned_message_to_json() {
+  local proto=$1
+  local message_type=$2
+
+  WRAPPER=$(convert_bin_to_json "$VERSION_WRAPPER_PROTO" "com.digitalasset.canton.version.v1.UntypedVersionedMessage")
+  echo "$WRAPPER" | jq -r .data | decode_from_base64 | convert_bin_to_json "$proto" "$message_type"
+}
+# [end serialized_versioned_message_to_json fn]
+
+# Serializes a proto message in JSON representation to a versioned message.
+# Arguments:
+#   $1 - proto file containing the type of the inner message
+#   $2 - proto message type of the inner message
+#   $3 - json message
+# [start json_to_serialized_versioned_message fn]
+json_to_serialized_versioned_message() {
+  local json=$1
+  local proto=$2
+  local message_type=$3
+  # Serialize it to binary
+  SERIALIZED_JSON_BASE64=$(echo "$json" | convert_json_to_bin "$proto"  "$message_type" | encode_to_base64)
+  versioned_transaction=$(build_versioned_transaction "$SERIALIZED_JSON_BASE64")
+  echo "$versioned_transaction" | convert_json_to_bin \
+        "$VERSION_WRAPPER_PROTO" \
+        "com.digitalasset.canton.version.v1.UntypedVersionedMessage"
+}
+# [end json_to_serialized_versioned_message fn]
 
 # Build a JSON request to list namespace delegations
 # Arguments:
@@ -286,47 +357,3 @@ build_list_namespace_delegations_request() {
 EOF
 }
 # [end list_namespace_delegations fn]
-
-# [start make_rpc_call fn]
-# Make an RPC call with the given request.
-# Arguments:
-#   $1 - JSON request string
-#   $2 - RPC endpoint URL
-make_rpc_call() {
-  local request=$1
-  local rpc=$2
-  echo -n "$request" | buf curl --protocol grpc --http2-prior-knowledge -d @- "$rpc" 2>&1
-}
-# [end make_rpc_call fn]
-
-# Handle RPC errors by extracting and decoding error details if available
-# Arguments:
-#   $1 - JSON response from RPC call
-# [start handle_rpc_error fn]
-handle_rpc_error() {
-  local response="$1"
-  local details
-  local type
-
-  echo "Request failed"
-  # Extract the first element from the details field using jq
-  details=$(echo "$response" | jq -r '.details[0].value // empty')
-  type=$(echo "$response" | jq -r '.details[0].type // empty')
-
-  if [ -n "$details" ] && [ "$type" = "google.rpc.ErrorInfo" ]; then
-    # Decode the base64 value and save it to a file
-    echo "$details" | base64 -d > error_info.bin
-
-    # Download the error info proto if it doesn't exist
-    if [ ! -f "google/rpc/error_details.proto" ]; then
-      mkdir -p "google/rpc"
-      curl -s "https://raw.githubusercontent.com/googleapis/googleapis/9415ba048aa587b1b2df2b96fc00aa009c831597/google/rpc/error_details.proto" -o "google/rpc/error_details.proto"
-    fi
-
-    # Deserialize the protobuf message using buf convert
-    buf convert google/rpc/error_details.proto --from error_info.bin --to - --type google.rpc.ErrorInfo | jq .
-  else
-    echo "No details available in the response or type is not google.rpc.ErrorInfo."
-  fi
-}
-# [end handle_rpc_error fn]

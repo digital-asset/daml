@@ -526,7 +526,11 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     )
   }
 
-  def testJitterBackoff(name: String, algoCreator: FiniteDuration => Jitter): Unit = {
+  trait AlgoCreator {
+    def apply(cap: FiniteDuration): Jitter
+  }
+
+  def testJitterBackoff(name: String, algoCreator: AlgoCreator): Unit = {
     describe(s"retry.JitterBackoff.$name") {
 
       testUnexpectedException(
@@ -537,12 +541,12 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           initialDelay = 30.millis,
           maxDelay = Duration.Inf,
           operationName = "backoff-unexpected-exception-op",
-        )(algoCreator(10.millis))
+        )(algoCreator(cap = 10.millis))
       )
 
       it("should retry a future for a specified number of times") {
         implicit val success: Success[Int] = Success(_ == 3)
-        implicit val algo: Jitter = algoCreator(10.millis)
+        implicit val algo: Jitter = algoCreator(cap = 10.millis)
         val tries = forwardCountingFutureStream().iterator
         val policy = Backoff(
           logger,
@@ -558,7 +562,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       }
 
       it("should fail when expected") {
-        implicit val algo: Jitter = algoCreator(10.millis)
+        implicit val algo: Jitter = algoCreator(cap = 10.millis)
         val success = implicitly[Success[Option[Int]]]
         val tries = Future(None: Option[Int])
         val policy =
@@ -577,7 +581,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       it("should deal with future failures") {
         implicit val success: Success[Any] = Success.always
-        implicit val algo: Jitter = algoCreator(10.millis)
+        implicit val algo: Jitter = algoCreator(cap = 10.millis)
         val policy =
           Backoff(
             logger,
@@ -600,7 +604,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       it("should retry futures passed by-name instead of caching results") {
         implicit val success: Success[Any] = Success.always
-        implicit val algo: Jitter = algoCreator(10.millis)
+        implicit val algo: Jitter = algoCreator(cap = 10.millis)
         val counter = new AtomicInteger()
         val policy =
           Backoff(
@@ -623,7 +627,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       it("should pause with multiplier and jitter between retries") {
         implicit val success: Success[Int] = Success(_ == 2)
-        implicit val algo: Jitter = algoCreator(1000.millis)
+        implicit val algo: Jitter = algoCreator(cap = 1000.millis)
         val tries = forwardCountingFutureStream().iterator
         val policy = Backoff(
           logger,
@@ -652,7 +656,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       it("should also work when invoked as forever") {
         implicit val success: Success[Int] = Success(_ == 5)
-        implicit val algo: Jitter = algoCreator(50.millis)
+        implicit val algo: Jitter = algoCreator(cap = 50.millis)
         val tries = forwardCountingFutureStream().iterator
         val policy =
           Backoff(
@@ -663,8 +667,8 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
             maxDelay = Duration.Inf,
             operationName = "backoff-as-forever-op",
           )
-        val marker_base = System.currentTimeMillis
         val marker = new AtomicLong(0)
+        val marker_base = System.currentTimeMillis
 
         policy(
           {
@@ -672,17 +676,18 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           },
           AllExceptionRetryPolicy,
         ).map { result =>
-          val delta = marker.get() - marker_base
+          val delta =
+            marker.get() - marker_base // The actual delay is async task scheduling-sensitive
           assert(
             success.predicate(result) === true &&
-              delta >= 0 && delta <= 1_500
+              delta >= 0 && delta <= 2_000
           )
         }
       }
 
       it("should repeat on unexpected value with jitter backoff until success") {
         implicit val success: Success[Boolean] = Success(identity)
-        implicit val algo: Jitter = algoCreator(10.millis)
+        implicit val algo: Jitter = algoCreator(cap = 10.millis)
         val retried = new AtomicInteger()
         val retriedUntilSuccess = 10
 
@@ -710,10 +715,10 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     }
   }
 
-  testJitterBackoff("none", t => Jitter.none(t))
-  testJitterBackoff("full", t => Jitter.full(t, random = randomSource))
-  testJitterBackoff("equal", t => Jitter.equal(t, random = randomSource))
-  testJitterBackoff("decorrelated", t => Jitter.decorrelated(t, random = randomSource))
+  testJitterBackoff("none", t => Jitter.none(cap = t))
+  testJitterBackoff("full", t => Jitter.full(cap = t, random = randomSource))
+  testJitterBackoff("equal", t => Jitter.equal(cap = t, random = randomSource))
+  testJitterBackoff("decorrelated", t => Jitter.decorrelated(cap = t, random = randomSource))
 
   describe("retry.When") {
 

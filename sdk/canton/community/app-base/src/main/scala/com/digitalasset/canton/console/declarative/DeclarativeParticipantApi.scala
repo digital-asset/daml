@@ -6,7 +6,6 @@ package com.digitalasset.canton.console.declarative
 import cats.implicits.{catsSyntaxOptionId, toTraverseOps}
 import cats.syntax.either.*
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfig
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.SynchronizerConnectivity.ListConnectedSynchronizers
 import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
@@ -16,26 +15,20 @@ import com.digitalasset.canton.admin.api.client.commands.{
 }
 import com.digitalasset.canton.admin.api.client.data.LedgerApiUser
 import com.digitalasset.canton.auth.CantonAdminToken
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ClientConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.GrpcAdminCommandRunner
 import com.digitalasset.canton.console.declarative.DeclarativeApi.UpdateResult
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api
-import com.digitalasset.canton.ledger.api.{IdentityProviderId, JwksUrl}
+import com.digitalasset.canton.ledger.api.IdentityProviderId
 import com.digitalasset.canton.lifecycle.{CloseContext, LifeCycle, RunOnClosing}
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.DeclarativeApiMetrics
-import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
-import com.digitalasset.canton.sequencing.{
-  GrpcSequencerConnection,
-  SequencerConnectionValidation,
-  SequencerConnections,
-  SubmissionRequestAmplification,
-}
+import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnectionValidation}
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.{
@@ -44,288 +37,26 @@ import com.digitalasset.canton.topology.transaction.{
   PartyToParticipant,
   TopologyChangeOp,
 }
-import com.digitalasset.canton.topology.{
-  Namespace,
-  ParticipantId,
-  PartyId,
-  SynchronizerId,
-  UniqueIdentifier,
-}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
+import com.digitalasset.canton.{SynchronizerAlias, config}
 import com.digitalasset.daml.lf.archive.DarParser
-import com.google.protobuf.ByteString
 import com.google.protobuf.field_mask.FieldMask
-import pureconfig.error.CannotConvert
 
 import java.io.{File, FileInputStream}
 import java.util.zip.ZipInputStream
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext
 
-/** Declarative participant config
-  *
-  * @param checkSelfConsistency
-  *   if set to true (default), then after every sync operation we'll check again if it really
-  *   succeeded
-  * @param fetchedDarDirectory
-  *   temporary directory to store the dars to
-  * @param dars
-  *   which dars should be uploaded
-  * @param parties
-  *   which parties should be allocated
-  * @param removeParties
-  *   if true, then any "excess party" found on the node will be deleted
-  * @param idps
-  *   which identity providers should be allocated
-  * @param removeIdps
-  *   if true, any excess idp found on the node will be deleted
-  * @param users
-  *   which users should be allocated
-  * @param removeUsers
-  *   if true, then any "excess user" found on the node will be deleted
-  * @param connections
-  *   which connections should be configured
-  * @param removeConnections
-  *   if true, then any excess connection will be disabled
-  */
-final case class DeclarativeParticipantConfig(
-    checkSelfConsistency: Boolean = true,
-    fetchedDarDirectory: File = new File("fetched-dars"),
-    dars: Seq[DeclarativeDarConfig] = Seq(),
-    parties: Seq[DeclarativePartyConfig] = Seq(),
-    removeParties: Boolean = false,
-    idps: Seq[DeclarativeIdpConfig] = Seq(),
-    removeIdps: Boolean = false,
-    users: Seq[DeclarativeUserConfig] = Seq(),
-    removeUsers: Boolean = false,
-    connections: Seq[DeclarativeConnectionConfig] = Seq(),
-    removeConnections: Boolean = false,
-)
-
-/** Declarative dar definition
-  *
-  * @param location
-  *   the path (or URL) to the dar or dar directory
-  * @param requestHeaders
-  *   optionally add additional request headers to download the dar
-  * @param expectedMainPackage
-  *   which package id should be expected as the main package
-  */
-final case class DeclarativeDarConfig(
-    location: String,
-    requestHeaders: Map[String, String] = Map(),
-    expectedMainPackage: Option[String] = None,
-)
-
-/** Declarative party definition
-  *
-  * @param id
-  *   the id of the party (can be prefix only which will be extended with the participant-suffix)
-  * @param synchronizers
-  *   if not empty, the party will be added to the selected synchronizers only, refered to by alias
-  * @param permission
-  *   the permission of the hosting participant
-  */
-final case class DeclarativePartyConfig(
-    party: String,
-    synchronizers: Seq[String] = Seq.empty,
-    permission: ParticipantPermission = ParticipantPermission.Submission,
-)
-
-/** Declarative user rights definition
-  *
-  * @param actAs
-  *   the name of the parties the user can act as. parties must exist. if they don't contain a
-  *   namespace, then the participants namespace will be used
-  * @param readAs
-  *   the name of the parties the user can read as.
-  * @param readAsAnyParty
-  *   if true then the user can read as any party
-  * @param participantAdmin
-  *   if true then the user can act as a participant admin
-  * @param identityProviderAdmin
-  *   if true, then the user can act as an identity provider admin
-  */
-final case class DeclarativeUserRightsConfig(
-    actAs: Set[String] = Set(),
-    readAs: Set[String] = Set(),
-    readAsAnyParty: Boolean = false,
-    participantAdmin: Boolean = false,
-    identityProviderAdmin: Boolean = false,
-)
-
-/** Declarative Idp config
-  */
-final case class DeclarativeIdpConfig(
-    identityProviderId: String,
-    isDeactivated: Boolean = false,
-    jwksUrl: String,
-    issuer: String,
-    audience: Option[String] = None,
-) {
-  // TODO(#25043) move to config validation
-  def apiIdentityProviderId: IdentityProviderId.Id =
-    IdentityProviderId.Id.assertFromString(identityProviderId)
-  def apiJwksUrl: JwksUrl = JwksUrl.assertFromString(jwksUrl)
-
-}
-
-/** Declaratively control users
-  *
-  * @param user
-  *   the user id
-  * @param primaryParty
-  *   the primary party that should be used for the user
-  * @param isDeactivated
-  *   if true then the user is deactivatedd
-  * @param annotations
-  *   a property bag of annotations that can be stored alongside the user
-  * @param identityProviderId
-  *   the idp of the given user
-  * @param rights
-  *   the rights granted to the party
-  */
-final case class DeclarativeUserConfig(
-    user: String,
-    primaryParty: Option[String] = None,
-    isDeactivated: Boolean = false,
-    annotations: Map[String, String] = Map.empty,
-    identityProviderId: String = "",
-    rights: DeclarativeUserRightsConfig = DeclarativeUserRightsConfig(),
-)(val resourceVersion: String = "") {
-
-  /** map party names to namespace and filter out parties that are not yet registered
-    *
-    * the ledger api server needs to know the parties that we add to a user. that requires a
-    * synchronizer connection. therefore, we filter here the parties that are not yet registered as
-    * otherwise the ledger api server will throw errors
-    */
-  def mapPartiesToNamespace(
-      namespace: Namespace,
-      filterParty: String => Boolean,
-  ): DeclarativeUserConfig = {
-    def mapParty(party: String): String =
-      if (party.contains(UniqueIdentifier.delimiter)) party
-      else
-        UniqueIdentifier.tryCreate(party, namespace).toProtoPrimitive
-    copy(
-      primaryParty = primaryParty.map(mapParty).filter(filterParty),
-      rights = rights.copy(
-        actAs = rights.actAs.map(mapParty).filter(filterParty),
-        readAs = rights.readAs.map(mapParty).filter(filterParty),
-      ),
-    )(resourceVersion)
-  }
-
-  def needsUserChange(other: DeclarativeUserConfig): Boolean =
-    primaryParty != other.primaryParty || isDeactivated != other.isDeactivated || annotations != other.annotations
-
-}
-
-/** Declaratively define sequencer endpoints
-  *
-  * @param endpoints
-  *   the list of endpoints for the given sequencer. all endpoints must be of the same sequencer
-  *   (same-id)
-  * @param transportSecurity
-  *   if true then TLS will be used
-  * @param customTrustCertificates
-  *   if the TLS certificate used cannot be validated against the JVMs trust store, then a trust
-  *   store can be provided
-  */
-final case class DeclarativeSequencerConnectionConfig(
-    endpoints: NonEmpty[Seq[Endpoint]],
-    transportSecurity: Boolean = false,
-    customTrustCertificates: Option[File] = None,
-)(customTrustCertificatesFromNode: Option[ByteString] = None) {
-  def customTrustCertificatesAsByteString: Either[String, Option[ByteString]] =
-    customTrustCertificates
-      .traverse(x => BinaryFileUtil.readByteStringFromFile(x.getPath))
-      .map(_.orElse(customTrustCertificatesFromNode))
-
-  def isEquivalent(other: DeclarativeSequencerConnectionConfig): Boolean =
-    endpoints == other.endpoints && transportSecurity == other.transportSecurity && customTrustCertificatesAsByteString == other.customTrustCertificatesAsByteString
-
-}
-
-/** Declarative synchronizer connection configuration
-  *
-  * @param synchronizerAlias
-  *   the alias to refer to this connection
-  * @param connections
-  *   the list of sequencers with endpoints
-  * @param manualConnect
-  *   if true then the connection should be manual and require explicitly operator action
-  * @param priority
-  *   sets the priority of the connection. if a transaction can be sent to several synchronizers, it
-  *   will use the one with the highest priority
-  * @param initializeFromTrustedSynchronizer
-  *   if true then the participant assumes that the synchronizer trust certificate of the
-  *   participant is already issued
-  * @param trustThreshold
-  *   from how many sequencers does the node have to receive a notification to trust that it was
-  *   really observed
-  */
-final case class DeclarativeConnectionConfig(
-    synchronizerAlias: SynchronizerAlias,
-    connections: NonEmpty[Map[String, DeclarativeSequencerConnectionConfig]],
-    manualConnect: Boolean = false,
-    priority: Int = 0,
-    initializeFromTrustedSynchronizer: Boolean = false,
-    trustThreshold: PositiveInt = PositiveInt.one,
-) {
-
-  def isEquivalent(other: DeclarativeConnectionConfig): Boolean = {
-    val areConnectionsEquivalent = connections.keySet == other.connections.keySet &&
-      connections.forall { case (name, conn) =>
-        other.connections.get(name).exists(_.isEquivalent(conn))
-      }
-
-    if (areConnectionsEquivalent)
-      this.copy(connections = other.connections) == other
-    else false
-  }
-
-  def toSynchronizerConnectionConfig: Either[String, SynchronizerConnectionConfig] = {
-    val sequencerConnectionsE = SequencerConnections
-      .many(
-        connections = connections.map { case (alias, conn) =>
-          GrpcSequencerConnection(
-            endpoints = conn.endpoints,
-            transportSecurity = conn.transportSecurity,
-            sequencerAlias = SequencerAlias.tryCreate(alias),
-            customTrustCertificates = conn.customTrustCertificatesAsByteString.toOption.flatten,
-          )
-        }.toSeq,
-        sequencerTrustThreshold = trustThreshold,
-        submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
-      )
-
-    sequencerConnectionsE.map { sequencerConnections =>
-      SynchronizerConnectionConfig(
-        synchronizerAlias = synchronizerAlias,
-        sequencerConnections = sequencerConnections,
-        manualConnect = manualConnect,
-        priority = priority,
-        initializeFromTrustedSynchronizer = initializeFromTrustedSynchronizer,
-      )
-    }
-
-  }
-
-}
-
 class DeclarativeParticipantApi(
-    val name: String,
+    override val name: String,
     ledgerApiConfig: ClientConfig,
     adminApiConfig: ClientConfig,
     override val consistencyTimeout: config.NonNegativeDuration,
     adminToken: => Option[CantonAdminToken],
     runnerFactory: String => GrpcAdminCommandRunner,
     val closeContext: CloseContext,
-    val file: File,
     val metrics: DeclarativeApiMetrics,
     val loggerFactory: NamedLoggerFactory,
 )(implicit val executionContext: ExecutionContext)
@@ -366,11 +97,6 @@ class DeclarativeParticipantApi(
       command: GrpcAdminCommand[_, _, Result]
   )(implicit traceContext: TraceContext): Either[String, Result] =
     queryApi(ledgerApiRunner, ledgerApiConfig, command)
-
-  override protected def readConfig(
-      file: File
-  )(implicit traceContext: TraceContext): Either[String, DeclarativeParticipantConfig] =
-    DeclarativeParticipantApi.readConfig(file)
 
   override protected def prepare(config: DeclarativeParticipantConfig)(implicit
       traceContext: TraceContext
@@ -535,23 +261,26 @@ class DeclarativeParticipantApi(
                 .map(_.permission)
               maybePermission
                 .map(permission =>
-                  ((party2Participant.item.partyId.uid, synchronizerId), permission)
+                  (
+                    (party2Participant.item.partyId.uid, synchronizerId),
+                    ParticipantPermissionConfig.fromInternal(permission),
+                  )
                 )
                 .toList
             })
           }
 
-        run[(UniqueIdentifier, SynchronizerId), ParticipantPermission](
+        run[(UniqueIdentifier, SynchronizerId), ParticipantPermissionConfig](
           "party",
           removeParties,
           checkSelfConsistency,
           want = wanted,
           fetch = _ => fetchAll(),
           add = { case ((uid, synchronizerId), permission) =>
-            createTopologyTx(uid, synchronizerId, permission)
+            createTopologyTx(uid, synchronizerId, permission.toNative)
           },
           upd = { case ((uid, synchronizerId), wantPermission, _) =>
-            createTopologyTx(uid, synchronizerId, wantPermission)
+            createTopologyTx(uid, synchronizerId, wantPermission.toNative)
           },
           rm = { case ((u, s), current) => removeParty(u, s) },
           await = Some(awaitLedgerApiServer),
@@ -802,7 +531,7 @@ class DeclarativeParticipantApi(
       (
         config.synchronizerAlias,
         DeclarativeConnectionConfig(
-          synchronizerAlias = config.synchronizerAlias,
+          synchronizerAlias = config.synchronizerAlias.unwrap,
           connections = config.sequencerConnections.aliasToConnection.map {
             case (alias, connection: GrpcSequencerConnection) =>
               (
@@ -877,7 +606,7 @@ class DeclarativeParticipantApi(
       "connections",
       removeExcess = removeConnections,
       checkSelfConsistent = checkSelfConsistent,
-      want = connections.map(c => (c.synchronizerAlias, c)),
+      want = connections.map(c => (SynchronizerAlias.tryCreate(c.synchronizerAlias), c)),
       fetch = _ => fetchConnections(),
       add = { case (_, config) => add(config) },
       upd = { case (_, config, existing) =>
@@ -1037,66 +766,6 @@ class DeclarativeParticipantApi(
       rm = (_, _) => Either.unit, // not implemented in canton yet
       onlyCheckKeys = true,
     )
-
-  }
-
-}
-
-object DeclarativeParticipantApi {
-
-  def readConfig(
-      file: File
-  )(implicit
-      errorLoggingContext: ErrorLoggingContext
-  ): Either[String, DeclarativeParticipantConfig] = {
-    import DeclarativeParticipantApi.Readers.*
-    DeclarativeApi.readConfigImpl[DeclarativeParticipantConfig](file, "participant-state")
-  }
-
-  object Readers {
-    import com.daml.nonempty.NonEmptyUtil.instances.*
-    import pureconfig.ConfigReader
-    import pureconfig.generic.semiauto.*
-    // import canton config to include the implicit that prevents unknown keys
-
-    implicit val synchronizerAliasReader: ConfigReader[SynchronizerAlias] =
-      ConfigReader[String255].map(SynchronizerAlias(_))
-
-    implicit val declarativeParticipantConfigReader: ConfigReader[DeclarativeParticipantConfig] = {
-      implicit val darConfigReader: ConfigReader[DeclarativeDarConfig] =
-        deriveReader[DeclarativeDarConfig]
-
-      implicit val permissionReader: ConfigReader[ParticipantPermission] =
-        ConfigReader.fromString[ParticipantPermission] { str =>
-          str.toUpperCase match {
-            case "CONFIRMATION" => Right(ParticipantPermission.Confirmation)
-            case "SUBMISSION" => Right(ParticipantPermission.Submission)
-            case "OBSERVATION" => Right(ParticipantPermission.Observation)
-            case other =>
-              Left(CannotConvert(str, "ParticipantPermission", "Not a valid permission"))
-          }
-        }
-
-      implicit val partyConfigReader: ConfigReader[DeclarativePartyConfig] =
-        deriveReader[DeclarativePartyConfig]
-      implicit val rightsConfigReader: ConfigReader[DeclarativeUserRightsConfig] =
-        deriveReader[DeclarativeUserRightsConfig]
-      implicit val userConfigReader: ConfigReader[DeclarativeUserConfig] =
-        deriveReader[DeclarativeUserConfig]
-      implicit val endpointReader: ConfigReader[Endpoint] = deriveReader[Endpoint]
-      implicit val sequencerConnectionConfigReader
-          : ConfigReader[DeclarativeSequencerConnectionConfig] =
-        deriveReader[DeclarativeSequencerConnectionConfig].emap { parsed =>
-          parsed.customTrustCertificatesAsByteString
-            .leftMap(err => CannotConvert(parsed.customTrustCertificates.toString, "bytes", err))
-            .map(_ => parsed)
-        }
-      implicit val idpConfigReader: ConfigReader[DeclarativeIdpConfig] =
-        deriveReader[DeclarativeIdpConfig]
-      implicit val connectionConfigReader: ConfigReader[DeclarativeConnectionConfig] =
-        deriveReader[DeclarativeConnectionConfig]
-      deriveReader[DeclarativeParticipantConfig]
-    }
 
   }
 

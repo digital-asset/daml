@@ -10,6 +10,7 @@ import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.MetricHandle.Gauge.CloseableGauge
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
@@ -292,13 +293,12 @@ abstract class CantonNodeBootstrapImpl[
     nextStage(startupStage).flatMap(_.waitingFor)
   }
 
-  protected def registerHealthGauge(): Unit =
+  protected def registerHealthGauge(): CloseableGauge =
     arguments.metrics.healthMetrics
       .registerHealthGauge(
         name.toProtoPrimitive,
         () => getNode.exists(_.status.active),
       )
-      .discard // we still want to report the health even if the node is closed
 
   protected def mkNodeHealthService(
       storage: Storage
@@ -418,7 +418,7 @@ abstract class CantonNodeBootstrapImpl[
               .value
           )
         ).map { storage =>
-          registerHealthGauge()
+          addCloseable(registerHealthGauge())
           // init health services once
           val (healthService, livenessService) = mkNodeHealthService(storage)
           addCloseable(healthService)

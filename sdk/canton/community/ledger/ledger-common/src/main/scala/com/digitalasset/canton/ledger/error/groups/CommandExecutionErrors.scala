@@ -1041,14 +1041,14 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
   }
 
   @Explanation(
-    "A package-name required in command interpretation was discarded in topology-aware package selection."
+    "A package-name required in command interpretation was discarded in topology-aware package selection due to vetting topology restrictions."
   )
   @Resolution(
     "Revisit the command submission and ensure it conforms with the vetted topology state of the submitters and informees."
   )
-  object PackageNameDiscarded
+  object PackageNameDiscardedDueToUnvettedPackages
       extends ErrorCode(
-        id = "PACKAGE_NAME_DISCARDED",
+        id = "PACKAGE_NAME_DISCARDED_DUE_TO_UNVETTED_PACKAGES",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
 
@@ -1059,8 +1059,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            // TODO(#23334): Improve error reporting for package-name discarded errors
-            s"Command interpretation failed due to the required $pkgName being discarded in package selection: $reference."
+            s"Command interpretation failed: No packages with valid vetting exist that conform to topology restrictions for $pkgName, encountered in $reference."
         )
   }
 }

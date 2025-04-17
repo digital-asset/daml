@@ -4,7 +4,7 @@
 package com.digitalasset.canton.auth
 
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton.auth.AuthorizationInterceptor.PassThroughAuthorizer
+import com.digitalasset.canton.auth.AuthInterceptor.PassThroughAuthorizer
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
   LoggingContextWithTrace,
@@ -19,7 +19,7 @@ import scala.util.{Failure, Success, Try}
 /** This interceptor uses the given [[AuthService]] to get [[ClaimSet.Claims]] for the current
   * request, and then stores them in the current [[io.grpc.Context]].
   */
-class AuthorizationInterceptor(
+class AuthInterceptor(
     authServices: Seq[AuthService],
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
@@ -72,7 +72,7 @@ class AuthorizationInterceptor(
               .asGrpcError
             closeWithError(error)
           case Success(claimSet) =>
-            val nextCtx = prevCtx.withValue(AuthorizationInterceptor.contextKeyClaimSet, claimSet)
+            val nextCtx = prevCtx.withValue(AuthInterceptor.contextKeyClaimSet, claimSet)
             // Contexts.interceptCall() creates a listener that wraps all methods of `nextListener`
             // such that `Context.current` returns `nextCtx`.
             val nextListenerWithContext =
@@ -98,12 +98,12 @@ class AuthorizationInterceptor(
       }
 }
 
-object AuthorizationInterceptor {
+object AuthInterceptor {
 
   val contextKeyClaimSet: Context.Key[ClaimSet] = Context.key[ClaimSet]("AuthServiceDecodedClaim")
 
   def extractClaimSetFromContext(): Try[ClaimSet] = {
-    val claimSet = AuthorizationInterceptor.contextKeyClaimSet.get()
+    val claimSet = AuthInterceptor.contextKeyClaimSet.get()
     if (claimSet == null)
       Failure(
         new RuntimeException(
