@@ -9,8 +9,6 @@ if [[ $(uname -m) == 'x86_64' ]]; then
 else
   CPU_ARCH="$(uname -m)"
 fi
-[[ ! -d "${HOME}/bin" ]] && mkdir -pv "${HOME}/bin"
-export PATH="${HOME}/bin:$PATH"
 
 gcloud auth configure-docker europe-docker.pkg.dev
 [[ ! -d "${HOME}/.unifi/bin" ]] && mkdir -pv "${HOME}/.unifi/bin"
