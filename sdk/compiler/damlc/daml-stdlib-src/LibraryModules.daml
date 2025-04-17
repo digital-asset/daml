@@ -3,7 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE NoImplicitPrelude #-}
-{-# OPTIONS -Wno-unused-imports -Wno-deprecations #-}
+{-# OPTIONS -Wno-unused-imports -Wno-deprecations -Wno-x-crypto #-}
 
 -- | HIDE
 module LibraryModules where

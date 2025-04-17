@@ -750,6 +750,7 @@ tests TestArgs{..} =
               , "import DA.Record"
               , "import DA.Validation"
               , "import DA.TextMap"
+              , "import DA.Fail"
               -- test typeclass export
               , "class Foo t where"
               , "  foo : Int -> t"
@@ -843,6 +844,7 @@ tests TestArgs{..} =
               , "import A"
               , "import DA.Assert"
               , "import DA.Record"
+              , "import DA.Fail"
               , ""
               , "data T = T Int"
               -- test instances for imported typeclass
