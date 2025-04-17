@@ -119,6 +119,8 @@ object FatContractInstance {
       cantonData = cantonData,
     )
 
+  // TOTO https://github.com/DACH-NY/canton/issues/24843
+  //  drop when canton produce proper FatContract
   private[this] val DummyCid = Value.ContractId.V1.assertFromString("00" + "00" * 32)
   private[this] val DummyParties = TreeSet(Ref.Party.assertFromString("DummyParty"))
 
