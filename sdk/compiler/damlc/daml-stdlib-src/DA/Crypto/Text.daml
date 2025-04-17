@@ -8,7 +8,7 @@
 -- | Functions for working with Crypto builtins.
 -- For example, as used to implement CCTP functionality.
 module DA.Crypto.Text
-  {-# WARNING in "x-crypto" ["DA.Crypto.Text is an alpha feature. It can change without notice.", "use --ghc-option=-Wno-x-crypto in build-options to disable this warning"] #-}
+  {-# WARNING in "x-crypto" ["DA.Crypto.Text is an alpha feature. It can change without notice.", "use -Wno-crypto-text-is-alpha in build-options to disable this warning"] #-}
   (keccak256
   , secp256k1
   , HasToHex(..)
