@@ -241,13 +241,13 @@ da_scala_library(
     ],
 )
 
-### community/util-logging ###
+### community/util-observability ###
 
 da_scala_library(
     name = "community_util-observability",
     srcs = glob(["community/util-observability/src/main/**/*.scala"]),
     override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
-    tags = ["maven_coordinates=com.daml:canton-community-util-logging:__VERSION__"],
+    tags = ["maven_coordinates=com.daml:canton-community-util-observability:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-lf/validation:__subpackages__",
