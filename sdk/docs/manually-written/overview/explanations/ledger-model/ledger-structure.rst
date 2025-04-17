@@ -1,10 +1,25 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+   
+
+   
 .. _ledger-structure:
 
 Structure
 #########
+
+.. note::
+   * Switch to DAG structure
+
+   * Define our eUTXO model (introduce contract ID vs. contract)
+     
+   * Unassign vs. Assign (necessary for reassignment counter?)
+
+   * Remove NoSuchKey stuff (doesn't make sense with non-unique contract keys)
+
+   
+
 
 This section looks at the structure of a Daml ledger and the associated ledger
 changes. The basic building blocks of changes are *actions*, which get grouped

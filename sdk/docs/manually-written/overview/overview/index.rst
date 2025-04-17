@@ -1,14 +1,26 @@
+.. Called introduction here because an "Overview" chapter inside the "Overview" subsite is confusing
+
 Introduction
 ============
 
 High level introduction (generally the teaser text on the product site)
 
 
-Briefly intro foundation of the Canton Network,  Applications and usecases first - phrased as the problem that is solved here.
-Introduce type of members, multi-party apps, global sync, canton, very briefly daml.
+Briefly intro
 
-Introduce how DA's offering fits into all this (Unifi is the enterprise platform built for all enterprises navigating the canton network),
+* foundation of the Canton Network
+
+* Applications and usecases first - phrased as the problem that is solved here.
+
+* Introduce type of members, multi-party apps, global sync, canton, very briefly daml.
+
+* Introduce how DA's offering fits into all this (Unifi is the enterprise platform built for all enterprises navigating the canton network),
 consisting of ready made solutions and services down to the infrastructure.
+
+
+
+
+
 
 diagrams of
 
@@ -17,4 +29,5 @@ diagrams of
   * node infrastructure
   * network infrastructure
 * explaining how things fit into the larger picture
+
 
