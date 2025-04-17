@@ -178,7 +178,14 @@ Functions
 `allocatePartyWithHint <function-daml-script-internal-questions-partymanagement-allocatepartywithhint-96426_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given display name and id hint
+  Deprecated
+
+.. _function-daml-script-internal-questions-partymanagement-allocatepartybyhint-55067:
+
+`allocatePartyByHint <function-daml-script-internal-questions-partymanagement-allocatepartybyhint-55067_>`_
+  \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+
+  Allocate a party with the given id hint
   using the party management service\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartyon-59020:
@@ -194,7 +201,14 @@ Functions
 `allocatePartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatepartywithhinton-11859_>`_
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given display name and id hint
+  Deprecated
+
+.. _function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218:
+
+`allocatePartyByHintOn <function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218_>`_
+  \: `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+
+  Allocate a party with the given id hint
   on the specified participant using the party management service\.
 
 .. _function-daml-script-internal-questions-partymanagement-listknownparties-55540:

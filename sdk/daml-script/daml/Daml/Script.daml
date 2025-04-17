@@ -49,8 +49,10 @@ module Daml.Script
   , PartyDetails(..)
   , allocateParty
   , allocatePartyWithHint
+  , allocatePartyByHint
   , allocatePartyOn
   , allocatePartyWithHintOn
+  , allocatePartyByHintOn
   , listKnownParties
   , listKnownPartiesOn
   , Commands
