@@ -88,7 +88,7 @@ package object protocol {
   type LfLeafOnlyActionNode = Node.LeafOnlyAction
 
   /** Shorthand for contract instances. */
-  type LfContractInst = Value.VersionedContractInstance
+  type LfContractInst = Value.VersionedThinContractInstance
   val LfContractInst: Value.VersionedContractInstance.type = Value.VersionedContractInstance
 
   type LfHash = Hash
