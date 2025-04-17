@@ -439,7 +439,30 @@ object ScriptF {
         participant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
       }
-
+  }
+  final case class ReplicateParty(
+      party: Party,
+      participant: Participant,
+  ) extends Cmd {
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      for {
+        toClient <- env.clients.getParticipant(Some(participant)) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        _ <- toClient.importParty(party)
+        fromClient <- env.clients.getPartiesParticipant(OneAnd(party, Set.empty)) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        _ <- fromClient.exportParty(party, toClient.getParticipantUid)
+      } yield {
+        SEValue(SUnit)
+      }
   }
   final case class ListKnownParties(
       participant: Option[Participant]
@@ -988,6 +1011,15 @@ object ScriptF {
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
+  private def parseReplicateParty(v: SValue): Either[String, ReplicateParty] =
+    v match {
+      case SRecord(_, _, ArrayList(party, SText(participantName))) =>
+        for {
+          party <- Converter.toParty(party)
+        } yield ReplicateParty(party, Participant(participantName))
+      case _ => Left(s"Expected ReplicateParty payload but got $v")
+    }
+
   private def parseListKnownParties(v: SValue): Either[String, ListKnownParties] =
     v match {
       case SRecord(_, _, ArrayList(participantName)) =>
@@ -1190,6 +1222,7 @@ object ScriptF {
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
       case ("QueryContractKey", 1) => parseQueryContractKey(v)
       case ("AllocateParty", 1) => parseAllocParty(v)
+      case ("ReplicateParty", 1) => parseReplicateParty(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)
       case ("GetTime", 1) => parseEmpty(GetTime())(v)
       case ("SetTime", 1) => parseSetTime(v)

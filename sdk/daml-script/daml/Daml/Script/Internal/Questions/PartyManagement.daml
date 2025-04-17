@@ -12,6 +12,12 @@ data AllocateParty = AllocateParty with
   participant : Optional Text
 instance IsQuestion AllocateParty Party where command = "AllocateParty"
 
+data ReplicateParty = ReplicateParty with
+  party : Party
+  participant : Text
+instance IsQuestion ReplicateParty () where command = "ReplicateParty"
+
+
 -- | A hint to the backing participant what party id to allocate.
 -- Must be a valid PartyIdString (as described in @value.proto@).
 newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
@@ -43,6 +49,11 @@ allocatePartyWithHintOn requestedName (PartyIdHint idHint) (ParticipantName part
   requestedName = requestedName
   idHint = idHint
   participant = Some participant
+
+replicateParty : HasCallStack => Party -> ParticipantName -> Script ()
+replicateParty party (ParticipantName participant) = lift $ ReplicateParty with
+  party = party
+  participant = participant
 
 -- | The party details returned by the party management service.
 data PartyDetails = PartyDetails

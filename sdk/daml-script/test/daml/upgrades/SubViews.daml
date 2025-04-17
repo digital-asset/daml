@@ -188,11 +188,13 @@ main = tests
   ]
 
 works = test do
-  p1 <- allocateParty "p1"
-  p2 <- allocateParty "p2"
-  p3 <- allocateParty "p3"
-  p4 <- allocateParty "p4"
-  p5 <- allocateParty "p5"
+  p1 <- allocatePartyOn "p1" participant0
+  p2 <- allocatePartyOn "p2" participant1
+  p3 <- allocatePartyOn "p3" participant2
+  replicateParty p3 participant0
+  p4 <- allocatePartyOn "p4" participant3
+  p5 <- allocatePartyOn "p5" participant4
+  replicateParty p5 participant0
 
   top <- submit p1 (createCmd Top { party = p1 })
   top1 <- toInterfaceContractId @I1 <$> submit p1 (createCmd Top1 { sig = p1, obs = p2 })

@@ -21,6 +21,7 @@ module Daml.Script.Internal
   , unsafeUnvetPackages
   , unvetPackages
   , unvetPackagesOnParticipant
+  , replicateParty
 
 
   , -- Concurrent submit
