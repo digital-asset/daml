@@ -223,11 +223,19 @@ private[lf] object Speedy {
     ): Control[Question.Update] = {
       Control.Question(
         Question.Update.NeedTime { time =>
-          setDependsOnTime(time)
           safelyContinue(
             NameOf.qualifiedNameOfCurrentFunc,
-            "NeedTime",
-            continue(time),
+            "NeedTime", {
+              require(
+                timeBoundaries.min <= time && time <= timeBoundaries.max,
+                s"NeedTime pre-condition failed: time $time lies outside time boundaries $timeBoundaries",
+              )
+
+              continue(time).ensuring(
+                timeBoundaries.min <= time && time <= timeBoundaries.max,
+                s"NeedTime post-condition failed: time $time lies outside time boundaries $timeBoundaries",
+              )
+            },
           )
         }
       )
@@ -451,11 +459,11 @@ private[lf] object Speedy {
     private[speedy] def isDisclosedContract(contractId: V.ContractId): Boolean =
       disclosedContracts.isDefinedAt(contractId)
 
-    private[this] def setDependsOnTime(time: Time.Timestamp): Unit =
-      timeBoundaries = Time.Range(min = time, max = time)
-
     def getTimeBoundaries: Time.Range =
       timeBoundaries
+
+    private[speedy] def setTimeBoundaries(newTimeBoundaries: Time.Range): Unit =
+      timeBoundaries = newTimeBoundaries
 
     val visibleToStakeholders: Set[Party] => SVisibleToStakeholders =
       if (validating) { _ => SVisibleToStakeholders.Visible }
@@ -684,7 +692,7 @@ private[lf] object Speedy {
 
     private[speedy] var lastCommand: Option[Command] = None
 
-    def transactionTrace(maxLength: Int): String = {
+    def transactionTrace(numOfCmds: Int): String = {
       def prettyTypeId(typeId: TypeConName): String =
         s"${typeId.packageId.take(8)}:${typeId.qualifiedName}"
       def prettyCoid(coid: V.ContractId): String = coid.coid.take(10)
@@ -697,7 +705,7 @@ private[lf] object Speedy {
       val traceIterator = ptx.transactionTrace
 
       traceIterator
-        .take(maxLength)
+        .take(numOfCmds)
         .map { case (NodeId(nid), exe) =>
           val typeId = prettyTypeId(exe.interfaceId.getOrElse(exe.templateId))
           s"in choice $typeId:${exe.choiceId} on contract ${exe.targetCoid.coid.take(10)} (#$nid)"
@@ -721,7 +729,7 @@ private[lf] object Speedy {
           case Command.FetchTemplate(tmplId, coid) =>
             s"in fetch command ${prettyTypeId(tmplId)} on contract ${prettyCoid(coid.value)}."
           case Command.FetchInterface(ifaceId, coid) =>
-            s"in fecth-by-interface command ${prettyTypeId(ifaceId)} on contract ${prettyCoid(coid.value)}."
+            s"in fetch-by-interface command ${prettyTypeId(ifaceId)} on contract ${prettyCoid(coid.value)}."
           case Command.FetchByKey(tmplId, key) =>
             s"in fetch-by-key command ${prettyTypeId(tmplId)} on key ${prettyValue(key)}."
           case Command.CreateAndExercise(tmplId, _, choiceId, _) =>
