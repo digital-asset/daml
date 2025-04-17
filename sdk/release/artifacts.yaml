@@ -159,7 +159,7 @@
   type: jar-scala
 - target: //canton:community_ledger_ledger-common
   type: jar-scala
-- target: //canton:community_util-logging
+- target: //canton:community_util-observabilityg
   type: jar-scala
 - target: //canton:base_errors
   type: jar-scala
