@@ -21,13 +21,24 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : HasCallStack => Text -> Script Party
-allocateParty requestedName = allocatePartyWithHint requestedName (PartyIdHint "")
+allocateParty requestedName = lift $ AllocateParty with
+  requestedName = requestedName
+  idHint = ""
+  participant = None
 
--- | Allocate a party with the given display name and id hint
--- using the party management service.
+{-# DEPRECATED allocatePartyWithHint "Daml 3.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'" #-}
+-- | Deprecated
 allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
 allocatePartyWithHint requestedName (PartyIdHint idHint) = lift $ AllocateParty with
   requestedName = requestedName
+  idHint = idHint
+  participant = None
+
+-- | Allocate a party with the given id hint
+-- using the party management service.
+allocatePartyByHint : HasCallStack => PartyIdHint -> Script Party
+allocatePartyByHint (PartyIdHint idHint) = lift $ AllocateParty with
+  requestedName = ""
   idHint = idHint
   participant = None
 
@@ -36,11 +47,19 @@ allocatePartyWithHint requestedName (PartyIdHint idHint) = lift $ AllocateParty 
 allocatePartyOn : Text -> ParticipantName -> Script Party
 allocatePartyOn requestedName participantName = allocatePartyWithHintOn requestedName (PartyIdHint "") participantName
 
--- | Allocate a party with the given display name and id hint
--- on the specified participant using the party management service.
+{-# DEPRECATED allocatePartyWithHintOn "Daml 3.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'" #-}
+-- | Deprecated
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
 allocatePartyWithHintOn requestedName (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
   requestedName = requestedName
+  idHint = idHint
+  participant = Some participant
+
+-- | Allocate a party with the given id hint
+-- on the specified participant using the party management service.
+allocatePartyByHintOn : PartyIdHint -> ParticipantName -> Script Party
+allocatePartyByHintOn (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
+  requestedName = ""
   idHint = idHint
   participant = Some participant
 

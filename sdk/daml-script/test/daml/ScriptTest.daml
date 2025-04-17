@@ -193,8 +193,8 @@ sleepTest = do
 
 partyIdHintTest : Script (Party, Party)
 partyIdHintTest = do
-  carol <- allocatePartyWithHint "carol" (PartyIdHint "carol")
-  dan <- allocatePartyWithHint "dan" (PartyIdHint "dan")
+  carol <- allocatePartyByHint (PartyIdHint "carol")
+  dan <- allocatePartyByHint (PartyIdHint "dan")
   pure (carol, dan)
 
 listKnownPartiesTest : Script ([PartyDetails], Party)
@@ -253,7 +253,7 @@ jsonExpectedFailureCreateAndExercise p = submitMustFail p $ createAndExerciseCmd
 jsonAllocateParty : Text -> Script Party
 jsonAllocateParty p = do
   pre <- listKnownParties
-  r <- allocatePartyWithHint p (PartyIdHint p)
+  r <- allocatePartyByHint (PartyIdHint p)
   post <- listKnownParties
   sort (PartyDetails r True :: pre) === sort post
   pure r

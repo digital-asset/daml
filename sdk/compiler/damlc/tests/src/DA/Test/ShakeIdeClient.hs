@@ -1263,10 +1263,10 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
           , "      do fetch iouCid"
 
           , "test = script do"
-          , "  regulator <- allocatePartyWithHint \"Regulator\" (PartyIdHint \"Regulator\")"
-          , "  issuer <- allocatePartyWithHint \"Issuer\" (PartyIdHint \"Issuer\")"
-          , "  owner <- allocatePartyWithHint \"Owner\" (PartyIdHint \"Owner\")"
-          , "  spy <- allocatePartyWithHint \"Spy\" (PartyIdHint \"Spy\")"
+          , "  regulator <- allocatePartyByHint (PartyIdHint \"Regulator\")"
+          , "  issuer <- allocatePartyByHint (PartyIdHint \"Issuer\")"
+          , "  owner <- allocatePartyByHint (PartyIdHint \"Owner\")"
+          , "  spy <- allocatePartyByHint (PartyIdHint \"Spy\")"
           , "  iouIssuerCid <- submit regulator do createCmd IouIssuer with regulator; issuer"
           , "  iouCid <- submit issuer do exerciseCmd iouIssuerCid Issue with owner"
           , "  iouDivulgerCid <- submit spy do createCmd IouDivulger with sender = owner; receiver = spy"
@@ -1316,7 +1316,7 @@ scriptTests lfVersion mbScriptService scriptPackageData = Tasty.testGroup "Scrip
           , "         assert False"
 
           , "test = script do"
-          , "  p <- allocatePartyWithHint \"p\" (PartyIdHint \"p\")"
+          , "  p <- allocatePartyByHint (PartyIdHint \"p\")"
           , "  c <- submit p do createCmd T with p = p"
           , "  submit p $ do exerciseCmd c Fail"
           ]
