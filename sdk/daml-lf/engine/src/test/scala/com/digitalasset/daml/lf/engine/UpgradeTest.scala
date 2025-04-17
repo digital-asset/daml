@@ -15,7 +15,6 @@ import com.digitalasset.daml.lf.speedy.SExpr.SEImportValue
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
@@ -134,7 +133,7 @@ class UpgradeTest extends AnyFreeSpec with Matchers with ParallelTestExecution {
 
 object UpgradeTest {
 
-  val languageVersion: LanguageVersion =
+  val langVersion: LanguageVersion =
     LanguageVersion.StableVersions(LanguageMajorVersion.V2).max
 
   private[this] implicit def parserParameters(implicit
@@ -142,7 +141,7 @@ object UpgradeTest {
   ): ParserParameters[this.type] =
     ParserParameters(
       pkgId,
-      languageVersion = languageVersion,
+      languageVersion = langVersion,
     )
 
   // implicit conversions from strings to names and qualified names
@@ -1752,17 +1751,16 @@ object UpgradeTest {
     val clientContractId: ContractId = toContractId("client")
     val globalContractId: ContractId = toContractId("1")
 
-    val clientContract: VersionedContractInstance = assertAsVersionedContract(
-      ThinContractInstance(
-        clientPkg.pkgName,
-        clientTplId,
-        ValueRecord(
-          Some(clientTplId),
-          ImmArray(
-            Some("p": Name) -> ValueParty(alice)
-          ),
+    val clientContract: FatContractInstance = FatContractInstance.fromThinInstance(
+      langVersion,
+      clientPkg.pkgName,
+      clientTplId,
+      ValueRecord(
+        Some(clientTplId),
+        ImmArray(
+          Some("p": Name) -> ValueParty(alice)
         ),
-      )
+      ),
     )
 
     val globalContractArg: ValueRecord = ValueRecord(
@@ -1773,12 +1771,11 @@ object UpgradeTest {
       ).slowAppend(testCase.additionalCreateArgsValue(templateDefsV1PkgId)),
     )
 
-    val globalContract: VersionedContractInstance = assertAsVersionedContract(
-      ThinContractInstance(
-        templateDefsV1Pkg.pkgName,
-        v1TplId,
-        globalContractArg,
-      )
+    val globalContract: FatContractInstance = FatContractInstance.fromThinInstance(
+      langVersion,
+      templateDefsV1Pkg.pkgName,
+      v1TplId,
+      globalContractArg,
     )
 
     val globalContractv1Key: ValueRecord = ValueRecord(
@@ -1808,12 +1805,12 @@ object UpgradeTest {
     def normalize(value: Value, typ: Ast.Type): Value = {
       Machine.fromPureSExpr(compiledPackages, SEImportValue(typ, value)).runPure() match {
         case Left(err) => throw new RuntimeException(s"Normalization failed: $err")
-        case Right(sValue) => sValue.toNormalizedValue(languageVersion)
+        case Right(sValue) => sValue.toNormalizedValue(langVersion)
       }
     }
 
     val globalContractDisclosure: FatContractInstance = FatContractInstanceImpl(
-      version = languageVersion,
+      version = langVersion,
       contractId = globalContractId,
       packageName = templateDefsPkgName,
       templateId = v1TplId,

@@ -22,16 +22,18 @@ import com.digitalasset.daml.lf.ledger.FailedAuthorization.{
   CreateMissingAuthorization,
   ExerciseMissingAuthorization,
 }
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  SubmittedTransaction,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.transaction.Transaction.Metadata
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
-  ThinContractInstance,
   ValueContractId,
   ValueList,
   ValueParty,
   ValueRecord,
-  VersionedContractInstance,
 }
 import com.daml.logging.LoggingContext
 
@@ -73,33 +75,29 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
   }
 
-  private def t1InstanceFor(party: Party): VersionedContractInstance =
-    Versioned(
-      TransactionVersion.VDev,
-      ThinContractInstance(
-        pkg.pkgName,
-        "T1",
-        ValueRecord(
-          Some("T1"),
-          ImmArray((Some[Name]("party"), ValueParty(party))),
-        ),
+  private def t1InstanceFor(party: Party): FatContractInstance =
+    FatContractInstance.fromThinInstance(
+      version = TransactionVersion.VDev,
+      packageName = pkg.pkgName,
+      template = "T1",
+      arg = ValueRecord(
+        Some("T1"),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
     )
 
-  private def x1InstanceFor(party: Party): VersionedContractInstance =
-    Versioned(
+  private def x1InstanceFor(party: Party): FatContractInstance =
+    FatContractInstance.fromThinInstance(
       TransactionVersion.VDev,
-      ThinContractInstance(
-        pkg.pkgName,
-        "X1",
-        ValueRecord(
-          Some("X1"),
-          ImmArray((Some[Name]("party"), ValueParty(party))),
-        ),
+      pkg.pkgName,
+      "X1",
+      ValueRecord(
+        Some("X1"),
+        ImmArray((Some[Name]("party"), ValueParty(party))),
       ),
     )
 
-  private val defaultContracts: Map[ContractId, VersionedContractInstance] =
+  private val defaultContracts: Map[ContractId, FatContractInstance] =
     Map(
       toContractId("t1a") -> t1InstanceFor("Alice"),
       toContractId("t1b") -> t1InstanceFor("Bob"),

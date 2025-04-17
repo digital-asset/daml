@@ -2196,19 +2196,21 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def evalAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
 
   def evalOnLedger(
       e: Expr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
   ): Either[
     SError,
     (
@@ -2220,21 +2222,23 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalUpdateOnLedger(
       e: Expr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalUpdateAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
       .map(_._1)
 
   def evalUpdateOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
   ): Either[
     SError,
     (

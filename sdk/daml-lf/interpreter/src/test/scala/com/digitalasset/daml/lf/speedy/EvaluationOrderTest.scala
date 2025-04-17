@@ -444,7 +444,7 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
       readAs: Set[Party] = Set.empty,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = packageNameMap,
       disclosedContracts: Iterable[(Value.ContractId, Speedy.ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Try[Either[SError, SValue]], Seq[String]) = {

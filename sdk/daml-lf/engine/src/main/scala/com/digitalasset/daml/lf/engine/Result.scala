@@ -7,7 +7,11 @@ package engine
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{BackStack, FrontStack, ImmArray}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+}
 import com.digitalasset.daml.lf.value.Value._
 import scalaz.Monad
 
@@ -53,7 +57,7 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   private[lf] def consume(
-      pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
+      pcs: PartialFunction[ContractId, FatContractInstance] = PartialFunction.empty,
       pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
       keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
       grantUpgradeVerification: Option[String] = Some("not validated!"),
@@ -119,7 +123,7 @@ object ResultError {
   */
 final case class ResultNeedContract[A](
     acoid: ContractId,
-    resume: Option[VersionedContractInstance] => Result[A],
+    resume: Option[FatContractInstance] => Result[A],
 ) extends Result[A]
 
 /** Intermediate result indicating that a [[Package]] is required to complete the computation.
@@ -205,7 +209,7 @@ object Result {
 
   private[lf] def needContract[A](
       acoid: ContractId,
-      resume: VersionedContractInstance => Result[A],
+      resume: FatContractInstance => Result[A],
   ) =
     ResultNeedContract(
       acoid,

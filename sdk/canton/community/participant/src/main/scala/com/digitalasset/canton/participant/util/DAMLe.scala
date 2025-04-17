@@ -33,7 +33,7 @@ import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Versioned}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, ContractKeyUniquenessMode, Versioned}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -381,7 +381,15 @@ class DAMLe(
           contracts
             .lookupLfInstance(acoid)
             .value
-            .flatMap(optInst => handleResultInternal(contracts, resume(optInst)))
+            .flatMap(optInst => handleResultInternal(contracts, resume(optInst.map{
+              case Versioned(version, thinInstance) =>
+                FatContractInstance.fromThinInstance(
+                  version = version,
+                  packageName = thinInstance.packageName,
+                  template = thinInstance.template,
+                  arg = thinInstance.arg,
+                )
+            })))
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
           // Run the interruption loop asynchronously to avoid blocking the calling thread.
