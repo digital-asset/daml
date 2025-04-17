@@ -52,7 +52,7 @@ main = tests $
     -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
     -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should fail)", fetchDisclosedUnvettedOnNonConfirmingInformee)
     , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on confirming informee (should fail)", fetchDisclosedUnvettedOnConfirmingInformee)
-    , broken ("Fetch disclosed contract with source unvetted on confirming informee via interface (should fail)", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
+    , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on confirming informee via interface (should fail)", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
     ]
   , subtree "query"
     [ ("Query undistributed contract with source unvetted (should succeed)", queryUndistributedUnvetted)
