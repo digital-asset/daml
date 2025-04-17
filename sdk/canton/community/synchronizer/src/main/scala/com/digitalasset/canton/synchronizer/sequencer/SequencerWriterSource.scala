@@ -9,14 +9,12 @@ import cats.syntax.foldable.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonBaseError
-import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
@@ -31,24 +29,18 @@ import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.BatchTracing.withTracedBatch
 import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.BatchN.MaximizeBatchSize
+import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.util.PekkoUtil.{
-  CombinedKillSwitch,
-  KillSwitchFlagCloseable,
-  WithKillSwitch,
-}
 import com.digitalasset.canton.util.{BatchN, EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
+import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
-import org.apache.pekko.{Done, NotUsed}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Source}
 
-import java.sql.SQLTransientConnectionException
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** A write we want to make to the db */
 sealed trait Write
@@ -209,7 +201,6 @@ object SequencerWriterSource {
       loggerFactory: NamedLoggerFactory,
       protocolVersion: ProtocolVersion,
       metrics: SequencerMetrics,
-      timeouts: ProcessingTimeout,
       blockSequencerMode: Boolean,
   )(implicit
       executionContext: ExecutionContext,
@@ -321,23 +312,6 @@ object SequencerWriterSource {
         }
       )
       .via(NotifyEventSignallerFlow(eventSignaller))
-      .via(
-        if (blockSequencerMode) { // write side checkpoints are only activated in block sequencer mode
-          // TODO(#20910): Always enable periodic checkpoints.
-          //  we need to use a different source of time for periodic checkpoints. Here we use watermark,
-          //  since we know that in BlockSequencer we are the only party writing to the events table.
-          //  In Active-active db sequencer one has to consider watermark of all sequencers,
-          //  so we need to use e.g. "safe watermark" as the time source for periodic checkpointing.
-          PeriodicCheckpointsForAllMembers(
-            writerConfig.checkpointInterval.underlying,
-            store,
-            loggerFactory,
-            timeouts,
-          )
-        } else {
-          Flow[Traced[BatchWritten]]
-        }
-      )
   }
 }
 
@@ -872,72 +846,4 @@ object RecordWatermarkDelayMetricFlow {
         (clock.now - batchWritten.value.latestTimestamp).toMillis
       )
     }
-}
-
-object PeriodicCheckpointsForAllMembers {
-
-  /** A Pekko flow that passes the `Traced[BatchWritten]` untouched from input to output, but
-    * asynchronously triggers `store.checkpointCountersAt` every checkpoint interval. The
-    * materialized future completes when all checkpoints have been recorded after the kill switch
-    * has been activated.
-    */
-  def apply(
-      checkpointInterval: FiniteDuration,
-      store: SequencerWriterStore,
-      loggerFactory: NamedLoggerFactory,
-      timeouts: ProcessingTimeout,
-  )(implicit
-      executionContext: ExecutionContext
-  ): Flow[Traced[BatchWritten], Traced[BatchWritten], (KillSwitch, Future[Done])] = {
-
-    val logger = loggerFactory.getTracedLogger(PeriodicCheckpointsForAllMembers.getClass)
-
-    val recordCheckpointSink: Sink[Traced[BatchWritten], (KillSwitch, Future[Done])] = {
-      // in order to make sure database operations do not keep being retried (in case of connectivity issues)
-      // after we start closing the subscription, we create a flag closeable that gets closed when this
-      // subscriptions kill switch is activated. This flag closeable is wrapped in a close context below
-      // which is passed down to saveCounterCheckpoint.
-      val killSwitchFlagCloseable = FlagCloseable(logger, timeouts)
-      val closeContextKillSwitch = new KillSwitchFlagCloseable(killSwitchFlagCloseable)
-      Flow[Traced[BatchWritten]]
-        .buffer(1, OverflowStrategy.dropTail) // we only really need one event and can drop others
-        .throttle(1, checkpointInterval)
-        // The kill switch must sit after the throttle because throttle will pass the completion downstream
-        // only after the bucket with unprocessed events has been drained, which happens only every checkpoint interval
-        .viaMat(KillSwitches.single)(Keep.right)
-        .mapMaterializedValue(killSwitch =>
-          new CombinedKillSwitch(killSwitch, closeContextKillSwitch)
-        )
-        .mapAsync(parallelism = 1) { writtenBatch =>
-          writtenBatch
-            .withTraceContext { implicit traceContext => writtenBatch =>
-              logger.debug(
-                s"Preparing counter checkpoint for all members at ${writtenBatch.latestTimestamp}"
-              )
-              implicit val closeContext: CloseContext = CloseContext(killSwitchFlagCloseable)
-              closeContext.context
-                .performUnlessClosingUSF(functionFullName) {
-                  store.recordCounterCheckpointsAtTimestamp(writtenBatch.latestTimestamp)
-                }
-                .onShutdown {
-                  logger.info("Skip saving the counter checkpoint due to shutdown")
-                }
-                .recover {
-                  case e: SQLTransientConnectionException if killSwitchFlagCloseable.isClosing =>
-                    // after the subscription is closed, any retries will stop and possibly return an error
-                    // if there are connection problems with the db at the time of subscription close.
-                    // so in order to cleanly shutdown, we should recover from this kind of error.
-                    logger.debug(
-                      "Database connection problems while closing subscription. It can be safely ignored.",
-                      e,
-                    )
-                }
-            }
-            .map(_ => writtenBatch)
-        }
-        .toMat(Sink.ignore)(Keep.both)
-    }
-
-    Flow[Traced[BatchWritten]].wireTapMat(recordCheckpointSink)(Keep.right)
-  }
 }

@@ -57,8 +57,6 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
   /** The synchronizer which this deliver event belongs to */
   val synchronizerId: SynchronizerId
 
-  def isTombstone: Boolean = false
-
   protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
@@ -245,11 +243,6 @@ sealed abstract case class DeliverError private[sequencing] (
   )
 
   def envelopes: Seq[Nothing] = Seq.empty
-
-  override def isTombstone: Boolean = reason match {
-    case SequencerErrors.PersistTombstone(_) => true
-    case _ => false
-  }
 
   override def timestampOfSigningKey: CantonTimestamp = timestamp
 }

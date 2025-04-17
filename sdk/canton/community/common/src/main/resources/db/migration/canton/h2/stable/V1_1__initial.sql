@@ -475,20 +475,6 @@ create table sequencer_watermarks (
     sequencer_online bool not null
 );
 
--- readers periodically write checkpoints that maps the calculated timer to a timestamp/event-id.
--- when a new subscription is requested from a counter the sequencer can use these checkpoints to find the closest
--- timestamp below the given counter to start the subscription from.
-create table sequencer_counter_checkpoints (
-   member integer not null,
-   counter bigint not null,
-   ts bigint not null,
-   latest_sequencer_event_ts bigint,
-   primary key (member, counter, ts)
-);
-
--- This index helps fetching the latest checkpoint for a member
-create index idx_sequencer_counter_checkpoints_by_member_ts on sequencer_counter_checkpoints(member, ts);
-
 -- record the latest acknowledgement sent by a sequencer client of a member for the latest event they have successfully
 -- processed and will not re-read.
 create table sequencer_acknowledgements (
@@ -496,12 +482,13 @@ create table sequencer_acknowledgements (
     ts bigint not null
 );
 
--- inclusive lower bound of when events can be read
+-- exclusive lower bound of when events can be read
 -- if empty it means all events from epoch can be read
 -- is updated when sequencer is pruned meaning that earlier events can no longer be read (and likely no longer exist)
 create table sequencer_lower_bound (
     single_row_lock char(1) not null default 'X' primary key check(single_row_lock = 'X'),
-    ts bigint not null
+    ts bigint not null,
+    latest_topology_client_timestamp bigint
 );
 
 -- h2 events table (differs from postgres in the recipients array definition)

@@ -431,7 +431,7 @@ object SequencedEventStore {
     def asSequencedSerializedEvent: SequencedEventWithTraceContext[Env] =
       SequencedEventWithTraceContext[Env](
         underlying.getOrElse(
-          // TODO(#11834): "Future" ignored events have no underlying event and are no longer supported,
+          // TODO(#25162): "Future" ignored events have no underlying event and are no longer supported,
           //  need to refactor this to only allow ignoring past events, that always have the underlying event
           throw new IllegalStateException(
             s"Future No underlying event found for ignored event: $this"
@@ -458,7 +458,7 @@ object SequencedEventStore {
     * event `oe.signedEvent` is retained as `ie.underlying` so that no information gets discarded by
     * ignoring events.
     *
-    * TODO(#11834): Consider returning the support for "future" ignored events: an ignored event
+    * TODO(#25162): Consider returning the support for "future" ignored events: an ignored event
     * `ie` is inserted as a placeholder for an event that has not been received, the underlying
     * event `ie.underlying` is left empty.
     */
@@ -512,7 +512,6 @@ object SequencedEventStore {
       }
   }
 
-  // TODO(#11834): Assign sequencer counter to the trace context of the event when storing
   /** Encapsulates an event received by the sequencer client that has been validated and stored. Has
     * a counter assigned by this store and contains a trace context.
     */
@@ -532,8 +531,6 @@ object SequencedEventStore {
     private[store] override def dbType: SequencedEventDbType = dbTypeOfEvent(signedEvent.content)
 
     override def isIgnored: Boolean = false
-
-    def isTombstone: Boolean = signedEvent.content.isTombstone
 
     override def underlying: Some[SignedContent[SequencedEvent[Env]]] = Some(signedEvent)
 

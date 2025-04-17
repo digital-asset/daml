@@ -535,7 +535,7 @@ abstract class SequencerApiTest
           reads12a <- readForMembers(
             Seq(p11),
             sequencer,
-            firstSequencerCounter = SequencerCounter.Genesis + 1,
+            startTimestamp = firstEventTimestamp(p11)(reads11).map(_.immediateSuccessor),
           )
 
           // participant13 is late to the party and its request is refused
@@ -547,7 +547,7 @@ abstract class SequencerApiTest
           reads13 <- readForMembers(
             Seq(p13),
             sequencer,
-            firstSequencerCounter = SequencerCounter.Genesis + 1,
+            startTimestamp = firstEventTimestamp(p13)(reads12).map(_.immediateSuccessor),
           )
         } yield {
           checkMessages(
@@ -657,7 +657,7 @@ abstract class SequencerApiTest
           reads14a <- readForMembers(
             Seq(p14),
             sequencer,
-            firstSequencerCounter = SequencerCounter.Genesis + 1,
+            startTimestamp = firstEventTimestamp(p14)(reads14).map(_.immediateSuccessor),
           )
           // p15 can still continue and finish the aggregation
           _ <- sequencer
@@ -666,7 +666,7 @@ abstract class SequencerApiTest
           reads14b <- readForMembers(
             Seq(p14),
             sequencer,
-            firstSequencerCounter = SequencerCounter.Genesis + 2,
+            startTimestamp = firstEventTimestamp(p14)(reads14a).map(_.immediateSuccessor),
           )
           reads15 <- readForMembers(Seq(p15), sequencer)
         } yield {
@@ -961,7 +961,7 @@ abstract class SequencerApiTest
             .sendAsyncSigned(sign(request))
             .leftOrFail("Send successful, expected error")
           subscribeError <- sequencer
-            .read(sender, SequencerCounter.Genesis)
+            .readV2(sender, timestampInclusive = None)
             .leftOrFail("Read successful, expected error")
         } yield {
           sendError.code.id shouldBe SequencerErrors.SubmissionRequestRefused.id
@@ -989,7 +989,7 @@ trait SequencerApiTestUtils
       sequencer: CantonSequencer,
       // up to 60 seconds needed because Besu is very slow on CI
       timeout: FiniteDuration = 60.seconds,
-      firstSequencerCounter: SequencerCounter = SequencerCounter.Genesis,
+      startTimestamp: Option[CantonTimestamp] = None,
   )(implicit
       materializer: Materializer
   ): FutureUnlessShutdown[Seq[(Member, SequencedSerializedEvent)]] =
@@ -997,10 +997,7 @@ trait SequencerApiTestUtils
       .parTraverseFilter { member =>
         for {
           source <- valueOrFail(
-            if (firstSequencerCounter == SequencerCounter.Genesis)
-              sequencer.readV2(member, None)
-            else
-              sequencer.read(member, firstSequencerCounter)
+            sequencer.readV2(member, startTimestamp)
           )(
             s"Read for $member"
           )
@@ -1020,6 +1017,11 @@ trait SequencerApiTestUtils
           )
         } yield events
       }
+
+  protected def firstEventTimestamp(forMember: Member)(
+      reads: Seq[(Member, SequencedSerializedEvent)]
+  ): Option[CantonTimestamp] =
+    reads.collectFirst { case (`forMember`, event) => event.timestamp }
 
   case class EnvelopeDetails(
       content: String,

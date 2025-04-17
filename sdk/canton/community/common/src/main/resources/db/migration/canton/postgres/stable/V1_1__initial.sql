@@ -496,28 +496,6 @@ create table sequencer_watermarks (
   sequencer_online bool not null
 );
 
--- readers periodically write checkpoints that maps the calculated timer to a timestamp/event-id.
--- when a new subscription is requested from a counter the sequencer can use these checkpoints to find the closest
--- timestamp below the given counter to start the subscription from.
-create table sequencer_counter_checkpoints (
-  member integer not null,
-  counter bigint not null,
-  ts bigint not null,
-  -- The column latest_sequencer_event_ts stores the latest timestamp before or at the sequencer counter checkpoint
-  -- at which the original batch of a deliver event sent to the member also contained an enveloped addressed
-  -- to the member that updates the SequencerReader's topology client (the sequencer in case of an external sequencer
-  -- and the synchronizer topology manager for embedding sequencers)
-  -- NULL if the sequencer counter checkpoint was generated before this column was added.
-  latest_sequencer_event_ts bigint null,
-  primary key (member, counter, ts)
-);
-
--- This index helps fetching the latest checkpoint for a member
-create index idx_sequencer_counter_checkpoints_by_member_ts on sequencer_counter_checkpoints(member, ts);
-
--- This index helps fetching the latest and earliest checkpoints
-create index idx_sequencer_counter_checkpoints_by_ts on sequencer_counter_checkpoints(ts);
-
 -- record the latest acknowledgement sent by a sequencer client of a member for the latest event they have successfully
 -- processed and will not re-read.
 create table sequencer_acknowledgements (
@@ -525,12 +503,13 @@ create table sequencer_acknowledgements (
   ts bigint not null
 );
 
--- inclusive lower bound of when events can be read
+-- exclusive lower bound of when events can be read
 -- if empty it means all events from epoch can be read
 -- is updated when sequencer is pruned meaning that earlier events can no longer be read (and likely no longer exist)
 create table sequencer_lower_bound (
   single_row_lock char(1) not null default 'X' primary key check(single_row_lock = 'X'),
-  ts bigint not null
+  ts bigint not null,
+  latest_topology_client_timestamp bigint
 );
 
 -- postgres events table (differs from h2 in the recipients array definition)
@@ -913,16 +892,6 @@ create table ord_p2p_endpoints (
 );
 
 -- Auto-vacuum settings for large sequencer tables: these are defaults set based on testing of CN CILR test deployment
-alter table sequencer_counter_checkpoints
-    set (
-        autovacuum_vacuum_scale_factor = 0.0,
-        autovacuum_vacuum_threshold = 10000,
-        autovacuum_vacuum_cost_limit = 2000,
-        autovacuum_vacuum_cost_delay = 5,
-        autovacuum_vacuum_insert_scale_factor = 0.0,
-        autovacuum_vacuum_insert_threshold = 100000
-        );
-
 alter table sequencer_events
     set (
         autovacuum_vacuum_scale_factor = 0.0,

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import com.daml.nonempty.NonEmptyUtil
+import com.digitalasset.canton.Generators
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Signature}
@@ -31,7 +32,6 @@ import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
-import com.digitalasset.canton.{Generators, SequencerCounter}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
@@ -128,13 +128,6 @@ final class GeneratorsProtocol(
     for {
       member <- Arbitrary.arbitrary[Member]
     } yield TopologyStateForInitRequest(member, protocolVersion)
-  )
-
-  implicit val subscriptionRequestArb: Arbitrary[SubscriptionRequest] = Arbitrary(
-    for {
-      member <- Arbitrary.arbitrary[Member]
-      counter <- Arbitrary.arbitrary[SequencerCounter]
-    } yield SubscriptionRequest.apply(member, counter, protocolVersion)
   )
 
   implicit val subscriptionRequestV2Arb: Arbitrary[SubscriptionRequestV2] = Arbitrary(

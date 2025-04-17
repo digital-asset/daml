@@ -27,14 +27,14 @@ class DelayLogger(
 ) {
   private val caughtUp = new AtomicBoolean(false)
 
-  def checkForDelay(event: PossiblyIgnoredSequencedEvent[_]): Unit =
+  def checkForDelay(event: PossiblyIgnoredSequencedEvent[?]): Unit =
     event match {
       case event: OrdinarySequencedEvent[_] =>
         checkForDelay_(event.asSequencedSerializedEvent)
       case _ => ()
     }
 
-  def checkForDelay_(event: SequencedEventWithTraceContext[_]): Unit = {
+  def checkForDelay_(event: SequencedEventWithTraceContext[?]): Unit = {
     implicit val traceContext: TraceContext = event.traceContext
     event.signedEvent.content match {
       case Deliver(_, ts, _, _, _, _, _) =>
@@ -42,15 +42,18 @@ class DelayLogger(
         val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
         val deltaMs = delta.toMillis
         gauge.updateValue(deltaMs)
-        if (delta.compareTo(threshold.unwrap) > 0) {
+        val thresholdDuration = threshold.unwrap
+        if (delta.compareTo(thresholdDuration) > 0) {
           if (caughtUp.compareAndSet(true, false)) {
             logger.warn(
-              s"Late processing (or clock skew) of batch with timestamp=$ts with delta $delta ms after sequencing."
+              s"Detected late processing (or clock skew) of batch with timestamp = $ts; delta = $delta " +
+                s"after sequencing (> threshold = $thresholdDuration)"
             )
           }
         } else if (caughtUp.compareAndSet(false, true)) {
           logger.info(
-            s"Caught up with batch with timestamp=$ts with sequencer with $delta ms delay"
+            s"Caught up with sequencer on batch with timestamp = $ts; delta = $delta " +
+              s"(threshold = $thresholdDuration)"
           )
         }
       case _ => ()

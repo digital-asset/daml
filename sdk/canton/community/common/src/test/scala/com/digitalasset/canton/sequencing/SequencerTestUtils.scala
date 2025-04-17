@@ -95,7 +95,7 @@ object SequencerTestUtils extends BaseTest {
       trafficReceipt: Option[TrafficReceipt] = None,
   ): DeliverError =
     DeliverError.create(
-      None, // TODO(#11834): Make sure that tests using mockDeliverError are not affected by this after counters are gone
+      None,
       timestamp,
       synchronizerId,
       messageId,

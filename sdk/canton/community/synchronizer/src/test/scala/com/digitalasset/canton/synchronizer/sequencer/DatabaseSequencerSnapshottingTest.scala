@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
-import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -57,6 +56,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
       sequencerMember = sequencerId,
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
     )
 
     DatabaseSequencer.single(
@@ -179,7 +179,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
         messages2 <- readForMembers(
           List(sender),
           secondSequencer,
-          firstSequencerCounter = SequencerCounter(1),
+          startTimestamp = firstEventTimestamp(sender)(messages).map(_.immediateSuccessor),
         )
 
       } yield {

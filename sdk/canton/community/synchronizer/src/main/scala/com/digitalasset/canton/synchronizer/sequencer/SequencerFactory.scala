@@ -5,7 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
@@ -59,6 +59,7 @@ abstract class DatabaseSequencerFactory(
     config: DatabaseSequencerConfig,
     storage: Storage,
     cachingConfigs: CachingConfigs,
+    batchingConfig: BatchingConfig,
     override val timeouts: ProcessingTimeout,
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
@@ -78,6 +79,7 @@ abstract class DatabaseSequencerFactory(
       sequencerMember = sequencerId,
       blockSequencerMode = blockSequencerMode,
       cachingConfigs = cachingConfigs,
+      batchingConfig = batchingConfig,
       // Overriding the store's close context with the writers, so that when the writer gets closed, the store
       // stops retrying forever
       overrideCloseContext = Some(this.closeContext),
@@ -106,6 +108,7 @@ class CommunityDatabaseSequencerFactory(
       config,
       storage,
       nodeParameters.cachingConfigs,
+      nodeParameters.batchingConfig,
       nodeParameters.processingTimeouts,
       sequencerProtocolVersion,
       sequencerId,

@@ -34,7 +34,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencingSubmissionCost,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequest,
   SubscriptionRequestV2,
   TopologyStateForInitRequest,
 }
@@ -149,7 +148,6 @@ class SerializationDeserializationTest
         test(ExternalAuthorization, version)
         test(GetTrafficStateForMemberResponse, version)
         test(TopologyStateForInitRequest, version)
-        test(SubscriptionRequest, version)
         test(SubscriptionRequestV2, version)
         if (version.isDev) {
           test(ConnectToSequencerChannelRequest, version)
