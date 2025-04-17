@@ -26,16 +26,16 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param userManagementStoreO
   *   use None if user management is disabled
   */
-class UserBasedAuthorizationInterceptor(
+class UserBasedAuthInterceptor(
     authServices: Seq[AuthService],
     userManagementStoreO: Option[UserManagementStore],
     telemetry: Telemetry,
     loggerFactory: NamedLoggerFactory,
     override implicit val ec: ExecutionContext,
-) extends AuthorizationInterceptor(authServices, telemetry, loggerFactory, ec)
+) extends AuthInterceptor(authServices, telemetry, loggerFactory, ec)
     with NamedLogging {
 
-  import UserBasedAuthorizationInterceptor.*
+  import UserBasedAuthInterceptor.*
 
   override def headerToClaims(
       headers: Metadata,
@@ -167,7 +167,7 @@ class UserBasedAuthorizationInterceptor(
 
 }
 
-object UserBasedAuthorizationInterceptor {
+object UserBasedAuthInterceptor {
 
   def convertUserRightsToClaims(userRights: Set[UserRight]): Seq[Claim] =
     userRights.view.map(userRightToClaim).toList.prepended(ClaimPublic)

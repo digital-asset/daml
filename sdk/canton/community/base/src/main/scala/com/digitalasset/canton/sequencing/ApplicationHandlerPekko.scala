@@ -7,8 +7,8 @@ import cats.syntax.either.*
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -109,9 +109,9 @@ class ApplicationHandlerPekko[F[+_], Context](
     (State, Either[ApplicationHandlerError, Option[EventBatchSynchronousResult]])
   ] =
     tracedBatch.withTraceContext { implicit batchTraceContext => batch =>
-      val lastSc = batch.last1.counter
+      val lastTimestamp = batch.last1.timestamp
       val firstEvent = batch.head1
-      val firstSc = firstEvent.counter
+      val firstTimestamp = firstEvent.timestamp
 
       metrics.handler.numEvents.inc(batch.size.toLong)(MetricsContext.Empty)
       logger.debug(s"Passing ${batch.size} events to the application handler ${handler.name}.")
@@ -126,12 +126,14 @@ class ApplicationHandlerPekko[F[+_], Context](
       syncResultFF.flatten.transformIntoSuccess {
         case Success(asyncResultOutcome) =>
           asyncResultOutcome.map(result =>
-            KeepGoing -> Right(Some(EventBatchSynchronousResult(firstSc, lastSc, result)))
+            KeepGoing -> Right(
+              Some(EventBatchSynchronousResult(firstTimestamp, lastTimestamp, result))
+            )
           )
 
         case Failure(error) =>
           killSwitch.shutdown()
-          handleError(error, firstSc, lastSc, syncProcessing = true)
+          handleError(error, firstTimestamp, lastTimestamp, syncProcessing = true)
             .map(failure => Halt -> Left(failure))
       }
     }
@@ -142,21 +144,23 @@ class ApplicationHandlerPekko[F[+_], Context](
   )(implicit
       closeContext: CloseContext
   ): FutureUnlessShutdown[Either[ApplicationHandlerError, Unit]] = {
-    val EventBatchSynchronousResult(firstSc, lastSc, asyncResult) = syncResult
+    val EventBatchSynchronousResult(firstTimestamp, lastTimestamp, asyncResult) = syncResult
     implicit val batchTraceContext: TraceContext = syncResult.traceContext
     asyncResult.unwrap.transformIntoSuccess {
       case Success(outcome) =>
         outcome.map(Right.apply)
       case Failure(error) =>
         killSwitch.shutdown()
-        handleError(error, firstSc, lastSc, syncProcessing = false).map(failure => Left(failure))
+        handleError(error, firstTimestamp, lastTimestamp, syncProcessing = false).map(failure =>
+          Left(failure)
+        )
     }
   }
 
   private def handleError(
       error: Throwable,
-      firstSc: SequencerCounter,
-      lastSc: SequencerCounter,
+      firstTimestamp: CantonTimestamp,
+      lastTimestamp: CantonTimestamp,
       syncProcessing: Boolean,
   )(implicit
       traceContext: TraceContext,
@@ -170,17 +174,17 @@ class ApplicationHandlerPekko[F[+_], Context](
 
       case _ if closeContext.context.isClosing =>
         logger.info(
-          s"$sync event processing failed for event batch with sequencer counters $firstSc to $lastSc, most likely due to an ongoing shutdown",
+          s"$sync event processing failed for event batch with sequencing timestamps $firstTimestamp to $lastTimestamp, most likely due to an ongoing shutdown",
           error,
         )
         AbortedDueToShutdown
 
       case _ =>
         logger.error(
-          s"Synchronous event processing failed for event batch with sequencer counters $firstSc to $lastSc.",
+          s"Synchronous event processing failed for event batch with sequencing timestamps $firstTimestamp to $lastTimestamp.",
           error,
         )
-        Outcome(ApplicationHandlerException(error, firstSc, lastSc))
+        Outcome(ApplicationHandlerException(error, firstTimestamp, lastTimestamp))
     }
   }
 }
@@ -192,8 +196,8 @@ object ApplicationHandlerPekko {
   private[ApplicationHandlerPekko] case object KeepGoing extends State
 
   private final case class EventBatchSynchronousResult(
-      firstSc: SequencerCounter,
-      lastSc: SequencerCounter,
+      firstTimestamp: CantonTimestamp,
+      lastTimestamp: CantonTimestamp,
       asyncResult: AsyncResult[Unit],
   )(implicit val traceContext: TraceContext)
 }

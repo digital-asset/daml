@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
@@ -40,7 +40,7 @@ import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -171,6 +171,7 @@ final class StoreBackedCommandInterpreter(
             commands.workflowId.map(_.unwrap),
             meta.submissionTime,
             submissionSeed,
+            LedgerTimeBoundaries(meta.timeBoundaries),
             Some(meta.usedPackages),
             Some(meta.nodeSeeds),
             Some(
@@ -570,7 +571,7 @@ final class StoreBackedCommandInterpreter(
         driverMetadataBytes = disclosedContract.cantonData.toByteArray,
         contractInstance = Versioned(
           disclosedContract.version,
-          ContractInstance(
+          ThinContractInstance(
             packageName = disclosedContract.packageName,
             template = disclosedContract.templateId,
             arg = disclosedContract.createArg,

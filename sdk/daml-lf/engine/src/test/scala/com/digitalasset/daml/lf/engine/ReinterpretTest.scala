@@ -51,7 +51,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
     Map(
       toContractId("ReinterpretTests:MySimple:1") ->
         assertAsVersionedContract(
-          ContractInstance(
+          ThinContractInstance(
             miniTestsPkg.pkgName,
             TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
             ValueRecord(

@@ -37,7 +37,7 @@ sealed trait MultipleProtocolVersionReassignmentIntegrationTest
 
   // Test topology transactions against the latest two stable versions (we don't exclude that the two are equal)
   // TODO(#16458) Change to the commented code below when we have two stable protocol versions
-  private lazy val (beforeLastStable, lastStable) = (ProtocolVersion.v33, ProtocolVersion.v33)
+  private lazy val (beforeLastStable, lastStable) = (ProtocolVersion.v34, ProtocolVersion.v34)
 //  private lazy val (beforeLastStable, lastStable) = {
 //    val lastTwoStables = ProtocolVersion.stableAndSupported.sorted.takeRight(2)
 //    if (lastTwoStables.sizeIs == 2)

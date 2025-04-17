@@ -95,7 +95,7 @@ object AssignmentViewTree
   override val name: String = "AssignmentViewTree"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30,
     )
@@ -199,7 +199,7 @@ object AssignmentCommonData
   override val name: String = "AssignmentCommonData"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentCommonData)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.AssignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -332,7 +332,7 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
   override val name: String = "AssignmentView"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.AssignmentView)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.AssignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -399,10 +399,10 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
         // UnassignmentResultEvent deserialization
         // This hardcoded value is admissible because of the upcoming removal of the delivered unassignment result
         unassignmentResultEventMC <- SignedContent
-          .fromByteString(ProtocolVersion.v33, unassignmentResultEventP)
+          .fromByteString(ProtocolVersion.v34, unassignmentResultEventP)
           .flatMap(
             _.deserializeContent(
-              SequencedEvent.fromByteStringOpen(hashOps, ProtocolVersion.v33)
+              SequencedEvent.fromByteStringOpen(hashOps, ProtocolVersion.v34)
             )
           )
         unassignmentResultEvent <- DeliveredUnassignmentResult

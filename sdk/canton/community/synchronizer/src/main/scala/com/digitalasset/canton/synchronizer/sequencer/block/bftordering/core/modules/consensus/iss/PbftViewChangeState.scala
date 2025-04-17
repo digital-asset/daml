@@ -51,9 +51,12 @@ class PbftViewChangeState(
   private var viewChangeFromSelfWasFromRehydration = false
   private var signedPrePreparesForSegment: Option[Seq[SignedMessage[PrePrepare]]] = None
   private var newView: Option[SignedMessage[NewView]] = None
+  private var discardedMessageCount: Int = 0
 
   def viewChangeMessageReceivedStatus: Seq[Boolean] =
     membership.sortedNodes.map(viewChangeMap.contains)
+
+  def discardedMessages: Int = discardedMessageCount
 
   /** Compute which view change messages we must retransmit based on which view change messages the
     * remote node already has
@@ -87,14 +90,16 @@ class PbftViewChangeState(
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processMessage(
       msg: SignedMessage[PbftViewChangeMessage]
-  )(implicit traceContext: TraceContext): Boolean =
-    msg.message match {
+  )(implicit traceContext: TraceContext): Boolean = {
+    val msgUsed = msg.message match {
       case _: ViewChange =>
         addViewChange(msg.asInstanceOf[SignedMessage[ViewChange]])
-
       case _: NewView =>
         setNewView(msg.asInstanceOf[SignedMessage[NewView]])
     }
+    if (!msgUsed) discardedMessageCount += 1
+    msgUsed
+  }
 
   def processEvent(abort: String => Unit)(
       event: PbftViewChangeEvent

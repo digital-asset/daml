@@ -12,7 +12,7 @@ import org.checkerframework.checker.nullness.qual.NonNull;
  *
  * @see CreatedEvent
  * @see ExercisedEvent
- * @see TransactionTree
+ * @see TransactionTree; Interface will be removed in 3.4.0
  */
 public interface TreeEvent {
 

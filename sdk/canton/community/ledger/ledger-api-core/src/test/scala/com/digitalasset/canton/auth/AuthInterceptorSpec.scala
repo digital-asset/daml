@@ -18,7 +18,7 @@ import org.slf4j.event.Level
 
 import scala.concurrent.{Future, Promise}
 
-class AuthorizationInterceptorSpec
+class AuthInterceptorSpec
     extends AsyncFlatSpec
     with MockitoSugar
     with Matchers
@@ -26,15 +26,15 @@ class AuthorizationInterceptorSpec
     with BaseTest
     with HasExecutionContext {
 
-  private val className = classOf[AuthorizationInterceptor].getSimpleName
+  private val className = classOf[AuthInterceptor].getSimpleName
 
   behavior of s"$className.interceptCall"
 
-  private val AuthorizationInterceptorSuppressionRule: SuppressionRule =
-    SuppressionRule.forLogger[AuthorizationInterceptor] && SuppressionRule.Level(Level.ERROR)
+  private val AuthInterceptorSuppressionRule: SuppressionRule =
+    SuppressionRule.forLogger[AuthInterceptor] && SuppressionRule.Level(Level.ERROR)
 
   it should "close the ServerCall with a V2 status code on decoding failure" in {
-    loggerFactory.assertLogs(AuthorizationInterceptorSuppressionRule)(
+    loggerFactory.assertLogs(AuthInterceptorSuppressionRule)(
       within = testServerCloseError { case (actualStatus, actualMetadata) =>
         actualStatus.getCode shouldBe Status.Code.INTERNAL
         actualStatus.getDescription shouldBe "An error occurred. Please contact the operator and inquire about the request <no-correlation-id> with tid <no-tid>"
@@ -73,8 +73,8 @@ class AuthorizationInterceptorSpec
       ()
     }
 
-    val authorizationInterceptor =
-      new AuthorizationInterceptor(
+    val authInterceptor =
+      new AuthInterceptor(
         List(authService),
         NoOpTelemetry,
         loggerFactory,
@@ -86,7 +86,7 @@ class AuthorizationInterceptorSpec
 
     when(authService.decodeMetadata(any[Metadata], any[String])(anyTraceContext))
       .thenReturn(failedMetadataDecode)
-    authorizationInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
+    authInterceptor.interceptCall[Nothing, Nothing](serverCall, new Metadata(), null)
 
     promise.future.map { _ =>
       verify(serverCall).close(statusCaptor.capture, metadataCaptor.capture)

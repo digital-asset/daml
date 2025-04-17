@@ -364,12 +364,12 @@ class DatabaseSequencer(
 
   override def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     reader.read(member, offset)
 
   override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     reader.readV2(member, timestamp)
 
   /** Internal method to be used in the sequencer integration.

@@ -19,7 +19,7 @@ else
 fi
 
 # Source the utility script
-source "$(dirname "$0")/interactive_topology_util.sh"
+source "$(dirname "$0")/utils.sh"
 
 # Read GRPC_ENDPOINT and SYNCHRONIZER_ID from arguments
 GRPC_ENDPOINT="${1:-localhost:5012}"
@@ -56,12 +56,12 @@ mapping=$(build_namespace_mapping "$fingerprint" "CRYPTO_KEY_FORMAT_DER" "$publi
 # [start build transaction]
 # Serial = 1 as the expectation is that there is no existing root namespace with this key already
 serial=1
-transaction_base64=$(serialize_transaction_base64 "$mapping" "$serial")
+transaction=$(build_topology_transaction "$mapping" "$serial")
 # [end build transaction]
 
 # [start build versioned transaction]
 serialized_versioned_transaction_file="versioned_topology_transaction.binpb"
-serialize_versioned_transaction "$transaction_base64" "$serialized_versioned_transaction_file"
+serialize_topology_transaction "$transaction" > "$serialized_versioned_transaction_file"
 # [end build versioned transaction]
 
 # [start compute transaction hash]

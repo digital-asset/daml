@@ -16,7 +16,7 @@ import com.digitalasset.canton.environment.{
 }
 import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.participant.admin.ResourceManagementService
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.store.ParticipantSettingsStore
@@ -34,7 +34,7 @@ trait ParticipantNodeBootstrapFactory {
 
   type Arguments =
     CantonNodeBootstrapCommonArguments[
-      LocalParticipantConfig,
+      ParticipantNodeConfig,
       ParticipantNodeParameters,
       ParticipantMetrics,
     ]
@@ -67,7 +67,7 @@ trait ParticipantNodeBootstrapFactory {
 
   def create(
       arguments: NodeFactoryArguments[
-        LocalParticipantConfig,
+        ParticipantNodeConfig,
         ParticipantNodeParameters,
         ParticipantMetrics,
       ],
@@ -111,7 +111,7 @@ object CommunityParticipantNodeBootstrapFactory extends ParticipantNodeBootstrap
 
   override def create(
       arguments: NodeFactoryArguments[
-        LocalParticipantConfig,
+        ParticipantNodeConfig,
         ParticipantNodeParameters,
         ParticipantMetrics,
       ],

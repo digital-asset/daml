@@ -7,7 +7,7 @@ import cats.Show.Shown
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.config.RequireTypes.{Port, RefinedNumeric}
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
@@ -308,6 +308,12 @@ trait PrettyInstances {
 
   implicit val prettyServingStatus: Pretty[ServingStatus] = prettyOfClass(
     param("status", _.name().singleQuoted)
+  )
+
+  implicit val prettyTimeBoundaries: Pretty[LedgerTimeBoundaries] = prettyOfClass(
+    param("constrained", t => t.minConstraint.isEmpty && t.maxConstraint.isEmpty),
+    paramIfDefined("min", _.minConstraint),
+    paramIfDefined("max", _.maxConstraint),
   )
 
 }

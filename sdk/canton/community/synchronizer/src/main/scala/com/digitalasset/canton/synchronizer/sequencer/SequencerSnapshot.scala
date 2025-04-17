@@ -116,7 +116,7 @@ final case class SequencerSnapshot(
 
 object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SequencerSnapshot)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SequencerSnapshot)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

@@ -27,7 +27,7 @@ class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactor
   ): SystemInitializationResult[BftOrderingServiceReceiveRequest, Mempool.Message] = {
     val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))
     val p2pNetworkInRef =
-      moduleSystem.newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2pnetwork-in"))
+      moduleSystem.newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))
     val p2pNetworkOutRef =
       moduleSystem.newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))
     val availabilityRef =

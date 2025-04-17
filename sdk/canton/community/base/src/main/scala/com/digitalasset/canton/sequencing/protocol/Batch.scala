@@ -86,7 +86,7 @@ object Batch extends VersioningCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelo
 
   override val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(
-      ProtocolVersion.v33
+      ProtocolVersion.v34
     )(v30.CompressedBatch)(
       supportedProtoVersion(_)(
         // TODO(i10428) Prevent zip bombing when decompressing the request

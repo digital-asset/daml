@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
-import com.digitalasset.canton.SequencerCounter
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.SequencerAggregator.SequencerAggregatorError
 
@@ -41,14 +41,14 @@ object SequencerClientSubscriptionError {
     */
   final case class ApplicationHandlerException(
       exception: Throwable,
-      firstSequencerCounter: SequencerCounter,
-      lastSequencerCounter: SequencerCounter,
+      firstSequencingTimestamp: CantonTimestamp,
+      lastSequencingTimestamp: CantonTimestamp,
   ) extends ApplicationHandlerError {
     override def mbException: Option[Throwable] = Some(exception)
 
     override protected def pretty: Pretty[ApplicationHandlerException] = prettyOfClass(
-      param("first sequencer counter", _.firstSequencerCounter),
-      param("last sequencer counter", _.lastSequencerCounter),
+      param("first sequencing timestamp", _.firstSequencingTimestamp),
+      param("last sequencing timestamp", _.lastSequencingTimestamp),
       unnamedParam(_.exception),
     )
   }

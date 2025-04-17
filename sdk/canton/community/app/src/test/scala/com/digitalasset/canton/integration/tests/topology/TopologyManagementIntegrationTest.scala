@@ -103,25 +103,6 @@ trait TopologyManagementIntegrationTest
         val nd3 = sequencer1.topology.namespace_delegations.list(store = daId)
         assertResult(1, nd3.map(_.item))(nd3.length - nd.length)
       }
-
-      // add a new identifier delegation with a new key for the sequencer, using the intermediate CA
-      val identifierCAKey =
-        sequencer1.keys.secret
-          .generate_signing_key("identifier-ca", SigningKeyUsage.IdentityDelegationOnly)
-
-      val idt = sequencer1.topology.identifier_delegations.list(daId)
-      sequencer1.topology.identifier_delegations.propose(
-        daId.unwrap,
-        identifierCAKey,
-        store = daId,
-      )
-      eventually() { () =>
-        val idt2 = sequencer1.topology.identifier_delegations.list(
-          daId,
-          operation = Some(TopologyChangeOp.Replace),
-        )
-        assert(idt.length + 1 == idt2.length)
-      }
     }
 
     "allocate new parties" taggedAs_ { scenario =>
@@ -642,13 +623,13 @@ trait TopologyManagementIntegrationTest
 
       val key1 =
         participant1.keys.secret
-          .generate_signing_key("test-key1", SigningKeyUsage.NamespaceOrIdentityDelegation)
+          .generate_signing_key("test-key1", SigningKeyUsage.NamespaceOnly)
       val tx = genTx(
         participant1,
         TopologyTransaction(
           TopologyChangeOp.Remove,
           PositiveInt.tryCreate(1),
-          IdentifierDelegation.tryCreate(participant1.uid, key1),
+          NamespaceDelegation.tryCreate(participant1.namespace, key1, CanSignAllMappings),
           testedProtocolVersion,
         ),
         key1,
@@ -788,7 +769,7 @@ trait TopologyManagementIntegrationTest
 
       val key1 =
         participant1.keys.secret
-          .generate_signing_key(usage = SigningKeyUsage.NamespaceOrIdentityDelegation)
+          .generate_signing_key(usage = SigningKeyUsage.NamespaceOnly)
       val sig = participant1.keys.secret
         .list(filterFingerprint = participant1.fingerprint.unwrap)
         .collectFirst { case PrivateKeyMetadata(x: SigningPublicKeyWithName, _, _) =>
@@ -801,7 +782,7 @@ trait TopologyManagementIntegrationTest
         TopologyTransaction(
           TopologyChangeOp.Replace,
           PositiveInt.tryCreate(serial),
-          IdentifierDelegation.tryCreate(participant1.uid, key1),
+          NamespaceDelegation.tryCreate(participant1.namespace, key1, CanSignAllMappings),
           testedProtocolVersion,
         ),
         sig,
@@ -981,26 +962,6 @@ trait TopologyManagementIntegrationTest
         (TopologyChangeOp.Replace, key1.fingerprint),
         (TopologyChangeOp.Remove, key1.fingerprint),
       )
-    }
-
-    "query identifier delegations" in { implicit env =>
-      import env.*
-
-      val key =
-        participant1.keys.secret
-          .generate_signing_key(usage = SigningKeyUsage.IdentityDelegationOnly)
-      participant1.topology.identifier_delegations.propose(
-        participant1.uid,
-        key,
-      )
-      eventually() {
-        participant1.topology.identifier_delegations
-          .list(
-            store = TopologyStoreId.Authorized,
-            filterUid = participant1.filterString,
-          )
-          .map(_.item.target) should contain(key)
-      }
     }
 
     "query owner to key mappings" in { implicit env =>

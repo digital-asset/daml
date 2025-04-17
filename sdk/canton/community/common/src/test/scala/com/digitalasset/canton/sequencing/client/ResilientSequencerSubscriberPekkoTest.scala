@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.client
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
@@ -11,7 +12,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.health.{ComponentHealthState, HealthComponent}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
   FatalExn,
@@ -21,11 +22,10 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedContent}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
-import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import org.apache.pekko.stream.testkit.StreamSpec
 import org.apache.pekko.stream.testkit.scaladsl.StreamTestKit.assertAllStagesStopped
@@ -366,19 +366,17 @@ object TestSequencerSubscriptionFactoryPekko {
       timestamp: CantonTimestamp,
       signatures: NonEmpty[Set[Signature]] = Signature.noSignatures,
   ) extends Element {
-    def asOrdinarySerializedEvent: OrdinarySerializedEvent =
+    def asOrdinarySerializedEvent: SequencedSerializedEvent =
       mkOrdinarySerializedEvent(timestamp, signatures)
   }
 
   def mkOrdinarySerializedEvent(
       timestamp: CantonTimestamp,
       signatures: NonEmpty[Set[Signature]] = Signature.noSignatures,
-  ): OrdinarySerializedEvent = {
+  ): SequencedSerializedEvent = {
     val pts =
       if (timestamp == CantonTimestamp.Epoch) None else Some(timestamp.addMicros(-1L))
-    val counter = SequencerCounter(timestamp.toMicros - CantonTimestamp.Epoch.toMicros)
     val sequencedEvent = Deliver.create(
-      counter,
       pts,
       timestamp,
       DefaultTestIdentities.synchronizerId,
@@ -395,7 +393,7 @@ object TestSequencerSubscriptionFactoryPekko {
         None,
         SignedContent.protocolVersionRepresentativeFor(BaseTest.testedProtocolVersion),
       )
-    OrdinarySequencedEvent(signedContent)(TraceContext.empty)
+    SequencedEventWithTraceContext(signedContent)(TraceContext.empty)
   }
 
   def genEvents(startTimestamp: Option[CantonTimestamp], count: Long): Seq[Event] =

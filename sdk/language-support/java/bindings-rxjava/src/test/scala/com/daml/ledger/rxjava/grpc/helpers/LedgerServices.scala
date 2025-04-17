@@ -13,7 +13,7 @@ import com.daml.ledger.rxjava.{CommandCompletionClient, EventQueryClient, Packag
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, SingleThreadExecutionSequencerPool}
 import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard, Authorizer}
 import com.digitalasset.canton.ledger.api.auth.UserBasedOngoingAuthorization
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
 import com.digitalasset.canton.tracing.TraceContext
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
@@ -104,7 +104,7 @@ final class LedgerServices(val name: String) {
       authService: AuthService,
       services: Seq[ServerServiceDefinition],
   ): Server = {
-    val authorizationInterceptor = new UserBasedAuthorizationInterceptor(
+    val authorizationInterceptor = new UserBasedAuthInterceptor(
       List(authService),
       Some(new InMemoryUserManagementStore(false, loggerFactory)),
       NoOpTelemetry,

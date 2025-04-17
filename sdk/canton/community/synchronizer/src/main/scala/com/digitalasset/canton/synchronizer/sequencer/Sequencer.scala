@@ -104,11 +104,11 @@ trait Sequencer
 
   def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
   def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
   /** Return the last timestamp of the containing block of the provided timestamp. This is needed to
     * determine the effective timestamp to observe in topology processing, required to produce a
@@ -268,7 +268,10 @@ object Sequencer extends HasLoggerName {
     * after the kill switch was pulled. Termination of the main flow must be awaited separately.
     */
   type EventSource =
-    Source[OrdinarySerializedEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
+    Source[OrdinaryEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
+
+  type SequencedEventSource =
+    Source[SequencedEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
 
   /** Type alias for a content that is signed by the sender (as in, whoever sent the
     * SubmissionRequest to the sequencer). Note that the sequencer itself can be the "sender": for

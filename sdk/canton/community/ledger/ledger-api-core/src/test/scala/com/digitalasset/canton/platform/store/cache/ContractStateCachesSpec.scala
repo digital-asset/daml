@@ -12,7 +12,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{GlobalKey, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64, ValueRecord}
+import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueInt64, ValueRecord}
 import org.mockito.MockitoSugar
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -181,7 +181,7 @@ class ContractStateCachesSpec
       ImmArray(None -> ValueInt64(id.toLong)),
     )
     val contractInstance =
-      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
+      ThinContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(LanguageVersion.StableVersions(LanguageVersion.Major.V2).max, contractInstance)
   }
 

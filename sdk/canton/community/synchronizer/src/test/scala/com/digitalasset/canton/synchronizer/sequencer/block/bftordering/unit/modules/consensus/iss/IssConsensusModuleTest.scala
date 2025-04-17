@@ -1054,6 +1054,7 @@ class IssConsensusModuleTest
             p2pNetworkOutModuleRef,
             fail(_),
             previousEpochsCommitCerts = Map.empty,
+            metrics,
             loggerFactory,
           )
         ),

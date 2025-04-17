@@ -44,7 +44,7 @@ import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, LfPartyId}
 import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
@@ -1319,7 +1319,9 @@ trait ReassignmentStoreTest extends FailOnShutdown {
           unassignmentData.copy(unassignmentDecisionTime = CantonTimestamp.ofEpochSecond(100))
         val modifiedUnassignmentResult = {
           val updatedContent =
-            unassignmentResult.result.focus(_.content.counter).replace(SequencerCounter(120))
+            unassignmentResult.result
+              .focus(_.content.timestamp)
+              .replace(CantonTimestamp.ofEpochSecond(120))
 
           DeliveredUnassignmentResult.create(updatedContent).value
         }
@@ -1618,7 +1620,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     val batch =
       Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
     val deliver = Deliver.create(
-      SequencerCounter(1),
+      // TODO(#11834): check the previousTimestamp here, since the counter used here was 1
       None,
       CantonTimestamp.ofEpochMilli(10),
       reassignmentData.sourceSynchronizer.unwrap,

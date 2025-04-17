@@ -55,29 +55,6 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   }
   private val processLogger = mkProcessLogger()
 
-  private def runAndAssertCommandSuccess(
-      pb: scala.sys.process.ProcessBuilder,
-      processLogger: ConcurrentBufferedLogger,
-  ): Unit = {
-    val exitCode = pb.!(processLogger)
-    if (exitCode != 0) {
-      fail(s"Command failed:\n\n ${processLogger.output()}")
-    }
-  }
-
-  private def runAndAssertCommandFailure(
-      pb: scala.sys.process.ProcessBuilder,
-      processLogger: ConcurrentBufferedLogger,
-      expectedFailure: String,
-  ): Unit = {
-    val exitCode = pb.!(processLogger)
-    if (exitCode == 0) {
-      fail(s"Expected command failure but it succeeded")
-    } else {
-      processLogger.output() should include(expectedFailure)
-    }
-  }
-
   override def beforeAll(): Unit = {
     runAndAssertCommandSuccess(
       Process(Seq("./setup.sh"), cwd = interactiveSubmissionFolder.toJava),
@@ -158,9 +135,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
         transactionUUID,
         mediatorGroup.value,
         synchronizerId,
-        Option.when(preparedTransactionData.dependsOnLedgerTime)(
-          preparedTransactionData.transactionMeta.ledgerEffectiveTime
-        ),
+        preparedTransactionData.transactionMeta.timeBoundaries,
         preparedTransactionData.transactionMeta.submissionTime,
         preparedTransactionData.inputContracts,
       ),

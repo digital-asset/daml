@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.digitalasset.canton.auth.ClaimSet
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, User, UserRight}
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -67,7 +67,7 @@ private[auth] final class UserRightsChangeAsyncChecker(
               userClaimsMismatchCallback()
             case Success(Right((user, userRights))) =>
               val updatedClaims =
-                UserBasedAuthorizationInterceptor.convertUserRightsToClaims(userRights)
+                UserBasedAuthInterceptor.convertUserRightsToClaims(userRights)
               if (updatedClaims.toSet != originalClaims.claims.toSet || user.isDeactivated) {
                 userClaimsMismatchCallback()
               }

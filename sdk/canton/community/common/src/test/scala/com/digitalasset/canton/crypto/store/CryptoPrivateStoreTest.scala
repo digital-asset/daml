@@ -59,13 +59,7 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
 
       val sigKey2: SigningPrivateKey =
         crypto
-          .newSymbolicSigningKeyPair(
-            NonEmpty.mk(
-              Set,
-              SigningKeyUsage.Namespace,
-              SigningKeyUsage.IdentityDelegation,
-            )
-          )
+          .newSymbolicSigningKeyPair(SigningKeyUsage.NamespaceOnly)
           .privateKey
       val sigKey2WithName: SigningPrivateKeyWithName =
         SigningPrivateKeyWithName(sigKey2, Some(KeyName.tryCreate(uniqueKeyName("sigKey2_"))))
@@ -109,7 +103,7 @@ trait CryptoPrivateStoreTest extends BaseTest { this: AsyncWordSpec =>
         filterAuthenticationWithOldAndNewKeys <- store
           .filterSigningKeys(
             NonEmpty.mk(Seq, sigKey1.id, sigKey2.id, sigKeyAllUsage.id),
-            SigningKeyUsage.IdentityDelegationOnly,
+            SigningKeyUsage.NamespaceOnly,
           )
           .failOnShutdown
 

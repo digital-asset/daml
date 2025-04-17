@@ -30,7 +30,6 @@ import com.digitalasset.canton.topology.{
   PartyId,
   SequencerId,
   SynchronizerId,
-  UniqueIdentifier,
 }
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{Generators, GeneratorsLf, LfPackageId}
@@ -156,18 +155,6 @@ final class GeneratorsTransaction(
           restrictionWithNamespaceDelegation
         else restrictionWithoutNamespaceDelegation
     } yield NamespaceDelegation.tryCreate(namespace, target, delegationRestriction)
-  )
-
-  implicit val identifierDelegationArb: Arbitrary[IdentifierDelegation] = Arbitrary(
-    for {
-      identifier <- Arbitrary.arbitrary[UniqueIdentifier]
-      // target key must include the `IdentityDelegation` usage
-      target <- Arbitrary
-        .arbitrary[SigningPublicKey]
-        .retryUntil(key =>
-          SigningKeyUsage.matchesRelevantUsages(key.usage, SigningKeyUsage.IdentityDelegationOnly)
-        )
-    } yield IdentifierDelegation.create(identifier, target).value
   )
 
   implicit val purgeTopologyTransactionArb: Arbitrary[PurgeTopologyTransaction] = Arbitrary(

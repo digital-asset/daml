@@ -1256,6 +1256,7 @@ class TransactionProcessingSteps(
             // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
             // transactions and it leaks the structure of the omitted parts of the transaction.
             submissionSeed = Update.noOpSeed,
+            timeBoundaries = LedgerTimeBoundaries.unconstrained,
             optUsedPackages = None,
             optNodeSeeds = None, // optNodeSeeds is unused by the indexer
             optByKeyNodes = None, // optByKeyNodes is unused by the indexer

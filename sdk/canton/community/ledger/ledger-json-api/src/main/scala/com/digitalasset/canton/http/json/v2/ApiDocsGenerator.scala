@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.apiserver.services.VersionFile
+import com.digitalasset.canton.tracing.TraceContext
 import com.softwaremill.quicklens.*
 import sttp.apispec
 import sttp.apispec.asyncapi.AsyncAPI
@@ -17,7 +19,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import scala.collection.immutable.ListMap
 
-object ApiDocsGenerator {
+class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
+    extends NamedLogging {
 
   /** Endpoints used for static documents generation - should match with the live endpoints
     * @see
@@ -110,7 +113,10 @@ object ApiDocsGenerator {
       }
       .getOrElse((componentName, componentSchema))
 
-  def createDocs(lapiVersion: String, endpointDescriptions: Seq[AnyEndpoint]): ApiDocs = {
+  def createDocs(
+      lapiVersion: String,
+      endpointDescriptions: Seq[AnyEndpoint],
+  )(implicit traceContext: TraceContext): ApiDocs = {
     val openApiDocs: openapi.OpenAPI = OpenAPIDocsInterpreter()
       .toOpenAPI(
         endpointDescriptions,
@@ -119,8 +125,17 @@ object ApiDocsGenerator {
       )
       .openapi("3.0.3")
 
-    val proto = new ProtoParser().readProto()
-    val supplementedOpenApi = supplyProtoDocs(openApiDocs, proto)
+    val protoData = ProtoInfo
+      .loadData()
+      .fold(
+        error => {
+          logger.warn(s"Cannot load proto data for documentation $error")
+          // If we cannot load protoInfo data then we  generate docs with no supplemented comments
+          ProtoInfo(ExtractedProtoComments(Map.empty, Map.empty))
+        },
+        identity,
+      )
+    val supplementedOpenApi = supplyProtoDocs(openApiDocs, protoData)
     import sttp.apispec.openapi.circe.yaml.*
 
     val asyncApiDocs: AsyncAPI = AsyncAPIInterpreter().toAsyncAPI(
@@ -128,7 +143,7 @@ object ApiDocsGenerator {
       "JSON Ledger API WebSocket endpoints",
       lapiVersion,
     )
-    val supplementedAsyncApi = supplyProtoDocs(asyncApiDocs, proto)
+    val supplementedAsyncApi = supplyProtoDocs(asyncApiDocs, protoData)
     import sttp.apispec.asyncapi.circe.yaml.*
 
     val fixed3_0_3Api: OpenAPI = OpenAPI3_0_3Fix.fixTupleDefinition(supplementedOpenApi)
@@ -139,7 +154,7 @@ object ApiDocsGenerator {
     ApiDocs(openApiYaml, asyncApiYaml)
   }
 
-  def createStaticDocs(): ApiDocs =
+  def createStaticDocs()(implicit traceContext: TraceContext): ApiDocs =
     createDocs(
       VersionFile.readVersion().getOrElse("unknown"),
       staticDocumentationEndpoints.map(addHeaders),
@@ -155,7 +170,10 @@ object GenerateJSONApiDocs extends App {
   val docsDir = "target/apidocs"
   val docsTargetDir = Paths.get(docsDir)
   Files.createDirectories(docsTargetDir)
-  val staticDocs = ApiDocsGenerator.createStaticDocs()
+  // No trace context needed -> it is used only for static yaml generation
+  implicit val traceContext: TraceContext = TraceContext.empty
+  val apiDocsGenerator = new ApiDocsGenerator(NamedLoggerFactory.root)
+  val staticDocs = apiDocsGenerator.createStaticDocs()
   Files.write(
     docsTargetDir.resolve("openapi.yaml"),
     staticDocs.openApi.getBytes(StandardCharsets.UTF_8),

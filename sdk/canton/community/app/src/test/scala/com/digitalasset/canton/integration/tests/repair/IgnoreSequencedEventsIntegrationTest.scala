@@ -37,8 +37,8 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.{
   LatestUpto,
-  OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
+  SequencedEventWithTraceContext,
 }
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.InvalidAcknowledgementTimestamp
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -305,7 +305,6 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         // Choose DeliverError as type of tampered event, because we don't expect DeliverErrors to be stored
         // as part of the previous tests.
         val tamperedEvent = DeliverError.create(
-          lastStoredEvent.counter,
           None, // TODO(#11834): Make sure that ignored sequenced events works with previous timestamps
           lastStoredEvent.timestamp,
           daId,
@@ -315,7 +314,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           Option.empty[TrafficReceipt],
         )
         val tracedSignedTamperedEvent =
-          OrdinarySequencedEvent(lastEvent.copy(content = tamperedEvent))(traceContext)
+          SequencedEventWithTraceContext(lastEvent.copy(content = tamperedEvent))(traceContext)
 
         // Replace last event by the tamperedEvent
         val p1Node = participant1.underlying.value

@@ -4,6 +4,8 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import better.files.*
+import com.daml.ledger.api.v2.state_service.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
+import com.daml.ledger.api.v2.topology_transaction.{ParticipantAuthorizationAdded, TopologyEvent}
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.console.CommandFailure
@@ -13,7 +15,7 @@ import com.digitalasset.canton.integration.plugins.{
   UseProgrammableSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
-import com.digitalasset.canton.integration.util.EntitySyntax
+import com.digitalasset.canton.integration.util.{EntitySyntax, PartyToParticipantDeclarative}
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -21,15 +23,16 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.admin.party.PartyManagementServiceError
-import com.digitalasset.canton.synchronizer.sequencer.HasProgrammableSequencer
+import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
 import com.google.protobuf.ByteString
+
+import java.time.Instant
 
 final class ExportContractsIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
-    with EntitySyntax
-    with HasProgrammableSequencer {
+    with EntitySyntax {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
@@ -73,7 +76,7 @@ final class ExportContractsIntegrationTest
           participant1.parties.export_acs(
             parties = Set(uninformed),
             exportFilePath = file.toString,
-            filterSynchronizerId = Some(daId),
+            synchronizerId = Some(daId),
             ledgerOffset = uninformedOffset,
           )
 
@@ -101,7 +104,7 @@ final class ExportContractsIntegrationTest
                 .export_acs(
                   parties = Set(payer),
                   exportFilePath = file.toString,
-                  filterSynchronizerId = Some(
+                  synchronizerId = Some(
                     SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "id"))
                   ), // `participant1` is only connected to `da`,
                   ledgerOffset = payerOffset,
@@ -156,6 +159,92 @@ final class ExportContractsIntegrationTest
             forAlice should contain theSameElementsAs forBob
           }
       }
+    }
+
+    "export ACS at the effective time of a party onboarding topology transaction" in {
+      implicit env =>
+        import env.*
+        WithEnabledParties(participant1 -> Seq("payer"), participant2 -> Seq("owner")) {
+          case Seq(payer, owner) =>
+            IouSyntax.createIou(participant1)(payer, owner)
+
+            val ledgerOffsetBeforePartyOnboarding = participant2.ledger_api.state.end()
+
+            PartyToParticipantDeclarative.forParty(Set(participant2, participant3), daId)(
+              participant2,
+              owner,
+              PositiveInt.one,
+              Set(
+                (participant2, PP.Submission),
+                (participant3, PP.Submission),
+              ),
+            )
+
+            participant2.ledger_api.updates
+              .topology_transactions(
+                completeAfter = PositiveInt.one,
+                partyIds = Seq(owner),
+                beginOffsetExclusive = ledgerOffsetBeforePartyOnboarding,
+                synchronizerFilter = Some(daId),
+              )
+              .loneElement
+              .topologyTransaction
+              .events
+              .loneElement
+              .event shouldBe TopologyEvent.Event.ParticipantAuthorizationAdded(
+              ParticipantAuthorizationAdded(
+                partyId = owner.toProtoPrimitive,
+                participantId = participant3.uid.toProtoPrimitive,
+                participantPermission = PARTICIPANT_PERMISSION_SUBMISSION,
+              )
+            )
+
+            val onboardingTx = participant2.topology.party_to_participant_mappings
+              .list(
+                synchronizerId = daId,
+                filterParty = owner.filterString,
+                filterParticipant = participant3.filterString,
+              )
+              .loneElement
+              .context
+
+            File.usingTemporaryFile() { file =>
+              participant2.parties.export_acs_at_timestamp(
+                parties = Set(owner),
+                synchronizerId = daId,
+                topologyTransactionEffectiveTime = onboardingTx.validFrom,
+                exportFilePath = file.toString,
+              )
+              val acs = tryLoadFrom(file)
+
+              acs should have length 1
+            }
+        }
+    }
+
+    "fail to export ACS at a timestamp which does not correspond to a topology transaction (effective time)" in {
+      implicit env =>
+        import env.*
+        WithEnabledParties(participant1 -> Seq("payer"), participant2 -> Seq("owner")) {
+          case Seq(payer, owner) =>
+            IouSyntax.createIou(participant1)(payer, owner)
+
+            File.usingTemporaryFile() { file =>
+              loggerFactory.assertThrowsAndLogs[CommandFailure](
+                participant1.parties
+                  .export_acs_at_timestamp(
+                    parties = Set(payer),
+                    exportFilePath = file.toString,
+                    synchronizerId = daId,
+                    topologyTransactionEffectiveTime = Instant.now(),
+                  ),
+                _.errorMessage should include(
+                  PartyManagementServiceError.InvalidAcsSnapshotTimestamp.id
+                ),
+              )
+              file.exists shouldBe false // file should be deleted if error
+            }
+        }
     }
   }
 

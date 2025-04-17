@@ -321,7 +321,7 @@ class ProgrammableSequencer(
 
   override def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     blockedMemberReads.get.get(member) match {
       case Some(promise) =>
         logger.debug(s"Blocking sequencer source for member $member")
@@ -349,7 +349,7 @@ class ProgrammableSequencer(
 
   override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     blockedMemberReads.get.get(member) match {
       case Some(promise) =>
         logger.debug(s"Blocking sequencer source for member $member")

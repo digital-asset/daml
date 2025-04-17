@@ -340,6 +340,7 @@ final class StateTransferBehavior[E <: Env[E]](
         dependencies.p2pNetworkOut,
         abort,
         previousEpochsCommitCerts = Map.empty,
+        metrics,
         loggerFactory,
       ),
       random,
