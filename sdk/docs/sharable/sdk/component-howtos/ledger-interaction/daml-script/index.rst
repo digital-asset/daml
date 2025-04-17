@@ -317,7 +317,7 @@ translated to Daml script but there are a few things to keep in mind:
       transaction. Other types of ``Update`` statements can be moved
       to a choice that you call via ``createAndExerciseCmd``.
 #. Instead of Scenario’s ``getParty``, Daml Script provides you with
-   ``allocateParty`` and ``allocatePartyWithHint``. There are a few
+   ``allocateParty`` and ``allocatePartyByHint``. There are a few
    important differences:
 
    #. Allocating a party always gives you back a new party (or
@@ -327,7 +327,7 @@ translated to Daml script but there are a few things to keep in mind:
       the rest of the code.
 
    #. If you want to allocate a party with a specific party id, you
-      can use ``allocatePartyWithHint x (PartyIdHint x)`` as a replacement for `getParty x`. Note that
+      can use ``allocatePartyByHint (PartyIdHint x)`` as a replacement for `getParty x`. Note that
       while this is supported in Daml Studio, some
       ledgers can behave differently and ignore the party id hint or
       interpret it another way. Try to not rely on any specific
