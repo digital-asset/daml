@@ -16,6 +16,7 @@ module UpgradeTestLib (
   brokenOnIDELedger,
   withUnvettedPackage,
   withUnvettedPackageOnParticipant,
+  expectPackageMissingFailure,
   module Daml.Script,
   module Daml.Script.Internal,
   module DA.Assert,
@@ -81,6 +82,12 @@ withUnvettedPackageOnParticipant packageName packageVersion participant act = do
   case res of
     Left e -> throwAnyException e
     Right r -> pure r
+
+expectPackageMissingFailure : Either SubmitError a -> Script ()
+expectPackageMissingFailure (Right _) = fail "Expected failure, got success."
+expectPackageMissingFailure (Left (UnknownError (T.isInfixOf "Some packages are not known to all informees" -> True))) = pure ()
+expectPackageMissingFailure (Left (UnknownError (T.isInfixOf "PACKAGE_NOT_VETTED_BY_RECIPIENTS" -> True))) = pure ()
+expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, got " <> show e
 
 withUnvettedPackage : Text -> Text -> Script a -> Script a
 withUnvettedPackage packageName packageVersion act = do
