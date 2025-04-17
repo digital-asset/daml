@@ -33,7 +33,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 ### build-info ###
 
-canton_scalacopts = ["-Xsource:3"]
+canton_scalacopts = ["-Xsource:3-cross"]
 
 genrule(
     name = "community_buildinfo_src",
