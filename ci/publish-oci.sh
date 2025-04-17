@@ -38,7 +38,10 @@ trap on_exit EXIT
 gen_manifest() {
 local dest=$1
 info "Generate manifest...\t\t"
-echo 'spec:
+echo '
+apiVersion: digitalasset.com/v1
+kind: Component
+spec:
   commands:
   - path: "damlc"
     name: damlc
@@ -72,6 +75,7 @@ cd "${STAGING_DIR}" || exit 1
       damlc "${RELEASE_TAG}" \
       --platform linux/arm64=dist/linux/arm64/damlc \
       --platform linux/amd64=dist/linux/amd64/damlc \
+      --platform darwin/arm64=dist/darwin/arm64/damlc \
       --platform darwin/amd64=dist/darwin/amd64/damlc \
       --registry "${REGISTRY}" 2>"${STAGING_DIR}/output.log" && info_done || info_fail
       cat "${STAGING_DIR}/output.log"
