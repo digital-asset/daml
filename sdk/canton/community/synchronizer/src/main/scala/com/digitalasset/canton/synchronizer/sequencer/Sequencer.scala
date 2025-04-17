@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.{AtomicHealthElement, CloseableHealthQuasiComponent}
@@ -101,10 +100,6 @@ trait Sequencer
   def sendAsyncSigned(signedSubmission: SignedContent[SubmissionRequest])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
-
-  def read(member: Member, offset: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
   def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
@@ -267,9 +262,6 @@ object Sequencer extends HasLoggerName {
   /** The materialized future completes when all internal side-flows of the source have completed
     * after the kill switch was pulled. Termination of the main flow must be awaited separately.
     */
-  type EventSource =
-    Source[OrdinaryEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
-
   type SequencedEventSource =
     Source[SequencedEventOrError, (KillSwitch, FutureUnlessShutdown[Done])]
 

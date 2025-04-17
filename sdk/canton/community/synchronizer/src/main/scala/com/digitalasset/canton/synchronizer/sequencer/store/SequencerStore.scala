@@ -8,22 +8,16 @@ import cats.data.EitherT
 import cats.kernel.Order
 import cats.syntax.either.*
 import cats.syntax.order.*
-import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.sequencing.protocol.{
-  Batch,
-  ClosedEnvelope,
-  MessageId,
-  SequencedEvent,
-}
+import com.digitalasset.canton.sequencing.protocol.{Batch, ClosedEnvelope, MessageId}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -37,7 +31,7 @@ import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{BytesUnit, ErrorUtil, MonadUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter, checked}
+import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
@@ -341,47 +335,6 @@ final case class Sequenced[+P](timestamp: CantonTimestamp, event: StoreEvent[P])
   def map[A](fn: P => A): Sequenced[A] = copy(event = event.map(fn))
 }
 
-/** Checkpoint a sequencer subscription can be reinitialized from.
-  *
-  * @param counter
-  *   The sequencer counter associated to the event with the given timestamp.
-  * @param timestamp
-  *   The timestamp of the event with the given sequencer counter.
-  * @param latestTopologyClientTimestamp
-  *   The latest timestamp before or at `timestamp` at which an event was created from a batch that
-  *   contains an envelope addressed to the topology client used by the SequencerReader.
-  */
-final case class CounterCheckpoint(
-    counter: SequencerCounter,
-    timestamp: CantonTimestamp,
-    latestTopologyClientTimestamp: Option[CantonTimestamp],
-) extends PrettyPrinting {
-
-  override protected def pretty: Pretty[CounterCheckpoint] = prettyOfClass(
-    param("counter", _.counter),
-    param("timestamp", _.timestamp),
-    paramIfDefined("latest topology client timestamp", _.latestTopologyClientTimestamp),
-  )
-}
-
-object CounterCheckpoint {
-
-  /** We care very little about the event itself and just need the counter and timestamp */
-  def apply(
-      event: SequencedEvent[_],
-      latestTopologyClientTimestamp: Option[CantonTimestamp],
-  ): CounterCheckpoint =
-    // TODO(#11834): Remove counter checkpoints
-    CounterCheckpoint(SequencerCounter.Genesis, event.timestamp, latestTopologyClientTimestamp)
-
-  implicit def getResultCounterCheckpoint: GetResult[CounterCheckpoint] = GetResult { r =>
-    val counter = r.<<[SequencerCounter]
-    val timestamp = r.<<[CantonTimestamp]
-    val latestTopologyClientTimestamp = r.<<[Option[CantonTimestamp]]
-    CounterCheckpoint(counter, timestamp, latestTopologyClientTimestamp)
-  }
-}
-
 sealed trait SavePayloadsError
 object SavePayloadsError {
 
@@ -404,26 +357,13 @@ object SavePayloadsError {
   final case class PayloadMissing(payloadId: PayloadId) extends SavePayloadsError
 }
 
-sealed trait SaveCounterCheckpointError
-object SaveCounterCheckpointError {
-
-  /** We've attempted to write a counter checkpoint but found an existing checkpoint for this
-    * counter with a different timestamp. This is very bad and suggests that we are serving
-    * inconsistent streams to the member.
-    */
-  final case class CounterCheckpointInconsistent(
-      existingTimestamp: CantonTimestamp,
-      existingLatestTopologyClientTimestamp: Option[CantonTimestamp],
-  ) extends SaveCounterCheckpointError
-}
-
 sealed trait SaveLowerBoundError
 object SaveLowerBoundError {
 
   /** Returned if the bound we're trying to save is below any existing bound. */
   final case class BoundLowerThanExisting(
-      existingBound: CantonTimestamp,
-      suppliedBound: CantonTimestamp,
+      existingBound: (CantonTimestamp, Option[CantonTimestamp]),
+      suppliedBound: (CantonTimestamp, Option[CantonTimestamp]),
   ) extends SaveLowerBoundError
 }
 
@@ -457,12 +397,10 @@ final case class RegisteredMember(
 private[canton] final case class SequencerStoreRecordCounts(
     events: Long,
     payloads: Long,
-    counterCheckpoints: Long,
 ) {
   def -(other: SequencerStoreRecordCounts): SequencerStoreRecordCounts = SequencerStoreRecordCounts(
     events - other.events,
     payloads - other.payloads,
-    counterCheckpoints - other.counterCheckpoints,
   )
 }
 
@@ -501,6 +439,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   private val memberCache = new SequencerMemberCache(Traced.lift(lookupMemberInternal(_)(_)))
 
   protected def sequencerMember: Member
+
+  protected def batchingConfig: BatchingConfig
 
   /** Whether the sequencer store operates is used for a block sequencer or a standalone database
     * sequencer.
@@ -674,6 +614,28 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PayloadId, Batch[ClosedEnvelope]]]
 
+  /** For a given member and timestamp, return the latest timestamp of a potential topology change,
+    * that reached both the sequencer and the member. To be used by the topology snapshot awaiting,
+    * should there be a topology change expected to need to be taken into account for
+    * `timestampExclusive` sequencing timestamp.
+    */
+  def latestTopologyClientRecipientTimestamp(
+      member: Member,
+      timestampExclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
+
+  /** For a given member find the timestamp of the last event that the member has received before
+    * `timestampExclusive`.
+    */
+  def previousEventTimestamp(
+      memberId: SequencerMemberId,
+      timestampExclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
+
   /** Read all events of which a member is a recipient from the provided timestamp but no greater
     * than the earliest watermark. Passing both `member` and `memberId` to avoid a database query
     * for the lookup.
@@ -687,7 +649,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[ReadEvents] = {
     logger.debug(
-      s"Reading events for member $member from timestamp $fromExclusiveO with limit $limit"
+      s"Reading events for member $member from timestamp (exclusive) $fromExclusiveO with limit $limit"
     )
     val cache = eventsBuffer.snapshot()
 
@@ -741,59 +703,19 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     }
   }
 
-  /** Delete all events and checkpoints that are ahead of the watermark of this sequencer. These
-    * events will not have been read and should be removed before returning the sequencer online.
-    * Should not be called alongside updating the watermark for this sequencer and only while the
-    * sequencer is offline. Returns the watermark that was used for the deletion.
+  /** Delete all events that are ahead of the watermark of this sequencer. These events will not
+    * have been read and should be removed before returning the sequencer online. Should not be
+    * called alongside updating the watermark for this sequencer and only while the sequencer is
+    * offline. Returns the watermark that was used for the deletion.
     */
-  def deleteEventsAndCheckpointsPastWatermark(instanceIndex: Int)(implicit
+  def deleteEventsPastWatermark(instanceIndex: Int)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
-
-  /** Save a checkpoint that as of a certain timestamp the member has this counter value. Any future
-    * subscriptions can then use this as a starting point for serving their event stream rather than
-    * starting from 0.
-    */
-  def saveCounterCheckpoint(
-      memberId: SequencerMemberId,
-      checkpoint: CounterCheckpoint,
-  )(implicit
-      traceContext: TraceContext,
-      closeContext: CloseContext,
-  ): EitherT[FutureUnlessShutdown, SaveCounterCheckpointError, Unit]
-
-  def saveCounterCheckpoints(
-      checkpoints: Seq[(SequencerMemberId, CounterCheckpoint)]
-  )(implicit
-      traceContext: TraceContext,
-      externalCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit]
-
-  /** Fetch a checkpoint with a counter value less than the provided counter. */
-  def fetchClosestCheckpointBefore(memberId: SequencerMemberId, counter: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[CounterCheckpoint]]
-
-  /** Fetch a checkpoint with a counter value less than the provided counter. */
-  def fetchClosestCheckpointBeforeV2(
-      memberId: SequencerMemberId,
-      timestamp: Option[CantonTimestamp],
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[CounterCheckpoint]]
 
   /** Fetch previous event timestamp for a member for a given inclusive timestamp. */
   def fetchPreviousEventTimestamp(memberId: SequencerMemberId, timestampInclusive: CantonTimestamp)(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
-
-  def fetchLatestCheckpoint()(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[CantonTimestamp]]
-
-  def fetchEarliestCheckpointForMember(memberId: SequencerMemberId)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[CounterCheckpoint]]
 
   /** Write an acknowledgement that member has processed earlier timestamps. Only the latest
     * timestamp needs to be stored. Earlier timestamps can be overwritten. Acknowledgements of
@@ -824,15 +746,15 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** Fetch the lower bound of events that can be read. Returns `None` if all events can be read. */
   def fetchLowerBound()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[CantonTimestamp]]
+  ): FutureUnlessShutdown[Option[(CantonTimestamp, Option[CantonTimestamp])]]
 
   /** Save an updated lower bound of events that can be read. Must be equal or greater than any
     * prior set lower bound.
     * @throws java.lang.IllegalArgumentException
     *   if timestamp is lower than existing lower bound
     */
-  def saveLowerBound(ts: CantonTimestamp)(implicit
-      traceContext: TraceContext
+  def saveLowerBound(ts: CantonTimestamp, latestTopologyClientTimestamp: Option[CantonTimestamp])(
+      implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SaveLowerBoundError, Unit]
 
   /** Set the "pruned" previous event timestamp for a member. This timestamp is used to serve the
@@ -902,8 +824,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       status: SequencerPruningStatus,
       payloadToEventMargin: NonNegativeFiniteDuration,
   )(implicit
-      traceContext: TraceContext,
-      closeContext: CloseContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PruningError, SequencerPruningResult] = {
     val disabledClients = status.disabledClients
 
@@ -912,30 +833,16 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     val safeTimestamp = status.safePruningTimestamp
     logger.debug(s"Safe pruning timestamp is [$safeTimestamp]")
 
-    // generates and saves counter checkpoints for all members at the requested timestamp
-    def saveRecentCheckpoints(): FutureUnlessShutdown[Unit] = for {
-      checkpoints <- checkpointsAtTimestamp(requestedTimestamp)
-      _ = {
-        logger.debug(
-          s"Saving checkpoints $checkpoints for members at timestamp $requestedTimestamp"
-        )
-      }
-      checkpoints <- checkpoints.toList.parTraverse { case (member, checkpoint) =>
-        lookupMember(member).map {
-          case Some(registeredMember) => registeredMember.memberId -> checkpoint
-          case _ => ErrorUtil.invalidState(s"Member $member should be registered")
-        }
-      }
-      _ <- saveCounterCheckpoints(checkpoints)
-    } yield ()
-
     // Setting the lower bound to this new timestamp prevents any future readers from reading before this point.
     // As we've already ensured all known enabled readers have read beyond this point this should be harmless.
     // If the existing lower bound timestamp is already above the suggested timestamp value for pruning it suggests
     // that later data has already been pruned. Can happen if an earlier timestamp is required for pruning.
     // We'll just log a info message and move forward with pruning (which likely won't remove anything).
-    def updateLowerBound(timestamp: CantonTimestamp): FutureUnlessShutdown[Unit] =
-      saveLowerBound(timestamp).value
+    def updateLowerBound(
+        timestamp: CantonTimestamp,
+        latestTopologyClientTimestamp: Option[CantonTimestamp],
+    ): FutureUnlessShutdown[Unit] =
+      saveLowerBound(timestamp, latestTopologyClientTimestamp).value
         .map(_.leftMap { case SaveLowerBoundError.BoundLowerThanExisting(existing, _) =>
           logger.info(
             s"The sequencer has already been pruned up until $existing. Pruning from $requestedTimestamp will not remove any data."
@@ -952,8 +859,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         // to delete, and also ensures payloads that may have been written for events that weren't sequenced are removed
         // (if the event was dropped due to a crash or validation issue).
         payloadsRemoved <- prunePayloads(atBeforeExclusive.minus(payloadToEventMargin.duration))
-        checkpointsRemoved <- pruneCheckpoints(atBeforeExclusive)
-      } yield s"Removed at least $eventsRemoved events, at least $payloadsRemoved payloads, at least $checkpointsRemoved counter checkpoints"
+      } yield s"Removed at least $eventsRemoved events, at least $payloadsRemoved payloads"
 
     for {
       _ <- condUnitET[FutureUnlessShutdown](
@@ -961,8 +867,27 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         UnsafePruningPoint(requestedTimestamp, safeTimestamp),
       )
 
-      _ <- EitherT.right(saveRecentCheckpoints())
-      _ <- EitherT.right(updateLowerBound(requestedTimestamp))
+      // Update pruned_previous_event_timestamp in the sequencer_members table
+      memberPreviousTimestamps <- EitherT.right(
+        readStateAtTimestamp(requestedTimestamp).map(_.previousTimestamps)
+      )
+      _ <- EitherT.right(
+        updatePrunedPreviousEventTimestamps(memberPreviousTimestamps)
+      )
+
+      // Lower bound needs to include the topology client timestamp at the lower bound timestamp
+      latestTopologyClientMemberTimestampO <- EitherT.right(
+        latestTopologyClientRecipientTimestamp(
+          sequencerMember,
+          requestedTimestamp,
+        )
+      )
+      _ <- EitherT.right(
+        updateLowerBound(
+          requestedTimestamp,
+          latestTopologyClientMemberTimestampO,
+        )
+      )
       description <- EitherT.right(performPruning(requestedTimestamp))
 
     } yield SequencerPruningResult(Some(requestedTimestamp), description)
@@ -988,14 +913,6 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[Int]
 
-  /** Prune counter checkpoints for the given member before the given timestamp.
-    * @return
-    *   A lower bound on the number of checkpoints removed.
-    */
-  protected[store] def pruneCheckpoints(beforeExclusive: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Int]
-
   /** Locate a timestamp relative to the earliest available event based on a skip index starting at
     * 0. Useful to monitor the progress of pruning and for pruning in batches.
     * @return
@@ -1007,11 +924,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   /** The state returned here is used to initialize a separate database sequencer (that does not
     * share the same database as this one) using [[initializeFromSnapshot]] such that this new
-    * sequencer has enough information (registered members, checkpoints, etc) to be able to process
-    * new events from the same point as this sequencer to the same clients. This is typically used
-    * by block sequencers that use the database sequencer as local storage such that they will
-    * process the same events in the same order and they need to be able to spin up new block
-    * sequencers from a specific point in time.
+    * sequencer has enough information (registered members, previous event timestamps, etc) to be
+    * able to process new events from the same point as this sequencer to the same clients. This is
+    * typically used by block sequencers that use the database sequencer as local storage such that
+    * they will process the same events in the same order and they need to be able to spin up new
+    * block sequencers from a specific point in time.
     * @return
     *   state at the given time
     */
@@ -1019,58 +936,35 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencerSnapshot]
 
-  def checkpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[Member, CounterCheckpoint]]
-
-  /** Compute a counter checkpoint for every member at the requested `timestamp` and save it to the
-    * store.
-    */
-  def recordCounterCheckpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext,
-      externalCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit]
-
   def initializeFromSnapshot(initialState: SequencerInitialState)(implicit
-      traceContext: TraceContext,
-      closeContext: CloseContext,
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     val snapshot = initialState.snapshot
     val lastTs = snapshot.lastTs
     for {
-      memberCheckpoints <- EitherT.right(snapshot.status.members.toSeq.parTraverseFilter {
-        memberStatus =>
-          for {
-            id <- registerMember(memberStatus.member, memberStatus.registeredAt)
-            _ <-
-              if (!memberStatus.enabled) disableMember(memberStatus.member)
-              else FutureUnlessShutdown.unit
-            _ <- memberStatus.lastAcknowledged.fold(FutureUnlessShutdown.unit)(ack =>
-              acknowledge(id, ack)
-            )
-            counterCheckpoint =
-              // Some members can be registered, but not have any events yet, so there can be no CounterCheckpoint in the snapshot
-              snapshot.heads.get(memberStatus.member).map { counter =>
-                val checkpointCounter = if (memberStatus.member == sequencerMember) {
-                  // We ignore the counter for the sequencer itself as we always start from 0 in the self-subscription
-                  SequencerCounter(-1)
-                } else {
-                  counter
-                }
-                (id -> CounterCheckpoint(
-                  checkpointCounter,
-                  lastTs,
-                  initialState.latestSequencerEventTimestamp,
-                ))
-              }
-          } yield counterCheckpoint
-      })
-      _ <- EitherT.right(saveCounterCheckpoints(memberCheckpoints))
+      _ <- EitherT.right(
+        MonadUtil
+          .parTraverseWithLimit_(batchingConfig.parallelism)(snapshot.status.members.toSeq) {
+            memberStatus =>
+              for {
+                id <- registerMember(memberStatus.member, memberStatus.registeredAt)
+                _ <-
+                  if (!memberStatus.enabled) disableMember(memberStatus.member)
+                  else FutureUnlessShutdown.unit
+                _ <- memberStatus.lastAcknowledged.fold(FutureUnlessShutdown.unit)(ack =>
+                  acknowledge(id, ack)
+                )
+              } yield ()
+          }
+      )
       _ <- EitherT.right(updatePrunedPreviousEventTimestamps(snapshot.previousTimestamps.filterNot {
         // We ignore the previous timestamp for the sequencer itself as we always start from `None` in the self-subscription
         case (member, _) => member == sequencerMember
       }))
-      _ <- saveLowerBound(lastTs).leftMap(_.toString)
+      _ <- saveLowerBound(
+        lastTs,
+        initialState.latestSequencerEventTimestamp,
+      ).leftMap(_.toString)
       _ <- saveWatermark(0, lastTs).leftMap(_.toString)
     } yield ()
   }
@@ -1087,6 +981,7 @@ object SequencerStore {
       sequencerMember: Member,
       blockSequencerMode: Boolean,
       cachingConfigs: CachingConfigs,
+      batchingConfig: BatchingConfig,
       overrideCloseContext: Option[CloseContext] = None,
   )(implicit executionContext: ExecutionContext): SequencerStore =
     storage match {
@@ -1108,6 +1003,7 @@ object SequencerStore {
           sequencerMember,
           blockSequencerMode = blockSequencerMode,
           cachingConfigs = cachingConfigs,
+          batchingConfig = batchingConfig,
           overrideCloseContext = overrideCloseContext,
         )
     }

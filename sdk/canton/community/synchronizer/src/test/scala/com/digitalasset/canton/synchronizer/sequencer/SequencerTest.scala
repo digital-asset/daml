@@ -5,7 +5,12 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
@@ -118,6 +123,7 @@ class SequencerTest
       sequencerMember = topologyClientMember,
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
     )
 
     val sequencer: DatabaseSequencer =

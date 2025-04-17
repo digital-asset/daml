@@ -34,7 +34,6 @@ import com.digitalasset.canton.{
   BaseTest,
   FailOnShutdown,
   ProtocolVersionChecksFixtureAsyncWordSpec,
-  SequencerCounter,
   config,
 }
 import com.google.protobuf.ByteString
@@ -42,7 +41,6 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.{Sink, SinkQueueWithCancel, Source}
 import org.apache.pekko.stream.{Materializer, OverflowStrategy, QueueOfferResult}
-import org.mockito.Mockito
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
 import org.slf4j.event.Level
@@ -146,7 +144,6 @@ class SequencerReaderTestV2
       testedProtocolVersion,
       timeouts,
       loggerFactory,
-      blockSequencerMode = true,
     )
     val defaultTimeout: FiniteDuration = 20.seconds
     implicit val closeContext: CloseContext = CloseContext(reader)
@@ -273,13 +270,6 @@ class SequencerReaderTestV2
       env.close()
     }
   }
-
-  private def checkpoint(
-      counter: SequencerCounter,
-      ts: CantonTimestamp,
-      latestTopologyClientTs: Option[CantonTimestamp] = None,
-  ): CounterCheckpoint =
-    CounterCheckpoint(counter, ts, latestTopologyClientTs)
 
   "Reader" should {
     "read a stream of events" in { env =>
@@ -444,10 +434,6 @@ class SequencerReaderTestV2
               Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
             )
           _ <- storeAndWatermark(delivers)
-          // store a counter check point at 5s
-          _ <- store
-            .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(5), ts(6)))
-            .valueOrFail("saveCounterCheckpoint")
           events <- readAsSeq(alice, timestampInclusive = Some(ts0.plusSeconds(11)), 15)
         } yield {
           // this assertion is a bit redundant as we're actually just looking for the prior fetch to complete rather than get stuck
@@ -460,123 +446,13 @@ class SequencerReaderTestV2
       }
     }
 
-    "counter checkpoint" should {
-      // Note: unified sequencer mode creates checkpoints using sequencer writer
-      // TODO(#16087) revive test for blockSequencerMode=false
-      "issue counter checkpoints occasionally" ignore { env =>
-        import env.*
-
-        import scala.jdk.CollectionConverters.*
-
-        def saveCounterCheckpointCallCount: Int =
-          Mockito
-            .mockingDetails(storeSpy)
-            .getInvocations
-            .asScala
-            .count(_.getMethod.getName == "saveCounterCheckpoint")
-
-        for {
-          topologyClientMemberId <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
-          // generate 20 delivers starting at ts0+1s
-          delivers = (1L to 20L).map { i =>
-            val recipients =
-              if (i == 1L || i == 11L) NonEmpty(SortedSet, topologyClientMemberId, aliceId)
-              else NonEmpty(SortedSet, aliceId)
-            Sequenced(
-              ts0.plusSeconds(i),
-              mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)(recipients),
-            )
-          }
-          _ <- storeAndWatermark(delivers)
-          start = System.nanoTime()
-          // take some events
-          queue = readWithQueue(alice, timestampInclusive = None)
-          // read a bunch of items
-          readEvents <- MonadUtil.sequentialTraverse(1L to 20L)(_ => pullFromQueue(queue))
-          // wait for a bit over the checkpoint interval (although I would expect because these actions are using the same scheduler the actions may be correctly ordered regardless)
-          _ <- waitFor(testConfig.checkpointInterval.underlying * 6)
-          checkpointsWritten = saveCounterCheckpointCallCount
-          stop = System.nanoTime()
-          // close the queue before we make any assertions
-          _ = queue.cancel()
-          lastEventRead = readEvents.lastOption.value.value
-          checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
-            aliceId,
-            SequencerCounter(
-              100L
-            ), // lastEventRead should be 19L, but we can use any offset above that
-          )
-        } yield {
-          // check it created a checkpoint for the last event we read
-          checkpointForLastEventO.value.timestamp shouldBe lastEventRead.timestamp
-          checkpointForLastEventO.value.latestTopologyClientTimestamp shouldBe Some(
-            CantonTimestamp.ofEpochSecond(11)
-          )
-
-          val readingDurationMillis = java.time.Duration.ofNanos(stop - start).toMillis
-          val checkpointsUpperBound = (readingDurationMillis.toFloat /
-            testConfig.checkpointInterval.duration.toMillis.toFloat).ceil.toInt
-          logger.debug(
-            s"Expecting at most $checkpointsUpperBound checkpoints because reading overall took at most $readingDurationMillis ms"
-          )
-          // make sure we didn't write a checkpoint for every event (in practice this should be <3)
-          checkpointsWritten should (be > 0 and be <= checkpointsUpperBound)
-          // The next assertion fails if the test takes too long. Increase the checkpoint interval in `testConfig` if necessary.
-          checkpointsUpperBound should be < 20
-        }
-      }
-
-      "start subscriptions from the closest counter checkpoint if available" in { env =>
-        import env.*
-
-        for {
-          _ <- store.registerMember(topologyClientMember, ts0)
-          aliceId <- store.registerMember(alice, ts0)
-          // write a bunch of events
-          delivers = (1L to 20L)
-            .map(ts0.plusSeconds)
-            .map(
-              Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
-            )
-          _ <- storeAndWatermark(delivers)
-          checkpointTimestamp = ts0.plusSeconds(11)
-          _ <- valueOrFail(
-            store
-              .saveCounterCheckpoint(
-                aliceId,
-                checkpoint(SequencerCounter(10), checkpointTimestamp),
-              )
-          )("saveCounterCheckpoint")
-          // read from a point ahead of this checkpoint
-          events <- readAsSeq(alice, timestampInclusive = Some(ts0.plusSeconds(16)), 3)
-        } yield {
-          // it should have started reading from the closest counter checkpoint timestamp
-          verify(storeSpy).readEvents(
-            eqTo(aliceId),
-            eqTo(alice),
-            eqTo(Some(checkpointTimestamp)),
-            anyInt,
-          )(
-            anyTraceContext
-          )
-          // our deliver events start at ts0+1s and as alice is registered before the first deliver event their first
-          // event (0) is for ts0+1s.
-          // event 15 should then have ts ts0+16s
-          events.headOption.value.timestamp shouldBe ts0.plusSeconds(16)
-          // check that previous timestamp lookup from the checkpoint is correct
-          events.headOption.value.previousTimestamp shouldBe Some(ts0.plusSeconds(15))
-        }
-      }
-    }
-
     "lower bound checks" should {
       "error if subscription would need to start before the lower bound due to no checkpoints" in {
         env =>
           import env.*
 
           val expectedMessage =
-            "Subscription for PAR::alice::default from the beginning would require reading data from 1970-01-01T00:00:00Z but our lower bound is 1970-01-01T00:00:10Z."
+            "Subscription for PAR::alice::default would require reading data from the beginning, but this sequencer cannot serve timestamps at or before 1970-01-01T00:00:10Z or below the member's registration timestamp 1970-01-01T00:00:00Z."
 
           for {
             _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
@@ -589,7 +465,7 @@ class SequencerReaderTestV2
               )
             _ <- storeAndWatermark(delivers)
             _ <- store
-              .saveLowerBound(ts(10))
+              .saveLowerBound(ts(10), ts(9).some)
               .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
               leftOrFail(reader.readV2(alice, timestampInclusive = None))("read"),
@@ -601,43 +477,39 @@ class SequencerReaderTestV2
           }
       }
 
-      "error if subscription would need to start before the lower bound due to checkpoints" in {
-        env =>
-          import env.*
+      "error if subscription would need to start before the lower bound" in { env =>
+        import env.*
 
-          val expectedMessage =
-            "Subscription for PAR::alice::default from 1970-01-01T00:00:10Z (inclusive) would require reading data from 1970-01-01T00:00:00Z but our lower bound is 1970-01-01T00:00:10Z."
+        val expectedMessage =
+          "Subscription for PAR::alice::default would require reading data from 1970-01-01T00:00:10Z (inclusive), but this sequencer cannot serve timestamps at or before 1970-01-01T00:00:10Z or below the member's registration timestamp 1970-01-01T00:00:00Z."
 
-          for {
-            _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-            aliceId <- store.registerMember(alice, ts0).failOnShutdown
-            // write a bunch of events
-            delivers = (1L to 20L)
-              .map(ts0.plusSeconds)
-              .map(
-                Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
-              )
-            _ <- storeAndWatermark(delivers)
-            _ <- store
-              .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(9), ts(11)))
-              .valueOrFail("saveCounterCheckpoint")
-            _ <- store
-              .saveLowerBound(ts(10))
-              .valueOrFail("saveLowerBound")
-            error <- loggerFactory.assertLogs(
-              leftOrFail(reader.readV2(alice, timestampInclusive = Some(ts0.plusSeconds(10))))(
-                "read succeeded"
-              ),
-              _.errorMessage shouldBe expectedMessage,
+        for {
+          _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+          aliceId <- store.registerMember(alice, ts0).failOnShutdown
+          // write a bunch of events
+          delivers = (1L to 20L)
+            .map(ts0.plusSeconds)
+            .map(
+              Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)())
             )
-          } yield inside(error) {
-            case CreateSubscriptionError.EventsUnavailableForTimestamp(Some(timestamp), message) =>
-              timestamp shouldBe ts0.plusSeconds(10)
-              message shouldBe expectedMessage
-          }
+          _ <- storeAndWatermark(delivers)
+          _ <- store
+            .saveLowerBound(ts(10), ts(9).some)
+            .valueOrFail("saveLowerBound")
+          error <- loggerFactory.assertLogs(
+            leftOrFail(reader.readV2(alice, timestampInclusive = Some(ts0.plusSeconds(10))))(
+              "read succeeded"
+            ),
+            _.errorMessage shouldBe expectedMessage,
+          )
+        } yield inside(error) {
+          case CreateSubscriptionError.EventsUnavailableForTimestamp(Some(timestamp), message) =>
+            timestamp shouldBe ts0.plusSeconds(10)
+            message shouldBe expectedMessage
+        }
       }
 
-      "not error if there is a counter checkpoint above lower bound" in { env =>
+      "not error if reading data above lower bound" in { env =>
         import env.*
 
         for {
@@ -649,10 +521,7 @@ class SequencerReaderTestV2
             .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId)()))
           _ <- storeAndWatermark(delivers)
           _ <- store
-            .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(11), ts(10)))
-            .valueOrFail("saveCounterCheckpoint")
-          _ <- store
-            .saveLowerBound(ts(10))
+            .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
           _ <- reader
             .readV2(alice, timestampInclusive = Some(ts0.plusSeconds(13)))
@@ -854,79 +723,6 @@ class SequencerReaderTestV2
                   delivered.signedEvent.content shouldBe expectedSequencedEvent
               }
             }
-        }
-      }
-
-      // TODO(#16087) revive test for blockSequencerMode=false
-      "do not update the topology client timestamp" ignore { env =>
-        import env.*
-
-        for {
-          synchronizerParamsO <- cryptoD.headSnapshot.ipsSnapshot
-            .findDynamicSynchronizerParameters()
-            .failOnShutdown
-          synchronizerParams = synchronizerParamsO.valueOrFail("No synchronizer parameters found")
-          signingTolerance = synchronizerParams.sequencerTopologyTimestampTolerance
-          signingToleranceInSec = signingTolerance.duration.toSeconds
-
-          topologyClientMemberId <- store.registerMember(topologyClientMember, ts0).failOnShutdown
-          aliceId <- store.registerMember(alice, ts0).failOnShutdown
-
-          recipientsTopo = NonEmpty(SortedSet, aliceId, topologyClientMemberId)
-          recipientsAlice = NonEmpty(SortedSet, aliceId)
-          testData = Seq(
-            // Sequencing ts, signing ts relative to ts0, recipients
-            (1L, None, recipientsTopo),
-            (signingToleranceInSec + 1L, Some(0L), recipientsTopo),
-          ) ++ (2L to 60L).map(i => (signingToleranceInSec + i, None, recipientsAlice))
-          batch = Batch.fromClosed(
-            testedProtocolVersion,
-            ClosedEnvelope.create(
-              ByteString.copyFromUtf8("test envelope"),
-              Recipients.cc(alice, bob),
-              Seq.empty,
-              testedProtocolVersion,
-            ),
-          )
-
-          delivers = testData.map { case (sequenceTs, signingTsO, recipients) =>
-            val storeEvent = TraceContext
-              .withNewTraceContext { eventTraceContext =>
-                mockDeliverStoreEvent(
-                  sender = aliceId,
-                  payloadId = PayloadId(ts0.plusSeconds(sequenceTs)),
-                  signingTs = signingTsO.map(ts0.plusSeconds),
-                  traceContext = eventTraceContext,
-                )(recipients)
-              }
-              .map(id => BytesPayload(id, batch.toByteString))
-            Sequenced(ts0.plusSeconds(sequenceTs), storeEvent)
-          }
-          _ <- storePayloadsAndWatermark(delivers)
-          // take some events
-          queue = readWithQueue(alice, timestampInclusive = None)
-          // read a bunch of items
-          readEvents <- MonadUtil.sequentialTraverse(1L to 61L)(_ => pullFromQueue(queue))
-          // wait for a bit over the checkpoint interval (although I would expect because these actions are using the same scheduler the actions may be correctly ordered regardless)
-          _ <- waitFor(testConfig.checkpointInterval.underlying * 3)
-          // close the queue before we make any assertions
-          _ = queue.cancel()
-          lastEventRead = readEvents.lastOption.value.value
-          _ = logger.debug(
-            s"Fetching checkpoint for the last event with timestamp ${lastEventRead.timestamp}"
-          )
-          checkpointForLastEventO <-
-            store.fetchClosestCheckpointBefore(
-              aliceId,
-              SequencerCounter(100L),
-            )
-        } yield {
-          // check it created a checkpoint for a recent event
-          checkpointForLastEventO.value.counter should be >= SequencerCounter(10)
-          checkpointForLastEventO.value.latestTopologyClientTimestamp shouldBe Some(
-            // This is before the timestamp of the second event
-            CantonTimestamp.ofEpochSecond(1)
-          )
         }
       }
     }

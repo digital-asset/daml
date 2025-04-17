@@ -820,4 +820,7 @@ object ConfigTransforms {
       _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
     ),
   )
+
+  def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
+    _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 }

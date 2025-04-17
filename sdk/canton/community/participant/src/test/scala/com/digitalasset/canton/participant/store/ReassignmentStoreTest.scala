@@ -1620,7 +1620,6 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     val batch =
       Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
     val deliver = Deliver.create(
-      // TODO(#11834): check the previousTimestamp here, since the counter used here was 1
       None,
       CantonTimestamp.ofEpochMilli(10),
       reassignmentData.sourceSynchronizer.unwrap,

@@ -39,7 +39,7 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
 import com.digitalasset.canton.topology.{Member, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import com.google.protobuf.ByteString
 import org.apache.pekko.Done
 import org.apache.pekko.stream.KillSwitches
@@ -113,15 +113,6 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest with FailOnShutdown 
       newlyRegisteredMembers.add(member)
       EitherT.pure(())
     }
-
-    override def readInternal(member: Member, offset: SequencerCounter)(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
-      EitherT.rightT[FutureUnlessShutdown, CreateSubscriptionError](
-        Source.empty
-          .viaMat(KillSwitches.single)(Keep.right)
-          .mapMaterializedValue(_ -> FutureUnlessShutdown.pure(Done))
-      )
 
     override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
         traceContext: TraceContext

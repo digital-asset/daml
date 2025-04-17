@@ -68,7 +68,6 @@ import com.digitalasset.canton.{
   FailOnShutdown,
   MockedNodeParameters,
   ProtocolVersionChecksFixtureAsyncWordSpec,
-  SequencerCounter,
 }
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -611,7 +610,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           messages2 <- readForMembers(
             List(sender, p11),
             sequencer,
-            firstSequencerCounter = SequencerCounter.Genesis + 1,
+            startTimestamp = firstEventTimestamp(p11)(messages1).map(_.immediateSuccessor),
           )
           senderLive3 <- getStateFor(sender, sequencer)
           _ =
@@ -964,7 +963,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
               messages2 <- readForMembers(
                 Seq(sender),
                 sequencer,
-                firstSequencerCounter = SequencerCounter(1),
+                startTimestamp = firstEventTimestamp(sender)(messages).map(_.immediateSuccessor),
               )
             } yield {
               // First message should be rejected with and OutdatedEventCost error
