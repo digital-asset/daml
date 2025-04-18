@@ -173,7 +173,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)
       val unassigned = participant2.ledger_api.commands
-        .submit_unassign(observer1, Seq(iou.id.toLf), daId, acmeId, eventFormat = None)
+        .submit_unassign_with_format(observer1, Seq(iou.id.toLf), daId, acmeId, eventFormat = None)
 
       unassigned.reassignment.events shouldBe empty
 

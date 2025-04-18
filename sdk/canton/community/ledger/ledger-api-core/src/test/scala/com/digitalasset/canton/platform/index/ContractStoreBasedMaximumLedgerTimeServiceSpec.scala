@@ -15,7 +15,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedThinContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -255,7 +255,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
       new ContractStore {
         override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
             loggingContext: LoggingContextWithTrace
-        ): Future[Option[VersionedThinContractInstance]] =
+        ): Future[Option[VersionedContractInstance]] =
           throw new UnsupportedOperationException
 
         override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit

@@ -190,18 +190,17 @@ class ApiPartyManagementServiceSpec
             assertError(
               actual = err,
               expectedStatusCode = Code.UNAVAILABLE,
-              expectedMessage = "SERVER_IS_SHUTTING_DOWN(1,0): Server is shutting down",
+              expectedMessage = "ABORTED_DUE_TO_SHUTDOWN(1,0): request aborted due to shutdown",
               expectedDetails = List(
                 ErrorDetails.ErrorInfoDetail(
-                  "SERVER_IS_SHUTTING_DOWN",
+                  "ABORTED_DUE_TO_SHUTDOWN",
                   Map(
                     "parties" -> "['aParty']",
                     "category" -> "1",
-                    "definite_answer" -> "false",
                     "test" -> s"'${getClass.getSimpleName}'",
                   ),
                 ),
-                RetryInfoDetail(1.second),
+                RetryInfoDetail(10.seconds),
               ),
               verifyEmptyStackTrace = true,
             )

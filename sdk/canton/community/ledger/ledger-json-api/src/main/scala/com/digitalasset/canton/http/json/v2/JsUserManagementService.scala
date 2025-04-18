@@ -297,7 +297,6 @@ object JsUserManagementService extends DocumentationEndpoints {
 
 object JsUserManagementCodecs {
   import JsSchema.config
-  import io.circe.generic.extras.auto.*
 
   implicit val user: Codec[user_management_service.User] = deriveRelaxedCodec
   implicit val participantAdmin: Codec[user_management_service.Right.ParticipantAdmin] =

@@ -15,7 +15,7 @@ package object platform {
   private[platform] type ContractId = lfval.ContractId
   private[platform] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[platform] type Value = lfval.VersionedValue
-  private[platform] type Contract = lfval.VersionedThinContractInstance
+  private[platform] type Contract = lfval.VersionedContractInstance
   private[platform] val Contract = lfval.VersionedContractInstance
 
   import com.digitalasset.daml.lf.transaction as lftx
