@@ -126,7 +126,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[Value.VersionedThinContractInstance]] =
+  ): Future[Option[Value.VersionedContractInstance]] =
     Timed.future(
       metrics.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),

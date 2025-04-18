@@ -11,6 +11,7 @@ import com.digitalasset.canton.ledger.error.{CommonErrors, LedgerApiErrors}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.{
   SubmissionKey,
   SubmissionTrackerImpl,
@@ -335,13 +336,13 @@ class SubmissionTrackerSpec
       inside(failure1) { case actualStatusRuntimeException: StatusRuntimeException =>
         assertError(
           actual = actualStatusRuntimeException,
-          expected = CommonErrors.ServerIsShuttingDown.Reject().asGrpcError,
+          expected = GrpcErrors.AbortedDueToShutdown.Error().asGrpcError,
         )
       }
       inside(failure2) { case actualStatusRuntimeException: StatusRuntimeException =>
         assertError(
           actual = actualStatusRuntimeException,
-          expected = CommonErrors.ServerIsShuttingDown.Reject().asGrpcError,
+          expected = GrpcErrors.AbortedDueToShutdown.Error().asGrpcError,
         )
       }
       succeed
@@ -402,7 +403,7 @@ class SubmissionTrackerSpec
           .recover(inside(_) { case actualStatusRuntimeException: StatusRuntimeException =>
             assertError(
               actual = actualStatusRuntimeException,
-              expected = CommonErrors.ServerIsShuttingDown.Reject().asGrpcError,
+              expected = GrpcErrors.AbortedDueToShutdown.Error().asGrpcError,
             )
           })
       )

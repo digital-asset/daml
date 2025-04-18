@@ -17,9 +17,9 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.grpc.sampleservice.HelloServiceReferenceImplementation
 import com.digitalasset.canton.ledger.api.grpc.StreamingServiceLifecycleManagement
-import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.resources.TestResourceContext
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, protobuf}
 import io.grpc.*
@@ -122,7 +122,7 @@ final class ErrorInterceptorSpec
         service.close()
         exerciseStreamingEndpoint(service)
           .map { t =>
-            assertMatchesErrorCode(t, CommonErrors.ServerIsShuttingDown)
+            assertMatchesErrorCode(t, GrpcErrors.AbortedDueToShutdown)
           }
       }
 

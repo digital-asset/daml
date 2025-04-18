@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{InstanceReference, LocalInstanceReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.topology.*
@@ -132,7 +131,6 @@ trait TopologyManagementHelper { this: BaseTest =>
         node.id.member,
         NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
       ),
-      serial = PositiveInt.one,
       signedBy = Seq(namespaceKey.fingerprint, sequencerAuthKey.fingerprint, signingKey.fingerprint),
     )
     // architecture-handbook-entry-end: Node

@@ -18,7 +18,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration, RequireTypes}
+import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{
@@ -1323,7 +1323,7 @@ class TopologyAdministrationGroup(
 
       propose(
         proposedMapping,
-        serial,
+        Some(serial),
         ops,
         signedBy,
         TopologyStoreId.Authorized,
@@ -1335,7 +1335,7 @@ class TopologyAdministrationGroup(
 
     def propose(
         proposedMapping: OwnerToKeyMapping,
-        serial: RequireTypes.PositiveNumeric[Int],
+        serial: Option[PositiveInt] = None,
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Seq[Fingerprint] = Seq.empty,
         store: TopologyStoreId = TopologyStoreId.Authorized,
@@ -1352,7 +1352,7 @@ class TopologyAdministrationGroup(
           signedBy = signedBy,
           store = store,
           change = ops,
-          serial = Some(serial),
+          serial = serial,
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = force,
           waitToBecomeEffective = synchronize,
@@ -1393,7 +1393,7 @@ class TopologyAdministrationGroup(
     @Help.Summary("Propose a party to key mapping")
     def propose(
         proposedMapping: PartyToKeyMapping,
-        serial: RequireTypes.PositiveNumeric[Int],
+        serial: Option[PositiveInt] = None,
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Option[Fingerprint] = None,
         store: TopologyStoreId = TopologyStoreId.Authorized,
@@ -1410,7 +1410,7 @@ class TopologyAdministrationGroup(
           signedBy = signedBy.toList,
           store = store,
           change = ops,
-          serial = Some(serial),
+          serial = serial,
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = force,
           waitToBecomeEffective = synchronize,
@@ -2283,10 +2283,8 @@ class TopologyAdministrationGroup(
         serial: Option[PositiveInt] = None,
         signedBy: Option[Fingerprint] = None,
         force: ForceFlags = ForceFlags.none,
+        operation: TopologyChangeOp = TopologyChangeOp.Replace,
     ): Unit = {
-
-      val topologyChangeOp =
-        if (packages.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
 
       val command = TopologyAdminCommands.Write.Propose(
         mapping = VettedPackages.create(
@@ -2295,7 +2293,7 @@ class TopologyAdministrationGroup(
         ),
         signedBy = signedBy.toList,
         serial = serial,
-        change = topologyChangeOp,
+        change = operation,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
         forceChanges = force,

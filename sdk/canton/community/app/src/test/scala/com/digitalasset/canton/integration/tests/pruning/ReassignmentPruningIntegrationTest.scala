@@ -159,7 +159,6 @@ sealed trait ReassignmentPruningIntegrationTest
         Seq(contractId.toLf),
         origin,
         target,
-        waitForParticipants = Map.apply(participant1 -> alice),
       )
     val unassignOffsetP2 = unassignment.reassignment.offset
     val unassignmentId = unassignment.unassignId

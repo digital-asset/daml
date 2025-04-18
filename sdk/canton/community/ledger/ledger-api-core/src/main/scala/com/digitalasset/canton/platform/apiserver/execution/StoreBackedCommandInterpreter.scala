@@ -259,15 +259,7 @@ final class StoreBackedCommandInterpreter(
               resolveStep(
                 Tracked.value(
                   metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(
-                    instance.map{
-                      case Versioned(version, ThinContractInstance(pkgName, templateId, arg)) =>
-                        FatContractInstance.fromThinInstance(
-                          version, pkgName, templateId, arg
-                        )
-                    }
-                  )
-                  )
+                  trackSyncExecution(interpretationTimeNanos)(resume(instance)),
                 )
               )
             }
@@ -508,12 +500,12 @@ final class StoreBackedCommandInterpreter(
   }
 
   private case class UpgradeVerificationContractData(
-                                                      contractId: ContractId,
-                                                      driverMetadataBytes: Array[Byte],
-                                                      contractInstance: Value.VersionedThinContractInstance,
-                                                      originalMetadata: ContractMetadata,
-                                                      recomputedMetadata: ContractMetadata,
-                                                      ledgerTime: CantonTimestamp,
+      contractId: ContractId,
+      driverMetadataBytes: Array[Byte],
+      contractInstance: Value.VersionedContractInstance,
+      originalMetadata: ContractMetadata,
+      recomputedMetadata: ContractMetadata,
+      ledgerTime: CantonTimestamp,
   ) {
     private def recomputedSerializableContract: Either[String, SerializableContract] =
       for {

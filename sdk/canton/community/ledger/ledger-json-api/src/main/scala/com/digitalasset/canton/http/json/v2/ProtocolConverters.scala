@@ -632,7 +632,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .map(commands =>
           JsSubmitAndWaitForTransactionRequest(
             commands = commands,
-            transactionFormat = request.getTransactionFormat,
+            transactionFormat = Some(request.getTransactionFormat),
           )
         )
 
@@ -645,7 +645,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       .map(commands =>
         lapi.command_service.SubmitAndWaitForTransactionRequest(
           commands = Some(commands),
-          transactionFormat = Some(jsRequest.transactionFormat),
+          transactionFormat = jsRequest.transactionFormat,
         )
       )
   }

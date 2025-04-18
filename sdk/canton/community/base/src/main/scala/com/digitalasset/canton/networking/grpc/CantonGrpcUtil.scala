@@ -399,7 +399,7 @@ object CantonGrpcUtil {
         // Processing may have been cancelled due to a transient error, e.g., server restarting
         // The transient errors might be solved by the application retrying with a higher timeout than
         // The non-transient errors will require operator intervention
-        override def retryable = Some(ErrorCategoryRetry(1.minute))
+        override def retryable: Option[ErrorCategoryRetry] = Some(ErrorCategoryRetry(10.seconds))
       }
     }
   }

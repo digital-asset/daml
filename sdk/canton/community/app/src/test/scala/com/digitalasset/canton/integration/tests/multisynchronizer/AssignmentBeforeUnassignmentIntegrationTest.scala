@@ -74,7 +74,13 @@ class AssignmentBeforeUnassignmentIntegrationTest
     participant2.synchronizers.disconnect(daName)
 
     val unassignId = participant1.ledger_api.commands
-      .submit_unassign(aliceId, Seq(contract.id.toLf), daId, acmeId)
+      .submit_unassign(
+        aliceId,
+        Seq(contract.id.toLf),
+        daId,
+        acmeId,
+        timeout = None, // not waiting for all the other participants to receive the unassignment
+      )
       .unassignId
 
     participant1.ledger_api.commands.submit_assign(
@@ -82,6 +88,7 @@ class AssignmentBeforeUnassignmentIntegrationTest
       unassignId,
       daId,
       acmeId,
+      timeout = None, // not waiting for all the other participants to receive the unassignment
     )
 
     val contractReassigned = participant1.ledger_api.javaapi.state.acs

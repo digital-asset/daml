@@ -225,7 +225,6 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
           PositiveInt.one,
           NonEmpty(Seq, restrictedKey),
         ),
-        serial = PositiveInt.one,
         signedBy = Some(restrictedKey.fingerprint),
       )
     }
@@ -282,7 +281,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
           participant1.id.member,
           NonEmpty(Seq, key),
         ),
-        serial = initialOkmSerial.tryAdd(5),
+        serial = Some(initialOkmSerial.tryAdd(5)),
         signedBy = Seq(key.id),
       )
 
@@ -326,7 +325,6 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
             NonEmpty.mk(Seq, key),
           )
           .valueOrFail("create party to key mapping"),
-        serial = PositiveInt.one,
         signedBy = Some(key.id),
       )
 
@@ -370,6 +368,7 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       participant1.id,
       packages = Nil,
       force = ForceFlags(ForceFlag.AllowUnvetPackage),
+      operation = TopologyChangeOp.Remove,
     )
     val result = participant1.topology.vetted_packages
       .list(store = TopologyStoreId.Authorized)
@@ -382,6 +381,28 @@ trait TopologyAdministrationTest extends CommunityIntegrationTest with SharedEnv
       .item
       .packages
     packageIds3 should contain theSameElementsAs packageIds
+
+    // Set vetted packages to empty but do not remove the mapping
+    participant1.topology.vetted_packages.propose(
+      participant1.id,
+      packages = Seq.empty,
+      force = ForceFlag.AllowUnvetPackage,
+    )
+    val packageIds4 = participant1.topology.vetted_packages
+      .list(store = TopologyStoreId.Authorized)
+      .head
+      .item
+      .packages
+    packageIds4 shouldBe empty
+
+    // Set it back so the next test is happy
+    participant1.topology.vetted_packages.propose(participant1.id, packages = packageIds)
+    val packageIds5 = participant1.topology.vetted_packages
+      .list(store = TopologyStoreId.Authorized)
+      .head
+      .item
+      .packages
+    packageIds5 should contain theSameElementsAs packageIds
   }
 
   "vetted_packages.propose_delta" in { implicit env =>

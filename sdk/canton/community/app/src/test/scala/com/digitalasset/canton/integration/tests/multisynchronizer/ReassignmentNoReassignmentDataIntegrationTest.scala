@@ -196,7 +196,6 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
           Seq(cid),
           daId,
           acmeId,
-          waitForParticipants = Map(participant1 -> alice),
         )
         .unassignId
 

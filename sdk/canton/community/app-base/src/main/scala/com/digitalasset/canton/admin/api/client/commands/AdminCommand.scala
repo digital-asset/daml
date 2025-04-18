@@ -107,8 +107,8 @@ object GrpcAdminCommand {
     val context = Context.ROOT.withCancellation()
 
     def success(): Unit = blocking(buffer.synchronized {
-      context.close()
       promise.trySuccess(buffer.toList).discard[Boolean]
+      context.close()
     })
 
     context.run(() =>

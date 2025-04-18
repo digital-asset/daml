@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
@@ -127,7 +128,7 @@ class MutablePackageMetadataViewImpl(
   )(implicit tc: TraceContext): Future[PackageMetadata] =
     PackageService
       .catchUpstreamErrors(Decode.decodeArchive(archive))
-      .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+      .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
       .leftSemiflatMap(err => Future.failed(err.asGrpcError))
       .merge
       .map { case (pkgId, pkg) => PackageMetadata.from(pkgId, pkg) }

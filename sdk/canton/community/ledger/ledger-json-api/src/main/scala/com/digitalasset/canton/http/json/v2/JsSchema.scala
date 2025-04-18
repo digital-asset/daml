@@ -5,6 +5,7 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.trace_context.TraceContext
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, transaction_filter}
 import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.base.error.{DamlErrorWithDefiniteAnswer, RpcError}
@@ -19,6 +20,7 @@ import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder, Json}
+import scalapb.GeneratedEnumCompanion
 import sttp.tapir.CodecFormat.TextPlain
 import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
@@ -35,6 +37,21 @@ object JsSchema {
   implicit val config: Configuration = Configuration.default.copy(
     useDefaults = true
   )
+
+  def stringEncoderForEnum[T <: scalapb.GeneratedEnum](): Encoder[T] =
+    Encoder.encodeString.contramap[T](shape => shape.companion.fromValue(shape.value).name)
+
+  def stringDecoderForEnum[T <: scalapb.GeneratedEnum]()(implicit
+      enumCompanion: GeneratedEnumCompanion[T]
+  ): Decoder[T] =
+    Decoder.decodeString.emap { v =>
+      enumCompanion
+        .fromName(v)
+        .toRight(
+          s"Unrecognized enum value $v. Supported values: ${enumCompanion.values.map(_.name).mkString("[", ", ", "]")}"
+        )
+    }
+
   final case class JsTransaction(
       updateId: String,
       commandId: String,
@@ -107,7 +124,6 @@ object JsSchema {
   )
 
   object JsServicesCommonCodecs {
-    import io.circe.generic.extras.auto.*
     implicit val jsTransactionRW: Codec[JsTransaction] = deriveConfiguredCodec
 
     implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveRelaxedCodec
@@ -140,10 +156,20 @@ object JsSchema {
     implicit val transactionFilterRW: Codec[transaction_filter.TransactionFilter] =
       deriveRelaxedCodec
     implicit val eventFormatRW: Codec[transaction_filter.EventFormat] = deriveRelaxedCodec
-    implicit val transactionShapeRW: Codec[transaction_filter.TransactionShape] =
-      deriveConfiguredCodec // ADT
+
+    implicit val transactionShapeEncoder: Encoder[TransactionShape] =
+      stringEncoderForEnum()
+
+    implicit val transactionShapeDecoder: Decoder[TransactionShape] =
+      stringDecoderForEnum()
+
     implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] =
       deriveRelaxedCodec
+
+    implicit val unrecognizedShape: Schema[transaction_filter.TransactionShape.Unrecognized] =
+      Schema.derived
+
+    implicit val transactionShapeSchema: Schema[transaction_filter.TransactionShape] = Schema.string
 
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
@@ -290,7 +316,6 @@ object JsSchema {
 
   }
   object DirectScalaPbRwImplicits {
-    import io.circe.generic.extras.auto.*
     import sttp.tapir.json.circe.*
     import sttp.tapir.generic.auto.*
 
@@ -426,5 +451,6 @@ object JsSchema {
       Schema.oneOfWrapped
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any
+
   }
 }
