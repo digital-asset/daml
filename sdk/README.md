@@ -39,7 +39,13 @@ cd daml
 
 ### 2. Set up the development dependencies
 
-Our builds require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
+Our builds are defined in the `sdk` folder.
+
+```
+cd sdk
+```
+
+They require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
 
 #### Linux
 
