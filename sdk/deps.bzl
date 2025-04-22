@@ -31,8 +31,8 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
 load("//:daml_finance_dep.bzl", "quickstart")
 
-rules_scala_version = "17791a18aa966cdf2babb004822e6c70a7decc76"
-rules_scala_sha256 = "6899cddf7407d09266dddcf6faf9f2a8b414de5e2b35ef8b294418f559172f28"
+rules_scala_version = "6.6.0"
+rules_scala_sha256 = "e734eef95cf26c0171566bdc24d83bd82bdaf8ca7873bec6ce9b0d524bdaf05d"
 
 rules_haskell_version = "a361943682c2f312de4afff0e4438259bfd8119c"  # 1.0
 rules_haskell_sha256 = "f2b04c7dd03f8adacc44f44e6232cd086c02395a03236228d8f09335a931ab9c"
@@ -44,8 +44,8 @@ rules_haskell_patches = [
     # Remove this patch once that's available.
     # "@com_github_digital_asset_daml//bazel_tools:haskell-opt.patch",
 ]
-rules_nixpkgs_version = "ff70910af286a19dbcc109fe36f2e3cb59da78ff"  # 0.10.0
-rules_nixpkgs_sha256 = "c269fa7f70069180e31aa5982313f5a26838db2a6e5f2e9ecbd5941c8c6ceed0"
+rules_nixpkgs_version = "0.13.0"
+rules_nixpkgs_sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397"
 rules_nixpkgs_patches = [
 ]
 
@@ -65,14 +65,14 @@ zlib_version = "1.2.11"
 zlib_sha256 = "629380c90a77b964d896ed37163f5c3a34f6e6d897311f1df2a7016355c45eff"
 rules_nodejs_version = "5.8.5"
 rules_nodejs_sha256 = "a1295b168f183218bc88117cf00674bcd102498f294086ff58318f830dd9d9d1"
-rules_jvm_external_version = "4.4.2"
-rules_jvm_external_sha256 = "735602f50813eb2ea93ca3f5e43b1959bd80b213b836a07a62a29d757670b77b"
-rules_go_version = "0.40.0"
-rules_go_sha256 = "bfc5ce70b9d1634ae54f4e7b495657a18a04e0d596785f672d35d5f505ab491a"
+rules_jvm_external_version = "6.7"
+rules_jvm_external_sha256 = "a1e351607f04fed296ba33c4977d3fe2a615ed50df7896676b67aac993c53c18"
+rules_go_version = "0.53.0"
+rules_go_sha256 = "b78f77458e77162f45b4564d6b20b6f92f56431ed59eaaab09e7819d1d850313"
 bazel_gazelle_version = "0.42.0"
 bazel_gazelle_sha256 = "5d80e62a70314f39cc764c1c3eaa800c5936c9f1ea91625006227ce4d20cd086"
-rules_bazel_common_version = "9e3880428c1837db9fb13335ed390b7e33e346a7"
-rules_bazel_common_sha256 = "5290e0c8e0b7639f20b70f8d0046b50ad340cb55a4733545f6ec8f43af8727fe"
+rules_bazel_common_version = "0.0.1"
+rules_bazel_common_sha256 = "97bfda563b1c755d5cb4fae7aa1f48b43b2f4c2ca6fd6202076c910dcbeae772"
 go_googleapis_version = "83c3605afb5a39952bf0a0809875d41cf2a558ca"
 go_googleapis_sha256 = "ba694861340e792fd31cb77274eacaf6e4ca8bda97707898f41d8bebfd8a4984"
 rules_pkg_version = "1.0.1"
@@ -124,46 +124,55 @@ def daml_deps():
         )
 
     if "io_tweag_rules_nixpkgs" not in native.existing_rules():
-        # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
-        #
-        # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
-
-        strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
-
         http_archive(
             name = "io_tweag_rules_nixpkgs",
-            strip_prefix = strip_prefix,
-            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+            strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
+            urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v{}/rules_nixpkgs-{}.tar.gz".format(rules_nixpkgs_version, rules_nixpkgs_version)],
             sha256 = rules_nixpkgs_sha256,
             patches = rules_nixpkgs_patches,
             patch_args = ["-p1"],
         )
 
-        http_archive(
-            name = "rules_nixpkgs_core",
-            strip_prefix = strip_prefix + "/core",
-            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-            sha256 = rules_nixpkgs_sha256,
-            patches = rules_nixpkgs_patches,
-            patch_args = ["-p2"],
-        )
+        # # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
+        # #
+        # # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
 
-        http_archive(
-            name = "rules_nixpkgs_nodejs",
-            strip_prefix = strip_prefix + "/toolchains/nodejs",
-            urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-            sha256 = rules_nixpkgs_sha256,
-        )
+        # strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
 
-        for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
-            http_archive(
-                name = "rules_nixpkgs_" + toolchain,
-                strip_prefix = strip_prefix + "/toolchains/" + toolchain,
-                urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-                sha256 = rules_nixpkgs_sha256,
-                patches = rules_nixpkgs_toolchain_patches[toolchain],
-                patch_args = ["-p3"],
-            )
+        # http_archive(
+        #     name = "io_tweag_rules_nixpkgs",
+        #     strip_prefix = strip_prefix,
+        #     urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+        #     sha256 = rules_nixpkgs_sha256,
+        #     patches = rules_nixpkgs_patches,
+        #     patch_args = ["-p1"],
+        # )
+
+        # http_archive(
+        #     name = "rules_nixpkgs_core",
+        #     strip_prefix = strip_prefix + "/core",
+        #     urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+        #     sha256 = rules_nixpkgs_sha256,
+        #     patches = rules_nixpkgs_patches,
+        #     patch_args = ["-p2"],
+        # )
+
+        # http_archive(
+        #     name = "rules_nixpkgs_nodejs",
+        #     strip_prefix = strip_prefix + "/toolchains/nodejs",
+        #     urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+        #     sha256 = rules_nixpkgs_sha256,
+        # )
+
+        # for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
+        #     http_archive(
+        #         name = "rules_nixpkgs_" + toolchain,
+        #         strip_prefix = strip_prefix + "/toolchains/" + toolchain,
+        #         urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
+        #         sha256 = rules_nixpkgs_sha256,
+        #         patches = rules_nixpkgs_toolchain_patches[toolchain],
+        #         patch_args = ["-p3"],
+        #     )
 
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
@@ -188,14 +197,15 @@ def daml_deps():
             sha256 = go_googleapis_sha256,
             strip_prefix = "googleapis-{}".format(go_googleapis_version),
             patches = [
-                # releaser:patch-cmd find . -name BUILD.bazel -delete
-                "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
-                # set gazelle directives; change workspace name
-                "@io_bazel_rules_go//third_party:go_googleapis-directives.patch",
-                # releaser:patch-cmd gazelle -repo_root .
-                "@io_bazel_rules_go//third_party:go_googleapis-gazelle.patch",
-                # The Haskell gRPC bindings require access to the status.proto source file.
-                "//bazel_tools:googleapis-status-proto.patch",
+                # TODO Migrate those patches?
+                # # releaser:patch-cmd find . -name BUILD.bazel -delete
+                # "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
+                # # set gazelle directives; change workspace name
+                # "@io_bazel_rules_go//third_party:go_googleapis-directives.patch",
+                # # releaser:patch-cmd gazelle -repo_root .
+                # "@io_bazel_rules_go//third_party:go_googleapis-gazelle.patch",
+                # # The Haskell gRPC bindings require access to the status.proto source file.
+                # "//bazel_tools:googleapis-status-proto.patch",
             ],
             patch_args = ["-E", "-p1"],
         )
@@ -210,23 +220,31 @@ def daml_deps():
             sha256 = rules_go_sha256,
         )
 
+        http_archive(
+            name = "rules_proto",
+            sha256 = "303e86e722a520f6f326a50b41cfc16b98fe6d1955ce46642a5b7a67c11c0f5d",
+            strip_prefix = "rules_proto-6.0.0",
+            url = "https://github.com/bazelbuild/rules_proto/releases/download/6.0.0/rules_proto-6.0.0.tar.gz",
+        )
+
     if "rules_jvm_external" not in native.existing_rules():
         http_archive(
             name = "rules_jvm_external",
             strip_prefix = "rules_jvm_external-{}".format(rules_jvm_external_version),
             sha256 = rules_jvm_external_sha256,
-            url = "https://github.com/bazelbuild/rules_jvm_external/archive/{}.zip".format(rules_jvm_external_version),
+            url = "https://github.com/bazel-contrib/rules_jvm_external/releases/download/%s/rules_jvm_external-%s.tar.gz" % (rules_jvm_external_version, rules_jvm_external_version),
         )
 
     if "io_bazel_rules_scala" not in native.existing_rules():
         http_archive(
             name = "io_bazel_rules_scala",
-            url = "https://github.com/bazelbuild/rules_scala/archive/%s.tar.gz" % rules_scala_version,
+            url = "https://github.com/bazelbuild/rules_scala/releases/download/v{}/rules_scala-v{}.tar.gz".format(rules_scala_version, rules_scala_version),
             strip_prefix = "rules_scala-%s" % rules_scala_version,
             sha256 = rules_scala_sha256,
-            patches = [
-                "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-            ],
+            # TODO Port paches?
+            # patches = [
+            #     "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
+            # ],
             patch_args = ["-p1"],
         )
 
@@ -248,6 +266,13 @@ def daml_deps():
                 "https://github.com/bazelbuild/rules_sass/archive/1.24.4.zip",
                 "https://mirror.bazel.build/github.com/bazelbuild/rules_sass/archive/1.24.4.zip",
             ],
+        )
+
+    if "build_bazel_rules_apple" not in native.existing_rules():
+        http_archive(
+            name = "build_bazel_rules_apple",
+            sha256 = "73ad768dfe824c736d0a8a81521867b1fb7a822acda2ed265897c03de6ae6767",
+            url = "https://github.com/bazelbuild/rules_apple/releases/download/3.20.1/rules_apple.3.20.1.tar.gz",
         )
 
     # Fetch rules_nodejs so we can install our npm dependencies
@@ -281,6 +306,14 @@ def daml_deps():
             ],
             patch_args = ["-p1"],
         )
+
+    # if "rules_proto" not in native.existing_rules():
+    #     http_archive(
+    #         name = "rules_proto",
+    #         sha256 = "14a225870ab4e91869652cfd69ef2028277fc1dc4910d65d353b62d6e0ae21f4",
+    #         strip_prefix = "rules_proto-7.1.0",
+    #         url = "https://github.com/bazelbuild/rules_proto/releases/download/7.1.0/rules_proto-7.1.0.tar.gz",
+    #     )
 
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
@@ -350,7 +383,7 @@ def daml_deps():
             name = "com_github_google_bazel_common",
             sha256 = rules_bazel_common_sha256,
             strip_prefix = "bazel-common-{}".format(rules_bazel_common_version),
-            urls = ["https://github.com/google/bazel-common/archive/{}.tar.gz".format(rules_bazel_common_version)],
+            urls = ["https://github.com/google/bazel-common/releases/download/{}/bazel-common-{}.tar.gz".format(rules_bazel_common_version, rules_bazel_common_version)],
         )
 
     if not native.existing_rule("rules_pkg"):
