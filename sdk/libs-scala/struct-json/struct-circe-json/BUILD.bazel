@@ -28,6 +28,7 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_typelevel_cats_core",
         "@maven//:org_typelevel_cats_kernel",
         "@maven//:io_circe_circe_core",
