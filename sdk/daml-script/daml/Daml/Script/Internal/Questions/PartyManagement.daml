@@ -6,11 +6,11 @@ module Daml.Script.Internal.Questions.PartyManagement where
 import Daml.Script.Internal.LowLevel
 import DA.Stack
 
+-- | An empty 'participants' means we pick the default one. Otherwise, the first participant of the list is considered
+-- to be the "main" one, which is the participant to which commands submitted by the allocated will be routed.
 data AllocateParty = AllocateParty with
   requestedName: Text
   idHint : Text
-  -- | An empty 'participants' means we pick the default one. Otherwise, the first participant of the list is considered
-  -- to be the "main" one, which is the participant to which commands submitted by the allocated will be routed.
   participants : [Text]
 instance IsQuestion AllocateParty Party where command = "AllocateParty"
 
