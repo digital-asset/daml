@@ -28,6 +28,9 @@ da_scala_test(
     name = "language-test",
     size = "small",
     srcs = glob(["src/test/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":language",

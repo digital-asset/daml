@@ -27,6 +27,7 @@ da_scala_test_suite(
         "@maven//:com_thesamet_scalapb_lenses",
         "@maven//:com_thesamet_scalapb_scalapb_runtime",
         "@maven//:io_spray_spray_json",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
         ":struct-spray-json",

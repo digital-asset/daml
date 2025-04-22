@@ -71,6 +71,7 @@ da_scala_test(
     data = [":InterfaceTestPackage-v2.dar"] + ([":InterfaceTestPackage-v1.dar"] if is_intel else []),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
