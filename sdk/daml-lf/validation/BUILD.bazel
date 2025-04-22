@@ -150,7 +150,9 @@ da_scala_test_suite(
         ],
     ),
     data = [],
-    scala_deps = [],
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
     scalacopts = lf_scalacopts,
     deps = [
         ":validation",
@@ -381,6 +383,7 @@ da_scala_test_suite(
         scala_deps = [
             "@maven//:org_apache_pekko_pekko_actor",
             "@maven//:org_apache_pekko_pekko_stream",
+            "@maven//:org_scalatest_scalatest_wordspec",
         ],
         scalacopts = lf_scalacopts,
         deps = [
