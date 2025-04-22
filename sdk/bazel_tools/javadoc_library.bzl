@@ -16,14 +16,14 @@
 # We probably want to clean this up and upstream it at some point.
 
 def _javadoc_library(ctx):
-    transitive_deps = []
+    transitive_compile_time_jars = []
     for dep in ctx.attr.deps:
         if JavaInfo in dep:
-            transitive_deps.append(dep[JavaInfo].transitive_deps)
+            transitive_compile_time_jars.append(dep[JavaInfo].transitive_compile_time_jars)
         elif hasattr(dep, "java"):
-            transitive_deps.append(dep.java.transitive_deps)
+            transitive_compile_time_jars.append(dep.java.transitive_compile_time_jars)
 
-    classpath = depset([], transitive = transitive_deps).to_list()
+    classpath = depset([], transitive = transitive_compile_time_jars).to_list()
 
     java_home = str(ctx.attr._jdk[java_common.JavaRuntimeInfo].java_home)
 

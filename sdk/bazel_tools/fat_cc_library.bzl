@@ -140,4 +140,5 @@ fat_cc_library = rule(
         "dynamic_library": "lib%{name}.dll" if is_windows else "lib%{name}.so",
         "static_library": "lib%{name}.a",
     },
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
 )
