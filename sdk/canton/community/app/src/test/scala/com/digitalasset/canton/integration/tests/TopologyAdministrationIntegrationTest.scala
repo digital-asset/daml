@@ -309,7 +309,7 @@ class TopologyAdministrationIntegrationTest
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           participant2.topology.owner_to_key_mappings.propose(
             existingOtk.item.copy(keys = existingOtk.item.keys :+ signingKey),
-            serial = existingOtk.context.serial.increment,
+            serial = Some(existingOtk.context.serial.increment),
             // explicitly only sign with the namespace key, but not the signing key
             signedBy = Seq(participant2.fingerprint),
             store = Authorized,
@@ -348,7 +348,7 @@ class TopologyAdministrationIntegrationTest
         val otkWithNewKey = existingOtk.copy(keys = existingOtk.keys :+ signingKey)
         participant2.topology.owner_to_key_mappings.propose(
           otkWithNewKey,
-          serial = PositiveInt.one,
+          serial = Some(PositiveInt.one),
           // explicitly only sign with the namespace key, but not the signing key
           signedBy = Seq(participant2.fingerprint),
           store = testTempStoreId,
@@ -379,7 +379,7 @@ class TopologyAdministrationIntegrationTest
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           participant2.topology.owner_to_key_mappings.propose(
             existingOtk.item.copy(keys = existingOtk.item.keys :+ signingKey),
-            serial = existingOtk.context.serial.increment,
+            serial = Some(existingOtk.context.serial.increment),
             // explicitly only sign with the namespace key, but not the signing key
             signedBy = Seq(participant2.fingerprint),
             store = daId,

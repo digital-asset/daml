@@ -27,7 +27,6 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
 }
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
@@ -696,7 +695,7 @@ class CantonSyncService(
             synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
           )
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
@@ -712,7 +711,7 @@ class CantonSyncService(
         packageService.value
           .validateDar(dar, darName)
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
@@ -722,14 +721,14 @@ class CantonSyncService(
   ): Future[Option[DamlLf.Archive]] =
     packageService.value
       .getLfArchive(packageId)
-      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
   ): Future[Seq[PackageDescription]] =
     packageService.value
       .listPackages()
-      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def getPackageMetadataSnapshot(implicit
       errorLoggingContext: ErrorLoggingContext
@@ -1780,7 +1779,7 @@ class CantonSyncService(
             )
             .mapK(FutureUnlessShutdown.outcomeK)
             .semiflatMap(Predef.identity)
-            .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+            .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
         } yield SubmissionResult.Acknowledged
       }
         .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))
