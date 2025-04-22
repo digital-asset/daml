@@ -426,8 +426,8 @@ def _scaladoc_jar_impl(ctx):
             elif hasattr(p, "files"):
                 pluginPaths.extend([f for f in p.files.to_list() if "-sources.jar" not in f.basename])
 
-        transitive_deps = [dep[JavaInfo].transitive_deps for dep in ctx.attr.deps]
-        classpath = depset([], transitive = transitive_deps).to_list()
+        transitive_compile_time_jars = [dep[JavaInfo].transitive_compile_time_jars for dep in ctx.attr.deps]
+        classpath = depset([], transitive = transitive_compile_time_jars).to_list()
 
         outdir = ctx.actions.declare_directory(ctx.label.name + "_tmpdir")
 

@@ -44,6 +44,7 @@ da_scala_test(
     name = "ports-tests",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
     scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
     ],
     deps = [

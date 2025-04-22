@@ -25,6 +25,7 @@ da_scala_test_suite(
     scala_deps = [
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_scalatest_scalatest_wordspec",
     ],
     deps = [
         ":resources-pekko",

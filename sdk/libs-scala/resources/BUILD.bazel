@@ -30,6 +30,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "resources-tests",
     srcs = glob(["src/test/suite/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
     deps = [
         ":resources",
         ":resources-test-lib",

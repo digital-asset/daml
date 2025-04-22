@@ -20,6 +20,9 @@ da_scala_library(
 da_scala_test_suite(
     name = "timer-utils-test",
     srcs = glob(["src/test/suite/scala/**/*.scala"]),
+    scala_deps = [
+        "@maven//:org_scalatest_scalatest_wordspec",
+    ],
     deps = [
         ":timer-utils",
     ],
