@@ -274,8 +274,8 @@ final class RepairService(
     *   alias of synchronizer to add contracts to. The synchronizer needs to be configured, but
     *   disconnected to prevent race conditions.
     * @param contracts
-    *   contracts to add. Relevant pieces of each contract: create-arguments (LfContractInst),
-    *   template-id (LfContractInst), contractId, ledgerCreateTime, salt (to be added to
+    *   contracts to add. Relevant pieces of each contract: create-arguments (LfThinContractInst),
+    *   template-id (LfThinContractInst), contractId, ledgerCreateTime, salt (to be added to
     *   SerializableContract), and witnesses, SerializableContract.metadata is only validated, but
     *   otherwise ignored as stakeholder and signatories can be recomputed from contracts.
     * @param ignoreAlreadyAdded

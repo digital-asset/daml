@@ -30,7 +30,7 @@ private[platform] class MutableCacheBackedContractStore(
 
   override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[Contract]] =
+  ): Future[Option[ThinContract]] =
     lookupContractStateValue(contractId)
       .flatMap(contractStateToResponse(readers))
 
@@ -90,7 +90,7 @@ private[platform] class MutableCacheBackedContractStore(
 
   private def contractStateToResponse(readers: Set[Party])(
       value: ContractStateValue
-  ): Future[Option[Contract]] =
+  ): Future[Option[ThinContract]] =
     value match {
       case Active(contract, stakeholders, _, _, _, _, _)
           if nonEmptyIntersection(stakeholders, readers) =>

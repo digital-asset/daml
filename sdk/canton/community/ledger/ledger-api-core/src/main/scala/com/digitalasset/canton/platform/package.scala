@@ -12,11 +12,16 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Type aliases used throughout the package */
 package object platform {
   import com.digitalasset.daml.lf.value.Value as lfval
+  import com.digitalasset.daml.lf.transaction as lfTrans
+
   private[platform] type ContractId = lfval.ContractId
   private[platform] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[platform] type Value = lfval.VersionedValue
-  private[platform] type Contract = lfval.VersionedThinContractInstance
-  private[platform] val Contract = lfval.VersionedContractInstance
+  private[platform] type Contract = lfTrans.FatContractInstance
+  private[platform] val Contract: lfTrans.FatContractInstance.type = lfTrans.FatContractInstance
+  private[platform] type ThinContract = lfval.VersionedThinContractInstance
+  private[platform] val ThinContract: lfval.VersionedContractInstance.type =
+    lfval.VersionedContractInstance
 
   import com.digitalasset.daml.lf.transaction as lftx
   private[platform] type NodeId = lftx.NodeId

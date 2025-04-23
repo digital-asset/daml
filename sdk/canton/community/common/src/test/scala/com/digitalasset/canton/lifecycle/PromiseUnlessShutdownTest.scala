@@ -43,7 +43,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
       loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(WARN))(
         {
           val p = PromiseUnlessShutdown.supervised[Int](
-            "supervised-promise",
+            "supervised-promise-out-of-time",
             new FutureSupervisor.Impl(config.NonNegativeDuration(5.second)),
             1.second,
             Level.WARN,
@@ -60,7 +60,9 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
         entries => {
           assert(entries.nonEmpty)
           forEvery(entries)(
-            _.warningMessage should include("supervised-promise has not completed after")
+            _.warningMessage should include(
+              "supervised-promise-out-of-time has not completed after"
+            )
           )
         },
       )
@@ -72,7 +74,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
       val promise = loggerFactory.assertLogs(SuppressionRule.LevelAndAbove(WARN))(
         {
           val p = PromiseUnlessShutdown.supervised[Int](
-            "supervised-promise",
+            "supervised-promise-only-on-access",
             new FutureSupervisor.Impl(config.NonNegativeDuration(5.second)),
             1.second,
             Level.WARN,
@@ -80,7 +82,12 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
 
           // Wait longer than the future supervisor warn duration
           always(durationOfSuccess = 3.seconds) {
-            loggerFactory.fetchRecordedLogEntries shouldBe Seq.empty
+            // Account for possible interference from previous test case whose log message escapes the test case
+            forEvery(loggerFactory.fetchRecordedLogEntries) {
+              _.warningMessage should include(
+                "supervised-promise-out-of-time has not completed after"
+              )
+            }
           }
           p
         }

@@ -64,7 +64,7 @@ class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    contractSerializer: LfContractInst => SerializableRawContractInstance,
+    contractSerializer: LfThinContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -952,7 +952,7 @@ object TransactionTreeFactoryImpl {
     )
 
   private[submission] def contractSerializer(
-      contractInst: LfContractInst
+      contractInst: LfThinContractInst
   ): SerializableRawContractInstance =
     SerializableRawContractInstance
       .create(contractInst)

@@ -541,6 +541,19 @@ class BftOrderingMetrics private[metrics] (
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class OutputMetrics private[BftOrderingMetrics] {
+
+    object labels {
+      object mode {
+        val Key: String = "mode"
+
+        object values {
+          sealed trait ModeValue extends PrettyNameOnlyCase with Product with Serializable
+          case object Consensus extends ModeValue
+          case object StateTransfer extends ModeValue
+        }
+      }
+    }
+
     val blockSizeBytes: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBytes.info)
 

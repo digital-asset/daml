@@ -187,7 +187,7 @@ class ActiveContractsIntegrationTest
 
     val packageName = Ref.PackageName.assertFromString("CantonExamples")
 
-    val contractInst = LfContractInst(
+    val contractInst = LfThinContractInst(
       packageName = packageName,
       template = lfTemplate,
       arg = Versioned(protocol.DummyTransactionVersion, lfArguments),

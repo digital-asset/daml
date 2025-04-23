@@ -351,7 +351,7 @@ object MutableCacheBackedContractStoreSpec {
   }
 
   private def activeContract(
-      contract: Contract,
+      contract: ThinContract,
       stakeholders: Set[Party],
       ledgerEffectiveTime: Timestamp,
       signatories: Set[Party] = exSignatories,
@@ -380,7 +380,7 @@ object MutableCacheBackedContractStoreSpec {
 
   private def party(name: String): IdString.Party = Party.assertFromString(name)
 
-  private def contract(templateName: String): Contract = {
+  private def contract(templateName: String): ThinContract = {
     val templateId = Identifier.assertFromString(s"some:template:$templateName")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
 

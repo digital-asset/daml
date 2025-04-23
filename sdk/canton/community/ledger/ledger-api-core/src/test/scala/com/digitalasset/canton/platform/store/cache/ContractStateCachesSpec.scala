@@ -173,7 +173,7 @@ class ContractStateCachesSpec
       Ref.PackageName.assertFromString("pkg-name"),
     )
 
-  private def contract(id: Int): Contract = {
+  private def contract(id: Int): ThinContract = {
     val templateId = Identifier.assertFromString(s"some:template:name")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = ValueRecord(

@@ -8,6 +8,7 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -18,7 +19,6 @@ import com.digitalasset.canton.platform.store.dao.events.ContractsReader.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
-import com.digitalasset.canton.platform.{Contract, ContractId, *}
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value.VersionedValue
@@ -177,14 +177,14 @@ private[dao] object ContractsReader {
       createArgumentCompression: Compression.Algorithm,
       decompressionTimer: Timer,
       deserializationTimer: Timer,
-  ): Contract = {
+  ): ThinContract = {
     val decompressed = decompress(createArgument, createArgumentCompression, decompressionTimer)
     val deserialized = deserializeValue(
       decompressed,
       deserializationTimer,
       s"Failed to deserialize create argument for contract ${contractId.coid}",
     )
-    Contract(
+    ThinContract(
       packageName = PackageName.assertFromString(packageName),
       template = Identifier.assertFromString(templateId),
       arg = deserialized,
