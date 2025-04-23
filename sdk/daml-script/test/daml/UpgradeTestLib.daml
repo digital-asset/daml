@@ -25,6 +25,7 @@ module UpgradeTestLib (
 import Daml.Script
 import Daml.Script.Internal
 import DA.Assert
+import DA.Fail
 import DA.Foldable
 import DA.Time
 
@@ -69,7 +70,7 @@ subtree group cases = (group, tests cases)
 -- | Used to tag a test as failing by erroring in any way, once all this behaviour works, this function can be removed
 brokenScript : Test -> Test
 brokenScript act testState = do
-  tryToEither (\() -> liftFailedCommandToException $ act testState) >>= \case
+  tryFailureStatus (liftFailedCommandToFailureStatus $ act testState) >>= \case
     Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> pure ()
 
@@ -77,10 +78,10 @@ withUnvettedPackageOnParticipant : Text -> Text -> ParticipantName -> Script a -
 withUnvettedPackageOnParticipant packageName packageVersion participant act = do
   let pkg = PackageName packageName packageVersion
   unvetPackagesOnParticipant [pkg] participant
-  res <- tryToEither (\() -> liftFailedCommandToException act)
+  res <- tryFailureStatus $ liftFailedCommandToFailureStatus act
   vetPackagesOnParticipant [pkg] participant
   case res of
-    Left e -> throwAnyException e
+    Left fs -> failWithStatus fs
     Right r -> pure r
 
 expectPackageMissingFailure : Either SubmitError a -> Script ()
@@ -95,12 +96,12 @@ withUnvettedPackage packageName packageVersion act = do
   unsafeUnvetPackages [pkg] (Some participant0)
   unsafeUnvetPackages [pkg] (Some participant1)
   sleep $ seconds 1
-  res <- tryToEither (\() -> liftFailedCommandToException act)
+  res <- tryFailureStatus $ liftFailedCommandToFailureStatus act
   unsafeVetPackages [pkg] (Some participant0)
   unsafeVetPackages [pkg] (Some participant1)
   sleep $ seconds 1
   case res of
-    Left e -> throwAnyException e
+    Left fs -> failWithStatus fs
     Right r -> pure r
 
 broken : (Text, Test) -> (Text, Test)

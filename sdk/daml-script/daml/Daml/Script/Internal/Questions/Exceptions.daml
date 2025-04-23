@@ -11,6 +11,7 @@ import DA.Exception
 import DA.Optional
 import Daml.Script.Internal.LowLevel
 import DA.Fail
+import DA.Stack
 
 data Catch = Catch with
   act : () -> LedgerValue
@@ -59,3 +60,13 @@ instance IsQuestion FailWithStatus t where command = "FailWithStatus"
 
 instance ActionFailWithStatus Script where
   failWithStatus = lift . FailWithStatus
+
+data TryFailureStatus = TryFailureStatus with
+  act : () -> LedgerValue
+  dummy : ()
+instance IsQuestion TryFailureStatus (Either FailureStatus x) where command = "TryFailureStatus"
+
+tryFailureStatus : (HasCallStack => Script a) -> Script (Either FailureStatus a)
+tryFailureStatus act = lift TryFailureStatus with
+  act = \() -> toLedgerValue act
+  dummy = ()
