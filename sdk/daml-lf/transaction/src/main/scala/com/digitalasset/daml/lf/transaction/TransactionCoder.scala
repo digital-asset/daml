@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, ProtocolStringList}
 
+import scala.annotation.nowarn
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
@@ -816,6 +817,7 @@ object TransactionCoder {
       cantonData = data.Bytes.fromByteString(cantonData),
     )
 
+  @nowarn("cat=unused-pat-vars") // suppress wrong warnings that version and unversioned are unused
   def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
     for {
       versionedBlob <- decodeVersioned(bytes)
