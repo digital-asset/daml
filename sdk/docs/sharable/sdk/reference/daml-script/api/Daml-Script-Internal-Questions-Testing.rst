@@ -131,21 +131,11 @@ Data Types
 
   **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
 
-  **instance** `HasFromAnyException <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hasfromanyexception-16788>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
-
-  **instance** `HasMessage <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hasmessage-3179>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
-
-  **instance** `HasThrow <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hasthrow-30284>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
-
-  **instance** `HasToAnyException <https://docs.daml.com/daml/stdlib/DA-Exception.html#class-da-internal-exception-hastoanyexception-55973>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
-
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"commandName\" `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ `CommandName <type-daml-script-internal-questions-testing-commandname-12991_>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"errorClassName\" `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ `ErrorClassName <type-daml-script-internal-questions-testing-errorclassname-49861_>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"errorMessage\" `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ `ErrorMessage <type-daml-script-internal-questions-testing-errormessage-78991_>`_
-
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"message\" `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"commandName\" `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ `CommandName <type-daml-script-internal-questions-testing-commandname-12991_>`_
 
@@ -191,8 +181,8 @@ Functions
 `tryCommands <function-daml-script-internal-questions-testing-trycommands-17332_>`_
   \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_ a)
 
-.. _function-daml-script-internal-questions-testing-liftfailedcommandtoexception-73435:
+.. _function-daml-script-internal-questions-testing-liftfailedcommandtofailurestatus-62416:
 
-`liftFailedCommandToException <function-daml-script-internal-questions-testing-liftfailedcommandtoexception-73435_>`_
+`liftFailedCommandToFailureStatus <function-daml-script-internal-questions-testing-liftfailedcommandtofailurestatus-62416_>`_
   \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a
 
