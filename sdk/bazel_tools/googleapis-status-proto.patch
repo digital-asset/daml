@@ -1,13 +1,12 @@
 diff --git a/google/rpc/BUILD.bazel b/google/rpc/BUILD.bazel
-index 9c7900ce7..a7a256a16 100644
+index 8ffa5a49c..eb0a8127b 100644
 --- a/google/rpc/BUILD.bazel
 +++ b/google/rpc/BUILD.bazel
-@@ -1,6 +1,8 @@
+@@ -1,5 +1,7 @@
  load("@rules_proto//proto:defs.bzl", "proto_library")
- load("@io_bazel_rules_go//proto:def.bzl", "go_proto_library")
-
+ 
 +exports_files(["status.proto", "error_details.proto"])
 +
- proto_library(
-     name = "code_proto",
-     srcs = ["code.proto"],
+ # This is an API workspace, having public visibility by default makes perfect sense.
+ package(default_visibility = ["//visibility:public"])
+ 

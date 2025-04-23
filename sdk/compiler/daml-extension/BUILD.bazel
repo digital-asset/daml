@@ -47,7 +47,10 @@ sh_test(
 # exists", so at this point I'm completely out of trust.
 genrule(
     name = "node_deps_cache",
-    srcs = ["@daml_extension_deps//:node_modules"],
+    srcs = [
+        "@daml_extension_deps//:node_modules",
+        "//compiler/daml-extension:yarn.lock",
+    ],
     outs = ["node_modules.tar.gz"],
     cmd = """
         if [[ -d node_modules ]]; then
@@ -61,15 +64,9 @@ genrule(
               cp -r ../$$f ./
             fi
         done
-        cp -r ../bazel-out/k8-opt/bin/external/daml_extension_deps/node_modules/@types ./
-        cp -r ../bazel-out/k8-opt/bin/external/daml_extension_deps/node_modules/@bazel ./
+        cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@types ./
+        cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@bazel ./
         cd ..
-        # Avoid file path too long errors on Windows of the form
-        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-
-        # cd node_modules/bazel-out/k8-opt/bin/external/daml_extension_deps
-
-        # $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
         $(execpath //bazel_tools/sh:mktgz) $@ node_modules
     """,
     tools = ["//bazel_tools/sh:mktgz"],
@@ -113,6 +110,8 @@ genrule(
         trap cleanup EXIT
         DIR=$$PWD
         cp -r compiler/daml-extension $$TMP_DIR
+        # we store the target cpu value to ensure the archive is platform specific
+        echo $(TARGET_CPU) > $$TMP_DIR/target_cpu
         cd $$TMP_DIR/daml-extension
         tar xzf $$DIR/$(location :node_deps_cache)
         sed -i "s/__VERSION__/{npm}/" package.json

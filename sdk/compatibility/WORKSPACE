@@ -19,6 +19,17 @@ load("@daml//bazel_tools:build_environment.bzl", "build_environment")
 
 build_environment(name = "build_environment")
 
+http_archive(
+    name = "bazel_features",
+    sha256 = "5836c7e7b23cd20bcaef703838ee320580fe535d0337b981fb2c8367ec2a070b",
+    strip_prefix = "bazel_features-0.0.1",
+    url = "https://github.com/bazel-contrib/bazel_features/releases/download/v0.0.1/bazel_features-v0.0.1.tar.gz",
+)
+
+load("@bazel_features//:deps.bzl", "bazel_features_deps")
+
+bazel_features_deps()
+
 load("@daml//bazel_tools:scala_version.bzl", "scala_version_configure")
 
 scala_version_configure(name = "scala_version")
@@ -47,7 +58,17 @@ load("@daml//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_sh_posix_configu
 
 dadew_sh_posix_configure() if is_windows else None
 
-load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories")
+# Setup the Node.js toolchain
+load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
+
+build_bazel_rules_nodejs_dependencies()
+
+load("@build_bazel_rules_nodejs//:index.bzl", "node_repositories", "yarn_install")
+
+node_repositories(
+    node_version = "18.12.1",
+)
+
 load(
     "@rules_haskell//haskell:nixpkgs.bzl",
     "haskell_register_ghc_nixpkgs",
@@ -255,8 +276,7 @@ dev_env_tool(
 )
 
 node_repositories(
-    vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
-    yarn_version = "1.22.4",
+    node_version = "18.12.1",
 )
 
 nixpkgs_package(

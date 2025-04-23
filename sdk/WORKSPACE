@@ -212,7 +212,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "openssl_dev_env",
@@ -236,7 +236,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "tar_dev_env",
@@ -256,7 +256,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "gzip_dev_env",
@@ -276,7 +276,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "patch_dev_env",
@@ -311,7 +311,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "coreutils_nix",
@@ -319,7 +319,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "grpcurl_nix",
@@ -327,7 +327,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "hlint_nix",
@@ -335,7 +335,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "zip_nix",
@@ -344,7 +344,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 nixpkgs_package(
     name = "jekyll_nix",
@@ -352,7 +352,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 load(
     "@rules_haskell//haskell:ghc_bindist.bzl",
@@ -442,7 +442,7 @@ haskell_register_ghc_nixpkgs(
 
 # Used by Windows
 haskell_register_ghc_bindists(
-    compiler_flags = common_ghc_flags,
+    ghcopts = common_ghc_flags,
     version = "9.0.2",
 ) if is_windows else None
 
@@ -453,7 +453,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "jq_dev_env",
@@ -474,7 +474,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 #node & npm
 nixpkgs_package(
@@ -485,7 +485,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 #sass
 nixpkgs_package(
@@ -494,7 +494,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 #tex
 nixpkgs_package(
@@ -503,7 +503,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 #sphinx
 nixpkgs_package(
@@ -512,7 +512,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 #Imagemagick
 nixpkgs_package(
@@ -521,7 +521,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 # jvm_external
 load("@rules_jvm_external//:repositories.bzl", "rules_jvm_external_deps")
@@ -611,7 +611,7 @@ nixpkgs_go_configure(
 
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains")
 
-go_register_toolchains()
+go_register_toolchains(version = "1.22.8") if is_windows else go_register_toolchains()
 
 # gazelle:repo bazel_gazelle
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
@@ -713,7 +713,7 @@ dev_env_tool(
         ".",
     ],
     win_paths = [],
-    win_tool = "nodejs-16",
+    win_tool = "nodejs-18",
 )
 
 # Setup the Node.js toolchain
@@ -799,7 +799,7 @@ nixpkgs_package(
     nix_file = "//nix:bazel.nix",
     nix_file_deps = common_nix_file_deps,
     repositories = dev_env_nix_repos,
-)
+) if not is_windows else None
 
 dev_env_tool(
     name = "postgresql_dev_env",

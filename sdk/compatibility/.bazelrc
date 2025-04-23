@@ -1,4 +1,7 @@
 common --noenable_bzlmod
+# we disable build by the byte
+# otherwise we will experience missing content in the remote CAS due to garbage collection
+common --remote_download_all
 
 # Bazel distributed cache, can be temporarily disabled by passing the following
 # flag: --noremote_accept_cached
@@ -22,6 +25,10 @@ fetch:darwin --repository_cache=.bazel-cache/repo
 sync:darwin --repository_cache=.bazel-cache/repo
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
+
+# set c++ compilation version to 14 (requiered for abseil)
+build --cxxopt=-std=c++14
+build --host_cxxopt=-std=c++14
 
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.

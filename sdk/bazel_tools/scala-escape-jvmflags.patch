@@ -1,11 +1,11 @@
 diff --git a/src/java/io/bazel/rulesscala/exe/LauncherFileWriter.java b/src/java/io/bazel/rulesscala/exe/LauncherFileWriter.java
-index 15d1c13..c215f95 100644
+index 9613ec5..2a484b9 100644
 --- a/src/java/io/bazel/rulesscala/exe/LauncherFileWriter.java
 +++ b/src/java/io/bazel/rulesscala/exe/LauncherFileWriter.java
-@@ -36,6 +36,7 @@ public class LauncherFileWriter {
-             .addKeyValuePair("jar_bin_path", jarBinPath)
+@@ -35,6 +35,7 @@ public class LauncherFileWriter {
+             .addKeyValuePair("jar_bin_path", rlocationpath_to_rootpath( workspaceName, jarBinPath)) //Expects rootpath location 
              .addKeyValuePair("java_start_class", javaStartClass)
-             .addKeyValuePair("classpath", classpath)
+             .addKeyValuePair("classpath", classpath) //Expects rootpath location
 +            .addKeyValuePair("escape_jvmflags", "1")
              .addJoinedValues("jvm_flags", "\t", jvmFlags)
              .build();

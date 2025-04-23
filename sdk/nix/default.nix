@@ -113,6 +113,9 @@ in rec {
       };
     });
 
+    # go dev
+    go = pkgs.go;
+
     # Python development
     pip3        = pkgs.python39Packages.pip;
     python      = pkgs.python39Packages.python;
