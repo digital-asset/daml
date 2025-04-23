@@ -90,8 +90,8 @@ davl_v3_sha256 = "e8e76e21b50fb3adab36df26045b1e8c3ee12814abc60f137d39b864d2eae1
 daml_cheat_sheet_version = "e65f725ef3b19c9ffdee0baa3eee623cbb115024"  # 2022-11-28
 daml_cheat_sheet_sha256 = "e7ef4def3b7c6bada4235603b314ab0b1874bb949cd3c8d974d5443337e89a8b"
 
-platforms_version = "0.0.4"
-platforms_sha256 = "2697e95e085c6e1f970637d178e9dfa1231dca3a099d584ff85a7cb9c0af3826"
+platforms_version = "0.0.11"
+platforms_sha256 = "29742e87275809b5e598dc2f04d86960cc7a55b3067d97221c9abbc9926bff0f"
 
 rules_sh_version = "f02af9ac549d2a7246a9ee12eb17d113aa218d90"
 rules_sh_sha256 = "9bf2a139af12e290a02411b993007ea5f8dd7cad5d0fe26741df6ef3aaa984bc"
@@ -101,8 +101,7 @@ def daml_deps():
         http_archive(
             name = "platforms",
             sha256 = platforms_sha256,
-            strip_prefix = "platforms-{}".format(platforms_version),
-            urls = ["https://github.com/bazelbuild/platforms/archive/{version}.tar.gz".format(version = platforms_version)],
+            urls = ["https://github.com/bazelbuild/platforms/releases/download/{version}/platforms-{version}.tar.gz".format(version = platforms_version)],
         )
 
     if "rules_sh" not in native.existing_rules():
