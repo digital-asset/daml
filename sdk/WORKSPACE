@@ -442,7 +442,7 @@ haskell_register_ghc_nixpkgs(
 
 # Used by Windows
 haskell_register_ghc_bindists(
-    compiler_flags = common_ghc_flags,
+    ghcopts = common_ghc_flags,
     version = "9.0.2",
 ) if is_windows else None
 
