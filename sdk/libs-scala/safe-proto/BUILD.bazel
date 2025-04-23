@@ -22,7 +22,7 @@ da_scala_library(
 da_scala_test_suite(
     name = "safe-protot-test",
     srcs = glob(["src/test/scala/**/*.scala"]),
-    # max_heap_size = "3g",
+    max_heap_size = "3g",
     scala_deps = [
         "@maven//:org_scalatest_scalatest_wordspec",
     ],
