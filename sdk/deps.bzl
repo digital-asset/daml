@@ -269,6 +269,11 @@ def daml_deps():
 
     if "build_bazel_rules_apple" not in native.existing_rules():
         http_archive(
+            name = "build_bazel_apple_support",
+            sha256 = "73c8dc6cdd7cea87956db9279a69c9e68bd2a5ec6a6a507e36d6e2d7da4d71a4",
+            url = "https://github.com/bazelbuild/apple_support/releases/download/1.21.1/apple_support.1.21.1.tar.gz",
+        )
+        http_archive(
             name = "build_bazel_rules_apple",
             sha256 = "73ad768dfe824c736d0a8a81521867b1fb7a822acda2ed265897c03de6ae6767",
             url = "https://github.com/bazelbuild/rules_apple/releases/download/3.20.1/rules_apple.3.20.1.tar.gz",
