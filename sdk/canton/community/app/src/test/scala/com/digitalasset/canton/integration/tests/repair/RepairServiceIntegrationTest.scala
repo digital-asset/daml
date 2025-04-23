@@ -759,7 +759,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             val lfPackageName = Ref.PackageName.assertFromString("pkg-name")
             val key = Value.ValueUnit
 
-            val contractInst = LfContractInst(
+            val contractInst = LfThinContractInst(
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(

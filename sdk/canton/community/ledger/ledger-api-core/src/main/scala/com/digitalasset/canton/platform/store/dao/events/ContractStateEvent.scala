@@ -14,7 +14,7 @@ sealed trait ContractStateEvent extends Product with Serializable {
 object ContractStateEvent {
   final case class Created(
       contractId: ContractId,
-      contract: Contract,
+      contract: ThinContract,
       globalKey: Option[Key],
       ledgerEffectiveTime: Timestamp,
       stakeholders: Set[Party],

@@ -27,7 +27,7 @@ import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
+import com.digitalasset.canton.platform.{InMemoryState, Key, Party, ThinContract}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
@@ -384,7 +384,7 @@ private[platform] object InMemoryStateUpdater {
     case createdEvent: TransactionLogUpdate.CreatedEvent =>
       ContractStateEvent.Created(
         contractId = createdEvent.contractId,
-        contract = Contract(
+        contract = ThinContract(
           packageName = createdEvent.packageName,
           template = createdEvent.templateId,
           arg = createdEvent.createArgument,

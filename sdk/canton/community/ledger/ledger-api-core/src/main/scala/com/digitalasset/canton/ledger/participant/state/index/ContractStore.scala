@@ -49,13 +49,13 @@ object ContractState {
   case object NotFound extends ContractState
   case object Archived extends ContractState
   final case class Active(
-                           contractInstance: VersionedThinContractInstance,
-                           ledgerEffectiveTime: Timestamp,
-                           stakeholders: Set[Party],
-                           signatories: Set[Party],
-                           globalKey: Option[GlobalKey],
-                           maintainers: Option[Set[Party]],
-                           driverMetadata: Array[Byte],
+      contractInstance: VersionedThinContractInstance,
+      ledgerEffectiveTime: Timestamp,
+      stakeholders: Set[Party],
+      signatories: Set[Party],
+      globalKey: Option[GlobalKey],
+      maintainers: Option[Set[Party]],
+      driverMetadata: Array[Byte],
   ) extends ContractState {
     def toFatContractInstance(coid: ContractId): FatContractInstance = {
       val ci = contractInstance.unversioned

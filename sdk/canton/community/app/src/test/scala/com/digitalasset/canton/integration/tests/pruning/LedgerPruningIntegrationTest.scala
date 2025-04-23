@@ -18,7 +18,7 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.OffsetOutOfRange
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError.UnsafeToPrune
-import com.digitalasset.canton.protocol.LfContractInst
+import com.digitalasset.canton.protocol.LfThinContractInst
 import com.digitalasset.canton.sequencing.protocol.{Recipients, SubmissionRequest}
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
@@ -105,8 +105,8 @@ abstract class LedgerPruningIntegrationTest
 
   def acsContracts(p: LocalParticipantReference, templateIdO: Option[String] = None)(implicit
       env: TestConsoleEnvironment
-  ): Seq[LfContractInst] = {
-    val all: Seq[LfContractInst] =
+  ): Seq[LfThinContractInst] = {
+    val all: Seq[LfThinContractInst] =
       p.testing.pcs_search(env.daName, activeSet = true).map(_._2.contractInstance)
     templateIdO match {
       case Some(templateId) =>

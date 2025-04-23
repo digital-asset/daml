@@ -6,7 +6,7 @@ RUN dpkg --purge python3 python3.9-minimal libpython3.9-minimal
 # Install screen for running the console in a headless server, grpcurl and jq to perform gRPC healthchecks with Docker Compose
 RUN export DEBIAN_FRONTEND=noninteractive \
  && apt-get update \
- && apt-get install --no-install-recommends -y screen curl jq \
+ && apt-get install --no-install-recommends -y ca-certificates screen curl jq \
  && curl -fsSLO https://github.com/fullstorydev/grpcurl/releases/download/v1.8.7/grpcurl_1.8.7_linux_x86_64.tar.gz \
  && curl -fsSLO https://github.com/fullstorydev/grpcurl/releases/download/v1.8.7/grpcurl_1.8.7_checksums.txt \
  && sha256sum --check --ignore-missing grpcurl_1.8.7_checksums.txt \

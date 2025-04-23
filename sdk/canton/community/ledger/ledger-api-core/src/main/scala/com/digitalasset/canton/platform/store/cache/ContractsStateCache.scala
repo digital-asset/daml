@@ -41,7 +41,7 @@ object ContractStateValue {
   sealed trait ExistingContractValue extends ContractStateValue
 
   final case class Active(
-      contract: Contract,
+      contract: ThinContract,
       stakeholders: Set[Party],
       createLedgerEffectiveTime: Timestamp,
       signatories: Set[Party],

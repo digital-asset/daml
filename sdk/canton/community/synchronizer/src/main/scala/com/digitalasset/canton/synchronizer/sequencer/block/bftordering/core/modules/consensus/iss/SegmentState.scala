@@ -493,7 +493,7 @@ class SegmentState(
         viewState.viewChangeFromSelf match {
           // if we rehydrated a view-change message from self, we don't need to create or store it again
           case Some(rehydratedViewChangeMessage) =>
-            viewState.markViewChangeFromSelfasCommingFromRehydration()
+            viewState.markViewChangeFromSelfAsComingFromRehydration()
             Seq.empty
           case None =>
             val viewChangeMessage = createViewChangeMessage(viewNumber)
@@ -556,6 +556,7 @@ class SegmentState(
           viewChangeBlockMetadata,
           segmentIdx = originalLeaderIndex,
           prePrepares,
+          abort,
         )
       Seq(SignPbftMessage(newViewMessage))
   }
