@@ -15,6 +15,8 @@ import DA.Stack
 
 data Catch = Catch with
   act : () -> LedgerValue
+  -- Dummy value needed to ensure this record isn't treated as an old-style typeclass by data-deps
+  -- (defined as any record where all definitions are () -> X)
   dummy : ()
 instance IsQuestion Catch (Either AnyException x) where command = "Catch"
 

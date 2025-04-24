@@ -152,7 +152,7 @@ object ScriptF {
       val userNotFound = userManagementDef("UserNotFound")
       (exc, convertLegacyExceptions) match {
         // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
-        // Can be removed in 3.4, when exceptions will be replaced with FailureStatus
+        // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
         case (SAnyException(SRecord(`invalidUserId`, _, ArrayList(SText(msg)))), true) =>
           makeFailureStatus(invalidUserId, msg)
         case (
