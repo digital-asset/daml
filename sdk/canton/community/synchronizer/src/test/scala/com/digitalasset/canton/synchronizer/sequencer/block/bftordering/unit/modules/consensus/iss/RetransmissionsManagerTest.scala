@@ -36,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.BlockStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusStatus,
@@ -58,7 +59,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     EpochInfo(
       EpochNumber.First,
       BlockNumber.First,
-      EpochLength(10),
+      EpochLength(1),
       TopologyActivationTime(CantonTimestamp.Epoch),
     ),
     membership,
@@ -84,6 +85,20 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         Seq(
           ConsensusStatus.SegmentStatus.Complete,
           ConsensusStatus.SegmentStatus.Complete,
+        ),
+      )
+    )
+
+  private val validRetransmissionRequest =
+    Consensus.RetransmissionsMessage.RetransmissionRequest.create(
+      ConsensusStatus.EpochStatus(
+        self,
+        EpochNumber.First,
+        Seq(
+          ConsensusStatus.SegmentStatus.InProgress(
+            ViewNumber.First,
+            Seq(BlockStatus.InProgress(false, Seq(false, false), Seq(false, false))),
+          )
         ),
       )
     )
@@ -186,7 +201,10 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
         val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
 
-        val message = mock[Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage]
+        val message = validRetransmissionRequest
+        val epochState = mock[EpochState[ProgrammableUnitTestEnv]]
+        when(epochState.epoch).thenReturn(epoch)
+        manager.startEpoch(epochState)
 
         when(
           cryptoProvider.verifySignedMessage(
@@ -204,6 +222,27 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           Consensus.RetransmissionsMessage.VerifiedNetworkMessage(message)
         )
       }
+
+      "not even check signature if basic validation does not pass" in {
+        val networkOut = mock[ModuleRef[P2PNetworkOut.Message]]
+        implicit val context
+            : ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
+          new ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]]()
+        val manager = createManager(networkOut)
+
+        val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
+
+        val message = retransmissionRequest
+
+        manager.handleMessage(
+          cryptoProvider,
+          Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
+        )
+
+        // manager has not started any epochs yet, so it cannot process the request
+        // so we don't even check the signature
+        context.runPipedMessages() shouldBe empty
+      }
     }
 
     "drop message if verification failed" in {
@@ -215,7 +254,10 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
 
-      val message = mock[Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage]
+      val message = validRetransmissionRequest
+      val epochState = mock[EpochState[ProgrammableUnitTestEnv]]
+      when(epochState.epoch).thenReturn(epoch)
+      manager.startEpoch(epochState)
 
       when(
         cryptoProvider.verifySignedMessage(

@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime.MinimumBlockTimeGranularity
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -17,13 +17,14 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
 import scala.jdk.DurationConverters.*
 
-class BftTimeTest extends AnyWordSpec with BaseTest {
+class BftTimeTest extends AnyWordSpec with BftSequencerBaseTest {
 
   import BftTimeTest.*
 
@@ -102,7 +103,9 @@ object BftTimeTest {
   private val BaseTimestamp =
     CantonTimestamp.assertFromInstant(Instant.parse("2024-02-16T12:00:00.000Z"))
 
-  private def createCommit(timestamp: CantonTimestamp, from: BftNodeId = BftNodeId.Empty) =
+  private def createCommit(timestamp: CantonTimestamp, from: BftNodeId = BftNodeId.Empty)(implicit
+      synchronizerProtocolVersion: ProtocolVersion
+  ) =
     Commit
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),

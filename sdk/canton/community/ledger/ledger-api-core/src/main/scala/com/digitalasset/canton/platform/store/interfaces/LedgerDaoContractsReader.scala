@@ -7,7 +7,6 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
-import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.google.common.annotations.VisibleForTesting
 
@@ -61,22 +60,17 @@ private[platform] trait LedgerDaoContractsReader {
 object LedgerDaoContractsReader {
   import com.digitalasset.daml.lf.value.Value as lfval
   private type ContractId = lfval.ContractId
-  private type Contract = lfval.VersionedThinContractInstance
+  import com.digitalasset.daml.lf.transaction as lftx
+  private type Contract = lftx.FatContractInstance
 
   sealed trait ContractState extends Product with Serializable {
     def stakeholders: Set[Party]
   }
 
   // Note that for TransactionVersion <= V15 maintainers may not be populated even where globalKey is
-  final case class ActiveContract(
-      contract: Contract,
-      stakeholders: Set[Party],
-      ledgerEffectiveTime: Timestamp,
-      signatories: Set[Party],
-      globalKey: Option[GlobalKey],
-      keyMaintainers: Option[Set[Party]],
-      driverMetadata: Array[Byte],
-  ) extends ContractState
+  final case class ActiveContract(contract: Contract) extends ContractState {
+    override def stakeholders: Set[Party] = contract.stakeholders
+  }
 
   final case class ArchivedContract(stakeholders: Set[Party]) extends ContractState
 

@@ -77,6 +77,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 }
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
@@ -348,7 +349,10 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       disseminationProtocolState: DisseminationProtocolState = new DisseminationProtocolState(),
       outputFetchProtocolState: MainOutputFetchProtocolState = new MainOutputFetchProtocolState(),
       customMessageAuthorizer: Option[MessageAuthorizer] = None,
-  )(implicit context: E#ActorContextT[Availability.Message[E]]): AvailabilityModule[E] = {
+  )(implicit
+      synchronizerProtocolVersion: ProtocolVersion,
+      context: E#ActorContextT[Availability.Message[E]],
+  ): AvailabilityModule[E] = {
     val config = AvailabilityModuleConfig(
       maxRequestsInBatch,
       maxBatchesPerProposal,
@@ -381,7 +385,10 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       timeouts,
       disseminationProtocolState,
       outputFetchProtocolState,
-    )(customMessageAuthorizer.getOrElse(membership.orderingTopology))(MetricsContext.Empty)
+    )(customMessageAuthorizer.getOrElse(membership.orderingTopology))(
+      synchronizerProtocolVersion,
+      MetricsContext.Empty,
+    )
     availability.receive(Availability.Start)
     availability
   }

@@ -20,6 +20,7 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
   LocalSequencerReference,
 }
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.EnvironmentDefinition.S1M1
@@ -50,7 +51,8 @@ import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerTrafficStatus,
   TimestampSelector,
 }
-import com.digitalasset.canton.topology.transaction.{PartyToParticipant, TopologyMapping}
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Authorized
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.{Member, PartyId}
 import com.digitalasset.canton.{ProtocolVersionChecksFixtureAnyWordSpec, config}
 import monocle.macros.syntax.lens.*
@@ -660,9 +662,16 @@ trait TrafficControlTest
     // Run a ping such that the topology gets updated and the new config comes in effect
     participant1.health.ping(participant2.id)
 
-    // Enable a new party on P3. This adds a topology transaction to its local store that will be broadcast when it reconnects
-    // to the synchronizer
-    val bobId = participant3.parties.enable("Bob")
+    // Create a new namespace delegation. This adds a topology transaction to its local store,
+    // that will be broadcast when it reconnects to the synchronizer
+    val newSigningKey =
+      participant3.keys.secret.generate_signing_key(usage = SigningKeyUsage.NamespaceOnly)
+    participant3.topology.namespace_delegations.propose_delegation(
+      participant3.namespace,
+      newSigningKey,
+      CanSignAllMappings,
+      store = Authorized,
+    )
 
     // Ensure that P3 can re-connect properly
     loggerFactory.assertLoggedWarningsAndErrorsSeq(
@@ -670,18 +679,11 @@ trait TrafficControlTest
         participant3.synchronizers.reconnect_local(daName)
         eventually() {
           // Make sure the transaction goes through eventually and the synchronizer sees that p3 hosts Bob
-          sequencer1.parties
-            .list(filterParty = "Bob", filterParticipant = participant3.id.filterString)
-            .nonEmpty shouldBe true
-          // And also check that the mapping makes it back to p3 topology synchronizer store
-          participant3.topology.transactions
+          participant3.topology.namespace_delegations
             .list(
-              store = daId,
-              filterMappings = Seq(TopologyMapping.Code.PartyToParticipant),
-            )
-            .result
-            .flatMap(_.selectMapping[PartyToParticipant])
-            .exists(_.transaction.mapping.partyId == bobId) shouldBe true
+              daId,
+              filterTargetKey = Some(newSigningKey.fingerprint.toProtoPrimitive),
+            ) should not be empty
         }
       },
       LogEntry.assertLogSeq(
@@ -697,7 +699,7 @@ trait TrafficControlTest
         // flake if that ever happens, we don't require those errors to be suppressed and have them as optional instead.
         Seq(
           _.warningMessage should include(OutdatedTrafficCost.id),
-          _.warningMessage should include("synchronizer outbox flusher failed"),
+          _.warningMessage should include("synchronizer outbox flusher"),
         ),
       ),
     )

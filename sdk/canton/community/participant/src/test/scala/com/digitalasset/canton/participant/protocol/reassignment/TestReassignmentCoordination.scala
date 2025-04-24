@@ -96,24 +96,6 @@ private[reassignment] object TestReassignmentCoordination {
       loggerFactory,
     ) {
 
-      override def awaitUnassignmentTimestamp(
-          sourceSynchronizer: Source[SynchronizerId],
-          staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-          timestamp: CantonTimestamp,
-      )(implicit
-          traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, Unit] =
-        awaitTimestampOverride match {
-          case None =>
-            super.awaitUnassignmentTimestamp(
-              sourceSynchronizer,
-              staticSynchronizerParameters,
-              timestamp,
-            )
-          case Some(overridden) =>
-            EitherT.right(overridden.fold(FutureUnlessShutdown.unit)(FutureUnlessShutdown.outcomeF))
-        }
-
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
           synchronizerId: T[SynchronizerId],
           staticSynchronizerParameters: T[StaticSynchronizerParameters],

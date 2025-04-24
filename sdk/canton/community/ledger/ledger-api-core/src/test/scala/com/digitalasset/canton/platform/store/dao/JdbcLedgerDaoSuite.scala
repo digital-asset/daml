@@ -143,7 +143,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       ),
     )
 
-  private[this] val txVersion = LanguageVersion.StableVersions(LanguageVersion.Major.V2).min
+  private[this] val txVersion = LanguageVersion.Major.V2.maxStableVersion
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
   protected final val someContractInstance =

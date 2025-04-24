@@ -4,13 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
@@ -24,6 +22,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
   P2PEndpoint,
   PlainTextP2PEndpoint,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
+  BftOrderingModuleSystemInitializer,
+  BftSequencerBaseTest,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
@@ -83,7 +85,7 @@ import scala.util.Random
   *     to inspect the [[Simulation.currentHistory]]. It should give you an idea of what was
   *     happening during the test.
   */
-trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
+trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
   import BftOrderingSimulationTest.*
 
@@ -349,13 +351,18 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
         case BftOnboardingData(
               initialApplicationHeight,
               sequencerSnapshotAdditionalInfo,
-            ) => {
+            ) =>
           // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
-          val requestInspector: RequestInspector =
-            (_: OrderingRequest, _: ProtocolVersion, _: TracedLogger, _: TraceContext) => true
+          val requestInspector =
+            new RequestInspector {
+              override def isRequestToAllMembersOfSynchronizer(
+                  request: OrderingRequest,
+                  logger: TracedLogger,
+                  traceContext: TraceContext,
+              )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true
+            }
 
           new BftOrderingModuleSystemInitializer[SimulationEnv](
-            testedProtocolVersion,
             thisNode,
             BftBlockOrdererConfig(),
             initialApplicationHeight,
@@ -371,7 +378,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             timeouts,
             requestInspector,
           )
-        }
       },
       IssClient.initializer(simSettings, thisNode, logger, timeouts),
       initializeImmediately,

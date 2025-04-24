@@ -86,10 +86,23 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
         signatory = participant1.parties.enable(
           "signatory",
           synchronizeParticipants = Seq(participant2),
+          synchronizer = daName,
         )
+        participant1.parties.enable(
+          "signatory",
+          synchronizeParticipants = Seq(participant2),
+          synchronizer = acmeName,
+        )
+
         observer = participant2.parties.enable(
           "observer",
           synchronizeParticipants = Seq(participant1),
+          synchronizer = daName,
+        )
+        participant2.parties.enable(
+          "observer",
+          synchronizeParticipants = Seq(participant1),
+          synchronizer = acmeName,
         )
 
         programmableSequencers.put(

@@ -100,12 +100,13 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def allocateParty(
       hint: Ref.Party,
       submissionId: Ref.SubmissionId,
+      synchronizerIdO: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.services.write.allocateParty,
-      delegate.allocateParty(hint, submissionId),
+      delegate.allocateParty(hint, submissionId, synchronizerIdO),
     )
 
   override def prune(

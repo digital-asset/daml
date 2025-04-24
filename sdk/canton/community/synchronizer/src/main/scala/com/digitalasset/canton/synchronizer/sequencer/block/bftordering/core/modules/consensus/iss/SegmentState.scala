@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
@@ -44,8 +45,11 @@ class SegmentState(
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
-    extends NamedLogging {
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    config: BftBlockOrdererConfig,
+    mc: MetricsContext,
+) extends NamedLogging {
 
   private val membership = epoch.currentMembership
   private val eligibleLeaders = membership.leaders
@@ -156,8 +160,8 @@ class SegmentState(
       + segmentBlocks.forgetNE.map(_.discardedMessages).sum
       + viewChangeState.values.map(_.discardedMessages).sum
 
-  def retransmittedMessages = retransmittedMessagesCount
-  def retransmittedCommitCertificates = retransmittedCommitCertificatesCount
+  private[iss] def retransmittedMessages = retransmittedMessagesCount
+  private[iss] def retransmittedCommitCertificates = retransmittedCommitCertificatesCount
 
   def leader: BftNodeId = currentLeader
 
@@ -492,7 +496,7 @@ class SegmentState(
       else {
         viewState.viewChangeFromSelf match {
           // if we rehydrated a view-change message from self, we don't need to create or store it again
-          case Some(rehydratedViewChangeMessage) =>
+          case Some(_rehydratedViewChangeMessage) =>
             viewState.markViewChangeFromSelfAsComingFromRehydration()
             Seq.empty
           case None =>

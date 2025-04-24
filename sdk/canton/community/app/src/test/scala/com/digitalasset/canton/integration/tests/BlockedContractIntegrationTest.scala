@@ -90,6 +90,7 @@ sealed trait BlockedContractIntegrationTest
         bob,
         removes = List(participant2),
         forceFlags = ForceFlags(DisablePartyWithActiveContracts),
+        store = daId,
       )
 
     // Wait until participant1 observes Bob having been disabled

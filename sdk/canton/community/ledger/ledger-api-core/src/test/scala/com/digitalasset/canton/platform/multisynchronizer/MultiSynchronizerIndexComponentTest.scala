@@ -57,10 +57,10 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
     index
       .lookupActiveContract(Set(party), contractId)
       .map { activeContract =>
-        activeContract.map(_.unversioned.arg) shouldBe Some(
+        activeContract.map(_.createArg) shouldBe Some(
           createNode.versionedCoinst.unversioned.arg
         )
-        activeContract.map(_.unversioned.template) shouldBe Some(
+        activeContract.map(_.templateId) shouldBe Some(
           createNode.versionedCoinst.unversioned.template
         )
       }

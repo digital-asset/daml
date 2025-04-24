@@ -265,9 +265,6 @@ create table par_reassignments (
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_timestamp bigint not null,
   unassignment_request bytea,
-  -- UTC timestamp in microseconds relative to EPOCH
-  unassignment_decision_time bigint not null,
-  unassignment_result bytea,
 
   -- defined if reassignment was completed
   -- UTC timestamp in microseconds relative to EPOCH

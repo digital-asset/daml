@@ -21,6 +21,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Commit,
   PrePrepare,
 }
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 object StateTransferTestHelpers {
@@ -30,10 +31,14 @@ object StateTransferTestHelpers {
 
   val aBlockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
 
-  def aCommitCert(blockMetadata: BlockMetadata = aBlockMetadata): CommitCertificate =
+  def aCommitCert(blockMetadata: BlockMetadata = aBlockMetadata)(implicit
+      synchronizerProtocolVersion: ProtocolVersion
+  ): CommitCertificate =
     CommitCertificate(aPrePrepare(blockMetadata), Seq(aCommit(blockMetadata)))
 
-  def aPrePrepare(blockMetadata: BlockMetadata): SignedMessage[PrePrepare] =
+  def aPrePrepare(
+      blockMetadata: BlockMetadata
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
         blockMetadata = blockMetadata,
@@ -44,7 +49,9 @@ object StateTransferTestHelpers {
       )
       .fakeSign
 
-  def aCommit(blockMetadata: BlockMetadata = aBlockMetadata): SignedMessage[Commit] =
+  def aCommit(
+      blockMetadata: BlockMetadata = aBlockMetadata
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Commit] =
     Commit
       .create(
         blockMetadata,

@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   GetPreferredPackageVersionRequest,
   InteractiveSubmissionServiceGrpc,
+  MinLedgerTime,
 }
 import com.daml.ledger.api.v2.package_reference
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
@@ -135,6 +136,7 @@ final case class JsExecuteSubmissionRequest(
     submissionId: String,
     userId: String,
     hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
+    minLedgerTime: Option[MinLedgerTime] = None,
 )
 
 object JsInteractiveSubmissionService extends DocumentationEndpoints {

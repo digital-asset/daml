@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewChange,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.mutable
 
@@ -44,7 +45,7 @@ class PbftViewChangeState(
     blockNumbers: Seq[BlockNumber],
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit mc: MetricsContext)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends NamedLogging {
   private val messageValidator = new ViewChangeMessageValidator(membership, blockNumbers)
   private val viewChangeMap = mutable.HashMap[BftNodeId, SignedMessage[ViewChange]]()

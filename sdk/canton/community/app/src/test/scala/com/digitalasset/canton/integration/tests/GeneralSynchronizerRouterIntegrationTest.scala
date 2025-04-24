@@ -36,14 +36,6 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
       import env.*
       participants.all.dars.upload(darPath)
 
-      party1Id = participant1.parties.enable("party1")
-      party1aId = participant1.parties.enable("party1a")
-      party1bId = participant1.parties.enable("party1b")
-      party1cId = participant1.parties.enable("party1c")
-      party2Id = participant2.parties.enable("party2")
-      party3Id = participant3.parties.enable("party3")
-      party4Id = participant4.parties.enable("party4")
-
       connectToDefaultSynchronizers()
     }
 
