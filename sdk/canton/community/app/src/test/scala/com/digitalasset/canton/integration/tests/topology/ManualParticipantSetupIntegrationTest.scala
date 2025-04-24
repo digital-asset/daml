@@ -19,12 +19,7 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
-import com.digitalasset.canton.topology.transaction.{
-  IdentifierDelegation,
-  NamespaceDelegation,
-  OwnerToKeyMapping,
-}
-import monocle.macros.syntax.lens.*
+import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
 
 trait ManualParticipantSetupIntegrationTest
     extends CommunityIntegrationTest
@@ -32,14 +27,7 @@ trait ManualParticipantSetupIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S1M1_Manual
-      .addConfigTransforms(
-        ConfigTransforms.updateParticipantConfig("participant2")(
-          _.focus(_.init.identity).replace(None)
-        ),
-        ConfigTransforms.updateParticipantConfig("participant3")(
-          _.focus(_.init.identity).replace(None)
-        ),
-      )
+      .addConfigTransform(ConfigTransforms.disableAutoInit(Set("participant2", "participant3")))
 
   "create a participant based on the identity of another participant" in { implicit env =>
     import env.*
@@ -65,7 +53,7 @@ trait ManualParticipantSetupIntegrationTest
       k.name -> participant1.keys.secret.download(k.publicKey.fingerprint)
     }
 
-    val codes = Set(NamespaceDelegation.code, OwnerToKeyMapping.code, IdentifierDelegation.code)
+    val codes = Set(NamespaceDelegation.code, OwnerToKeyMapping.code)
     val bootstrapTxs = participant1.topology.transactions
       .list(filterAuthorizedKey = Some(id.fingerprint))
       .result
@@ -78,7 +66,7 @@ trait ManualParticipantSetupIntegrationTest
     keys.foreach { case (name, key) =>
       participant2.keys.secret.upload(key, name.map(_.unwrap))
     }
-    participant2.topology.init_id(id.uid)
+    participant2.topology.init_id_from_uid(id.uid)
 
     participant2.health.wait_for_ready_for_node_topology()
     participant2.topology.transactions.load(bootstrapTxs, TopologyStoreId.Authorized)

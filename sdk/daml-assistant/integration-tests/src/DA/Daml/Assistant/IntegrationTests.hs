@@ -132,7 +132,7 @@ damlStart tmpDir = do
             , "template T with p : Party where signatory p"
             , "init : Script Party"
             , "init = do"
-            , "  alice <- allocatePartyWithHint \"Alice\" (PartyIdHint \"Alice\")"
+            , "  alice <- allocatePartyByHint (PartyIdHint \"Alice\")"
             , "  aliceId <- validateUserId \"alice\""
             , "  aliceUser <- createUser (User aliceId (Some alice)) [CanActAs alice]"
             , "  alice `submit` createCmd (T alice)"

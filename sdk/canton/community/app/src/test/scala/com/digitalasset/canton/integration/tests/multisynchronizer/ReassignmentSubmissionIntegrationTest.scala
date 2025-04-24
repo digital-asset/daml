@@ -121,7 +121,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
     }
 
     participant2.ledger_api.commands
-      .submit_reassign(decentralizedParty, iou.id.toLf, daId, acmeId)
+      .submit_reassign(decentralizedParty, Seq(iou.id.toLf), daId, acmeId)
 
     participant2.ledger_api.state.acs
       .active_contracts_of_party(party = decentralizedParty)
@@ -145,7 +145,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)
       participant2.ledger_api.commands
-        .submit_reassign(observer1, iou.id.toLf, daId, acmeId)
+        .submit_reassign(observer1, Seq(iou.id.toLf), daId, acmeId)
 
       participant2.ledger_api.state.acs
         .active_contracts_of_party(party = observer1)
@@ -154,7 +154,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
 
       loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
         participant1.ledger_api.commands
-          .submit_reassign(observer1, iou.id.toLf, acmeId, daId),
+          .submit_reassign(observer1, Seq(iou.id.toLf), acmeId, daId),
         forAll(_)(
           _.message should include(
             NotHostedOnParticipant(
@@ -165,6 +165,18 @@ sealed trait ReassignmentSubmissionIntegrationTest
           )
         ),
       )
+  }
+
+  "check that reassignment does not expose the reassignment events if called without an event format" in {
+    implicit env =>
+      import env.*
+
+      val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)
+      val unassigned = participant2.ledger_api.commands
+        .submit_unassign_with_format(observer1, Seq(iou.id.toLf), daId, acmeId, eventFormat = None)
+
+      unassigned.reassignment.events shouldBe empty
+
   }
 }
 

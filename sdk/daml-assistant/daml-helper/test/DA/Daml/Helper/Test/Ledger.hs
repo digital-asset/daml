@@ -270,19 +270,4 @@ main = do
                   "fetch-dar did fail with big enough max-inbound-message-size flag"
           ]
 
-      , testGroup "metering-report"
-          [ testCase "succeeds against gRPC" $ do
-              sandboxPort <- getSandboxPort
-              callCommand $
-                unwords
-                  [ damlHelper
-                  , "ledger"
-                  , "metering-report"
-                  , "--host=localhost"
-                  , "--port"
-                  , show sandboxPort
-                  , "--from=2022-02-10"
-                  ]
-          ]
-
       ]

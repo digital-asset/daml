@@ -4,20 +4,20 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 
 object ValidationErrors {
 
   def missingField(fieldName: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): StatusRuntimeException =
     RequestValidationErrors.MissingField
       .Reject(fieldName)
       .asGrpcError
 
   def invalidArgument(message: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): StatusRuntimeException =
     RequestValidationErrors.InvalidArgument
       .Reject(message)
@@ -26,7 +26,7 @@ object ValidationErrors {
   def invalidField(
       fieldName: String,
       message: String,
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+  )(implicit errorLoggingContext: ErrorLoggingContext): StatusRuntimeException =
     RequestValidationErrors.InvalidField
       .Reject(fieldName = fieldName, message = message)
       .asGrpcError

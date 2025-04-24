@@ -841,7 +841,6 @@ encodeTemplate Template{..} = do
     defTemplateLocation <- traverse encodeSourceLoc tplLocation
     defTemplateKey <- traverse encodeTemplateKey tplKey
     defTemplateImplements <- encodeNameMap encodeTemplateImplements tplImplements
-    let defTemplateAgreement = Nothing
     pure P.DefTemplate{..}
 
 encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements

@@ -52,6 +52,7 @@ trait TrafficControlConcurrentTopologyChangeTest
     setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
     readVsWriteScalingFactor = InternalTrafficControlParameters.DefaultReadVsWriteScalingFactor,
     enforceRateLimiting = true,
+    baseEventCost = NonNegativeLong.zero,
   )
 
   override def environmentDefinition: EnvironmentDefinition =

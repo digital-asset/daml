@@ -108,7 +108,7 @@ message AuthorizeRequest {
   /**
    * Fingerprint of the keys signing the authorization
    *
-   * The signing key is used to identify a particular `NamespaceDelegation` or `IdentifierDelegation` certificate,
+   * The signing key is used to identify a particular `NamespaceDelegation` certificate,
    * which is used to justify the given authorization.
    * Optional, if empty, suitable signing keys available known to the node are automatically selected.
    */
@@ -176,7 +176,7 @@ message SignTransactionsRequest {
   /**
    * Fingerprint of the keys signing the authorization
    *
-   * The signing key is used to identify a particular `NamespaceDelegation` or `IdentifierDelegation` certificate,
+   * The signing key is used to identify a particular `NamespaceDelegation` certificate,
    * which is used to justify the given authorization.
    * Optional, if empty, suitable signing keys available known to the node are automatically selected.
    */

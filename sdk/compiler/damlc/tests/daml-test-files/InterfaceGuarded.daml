@@ -8,6 +8,8 @@
 -- @WARN -Werror=upgrade-interfaces
 -- @WARN -Werror=upgrade-exceptions
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 module InterfaceGuarded where
 
 import Daml.Script
@@ -147,17 +149,17 @@ exerciseTest c = script do
 
 trueGuard = exerciseTest TrueGuard
 
--- @ERROR range=151:1-151:11; failing guard
+-- @ERROR range=153:1-153:11; failing guard
 falseGuard = exerciseTest FalseGuard
 
--- @ERROR range=154:1-154:11; failing guard
+-- @ERROR range=156:1-156:11; failing guard
 errorGuard = exerciseTest ErrorGuard
 
--- @ERROR range=157:1-157:17; failing guard
+-- @ERROR range=159:1-159:17; failing guard
 customErrorGuard = exerciseTest CustomErrorGuard
 
--- @ERROR range=160:1-160:14; failing guard
+-- @ERROR range=162:1-162:14; failing guard
 tryErrorGuard = exerciseTest TryErrorGuard
 
--- @ERROR range=163:1-163:20; failing guard
+-- @ERROR range=165:1-165:20; failing guard
 tryCustomErrorGuard = exerciseTest TryCustomErrorGuard

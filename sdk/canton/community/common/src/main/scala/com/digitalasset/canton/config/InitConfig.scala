@@ -3,32 +3,13 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config
-import com.digitalasset.canton.config.InitConfigBase.Identity
+import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
-import com.typesafe.config.ConfigValueFactory
-import pureconfig.ConfigWriter
 
 import java.io.File
 import java.util.UUID
-import scala.jdk.CollectionConverters.MapHasAsJava
 
 object InitConfigBase {
-  def writerForSubtype[A <: InitConfigBase](configWriter: ConfigWriter[A]): ConfigWriter[A] =
-    ConfigWriter.fromFunction[A]({ initConfig =>
-      configWriter
-        .mapConfig {
-          // Write auto-init explicitly, as it's not an attribute of the InitConfigBase class anymore
-          case configValue if !initConfig.autoInit =>
-            configValue.withFallback(
-              ConfigValueFactory.fromMap(
-                Map("auto-init" -> ConfigValueFactory.fromAnyRef(false)).asJava
-              )
-            )
-          case configValue => configValue
-        }
-        .to(initConfig)
-    })
 
   sealed trait NodeIdentifierConfig {
     def identifierName: Option[String]
@@ -61,60 +42,80 @@ object InitConfigBase {
     }
   }
 
-  /** Identity related init config If set, the node will automatically initialize itself. In
-    * particular, it will create a new namespace, and initialize its member id and its keys for
-    * signing and encryption. If not set, the user has to manually perform these steps.
-    * @param generateLegalIdentityCertificate
-    *   If true create a signing key and self-signed certificate that is submitted as legal identity
-    *   to the synchronizer.
-    * @param nodeIdentifier
-    *   Controls the identifier that will be assigned to the node during auto-init
-    */
-  final case class Identity(
-      generateLegalIdentityCertificate: Boolean = false,
-      nodeIdentifier: NodeIdentifierConfig = NodeIdentifierConfig.Config,
-  ) extends UniformCantonConfigValidation
-
-  object Identity {
-    implicit val identityCantonConfigValidator: CantonConfigValidator[Identity] =
-      CantonConfigValidatorDerivation[Identity]
-  }
 }
 
-/** Control the dynamic state of the node through a state configuration file
+/** Control how the identity of the node is determined.
   *
-  * @param file
-  *   which file to read the state from
-  * @param refreshInterval
-  *   how often to check the file for changes
-  * @param consistencyTimeout
-  *   how long to wait for the changes to be successfully applied
+  * At startup, we need to determine the node's identity. We support various modes of operations for
+  * different deployments.
+  *
+  * We distinguish between setting the node-id and subsequently generating the topology transactions
+  * and the remaining keys. As such it is possible to manually set the node-id but let the system
+  * automatically generate the remaining topology transactions.
   */
-final case class StateConfig(
-    file: File,
-    refreshInterval: config.NonNegativeFiniteDuration =
-      config.NonNegativeFiniteDuration.ofSeconds(5),
-    consistencyTimeout: config.NonNegativeDuration = config.NonNegativeDuration.ofMinutes(1),
-) extends UniformCantonConfigValidation
+sealed trait IdentityConfig {
+  def isManual: Boolean
+}
 
-object StateConfig {
-  implicit val stateConfigCantonConfigValidator: CantonConfigValidator[StateConfig] =
-    CantonConfigValidatorDerivation[StateConfig]
+object IdentityConfig {
+
+  /** Read the node identifier from the config file
+    *
+    * @param identifier
+    *   the string to use as identifier of the node
+    * @param namespace
+    *   optional fingerprint to use as the namespace (default is to extract it from the first
+    *   certificate)
+    * @param certificates
+    *   optional certificates to use (in case we have external root keys)
+    */
+  final case class External(
+      identifier: String,
+      namespace: Option[String] = None,
+      certificates: Seq[File] = Seq.empty,
+  ) extends IdentityConfig
+      with UniformCantonConfigValidation {
+    def isManual: Boolean = false
+  }
+
+  /** Automatically generate a namespace key and initialize the node id */
+  final case class Auto(
+      identifier: NodeIdentifierConfig = NodeIdentifierConfig.Config
+  ) extends IdentityConfig
+      with UniformCantonConfigValidation {
+    def isManual: Boolean = false
+  }
+
+  /** Manually wait for the node-id to be configured via API */
+  final case object Manual extends IdentityConfig with UniformCantonConfigValidation {
+    def isManual: Boolean = true
+  }
+
+  implicit val identityConfigCantonConfigValidator: CantonConfigValidator[IdentityConfig] =
+    CantonConfigValidatorDerivation[IdentityConfig]
+
 }
 
 trait InitConfigBase {
-  def identity: Option[Identity]
-  def autoInit: Boolean = identity.isDefined
-  def state: Option[StateConfig]
+  def identity: IdentityConfig
+  def generateIntermediateKey: Boolean
+  def generateTopologyTransactionsAndKeys: Boolean
 }
 
 /** Configuration for the node's init process
   * @param identity
   *   Controls how the node identity (prefix of the unique identifier) is determined
+  * @param generateIntermediateKey
+  *   If true (default false), then the node will generate an additional intermediate key. This
+  *   allows to turn off access to the root key for the node.
+  * @param generateTopologyTransactionsAndKeys
+  *   If true (default), then the node will generate automatically the topology transactions and
+  *   keys once it has the necessary namespace delegations to do so.
   */
 final case class InitConfig(
-    identity: Option[Identity] = Some(Identity()),
-    state: Option[StateConfig] = None,
+    identity: IdentityConfig = IdentityConfig.Auto(),
+    generateIntermediateKey: Boolean = false,
+    generateTopologyTransactionsAndKeys: Boolean = true,
 ) extends InitConfigBase
     with UniformCantonConfigValidation
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ledger.api.validation.ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   LocalPackagePreference,
@@ -97,9 +97,9 @@ class ValidateUpgradingPackageResolutionsTest
         p32 -> (pn3 -> pv2),
       )
 
-    protected implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
+    protected implicit val errorLoggingContext: ErrorLoggingContext = NoLogging
 
-    private val getPackageMetadataSnapshot = (_: ContextualizedErrorLogger) =>
+    private val getPackageMetadataSnapshot = (_: ErrorLoggingContext) =>
       PackageMetadata().copy(
         packageIdVersionMap = packageMapSnapshot,
         packageNameMap = preferenceMapSnapshot.view.mapValues { preferredPackage =>

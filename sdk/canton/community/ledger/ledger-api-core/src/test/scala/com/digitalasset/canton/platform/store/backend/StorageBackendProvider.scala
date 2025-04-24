@@ -87,7 +87,6 @@ trait StorageBackendProviderH2 extends StorageBackendProvider with BaseTest { th
 final case class TestBackend(
     ingestion: IngestionStorageBackend[_],
     parameter: ParameterStorageBackend,
-    meteringParameter: MeteringParameterStorageBackend,
     party: PartyStorageBackend,
     completion: CompletionStorageBackend,
     contract: ContractStorageBackend,
@@ -101,14 +100,8 @@ final case class TestBackend(
     stringInterningSupport: MockStringInterning,
     userManagement: UserManagementStorageBackend,
     participantPartyStorageBackend: PartyRecordStorageBackend,
-    metering: TestMeteringBackend,
     identityProviderStorageBackend: IdentityProviderStorageBackend,
     pruningDtoQueries: PruningDtoQueries = new PruningDtoQueries,
-)
-
-final case class TestMeteringBackend(
-    read: MeteringStorageReadBackend,
-    write: MeteringStorageWriteBackend,
 )
 
 object TestBackend {
@@ -119,16 +112,9 @@ object TestBackend {
     val ledgerEndCache = MutableLedgerEndCache()
     val stringInterning = new MockStringInterning
 
-    def createTestMeteringBackend: TestMeteringBackend =
-      TestMeteringBackend(
-        read = storageBackendFactory.createMeteringStorageReadBackend(ledgerEndCache),
-        write = storageBackendFactory.createMeteringStorageWriteBackend,
-      )
-
     TestBackend(
       ingestion = storageBackendFactory.createIngestionStorageBackend,
       parameter = storageBackendFactory.createParameterStorageBackend(stringInterning),
-      meteringParameter = storageBackendFactory.createMeteringParameterStorageBackend,
       party = storageBackendFactory.createPartyStorageBackend(ledgerEndCache),
       completion =
         storageBackendFactory.createCompletionStorageBackend(stringInterning, loggerFactory),
@@ -144,7 +130,6 @@ object TestBackend {
       stringInterningSupport = stringInterning,
       userManagement = storageBackendFactory.createUserManagementStorageBackend,
       participantPartyStorageBackend = storageBackendFactory.createPartyRecordStorageBackend,
-      metering = createTestMeteringBackend,
       identityProviderStorageBackend =
         storageBackendFactory.createIdentityProviderConfigStorageBackend,
     )

@@ -5,7 +5,7 @@ package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{
   SequencerSubscription,
@@ -68,7 +68,7 @@ trait SequencerClientTransport extends SequencerClientTransportCommon {
     * [[com.digitalasset.canton.sequencing.client.SubscriptionCloseReason.SubscriptionError]]. The
     * transport is not expected to provide retries of subscriptions.
     */
-  def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(implicit
+  def subscribe[E](request: SubscriptionRequestV2, handler: SequencedEventHandler[E])(implicit
       traceContext: TraceContext
   ): SequencerSubscription[E]
 

@@ -114,7 +114,7 @@ trait OfflinePartyMigrationIntegrationTest
 
       participant1.ledger_api.commands.submit_reassign(
         alice,
-        reassignedContractCid,
+        Seq(reassignedContractCid),
         daId,
         acmeId,
         submissionId = "some-submission-id",
@@ -122,7 +122,7 @@ trait OfflinePartyMigrationIntegrationTest
 
       participant1.ledger_api.commands.submit_reassign(
         alice,
-        reassignedContractCid,
+        Seq(reassignedContractCid),
         acmeId,
         daId,
         submissionId = "some-submission-id",

@@ -79,12 +79,14 @@ class EventCostCalculator(override val loggerFactory: NamedLoggerFactory) extend
       costMultiplier: PositiveInt,
       groupToMembers: Map[GroupRecipient, Set[Member]],
       protocolVersion: ProtocolVersion,
+      baseEventCost: NonNegativeLong,
   )(implicit traceContext: TraceContext): EventCostDetails =
     // If changing the cost computation, make sure to tie it to a protocol version
     // For now there's only one version of cost computation
-    if (protocolVersion >= ProtocolVersion.v33) {
+    if (protocolVersion >= ProtocolVersion.v34) {
       val envelopeCosts = event.envelopes.map(computeEnvelopeCost(costMultiplier, groupToMembers))
-      val eventCost = NonNegativeLong.tryCreate(envelopeCosts.map(_.finalCost).sum)
+      val eventCost =
+        NonNegativeLong.tryCreate(envelopeCosts.map(_.finalCost).sum) + baseEventCost
       EventCostDetails(
         costMultiplier,
         groupToMembers.view.mapValues(_.size).toMap,

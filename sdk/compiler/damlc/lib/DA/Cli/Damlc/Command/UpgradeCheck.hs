@@ -30,6 +30,7 @@ import qualified Data.Validation as Validation
 import Data.Validation (Validation)
 import Data.Functor.Compose
 import DA.Daml.LF.TypeChecker.Error.WarningFlags
+import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 
 -- Monad in which all checking operations run
 -- Occasionally we change to CheckMValidate
@@ -167,7 +168,7 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                   (upwnavPkg main) deps
                   LFV.version2_dev
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
-                  (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
+                  (mkWarningFlags TypeCheckerError.warningFlagParser [])
                   (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
           when (not (null errs)) (throwE [CEDiagnostic path errs])
       case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
@@ -179,7 +180,7 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                   (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
                   LFV.version2_dev
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
-                  (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
+                  (mkWarningFlags TypeCheckerError.warningFlagParser [])
                   (Just (main, deps))
           when (not (null errs)) (throwE [CEDiagnostic path errs])
 

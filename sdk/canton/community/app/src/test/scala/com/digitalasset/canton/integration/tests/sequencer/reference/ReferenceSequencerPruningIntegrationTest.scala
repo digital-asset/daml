@@ -6,7 +6,11 @@ package com.digitalasset.canton.integration.tests.sequencer.reference
 import com.digitalasset.canton.admin.api.client.data.TrafficControlParameters
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeNumeric, PositiveInt}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeLong,
+  NonNegativeNumeric,
+  PositiveInt,
+}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
@@ -24,6 +28,7 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
       Seq(
         reduceSequencerClientAcknowledgementInterval,
         increaseParticipant3AcknowledgementInterval,
+        reduceSequencerAcknowledgementConflateWindow,
         ConfigTransforms.useStaticTime,
       ),
       loggerFactory,
@@ -43,6 +48,7 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
           maxBaseTrafficAccumulationDuration = config.PositiveFiniteDuration.ofSeconds(1L),
           setBalanceRequestSubmissionWindowSize = config.PositiveFiniteDuration.ofMinutes(5L),
           enforceRateLimiting = true,
+          baseEventCost = NonNegativeLong.zero,
         )
         sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,
@@ -56,19 +62,19 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
 
   override protected val pruningRegex: String =
     """Removed ([1-9]\d*) blocks
-        |Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints
+        |Removed at least ([1-9]\d*) events, at least (\d+) payloads
         |Removed ([0-9]\d*) traffic purchased entries
         |Removed ([1-9]\d*) traffic consumed entries""".stripMargin
 
   override protected val pruningNothing: String =
     """Removed 0 blocks
-        |Removed at least 0 events, at least 0 payloads, at least 0 counter checkpoints
+        |Removed at least 0 events, at least 0 payloads
         |Removed 0 traffic purchased entries
         |Removed 0 traffic consumed entries""".stripMargin
 
   override protected val pruningRegexWithTrafficPurchase =
     """Removed ([1-9]\d*) blocks
-        |Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints
+        |Removed at least ([1-9]\d*) events, at least (\d+) payloads
         |Removed ([1-9]\d*) traffic purchased entries
         |Removed ([1-9]\d*) traffic consumed entries""".stripMargin
 }

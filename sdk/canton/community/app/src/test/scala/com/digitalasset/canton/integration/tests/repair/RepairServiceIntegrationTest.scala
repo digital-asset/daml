@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import cats.syntax.either.*
-import com.daml.ledger.api.v2.reassignment.UnassignedEvent
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
@@ -289,12 +288,11 @@ sealed trait RepairServiceIntegrationTestStableLf
               participant1.ledger_api.commands
                 .submit_unassign(
                   bob,
-                  created.toLf,
+                  Seq(created.toLf),
                   daId,
                   acmeId,
                 )
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+            }.discard
 
             eventually() {
               val res =
@@ -420,9 +418,8 @@ sealed trait RepairServiceIntegrationTestStableLf
             val cid = createContract(participant1, alice, bob)
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
-                .submit_unassign(bob, cid.toLf, daId, acmeId)
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+                .submit_unassign(bob, Seq(cid.toLf), daId, acmeId)
+            }.discard
             cid
           }
 
@@ -691,9 +688,8 @@ sealed trait RepairServiceIntegrationTestStableLf
             val contract = readContractInstance(participant1, daName, daId, created)
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
-                .submit_unassign(bob, created.toLf, daId, acmeId)
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+                .submit_unassign(bob, Seq(created.toLf), daId, acmeId)
+            }.discard
             contract
           }
           val contractId = contractInstance.contract.contractId
@@ -763,7 +759,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             val lfPackageName = Ref.PackageName.assertFromString("pkg-name")
             val key = Value.ValueUnit
 
-            val contractInst = LfContractInst(
+            val contractInst = LfThinContractInst(
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(

@@ -39,7 +39,8 @@ class InMemoryState(
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer,
     val stringInterningView: StringInterningView,
     val dispatcherState: DispatcherState,
-    val submissionTracker: SubmissionTracker,
+    val transactionSubmissionTracker: SubmissionTracker,
+    val reassignmentSubmissionTracker: SubmissionTracker,
     val partyAllocationTracker: PartyAllocation.Tracker,
     val commandProgressTracker: CommandProgressTracker,
     val loggerFactory: NamedLoggerFactory,
@@ -70,7 +71,8 @@ class InMemoryState(
           contractStateCaches.reset(ledgerEndO.map(_.lastOffset))
           inMemoryFanoutBuffer.flush()
           ledgerEndCache.set(ledgerEndO)
-          submissionTracker.close()
+          transactionSubmissionTracker.close()
+          reassignmentSubmissionTracker.close()
         }
         // Start a new Ledger API offset dispatcher
         _ = dispatcherState.startDispatcher(ledgerEndO.map(_.lastOffset))
@@ -124,7 +126,13 @@ object InMemoryState {
 
     for {
       dispatcherState <- DispatcherState.owner(apiStreamShutdownTimeout, loggerFactory)
-      submissionTracker <- SubmissionTracker.owner(
+      transactionSubmissionTracker <- SubmissionTracker.owner(
+        maxCommandsInFlight,
+        metrics,
+        tracer,
+        loggerFactory,
+      )
+      reassignmentSubmissionTracker <- SubmissionTracker.owner(
         maxCommandsInFlight,
         metrics,
         tracer,
@@ -156,7 +164,8 @@ object InMemoryState {
         loggerFactory = loggerFactory,
       ),
       stringInterningView = stringInterningView,
-      submissionTracker = submissionTracker,
+      transactionSubmissionTracker = transactionSubmissionTracker,
+      reassignmentSubmissionTracker = reassignmentSubmissionTracker,
       partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,

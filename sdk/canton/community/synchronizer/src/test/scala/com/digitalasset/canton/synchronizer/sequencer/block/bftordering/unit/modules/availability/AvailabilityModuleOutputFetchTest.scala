@@ -368,8 +368,8 @@ class AvailabilityModuleOutputFetchTest
           ),
           log => {
             log.level shouldBe Level.WARN
-            log.message should include(
-              "Batch BatchId(SHA-256:f9fbd79100fb...) from 'node1' contains more requests (1) than allowed (0), skipping"
+            log.message should include regex (
+              """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains more requests \(1\) than allowed \(0\), skipping"""
             )
           },
         )
@@ -791,9 +791,7 @@ class AvailabilityModuleOutputFetchTest
             ("block mode", "expected send to"),
             (OrderedBlockForOutput.Mode.FromConsensus, Node1),
             // Ignore nodes from the PoA, use the current topology
-            (OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock, Node3),
-            // Ignore nodes from the PoA, use the current topology
-            (OrderedBlockForOutput.Mode.StateTransfer.LastBlock, Node3),
+            (OrderedBlockForOutput.Mode.FromStateTransfer, Node3),
           )
         ) { (blockMode, expectedSendTo) =>
           val outputFetchProtocolState = new MainOutputFetchProtocolState()

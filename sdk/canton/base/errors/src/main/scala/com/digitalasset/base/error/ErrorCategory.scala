@@ -332,20 +332,28 @@ object ErrorCategory {
       )
       with ErrorCategory
 
-  /** The supplied offset is out of range
+  /** A failure due to requesting a resource using a parameter value that falls beyond the current
+    * upper bound (or 'end') defined by the system's state.
     */
   @Description(
-    """This error is only used by the Ledger API server in connection with invalid offsets."""
+    """The request failed because it resulted in an operation beyond the current upper bound (or 'end')
+      |defined by the system's state. For example, supplying a ledger offset which is larger than the current
+      |ledger end, or a record time that is in the future."""
   )
-  @RetryStrategy("""Retry after application operator intervention.""")
+  @RetryStrategy(
+    """Wait and retry. For example, retry a limited number of times with potentially increasing backoff.
+      |Hint: Inspect the retryable value of the error code to decide on the particular retry duration."""
+  )
   @Resolution(
-    """Expectation: this error is only used by the Ledger API server in connection with invalid offsets."""
+    """Resolution can occur naturally as the system progresses. The requested operation may become valid
+      |eventually once the system's state has advanced further. For example, when new ledger entries are added.
+      |If however the situation does not resolve as expected, operator intervention may be required."""
   )
   case object InvalidGivenCurrentSystemStateSeekAfterEnd
       extends ErrorCategoryImpl(
         grpcCode = Some(Code.OUT_OF_RANGE),
         logLevel = Level.INFO,
-        retryable = None,
+        retryable = Some(ErrorCategoryRetry(1.second)),
         redactDetails = false,
         asInt = 12,
         rank = 3,

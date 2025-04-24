@@ -1445,6 +1445,16 @@ object Generators {
       .setTransaction(transaction)
       .build()
   }
+  def submitAndWaitForReassignmentResponseGen
+      : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForReassignmentResponse] = {
+    import v2.CommandServiceOuterClass.SubmitAndWaitForReassignmentResponse as Response
+    for {
+      reassignment <- reassignmentGen
+    } yield Response
+      .newBuilder()
+      .setReassignment(reassignment)
+      .build()
+  }
   def submitAndWaitForTransactionTreeResponseGen
       : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse] = {
     import v2.CommandServiceOuterClass.SubmitAndWaitForTransactionTreeResponse as Response

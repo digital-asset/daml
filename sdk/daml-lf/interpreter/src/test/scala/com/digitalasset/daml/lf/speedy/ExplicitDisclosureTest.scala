@@ -360,7 +360,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, machine) =
@@ -382,7 +382,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       disclosedContract: (Value.ContractId, ContractInfo),
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
@@ -406,7 +406,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       action: String,
       committers: Set[Party],
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {
     val (result, machine) =
@@ -435,7 +435,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       action: String,
       committers: Set[Party],
       disclosures: Iterable[(Value.ContractId, ContractInfo)],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   )(assertResult: Either[SError.SError, SValue] => Assertion): Assertion = {

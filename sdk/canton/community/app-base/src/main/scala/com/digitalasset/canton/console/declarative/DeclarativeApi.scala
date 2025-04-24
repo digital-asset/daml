@@ -3,35 +3,39 @@
 
 package com.digitalasset.canton.console.declarative
 
-import cats.data.EitherT
 import cats.syntax.either.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.ConfigErrors.{
-  CantonConfigError,
-  GenericConfigError,
-  SubstitutionError,
-}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CantonConfig, ConfigErrors}
 import com.digitalasset.canton.console.declarative.DeclarativeApi.UpdateResult
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.CloseContext
-import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
+import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.metrics.DeclarativeApiMetrics
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Success}
-import com.typesafe.config.ConfigException.UnresolvedSubstitution
-import pureconfig.{ConfigReader, Derivation}
 
-import java.io.File
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
-import scala.reflect.ClassTag
 import scala.util.control.NonFatal
+
+trait DeclarativeApiHandle[Cfg] {
+  def newConfig(cfg: Cfg)(implicit traceContext: TraceContext): Boolean
+  def poke()(implicit traceContext: TraceContext): Unit
+  def invalidConfig()(implicit traceContext: TraceContext): Unit
+}
+
+object DeclarativeApiHandle {
+  def mapConfig[S, T](handle: DeclarativeApiHandle[T], map: S => T): DeclarativeApiHandle[S] =
+    new DeclarativeApiHandle[S] {
+      override def newConfig(cfg: S)(implicit traceContext: TraceContext): Boolean =
+        handle.newConfig(map(cfg))
+      override def poke()(implicit traceContext: TraceContext): Unit = handle.poke()
+      override def invalidConfig()(implicit traceContext: TraceContext): Unit =
+        handle.invalidConfig()
+    }
+}
 
 /** Base classes to synchronize a state in a file with the state managed through the admin api
   *
@@ -40,18 +44,54 @@ import scala.util.control.NonFatal
   * state in a config file, with a process that will in the background attempt to change the node
   * state accordingly.
   */
-trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
+trait DeclarativeApi[Cfg, Prep] extends DeclarativeApiHandle[Cfg] with NamedLogging {
 
   private val startLimit = PositiveInt.tryCreate(1000)
+  // state to orchestrate trade safe invocation of runSync
+  // the tuple means (shouldRun, isRunning)
+  // if runSync is called concurrently, the runState reference will be used to ensure
+  // that we only run once. this can happen if someone edits the file during a sync
+  // triggered by a synchronizer connection being added via the console commands
+  // we don't protect using blocking calls but just use atomic operations.
+  // there is a small caveat: normally, adding a synchronizer connection will trigger a sync,
+  // but if a sync is already running, the adding of the synchronizer connection will not wait
+  // for the sync to finish.
+  private val runState = new AtomicReference[(Boolean, Boolean)]((false, false))
 
   protected def name: String
+  protected def metrics: DeclarativeApiMetrics
   protected def closeContext: CloseContext
   protected def activeAdminToken: Option[CantonAdminToken]
   protected def consistencyTimeout: config.NonNegativeDuration
   protected implicit def executionContext: ExecutionContext
 
   protected def prepare(config: Cfg)(implicit traceContext: TraceContext): Either[String, Prep]
-  protected def readConfig(file: File)(implicit traceContext: TraceContext): Either[String, Cfg]
+
+  protected lazy val currentConfig = new AtomicReference[Cfg]()
+  private val needsSync: AtomicBoolean = new AtomicBoolean(true)
+  override def newConfig(cfg: Cfg)(implicit traceContext: TraceContext): Boolean = {
+    currentConfig.set(cfg)
+    if (activeAdminToken.nonEmpty) {
+      val ret = runSync()
+      if (!ret)
+        needsSync.set(true)
+      ret
+    } else {
+      // if node is passive, we don't try to run the sync
+      needsSync.set(true)
+      true
+    }
+  }
+
+  override def poke()(implicit traceContext: TraceContext): Unit =
+    if (needsSync.compareAndSet(true, false)) {
+      if (!runSync()) needsSync.set(true)
+    }
+
+  override def invalidConfig()(implicit traceContext: TraceContext): Unit = {
+    needsSync.set(false)
+    metrics.errors.updateValue(-1)
+  }
 
   /** Generic self-consistency update runner
     *
@@ -103,7 +143,7 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
       fetch: PositiveInt => Either[String, Seq[(K, V)]],
       add: (K, V) => Either[String, Unit],
       upd: (K, V, V) => Either[String, Unit],
-      rm: K => Either[String, Unit],
+      rm: (K, V) => Either[String, Unit],
       compare: Option[(V, V) => Boolean] = None,
       await: Option[Seq[K] => Either[String, Boolean]] = None,
       onlyCheckKeys: Boolean = false,
@@ -148,7 +188,7 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
       val toRemove = have.keySet.diff(want.map(_._1).toSet)
       if (removeExcess) {
         toRemove.foldLeft(result) { case (acc, id) =>
-          acc.accumulate(addOrUpdate = false)(wrapResult(id, "remove", rm(id)))
+          acc.accumulate(addOrUpdate = false)(wrapResult(id, "remove", rm(id, have(id))))
         }
       } else {
         if (toRemove.nonEmpty) {
@@ -252,84 +292,69 @@ trait DeclarativeApi[Cfg, Prep] extends NamedLogging {
       traceContext: TraceContext
   ): Either[String, UpdateResult]
 
-  protected def runSync(metrics: DeclarativeApiMetrics, file: File)(implicit
+  /** Trigger a synchronisation
+    *
+    * This method is thread safe as it will only run one synchronisation at a time (managed through
+    * an atomic reference). If no sync is currently running, the method will return only when the
+    * sync is finished. If a sync is already running, the method will return immediately.
+    *
+    * Concurrent sync runs are very rare, but can happen if the file is changed while a manual
+    * synchronizer connection is being added via the console commands or if the sync is currently
+    * failing due to a config issue or a bug.
+    */
+  @tailrec
+  final def runSync()(implicit
       traceContext: TraceContext
-  ): Boolean =
-    try {
-      def withErrorCode[R](step: String, code: Int)(e: Either[String, R]) = e.leftMap { c =>
-        logger.warn(s"State synchronisation step $step failed with $c")
-        metrics.errors.updateValue(code)
-        c
-      }
-      // first, prepare everything that must be in place for the sync
-      (for {
-        config <- withErrorCode("read config", -1)(readConfig(file))
-        prep <- withErrorCode("prepare", -2)(prepare(config))
-        itemsUpdated <- withErrorCode("sync", -3)(sync(config, prep))
-      } yield {
-        logger.info(
-          s"Completed state update with items=${itemsUpdated.items}, updated=${itemsUpdated.updated}, removed=${itemsUpdated.removed}, failed=${itemsUpdated.failed}"
-        )
-        metrics.items.updateValue(itemsUpdated.items)
-        metrics.errors.updateValue(itemsUpdated.failed)
-      }).isRight
-    } catch {
-      case NonFatal(e) =>
-        metrics.errors.updateValue(-9)
-        logger.error("Failed to run background update due to unhandled exception", e)
-        false
+  ): Boolean = if (activeAdminToken.isEmpty) {
+    if (runState.get()._1) {
+      logger.debug("Not running declarative API sync because the node is passive")
     }
-
-  private val lastModified = new AtomicLong(0)
-  protected def update(metrics: DeclarativeApiMetrics, file: File)(implicit
-      traceContext: TraceContext
-  ): Unit = {
-    val modified = file.lastModified()
-    val previous = lastModified.getAndSet(modified)
-    if (modified != previous) {
-      if (!runSync(metrics, file)) {
-        lastModified.compareAndSet(modified, previous).discard
+    false
+  } else {
+    val (_, isRunningAlready) = runState.getAndUpdate {
+      case (_, true) =>
+        (true, true) // if already running, we need to run again
+      case (_, false) =>
+        (false, true) // otherwise, we run now
+    }
+    if (isRunningAlready) {
+      logger.debug("Already running a sync. Scheduling another one")
+      false // don't mark as a successful run
+    } else {
+      val ret =
+        try {
+          def withErrorCode[R](step: String, code: Int)(e: Either[String, R]) = e.leftMap { c =>
+            logger.warn(s"State synchronisation step $step failed with $c")
+            metrics.errors.updateValue(code)
+            c
+          }
+          // first, prepare everything that must be in place for the sync
+          val config = currentConfig.get()
+          (for {
+            prep <- withErrorCode("prepare", -2)(prepare(config))
+            itemsUpdated <- withErrorCode("sync", -3)(sync(config, prep))
+          } yield {
+            logger.info(
+              s"Completed state update with items=${itemsUpdated.items}, updated=${itemsUpdated.updated}, removed=${itemsUpdated.removed}, failed=${itemsUpdated.failed}"
+            )
+            metrics.items.updateValue(itemsUpdated.items)
+            metrics.errors.updateValue(itemsUpdated.failed)
+          }).isRight
+        } catch {
+          case NonFatal(e) =>
+            metrics.errors.updateValue(-9)
+            logger.error("Failed to run background update due to unhandled exception", e)
+            false
+        }
+      val (shouldReRun, _) = runState.getAndUpdate { case (needsToRun, _) =>
+        (needsToRun, false)
       }
+      if (ret && shouldReRun) {
+        logger.debug("Scheduling another run")
+        runSync()
+      } else ret
     }
   }
-
-  def startRefresh(
-      scheduler: ScheduledExecutorService,
-      interval: config.NonNegativeFiniteDuration,
-      metrics: DeclarativeApiMetrics,
-      file: File,
-  )(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): EitherT[Future, String, Unit] =
-    // make sure we can read and parse the config file
-    EitherT.fromEither[Future](this.readConfig(file).map { _ =>
-      refresh(scheduler, interval, metrics, file)
-    })
-
-  private def refresh(
-      scheduler: ScheduledExecutorService,
-      interval: config.NonNegativeFiniteDuration,
-      metrics: DeclarativeApiMetrics,
-      file: File,
-  )(implicit
-      traceContext: TraceContext
-  ): Unit =
-    if (closeContext.context.isClosing) {
-      logger.debug("Not refreshing the state as we are closed")
-    } else {
-      activeAdminToken.foreach { _ =>
-        logger.debug(s"Refreshing the state of $name")
-        update(metrics, file)
-      }
-      scheduler
-        .schedule(
-          (() => refresh(scheduler, interval, metrics, file)): Runnable,
-          interval.duration.toMillis,
-          TimeUnit.MILLISECONDS,
-        )
-        .discard
-    }
 
 }
 
@@ -361,32 +386,5 @@ object DeclarativeApi {
       items = items + other.items,
     )
   }
-
-  def readConfigImpl[Cfg](
-      file: File,
-      group: String,
-  )(implicit
-      classTag: ClassTag[Cfg],
-      reader: Derivation[ConfigReader[Cfg]],
-      errorLoggingContext: ErrorLoggingContext,
-  ): Either[String, Cfg] =
-    (for {
-      config <- CantonConfig.parseAndMergeJustCLIConfigs(NonEmpty.mk(Seq, file))
-      rawConfig <- Either
-        .catchOnly[UnresolvedSubstitution](config.resolve())
-        .leftMap(err => SubstitutionError.Error(Seq(err)): CantonConfigError)
-      loaded <-
-        pureconfig.ConfigSource
-          .fromConfig(rawConfig)
-          .at(group)
-          .load[Cfg]
-          .leftMap(failures =>
-            GenericConfigError.Error(
-              ConfigErrors.getMessage[Cfg](failures)
-            )
-          )
-    } yield loaded).leftMap(
-      _.toString
-    )
 
 }

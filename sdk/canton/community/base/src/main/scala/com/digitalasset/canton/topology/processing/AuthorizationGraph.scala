@@ -9,12 +9,10 @@ import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.topology.Namespace
-import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.{
-  AuthorizedNamespaceDelegation,
-  isRootDelegation,
-}
+import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction.AuthorizedNamespaceDelegation
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
+import com.digitalasset.canton.topology.transaction.TopologyMapping.Code
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
@@ -36,26 +34,8 @@ final case class AuthorizedTopologyTransaction[T <: TopologyMapping](
 object AuthorizedTopologyTransaction {
 
   type AuthorizedNamespaceDelegation = AuthorizedTopologyTransaction[NamespaceDelegation]
-  type AuthorizedIdentifierDelegation = AuthorizedTopologyTransaction[IdentifierDelegation]
   type AuthorizedDecentralizedNamespaceDefinition =
     AuthorizedTopologyTransaction[DecentralizedNamespaceDefinition]
-
-  /** Returns true if the namespace delegation is a root certificate
-    *
-    * A root certificate is defined by a namespace delegation that authorizes the key f to act on
-    * the namespace spanned by f, authorized by f.
-    */
-  def isRootCertificate(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean =
-    NamespaceDelegation.isRootCertificate(namespaceDelegation.transaction)
-
-  /** Returns true if the namespace delegation is a root certificate or a root delegation
-    *
-    * A root delegation is a namespace delegation whose target key may be used to authorize other
-    * namespace delegations.
-    */
-  def isRootDelegation(namespaceDelegation: AuthorizedNamespaceDelegation): Boolean =
-    NamespaceDelegation.isRootDelegation(namespaceDelegation.transaction)
-
 }
 
 /** Stores a set of namespace delegations, tracks dependencies and determines which keys are
@@ -213,9 +193,9 @@ class AuthorizationGraph(
       .flatten
 
   /** Recompute the authorization graph starting from the root certificate: We start at the root
-    * certificate and follow outgoing authorizations for all root delegations. As a result, every
-    * key that doesn't end up in the cache is not connected to the root certificate and therefore
-    * useless.
+    * certificate and follow outgoing authorizations for all delegations that can sign
+    * NamespaceDelegations. As a result, every key that doesn't end up in the cache is not connected
+    * to the root certificate and therefore useless.
     */
   protected def recompute()(implicit traceContext: TraceContext): Unit = {
     cache.clear()
@@ -228,8 +208,8 @@ class AuthorizationGraph(
       // so we terminate even if the graph has cycles.
       if (!cache.contains(fingerprint)) {
         cache.update(fingerprint, (incoming, level))
-        // only look at outgoing authorizations if item is a root delegation
-        if (isRootDelegation(incoming)) {
+        // only look at outgoing authorizations if item can sign other NamespaceDelegations
+        if (incoming.mapping.canSign(Code.NamespaceDelegation)) {
           for {
             // find the keys authorized by item.target
             authorizedKey <- graph.successors(fingerprint).asScala
@@ -281,8 +261,8 @@ class AuthorizationGraph(
         val str =
           cache.values
             .map { case (nsd, _) =>
-              show"auth=${nsd.signingKeys}, target=${nsd.mapping.target.fingerprint}, root=${AuthorizedTopologyTransaction
-                  .isRootDelegation(nsd)}"
+              show"auth=${nsd.signingKeys}, target=${nsd.mapping.target.fingerprint}, canSignNSD=${nsd.mapping
+                  .canSign(Code.NamespaceDelegation)}"
             }
             .mkString("\n  ")
         logger.debug(s"The authorization graph is given by:\n  $str")
@@ -292,26 +272,23 @@ class AuthorizationGraph(
 
   override def existsAuthorizedKeyIn(
       authKeys: Set[Fingerprint],
-      requireRoot: Boolean,
-  ): Boolean = authKeys.exists(getAuthorizedKey(_, requireRoot).nonEmpty)
+      mappingToAuthorize: TopologyMapping.Code,
+  ): Boolean = authKeys.exists(getAuthorizedKey(_, mappingToAuthorize).nonEmpty)
 
   private def getAuthorizedKey(
       authKey: Fingerprint,
-      requireRoot: Boolean,
+      mappingToAuthorize: TopologyMapping.Code,
   ): Option[SigningPublicKey] =
     cache
       .get(authKey)
-      .filter { case (delegation, _) =>
-        isRootDelegation(delegation) || !requireRoot
-      }
-      .map { case (delegation, _) =>
-        delegation.mapping.target
-      }
+      .map { case (delegation, _) => delegation }
+      .filter(_.mapping.canSign(mappingToAuthorize))
+      .map(_.mapping.target)
 
   override def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
-      requireRoot: Boolean,
-  ): Set[SigningPublicKey] = authKeys.flatMap(getAuthorizedKey(_, requireRoot))
+      mappingToAuthorize: TopologyMapping.Code,
+  ): Set[SigningPublicKey] = authKeys.flatMap(getAuthorizedKey(_, mappingToAuthorize))
 
   def authorizedDelegations(): Map[Namespace, Seq[(AuthorizedNamespaceDelegation, Int)]] =
     Map(namespace -> cache.values.toSeq)
@@ -321,22 +298,26 @@ class AuthorizationGraph(
 
 trait AuthorizationCheck {
 
-  /** Determines if a subset of the given keys is authorized to sign on behalf of the (possibly
-    * decentralized) namespace.
+  /** Determines if a subset of the given keys is authorized to sign a given mapping type on behalf
+    * of the (possibly decentralized) namespace.
     *
-    * @param requireRoot
-    *   whether the authorization must be suitable to authorize namespace delegations
+    * @param mappingToAuthorize
+    *   the Code of the mapping that needs to be authorized.
     */
-  def existsAuthorizedKeyIn(authKeys: Set[Fingerprint], requireRoot: Boolean): Boolean
+  def existsAuthorizedKeyIn(
+      authKeys: Set[Fingerprint],
+      mappingToAuthorize: TopologyMapping.Code,
+  ): Boolean
 
   /** Returns those keys that are useful for signing on behalf of the (possibly decentralized)
     * namespace. Only keys with fingerprint in `authKeys` will be returned. The returned keys are
     * not necessarily sufficient to authorize a transaction on behalf of the namespace; in case of a
-    * decentralized namespace, additional signatures may be required.
+    * decentralized namespace, additional signatures may be required. Only returns keys that are
+    * permitted to sign the provided mapping type.
     */
   def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
-      requireRoot: Boolean,
+      mappingToAuthorize: TopologyMapping.Code,
   ): Set[SigningPublicKey]
 
   /** Per namespace (required for decentralized namespaces), a list of namespace delegations that
@@ -364,16 +345,16 @@ final case class DecentralizedNamespaceAuthorizationGraph(
 
   override def existsAuthorizedKeyIn(
       authKeys: Set[Fingerprint],
-      requireRoot: Boolean,
+      mappingToAuthorize: TopologyMapping.Code,
   ): Boolean =
-    ownerGraphs.count(_.existsAuthorizedKeyIn(authKeys, requireRoot)) >= dnd.threshold.value
+    ownerGraphs.count(_.existsAuthorizedKeyIn(authKeys, mappingToAuthorize)) >= dnd.threshold.value
 
   override def keysSupportingAuthorization(
       authKeys: Set[Fingerprint],
-      requireRoot: Boolean,
+      mappingToAuthorize: TopologyMapping.Code,
   ): Set[SigningPublicKey] =
     ownerGraphs
-      .flatMap(_.keysSupportingAuthorization(authKeys, requireRoot))
+      .flatMap(_.keysSupportingAuthorization(authKeys, mappingToAuthorize))
       .toSet
 
   override def authorizedDelegations(): Map[Namespace, Seq[(AuthorizedNamespaceDelegation, Int)]] =

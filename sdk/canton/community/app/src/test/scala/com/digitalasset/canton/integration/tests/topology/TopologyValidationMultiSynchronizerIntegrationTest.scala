@@ -76,7 +76,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
     val cid = participant1.ledger_api.javaapi.state.acs.await(C.Cycle.COMPANION)(aliceId)
 
     participant1.ledger_api.commands
-      .submit_unassign(aliceId, cid.id.toLf, daId, acmeId)
+      .submit_unassign(aliceId, Seq(cid.id.toLf), daId, acmeId)
 
     assertThrowsAndLogsCommandFailures(
       participant1.topology.party_to_participant_mappings.propose_delta(
@@ -118,7 +118,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
     val cid = participant1.ledger_api.javaapi.state.acs.await(C.Cycle.COMPANION)(bobId)
 
     participant1.ledger_api.commands
-      .submit_unassign(bobId, cid.id.toLf, daId, acmeId)
+      .submit_unassign(bobId, Seq(cid.id.toLf), daId, acmeId)
       .unassignId
 
     participant1.topology.party_to_participant_mappings.propose_delta(
@@ -166,7 +166,7 @@ class TopologyValidationMultiSynchronizerIntegrationTest
     val cid = participant1.ledger_api.javaapi.state.acs.await(C.Cycle.COMPANION)(alexId)
 
     participant1.ledger_api.commands
-      .submit_unassign(alexId, cid.id.toLf, daId, acmeId)
+      .submit_unassign(alexId, Seq(cid.id.toLf), daId, acmeId)
       .unassignId
 
     assertThrowsAndLogsCommandFailures(

@@ -208,7 +208,7 @@ class DefaultVerdictSenderTest
     val initialSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
     val synchronizerSyncCryptoApi: SynchronizerCryptoClient =
-      if (testedProtocolVersion >= ProtocolVersion.v33) {
+      if (testedProtocolVersion >= ProtocolVersion.v34) {
         val topology = TestingTopology.from(
           Set(synchronizerId),
           Map(

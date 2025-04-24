@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.transaction.{
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 /** Shared test data and functions for testing explicit disclosure.
@@ -111,9 +111,9 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
         SValue.SList(FrontStack.from(ImmArray(SValue.SParty(maintainerParty)))),
       ),
     )
-  val ledgerHouseContract: Value.VersionedContractInstance =
+  val ledgerHouseContract: Value.VersionedThinContractInstance =
     buildContract(ledgerParty, maintainerParty)
-  val ledgerCaveContract: Value.VersionedContractInstance =
+  val ledgerCaveContract: Value.VersionedThinContractInstance =
     buildContract(ledgerParty, maintainerParty, templateId = caveTemplateId)
   val disclosedCaveContractNoHash: (Value.ContractId, Speedy.ContractInfo) =
     contractId -> buildDisclosedCaveContract(disclosureParty)
@@ -210,7 +210,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       maintainer: Party,
       packageName: Ref.PackageName = pkg.pkgName,
       templateId: Ref.Identifier = houseTemplateId,
-  ): Versioned[ContractInstance] = {
+  ): Versioned[ThinContractInstance] = {
     val contractFields = templateId match {
       case `caveTemplateId` =>
         ImmArray(
@@ -231,7 +231,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
 
     Versioned(
       TransactionVersion.minVersion,
-      Value.ContractInstance(
+      Value.ThinContractInstance(
         packageName = packageName,
         template = templateId,
         arg = Value.ValueRecord(None, contractFields),
@@ -308,7 +308,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {
@@ -354,7 +354,7 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
       sexpr: SExpr.SExpr,
       committers: Set[Party] = Set.empty,
       disclosures: Iterable[(Value.ContractId, ContractInfo)] = Iterable.empty,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId] = PartialFunction.empty,
   ): (Either[SError.SError, SValue], Speedy.UpdateMachine) = {

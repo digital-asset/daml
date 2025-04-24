@@ -17,6 +17,10 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
   Observation,
@@ -90,12 +94,12 @@ class ValidatingTopologyMappingChecksTest
         val (checks, _) = mk()
 
         val removeNsdSerial1 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, isRootDelegation = true),
+          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
           serial = PositiveInt.one,
         )
         // also check that for serial > 1
         val removeNsdSerial3 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, isRootDelegation = true),
+          NamespaceDelegation.tryCreate(Namespace(key1.fingerprint), key1, CanSignAllMappings),
           serial = PositiveInt.three,
         )
         checkTransaction(checks, removeNsdSerial1) shouldBe Left(
@@ -115,8 +119,8 @@ class ValidatingTopologyMappingChecksTest
             .tryCreate(
               Namespace(key1.fingerprint),
               key2,
-              // changing the mapping compared to ns1k2 by setting isRootDelegation = true
-              isRootDelegation = true,
+              // changing the mapping compared to ns1k2 by setting CanSignAllMappings
+              CanSignAllMappings,
             ),
           serial = PositiveInt.two,
         )
@@ -136,26 +140,26 @@ class ValidatingTopologyMappingChecksTest
         val ns3 = Namespace(key3.fingerprint)
 
         val nsd1Replace_1 =
-          factory.mkAdd(NamespaceDelegation.tryCreate(ns1, key1, isRootDelegation = true))
+          factory.mkAdd(NamespaceDelegation.tryCreate(ns1, key1, CanSignAllMappings))
         val nsd1Remove_2 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(ns1, key1, isRootDelegation = true),
+          NamespaceDelegation.tryCreate(ns1, key1, CanSignAllMappings),
           serial = PositiveInt.two,
         )
         val nsd1ReplaceProposal_3 = factory.mkAdd(
-          NamespaceDelegation.tryCreate(ns1, key1, isRootDelegation = true),
+          NamespaceDelegation.tryCreate(ns1, key1, CanSignAllMappings),
           serial = PositiveInt.three,
           isProposal = true,
         )
 
         val nsd2Replace_1 =
-          factory.mkAdd(NamespaceDelegation.tryCreate(ns2, key2, isRootDelegation = true))
+          factory.mkAdd(NamespaceDelegation.tryCreate(ns2, key2, CanSignAllMappings))
         val nsd2Remove_2 = factory.mkRemove(
-          NamespaceDelegation.tryCreate(ns2, key2, isRootDelegation = true),
+          NamespaceDelegation.tryCreate(ns2, key2, CanSignAllMappings),
           serial = PositiveInt.two,
         )
 
         val nsd3Replace_1 =
-          factory.mkAdd(NamespaceDelegation.tryCreate(ns3, key3, isRootDelegation = true))
+          factory.mkAdd(NamespaceDelegation.tryCreate(ns3, key3, CanSignAllMappings))
 
         store
           .update(
@@ -318,7 +322,7 @@ class ValidatingTopologyMappingChecksTest
         // that the decentralized namespace definition gets rejected.
         val conflicting_nsd = factory.mkAdd(
           NamespaceDelegation
-            .tryCreate(dnd_namespace, factory.SigningKeys.key8, isRootDelegation = false),
+            .tryCreate(dnd_namespace, factory.SigningKeys.key8, CanSignAllButNamespaceDelegations),
           factory.SigningKeys.key8,
         )
         addToStore(store, (rootCerts :+ conflicting_nsd)*)
@@ -415,7 +419,7 @@ class ValidatingTopologyMappingChecksTest
         // A similar effect can be achieved by setting the threshold of the DND to 1
         val conflicting_nsd = factory.mkAddMultiKey(
           NamespaceDelegation
-            .tryCreate(dnd_namespace, factory.SigningKeys.key8, isRootDelegation = false),
+            .tryCreate(dnd_namespace, factory.SigningKeys.key8, CanSignAllButNamespaceDelegations),
           rootKeys.toSet,
         )
 
@@ -1065,7 +1069,7 @@ class ValidatingTopologyMappingChecksTest
         uidToMember(UniqueIdentifier.tryCreate(s"member$idx", Namespace(key.fingerprint)))
       member -> List(
         factory.mkAdd(
-          NamespaceDelegation.tryCreate(member.namespace, key, isRootDelegation = true),
+          NamespaceDelegation.tryCreate(member.namespace, key, CanSignAllMappings),
           key,
         ),
         factory.mkAdd(OwnerToKeyMapping(member, NonEmpty(Seq, key)), key),
@@ -1101,7 +1105,7 @@ class ValidatingTopologyMappingChecksTest
           NamespaceDelegation.tryCreate(
             namespace,
             key,
-            isRootDelegation = true,
+            CanSignAllMappings,
           ),
           signingKey = key,
         )

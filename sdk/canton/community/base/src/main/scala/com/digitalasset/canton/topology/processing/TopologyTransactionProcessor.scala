@@ -30,7 +30,12 @@ import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor.
 import com.digitalasset.canton.topology.store.TopologyStore.Change
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{SynchronizerId, TopologyManagerError}
+import com.digitalasset.canton.topology.transaction.ValidatingTopologyMappingChecks
+import com.digitalasset.canton.topology.{
+  SynchronizerId,
+  TopologyManagerError,
+  TopologyStateProcessor,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil, MonadUtil, SimpleExecutionQueue}
 
@@ -60,14 +65,20 @@ class TopologyTransactionProcessor(
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends TopologyTransactionHandling(
-      insecureIgnoreMissingExtraKeySignatures = false,
-      pureCrypto,
       store,
       timeouts,
       loggerFactory,
     )
     with NamedLogging
     with FlagCloseable {
+
+  override protected lazy val stateProcessor: TopologyStateProcessor =
+    TopologyStateProcessor.forTransactionProcessing(
+      store,
+      new ValidatingTopologyMappingChecks(store, loggerFactory),
+      pureCrypto,
+      loggerFactory,
+    )
 
   private val initialised = new AtomicBoolean(false)
 
@@ -305,11 +316,13 @@ class TopologyTransactionProcessor(
       override def apply(
           tracedBatch: BoxedEnvelope[UnsignedEnvelopeBox, DefaultOpenEnvelope]
       ): HandlerResult =
-        MonadUtil.sequentialTraverseMonoid(tracedBatch.value) {
-          _.withTraceContext { implicit traceContext =>
+        MonadUtil.sequentialTraverseMonoid(tracedBatch.value) { withCounter =>
+          withCounter.withTraceContext { implicit traceContext =>
             {
-              case Deliver(sc, _, ts, _, _, batch, topologyTimestampO, _) =>
-                logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
+              case Deliver(_, ts, _, _, batch, topologyTimestampO, _) =>
+                logger.debug(
+                  s"Processing sequenced event with counter ${withCounter.counter} and timestamp $ts"
+                )
                 val sequencedTime = SequencedTime(ts)
                 val envelopesForRightSynchronizer = ProtocolMessage.filterSynchronizerEnvelopes(
                   batch.envelopes,
@@ -322,15 +335,15 @@ class TopologyTransactionProcessor(
                     .report()
                 )
                 val broadcasts = validateEnvelopes(
-                  sc,
+                  withCounter.counter,
                   sequencedTime,
                   topologyTimestampO,
                   envelopesForRightSynchronizer,
                 )
-                internalProcessEnvelopes(sc, sequencedTime, broadcasts)
+                internalProcessEnvelopes(withCounter.counter, sequencedTime, broadcasts)
               case err: DeliverError =>
                 internalProcessEnvelopes(
-                  err.counter,
+                  withCounter.counter,
                   SequencedTime(err.timestamp),
                   Nil,
                 )
@@ -453,6 +466,8 @@ class TopologyTransactionProcessor(
             effectiveTimestamp,
             txs,
             expectFullAuthorization = false,
+            // during regular transaction processing, missing signing key signatures are never permitted
+            transactionMayHaveMissingSigningKeySignatures = false,
           )
       )
       (validated, _) = validationResult

@@ -21,6 +21,7 @@ import com.digitalasset.canton.integration.plugins.{
 }
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 import com.digitalasset.canton.util.OptionUtil
 import org.scalatest.Assertion
 
@@ -84,7 +85,7 @@ trait KeyManagementIntegrationTestHelper extends KeyManagementTestHelper {
     node.topology.namespace_delegations.propose_delegation(
       node.namespace,
       intermediateKey,
-      isRootDelegation = false,
+      CanSignAllButNamespaceDelegations,
     )
 
     // architecture-handbook-entry-end: CreateNamespaceIntermediateKey
@@ -101,22 +102,6 @@ trait KeyManagementIntegrationTestHelper extends KeyManagementTestHelper {
     }
 
     intermediateKey
-  }
-
-  protected def setupIdentifierDelegation(node: InstanceReference): PublicKey = {
-    // Create a new signing key and assign it as an identifier delegation for the uid
-    val identifierKey =
-      node.keys.secret.generate_signing_key(
-        s"${node.name}-idd-${System.currentTimeMillis()}",
-        SigningKeyUsage.IdentityDelegationOnly,
-      )
-
-    node.topology.identifier_delegations.propose(
-      node.id.uid,
-      identifierKey,
-    )
-
-    identifierKey
   }
 
   protected def rotateIntermediateNamespaceKeyAndPing(
@@ -361,49 +346,6 @@ sealed trait KeyManagementIntegrationTest
       rotateIntermediateNamespaceKeyAndPing(sequencer1, None)
     }
 
-    "rotate key of an identifier delegation" in { implicit env =>
-      import env.*
-
-      val node = participant1
-
-      assertPingSucceeds(participant2, participant1)
-
-      val identifierKey = setupIdentifierDelegation(node)
-
-      val currentNodeKey =
-        getCurrentKey(node, KeyPurpose.Signing, Some(SigningKeyUsage.ProtocolOnly))
-
-      // Create a new signing key for the node
-      val newNodeKey =
-        node.keys.secret.generate_signing_key(
-          s"${node.name}-signing-${System.currentTimeMillis()}",
-          SigningKeyUsage.ProtocolOnly,
-        )
-
-      node.topology.owner_to_key_mappings.add_key(
-        newNodeKey.fingerprint,
-        newNodeKey.purpose,
-        keyOwner = node.id,
-        signedBy = Seq(identifierKey.fingerprint, newNodeKey.fingerprint),
-      )
-
-      // wait for key to be propagated to all the nodes
-      waitForKeyTopologyUpdate(nodes.all, node.member, newNodeKey.id, expectExistence = true)
-
-      // Remove the previous node key, now only the key authorized by the identifier delegation remains
-      node.topology.owner_to_key_mappings.remove_key(
-        currentNodeKey.fingerprint,
-        currentNodeKey.purpose,
-        keyOwner = node.id,
-        signedBy = Seq(identifierKey.fingerprint),
-      )
-
-      // make sure the previous key is deleted in all nodes before proceeding with the ping
-      waitForKeyTopologyUpdate(nodes.all, node.member, currentNodeKey.id, expectExistence = false)
-
-      assertPingSucceeds(participant2, participant1)
-    }
-
     def downloadUploadTest(
         node: LocalInstanceReference,
         keyNameO: Option[String],
@@ -466,7 +408,6 @@ sealed trait KeyManagementIntegrationTest
       val keyUsageNoPoO = NonEmpty.mk(
         Set,
         SigningKeyUsage.Namespace,
-        SigningKeyUsage.IdentityDelegation,
         SigningKeyUsage.SequencerAuthentication,
         SigningKeyUsage.Protocol,
       )

@@ -9,15 +9,21 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   InteractiveSubmissionServiceGrpc,
 }
 import com.daml.ledger.api.v2.package_reference
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsCantonError,
+  stringDecoderForEnum,
+  stringEncoderForEnum,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import io.circe.*
+import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
@@ -173,83 +179,80 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
 
 object JsInteractiveSubmissionServiceCodecs {
   import JsCommandServiceCodecs.*
+  import JsSchema.config
 
-  implicit val timeRW: Codec[interactive_submission_service.MinLedgerTime.Time] = deriveCodec
+  implicit val timeRW: Codec[interactive_submission_service.MinLedgerTime.Time] =
+    deriveConfiguredCodec // ADT
   implicit val timeMinLedgerTimeRelRW
-      : Codec[interactive_submission_service.MinLedgerTime.Time.MinLedgerTimeRel] = deriveCodec
+      : Codec[interactive_submission_service.MinLedgerTime.Time.MinLedgerTimeRel] =
+    deriveRelaxedCodec
   implicit val timeMinLedgerTimeAbsRW
-      : Codec[interactive_submission_service.MinLedgerTime.Time.MinLedgerTimeAbs] = deriveCodec
-  implicit val minLedgerTimeRW: Codec[interactive_submission_service.MinLedgerTime] = deriveCodec
+      : Codec[interactive_submission_service.MinLedgerTime.Time.MinLedgerTimeAbs] =
+    deriveRelaxedCodec
+  implicit val minLedgerTimeRW: Codec[interactive_submission_service.MinLedgerTime] =
+    deriveRelaxedCodec
 
-  implicit val jsPrepareSubmissionRequestRW: Codec[JsPrepareSubmissionRequest] = deriveCodec
+  implicit val jsPrepareSubmissionRequestRW: Codec[JsPrepareSubmissionRequest] =
+    deriveConfiguredCodec
 
-  implicit val prepareSubmissionResponseRW: Codec[JsPrepareSubmissionResponse] = deriveCodec
+  implicit val prepareSubmissionResponseRW: Codec[JsPrepareSubmissionResponse] =
+    deriveConfiguredCodec
 
-  implicit val hashingSchemeVersionRW: Codec[interactive_submission_service.HashingSchemeVersion] =
-    deriveCodec
-  implicit val hashingSchemeVersionRecognizedRW
-      : Codec[interactive_submission_service.HashingSchemeVersion.Recognized] = deriveCodec
-  implicit val hashingSchemeVersionUnrecognizedRW
-      : Codec[interactive_submission_service.HashingSchemeVersion.Unrecognized] = deriveCodec
+  implicit val hashingSchemeVersionEncoder
+      : Encoder[interactive_submission_service.HashingSchemeVersion] =
+    stringEncoderForEnum()
+
+  implicit val hashingSchemeVersionDecoder
+      : Decoder[interactive_submission_service.HashingSchemeVersion] =
+    stringDecoderForEnum()
 
   implicit val executeSubmissionResponseRW
       : Codec[interactive_submission_service.ExecuteSubmissionResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val esrDeduplicationPeriodRW
       : Codec[interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod] =
-    deriveCodec
+    deriveConfiguredCodec // ADT
 
   implicit val partySignaturesRW: Codec[interactive_submission_service.PartySignatures] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val singlePartySignaturesRW
       : Codec[interactive_submission_service.SinglePartySignatures] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val signatureRW: Codec[interactive_submission_service.Signature] =
-    deriveCodec
+    deriveRelaxedCodec
 
-  implicit val signingAlgorithmSpecUnrecognizedRW
-      : Codec[interactive_submission_service.SigningAlgorithmSpec.Unrecognized] =
-    deriveCodec
+  implicit val signingAlgorithmSpecEncoder
+      : Encoder[interactive_submission_service.SigningAlgorithmSpec] =
+    stringEncoderForEnum()
+  implicit val signingAlgorithmSpecDecoder
+      : Decoder[interactive_submission_service.SigningAlgorithmSpec] =
+    stringDecoderForEnum()
 
-  implicit val signingAlgorithmSpecRecognizedRW
-      : Codec[interactive_submission_service.SigningAlgorithmSpec.Recognized] =
-    deriveCodec
-
-  implicit val signingAlgorithmSpecRW: Codec[interactive_submission_service.SigningAlgorithmSpec] =
-    deriveCodec
-
-  implicit val signatureFormatRW: Codec[interactive_submission_service.SignatureFormat] =
-    deriveCodec
-
-  implicit val signatureFormatUnrecognizedRW
-      : Codec[interactive_submission_service.SignatureFormat.Unrecognized] =
-    deriveCodec
-
-  implicit val signatureFormatRecognizedRW
-      : Codec[interactive_submission_service.SignatureFormat.Recognized] =
-    deriveCodec
+  implicit val signatureFormatDecoder: Decoder[interactive_submission_service.SignatureFormat] =
+    stringDecoderForEnum()
+  implicit val signatureFormatEncoder: Encoder[interactive_submission_service.SignatureFormat] =
+    stringEncoderForEnum()
 
   implicit val jsExecuteSubmissionRequestRW: Codec[JsExecuteSubmissionRequest] =
-    deriveCodec
+    deriveConfiguredCodec
 
   implicit val packageReference: Codec[package_reference.PackageReference] =
     deriveCodec
   implicit val packagePreference: Codec[interactive_submission_service.PackagePreference] =
-    deriveCodec
+    deriveRelaxedCodec
   implicit val getPreferredPackageVersionResponse
       : Codec[interactive_submission_service.GetPreferredPackageVersionResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
-  // I cannot force oneOfWrapped schema on those 2 types - strangely they are no different to for instance HashingSchemeVersion which works fine
-//  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
-//    Schema.oneOfWrapped
+  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
+    Schema.string
 
-//  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
-//    Schema.oneOfWrapped
+  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
+    Schema.string
 
   implicit val timeSchema: Schema[interactive_submission_service.MinLedgerTime.Time] =
     Schema.oneOfWrapped
@@ -260,5 +263,5 @@ object JsInteractiveSubmissionServiceCodecs {
 
   implicit val hashingSchemeVersionSchema
       : Schema[interactive_submission_service.HashingSchemeVersion] =
-    Schema.oneOfWrapped
+    Schema.string
 }

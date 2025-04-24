@@ -30,7 +30,7 @@ object ErrorUtil {
       action
     } catch {
       case t: Throwable =>
-        loggingContext.logger.error("Unexpected exception", t)(loggingContext.traceContext)
+        loggingContext.error("Unexpected exception", t)
         valueOnThrowable match {
           case Some(value) if NonFatal(t) => value
           case Some(_) | None => throw t
@@ -40,7 +40,7 @@ object ErrorUtil {
   val internalErrorMessage: String = "An internal error has occurred."
 
   private def logInternalError(t: Throwable)(implicit loggingContext: ErrorLoggingContext): Unit =
-    loggingContext.logger.error(internalErrorMessage, t)(loggingContext.traceContext)
+    loggingContext.error(internalErrorMessage, t)
 
   /** Throws a throwable and logs it at ERROR level with proper formatting. */
   def internalError(t: Throwable)(implicit loggingContext: ErrorLoggingContext): Nothing = {

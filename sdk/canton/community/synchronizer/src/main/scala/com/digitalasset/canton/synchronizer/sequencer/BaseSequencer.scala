@@ -4,7 +4,6 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
@@ -135,23 +134,14 @@ abstract class BaseSequencer(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit]
 
-  override def read(member: Member, offset: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
-    readInternal(member, offset)
-
   override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     readInternalV2(member, timestamp)
-
-  protected def readInternal(member: Member, offset: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
 
   protected def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource]
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource]
 
   override def onClosed(): Unit =
     periodicHealthCheck.foreach(LifeCycle.close(_)(logger))

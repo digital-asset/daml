@@ -67,7 +67,7 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
   override lazy val name: String = "ActionDescription"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ActionDescription)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ActionDescription)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -108,7 +108,6 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
             _packageName,
             _templateId,
             _arg,
-            _agreementText,
             _signatories,
             _stakeholders,
             _key,

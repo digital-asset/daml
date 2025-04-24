@@ -425,4 +425,34 @@ class DbOutputMetadataStore(
       ),
   )
 
+  def saveOnboardedNodeLowerBound(epoch: EpochNumber, blockNumber: BlockNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[Either[String, Unit]] = {
+    val initialLowerBound = LowerBound(epoch, blockNumber)
+    val insertEitherT: EitherT[DBIO, String, Unit] = dbEitherT[String](
+      sqlu"insert into ord_output_lower_bound (epoch_number, block_number) values ($epoch, $blockNumber)"
+    ).map(_ => ())
+    PekkoFutureUnlessShutdown(
+      saveOnboardedNodeLowerBoundName(epoch, blockNumber),
+      () =>
+        storage
+          .queryAndUpdate(
+            (for {
+              existingLowerBoundEpoch <- dbEitherT[String](
+                sql"select epoch_number, block_number from ord_output_lower_bound"
+                  .as[LowerBound]
+                  .headOption
+              )
+              _ <- existingLowerBoundEpoch.fold(insertEitherT) { existing =>
+                if (existing == initialLowerBound) EitherT.rightT(())
+                else
+                  EitherT.leftT(
+                    s"The initial lower bound for this node has already been set to $existing, so cannot set it to $initialLowerBound"
+                  )
+              }
+            } yield ()).value,
+            functionFullName,
+          ),
+    )
+  }
 }

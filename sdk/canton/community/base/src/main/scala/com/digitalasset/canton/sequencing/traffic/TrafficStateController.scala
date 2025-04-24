@@ -185,6 +185,7 @@ class TrafficStateController(
         trafficControl.readVsWriteScalingFactor,
         groupToMembers,
         protocolVersion,
+        trafficControl.baseEventCost,
       )
       logger.debug(
         s"Computed following cost for submission request using topology at ${snapshot.timestamp}: $costDetails"

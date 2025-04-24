@@ -40,6 +40,9 @@ private[iss] object IssConsensusModuleMetrics {
       epoch: EpochInfo,
       prevEpoch: Epoch,
       prevEpochViewsCount: Long,
+      prevEpochDiscardedMessageCount: Long,
+      retransmittedMessagesCount: Long,
+      retransmittedCommitCertificatesCount: Long,
       prevEpochPrepareVotes: Map[BftNodeId, Long],
       prevEpochCommitVotes: Map[BftNodeId, Long],
   )(implicit mc: MetricsContext): Unit = {
@@ -53,6 +56,23 @@ private[iss] object IssConsensusModuleMetrics {
 
     metrics.consensus.epoch.updateValue(epoch.number)
     metrics.consensus.epochLength.updateValue(epoch.length)
+
+    metrics.consensus.votes.discardedRepeatedMessageMeter.mark(prevEpochDiscardedMessageCount)(
+      mc.withExtraLabels(
+        metrics.consensus.votes.labels.Epoch -> prevEpoch.info.toString
+      )
+    )
+    metrics.consensus.retransmissions.retransmittedMessagesMeter.mark(retransmittedMessagesCount)(
+      mc.withExtraLabels(
+        metrics.consensus.votes.labels.Epoch -> prevEpoch.info.toString
+      )
+    )
+    metrics.consensus.retransmissions.retransmittedCommitCertificatesMeter
+      .mark(retransmittedCommitCertificatesCount)(
+        mc.withExtraLabels(
+          metrics.consensus.votes.labels.Epoch -> prevEpoch.info.toString
+        )
+      )
 
     emitVoteStats(
       totalConsensusStageVotes,

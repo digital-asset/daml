@@ -35,6 +35,7 @@ import DA.Internal.Record
 -- | HIDE DatatypeContexts tag for user-defined exception types.
 -- Used internally by the Daml compiler.
 class DamlException
+{-# DEPRECATED in "x-exceptions" DamlException ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 instance DamlException
 
 --------------------------------------------------------------
@@ -48,22 +49,30 @@ type Exception e =
     , HasFromAnyException e
     )
 
+{-# DEPRECATED in "x-exceptions" throwPure ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 -- | Part of the `Exception` constraint.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 class HasThrow e where
     -- | Throw exception in a pure context.
     throwPure : forall t. e -> t
 
+{-# DEPRECATED in "x-exceptions" message ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 -- | Part of the `Exception` constraint.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 class HasMessage e where
     -- | Get the error message associated with an exception.
     message : e -> Text
 
+{-# DEPRECATED in "x-exceptions" toAnyException ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 -- | Part of the `Exception` constraint.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 class HasToAnyException e where
     -- | Convert an exception type to AnyException.
     toAnyException : e -> AnyException
 
+{-# DEPRECATED in "x-exceptions" fromAnyException ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 -- | Part of the `Exception` constraint.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 class HasFromAnyException e where
     -- | Convert an AnyException back to the underlying exception type, if possible.
     fromAnyException : AnyException -> Optional e
@@ -164,11 +173,15 @@ instance HasFromAnyException AssertionFailed where
 
 --------------------------------------------------------------
 
+{-# DEPRECATED in "x-exceptions" throw ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 -- | Action type in which `throw` is supported.
+-- DEPRECATED: Use `failWithStatus` and `FailureStatus` over Daml Exceptions
 class Action m => ActionThrow m where
     throw : Exception e => e -> m t
 
+{-# DEPRECATED in "x-exceptions" ActionCatch ["Exceptions are deprecated, prefer `failWithStatus`, and avoid using catch.", "Use `-Wno-deprecated-exceptions` to disable this warning."] #-}
 -- | Action type in which `try ... catch ...` is supported.
+-- DEPRECATED: Avoid the use of catch in daml code, prefer error handling on client, and throwing using `failWithStatus`
 class ActionThrow m => ActionCatch m where
     -- | Handle an exception. Use the `try ... catch ...` syntax
     -- instead of calling this method directly.

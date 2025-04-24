@@ -338,7 +338,6 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
     SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard
-    SQL"DELETE FROM lapi_metering_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM par_command_deduplication".executeUpdate()(connection).discard
     SQL"DELETE FROM par_in_flight_submission".executeUpdate()(connection).discard
   }

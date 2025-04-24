@@ -16,7 +16,7 @@ import com.digitalasset.base.error.{
 }
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
 import com.digitalasset.canton.error.TransactionError
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{LocalReject, TransactionRejection}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -53,9 +53,9 @@ sealed trait LocalRejectError
   override def reason(): Status = rpcStatusWithoutLoggingContext()
 
   override def logRejection(extra: Map[String, String] = Map())(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Unit =
-    contextualizedErrorLogger.logError(this, extra)
+    errorLoggingContext.logError(this, extra)
 
   def toLocalReject(protocolVersion: ProtocolVersion): LocalReject =
     LocalReject.create(reason(), isMalformed = false, protocolVersion)

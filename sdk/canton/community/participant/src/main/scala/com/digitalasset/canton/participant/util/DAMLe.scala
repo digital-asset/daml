@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.util
 
 import cats.data.EitherT
 import cats.syntax.either.*
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{LoggingContextUtil, NamedLoggerFactory, NamedLogging}
@@ -46,7 +46,7 @@ object DAMLe {
       metadata: TransactionMetadata,
       keyResolver: LfKeyResolver,
       usedPackages: Set[PackageId],
-      usesLedgerTime: Boolean,
+      timeBoundaries: LedgerTimeBoundaries,
   )
 
   def newEngine(
@@ -286,7 +286,7 @@ class DAMLe(
       TransactionMetadata.fromLf(ledgerTime, metadata),
       metadata.globalKeyMapping,
       metadata.usedPackages,
-      metadata.dependsOnTime,
+      LedgerTimeBoundaries(metadata.timeBoundaries),
     )
   }
 
@@ -381,7 +381,18 @@ class DAMLe(
           contracts
             .lookupLfInstance(acoid)
             .value
-            .flatMap(optInst => handleResultInternal(contracts, resume(optInst)))
+            .flatMap { optThinInst =>
+              val fatInstanceOpt: Option[LfFatContractInst] = optThinInst.map {
+                case Versioned(version, thinInst) =>
+                  LfFatContractInst.fromThinInstance(
+                    version = version,
+                    packageName = thinInst.packageName,
+                    template = thinInst.template,
+                    arg = thinInst.arg,
+                  )
+              }
+              handleResultInternal(contracts, resume(fatInstanceOpt))
+            }
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
           // Run the interruption loop asynchronously to avoid blocking the calling thread.

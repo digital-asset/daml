@@ -532,14 +532,14 @@ object BaseTest {
   )
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
-  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.3.0.dar")
-  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.3.0.dar")
-  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.3.0.dar")
-  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.3.0.dar")
+  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.4.0.dar")
+  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.4.0.dar")
+  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.4.0.dar")
+  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.4.0.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
-  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.3.0.dar")
-  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.3.0.dar")
-  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.3.0.dar")
+  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.4.0.dar")
+  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.4.0.dar")
+  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.4.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

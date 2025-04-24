@@ -8,7 +8,8 @@ import com.daml.grpc.adapter.server.pekko.ServerAdapter
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.error.CommonErrors
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.TryUtil
 import io.grpc.StatusRuntimeException
@@ -106,6 +107,6 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
     }
   }
 
-  private def closingError(errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
-    CommonErrors.ServerIsShuttingDown.Reject()(errorLogger).asGrpcError
+  private def closingError(errorLogger: ErrorLoggingContext): StatusRuntimeException =
+    GrpcErrors.AbortedDueToShutdown.Error()(errorLogger).asGrpcError
 }

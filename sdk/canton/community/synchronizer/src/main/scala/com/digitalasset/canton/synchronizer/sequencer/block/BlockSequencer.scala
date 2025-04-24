@@ -582,7 +582,7 @@ class BlockSequencer(
         "DatabaseSequencer.onClose()",
         super[DatabaseSequencer].onClosed(),
       ),
-      AsyncCloseable("done", done, timeouts.shutdownProcessing),
+      AsyncCloseable("done", done, timeouts.shutdownProcessing), // Close the consumer first
       SyncCloseable("blockOrderer.close()", blockOrderer.close()),
     )
   }

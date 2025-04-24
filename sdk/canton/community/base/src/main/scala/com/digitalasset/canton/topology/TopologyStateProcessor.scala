@@ -42,12 +42,11 @@ import scala.concurrent.ExecutionContext
   *   If a [[SynchronizerOutboxQueue]] is provided, the processed transactions are not directly
   *   stored, but rather sent to the synchronizer via an ephemeral queue (i.e. no persistence).
   */
-class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
+class TopologyStateProcessor private (
     val store: TopologyStore[TopologyStoreId],
     outboxQueue: Option[SynchronizerOutboxQueue],
     topologyMappingChecks: TopologyMappingChecks,
-    insecureIgnoreMissingExtraKeySignatures: Boolean,
-    pureCrypto: PureCrypto,
+    pureCrypto: CryptoPureApi,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -91,7 +90,6 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       // if transactions are put directly into a store (ie there is no outbox queue)
       // then the authorization validation is final.
       validationIsFinal = outboxQueue.isEmpty,
-      insecureIgnoreMissingExtraKeySignatures = insecureIgnoreMissingExtraKeySignatures,
       loggerFactory.append("role", if (outboxQueue.isEmpty) "incoming" else "outgoing"),
     )
 
@@ -108,6 +106,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       effective: EffectiveTime,
       transactionsToValidate: Seq[GenericSignedTopologyTransaction],
       expectFullAuthorization: Boolean,
+      transactionMayHaveMissingSigningKeySignatures: Boolean,
       compactTransactions: Boolean = true,
   )(implicit
       traceContext: TraceContext
@@ -137,7 +136,9 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
               validateAndMerge(
                 effective,
                 tx.originalTx,
-                expectFullAuthorization || !tx.originalTx.isProposal,
+                expectFullAuthorization = expectFullAuthorization || !tx.originalTx.isProposal,
+                transactionMayHaveMissingSigningKeySignatures =
+                  transactionMayHaveMissingSigningKeySignatures,
               ).map { finalTx =>
                 tx.adjusted.set(Some(finalTx.transaction))
                 tx.rejection.set(finalTx.rejectionReason)
@@ -294,6 +295,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       inStore: Option[GenericSignedTopologyTransaction],
       toValidate: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
+      transactionMayHaveMissingSigningKeySignatures: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, GenericSignedTopologyTransaction] =
@@ -304,7 +306,9 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
             effective.value,
             toValidate,
             inStore,
-            expectFullAuthorization,
+            expectFullAuthorization = expectFullAuthorization,
+            transactionMayHaveMissingSigningKeySignatures =
+              transactionMayHaveMissingSigningKeySignatures,
           )
       )
       .subflatMap { tx =>
@@ -335,6 +339,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       effective: EffectiveTime,
       txA: GenericSignedTopologyTransaction,
       expectFullAuthorization: Boolean,
+      transactionMayHaveMissingSigningKeySignatures: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[GenericValidatedTopologyTransaction] = {
@@ -379,7 +384,9 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
         effective,
         tx_inStore,
         tx_deduplicatedAndMerged,
-        expectFullAuthorization,
+        expectFullAuthorization = expectFullAuthorization,
+        transactionMayHaveMissingSigningKeySignatures =
+          transactionMayHaveMissingSigningKeySignatures,
       )
     } yield fullyValidated
     ret.fold(
@@ -450,4 +457,57 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       )
     }
   }
+}
+
+object TopologyStateProcessor {
+
+  /** Creates a TopologyStateProcessor for topology managers.
+    */
+  def forTopologyManager[PureCrypto <: CryptoPureApi](
+      store: TopologyStore[TopologyStoreId],
+      outboxQueue: Option[SynchronizerOutboxQueue],
+      topologyMappingChecks: TopologyMappingChecks,
+      pureCrypto: PureCrypto,
+      loggerFactoryParent: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext) =
+    new TopologyStateProcessor(
+      store,
+      outboxQueue,
+      topologyMappingChecks,
+      pureCrypto,
+      loggerFactoryParent,
+    )
+
+  /** Creates a TopologyStateProcessor for the purpose of initial snapshot validation.
+    */
+  def forInitialSnapshotValidation[PureCrypto <: CryptoPureApi](
+      store: TopologyStore[TopologyStoreId],
+      topologyMappingChecks: TopologyMappingChecks,
+      pureCrypto: PureCrypto,
+      loggerFactoryParent: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext) =
+    new TopologyStateProcessor(
+      store,
+      outboxQueue = None,
+      topologyMappingChecks,
+      pureCrypto,
+      loggerFactoryParent,
+    )
+
+  /** Creates a TopologyStateProcessor for the purpose of business-as-usual topology transaction
+    * processing.
+    */
+  def forTransactionProcessing[PureCrypto <: CryptoPureApi](
+      store: TopologyStore[TopologyStoreId],
+      topologyMappingChecks: TopologyMappingChecks,
+      pureCrypto: PureCrypto,
+      loggerFactoryParent: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext) =
+    new TopologyStateProcessor(
+      store,
+      outboxQueue = None,
+      topologyMappingChecks,
+      pureCrypto,
+      loggerFactoryParent,
+    )
 }

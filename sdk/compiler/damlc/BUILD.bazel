@@ -239,12 +239,14 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
         "//compiler/daml-lf-tools",
+        "//compiler/daml-lf-tools-util",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-desugar",
         "//compiler/damlc/daml-doc",
         "//compiler/damlc/daml-ide",
         "//compiler/damlc/daml-ide-core",
         "//compiler/damlc/daml-lf-conversion",
+        "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/damlc/daml-opts",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-package-config",
@@ -298,6 +300,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-prim \
             --format=Json \
+            -Wno-deprecated-exceptions \
             --target={} \
             $(locations //compiler/damlc/daml-prim-src)
     """.format(lf_docs_version),
@@ -316,6 +319,7 @@ genrule(
             --output=$(OUTS) \
             --package-name=daml-stdlib \
             --format=Json \
+            -Wno-deprecated-exceptions \
             --target={} \
             $(locations //compiler/damlc/daml-stdlib-src)
     """.format(lf_docs_version),

@@ -365,7 +365,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         val closeF = loggerFactory.assertLogs(
           lcm.closeAsync(),
           _.warningMessage should include(
-            s"Timeout $timeout expired, but tasks still running. Shutting down forcibly."
+            s"Timeout $timeout expired, but readers are still active. Shutting down forcibly."
           ),
         )
 

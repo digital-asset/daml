@@ -17,7 +17,7 @@ message GetEventsByContractIdRequest {
   // Required
   string contract_id = 1;
 
-  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+  // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // The parties whose events the client expects to see.
   // The events associated with the contract id will only be returned if the requesting parties includes
   // at least one party that is a stakeholder of the event. For a definition of stakeholders see

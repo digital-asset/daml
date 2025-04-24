@@ -1,7 +1,9 @@
 -- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @SUPPORTS-LF-FEATURE DAML_CCTP
+-- @SUPPORTS-LF-FEATURE DAML_CRYPTO
+
+{-# OPTIONS_GHC -Wno-x-crypto #-}
 
 module CCTPMintToken where
 

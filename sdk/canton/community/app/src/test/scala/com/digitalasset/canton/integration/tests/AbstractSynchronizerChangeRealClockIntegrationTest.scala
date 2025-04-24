@@ -82,7 +82,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
     val paintOfferReassignmentId =
       P4.ledger_api.commands.submit_unassign(
         painter,
-        paintOfferId,
+        Seq(paintOfferId),
         paintSynchronizerId,
         iouSynchronizerId,
       )
@@ -105,7 +105,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
 
     checkUnassignment(paintSynchronizerId, iouSynchronizerId, painter)
 
-    paintOfferReassignmentId.unassignedEvent
+    paintOfferReassignmentId.events.loneElement
   }
 
   protected def assignmentAndPaintOfferAcceptance(
@@ -141,7 +141,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
     val paintHouseUnassigned =
       P5.ledger_api.commands.submit_unassign(
         alice,
-        paintHouseId,
+        Seq(paintHouseId),
         iouSynchronizerId,
         paintSynchronizerId,
       )
@@ -174,7 +174,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
 
     P4.ledger_api.commands.submit_assign(
       painter,
-      paintHouseUnassigned.unassignedEvent.unassignId,
+      paintHouseUnassigned.unassignId,
       iouSynchronizerId,
       paintSynchronizerId,
     )

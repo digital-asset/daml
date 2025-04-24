@@ -6,6 +6,7 @@ module TestFailWithStatus where
 import Daml.Script
 import DA.Assert
 import DA.TextMap
+import DA.Fail
 
 validFailureStatus : FailureStatus
 validFailureStatus = FailureStatus "my-error-code" InvalidGivenCurrentSystemStateOther "Something went wrong!" $ fromList [("thing-that-went-wrong", "something")]

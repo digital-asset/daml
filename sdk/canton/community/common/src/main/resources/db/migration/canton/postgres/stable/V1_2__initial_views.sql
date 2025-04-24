@@ -22,7 +22,7 @@ $$
 select
   case
     when $1 = 1 then 'NamespaceDelegation'
-    when $1 = 2 then 'IdentifierDelegation'
+    -- 2 was IdentifierDelegation
     when $1 = 3 then 'DecentralizedNamespaceDefinition'
     when $1 = 4 then 'OwnerToKeyMapping'
     when $1 = 5 then 'SynchronizerTrustCertificate'
@@ -34,8 +34,11 @@ select
     when $1 = 11 then 'SynchronizerParameters'
     when $1 = 12 then 'MediatorSynchronizerState'
     when $1 = 13 then 'SequencerSynchronizerState'
-    when $1 = 14 then 'OffboardParticipant'
+    -- 14 was OffboardParticipant
     when $1 = 15 then 'PurgeTopologyTransaction'
+    -- 16 was TrafficControlState
+    when $1 = 17 then 'DynamicSequencingParametersState'
+    when $1 = 18 then 'PartyToKeyMapping'
     else $1::text
   end;
 $$
@@ -77,7 +80,7 @@ $$
 select
 case
   when $1 = 0 then 'Namespace'
-  when $1 = 1 then 'IdentityDelegation'
+  -- 1 was IdentityDelegation
   when $1 = 2 then 'SequencerAuthentication'
   when $1 = 3 then 'Protocol'
   when $1 = 4 then 'ProofOfOwnership'
@@ -447,14 +450,6 @@ create or replace view debug.sequencer_watermarks as
     sequencer_online
   from sequencer_watermarks;
 
-create or replace view debug.sequencer_counter_checkpoints as
-  select
-    debug.resolve_sequencer_member(member) as member,
-    counter,
-    debug.canton_timestamp(ts) as ts,
-    debug.canton_timestamp(latest_sequencer_event_ts) as latest_sequencer_event_ts
-  from sequencer_counter_checkpoints;
-
 create or replace view debug.sequencer_acknowledgements as
   select
     debug.resolve_sequencer_member(member) as member,
@@ -464,7 +459,8 @@ create or replace view debug.sequencer_acknowledgements as
 create or replace view debug.sequencer_lower_bound as
   select
     single_row_lock,
-    debug.canton_timestamp(ts) as ts
+    debug.canton_timestamp(ts) as ts,
+    debug.canton_timestamp(latest_topology_client_timestamp) as latest_topology_client_timestamp
   from sequencer_lower_bound;
 
 create or replace view debug.sequencer_events as

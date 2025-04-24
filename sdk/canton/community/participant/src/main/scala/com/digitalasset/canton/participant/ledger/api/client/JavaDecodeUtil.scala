@@ -144,7 +144,7 @@ object JavaDecodeUtil {
       }.toSeq,
     )
 
-  private def toDisclosedContract(
+  def toDisclosedContract(
       synchronizerId: String,
       create: JavaCreatedEvent,
   ): DisclosedContract = {

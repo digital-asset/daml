@@ -187,8 +187,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         ts1 -> (dop_synchronizer1_proposal, ts2.some, None),
         ts2 -> (dop_synchronizer1, None, None),
         ts2 -> (otk_p1, None, None),
-        ts3 -> (idd_daSynchronizer_key1, ts3.some, None),
-        ts3 -> (idd_daSynchronizer_key1_removal, None, None),
+        ts3 -> (p1_permission_daSynchronizer, ts3.some, None),
+        ts3 -> (p1_permission_daSynchronizer_removal, None, None),
         ts3 -> (nsd_seq, None, None),
         ts3 -> (dtc_p1_synchronizer1, None, None),
         ts3 -> (ptp_fred_p1_proposal, ts5.some, None),
@@ -284,7 +284,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             txProtocolVersion <- store.findStoredForVersion(
               CantonTimestamp.MaxValue,
               nsd_p1.transaction,
-              ProtocolVersion.v33,
+              ProtocolVersion.v34,
             )
 
             proposalTransactions <- inspect(
@@ -435,14 +435,12 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizerId = synchronizer1_p1p2_synchronizerId,
               protocolVersion = testedProtocolVersion,
               pureCrypto = new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 testData.factory.cryptoApi.crypto.pureCrypto,
               ),
               store = store,
-              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts = timeouts,
               loggerFactory = loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -466,10 +464,10 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               timeQuery = TimeQuery.Range(ts1.some, ts4.some),
               op = TopologyChangeOp.Remove.some,
             )
-            idDaTransactions <- inspect(
+            idP1Transactions <- inspect(
               store,
               timeQuery = TimeQuery.Range(ts1.some, ts4.some),
-              idFilter = Some("da"),
+              idFilter = Some(p1Id.identifier.unwrap),
             )
             idNamespaceTransactions <- inspect(
               store,
@@ -499,7 +497,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
                 dnd_p1p2,
                 dop_synchronizer1,
                 otk_p1,
-                idd_daSynchronizer_key1_removal,
+                p1_permission_daSynchronizer_removal,
                 nsd_seq,
                 dtc_p1_synchronizer1,
                 dnd_p1seq,
@@ -512,8 +510,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               Seq(
                 dop_synchronizer1,
                 otk_p1,
-                idd_daSynchronizer_key1,
-                idd_daSynchronizer_key1_removal,
+                p1_permission_daSynchronizer,
+                p1_permission_daSynchronizer_removal,
                 nsd_seq,
                 dtc_p1_synchronizer1,
               ),
@@ -529,10 +527,15 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               ), // tx2 include as until is inclusive, tx3 missing as from exclusive
             )
             expectTransactions(decentralizedNamespaceTransactions, Seq(dnd_p1p2, dnd_p1seq))
-            expectTransactions(removalTransactions, Seq(idd_daSynchronizer_key1_removal))
+            expectTransactions(removalTransactions, Seq(p1_permission_daSynchronizer_removal))
             expectTransactions(
-              idDaTransactions,
-              Seq(idd_daSynchronizer_key1, idd_daSynchronizer_key1_removal),
+              idP1Transactions,
+              Seq(
+                otk_p1,
+                p1_permission_daSynchronizer,
+                p1_permission_daSynchronizer_removal,
+                dtc_p1_synchronizer1,
+              ),
             )
             expectTransactions(idNamespaceTransactions, Seq(dnd_p1seq))
 
@@ -576,14 +579,12 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizer1_p1p2_synchronizerId,
               testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
-              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -626,14 +627,12 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
 
           for {
             _ <- new InitialTopologySnapshotValidator(
-              synchronizer1_p1p2_synchronizerId,
               testedProtocolVersion,
               new SynchronizerCryptoPureApi(
                 defaultStaticSynchronizerParameters,
                 factory.cryptoApi.crypto.pureCrypto,
               ),
               store,
-              insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = false,
               timeouts,
               loggerFactory,
             ).validateAndApplyInitialTopologySnapshot(bootstrapTransactions)
@@ -765,8 +764,8 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
               Seq(
                 dop_synchronizer1,
                 otk_p1,
-                idd_daSynchronizer_key1,
-                idd_daSynchronizer_key1_removal,
+                p1_permission_daSynchronizer,
+                p1_permission_daSynchronizer_removal,
                 nsd_seq,
                 dtc_p1_synchronizer1,
                 dnd_p1seq,

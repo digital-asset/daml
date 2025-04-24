@@ -80,10 +80,12 @@ public final class UpdateClientImpl implements UpdateClient {
       Set<String> parties,
       boolean verbose,
       Optional<String> accessToken) {
-    TransactionFilter filter = contractFilter.transactionFilter(Optional.of(parties));
-    return getTransactions(begin, end, filter, verbose, accessToken);
+    TransactionFormat transactionFormat =
+        contractFilter.withVerbose(verbose).transactionFormat(Optional.of(parties));
+    return getTransactions(begin, end, transactionFormat, accessToken);
   }
 
+  @Override
   public Flowable<Transaction> getTransactions(
       ContractFilter<?> contractFilter,
       Long begin,
@@ -91,6 +93,30 @@ public final class UpdateClientImpl implements UpdateClient {
       Set<String> parties,
       boolean verbose) {
     return getTransactions(contractFilter, begin, end, parties, verbose, Optional.empty());
+  }
+
+  private Flowable<Transaction> getTransactions(
+      Long begin,
+      Optional<Long> end,
+      TransactionFormat transactionFormat,
+      Optional<String> accessToken) {
+    UpdateFormat updateFormat =
+        new UpdateFormat(Optional.of(transactionFormat), Optional.empty(), Optional.empty());
+    UpdateServiceOuterClass.GetUpdatesRequest request =
+        new GetUpdatesRequest(begin, end, updateFormat).toProto();
+    return extractTransactions(request, accessToken);
+  }
+
+  @Override
+  public Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFormat transactionFormat) {
+    return getTransactions(begin, end, transactionFormat, Optional.empty());
+  }
+
+  @Override
+  public Flowable<Transaction> getTransactions(
+      Long begin, Optional<Long> end, TransactionFormat transactionFormat, String accessToken) {
+    return getTransactions(begin, end, transactionFormat, Optional.of(accessToken));
   }
 
   private Flowable<TransactionTree> extractTransactionTrees(

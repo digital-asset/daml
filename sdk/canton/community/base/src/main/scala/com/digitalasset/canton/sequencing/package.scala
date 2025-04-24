@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
+  ProcessingSequencedEvent,
   SequencedEventWithTraceContext,
 }
 import com.digitalasset.canton.tracing.Traced
@@ -41,7 +42,9 @@ package object sequencing {
     * entire batch.
     */
   type OrdinaryEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[OrdinarySequencedEvent[E]]]
+  type SequencedEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[SequencedEventWithTraceContext[E]]]
   type OrdinaryApplicationHandler[-E <: Envelope[_]] = ApplicationHandler[OrdinaryEnvelopeBox, E]
+  type SequencedApplicationHandler[-E <: Envelope[_]] = ApplicationHandler[SequencedEnvelopeBox, E]
 
   /** Just a signature around the [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]] The
     * term "raw" indicates that the trace context is missing. Try to use the box
@@ -49,10 +52,10 @@ package object sequencing {
     */
   type RawSignedContentEnvelopeBox[+Env <: Envelope[_]] = SignedContent[SequencedEvent[Env]]
 
-  /** A batch of traced protocol events (without a signature). The outer `Traced` contains a trace
-    * context for the entire batch.
+  /** A batch of traced protocol events (without a signature) with the assigned counter. The outer
+    * `Traced` contains a trace context for the entire batch.
     */
-  type UnsignedEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[Traced[SequencedEvent[E]]]]
+  type UnsignedEnvelopeBox[+E <: Envelope[_]] = Traced[Seq[WithCounter[Traced[SequencedEvent[E]]]]]
   type UnsignedApplicationHandler[-E <: Envelope[_]] = ApplicationHandler[UnsignedEnvelopeBox, E]
   type UnsignedProtocolEventHandler = UnsignedApplicationHandler[DefaultOpenEnvelope]
 
@@ -72,13 +75,18 @@ package object sequencing {
 
   /** Default type for serialized events. Contains trace context and signature.
     */
+
+  type ProcessingSerializedEvent = BoxedEnvelope[ProcessingSequencedEvent, ClosedEnvelope]
+
   type SequencedSerializedEvent = BoxedEnvelope[SequencedEventWithTraceContext, ClosedEnvelope]
 
   type OrdinarySerializedEvent = BoxedEnvelope[OrdinarySequencedEvent, ClosedEnvelope]
 
   type PossiblyIgnoredSerializedEvent = BoxedEnvelope[PossiblyIgnoredSequencedEvent, ClosedEnvelope]
 
-  type OrdinarySerializedEventOrError = Either[SequencedEventError, OrdinarySerializedEvent]
+  type OrdinaryEventOrError = Either[SequencedEventError, OrdinarySerializedEvent]
+
+  type SequencedEventOrError = Either[SequencedEventError, SequencedSerializedEvent]
 
   /////////////////////////////////
   // Protocol events (deserialized)
@@ -86,6 +94,8 @@ package object sequencing {
 
   /** Default type for deserialized events. Includes a signature and a trace context.
     */
+  type SequencedProtocolEvent = BoxedEnvelope[SequencedEventWithTraceContext, DefaultOpenEnvelope]
+
   type OrdinaryProtocolEvent = BoxedEnvelope[OrdinarySequencedEvent, DefaultOpenEnvelope]
 
   /** Deserialized event with optional payload. */
@@ -100,7 +110,7 @@ package object sequencing {
   /** Deserialized event with a trace context. Use this when you are really sure that a signature
     * will never be needed.
     */
-  type TracedProtocolEvent = Traced[RawProtocolEvent]
+  type TracedProtocolEvent = WithCounter[Traced[RawProtocolEvent]]
 
   //////////////////////////////
   // Non-standard event handlers
@@ -110,8 +120,13 @@ package object sequencing {
 
   /** Default type for handlers on serialized events with error reporting
     */
-  type SerializedEventHandler[Err] =
+  type OrdinaryEventHandler[Err] =
     OrdinarySerializedEvent => FutureUnlessShutdown[Either[Err, Unit]]
-  type SerializedEventOrErrorHandler[Err] =
-    OrdinarySerializedEventOrError => FutureUnlessShutdown[Either[Err, Unit]]
+  type OrdinaryEventOrErrorHandler[Err] =
+    OrdinaryEventOrError => FutureUnlessShutdown[Either[Err, Unit]]
+
+  type SequencedEventHandler[Err] =
+    SequencedSerializedEvent => FutureUnlessShutdown[Either[Err, Unit]]
+  type SequencedEventOrErrorHandler[Err] =
+    SequencedEventOrError => FutureUnlessShutdown[Either[Err, Unit]]
 }

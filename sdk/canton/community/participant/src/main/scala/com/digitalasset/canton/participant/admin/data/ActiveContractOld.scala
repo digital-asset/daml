@@ -51,7 +51,7 @@ private[canton] object ActiveContractOld extends VersioningCompanion[ActiveContr
   override def name: String = "ActiveContractOld"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ActiveContractOld)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ActiveContractOld)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

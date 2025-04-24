@@ -137,7 +137,7 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
     VersioningTable(
       ProtoVersion(30) ->
         VersionedProtoCodec(
-          ProtocolVersion.v33
+          ProtocolVersion.v34
         )(v30.Batch)(
           supportedProtoVersion(_)(
             fromProtoV30

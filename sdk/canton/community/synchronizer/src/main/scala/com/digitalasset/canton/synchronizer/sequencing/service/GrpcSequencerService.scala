@@ -11,8 +11,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.CantonRequireTypes.String73
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeNumeric, PositiveInt}
+import com.digitalasset.canton.config.{PositiveFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.sequencer.api.v30
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
@@ -46,8 +46,10 @@ import com.digitalasset.canton.tracing.{
   TraceContextGrpc,
   Traced,
 }
+import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, RateLimiter}
 import com.digitalasset.canton.version.ProtocolVersion
+import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
@@ -121,6 +123,7 @@ object GrpcSequencerService {
       protocolVersion: ProtocolVersion,
       topologyStateForInitializationService: TopologyStateForInitializationService,
       loggerFactory: NamedLoggerFactory,
+      acknowledgementsConflateWindow: Option[PositiveFiniteDuration] = None,
   )(implicit executionContext: ExecutionContext, materializer: Materializer): GrpcSequencerService =
     new GrpcSequencerService(
       sequencer,
@@ -142,6 +145,7 @@ object GrpcSequencerService {
       parameters,
       topologyStateForInitializationService,
       protocolVersion,
+      acknowledgementsConflateWindow = acknowledgementsConflateWindow,
     )
 
   private sealed trait WrappedAcknowledgeRequest extends Product with Serializable {
@@ -172,6 +176,7 @@ class GrpcSequencerService(
     topologyStateForInitializationService: TopologyStateForInitializationService,
     protocolVersion: ProtocolVersion,
     maxItemsInTopologyResponse: PositiveInt = PositiveInt.tryCreate(100),
+    acknowledgementsConflateWindow: Option[PositiveFiniteDuration] = None,
 )(implicit ec: ExecutionContext)
     extends v30.SequencerServiceGrpc.SequencerService
     with NamedLogging
@@ -180,6 +185,12 @@ class GrpcSequencerService(
   override protected val timeouts: ProcessingTimeout = parameters.processingTimeouts
 
   private val rates = new TrieMap[ParticipantId, RateLimiter]()
+  private val acknowledgementConflate: Option[Cache[Member, Unit]] =
+    acknowledgementsConflateWindow.map { conflateWindow =>
+      Scaffeine()
+        .expireAfterWrite(conflateWindow.asFiniteApproximation)
+        .build[Member, Unit]()
+    }
 
   def membersWithActiveSubscriptions: Seq[Member] =
     subscriptionPool.activeSubscriptions().map(_.member)
@@ -410,7 +421,7 @@ class GrpcSequencerService(
     }
   }
 
-  private def toVersionSubscriptionResponseV0(event: OrdinarySerializedEvent) =
+  private def toVersionSubscriptionResponseV0(event: SequencedSerializedEvent) =
     v30.SubscriptionResponse(
       signedSequencedEvent = event.signedEvent.toByteString,
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
@@ -429,7 +440,7 @@ class GrpcSequencerService(
   private def subscribeInternalV2[T](
       request: v30.SubscriptionRequestV2,
       responseObserver: StreamObserver[T],
-      toSubscriptionResponse: OrdinarySerializedEvent => T,
+      toSubscriptionResponse: SequencedSerializedEvent => T,
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     withServerCallStreamObserver(responseObserver) { observer =>
@@ -504,10 +515,26 @@ class GrpcSequencerService(
     } yield wrappedRequest
     val result = (for {
       request <- validatedRequestE.toEitherT[FutureUnlessShutdown]
+      deduplicate = acknowledgementConflate.exists { cache =>
+        cache.getIfPresent(request.unwrap.member).isDefined
+      }
       _ <- (request match {
-        case s: SignedAcknowledgeRequest =>
+        case s: SignedAcknowledgeRequest if !deduplicate =>
           sequencer
             .acknowledgeSigned(s.signedRequest)
+            .thereafter {
+              case scala.util.Success(_) =>
+                acknowledgementConflate.foreach(_.put(request.unwrap.member, ()))
+              case _ =>
+            }
+        case _ =>
+          // Concurrent acknowledge requests could still being processed but that's not an issue
+          // This is meant to prevent a participant from DoSing the ordering layer through acks and will quickly
+          // block additional requests even if concurrent ones get through at first
+          logger.debug(
+            s"Discarding acknowledgement from ${request.unwrap.member} as it is within the conflating window."
+          )
+          EitherT.pure[FutureUnlessShutdown, String](())
       }).leftMap(e =>
         Status.INVALID_ARGUMENT.withDescription(s"Could not acknowledge $e").asException()
       )
@@ -524,7 +551,7 @@ class GrpcSequencerService(
       expireAt: Option[CantonTimestamp],
       timestamp: Option[CantonTimestamp],
       observer: ServerCallStreamObserver[T],
-      toSubscriptionResponse: OrdinarySerializedEvent => T,
+      toSubscriptionResponse: SequencedSerializedEvent => T,
   )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
 
     logger.info(s"$member subscribes from timestamp=$timestamp")

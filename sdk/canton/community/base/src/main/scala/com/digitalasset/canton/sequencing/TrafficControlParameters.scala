@@ -43,6 +43,7 @@ final case class TrafficControlParameters(
     setBalanceRequestSubmissionWindowSize: PositiveFiniteDuration =
       DefaultSetBalanceRequestSubmissionWindowSize,
     enforceRateLimiting: Boolean = DefaultEnforceRateLimiting,
+    baseEventCost: NonNegativeLong = DefaultBaseEventCost,
 ) extends PrettyPrinting {
 
   /** Base rate acquired in bytes per micro seconds
@@ -61,6 +62,7 @@ final case class TrafficControlParameters(
     readVsWriteScalingFactor.value,
     Some(setBalanceRequestSubmissionWindowSize.toProtoPrimitive),
     enforceRateLimiting,
+    Option.when(baseEventCost.value != 0)(baseEventCost.value),
   )
 
   override protected def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
@@ -69,6 +71,7 @@ final case class TrafficControlParameters(
     param("max base traffic accumulation duration", _.maxBaseTrafficAccumulationDuration),
     param("set balance request submission window size", _.setBalanceRequestSubmissionWindowSize),
     param("enforce rate limiting", _.enforceRateLimiting),
+    param("base event cost", _.baseEventCost),
   )
 }
 
@@ -82,6 +85,7 @@ object TrafficControlParameters {
   val DefaultSetBalanceRequestSubmissionWindowSize: time.PositiveFiniteDuration =
     time.PositiveFiniteDuration.tryOfMinutes(4L)
   val DefaultEnforceRateLimiting: Boolean = true
+  val DefaultBaseEventCost: NonNegativeLong = NonNegativeLong.zero
 
   def fromProtoV30(
       proto: protoV30.TrafficControlParameters
@@ -107,11 +111,16 @@ object TrafficControlParameters {
         "read_vs_write_scaling_factor",
         proto.readVsWriteScalingFactor,
       )
+      baseEventCost <- ProtoConverter.parseNonNegativeLong(
+        "base_event_cost",
+        proto.baseEventCost.getOrElse(0L),
+      )
     } yield TrafficControlParameters(
       maxBaseTrafficAmount,
       scalingFactor,
       maxBaseTrafficAccumulationDuration,
       setBalanceRequestSubmissionWindowSize,
       proto.enforceRateLimiting,
+      baseEventCost,
     )
 }

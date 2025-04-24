@@ -152,30 +152,30 @@ object Value {
 
   /** A contract instance is a value plus the template that originated it. */
   // Prefer to use transaction.FatContractInstance
-  final case class ContractInstance(
+  final case class ThinContractInstance(
       packageName: Ref.PackageName,
       template: Identifier,
       arg: Value,
-  ) extends CidContainer[ContractInstance] {
+  ) extends CidContainer[ThinContractInstance] {
 
     override protected def self: this.type = this
 
-    def map(f: Value => Value): ContractInstance =
+    def map(f: Value => Value): ThinContractInstance =
       copy(arg = f(arg))
 
-    def mapCid(f: ContractId => ContractId): ContractInstance =
+    def mapCid(f: ContractId => ContractId): ThinContractInstance =
       copy(arg = arg.mapCid(f))
   }
 
-  type VersionedContractInstance = transaction.Versioned[ContractInstance]
+  type VersionedThinContractInstance = transaction.Versioned[ThinContractInstance]
 
   object VersionedContractInstance {
     def apply(
         packageName: Ref.PackageName,
         template: Identifier,
         arg: VersionedValue,
-    ): VersionedContractInstance =
-      arg.map(ContractInstance(packageName, template, _))
+    ): VersionedThinContractInstance =
+      arg.map(ThinContractInstance(packageName, template, _))
 
     @deprecated("use the version with 3 argument", since = "2.9.0")
     def apply(
@@ -183,8 +183,8 @@ object Value {
         packageName: Ref.PackageName,
         template: Identifier,
         arg: Value,
-    ): VersionedContractInstance =
-      transaction.Versioned(version, ContractInstance(packageName, template, arg))
+    ): VersionedThinContractInstance =
+      transaction.Versioned(version, ThinContractInstance(packageName, template, arg))
   }
 
   type NodeIdx = Int

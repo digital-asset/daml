@@ -209,7 +209,7 @@ object MerkleTreeTest {
     override def name: String = "AbstractLeaf"
     override def versioningTable: VersioningTable = VersioningTable(
       ProtoVersion(30) -> VersionedProtoCodec.raw(
-        ProtocolVersion.v33,
+        ProtocolVersion.v34,
         (_, _, bytes) => fromProto(30)(bytes),
         _.getCryptographicEvidence,
       )

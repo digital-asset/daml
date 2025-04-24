@@ -17,9 +17,10 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingStartingPoints,
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryRequestJournalStore
+import com.digitalasset.canton.participant.sync.SyncEphemeralStateFactory
 import com.digitalasset.canton.sequencing.protocol.SignedContent
-import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerTestUtils}
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.sequencing.{SequencedSerializedEvent, SequencerTestUtils}
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -43,15 +44,17 @@ class SyncEphemeralStateFactoryTest
 
   private def dummyEvent(
       synchronizerId: SynchronizerId
-  )(sc: SequencerCounter, timestamp: CantonTimestamp): OrdinarySerializedEvent =
-    OrdinarySequencedEvent(
+  )(timestamp: CantonTimestamp): SequencedSerializedEvent =
+    SequencedEventWithTraceContext(
       SignedContent(
-        SequencerTestUtils.mockDeliver(sc.v, timestamp, synchronizerId = synchronizerId),
+        SequencerTestUtils.mockDeliver(timestamp, synchronizerId = synchronizerId),
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,
       )
-    )(TraceContext.empty)
+    )(
+      TraceContext.empty
+    )
 
   "startingPoints" when {
     "there is no clean request" should {
@@ -84,7 +87,7 @@ class SyncEphemeralStateFactoryTest
         for {
           _ <- rjs.insert(RequestData.clean(rc, ts, ts.plusSeconds(1)))
           _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1L)
-          _ <- ses.store(Seq(dummyEvent(synchronizerId)(sc, ts)))
+          _ <- ses.store(Seq(dummyEvent(synchronizerId)(ts)))
           withCleanSc <- SyncEphemeralStateFactory.startingPoints(
             rjs,
             ses,
@@ -127,13 +130,13 @@ class SyncEphemeralStateFactoryTest
           _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1L)
           _ <- ses.store(
             Seq(
-              dummyEvent(synchronizerId)(sc, ts0),
-              dummyEvent(synchronizerId)(sc + 1L, ts1),
-              dummyEvent(synchronizerId)(sc + 2L, ts2),
-              dummyEvent(synchronizerId)(sc + 3L, ts3),
-              dummyEvent(synchronizerId)(sc + 4L, ts4),
-              dummyEvent(synchronizerId)(sc + 5L, ts5),
-              dummyEvent(synchronizerId)(sc + 6L, ts6),
+              dummyEvent(synchronizerId)(ts0),
+              dummyEvent(synchronizerId)(ts1),
+              dummyEvent(synchronizerId)(ts2),
+              dummyEvent(synchronizerId)(ts3),
+              dummyEvent(synchronizerId)(ts4),
+              dummyEvent(synchronizerId)(ts5),
+              dummyEvent(synchronizerId)(ts6),
             )
           )
           sp1 <- SyncEphemeralStateFactory.startingPoints(
@@ -293,10 +296,10 @@ class SyncEphemeralStateFactoryTest
             _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1)
             _ <- ses.store(
               Seq(
-                dummyEvent(synchronizerId)(sc, ts0),
-                dummyEvent(synchronizerId)(sc + 1L, ts1),
-                dummyEvent(synchronizerId)(sc + 2L, ts2),
-                dummyEvent(synchronizerId)(sc + 3L, ts3),
+                dummyEvent(synchronizerId)(ts0),
+                dummyEvent(synchronizerId)(ts1),
+                dummyEvent(synchronizerId)(ts2),
+                dummyEvent(synchronizerId)(ts3),
               )
             )
             sp0 <- SyncEphemeralStateFactory.startingPoints(
@@ -362,9 +365,9 @@ class SyncEphemeralStateFactoryTest
             _ <- ses.reinitializeFromDbOrSetLowerBound(sc - 1)
             _ <- ses.store(
               Seq(
-                dummyEvent(synchronizerId)(sc, ts0),
-                dummyEvent(synchronizerId)(sc + 1L, ts1),
-                dummyEvent(synchronizerId)(sc + 2L, ts2),
+                dummyEvent(synchronizerId)(ts0),
+                dummyEvent(synchronizerId)(ts1),
+                dummyEvent(synchronizerId)(ts2),
               )
             )
             noRepair <- SyncEphemeralStateFactory.startingPoints(

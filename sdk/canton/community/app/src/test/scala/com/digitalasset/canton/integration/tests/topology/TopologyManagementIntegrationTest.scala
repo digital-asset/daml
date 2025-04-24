@@ -35,6 +35,10 @@ import com.digitalasset.canton.topology.TopologyManagerError.UnauthorizedTransac
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.store.TimeQuery
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{Observation, Submission}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import org.slf4j.event.Level.DEBUG
@@ -92,31 +96,12 @@ trait TopologyManagementIntegrationTest
       sequencer1.topology.namespace_delegations.propose_delegation(
         sequencer1.namespace,
         intermediateCAKey,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
       )
 
       eventually() {
         val nd3 = sequencer1.topology.namespace_delegations.list(store = daId)
         assertResult(1, nd3.map(_.item))(nd3.length - nd.length)
-      }
-
-      // add a new identifier delegation with a new key for the sequencer, using the intermediate CA
-      val identifierCAKey =
-        sequencer1.keys.secret
-          .generate_signing_key("identifier-ca", SigningKeyUsage.IdentityDelegationOnly)
-
-      val idt = sequencer1.topology.identifier_delegations.list(daId)
-      sequencer1.topology.identifier_delegations.propose(
-        daId.unwrap,
-        identifierCAKey,
-        store = daId,
-      )
-      eventually() { () =>
-        val idt2 = sequencer1.topology.identifier_delegations.list(
-          daId,
-          operation = Some(TopologyChangeOp.Replace),
-        )
-        assert(idt.length + 1 == idt2.length)
       }
     }
 
@@ -606,7 +591,7 @@ trait TopologyManagementIntegrationTest
       participant1.topology.namespace_delegations.propose_delegation(
         participant1.namespace,
         key1,
-        isRootDelegation = false,
+        CanSignAllButNamespaceDelegations,
       )
       // add previous statement again but signed with a different key
       add(Some(key1.fingerprint))
@@ -644,7 +629,7 @@ trait TopologyManagementIntegrationTest
         TopologyTransaction(
           TopologyChangeOp.Remove,
           PositiveInt.tryCreate(1),
-          IdentifierDelegation(participant1.uid, key1),
+          NamespaceDelegation.tryCreate(participant1.namespace, key1, CanSignAllMappings),
           testedProtocolVersion,
         ),
         key1,
@@ -797,7 +782,7 @@ trait TopologyManagementIntegrationTest
         TopologyTransaction(
           TopologyChangeOp.Replace,
           PositiveInt.tryCreate(serial),
-          IdentifierDelegation(participant1.uid, key1),
+          NamespaceDelegation.tryCreate(participant1.namespace, key1, CanSignAllMappings),
           testedProtocolVersion,
         ),
         sig,
@@ -846,7 +831,7 @@ trait TopologyManagementIntegrationTest
         participant1.topology.namespace_delegations.propose_delegation(
           participant1.namespace,
           key1,
-          isRootDelegation = false,
+          CanSignAllButNamespaceDelegations,
         )
 
         val key2 =
@@ -856,7 +841,7 @@ trait TopologyManagementIntegrationTest
           participant1.topology.namespace_delegations.propose_delegation(
             participant1.namespace,
             key2,
-            isRootDelegation = false,
+            CanSignAllButNamespaceDelegations,
             signedBy = Seq(key1.fingerprint),
             // use the force flag so that we actually get to the point where the topology transaction
             // is rejected, instead of failing the request early during signing key validation
@@ -885,7 +870,7 @@ trait TopologyManagementIntegrationTest
           participant1.topology.namespace_delegations.propose_delegation(
             Namespace(key.fingerprint),
             key,
-            isRootDelegation = true,
+            CanSignAllMappings,
             store = daId,
           )
         )
@@ -977,26 +962,6 @@ trait TopologyManagementIntegrationTest
         (TopologyChangeOp.Replace, key1.fingerprint),
         (TopologyChangeOp.Remove, key1.fingerprint),
       )
-    }
-
-    "query identifier delegations" in { implicit env =>
-      import env.*
-
-      val key =
-        participant1.keys.secret
-          .generate_signing_key(usage = SigningKeyUsage.IdentityDelegationOnly)
-      participant1.topology.identifier_delegations.propose(
-        participant1.uid,
-        key,
-      )
-      eventually() {
-        participant1.topology.identifier_delegations
-          .list(
-            store = TopologyStoreId.Authorized,
-            filterUid = participant1.filterString,
-          )
-          .map(_.item.target) should contain(key)
-      }
     }
 
     "query owner to key mappings" in { implicit env =>
@@ -1118,7 +1083,7 @@ trait TopologyManagementIntegrationTest
       val namespaceDelegationMapping = NamespaceDelegation.tryCreate(
         Namespace(signingKey.fingerprint),
         signingKey,
-        isRootDelegation = true,
+        CanSignAllMappings,
       )
       val partyHostingMapping = PartyToParticipant
         .create(

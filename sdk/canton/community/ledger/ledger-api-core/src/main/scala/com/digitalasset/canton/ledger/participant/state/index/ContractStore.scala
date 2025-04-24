@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
   Node,
 }
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedThinContractInstance}
 
 import scala.concurrent.Future
 
@@ -28,7 +28,7 @@ trait ContractStore {
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[VersionedContractInstance]]
+  ): Future[Option[VersionedThinContractInstance]]
 
   def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
       loggingContext: LoggingContextWithTrace
@@ -49,7 +49,7 @@ object ContractState {
   case object NotFound extends ContractState
   case object Archived extends ContractState
   final case class Active(
-      contractInstance: VersionedContractInstance,
+      contractInstance: VersionedThinContractInstance,
       ledgerEffectiveTime: Timestamp,
       stakeholders: Set[Party],
       signatories: Set[Party],

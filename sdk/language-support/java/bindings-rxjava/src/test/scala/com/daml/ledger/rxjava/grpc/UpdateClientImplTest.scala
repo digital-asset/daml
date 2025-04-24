@@ -8,7 +8,6 @@ import java.time.Instant
 import java.util.Optional
 import com.daml.ledger.javaapi.data._
 import com.daml.ledger.api.v2.TraceContextOuterClass.TraceContext
-
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator._
@@ -64,6 +63,14 @@ final class UpdateClientImplTest
   private val ledgerBegin: java.lang.Long = 0L
   private val emptyFilter =
     new TransactionFilter(Map.empty[String, data.Filter].asJava, None.toJava)
+  private val emptyFormat = new TransactionFormat(
+    new EventFormat(
+      Map.empty[String, data.Filter].asJava,
+      None.toJava,
+      false,
+    ),
+    TransactionShape.ACS_DELTA,
+  )
 
   behavior of "8.1 TransactionClient.getTransactions"
 
@@ -75,7 +82,7 @@ final class UpdateClientImplTest
           {
             val result: List[TransactionWithoutRecordTime] =
               transactionClient
-                .getTransactions(ledgerBegin, Optional.of(long2Long(ledgerEnd)), emptyFilter, false)
+                .getTransactions(ledgerBegin, Optional.of(long2Long(ledgerEnd)), emptyFormat)
                 .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
                 .blockingIterable()
                 .asScala
@@ -90,27 +97,39 @@ final class UpdateClientImplTest
 
   behavior of "8.2 TransactionClient.getTransactions"
 
-  it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
+  it should "pass start offset, end offset, transaction format and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
       val begin = 1L
       val end = 2L
 
-      val transactionFilter = new TransactionFilter(
-        Map[String, data.Filter](
-          "Alice" -> new data.CumulativeFilter(
-            Map.empty.asJava,
-            Map(
-              new data.Identifier("p1", "m1", "e1") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
-              new data.Identifier("p2", "m2", "e2") -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
-            ).asJava,
-            None.toJava,
-          )
-        ).asJava,
-        None.toJava,
+      val transactionFormat = new TransactionFormat(
+        new EventFormat(
+          Map[String, data.Filter](
+            "Alice" -> new data.CumulativeFilter(
+              Map.empty.asJava,
+              Map(
+                new data.Identifier(
+                  "p1",
+                  "m1",
+                  "e1",
+                ) -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
+                new data.Identifier(
+                  "p2",
+                  "m2",
+                  "e2",
+                ) -> data.Filter.Template.HIDE_CREATED_EVENT_BLOB,
+              ).asJava,
+              None.toJava,
+            )
+          ).asJava,
+          None.toJava,
+          true,
+        ),
+        TransactionShape.ACS_DELTA,
       )
 
       transactionClient
-        .getTransactions(begin, Optional.of(end), transactionFilter, true)
+        .getTransactions(begin, Optional.of(end), transactionFormat)
         .toList()
         .blockingGet()
 
@@ -205,10 +224,10 @@ final class UpdateClientImplTest
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, transactionService) =>
           transactionClient
-            .getTransactionTreeByOffset(offset, Set.empty[String].asJava)
+            .getTransactionByOffset(offset, Set.empty[String].asJava)
             .blockingGet() shouldBe transactionTree
 
-          transactionService.lastTransactionTreeByOffsetRequest.get().offset shouldBe offset
+          transactionService.lastTransactionByOffsetRequest.get().offset shouldBe offset
       }
   }
 
@@ -219,10 +238,10 @@ final class UpdateClientImplTest
       val requestingParties = Set("Alice", "Bob")
 
       transactionClient
-        .getTransactionTreeByOffset(0, requestingParties.asJava)
+        .getTransactionByOffset(0, requestingParties.asJava)
         .blockingGet()
 
-      transactionService.lastTransactionTreeByOffsetRequest
+      transactionService.lastTransactionByOffsetRequest
         .get()
         .requestingParties
         .toSet shouldBe requestingParties
@@ -237,10 +256,10 @@ final class UpdateClientImplTest
     ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
       (transactionClient, transactionService) =>
         transactionClient
-          .getTransactionTreeById(transactionId, Set.empty[String].asJava)
+          .getTransactionById(transactionId, Set.empty[String].asJava)
           .blockingGet() shouldBe transactionTree
 
-        transactionService.lastTransactionTreeByIdRequest.get().updateId shouldBe transactionId
+        transactionService.lastTransactionByIdRequest.get().updateId shouldBe transactionId
     }
   }
 
@@ -251,10 +270,10 @@ final class UpdateClientImplTest
       val requestingParties = Set("Alice", "Bob")
 
       transactionClient
-        .getTransactionTreeById("transactionId", requestingParties.asJava)
+        .getTransactionById("transactionId", requestingParties.asJava)
         .blockingGet()
 
-      transactionService.lastTransactionTreeByIdRequest
+      transactionService.lastTransactionByIdRequest
         .get()
         .requestingParties
         .toSet shouldBe requestingParties
@@ -272,7 +291,7 @@ final class UpdateClientImplTest
     withClue("getTransactions specifying end") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactions(ledgerBegin, Optional.of(1L), filterFor(someParty), false)
+          _.getTransactions(ledgerBegin, Optional.of(1L), transactionsFor(someParty))
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -324,8 +343,7 @@ final class UpdateClientImplTest
           _.getTransactions(
             ledgerBegin,
             Optional.of(1L: java.lang.Long),
-            filterFor(someParty),
-            false,
+            transactionsFor(someParty),
             someOtherPartyReadWriteToken,
           )
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -392,8 +410,7 @@ final class UpdateClientImplTest
         _.getTransactions(
           ledgerBegin,
           Optional.of(1L: java.lang.Long),
-          filterFor(someParty),
-          false,
+          transactionsFor(someParty),
           somePartyReadWriteToken,
         )
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)

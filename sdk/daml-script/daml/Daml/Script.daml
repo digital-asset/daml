@@ -49,8 +49,10 @@ module Daml.Script
   , PartyDetails(..)
   , allocateParty
   , allocatePartyWithHint
+  , allocatePartyByHint
   , allocatePartyOn
   , allocatePartyWithHintOn
+  , allocatePartyByHintOn
   , listKnownParties
   , listKnownPartiesOn
   , Commands
@@ -112,7 +114,7 @@ module Daml.Script
   , submitUserOn
   , tryToEither
 
-#ifdef DAML_CCTP
+#ifdef DAML_CRYPTO
   , Secp256k1KeyPair
   , secp256k1generatekeypair
   , secp256k1sign

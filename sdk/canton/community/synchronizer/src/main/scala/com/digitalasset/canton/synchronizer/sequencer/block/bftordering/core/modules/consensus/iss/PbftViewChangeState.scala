@@ -49,11 +49,15 @@ class PbftViewChangeState(
   private val messageValidator = new ViewChangeMessageValidator(membership, blockNumbers)
   private val viewChangeMap = mutable.HashMap[BftNodeId, SignedMessage[ViewChange]]()
   private var viewChangeFromSelfWasFromRehydration = false
+  private var viewChangeMessageSetForNewView: Option[Seq[SignedMessage[ViewChange]]] = None
   private var signedPrePreparesForSegment: Option[Seq[SignedMessage[PrePrepare]]] = None
   private var newView: Option[SignedMessage[NewView]] = None
+  private var discardedMessageCount: Int = 0
 
   def viewChangeMessageReceivedStatus: Seq[Boolean] =
     membership.sortedNodes.map(viewChangeMap.contains)
+
+  def discardedMessages: Int = discardedMessageCount
 
   /** Compute which view change messages we must retransmit based on which view change messages the
     * remote node already has
@@ -87,14 +91,16 @@ class PbftViewChangeState(
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processMessage(
       msg: SignedMessage[PbftViewChangeMessage]
-  )(implicit traceContext: TraceContext): Boolean =
-    msg.message match {
+  )(implicit traceContext: TraceContext): Boolean = {
+    val msgUsed = msg.message match {
       case _: ViewChange =>
         addViewChange(msg.asInstanceOf[SignedMessage[ViewChange]])
-
       case _: NewView =>
         setNewView(msg.asInstanceOf[SignedMessage[NewView]])
     }
+    if (!msgUsed) discardedMessageCount += 1
+    msgUsed
+  }
 
   def processEvent(abort: String => Unit)(
       event: PbftViewChangeEvent
@@ -114,7 +120,7 @@ class PbftViewChangeState(
 
   def viewChangeFromSelf: Option[SignedMessage[ViewChange]] = viewChangeMap.get(membership.myId)
   def isViewChangeFromSelfRehydration: Boolean = viewChangeFromSelfWasFromRehydration
-  def markViewChangeFromSelfasCommingFromRehydration(): Unit =
+  def markViewChangeFromSelfAsComingFromRehydration(): Unit =
     viewChangeFromSelfWasFromRehydration = true
 
   def reachedStrongQuorum: Boolean = membership.orderingTopology.hasStrongQuorum(viewChangeMap.size)
@@ -137,6 +143,14 @@ class PbftViewChangeState(
 
     val viewChangeSet =
       viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
+
+    // We remember the set of ViewChange messages used to construct PrePrepare(s) for the
+    // NewView message because we can receive additional ViewChange messages while waiting for
+    // bottom-block PrePrepare(s) to be signed asynchronously. This ensures that the
+    // same ViewChange message set used to construct PrePrepares is also included in the
+    // NewView, and subsequent validation will succeed.
+    assert(viewChangeMessageSetForNewView.isEmpty)
+    viewChangeMessageSetForNewView = Some(viewChangeSet)
 
     // Highest View-numbered PrePrepare from the vcSet defined for each block number
     val definedPrePrepares =
@@ -167,11 +181,13 @@ class PbftViewChangeState(
       metadata: BlockMetadata,
       segmentIdx: Int,
       prePrepares: Seq[SignedMessage[PrePrepare]],
+      abort: String => Nothing,
   ): NewView = {
 
-    // (Strong) quorum of validated view change messages collected from nodes
-    val viewChangeSet =
-      viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
+    // Reuse the saved strong quorum of validated view change messages collected from nodes
+    val viewChangeSet = viewChangeMessageSetForNewView.getOrElse(
+      abort("creating NewView message before constructing PrePrepares should not happen")
+    )
 
     NewView.create(
       metadata,

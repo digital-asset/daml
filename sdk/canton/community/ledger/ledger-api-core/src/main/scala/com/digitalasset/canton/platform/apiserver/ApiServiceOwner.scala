@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.apiserver
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.tracing.Telemetry
-import com.digitalasset.canton
 import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
@@ -17,7 +16,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
-import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.api.{
@@ -29,6 +28,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
@@ -39,8 +39,6 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandProgressTracker,
   DynamicSynchronizerParameterGetter,
 }
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey.CommunityKey
 import com.digitalasset.canton.platform.apiserver.services.TimeProviderType
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
@@ -81,10 +79,10 @@ object ApiServiceOwner {
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       // immutable configuration parameters
       participantId: Ref.ParticipantId,
-      meteringReportKey: MeteringReportKey = CommunityKey,
       // objects
       indexService: IndexService,
-      submissionTracker: SubmissionTracker,
+      transactionSubmissionTracker: SubmissionTracker,
+      reassignmentSubmissionTracker: SubmissionTracker,
       partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       userManagementStore: UserManagementStore,
@@ -116,7 +114,7 @@ object ApiServiceOwner {
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
       keepAlive: Option[KeepAliveServerConfig],
-      clock: canton.time.Clock,
+      packagePreferenceBackend: PackagePreferenceBackend,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -169,7 +167,8 @@ object ApiServiceOwner {
           timeServiceBackend.fold[TimeProviderType](TimeProviderType.WallClock)(_ =>
             TimeProviderType.Static
           ),
-        submissionTracker = submissionTracker,
+        transactionSubmissionTracker = transactionSubmissionTracker,
+        reassignmentSubmissionTracker = reassignmentSubmissionTracker,
         partyAllocationTracker = partyAllocationTracker,
         commandProgressTracker = commandProgressTracker,
         commandConfig = command,
@@ -189,7 +188,6 @@ object ApiServiceOwner {
         userManagementServiceConfig = userManagement,
         partyManagementServiceConfig = partyManagementServiceConfig,
         engineLoggingConfig = engineLoggingConfig,
-        meteringReportKey = meteringReportKey,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
         authenticateSerializableContract = authenticateSerializableContract,
@@ -197,7 +195,7 @@ object ApiServiceOwner {
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
         lfValueTranslation = lfValueTranslation,
-        clock = clock,
+        packagePreferenceBackend = packagePreferenceBackend,
         logger = loggerFactory.getTracedLogger(this.getClass),
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
       // for all the top level gRPC servicing apparatus we use the writeApiServicesExecutionContext
@@ -207,7 +205,7 @@ object ApiServiceOwner {
         maxInboundMessageSize,
         address,
         tls,
-        new UserBasedAuthorizationInterceptor(
+        new UserBasedAuthInterceptor(
           authServices = authServices :+ new IdentityProviderAwareAuthService(
             identityProviderConfigLoader = identityProviderConfigLoader,
             jwtVerifierLoader = jwtVerifierLoader,

@@ -492,7 +492,7 @@ class Engine(val config: EngineConfig) {
               Result.needContract(
                 coid,
                 { coinst =>
-                  callback(coinst.unversioned)
+                  callback(coinst.toThinInstance)
                   interpretLoop(machine, time)
                 },
               )

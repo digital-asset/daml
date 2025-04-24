@@ -98,9 +98,7 @@ message CompressedBatch {
 message SequencedEvent {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  // A sequence number for all events emitted to a subscriber. Starting at 0.
-  // The same event may have different counter values for different recipients.
-  int64 counter = 1;
+  reserved 1; // was the counter of the event, now unused
 
   // The timestamp of the previous event of the member's event sequence.
   // in microseconds of UTC time since Unix epoch

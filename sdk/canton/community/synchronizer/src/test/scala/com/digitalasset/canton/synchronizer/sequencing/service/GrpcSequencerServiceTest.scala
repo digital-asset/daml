@@ -6,11 +6,12 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
+import com.digitalasset.canton.config.{PositiveFiniteDuration, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.SuppressionRule.Level
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.{
@@ -63,6 +64,7 @@ import org.mockito.{ArgumentMatchers, Mockito}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 import org.scalatest.{Assertion, FutureOutcome}
+import org.slf4j.event
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Success
@@ -156,6 +158,8 @@ class GrpcSequencerServiceTest
           )
         )
       }
+
+    val acknowledgementsConflateWindow = PositiveFiniteDuration.ofSeconds(3)
     val service =
       new GrpcSequencerService(
         sequencer,
@@ -171,6 +175,7 @@ class GrpcSequencerServiceTest
         topologyInitService,
         BaseTest.testedProtocolVersion,
         maxItemsInTopologyResponse = PositiveInt.tryCreate(maxItemsInTopologyBatch),
+        acknowledgementsConflateWindow = Some(acknowledgementsConflateWindow),
       )
   }
 
@@ -650,6 +655,9 @@ class GrpcSequencerServiceTest
     )
 
   "acknowledgeSigned" should {
+    val defaultAcknowledgedRequest =
+      AcknowledgeRequest(participant, CantonTimestamp.Epoch, testedProtocolVersion)
+
     "reject unauthorized authenticated participant" in { implicit env =>
       val unauthorizedParticipant = DefaultTestIdentities.participant2
       val req =
@@ -669,8 +677,31 @@ class GrpcSequencerServiceTest
     }
 
     "succeed with correct participant" in { implicit env =>
-      val req = AcknowledgeRequest(participant, CantonTimestamp.Epoch, testedProtocolVersion)
-      performAcknowledgeRequest(env)(req).map(_ => succeed)
+      performAcknowledgeRequest(env)(defaultAcknowledgedRequest).map(_ => succeed)
+    }
+
+    "conflate acknowledgements within the conflate window" in { implicit env =>
+      import com.digitalasset.canton.discard.Implicits.DiscardOps
+
+      loggerFactory.assertLogs(Level(event.Level.DEBUG))(
+        {
+          // Assume that those 2 happen within acknowledgementsConflateWindow (set to 3s in the test)
+          performAcknowledgeRequest(env)(defaultAcknowledgedRequest).futureValue
+          performAcknowledgeRequest(env)(defaultAcknowledgedRequest).futureValue
+          verify(env.sequencer, times(1))
+            .acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(any[TraceContext])
+            .discard
+        },
+        _.debugMessage should include("Discarding acknowledgement"),
+      )
+      // Wait for the window
+      Threading.sleep(env.acknowledgementsConflateWindow.duration.toMillis)
+      // Next ack should go through
+      performAcknowledgeRequest(env)(defaultAcknowledgedRequest).futureValue
+      verify(env.sequencer, times(2))
+        .acknowledgeSigned(any[SignedContent[AcknowledgeRequest]])(any[TraceContext])
+        .discard
+      Future.successful(succeed)
     }
   }
 

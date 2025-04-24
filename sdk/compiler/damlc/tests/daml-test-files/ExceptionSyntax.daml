@@ -5,6 +5,8 @@
 -- @WARN -Werror=upgrade-exceptions
 -- @QUERY-LF [ $pkg.modules[].exceptions[] ] | length == 1
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 -- | Test that exception syntax is correctly handled.
 -- This is the "sugared" counterpart to ExceptionDesugared.
 module ExceptionSyntax where

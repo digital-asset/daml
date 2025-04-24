@@ -98,6 +98,7 @@ def _daml_package_rule_impl(ctx):
 
     package_db_dir = ctx.attr.package_db[PackageDb].db_dir
     disable_warn_large_tuples = "-Wno-large-tuples" if ctx.attr.disable_warn_large_tuples else "-Wlarge-tuples"
+    disable_deprecated_exceptions = "-Wno-deprecated-exceptions" if ctx.attr.disable_deprecated_exceptions else ""
 
     ctx.actions.run_shell(
         outputs = [dalf, iface_dir],
@@ -122,6 +123,7 @@ def _daml_package_rule_impl(ctx):
         --cpp {cpp} \
         --ghc-option=-Werror \
         {disable_warn_large_tuples} \
+        {disable_deprecated_exceptions} \
         -o {dalf_file} \
         {main}
 
@@ -139,6 +141,7 @@ def _daml_package_rule_impl(ctx):
             iface_dir = iface_dir.path,
             pkg_root = ctx.attr.pkg_root,
             disable_warn_large_tuples = disable_warn_large_tuples,
+            disable_deprecated_exceptions = disable_deprecated_exceptions,
         ),
     )
 
@@ -183,6 +186,9 @@ daml_package_rule = rule(
             mandatory = True,
         ),
         "disable_warn_large_tuples": attr.bool(
+            default = False,
+        ),
+        "disable_deprecated_exceptions": attr.bool(
             default = False,
         ),
     },

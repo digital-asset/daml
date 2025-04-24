@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.participant.config.{
-  LocalParticipantConfig,
+  ParticipantNodeConfig,
   RemoteParticipantConfig,
   TestingTimeServiceConfig,
   UnsafeOnlinePartyReplicationConfig,
@@ -357,14 +357,8 @@ object ConfigTransforms {
   }
 
   /** Enable the testing time service in the ledger API */
-  def useTestingTimeService: LocalParticipantConfig => LocalParticipantConfig =
+  def useTestingTimeService: ParticipantNodeConfig => ParticipantNodeConfig =
     _.focus(_.testingTime).replace(Some(TestingTimeServiceConfig.MonotonicTime))
-
-  /** Disable exclusion of infrastructure from transaction metering */
-  def meterInfrastructure: ConfigTransform =
-    updateAllParticipantConfigs_(
-      _.focus(_.parameters.excludeInfrastructureTransactions).replace(false)
-    )
 
   def updateContractIdSeeding(seeding: Seeding): ConfigTransform =
     updateAllParticipantConfigs_(
@@ -399,7 +393,7 @@ object ConfigTransforms {
     modifyAllStorageConfigs((_, nodeName, config) => withUniqueDbName(nodeName, config))
 
   def updateParticipantConfig(participantName: String)(
-      update: LocalParticipantConfig => LocalParticipantConfig
+      update: ParticipantNodeConfig => ParticipantNodeConfig
   ): ConfigTransform =
     cantonConfig =>
       cantonConfig
@@ -408,12 +402,12 @@ object ConfigTransforms {
         .modify(update)
 
   def updateAllParticipantConfigs_(
-      update: LocalParticipantConfig => LocalParticipantConfig
+      update: ParticipantNodeConfig => ParticipantNodeConfig
   ): ConfigTransform =
     updateAllParticipantConfigs((_, participantConfig) => update(participantConfig))
 
   def updateAllParticipantConfigs(
-      update: (String, LocalParticipantConfig) => LocalParticipantConfig
+      update: (String, ParticipantNodeConfig) => ParticipantNodeConfig
   ): ConfigTransform =
     cantonConfig =>
       cantonConfig
@@ -498,44 +492,55 @@ object ConfigTransforms {
           throw new IllegalArgumentException("Stable commands are already enabled")
       }
 
-  /** Configures auto-init option for all nodes. Sequencer nodes are imperatively set with auto-init
-    * \== false and this cannot be modified.
+  /** Configures auto-init option for all nodes.
     *
     * @param identity
-    *   controls how the node identity (prefix of the unique identifier) is determined. If defined
-    *   the node will be set to auto-init.
+    *   controls how the node identity (prefix of the unique identifier) is determined.
     * @param listNodeNamesO
     *   the list of nodes to apply the new configuration to. If None it applies the transformation
     *   to all nodes.
     */
   private def setAutoInit(
-      identity: Option[InitConfigBase.Identity],
+      identity: IdentityConfig,
+      autoGenerateTopologyTxsAndKeys: Boolean,
       listNodeNamesO: Option[Set[String]],
   ) =
     updateAllSequencerConfigs { case (name, config) =>
       listNodeNamesO match {
         case Some(listNodeNames) if listNodeNames.contains(name) =>
-          config.focus(_.init.identity).replace(identity)
+          config
+            .focus(_.init.identity)
+            .replace(identity)
+            .focus(_.init.generateTopologyTransactionsAndKeys)
+            .replace(autoGenerateTopologyTxsAndKeys)
         case _ => config
       }
     }
       .compose(updateAllMediatorConfigs { case (name, config) =>
         listNodeNamesO match {
           case Some(listNodeNames) if listNodeNames.contains(name) =>
-            config.focus(_.init.identity).replace(identity)
+            config
+              .focus(_.init.identity)
+              .replace(identity)
+              .focus(_.init.generateTopologyTransactionsAndKeys)
+              .replace(autoGenerateTopologyTxsAndKeys)
           case _ => config
         }
       })
       .compose(updateAllParticipantConfigs { case (name, config) =>
         listNodeNamesO match {
           case Some(listNodeNames) if listNodeNames.contains(name) =>
-            config.focus(_.init.identity).replace(identity)
+            config
+              .focus(_.init.identity)
+              .replace(identity)
+              .focus(_.init.generateTopologyTransactionsAndKeys)
+              .replace(autoGenerateTopologyTxsAndKeys)
           case _ => config
         }
       })
 
   def disableAutoInit(listNodeNames: Set[String]): ConfigTransform =
-    setAutoInit(None, Some(listNodeNames))
+    setAutoInit(IdentityConfig.Manual, autoGenerateTopologyTxsAndKeys = false, Some(listNodeNames))
 
   /** For performance tests...
     */
@@ -789,8 +794,8 @@ object ConfigTransforms {
   }
 
   def defaultsForNodes: Seq[ConfigTransform] =
-    setProtocolVersion(ProtocolVersion.v33) :+
-      ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v33)
+    setProtocolVersion(ProtocolVersion.v34) :+
+      ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v34)
 
   def setTopologyTransactionRegistrationTimeout(
       timeout: config.NonNegativeDuration
@@ -815,4 +820,7 @@ object ConfigTransforms {
       _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
     ),
   )
+
+  def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
+    _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 }

@@ -69,6 +69,9 @@ trait ProtoConverter[A, Proto, Err] {
 
 object ProtoConverter {
   type ParsingResult[+T] = Either[ProtoDeserializationError, T]
+  object ParsingResult {
+    def pure[T](value: T): ParsingResult[T] = Right(value)
+  }
 
   /** Helper to convert protobuf exceptions into ProtoDeserializationErrors
     *

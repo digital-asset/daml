@@ -15,7 +15,7 @@ message SequencerSnapshot {
 
   int64 latest_timestamp = 1; // in microseconds of UTC time since Unix epoch
   uint64 last_block_height = 2;
-  repeated MemberCounter head_member_counters = 3;
+  reserved 3; // was head_member_counters
   SequencerPruningStatus status = 4;
   ImplementationSpecificInfo additional = 5;
   repeated InFlightAggregationWithId in_flight_aggregations = 6;
@@ -30,11 +30,6 @@ message SequencerSnapshot {
     // - Set to the timestamp of the last event in the member's event stream <= SequencerSnapshot.latest_timestamp
     // in microseconds of UTC time since Unix epoch
     optional int64 previous_timestamp = 2;
-  }
-
-  message MemberCounter {
-    string member = 1;
-    int64 sequencer_counter = 2;
   }
 
   message InFlightAggregationWithId {

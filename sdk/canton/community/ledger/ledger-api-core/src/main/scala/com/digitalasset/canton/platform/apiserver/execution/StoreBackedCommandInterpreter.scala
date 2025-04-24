@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.*
 import cats.syntax.all.*
 import com.daml.metrics.{Timed, Tracked}
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.api.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
@@ -21,6 +21,7 @@ import com.digitalasset.canton.logging.{
   TracedLogger,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
@@ -38,9 +39,13 @@ import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.*
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.transaction.{
+  GlobalKeyWithMaintainers,
+  Node,
+  SubmittedTransaction,
+  Transaction,
+  Versioned,
+}
 import scalaz.syntax.tag.*
 
 import java.util.concurrent.TimeUnit
@@ -171,6 +176,7 @@ final class StoreBackedCommandInterpreter(
             commands.workflowId.map(_.unwrap),
             meta.submissionTime,
             submissionSeed,
+            LedgerTimeBoundaries(meta.timeBoundaries),
             Some(meta.usedPackages),
             Some(meta.nodeSeeds),
             Some(
@@ -224,7 +230,7 @@ final class StoreBackedCommandInterpreter(
       actAs: Set[Ref.Party],
       readAs: Set[Ref.Party],
       result: Result[A],
-      disclosedContracts: Map[ContractId, FatContractInstance],
+      disclosedContracts: Map[ContractId, Contract],
       interpretationTimeNanos: AtomicLong,
       ledgerEffectiveTime: Time.Timestamp,
       ledgerTimeRecordTimeToleranceO: Option[NonNegativeFiniteDuration],
@@ -252,13 +258,21 @@ final class StoreBackedCommandInterpreter(
               metrics.execution.lookupActiveContract,
               FutureUnlessShutdown.outcomeF(contractStore.lookupActiveContract(readers, acoid)),
             )
-            .flatMap { instance =>
+            .flatMap { case thinInstanceOpt =>
+              val fatInstanceOpt: Option[Contract] = thinInstanceOpt.map(thinInst =>
+                Contract.fromThinInstance(
+                  version = thinInst.version,
+                  packageName = thinInst.unversioned.packageName,
+                  template = thinInst.unversioned.template,
+                  arg = thinInst.unversioned.arg,
+                )
+              )
               lookupActiveContractTime.addAndGet(System.nanoTime() - start)
               lookupActiveContractCount.incrementAndGet()
               resolveStep(
                 Tracked.value(
                   metrics.execution.engineRunning,
-                  trackSyncExecution(interpretationTimeNanos)(resume(instance)),
+                  trackSyncExecution(interpretationTimeNanos)(resume(fatInstanceOpt)),
                 )
               )
             }
@@ -414,7 +428,7 @@ final class StoreBackedCommandInterpreter(
       signatories: Set[Ref.Party],
       observers: Set[Ref.Party],
       keyWithMaintainers: Option[GlobalKeyWithMaintainers],
-      disclosedContracts: Map[ContractId, FatContractInstance],
+      disclosedContracts: Map[ContractId, Contract],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[String]] = {
@@ -440,7 +454,7 @@ final class StoreBackedCommandInterpreter(
   private def checkContractUpgradable(
       coid: ContractId,
       recomputedContractMetadata: ContractMetadata,
-      disclosedContracts: Map[ContractId, FatContractInstance],
+      disclosedContracts: Map[ContractId, Contract],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[String]] = {
@@ -501,7 +515,7 @@ final class StoreBackedCommandInterpreter(
   private case class UpgradeVerificationContractData(
       contractId: ContractId,
       driverMetadataBytes: Array[Byte],
-      contractInstance: Value.VersionedContractInstance,
+      contractInstance: ThinContract,
       originalMetadata: ContractMetadata,
       recomputedMetadata: ContractMetadata,
       ledgerTime: CantonTimestamp,
@@ -562,18 +576,18 @@ final class StoreBackedCommandInterpreter(
 
   private object UpgradeVerificationContractData {
     def fromDisclosedContract(
-        disclosedContract: FatContractInstance,
+        disclosedContract: Contract,
         recomputedMetadata: ContractMetadata,
     ): UpgradeVerificationContractData =
       UpgradeVerificationContractData(
         contractId = disclosedContract.contractId,
         driverMetadataBytes = disclosedContract.cantonData.toByteArray,
-        contractInstance = Versioned(
-          disclosedContract.version,
-          ContractInstance(
-            packageName = disclosedContract.packageName,
-            template = disclosedContract.templateId,
-            arg = disclosedContract.createArg,
+        contractInstance = ThinContract(
+          packageName = disclosedContract.packageName,
+          template = disclosedContract.templateId,
+          arg = Versioned(
+            disclosedContract.version,
+            disclosedContract.createArg,
           ),
         ),
         originalMetadata = ContractMetadata.tryCreate(

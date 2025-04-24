@@ -77,10 +77,10 @@ object FutureUtil {
         } catch {
           case t: Throwable => // Catching all throwables, because we are merely logging.
             // Always log at ERROR independent of `level` because we don't expect `onFailure` to throw.
-            loggingContext.logger.error(
+            loggingContext.error(
               "An unexpected exception occurred while handling a failed future.",
               t,
-            )(loggingContext.traceContext)
+            )
             t.addSuppressed(err)
             throw t
         }

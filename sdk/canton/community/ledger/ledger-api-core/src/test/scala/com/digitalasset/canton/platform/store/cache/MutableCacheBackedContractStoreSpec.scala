@@ -23,7 +23,7 @@ import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueRecord, ValueText}
+import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueRecord, ValueText}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -351,7 +351,7 @@ object MutableCacheBackedContractStoreSpec {
   }
 
   private def activeContract(
-      contract: Contract,
+      contract: ThinContract,
       stakeholders: Set[Party],
       ledgerEffectiveTime: Timestamp,
       signatories: Set[Party] = exSignatories,
@@ -380,7 +380,7 @@ object MutableCacheBackedContractStoreSpec {
 
   private def party(name: String): IdString.Party = Party.assertFromString(name)
 
-  private def contract(templateName: String): Contract = {
+  private def contract(templateName: String): ThinContract = {
     val templateId = Identifier.assertFromString(s"some:template:$templateName")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
 
@@ -389,7 +389,7 @@ object MutableCacheBackedContractStoreSpec {
       ImmArray.Empty,
     )
     val contractInstance =
-      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
+      ThinContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 

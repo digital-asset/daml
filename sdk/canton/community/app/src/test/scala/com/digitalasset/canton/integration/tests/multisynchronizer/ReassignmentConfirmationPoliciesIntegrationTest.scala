@@ -109,7 +109,12 @@ sealed trait ReassignmentConfirmationPoliciesPartyIntegrationTest
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
 
       participant1.ledger_api.commands
-        .submit_reassign(signatory, LfContractId.assertFromString(iou.id.contractId), daId, acmeId)
+        .submit_reassign(
+          signatory,
+          Seq(LfContractId.assertFromString(iou.id.contractId)),
+          daId,
+          acmeId,
+        )
     }
   }
 
@@ -146,8 +151,7 @@ sealed trait ReassignmentConfirmationPoliciesPartyIntegrationTest
     val iou = IouSyntax.createIou(participant1, Some(daId))(alice, bob)
 
     val unassignId = participant1.ledger_api.commands
-      .submit_unassign(alice, LfContractId.assertFromString(iou.id.contractId), daId, acmeId)
-      .unassignedEvent
+      .submit_unassign(alice, Seq(LfContractId.assertFromString(iou.id.contractId)), daId, acmeId)
       .unassignId
 
     PartyToParticipantDeclarative(Set(participant1, participant2), Set(daId, acmeId))(

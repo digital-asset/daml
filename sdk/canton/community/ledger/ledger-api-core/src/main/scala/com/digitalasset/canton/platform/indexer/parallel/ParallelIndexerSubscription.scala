@@ -62,7 +62,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     maxOutputBatchedBufferSize: Int,
     maxTailerBatchSize: Int,
     postProcessingParallelism: Int,
-    excludedPackageIds: Set[Ref.PackageId],
     metrics: LedgerApiServerMetrics,
     inMemoryStateUpdaterFlow: InMemoryStateUpdater.UpdaterFlow,
     inMemoryState: InMemoryState,
@@ -156,10 +155,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                   metrics = metrics,
                 )
               ),
-              UpdateToMeteringDbDto(
-                metrics = metrics.indexer,
-                excludedPackageIds = excludedPackageIds,
-              ),
+              EventMetricsUpdater(metrics.indexer.meteredEventsMeter),
               logger,
             )
           ),
@@ -396,14 +392,12 @@ object ParallelIndexerSubscription {
   def inputMapper(
       metrics: LedgerApiServerMetrics,
       toDbDto: Offset => Update => Iterator[DbDto],
-      toMeteringDbDto: Iterable[(Offset, Update)] => Vector[
-        DbDto.TransactionMetering
-      ],
+      eventMetricsUpdater: Iterable[(Offset, Update)] => Unit,
       logger: TracedLogger,
   ): Iterable[(Offset, Update)] => Batch[Vector[DbDto]] = { input =>
     metrics.indexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
-    val mainBatch = input.iterator.flatMap { case (offset, update) =>
+    val batch = input.iterator.flatMap { case (offset, update) =>
       val prefix = update match {
         case _: Update.TransactionAccepted => "Phase 7: "
         case _ => ""
@@ -415,9 +409,7 @@ object ParallelIndexerSubscription {
 
     }.toVector
 
-    val meteringBatch = toMeteringDbDto(input)
-
-    val batch = mainBatch ++ meteringBatch
+    eventMetricsUpdater(input)
 
     @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
     val last = input.last
@@ -527,7 +519,6 @@ object ParallelIndexerSubscription {
 
           case unChanged: DbDto.PartyEntry => unChanged
           case unChanged: DbDto.StringInterningDto => unChanged
-          case unChanged: DbDto.TransactionMetering => unChanged
           case unChanged: DbDto.SequencerIndexMoved => unChanged
         }
 

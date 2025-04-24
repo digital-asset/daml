@@ -27,7 +27,6 @@ import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, CantonMutableHan
 import com.digitalasset.canton.participant.ParticipantNodeBootstrap.ParticipantServices
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.*
-import com.digitalasset.canton.participant.admin.workflows.java.canton
 import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.health.admin.ParticipantStatus
 import com.digitalasset.canton.participant.ledger.api.{
@@ -88,7 +87,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class ParticipantNodeBootstrap(
     arguments: CantonNodeBootstrapCommonArguments[
-      LocalParticipantConfig,
+      ParticipantNodeConfig,
       ParticipantNodeParameters,
       ParticipantMetrics,
     ],
@@ -105,7 +104,7 @@ class ParticipantNodeBootstrap(
     executionSequencerFactory: ExecutionSequencerFactory,
 ) extends CantonNodeBootstrapImpl[
       ParticipantNode,
-      LocalParticipantConfig,
+      ParticipantNodeConfig,
       ParticipantNodeParameters,
       ParticipantMetrics,
     ](arguments) {
@@ -438,7 +437,6 @@ class ParticipantNodeBootstrap(
           indexedStringStore,
           persistentState.map(_.acsCounterParticipantConfigStore).value,
           parameters,
-          config.topology,
           crypto,
           clock,
           tryGetPackageDependencyResolver(),
@@ -479,20 +477,6 @@ class ParticipantNodeBootstrap(
           loggerFactory,
         )
 
-        excludedPackageIds =
-          if (parameters.excludeInfrastructureTransactions) {
-            Set(
-              canton.internal.ping.Ping.PACKAGE_ID,
-              canton.internal.bong.BongProposal.PACKAGE_ID,
-              canton.internal.bong.Bong.PACKAGE_ID,
-              canton.internal.bong.Merge.PACKAGE_ID,
-              canton.internal.bong.Explode.PACKAGE_ID,
-              canton.internal.bong.Collapse.PACKAGE_ID,
-            ).map(LfPackageId.assertFromString)
-          } else {
-            Set.empty[LfPackageId]
-          }
-
         commandProgressTracker =
           if (parameters.commandProgressTracking.enabled)
             new CommandProgressTrackerImpl(parameters.commandProgressTracking, clock, loggerFactory)
@@ -520,7 +504,6 @@ class ParticipantNodeBootstrap(
                   indexerConfig = config.parameters.ledgerApiServer.indexer,
                   indexerHaConfig = ledgerApiServerFactory.createHaConfig(config),
                   ledgerParticipantId = participantId.toLf,
-                  excludedPackageIds = excludedPackageIds,
                   onlyForTestingEnableInMemoryTransactionStore =
                     arguments.testingConfig.enableInMemoryTransactionStoreForParticipants,
                 ),
@@ -726,6 +709,7 @@ class ParticipantNodeBootstrap(
           arguments.testingConfig,
           ledgerApiIndexerContainer,
           connectedSynchronizersLookupContainer,
+          () => triggerDeclarativeChange(),
         )
 
         _ = {
@@ -854,6 +838,7 @@ class ParticipantNodeBootstrap(
         addCloseable(synchronizerAliasManager)
         addCloseable(syncPersistentStateManager)
         addCloseable(synchronizerRegistry)
+        addCloseable(resourceManagementService)
         addCloseable(partyMetadataStore)
         persistentState.map(addCloseable).discard
         addCloseable((() => packageServiceContainer.closeCurrent()): AutoCloseable)
@@ -862,6 +847,17 @@ class ParticipantNodeBootstrap(
         addCloseable(ephemeralState.participantEventPublisher)
         addCloseable(topologyDispatcher)
         addCloseable(schedulers)
+        // TODO(#25118) clean up cache metrics on shutdown wherever they are initialized
+        addCloseable(new AutoCloseable {
+          override def close(): Unit =
+            Seq(
+              metrics.ledgerApiServer.execution.cache.keyState.stateCache,
+              metrics.ledgerApiServer.execution.cache.contractState.stateCache,
+              metrics.ledgerApiServer.identityProviderConfigStore.verifierCache,
+              metrics.ledgerApiServer.identityProviderConfigStore.idpConfigCache,
+              metrics.ledgerApiServer.userManagement.cache,
+            ).foreach(_.closeAcquired())
+        })
         addCloseable(ledgerApiServer)
         addCloseable(ledgerApiDependentServices)
         addCloseable(packageDependencyResolver)
@@ -910,7 +906,7 @@ class ParticipantNodeBootstrap(
       executionContext,
     )
 
-  override def config: LocalParticipantConfig = arguments.config
+  override def config: ParticipantNodeConfig = arguments.config
 
   /** If set to `Some(path)`, every sequencer client will record all received events to the
     * directory `path`.
@@ -965,7 +961,7 @@ object ParticipantNodeBootstrap {
 class ParticipantNode(
     val id: ParticipantId,
     val metrics: ParticipantMetrics,
-    val config: LocalParticipantConfig,
+    val config: ParticipantNodeConfig,
     nodeParameters: ParticipantNodeParameters,
     val storage: Storage,
     override protected val clock: Clock,

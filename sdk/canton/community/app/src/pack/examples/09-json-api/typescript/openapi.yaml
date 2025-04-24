@@ -1,7 +1,7 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: JSON Ledger API HTTP endpoints
-  version: 3.3.0-SNAPSHOT
+  version: 3.4.0-SNAPSHOT
 paths:
   /v2/commands/submit-and-wait:
     post:
@@ -37,7 +37,7 @@ paths:
       - apiKeyAuth: []
   /v2/commands/submit-and-wait-for-transaction:
     post:
-      description: Submit a batch of commands and wait for the flat transactions response
+      description: Submit a batch of commands and wait for the transaction response
       operationId: postV2CommandsSubmit-and-wait-for-transaction
       requestBody:
         content:
@@ -52,6 +52,39 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JsSubmitAndWaitForTransactionResponse'
+        '400':
+          description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/commands/submit-and-wait-for-reassignment:
+    post:
+      description: Submit a batch of reassignment commands and wait for the reassignment
+        response
+      operationId: postV2CommandsSubmit-and-wait-for-reassignment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitAndWaitForReassignmentRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsSubmitAndWaitForReassignmentResponse'
         '400':
           description: 'Invalid value for: body, Invalid value for: headers'
           content:
@@ -1517,52 +1550,6 @@ paths:
       security:
       - httpAuth: []
       - apiKeyAuth: []
-  /v2/metering/report/{user-id}:
-    get:
-      description: Metering report that provides information necessary for billing
-        participant and application operators.
-      operationId: getV2MeteringReportUser-id
-      parameters:
-      - name: user-id
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: from
-        in: query
-        required: true
-        schema:
-          type: string
-          format: date-time
-      - name: to
-        in: query
-        required: false
-        schema:
-          type: string
-          format: date-time
-      responses:
-        '200':
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetMeteringReportResponse'
-        '400':
-          description: 'Invalid value for: query parameter from, Invalid value for:
-            query parameter to, Invalid value for: headers'
-          content:
-            text/plain:
-              schema:
-                type: string
-        default:
-          description: ''
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/JsCantonError'
-      security:
-      - httpAuth: []
-      - apiKeyAuth: []
   /v2/interactive-submission/prepare:
     post:
       description: Prepare commands for signing
@@ -1714,6 +1701,7 @@ components:
       properties:
         partyDetails:
           $ref: '#/components/schemas/PartyDetails'
+          description: ''
     Any:
       title: Any
       type: object
@@ -1765,6 +1753,8 @@ components:
         templateId:
           description: |-
             The template of the archived contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         witnessParties:
@@ -1790,6 +1780,9 @@ components:
             The interfaces implemented by the target template that have been
             matched from the interface filter query.
             Populated only in case interface filters with include_interface_view set.
+
+            If defined, the identifier uses the package-id reference format.
+
             Optional
           type: array
           items:
@@ -2093,7 +2086,7 @@ components:
         synchronizerId:
           type: string
         permission:
-          $ref: '#/components/schemas/ParticipantPermission'
+          type: string
     CreateAndExerciseCommand:
       title: CreateAndExerciseCommand
       description: Create a contract and exercise a choice on it in the same transaction.
@@ -2107,6 +2100,9 @@ components:
         templateId:
           description: |-
             The template of the contract the client wants to create.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         createArguments:
@@ -2134,6 +2130,9 @@ components:
         templateId:
           description: |-
             The template of contract the client wants to create.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         createArguments:
@@ -2153,6 +2152,7 @@ components:
       properties:
         identityProviderConfig:
           $ref: '#/components/schemas/IdentityProviderConfig'
+          description: ''
     CreateUserRequest:
       title: CreateUserRequest
       description: |2-
@@ -2221,6 +2221,8 @@ components:
         templateId:
           description: |-
             The template of the created contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         contractKey:
@@ -2464,6 +2466,8 @@ components:
         templateId:
           description: |-
             The template id of the contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         contractId:
@@ -2488,7 +2492,6 @@ components:
       required:
       - seconds
       - nanos
-      - unknownFields
       properties:
         seconds:
           type: integer
@@ -2497,6 +2500,8 @@ components:
           type: integer
           format: int32
         unknownFields:
+          description: This field is automatically added as part of protobuf to json
+            mapping
           type: string
     Empty:
       title: Empty
@@ -2568,6 +2573,7 @@ components:
         indicates the subset of the requested parties that can see the event
         in question.
       oneOf:
+      - $ref: '#/components/schemas/ParticipantAuthorizationAdded'
       - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
       - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
     EventFormat:
@@ -2623,6 +2629,9 @@ components:
         templateId:
           description: |-
             The template of contract the client wants to exercise.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         contractKey:
@@ -2652,6 +2661,9 @@ components:
         templateId:
           description: |-
             The template of contract the client wants to exercise.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         contractId:
@@ -2711,11 +2723,15 @@ components:
         templateId:
           description: |-
             The template of the target contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         interfaceId:
           description: |-
             The interface where the choice is defined, if inherited.
+            If defined, the identifier uses the package-id reference format.
+
             Optional
           type: string
         choice:
@@ -2781,6 +2797,9 @@ components:
             If the event is consuming, the interfaces implemented by the target template that have been
             matched from the interface filter query.
             Populated only in case interface filters with include_interface_view set.
+
+            The identifier uses the package-id reference format.
+
             Optional
           type: array
           items:
@@ -2801,6 +2820,7 @@ components:
       - supported
       properties:
         supported:
+          description: ''
           type: boolean
     ExperimentalFeatures:
       title: ExperimentalFeatures
@@ -2809,8 +2829,10 @@ components:
       properties:
         staticTime:
           $ref: '#/components/schemas/ExperimentalStaticTime'
+          description: ''
         commandInspectionService:
           $ref: '#/components/schemas/ExperimentalCommandInspectionService'
+          description: ''
     ExperimentalStaticTime:
       title: ExperimentalStaticTime
       description: Ledger is in the static time mode and exposes a time service.
@@ -2819,6 +2841,7 @@ components:
       - supported
       properties:
         supported:
+          description: ''
           type: boolean
     FeaturesDescriptor:
       title: FeaturesDescriptor
@@ -2893,12 +2916,12 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             Templates to include in the served snapshot, per party.
             Optional, if specified event_format must be unset, if not specified event_format must be set.
         verbose:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels for record fields.
             Optional, if specified event_format must be unset.
@@ -2927,6 +2950,7 @@ components:
       type: object
       properties:
         connectedSynchronizers:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/ConnectedSynchronizer'
@@ -2943,7 +2967,7 @@ components:
           type: string
         requestingParties:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             The parties whose events the client expects to see.
             The events associated with the contract id will only be returned if the requesting parties includes
             at least one party that is a stakeholder of the event. For a definition of stakeholders see
@@ -2967,6 +2991,7 @@ components:
       properties:
         identityProviderConfig:
           $ref: '#/components/schemas/IdentityProviderConfig'
+          description: ''
     GetLatestPrunedOffsetsResponse:
       title: GetLatestPrunedOffsetsResponse
       type: object
@@ -3026,43 +3051,6 @@ components:
             If positive, the absolute offset of the ledger as viewed by the participant.
           type: integer
           format: int64
-    GetMeteringReportRequest:
-      title: GetMeteringReportRequest
-      description: Authorized if and only if the authenticated user is a participant
-        admin.
-      type: object
-      required:
-      - userId
-      properties:
-        from:
-          description: |-
-            The from timestamp (inclusive).
-            Required.
-          type: string
-        to:
-          description: |-
-            The to timestamp (exclusive).
-            If not provided, the server will default to its current time.
-          type: string
-        userId:
-          description: |-
-            If set to a non-empty value, then the report will only be generated for that user.
-            Optional.
-          type: string
-    GetMeteringReportResponse:
-      title: GetMeteringReportResponse
-      type: object
-      properties:
-        request:
-          $ref: '#/components/schemas/GetMeteringReportRequest'
-          description: The actual request that was executed.
-        reportGenerationTime:
-          description: The time at which the report was computed.
-          type: string
-        meteringReportJson:
-          description: |-
-            The metering report json.  For a JSON Schema definition of the JSon see:
-            https://github.com/digital-asset/daml/blob/main/ledger-api/grpc-definitions/metering-report-schema.json
     GetPackageStatusResponse:
       title: GetPackageStatusResponse
       type: object
@@ -3070,8 +3058,8 @@ components:
       - packageStatus
       properties:
         packageStatus:
-          $ref: '#/components/schemas/PackageStatus'
           description: The status of the package.
+          type: string
     GetParticipantIdResponse:
       title: GetParticipantIdResponse
       type: object
@@ -3106,8 +3094,8 @@ components:
             Optional
     GetTransactionByIdRequest:
       title: GetTransactionByIdRequest
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - updateId
@@ -3120,7 +3108,7 @@ components:
           type: string
         requestingParties:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             The parties whose events the client expects to see.
             Events that are not visible for the parties in this collection will not be present in the response.
             Each element must be a valid PartyIdString (as described in ``value.proto``).
@@ -3142,8 +3130,8 @@ components:
             - transaction_shape = TRANSACTION_SHAPE_ACS_DELTA
     GetTransactionByOffsetRequest:
       title: GetTransactionByOffsetRequest
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - offset
@@ -3157,7 +3145,7 @@ components:
           format: int64
         requestingParties:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             The parties whose events the client expects to see.
             Events that are not visible for the parties in this collection will not be present in the response.
             Each element must be a valid PartyIdString (as described in ``value.proto``).
@@ -3239,13 +3227,13 @@ components:
         filter:
           $ref: '#/components/schemas/TransactionFilter'
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             Requesting parties with template filters.
             Template filters must be empty for GetUpdateTrees requests.
             Optional for backwards compatibility, if defined update_format must be unset
         verbose:
           description: |-
-            TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+            Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
             If enabled, values served over the API will contain more information than strictly necessary to interpret the data.
             In particular, setting the verbose flag to true triggers the ledger to include labels, record and variant type ids
             for record fields.
@@ -3308,39 +3296,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Right'
-    HASHING_SCHEME_VERSION_UNSPECIFIED:
-      title: HASHING_SCHEME_VERSION_UNSPECIFIED
+    Identifier:
+      title: Identifier
       type: object
-    HASHING_SCHEME_VERSION_V2:
-      title: HASHING_SCHEME_VERSION_V2
-      type: object
-    HashingSchemeVersion:
-      title: HashingSchemeVersion
-      oneOf:
-      - type: object
-        required:
-        - HASHING_SCHEME_VERSION_UNSPECIFIED
-        properties:
-          HASHING_SCHEME_VERSION_UNSPECIFIED:
-            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
-      - type: object
-        required:
-        - HASHING_SCHEME_VERSION_V2
-        properties:
-          HASHING_SCHEME_VERSION_V2:
-            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V2'
-      - type: object
-        required:
-        - Recognized
-        properties:
-          Recognized:
-            $ref: '#/components/schemas/Recognized2'
-      - type: object
-        required:
-        - Unrecognized
-        properties:
-          Unrecognized:
-            $ref: '#/components/schemas/Unrecognized3'
+      required:
+      - packageId
+      - moduleName
+      - entityName
+      properties:
+        packageId:
+          type: string
+        moduleName:
+          type: string
+        entityName:
+          type: string
     IdentifierFilter:
       title: IdentifierFilter
       oneOf:
@@ -3448,6 +3417,9 @@ components:
             The interface that a matching contract must implement.
             The ``interface_id`` needs to be valid: corresponding interface should be defined in
             one of the available packages at the time of the query.
+            Both package-name and package-id reference formats for the identifier are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         includeInterfaceView:
@@ -3819,8 +3791,8 @@ components:
           description: See [PrepareSubmissionRequest.user_id]
           type: string
         hashingSchemeVersion:
-          $ref: '#/components/schemas/HashingSchemeVersion'
           description: The hashing scheme version used when building the hash
+          type: string
     JsGetActiveContractsResponse:
       title: JsGetActiveContractsResponse
       type: object
@@ -3855,8 +3827,8 @@ components:
             Optional
     JsGetTransactionResponse:
       title: JsGetTransactionResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - transaction
@@ -3866,8 +3838,8 @@ components:
           description: Required
     JsGetTransactionTreeResponse:
       title: JsGetTransactionTreeResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - transaction
@@ -3885,8 +3857,8 @@ components:
           $ref: '#/components/schemas/Update'
     JsGetUpdateTreesResponse:
       title: JsGetUpdateTreesResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - update
@@ -3941,6 +3913,8 @@ components:
         interfaceId:
           description: |-
             The interface implemented by the matched event.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         viewStatus:
@@ -4060,8 +4034,8 @@ components:
             May be removed in future versions
           type: string
         hashingSchemeVersion:
-          $ref: '#/components/schemas/HashingSchemeVersion'
           description: The hashing scheme version used when building the hash
+          type: string
         hashingDetails:
           description: |-
             Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
@@ -4129,18 +4103,8 @@ components:
     JsReassignmentEvent:
       title: JsReassignmentEvent
       oneOf:
-      - type: object
-        required:
-        - JsAssignmentEvent
-        properties:
-          JsAssignmentEvent:
-            $ref: '#/components/schemas/JsAssignmentEvent'
-      - type: object
-        required:
-        - JsUnassignedEvent
-        properties:
-          JsUnassignedEvent:
-            $ref: '#/components/schemas/JsUnassignedEvent'
+      - $ref: '#/components/schemas/JsAssignmentEvent'
+      - $ref: '#/components/schemas/JsUnassignedEvent'
     JsStatus:
       title: JsStatus
       type: object
@@ -4157,13 +4121,24 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Any'
+    JsSubmitAndWaitForReassignmentResponse:
+      title: JsSubmitAndWaitForReassignmentResponse
+      type: object
+      required:
+      - reassignment
+      properties:
+        reassignment:
+          $ref: '#/components/schemas/JsReassignment'
+          description: |-
+            The reassignment that resulted from the submitted reassignment command.
+            The reassignment might contain no events (request conditions result in filtering out all of them).
+            Required
     JsSubmitAndWaitForTransactionRequest:
       title: JsSubmitAndWaitForTransactionRequest
       description: These commands are executed as a single atomic transaction.
       type: object
       required:
       - commands
-      - transactionFormat
       properties:
         commands:
           $ref: '#/components/schemas/JsCommands'
@@ -4187,8 +4162,8 @@ components:
             Required
     JsSubmitAndWaitForTransactionTreeResponse:
       title: JsSubmitAndWaitForTransactionTreeResponse
-      description: TODO(i23504) Provided for backwards compatibility, it will be removed
-        in the final version.
+      description: Provided for backwards compatibility, it will be removed in the
+        Canton version 3.4.0.
       type: object
       required:
       - transactionTree
@@ -4330,7 +4305,7 @@ components:
     JsTransactionTree:
       title: JsTransactionTree
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -4456,6 +4431,7 @@ components:
       type: object
       properties:
         identityProviderConfigs:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/IdentityProviderConfig'
@@ -4638,6 +4614,7 @@ components:
           type: integer
           format: int64
         synchronizerTimes:
+          description: ''
           type: array
           items:
             $ref: '#/components/schemas/SynchronizerTime'
@@ -4674,24 +4651,6 @@ components:
         maxOffsetCheckpointEmissionDelay:
           $ref: '#/components/schemas/Duration'
           description: The maximum delay to emmit a new OffsetCheckpoint if it exists
-    PACKAGE_STATUS_REGISTERED:
-      title: PACKAGE_STATUS_REGISTERED
-      type: object
-    PACKAGE_STATUS_UNSPECIFIED:
-      title: PACKAGE_STATUS_UNSPECIFIED
-      type: object
-    PARTICIPANT_PERMISSION_CONFIRMATION:
-      title: PARTICIPANT_PERMISSION_CONFIRMATION
-      type: object
-    PARTICIPANT_PERMISSION_OBSERVATION:
-      title: PARTICIPANT_PERMISSION_OBSERVATION
-      type: object
-    PARTICIPANT_PERMISSION_SUBMISSION:
-      title: PARTICIPANT_PERMISSION_SUBMISSION
-      type: object
-    PARTICIPANT_PERMISSION_UNSPECIFIED:
-      title: PARTICIPANT_PERMISSION_UNSPECIFIED
-      type: object
     PackagePreference:
       title: PackagePreference
       type: object
@@ -4726,33 +4685,6 @@ components:
         packageVersion:
           description: Required
           type: string
-    PackageStatus:
-      title: PackageStatus
-      oneOf:
-      - type: object
-        required:
-        - PACKAGE_STATUS_REGISTERED
-        properties:
-          PACKAGE_STATUS_REGISTERED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_REGISTERED'
-      - type: object
-        required:
-        - PACKAGE_STATUS_UNSPECIFIED
-        properties:
-          PACKAGE_STATUS_UNSPECIFIED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_UNSPECIFIED'
-      - type: object
-        required:
-        - Recognized
-        properties:
-          Recognized:
-            $ref: '#/components/schemas/Recognized'
-      - type: object
-        required:
-        - Unrecognized
-        properties:
-          Unrecognized:
-            $ref: '#/components/schemas/Unrecognized1'
     ParticipantAdmin:
       title: ParticipantAdmin
       type: object
@@ -4764,6 +4696,24 @@ components:
     ParticipantAdmin1:
       title: ParticipantAdmin
       type: object
+    ParticipantAuthorizationAdded:
+      title: ParticipantAuthorizationAdded
+      type: object
+      required:
+      - partyId
+      - participantId
+      - participantPermission
+      properties:
+        partyId:
+          description: Required
+          type: string
+        participantId:
+          description: Required
+          type: string
+        participantPermission:
+          description: Required
+          type: integer
+          format: int32
     ParticipantAuthorizationChanged:
       title: ParticipantAuthorizationChanged
       type: object
@@ -4808,45 +4758,6 @@ components:
           type: array
           items:
             type: string
-    ParticipantPermission:
-      title: ParticipantPermission
-      oneOf:
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_CONFIRMATION
-        properties:
-          PARTICIPANT_PERMISSION_CONFIRMATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_CONFIRMATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_OBSERVATION
-        properties:
-          PARTICIPANT_PERMISSION_OBSERVATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_OBSERVATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_SUBMISSION
-        properties:
-          PARTICIPANT_PERMISSION_SUBMISSION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_SUBMISSION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_UNSPECIFIED
-        properties:
-          PARTICIPANT_PERMISSION_UNSPECIFIED:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_UNSPECIFIED'
-      - type: object
-        required:
-        - Recognized
-        properties:
-          Recognized:
-            $ref: '#/components/schemas/Recognized1'
-      - type: object
-        required:
-        - Unrecognized
-        properties:
-          Unrecognized:
-            $ref: '#/components/schemas/Unrecognized2'
     PartyDetails:
       title: PartyDetails
       type: object
@@ -4982,53 +4893,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReassignmentCommand'
-    Recognized:
-      title: Recognized
-      oneOf:
-      - type: object
-        required:
-        - PACKAGE_STATUS_REGISTERED
-        properties:
-          PACKAGE_STATUS_REGISTERED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_REGISTERED'
-      - type: object
-        required:
-        - PACKAGE_STATUS_UNSPECIFIED
-        properties:
-          PACKAGE_STATUS_UNSPECIFIED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_UNSPECIFIED'
-    Recognized1:
-      title: Recognized
-      oneOf:
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_CONFIRMATION
-        properties:
-          PARTICIPANT_PERMISSION_CONFIRMATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_CONFIRMATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_OBSERVATION
-        properties:
-          PARTICIPANT_PERMISSION_OBSERVATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_OBSERVATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_SUBMISSION
-        properties:
-          PARTICIPANT_PERMISSION_SUBMISSION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_SUBMISSION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_UNSPECIFIED
-        properties:
-          PARTICIPANT_PERMISSION_UNSPECIFIED:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_UNSPECIFIED'
-    Recognized2:
-      title: Recognized
-      oneOf:
-      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
-      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V2'
     RevokeUserRightsRequest:
       title: RevokeUserRightsRequest
       description: |-
@@ -5075,33 +4939,6 @@ components:
       properties:
         kind:
           $ref: '#/components/schemas/Kind'
-    SIGNATURE_FORMAT_CONCAT:
-      title: SIGNATURE_FORMAT_CONCAT
-      type: object
-    SIGNATURE_FORMAT_DER:
-      title: SIGNATURE_FORMAT_DER
-      type: object
-    SIGNATURE_FORMAT_RAW:
-      title: SIGNATURE_FORMAT_RAW
-      type: object
-    SIGNATURE_FORMAT_SYMBOLIC:
-      title: SIGNATURE_FORMAT_SYMBOLIC
-      type: object
-    SIGNATURE_FORMAT_UNSPECIFIED:
-      title: SIGNATURE_FORMAT_UNSPECIFIED
-      type: object
-    SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256:
-      title: SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
-      type: object
-    SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384:
-      title: SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
-      type: object
-    SIGNING_ALGORITHM_SPEC_ED25519:
-      title: SIGNING_ALGORITHM_SPEC_ED25519
-      type: object
-    SIGNING_ALGORITHM_SPEC_UNSPECIFIED:
-      title: SIGNING_ALGORITHM_SPEC_UNSPECIFIED
-      type: object
     Signature:
       title: Signature
       type: object
@@ -5112,33 +4949,18 @@ components:
       - signingAlgorithmSpec
       properties:
         format:
-          $ref: '#/components/schemas/SignatureFormat'
+          description: ''
+          type: string
         signature:
+          description: ''
           type: string
         signedBy:
           description: The fingerprint/id of the keypair used to create this signature
             and needed to verify.
           type: string
         signingAlgorithmSpec:
-          $ref: '#/components/schemas/SigningAlgorithmSpec'
           description: The signing algorithm specification used to produce this signature
-    SignatureFormat:
-      title: SignatureFormat
-      oneOf:
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_CONCAT'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_DER'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_RAW'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_SYMBOLIC'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized4'
-    SigningAlgorithmSpec:
-      title: SigningAlgorithmSpec
-      oneOf:
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256'
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384'
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_ED25519'
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized5'
+          type: string
     SinglePartySignatures:
       title: SinglePartySignatures
       description: Signatures provided by a single party
@@ -5173,6 +4995,22 @@ components:
             $ref: '#/components/schemas/Any'
         unknownFields:
           type: string
+    SubmitAndWaitForReassignmentRequest:
+      title: SubmitAndWaitForReassignmentRequest
+      description: This reassignment is executed as a single atomic update.
+      type: object
+      properties:
+        reassignmentCommands:
+          $ref: '#/components/schemas/ReassignmentCommands'
+          description: |-
+            The reassignment commands to be submitted.
+            Required
+        eventFormat:
+          $ref: '#/components/schemas/EventFormat'
+          description: |-
+            Optional
+            If no event_format provided, the result will contain no events.
+            The events in the result, will take shape TRANSACTION_SHAPE_ACS_DELTA.
     SubmitAndWaitResponse:
       title: SubmitAndWaitResponse
       type: object
@@ -5223,15 +5061,6 @@ components:
             All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
             Required
           type: string
-    TRANSACTION_SHAPE_ACS_DELTA:
-      title: TRANSACTION_SHAPE_ACS_DELTA
-      type: object
-    TRANSACTION_SHAPE_LEDGER_EFFECTS:
-      title: TRANSACTION_SHAPE_LEDGER_EFFECTS
-      type: object
-    TRANSACTION_SHAPE_UNSPECIFIED:
-      title: TRANSACTION_SHAPE_UNSPECIFIED
-      type: object
     TemplateFilter:
       title: TemplateFilter
       description: This filter matches contracts of a specific template.
@@ -5253,6 +5082,9 @@ components:
             A template for which the payload should be included in the response.
             The ``template_id`` needs to be valid: corresponding template should be defined in
             one of the available packages at the time of the query.
+            Both package-name and package-id reference formats for the identifier are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
             Required
           type: string
         includeCreatedEventBlob:
@@ -5310,6 +5142,7 @@ components:
           description: https://www.w3.org/TR/trace-context/
           type: string
         tracestate:
+          description: ''
           type: string
     Transaction:
       title: Transaction
@@ -5324,7 +5157,7 @@ components:
     TransactionFilter:
       title: TransactionFilter
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Used both for filtering create and archive events as well as for filtering transaction trees.
       type: object
       required:
@@ -5364,21 +5197,14 @@ components:
           $ref: '#/components/schemas/EventFormat'
           description: Required
         transactionShape:
-          $ref: '#/components/schemas/TransactionShape'
           description: |-
             What transaction shape to use for interpreting the filters of the event format.
             Required
-    TransactionShape:
-      title: TransactionShape
-      oneOf:
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_ACS_DELTA'
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_LEDGER_EFFECTS'
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized'
+          type: string
     TransactionTree:
       title: TransactionTree
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Complete view of an on-ledger transaction.
       type: object
       required:
@@ -5389,7 +5215,7 @@ components:
     TreeEvent:
       title: TreeEvent
       description: |-
-        TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+        Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
         Each tree event message type below contains a ``witness_parties`` field which
         indicates the subset of the requested parties that can see the event
         in question.
@@ -5413,9 +5239,10 @@ components:
     Tuple2_String_String:
       title: Tuple2_String_String
       type: array
-      prefixItems:
-      - type: string
-      - type: string
+      maxItems: 2
+      minItems: 2
+      items:
+        type: string
     UnassignCommand:
       title: UnassignCommand
       description: Unassign a contract
@@ -5484,6 +5311,8 @@ components:
         templateId:
           description: |-
             The template of the reassigned contract.
+            The identifier uses the package-id reference format.
+
             Required
           type: string
         source:
@@ -5546,60 +5375,6 @@ components:
             Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of reassignments.
             Required, must be valid node ID (non-negative integer)
-          type: integer
-          format: int32
-    Unrecognized:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized1:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized2:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized3:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized4:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized5:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
           type: integer
           format: int32
     Update:

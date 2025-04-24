@@ -354,10 +354,10 @@ scriptResultsToTestResults allPackages results =
           , S.singleton (loeToPackageId pkgIdToPkgName loe)
           )
         | n <- scriptNodes results
-        , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateContractInstance}) <-
+        , Just (SS.NodeNodeCreate SS.Node_Create {SS.node_CreateThinContractInstance}) <-
               [SS.nodeNode n]
-        , Just contractInstance <- [node_CreateContractInstance]
-        , Just identifier <- [SS.contractInstanceTemplateId contractInstance]
+        , Just contractInstance <- [node_CreateThinContractInstance]
+        , Just identifier <- [SS.thinContractInstanceTemplateId contractInstance]
         ]
 
     choicesExercisedIn :: LocalOrExternal -> [(VirtualResource, Either SSC.Error SS.ScriptResult)] -> M.Map T.Text (M.Map TemplateIdentifier (S.Set PackageId))

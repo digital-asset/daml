@@ -3,25 +3,8 @@
 
 package com.digitalasset.canton.config
 
-import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
-import pureconfig.{ConfigReader, ConfigWriter}
-
-import java.io.File
-
-/** Configuration for Java keystore with optional password protection. */
-final case class KeyStoreConfig(path: File, password: Password)
-
-class KeyStoreConfigWriters(confidential: Boolean) {
-  val confidentialWriter = new ConfidentialConfigWriter(confidential)
-
-  implicit val passwordWriter: ConfigWriter[Password] =
-    confidentialWriter[Password](_.copy(pw = "****"))
-  implicit val keyStoreConfigWriter: ConfigWriter[KeyStoreConfig] = deriveWriter[KeyStoreConfig]
-}
-
-object KeyStoreConfig {
-  implicit val keyStoreConfigReader: ConfigReader[KeyStoreConfig] = deriveReader[KeyStoreConfig]
-}
+import pureconfig.ConfigReader
+import pureconfig.generic.semiauto.deriveReader
 
 /** Password wrapper for keystores to prevent the values being printed in logs.
   * @param pw

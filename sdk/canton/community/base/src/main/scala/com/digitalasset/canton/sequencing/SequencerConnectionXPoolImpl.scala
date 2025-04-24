@@ -45,7 +45,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     member: Member,
     crypto: Crypto,
     seedForRandomnessO: Option[Long],
-    override val timeouts: ProcessingTimeout,
+    override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContextExecutor)
     extends SequencerConnectionXPool {
@@ -60,9 +60,9 @@ class SequencerConnectionXPoolImpl private[sequencing] (
   /** The pool itself, as a sequence of connections per sequencer ID */
   private val pool = mutable.Map[SequencerId, NonEmpty[Seq[SequencerConnectionX]]]()
 
-  /** Tracks the configured connections, along with their validated status. */
+  /** Tracks the configured connections, along with their validated status */
   private val trackedConnections: mutable.Map[InternalSequencerConnectionX, Boolean] =
-    new mutable.HashMap[InternalSequencerConnectionX, Boolean]()
+    mutable.HashMap[InternalSequencerConnectionX, Boolean]()
 
   /** Bootstrap information once the pool has been initialized */
   private val bootstrapCell = new SingleUseCell[BootstrapInfo]
@@ -164,7 +164,13 @@ class SequencerConnectionXPoolImpl private[sequencing] (
 
     private def register(): Unit =
       connection.health
-        .registerOnHealthChange(new HealthListener {
+        // We register on high priority to ensure that the pool is notified first of closing connections,
+        // before propagating the state to other clients.
+        // Indeed, clients of the pool are likely to register on a connection to be notified when it has stopped.
+        // As a consequence of the notification, they will request a new connection. If they are notified before the
+        // connection pool itself, they may receive the same connection again since the pool has not yet removed it
+        // from its contents. Then they will register, be notified that it is bad, request a new one, etc.
+        .registerHighPriorityOnHealthChange(new HealthListener {
           override def name: String = s"SequencerConnectionPool-${connection.name}"
 
           override def poke()(implicit traceContext: TraceContext): Unit = {
@@ -195,7 +201,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
       newConfig: SequencerConnectionXPoolConfig
   )(implicit
       traceContext: TraceContext
-  ): Either[SequencerConnectionXPool.SequencerConnectionXPoolError, Unit] =
+  ): Either[SequencerConnectionXPoolError, Unit] =
     blocking {
       lock.synchronized {
         val currentConfig = config
@@ -325,11 +331,8 @@ class SequencerConnectionXPoolImpl private[sequencing] (
   }
 
   override def onClosed(): Unit = {
-    val instances = blocking {
-      lock.synchronized {
-        trackedConnections.keySet.toSeq
-      }
-    }
+    val instances = blocking(lock.synchronized(trackedConnections.keySet.toSeq))
+
     // We close the connections outside the critical section to avoid shutdown problems in case
     // it triggers health callbacks
     LifeCycle.close(instances*)(logger)
@@ -501,7 +504,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
           head
         }.toSet
 
-        logger.debug(s"Returning ${pickedConnections.map(_.config.name)}")
+        logger.debug(s"Returning ${pickedConnections.map(_.name)}")
         pickedConnections
       }
     }

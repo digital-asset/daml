@@ -10,6 +10,7 @@ import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
@@ -66,20 +67,24 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
   private lazy val replaceDOP2 = mkSynchronizerParametersChange(SynchronizerId(uid2))
   private lazy val removeDOP3 =
     mkSynchronizerParametersChange(SynchronizerId(uid3), Remove, serial = PositiveInt.three)
-  private lazy val replaceIDD1 = mkStoredTransaction(
-    IdentifierDelegation(uid1, factory.SigningKeys.key1)
+  private lazy val replaceNSD1 = mkStoredTransaction(
+    NamespaceDelegation.tryCreate(
+      Namespace(factory.SigningKeys.key1.fingerprint),
+      factory.SigningKeys.key1,
+      CanSignAllMappings,
+    )
   )
 
   "StoredTopologyTransactions" should {
     lazy val simpleTransactionCollection = StoredTopologyTransactions(
-      Seq(replaceDOP1, removeDOP1, replaceDOP2, removeDOP3, replaceIDD1)
+      Seq(replaceDOP1, removeDOP1, replaceDOP2, removeDOP3, replaceNSD1)
     )
 
     "collect for simple collection" in {
       simpleTransactionCollection
         .collectOfType[Replace]
         .result should contain theSameElementsAs
-        Seq(replaceDOP1, replaceDOP2, replaceIDD1)
+        Seq(replaceDOP1, replaceDOP2, replaceNSD1)
 
       simpleTransactionCollection
         .collectOfType[Remove]
@@ -87,8 +92,8 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
         Seq(removeDOP1, removeDOP3)
 
       simpleTransactionCollection
-        .collectOfMapping[IdentifierDelegation] shouldBe StoredTopologyTransactions(
-        Seq(replaceIDD1)
+        .collectOfMapping[NamespaceDelegation] shouldBe StoredTopologyTransactions(
+        Seq(replaceNSD1)
       )
 
       simpleTransactionCollection
@@ -97,17 +102,17 @@ class TopologyTransactionCollectionTest extends AnyWordSpec with BaseTest with H
         Seq(replaceDOP1, removeDOP1, replaceDOP2, removeDOP3)
 
       simpleTransactionCollection.collectLatestByUniqueKey.result should contain theSameElementsAs
-        Seq(removeDOP1, replaceDOP2, removeDOP3, replaceIDD1)
+        Seq(removeDOP1, replaceDOP2, removeDOP3, replaceNSD1)
 
       TopologyTransactions.collectLatestByUniqueKey(
         simpleTransactionCollection.result
       ) should contain theSameElementsAs
-        Seq(removeDOP1, replaceDOP2, removeDOP3, replaceIDD1)
+        Seq(removeDOP1, replaceDOP2, removeDOP3, replaceNSD1)
 
       // remove duplicates
       TopologyTransactions.collectLatestByUniqueKey(
         simpleTransactionCollection.result ++ simpleTransactionCollection.result
-      ) should contain theSameElementsAs Seq(removeDOP1, replaceDOP2, removeDOP3, replaceIDD1)
+      ) should contain theSameElementsAs Seq(removeDOP1, replaceDOP2, removeDOP3, replaceNSD1)
     }
   }
 }

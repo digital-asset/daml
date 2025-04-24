@@ -22,13 +22,13 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.{
   AuthenticateFatContractInstance,
   AuthenticateSerializableContract,
 }
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl
@@ -45,7 +45,6 @@ import com.digitalasset.canton.platform.config.{
   UserManagementServiceConfig,
 }
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
-import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
@@ -100,7 +99,8 @@ object ApiServices {
       engine: Engine,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
-      submissionTracker: SubmissionTracker,
+      transactionSubmissionTracker: SubmissionTracker,
+      reassignmentSubmissionTracker: SubmissionTracker,
       partyAllocationTracker: PartyAllocation.Tracker,
       commandProgressTracker: CommandProgressTracker,
       commandConfig: CommandServiceConfig,
@@ -117,7 +117,6 @@ object ApiServices {
       userManagementServiceConfig: UserManagementServiceConfig,
       partyManagementServiceConfig: PartyManagementServiceConfig,
       engineLoggingConfig: EngineLoggingConfig,
-      meteringReportKey: MeteringReportKey,
       authenticateSerializableContract: AuthenticateSerializableContract,
       authenticateFatContractInstance: AuthenticateFatContractInstance,
       telemetry: Telemetry,
@@ -125,8 +124,8 @@ object ApiServices {
       dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
-      clock: Clock,
       logger: TracedLogger,
+      packagePreferenceBackend: PackagePreferenceBackend,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -141,7 +140,6 @@ object ApiServices {
     val maximumLedgerTimeService: MaximumLedgerTimeService = indexService
     val completionsService: IndexCompletionsService = indexService
     val partyManagementService: IndexPartyManagementService = indexService
-    val meteringStore: MeteringStore = indexService
 
     val (readServices, ledgerApiUpdateService) = {
       implicit val ec: ExecutionContext = queryExecutionContext
@@ -249,21 +247,11 @@ object ApiServices {
           List.empty
         }
 
-      val apiMeteringReportService =
-        new ApiMeteringReportService(
-          participantId,
-          meteringStore,
-          meteringReportKey,
-          telemetry,
-          loggerFactory,
-        )
-
       val readServices = ledgerApiServices :::
         apiInspectionServiceOpt.toList :::
         List(
           apiReflectionService,
           apiHealthService,
-          new MeteringReportServiceAuthorization(apiMeteringReportService, authorizer),
         ) ::: userManagementServices
       readServices -> ledgerApiUpdateService
     }
@@ -368,13 +356,15 @@ object ApiServices {
       )
       val apiCommandService = CommandServiceImpl.createApiService(
         commandsValidator = commandsValidator,
-        submissionTracker = submissionTracker,
+        transactionSubmissionTracker = transactionSubmissionTracker,
+        reassignmentSubmissionTracker = reassignmentSubmissionTracker,
         // Using local services skips the gRPC layer, improving performance.
         submit = apiSubmissionService.submitWithTraceContext,
+        submitReassignment = apiSubmissionService.submitReassignmentWithTraceContext,
         defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-        transactionServices = new CommandServiceImpl.TransactionServices(
+        updateServices = new CommandServiceImpl.UpdateServices(
           getTransactionTreeById = ledgerApiUpdateService.getTransactionTreeById,
-          getTransactionById = ledgerApiUpdateService.getTransactionById,
+          getUpdateById = ledgerApiUpdateService.getUpdateById,
         ),
         timeProvider = timeProvider,
         maxDeduplicationDuration = maxDeduplicationDuration,
@@ -385,10 +375,7 @@ object ApiServices {
       val apiInteractiveSubmissionService = {
         val interactiveSubmissionService =
           InteractiveSubmissionServiceImpl.createApiService(
-            clock,
             syncService,
-            timeProvider,
-            timeProviderType,
             seedService,
             commandExecutor,
             metrics,
@@ -396,6 +383,7 @@ object ApiServices {
             lfValueTranslation,
             interactiveSubmissionServiceConfig,
             contractStore,
+            packagePreferenceBackend,
             loggerFactory,
           )
 

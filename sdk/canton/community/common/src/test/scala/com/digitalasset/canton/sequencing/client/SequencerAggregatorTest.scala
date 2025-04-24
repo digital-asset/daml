@@ -7,7 +7,7 @@ import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.sequencing.SequencerAggregator.SequencerAggregatorError
-import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, SequencerAggregator}
+import com.digitalasset.canton.sequencing.{SequencedSerializedEvent, SequencerAggregator}
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{
   BaseTest,
@@ -464,7 +464,7 @@ class SequencerAggregatorTest
 
   private def assertDownstreamMessage(
       aggregator: SequencerAggregator,
-      message: OrdinarySerializedEvent,
+      message: SequencedSerializedEvent,
   ): Assertion =
     clue("Expected a single downstream message") {
       aggregator.eventQueue.size() shouldBe 1
@@ -473,7 +473,7 @@ class SequencerAggregatorTest
 
   private def assertCombinedDownstreamMessage(
       aggregator: SequencerAggregator,
-      events: OrdinarySerializedEvent*
+      events: SequencedSerializedEvent*
   ): Assertion = clue("Expected a single combined downstream message from multiple sequencers") {
     aggregator.eventQueue.size() shouldBe 1
     aggregator.eventQueue.take() shouldBe combinedMessage(aggregator, events*)
@@ -486,8 +486,8 @@ class SequencerAggregatorTest
 
   private def combinedMessage(
       aggregator: SequencerAggregator,
-      events: OrdinarySerializedEvent*
-  ): OrdinarySerializedEvent =
+      events: SequencedSerializedEvent*
+  ): SequencedSerializedEvent =
     aggregator
       .combine(NonEmptyUtil.fromUnsafe(events.toList))
       .value

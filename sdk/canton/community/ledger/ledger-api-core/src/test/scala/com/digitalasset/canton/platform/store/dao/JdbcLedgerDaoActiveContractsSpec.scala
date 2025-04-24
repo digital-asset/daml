@@ -7,7 +7,10 @@ import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.platform.TemplatePartiesFilter
-import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.Projection
+import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.{
+  Projection,
+  UseOriginalViewPackageId,
+}
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -45,7 +48,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       activeContractsAfter <- activeContractsOf(
@@ -56,7 +59,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -82,7 +85,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       (_, _) <- store(singleCreate)
@@ -99,7 +102,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -133,7 +136,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               templateWildcardWitnesses = Some(Set.empty),
               witnessTemplateProjections =
                 Map(Some(party1) -> Map(otherTemplateId -> Projection(contractArguments = true))),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -175,7 +178,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 Some(party1) -> Map(otherTemplateId -> Projection(contractArguments = true)),
                 Some(party2) -> Map(otherTemplateId -> Projection(contractArguments = true)),
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -224,7 +227,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 Some(party1) -> Map(otherTemplateId2 -> Projection(contractArguments = true)),
                 Some(party2) -> Map(otherTemplateId2 -> Projection(contractArguments = true)),
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -274,7 +277,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 Some(party1) -> Map(otherTemplateId -> Projection(contractArguments = true)),
                 Some(party2) -> Map(otherTemplateId -> Projection(contractArguments = true)),
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -324,7 +327,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                 Some(party1) -> Map(otherTemplateId4 -> Projection(contractArguments = true)),
                 Some(party2) -> Map(otherTemplateId4 -> Projection(contractArguments = true)),
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -372,7 +375,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -420,7 +423,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(otherTemplateId5 -> Projection(contractArguments = true))
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -474,7 +477,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultUnknownParty <- activeContractsOf(
@@ -493,7 +496,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
               witnessTemplateProjections = Map(
                 Some(party1) -> Map(someTemplateId -> Projection(contractArguments = true))
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultUnknownTemplate <- activeContractsOf(
@@ -516,7 +519,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                   unknownTemplate -> Projection(contractArguments = true),
                 )
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultUnknownTemplatePartyWildcard <- activeContractsOf(
@@ -541,7 +544,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                   unknownTemplate -> Projection(contractArguments = true)
                 ),
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultUnknownPartyAndTemplate <- activeContractsOf(
@@ -564,7 +567,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                   unknownTemplate -> Projection(contractArguments = true),
                 )
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultUnknownsOnly <- activeContractsOf(
@@ -585,7 +588,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
                   unknownTemplate -> Projection(contractArguments = true)
                 )
               ),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -608,7 +611,10 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
         .getActiveContracts(
           activeAt = ledgerEnd.map(_.lastOffset),
           filter = TemplatePartiesFilter(Map.empty, Some(Set(alice))),
-          eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set(alice))),
+          eventProjectionProperties = EventProjectionProperties(
+            verbose = true,
+            Some(Set(alice)),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         )
         .runWith(Sink.seq)
 
@@ -630,7 +636,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       activeContractsAfter <- activeContractsOf(
@@ -641,7 +647,7 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {

@@ -16,6 +16,7 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.concurrent.blocking
+import scala.concurrent.duration.DurationInt
 
 class GrpcConnectionXTest
     extends AnyWordSpec
@@ -101,7 +102,8 @@ class TestHealthListener(val element: HealthElement) extends HealthListener with
 
   def shouldStabilizeOn[T](state: T): Assertion =
     // Check that we reach the given state, and remain on it
-    eventuallyForever() {
+    // The default 2 seconds is a bit short when machines are under heavy load
+    eventuallyForever(timeUntilSuccess = 10.seconds) {
       statesBuffer.last shouldBe state
     }
 

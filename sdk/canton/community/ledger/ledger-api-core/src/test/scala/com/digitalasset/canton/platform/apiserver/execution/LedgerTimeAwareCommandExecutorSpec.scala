@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.EitherT
-import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
+import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.ledger.api.{CommandId, Commands}
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
 import com.digitalasset.canton.ledger.participant.state.{
@@ -108,6 +108,7 @@ class LedgerTimeAwareCommandExecutorSpec
           None,
           Time.Timestamp.Epoch,
           submissionSeed,
+          LedgerTimeBoundaries.unconstrained,
           None,
           None,
           None,
@@ -204,6 +205,7 @@ class LedgerTimeAwareCommandExecutorSpec
                 None,
                 Time.Timestamp.Epoch,
                 submissionSeed,
+                LedgerTimeBoundaries.unconstrained,
                 None,
                 None,
                 None,

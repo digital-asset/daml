@@ -32,8 +32,6 @@ object PackageUpgradeValidator {
   type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
 }
 
-// TODO(i16362): Should have unit tests on canton-side for this code as per discussion in https://github.com/DACH-NY/canton/pull/21040#discussion_r1734646573
-// https://github.com/DACH-NY/canton/issues/16362
 class PackageUpgradeValidator(
     getLfArchive: LoggingContextWithTrace => Ref.PackageId => FutureUnlessShutdown[Option[Archive]],
     val loggerFactory: NamedLoggerFactory,

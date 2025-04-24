@@ -24,7 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
-import DA.Daml.LF.TypeChecker.Error.WarningFlags (DamlWarningFlags)
+import DA.Daml.LF.TypeChecker.Error.WarningFlags (WarningFlags)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.LF.TypeChecker.WarnInvalidDependencies as WarnInvalidDependencies
 import DA.Daml.Options (expandSdkPackages)
@@ -38,7 +38,6 @@ import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.Conduit (ConduitT)
 import Data.Conduit.Combinators (sourceFile, sourceLazy)
-import Data.Functor.Contravariant
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -68,6 +67,7 @@ import qualified Data.SemVer as V
 import DA.Daml.Project.Types (ProjectPath (..), UnresolvedReleaseVersion(..))
 
 import SdkVersion.Class (SdkVersioned)
+import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
 
 -- | Create a DAR file by running a ZipArchive action.
 createDarFile :: Logger.Handle IO -> FilePath -> Zip.ZipArchive () -> IO ()
@@ -113,10 +113,10 @@ buildDar ::
     -> NormalizedFilePath
     -> FromDalf
     -> UpgradeInfo
-    -> DamlWarningFlags ErrorOrWarning
+    -> WarningFlags TypeCheckerError.ErrorOrWarning
     -> Maybe ProjectPath
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFlags mbProjectPath = do
+buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo typecheckerWarningFlags mbProjectPath = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -171,8 +171,8 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFla
 
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkPackage pkg (map Upgrade.dalfPackageToUpgradedPkg (Map.elems dalfDependencies0)) lfVersion upgradeInfo (contramap Left warningFlags) mbUpgradedPackage
-                           <> WarnInvalidDependencies.checkPackage pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo (contramap Left warningFlags) rootDepsDalfs mbUpgradedPackage
+                         Upgrade.checkPackage pkg (map Upgrade.dalfPackageToUpgradedPkg (Map.elems dalfDependencies0)) lfVersion upgradeInfo typecheckerWarningFlags mbUpgradedPackage
+                           <> WarnInvalidDependencies.checkPackage pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo typecheckerWarningFlags rootDepsDalfs mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0

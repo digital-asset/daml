@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.participant.protocol.validation.RecipientsValidator
 import com.digitalasset.canton.participant.store
-import com.digitalasset.canton.participant.store.SyncEphemeralState
+import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -1248,14 +1248,14 @@ abstract class ProtocolProcessor[
       .getOrElse(AsyncResult.immediate)
 
   override def processResult(
-      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
+      counter: SequencerCounter,
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult = {
     val content = event.event.content
     val ts = content.timestamp
-    val sc = content.counter
 
     val processedET = performUnlessClosingEitherUSFAsync(
-      s"ProtocolProcess.processResult(sc=$sc, traceId=${traceContext.traceId}"
+      s"ProtocolProcess.processResult(sc=$counter, traceId=${traceContext.traceId}"
     ) {
       val resultEnvelopes =
         content.batch.envelopes
@@ -1272,7 +1272,7 @@ abstract class ProtocolProcessor[
         show"Got result for ${steps.requestKind.unquoted} request at $requestId: $resultEnvelopes"
       )
 
-      processResultInternal1(event, result, requestId, ts, sc)
+      processResultInternal1(event, result, requestId, ts, counter)
     }(_.value)
 
     handlerResultForConfirmationResult(ts, processedET)
@@ -1804,8 +1804,8 @@ abstract class ProtocolProcessor[
   }
 
   /** A request precedes the clean replay if it came before the
-    * [[com.digitalasset.canton.participant.store.SyncEphemeralState.startingPoints]]'s
-    * [[com.digitalasset.canton.participant.store.SyncEphemeralStateFactory.StartingPoints.cleanReplay]].
+    * [[com.digitalasset.canton.participant.sync.SyncEphemeralState.startingPoints]]'s
+    * [[com.digitalasset.canton.participant.sync.SyncEphemeralStateFactory.StartingPoints.cleanReplay]].
     */
   private[this] def precedesCleanReplay(requestId: RequestId): Boolean =
     requestId.unwrap <= ephemeral.startingPoints.cleanReplay.prenextTimestamp

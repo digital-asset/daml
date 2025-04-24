@@ -10,6 +10,7 @@ load("//daml-lf/language:daml-lf.bzl", "COMPILER_LF_VERSIONS", "lf_version_defau
     daml_compile(
         name = "daml-script-{}".format(lf_version),
         srcs = glob(["**/*.daml"]),
+        disable_deprecated_exceptions = True,
         force_utility_package = True,
         # Force daml files to be under `daml` directory, to match previous behaviour
         generated_daml_source_directory = "daml",
@@ -64,6 +65,7 @@ genrule(
             --base-url=https://docs.daml.com/daml-script/api/ \\
             --output-hoogle=$(location :daml-script-hoogle.txt) \\
             --output-anchor=$(location :daml-script-anchors.json) \\
+            -Wno-deprecated-exceptions \\
             $(location :daml-script.json)
         $(execpath //bazel_tools/sh:mktgz) $(location :daml-script-rst.tar.gz) daml-script-rst
     """,
@@ -84,6 +86,7 @@ genrule(
             --package-name=daml-script \
             --format=Json \
             --target=2.dev \
+            -Wno-deprecated-exceptions \
             $(location Daml/Script.daml)
     """,
     tools = [

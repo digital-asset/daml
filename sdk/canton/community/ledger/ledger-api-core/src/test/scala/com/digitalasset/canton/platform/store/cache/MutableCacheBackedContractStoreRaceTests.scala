@@ -25,7 +25,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64}
+import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueInt64}
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -173,7 +173,7 @@ private object MutableCacheBackedContractStoreRaceTests {
     }
 
   private def assertContractIdAssignmentAfterAppliedEvent(
-      assignment: Option[Contract]
+      assignment: Option[ThinContract]
   )(event: SimplifiedContractStateEvent): Unit =
     assignment match {
       case Some(actualContract) if (event.contract != actualContract) || !event.created =>
@@ -241,7 +241,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           val contractRef = contract(globalContractIdx)
           (contractId, contractRef)
         }
-        .foldLeft(VectorMap.empty[ContractId, Contract]) { case (r, (k, v)) =>
+        .foldLeft(VectorMap.empty[ContractId, ThinContract]) { case (r, (k, v)) =>
           r.updated(k, v)
         }
     }
@@ -296,17 +296,17 @@ private object MutableCacheBackedContractStoreRaceTests {
   final case class SimplifiedContractStateEvent(
       offset: Offset,
       contractId: ContractId,
-      contract: Contract,
+      contract: ThinContract,
       created: Boolean,
       key: GlobalKey,
   )
 
-  private def contract(idx: Long): Contract = {
+  private def contract(idx: Long): ThinContract = {
     val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = Value.ValueInt64(idx)
     val contractInstance =
-      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
+      ThinContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
     Versioned(TransactionVersion.StableVersions.max, contractInstance)
   }
 
@@ -354,7 +354,7 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   final case class ContractLifecycle(
       contractId: ContractId,
-      contract: Contract,
+      contract: ThinContract,
       createdAt: Offset,
       archivedAt: Option[Offset],
   )

@@ -16,6 +16,7 @@ final class CommandServiceImpl(
     submitAndWaitResponse: Future[SubmitAndWaitResponse],
     submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
     submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+    submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
 ) extends CommandService
     with FakeAutoCloseable {
 
@@ -40,6 +41,12 @@ final class CommandServiceImpl(
     submitAndWaitForTransactionTreeResponse
   }
 
+  override def submitAndWaitForReassignment(
+      request: SubmitAndWaitForReassignmentRequest
+  ): Future[SubmitAndWaitForReassignmentResponse] = {
+    submitAndWaitForReassignmentResponse
+  }
+
   def getLastCommands: Option[Commands] = this.lastCommands
 }
 
@@ -49,12 +56,14 @@ object CommandServiceImpl {
       submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
+      submitAndWaitForReassignmentResponse: Future[SubmitAndWaitForReassignmentResponse],
       authorizer: Authorizer,
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, CommandServiceImpl) = {
     val impl = new CommandServiceImpl(
       submitAndWaitResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
+      submitAndWaitForReassignmentResponse,
     )
     val authImpl = new CommandServiceAuthorization(impl, authorizer)
     (CommandServiceGrpc.bindService(authImpl, ec), impl)

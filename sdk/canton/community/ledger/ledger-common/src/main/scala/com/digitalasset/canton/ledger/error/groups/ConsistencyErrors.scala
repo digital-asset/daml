@@ -12,7 +12,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.ConsistencyErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 
@@ -40,7 +40,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
         override val definiteAnswer: Boolean = false,
         existingCommandSubmissionId: Option[String],
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = "A command with the given command id has already been successfully processed",
           definiteAnswer = definiteAnswer,
@@ -64,7 +64,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
       ) {
 
     final case class Reject(override val cause: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
   }
@@ -83,7 +83,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
 
     final case class Reject(
         details: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
+    )(implicit loggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(
           cause = s"Inconsistent: $details"
         )
@@ -106,7 +106,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
         override val cause: String,
         cid: Value.ContractId,
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
         ) {
@@ -131,7 +131,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
         override val cause: String,
         key: GlobalKey,
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
         ) {
@@ -148,7 +148,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
     }
 
     final case class Reject(reason: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = reason)
 
   }
@@ -165,7 +165,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
       ) {
 
     final case class Reject(cid: Value.ContractId)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Invalid disclosed contract: ${cid.coid}"
         ) {
@@ -189,7 +189,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
         override val cause: String,
         key: GlobalKey,
     )(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause
         ) {
@@ -206,7 +206,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
     }
 
     final case class Reject(override val cause: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(cause = cause)
 
   }
@@ -226,7 +226,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
         ledgerTime: Instant,
         ledgerTimeLowerBound: Instant,
         ledgerTimeUpperBound: Instant,
-    )(implicit loggingContext: ContextualizedErrorLogger)
+    )(implicit loggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(cause = cause) {
       override def context: Map[String, String] = super.context ++ Map(
         "ledger_time" -> ledgerTime.toString,
@@ -237,7 +237,7 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
 
     final case class RejectSimple(
         override val cause: String
-    )(implicit loggingContext: ContextualizedErrorLogger)
+    )(implicit loggingContext: ErrorLoggingContext)
         extends DamlErrorWithDefiniteAnswer(cause = cause)
 
   }
@@ -252,11 +252,20 @@ object ConsistencyErrors extends ConsistencyErrorGroup {
       |If the in-flight submission has failed by then, the resubmission will attempt to record the new transaction on the ledger.
       |"""
   )
-  // This command deduplication error is currently used only by Canton.
-  // It is defined here so that the general command deduplication documentation can refer to it.
   object SubmissionAlreadyInFlight
       extends ErrorCode(
         id = "SUBMISSION_ALREADY_IN_FLIGHT",
         ErrorCategory.ContentionOnSharedResources,
-      )
+      ) {
+    // used by Ledger API command tracking
+    final case class Reject(
+        override val definiteAnswer: Boolean = false
+    )(implicit
+        loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            "A submission with the given change ID (user ID, command ID, actAs) and submission ID is already in flight",
+          definiteAnswer = definiteAnswer,
+        )
+  }
 }

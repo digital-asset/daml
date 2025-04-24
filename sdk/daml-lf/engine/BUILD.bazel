@@ -10,15 +10,15 @@ load(
     "lf_scalacopts_stricter",
 )
 load(
-    "//rules_daml:daml.bzl",
-    "daml_compile",
-)
-load(
     "//daml-lf/language:daml-lf.bzl",
     "COMPILER_LF_MAJOR_VERSIONS",
     "ENGINE_LF_DEV_VERSIONS",
     "lf_version_default_or_latest",
     "mangle_for_damlc",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
 )
 
 da_scala_library(
@@ -221,7 +221,6 @@ da_scala_test(
         "//daml-lf/parser",
         "//daml-lf/stable-packages",
         "//daml-lf/transaction",
-        "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",

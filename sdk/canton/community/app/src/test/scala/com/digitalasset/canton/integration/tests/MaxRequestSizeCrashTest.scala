@@ -115,11 +115,13 @@ sealed abstract class MaxRequestSizeCrashTest
             _.update(maxRequestSize = lowMaxRequestSize.unwrap),
           )
       }
+
       eventually() {
-        forAll(nodes.local) { owner =>
-          forAll(owner.topology.synchronizer_parameters.list(daId).map(_.item.maxRequestSize))(
-            _ == lowMaxRequestSize
-          )
+        forAll(Seq(sequencer1, sequencer2) ++ participants.all) {
+          _.topology.synchronizer_parameters
+            .get_dynamic_synchronizer_parameters(daId)
+            .maxRequestSize
+            .value shouldBe lowMaxRequestSize.unwrap
         }
       }
 

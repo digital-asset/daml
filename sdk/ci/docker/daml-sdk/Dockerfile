@@ -1,6 +1,6 @@
 FROM ubuntu:jammy
 RUN apt-get update \
- && apt-get install -y curl openjdk-11-jre-headless \
+ && apt-get install -y curl openjdk-17-jre-headless \
  && rm -rf /var/lib/apt/lists/*
 ARG VERSION
 # This is needed to get the DNS requests

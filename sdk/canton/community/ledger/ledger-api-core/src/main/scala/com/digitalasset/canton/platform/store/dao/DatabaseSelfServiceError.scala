@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.dao
 
 import com.digitalasset.canton.ledger.error.IndexErrors
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import io.grpc.StatusRuntimeException
 import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
 import org.postgresql.util.PSQLException
@@ -23,7 +23,7 @@ import java.sql.*
 object DatabaseSelfServiceError {
   def apply(
       exception: Throwable
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Throwable = exception match {
+  )(implicit errorLoggingContext: ErrorLoggingContext): Throwable = exception match {
     // This frequently occurs when running with H2, because H2 does not properly implement the serializable
     // isolation level. This causes unexpected constraint violation exceptions when running with H2 in the presence
     // of contention. For now, we retry on these exceptions.
@@ -40,12 +40,12 @@ object DatabaseSelfServiceError {
   }
 
   private def retryable(ex: SQLException)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): StatusRuntimeException =
     IndexErrors.DatabaseErrors.SqlTransientError.Reject(ex).asGrpcError
 
   private def nonRetryable(ex: SQLException)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): StatusRuntimeException =
     IndexErrors.DatabaseErrors.SqlNonTransientError.Reject(ex).asGrpcError
 

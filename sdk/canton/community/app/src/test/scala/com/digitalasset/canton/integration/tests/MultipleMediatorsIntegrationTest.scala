@@ -50,6 +50,7 @@ import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
 import com.digitalasset.canton.topology.{ForceFlag, MediatorId}
 import org.scalatest.Assertion
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
@@ -127,16 +128,34 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
         )
         .cause
 
+      val errorUnknownSender = SequencerErrors
+        .SenderUnknown(
+          s"(Eligible) Senders are unknown: MED::"
+        )
+        .cause
+
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         submit(),
         logEntries => {
-          logEntries.size should be <= 3
-          logEntries.head.warningMessage should include(error) // warning
-          logEntries.last.errorMessage should include(error) // failure of console command
-          if (logEntries.sizeIs == 3) {
+          logEntries.size should be <= 4
+          if (logEntries.sizeIs == 4) {
+            logEntries.head.errorMessage should include(
+              errorUnknownSender
+            ) // GrpcRequestRefusedByServer: FAILED_PRECONDITION/SEQUENCER_SENDER_UNKNOWN
+            logEntries(1).warningMessage should include(error) // warning
             // failure of the submission when no tracking is used
+            logEntries(2).warningMessage should include(error)
+          } else if (logEntries.sizeIs == 3) {
+            // we can have either GrpcRequestRefusedByServer: FAILED_PRECONDITION/SEQUENCER_SENDER_UNKNOWN and warning,
+            // or warning and failure of the submission when no tracking is used
+            if (logEntries.head.level == Level.ERROR)
+              logEntries.head.errorMessage should include(errorUnknownSender)
+            else logEntries.head.warningMessage should include(error)
             logEntries(1).warningMessage should include(error)
+          } else if (logEntries.sizeIs == 2) {
+            logEntries.head.warningMessage should include(error)
           } else succeed
+          logEntries.last.errorMessage should include(error) // failure of console command
         },
       )
     }
@@ -314,6 +333,11 @@ class MultipleMediatorsIntegrationTest
 
         sequencer1.topology.mediators.remove_group(daId, NonNegativeInt.zero)
 
+        eventually() {
+          participant1.topology.mediators
+            .list(daId, group = Some(NonNegativeInt.one)) shouldBe empty
+        }
+
         loggerFactory.assertThrowsAndLogs[CommandFailure](
           createCycleContract(participant1, participant1.adminParty, "no-mediator-on-synchronizer"),
           _.errorMessage should include(SynchronizerWithoutMediatorError.code.id),
@@ -326,6 +350,10 @@ class MultipleMediatorsIntegrationTest
           PositiveInt.one,
           active = Seq(mediator2),
         )
+        eventually() {
+          participant1.topology.mediators
+            .list(daId, group = Some(NonNegativeInt.one)) should not be empty
+        }
 
         createCycleContract(participant1, participant1.adminParty, "mediator-reactivated")
       }

@@ -473,6 +473,7 @@ final case class Topology[
       ],
     ],
 ) {
+  lazy val activeNodes: Set[BftNodeId] = activeSequencersToMachines.view.keySet.toSet
   lazy val activeNonInitialEndpoints: Seq[P2PEndpoint] =
     laterOnboardedEndpointsWithInitializers
       .filter { case (endpoint, _) =>

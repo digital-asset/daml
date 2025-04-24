@@ -217,7 +217,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       val unassigned = clue(s"unassign from $synchronizer1 to $synchronizer2") {
         participant1.ledger_api.commands.submit_unassign(
           payer,
-          contractId.toLf,
+          Seq(contractId.toLf),
           synchronizerId1,
           synchronizerId2,
           submissionId = "unassignment-synchronizer2-synchronizer1",
@@ -236,7 +236,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       clue(s"assignment on $synchronizer1") {
         participant2.ledger_api.commands.submit_assign(
           owner,
-          unassigned.unassignedEvent.unassignId,
+          unassigned.unassignId,
           synchronizerId1,
           synchronizerId2,
           submissionId = "assignment-synchronizer2-synchronizer1",

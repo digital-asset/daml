@@ -26,7 +26,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.BftNodeShuffler
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
-import com.google.common.annotations.VisibleForTesting
 
 import scala.util.{Failure, Random, Success}
 
@@ -44,6 +43,9 @@ class StateTransferManager[E <: Env[E]](
     epochStore: EpochStore[E],
     random: Random,
     override val loggerFactory: NamedLoggerFactory,
+)(
+    private val maybeCustomTimeoutManager: Option[TimeoutManager[E, Consensus.Message[E], String]] =
+      None
 )(implicit config: BftBlockOrdererConfig)
     extends NamedLogging {
 
@@ -59,15 +61,13 @@ class StateTransferManager[E <: Env[E]](
     loggerFactory,
   )
 
-  @VisibleForTesting
-  private[bftordering] val maybeBlockTransferResponseTimeoutManager =
-    new SingleUseCell[TimeoutManager[E, Consensus.Message[E], EpochNumber]]
-  private def blockTransferResponseTimeoutManager(abort: String => Nothing) =
-    maybeBlockTransferResponseTimeoutManager.getOrElse(
-      abort(
-        "Internal inconsistency: there should be a block transfer response timeout manager available"
-      )
+  private val timeoutManager = maybeCustomTimeoutManager.getOrElse(
+    new TimeoutManager[E, Consensus.Message[E], String](
+      loggerFactory,
+      config.epochStateTransferRetryTimeout,
+      timeoutId = "state transfer",
     )
+  )
 
   private val nodeShuffler = new BftNodeShuffler(random)
 
@@ -89,7 +89,7 @@ class StateTransferManager[E <: Env[E]](
       logger.info(
         s"State transfer: starting catch-up from epoch $startEpoch, latest completed epoch is $latestCompletedEpochNumber"
       )
-      initStateTransfer(startEpoch, abort)
+      initStateTransfer(startEpoch)(abort)
 
       val blockTransferRequest =
         StateTransferMessage.BlockTransferRequest.create(startEpoch, membership.myId)
@@ -109,7 +109,7 @@ class StateTransferManager[E <: Env[E]](
       logger.info(s"State transfer: requesting new epoch $newEpochNumber")
     } else {
       logger.info(s"State transfer: starting onboarding state transfer from epoch $newEpochNumber")
-      initStateTransfer(newEpochNumber, abort)
+      initStateTransfer(newEpochNumber)(abort)
     }
     val blockTransferRequest =
       StateTransferMessage.BlockTransferRequest.create(newEpochNumber, membership.myId)
@@ -118,7 +118,7 @@ class StateTransferManager[E <: Env[E]](
     }
   }
 
-  private def initStateTransfer(startEpoch: EpochNumber, abort: String => Nothing): Unit = {
+  private def initStateTransfer(startEpoch: EpochNumber)(abort: String => Nothing): Unit =
     stateTransferStartEpoch
       .putIfAbsent(startEpoch)
       .foreach(_ =>
@@ -126,20 +126,6 @@ class StateTransferManager[E <: Env[E]](
           "Internal inconsistency: state transfer manager in a client role should not be reused"
         )
       )
-    maybeBlockTransferResponseTimeoutManager
-      .putIfAbsent(
-        new TimeoutManager[E, Consensus.Message[E], EpochNumber](
-          loggerFactory,
-          config.epochStateTransferRetryTimeout,
-          timeoutId = startEpoch, // reuse the start epoch number, not relevant
-        )
-      )
-      .foreach(_ =>
-        abort(
-          "Internal inconsistency: block transfer response timeout manager should be set only once"
-        )
-      )
-  }
 
   def handleStateTransferMessage(
       message: Consensus.StateTransferMessage,
@@ -167,14 +153,13 @@ class StateTransferManager[E <: Env[E]](
 
       case StateTransferMessage.BlockVerified(
             commitCert,
-            remoteLatestCompleteEpoch,
             from,
           ) =>
-        storeBlock(commitCert, remoteLatestCompleteEpoch, from)
+        storeBlock(commitCert, from)
 
-      case StateTransferMessage.BlockStored(commitCert, remoteLatestCompleteEpoch, from) =>
+      case StateTransferMessage.BlockStored(commitCert, from) =>
         if (inStateTransfer) {
-          handleStoredBlock(commitCert, remoteLatestCompleteEpoch)
+          handleStoredBlock(commitCert)
         } else {
           logger.info(
             s"State transfer: stored block ${commitCert.prePrepare.message.blockMetadata} from '$from' " +
@@ -184,16 +169,11 @@ class StateTransferManager[E <: Env[E]](
         StateTransferMessageResult.Continue
     }
 
-  def epochTransferred(epochNumber: EpochNumber)(abort: String => Nothing)(implicit
+  def cancelTimeoutForEpoch(epochNumber: EpochNumber)(implicit
       traceContext: TraceContext
   ): Unit = {
-    logger.info(
-      s"State transfer: fully transferred epoch $epochNumber (including batches), cancelling the timeout"
-    )
-    // Currently, epoch completion in state transfer is entirely Output-based, i.e., all batches from an epoch
-    //  need to be fetched to cancel the timeout. If it's cancelled too soon, while "only" batches are left to fetch,
-    //  the state-transferring node will ask another node for blocks and rely on the idempotency of the stores.
-    blockTransferResponseTimeoutManager(abort).cancelTimeout()
+    logger.info(s"State transfer: cancelling a timeout for epoch $epochNumber")
+    timeoutManager.cancelTimeout()
   }
 
   private def handleStateTransferNetworkMessage(
@@ -225,6 +205,7 @@ class StateTransferManager[E <: Env[E]](
         StateTransferMessageResult.Continue
 
       case response: StateTransferMessage.BlockTransferResponse =>
+        // TODO(#25082) consider authorizing/handling a response only if it comes `from` the requested node
         if (inStateTransfer) {
           handleBlockTransferResponse(
             response,
@@ -254,6 +235,7 @@ class StateTransferManager[E <: Env[E]](
       //  multiple times in a row, resulting in uneven load balancing for certain periods. On the other hand, shuffling
       //  is more straightforward code-wise. A potentially irrelevant implication is that the order in which nodes
       //  are chosen is less predictable (e.g., by malicious nodes), and, at the same time, harder to reason about.
+      // TODO(#24940) consider not rotating when everything runs smoothly
       val servingNode =
         nodeShuffler
           .shuffle(membership.otherNodes.toSeq)
@@ -263,7 +245,7 @@ class StateTransferManager[E <: Env[E]](
               "Internal inconsistency: there should be at least one serving node to send a block transfer request to"
             )
           )
-      blockTransferResponseTimeoutManager(abort)
+      timeoutManager
         .scheduleTimeout(StateTransferMessage.RetryBlockTransferRequest(request))
       messageSender.sendBlockTransferRequest(request, servingNode)
     } else {
@@ -295,14 +277,10 @@ class StateTransferManager[E <: Env[E]](
         { _ =>
           val from = response.from
           response.commitCertificate match {
-            case None => StateTransferMessageResult.NothingToStateTransfer(from)
+            case None =>
+              StateTransferMessageResult.NothingToStateTransfer(from)
             case Some(commitCert) =>
-              validator.verifyCommitCertificate(
-                commitCert,
-                from,
-                response.latestCompletedEpoch,
-                orderingTopologyInfo,
-              )
+              validator.verifyCommitCertificate(commitCert, from, orderingTopologyInfo)
               StateTransferMessageResult.Continue
           }
         },
@@ -310,7 +288,6 @@ class StateTransferManager[E <: Env[E]](
 
   private def storeBlock(
       commitCert: CommitCertificate,
-      remoteLatestCompleteEpoch: EpochNumber,
       from: BftNodeId,
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
@@ -318,7 +295,7 @@ class StateTransferManager[E <: Env[E]](
   ): StateTransferMessageResult = {
     context.pipeToSelf(epochStore.addOrderedBlock(commitCert.prePrepare, commitCert.commits)) {
       case Success(_) =>
-        Some(StateTransferMessage.BlockStored(commitCert, remoteLatestCompleteEpoch, from))
+        Some(StateTransferMessage.BlockStored(commitCert, from))
       case Failure(exception) =>
         Some(Consensus.ConsensusMessage.AsyncException(exception))
     }
@@ -326,22 +303,17 @@ class StateTransferManager[E <: Env[E]](
   }
 
   private def handleStoredBlock(
-      commitCert: CommitCertificate,
-      remoteLatestCompleteEpoch: EpochNumber,
+      commitCert: CommitCertificate
   )(implicit traceContext: TraceContext): Unit = {
     val prePrepare = commitCert.prePrepare.message
     val blockMetadata = prePrepare.blockMetadata
     // TODO(#19289) support variable epoch lengths
     val blockLastInEpoch = (blockMetadata.blockNumber + 1) % epochLength == 0
-    // TODO(#24717) calculate reasonably
-    // Right now, the state transfer end epoch is the latest remotely completed epoch according to the last received
-    //  block transfer response, so slow/malicious nodes can significantly impact the process.
-    val endEpoch = remoteLatestCompleteEpoch
 
     // Blocks within an epoch can be received and stored out of order, but that's fine because the Output module
     //  orders them (has a Peano queue).
     logger.debug(s"State transfer: sending block $blockMetadata to Output")
-    messageSender.sendBlockToOutput(prePrepare, blockLastInEpoch, endEpoch)
+    messageSender.sendBlockToOutput(prePrepare, blockLastInEpoch)
   }
 }
 

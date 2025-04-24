@@ -1,9 +1,10 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ WARN range=11:1-11:28; Import of internal module Daml.Script.Internal of package daml-script is discouraged, as this module will change without warning.
+-- @ WARN range=12:1-12:28; Import of internal module Daml.Script.Internal of package daml-script is discouraged, as this module will change without warning.
 
 {-# LANGUAGE ApplicativeDo #-}
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
 
 module TryCommands where
 
@@ -22,8 +23,8 @@ template Name
 -- Takes a unit to avoid it being run directly
 failedAuthScript : () -> Script ()
 failedAuthScript _ = do
-  a <- allocatePartyWithHint "alice" (PartyIdHint "alice")
-  b <- allocatePartyWithHint "bob" (PartyIdHint "bob")
+  a <- allocatePartyByHint (PartyIdHint "alice")
+  b <- allocatePartyByHint (PartyIdHint "bob")
   a `submit` createCmd Name with party = b
   pure ()
 

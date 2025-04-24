@@ -9,8 +9,8 @@ import com.digitalasset.base.error.utils.DecodedCantonError
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.error.*
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, ErrorLoggingContext}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -21,7 +21,7 @@ import pprint.Tree
 trait TransactionRejection {
 
   def logRejection(extra: Map[String, String] = Map())(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Unit
 
   def reason(): com.google.rpc.status.Status
@@ -49,7 +49,7 @@ object Verdict
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.Verdict)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.Verdict)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -97,11 +97,11 @@ object Verdict
 
     override def logRejection(
         extra: Map[String, String]
-    )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit =
+    )(implicit errorLoggingContext: ErrorLoggingContext): Unit =
       // Log with level INFO, leave it to MediatorError to log the details.
-      contextualizedErrorLogger.withContext(extra) {
+      errorLoggingContext.withContext(extra) {
         lazy val action = if (isMalformed) "malformed" else "rejected"
-        contextualizedErrorLogger.info(show"Request is finalized as $action. $reason")
+        errorLoggingContext.info(show"Request is finalized as $action. $reason")
       }
 
     override def isTimeoutDeterminedByMediator: Boolean =
@@ -164,7 +164,7 @@ object Verdict
     def keyEvent(implicit loggingContext: ErrorLoggingContext): LocalReject = {
       if (reasons.lengthCompare(1) > 0) {
         val message = show"Request was rejected with multiple reasons. $reasons"
-        loggingContext.logger.info(message)(loggingContext.traceContext)
+        loggingContext.info(message)
       }
       reasons.map { case (_, localReject) => localReject }.head1
     }

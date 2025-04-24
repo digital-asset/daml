@@ -19,8 +19,10 @@ import com.daml.ledger.api.v2.value.{
   RecordField,
   Value,
 }
+import com.daml.ledger.javaapi.data.{DisclosedContract, Identifier}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.admin.api.client.data
 import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
@@ -40,6 +42,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
+import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.{
@@ -459,7 +462,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     ): Command =
       Command.defaultInstance.withCreate(
         CreateCommand(
-          // TODO(#16362): Support encoding of the package-name
           templateId = Some(buildIdentifier(packageId, module, template)),
           createArguments = Some(buildArguments(arguments)),
         )
@@ -476,7 +478,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     ): Command =
       Command.defaultInstance.withExercise(
         ExerciseCommand(
-          // TODO(#16362): Support encoding of the package-name
           templateId = Some(buildIdentifier(packageId, module, template)),
           choice = choice,
           choiceArgument = Some(Value(Value.Sum.Record(buildArguments(arguments)))),
@@ -504,6 +505,27 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         event.contractId,
       )
     }
+
+    def fetchContracsAsDisclosed(
+        participant: LocalParticipantReference,
+        readerParty: PartyId,
+        templateId: Identifier,
+    ): Map[String /* ContractId */, DisclosedContract] =
+      participant.ledger_api.state.acs
+        .active_contracts_of_party(
+          party = readerParty,
+          filterTemplates = Seq(TemplateId.fromJavaIdentifier(templateId)),
+          includeCreatedEventBlob = true,
+        )
+        .map { activeContract =>
+          val createdEvent = activeContract.getCreatedEvent
+          createdEvent.contractId -> JavaDecodeUtil
+            .toDisclosedContract(
+              activeContract.synchronizerId,
+              WrappedCreatedEvent(createdEvent).toJava,
+            )
+        }
+        .toMap
   }
 
   @Help.Summary("Logging related commands")
@@ -743,10 +765,12 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .getOrElse(consoleEnvironment.raiseError("No synchronizer owners specified."))
 
       val mediators = mediatorsToSequencers.keys.toSeq
+
       val identityTransactions =
         (sequencers ++ mediators ++ synchronizerOwners).flatMap(
           _.topology.transactions.identity_transactions()
         )
+
       synchronizerOwners.foreach(
         _.topology.transactions.load(
           identityTransactions,
@@ -776,13 +800,11 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .mapFilter(_.selectOp[TopologyChangeOp.Replace])
         .distinct
 
-      val orderingMap =
-        Seq(
-          NamespaceDelegation.code,
-          OwnerToKeyMapping.code,
-          DecentralizedNamespaceDefinition.code,
-        ).zipWithIndex.toMap
-          .withDefaultValue(5)
+      // remember order of transactions in the initial topology state
+      // so we don't mess up certificate chains
+      val orderingMap = initialTopologyState.zipWithIndex.map { case (tx, idx) =>
+        (tx.mapping.uniqueKey, idx)
+      }.toMap
 
       val merged = initialTopologyState
         .groupBy1(_.hash)
@@ -794,7 +816,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           }.updateIsProposal(isProposal = false)
         )
         .toSeq
-        .sortBy(tx => orderingMap(tx.mapping.code))
+        .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
 
       val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>

@@ -9,10 +9,6 @@ import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.SynchronizerIndex
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.{
-  ParticipantMetering,
-  ReportData,
-}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
@@ -27,7 +23,6 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   SynchronizerOffset,
   UnassignProperties,
 }
-import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.PruneUptoInclusiveAndLedgerEnd
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForUpdatesAcsDelta,
@@ -43,7 +38,6 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.daml.lf.data.Time.Timestamp
 
 import java.sql.Connection
@@ -178,29 +172,6 @@ trait ParameterStorageBackend {
   def ledgerIdentity(connection: Connection): Option[ParameterStorageBackend.IdentityParams]
 }
 
-object MeteringParameterStorageBackend {
-  final case class LedgerMeteringEnd(offset: Option[Offset], timestamp: Timestamp)
-}
-
-trait MeteringParameterStorageBackend {
-
-  /** Initialize the ledger metering end parameters if unset */
-  def initializeLedgerMeteringEnd(init: LedgerMeteringEnd, loggerFactory: NamedLoggerFactory)(
-      connection: Connection
-  )(implicit
-      traceContext: TraceContext
-  ): Unit
-
-  /** The timestamp and offset for which billable metering is available */
-  def ledgerMeteringEnd(connection: Connection): Option[LedgerMeteringEnd]
-
-  /** The timestamp and offset for which final metering is available */
-  def assertLedgerMeteringEnd(connection: Connection): LedgerMeteringEnd
-
-  /** Update the timestamp and offset for which billable metering is available */
-  def updateLedgerMeteringEnd(ledgerMeteringEnd: LedgerMeteringEnd)(connection: Connection): Unit
-}
-
 object ParameterStorageBackend {
   final case class LedgerEnd(
       lastOffset: Offset,
@@ -281,7 +252,6 @@ object ContractStorageBackend {
   final case class RawCreatedContract(
       templateId: String,
       packageName: String,
-      packageVersion: Option[String],
       flatEventWitnesses: Set[Party],
       createArgument: Array[Byte],
       createArgumentCompression: Option[Int],
@@ -458,7 +428,6 @@ object EventStorageBackend {
       contractId: ContractId,
       templateId: Identifier,
       packageName: PackageName,
-      packageVersion: Option[PackageVersion],
       witnessParties: Set[String],
       signatories: Set[String],
       observers: Set[String],
@@ -632,46 +601,4 @@ trait StringInterningStorageBackend {
   def loadStringInterningEntries(fromIdExclusive: Int, untilIdInclusive: Int)(
       connection: Connection
   ): Iterable[(Int, String)]
-}
-
-trait MeteringStorageReadBackend {
-
-  def reportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-  )(connection: Connection): ReportData
-}
-
-trait MeteringStorageWriteBackend {
-
-  /** This method will return the maximum offset of the lapi_transaction_metering record which has
-    * an offset greater than the from offset and a timestamp prior to the to timestamp, if any.
-    *
-    * Note that the offset returned may not have been fully ingested. This is to allow the metering
-    * to wait if there are still un-fully ingested records withing the time window.
-    */
-  def transactionMeteringMaxOffset(from: Option[Offset], to: Timestamp)(
-      connection: Connection
-  ): Option[Offset]
-
-  /** This method will return all transaction metering records between the from offset (exclusive)
-    * and the to offset (inclusive). It is called prior to aggregation.
-    */
-  def selectTransactionMetering(from: Option[Offset], to: Offset)(
-      connection: Connection
-  ): Map[UserId, Int]
-
-  /** This method will delete transaction metering records between the from offset (exclusive) and
-    * the to offset (inclusive). It is called following aggregation.
-    */
-  def deleteTransactionMetering(from: Option[Offset], to: Offset)(
-      connection: Connection
-  ): Unit
-
-  def insertParticipantMetering(metering: Vector[ParticipantMetering])(connection: Connection): Unit
-
-  /** Test Only - will be removed once reporting can be based if participant metering */
-  def allParticipantMetering()(connection: Connection): Vector[ParticipantMetering]
-
 }

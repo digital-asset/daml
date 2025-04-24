@@ -13,7 +13,7 @@ import com.digitalasset.base.error.{
   Resolution,
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.AdminServicesErrorGroup.PartyManagementServiceErrorGroup
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 
 object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
 
@@ -28,7 +28,7 @@ object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
         ErrorCategory.InvalidIndependentOfSystemState,
       ) {
     final case class Reject(party: String, reason: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends ContextualizedDamlError(
           cause = s"Update operation for party '$party' failed due to: $reason"
         ) {
@@ -51,7 +51,7 @@ object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Reject(party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends ContextualizedDamlError(
           cause = s"Maximum annotations size for party '$party' has been exceeded"
         ) {
@@ -76,7 +76,7 @@ object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
         ErrorCategory.ContentionOnSharedResources,
       ) {
     final case class Reject(party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends ContextualizedDamlError(
           cause =
             s"Update operation for party '$party' failed due to a concurrent update to the same party"
@@ -97,7 +97,7 @@ object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
     final case class Reject(operation: String, party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Party: '$party' was not found when $operation"
         ) {
@@ -120,7 +120,7 @@ object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Reject(operation: String, party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Party record for party: '$party' was not found when $operation"
         ) {
@@ -143,7 +143,7 @@ object PartyManagementServiceErrors extends PartyManagementServiceErrorGroup {
         ErrorCategory.SystemInternalAssumptionViolated,
       ) {
     final case class Reject(operation: String, party: String)(implicit
-        loggingContext: ContextualizedErrorLogger
+        loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"Party record for party: '$party' already exists when $operation"
         ) {

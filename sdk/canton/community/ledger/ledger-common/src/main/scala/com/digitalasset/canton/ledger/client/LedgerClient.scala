@@ -6,7 +6,6 @@ package com.digitalasset.canton.ledger.client
 import com.daml.grpc.AuthCallCredentials.authorizingStub
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
-import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc
 import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc
 import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc
@@ -76,11 +75,6 @@ final class LedgerClient private (
   lazy val identityProviderConfigClient: IdentityProviderConfigClient =
     new IdentityProviderConfigClient(
       LedgerClient.stub(IdentityProviderConfigServiceGrpc.stub(channel), config.token)
-    )
-
-  lazy val meteringReportClient: MeteringReportClient =
-    new MeteringReportClient(
-      LedgerClient.stub(MeteringReportServiceGrpc.stub(channel), config.token)
     )
 
   lazy val packageManagementClient: PackageManagementClient =

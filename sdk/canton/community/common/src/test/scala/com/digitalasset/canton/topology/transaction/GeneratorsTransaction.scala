@@ -11,10 +11,16 @@ import com.digitalasset.canton.crypto.{
   Hash,
   PublicKey,
   Signature,
+  SigningKeyUsage,
   SigningPublicKey,
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
+  CanSignAllButNamespaceDelegations,
+  CanSignAllMappings,
+  CanSignSpecificMappings,
+}
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.topology.{
   GeneratorsTopology,
@@ -113,13 +119,42 @@ final class GeneratorsTransaction(
       .value
   )
 
+  val restrictionWithNamespaceDelegation = Gen.oneOf(
+    Gen.const(CanSignAllMappings),
+    Generators
+      // generate a random sequence of codes,
+      .nonEmptySetGen[TopologyMapping.Code]
+      // but always add the namespace delegation code, so that the result can always sign namespace delegations
+      .map(_ incl TopologyMapping.Code.NamespaceDelegation)
+      .map(CanSignSpecificMappings(_)),
+  )
+
+  val restrictionWithoutNamespaceDelegation = Gen.oneOf(
+    Gen.const(CanSignAllButNamespaceDelegations),
+    Generators
+      .nonEmptySetGen(
+        Arbitrary(
+          // generate a random set of codes but don't allow for NamespaceDelegation to be included
+          Gen.oneOf(TopologyMapping.Code.all.toSet - TopologyMapping.Code.NamespaceDelegation)
+        )
+      )
+      .map(CanSignSpecificMappings(_)),
+  )
+
   implicit val namespaceDelegationArb: Arbitrary[NamespaceDelegation] = Arbitrary(
     for {
       namespace <- Arbitrary.arbitrary[Namespace]
-      target <- Arbitrary.arbitrary[SigningPublicKey]
-      isRootDelegation <- // honor constraint that root delegation must be true if fingerprints match
-        if (namespace.fingerprint == target.fingerprint) Gen.const(true) else Gen.oneOf(true, false)
-    } yield NamespaceDelegation.create(namespace, target, isRootDelegation).value
+      // target key must include the `Namespace` usage
+      target <- Arbitrary
+        .arbitrary[SigningPublicKey]
+        .retryUntil(key =>
+          SigningKeyUsage.matchesRelevantUsages(key.usage, SigningKeyUsage.NamespaceOnly)
+        )
+      delegationRestriction <- // honor constraint that the delegation must be able to sign namespace delegations if fingerprints match
+        if (namespace.fingerprint == target.fingerprint)
+          restrictionWithNamespaceDelegation
+        else restrictionWithoutNamespaceDelegation
+    } yield NamespaceDelegation.tryCreate(namespace, target, delegationRestriction)
   )
 
   implicit val purgeTopologyTransactionArb: Arbitrary[PurgeTopologyTransaction] = Arbitrary(

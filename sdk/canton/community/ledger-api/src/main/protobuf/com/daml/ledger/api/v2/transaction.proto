@@ -13,7 +13,7 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "TransactionOuterClass";
 option java_package = "com.daml.ledger.api.v2";
 
-// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 // Each tree event message type below contains a ``witness_parties`` field which
 // indicates the subset of the requested parties that can see the event
 // in question.
@@ -30,7 +30,7 @@ message TreeEvent {
   }
 }
 
-// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 // Complete view of an on-ledger transaction.
 message TransactionTree {
   // Assigned by the server. Useful for correlating logs.

@@ -264,8 +264,18 @@ class IdeLedgerClient(
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
       case Some(contract) =>
-        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
-        Future.successful(viewOpt)
+        val reversePackageIdMap = getPackageIdReverseMap()
+        val packageMap = calculatePackageMap(List(), reversePackageIdMap)
+        Future.successful(
+          for {
+            preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
+            view <- computeView(
+              contract.templateId.copy(packageId = preferredPkgId),
+              interfaceId,
+              contract.createArg,
+            )
+          } yield view
+        )
     }
   }
 
@@ -377,17 +387,17 @@ class IdeLedgerClient(
           innerError.expectedType.pretty,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ CCTP(innerError: CCTP.MalformedByteEncoding) =>
+      case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>
         SubmitError.CryptoError.MalformedByteEncoding(
           innerError.value,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ CCTP(innerError: CCTP.MalformedKey) =>
+      case e @ Crypto(innerError: Crypto.MalformedKey) =>
         SubmitError.CryptoError.MalformedKey(
           innerError.key,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ CCTP(innerError: CCTP.MalformedSignature) =>
+      case e @ Crypto(innerError: Crypto.MalformedSignature) =>
         SubmitError.CryptoError.MalformedSignature(
           innerError.signature,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
