@@ -1019,7 +1019,17 @@ object ScriptF {
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
 
-  private def parseAllocParty(v: SValue): Either[String, AllocParty] =
+  private def parseAllocPartyV1(v: SValue): Either[String, AllocParty] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantName)) =>
+        for {
+          participantName <- Converter.toOptionalParticipantName(participantName)
+          idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
+        } yield AllocParty(idHint, participantName.toList)
+      case _ => Left(s"Expected AllocParty payload but got $v")
+    }
+
+  private def parseAllocPartyV2(v: SValue): Either[String, AllocParty] =
     v match {
       case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantNames)) =>
         for {
@@ -1230,7 +1240,8 @@ object ScriptF {
       case ("QueryInterface", 1) => parseQueryInterface(v)
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
       case ("QueryContractKey", 1) => parseQueryContractKey(v)
-      case ("AllocateParty", 1) => parseAllocParty(v)
+      case ("AllocateParty", 1) => parseAllocPartyV1(v)
+      case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)
       case ("GetTime", 1) => parseEmpty(GetTime())(v)
       case ("SetTime", 1) => parseSetTime(v)

@@ -12,7 +12,10 @@ data AllocateParty = AllocateParty with
   requestedName: Text
   idHint : Text
   participants : [Text]
-instance IsQuestion AllocateParty Party where command = "AllocateParty"
+instance IsQuestion AllocateParty Party
+  where
+    command = "AllocateParty"
+    version = 2
 
 -- | A hint to the backing participant what party id to allocate.
 -- Must be a valid PartyIdString (as described in @value.proto@).
