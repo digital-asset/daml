@@ -68,5 +68,5 @@ Functions
 `assertDeadlineExceeded <function-da-assert-assertdeadlineexceeded-21600_>`_
   \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` ()
 
-  Check whether the ledger time of the transaction ia at or after the given deadline\.
+  Check whether the ledger time of the transaction is at or after the given deadline\.
   If it's not, abort with a message\.
