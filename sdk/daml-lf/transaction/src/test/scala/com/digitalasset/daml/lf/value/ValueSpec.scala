@@ -4,9 +4,9 @@
 package com.digitalasset.daml.lf
 package value
 
-import data.Bytes
-
+import data.{Bytes, Time}
 import Value._
+import com.digitalasset.daml.lf.value.test.ValueGenerators
 import test.ValueGenerators.coidGen
 import org.scalacheck.Arbitrary
 import org.scalatest.Inside
@@ -44,6 +44,46 @@ class ValueSpec
       val value = Value.ValueContractId(cid)
 
       value.cids shouldBe Set(cid)
+    }
+
+  }
+
+  "ContractID.V2" - {
+
+    s"resolution scales timestamp down to ${ContractId.V2.timePrefixSize} bytes" in {
+
+      val timestampUniverseSize =
+        BigInt(Time.Timestamp.MaxValue.micros - Time.Timestamp.MinValue.micros + 1)
+      val targetUniverseSize =
+        BigInt(1L << (ContractId.V2.timePrefixSize * 8 /* 8 bits in a byte */ ))
+
+      // soundness
+      (BigInt(ContractId.V2.resolution) * targetUniverseSize) shouldBe >(timestampUniverseSize)
+
+      // optimality
+      (BigInt(ContractId.V2.resolution - 1) * targetUniverseSize) shouldBe <=(timestampUniverseSize)
+    }
+
+    "timePrefix is not constant" in {
+      val ts = Seq(
+        Time.Timestamp.MinValue,
+        Time.Timestamp.MaxValue,
+        Time.Timestamp.Epoch,
+        Time.Timestamp.now(),
+      )
+      val scaled = ts.map(ContractId.V2.timePrefix)
+      scaled.distinct shouldBe scaled
+    }
+
+    "timePrefix is monotone" in {
+      forAll(ValueGenerators.timestampGen, ValueGenerators.timestampGen) { (ts1, ts2) =>
+        val scaled1 = ContractId.V2.timePrefix(ts1)
+        val scaled2 = ContractId.V2.timePrefix(ts2)
+        val cmp = Bytes.ordering.compare(scaled1, scaled2)
+        if (cmp == 0) succeed
+        else if (cmp < 0) ts1 shouldBe <(ts2)
+        else ts1 shouldBe >(ts2)
+      }
     }
 
   }

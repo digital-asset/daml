@@ -257,7 +257,7 @@ object Value {
 
       val prefix: Bytes = Bytes.assertFromString("01")
 
-      private val timePrefixSize: Int = 5
+      private[lf] val timePrefixSize: Int = 5
       private val discriminatorSize: Int = 7
 
       require(discriminatorSize <= crypto.Hash.underlyingHashLength)

@@ -190,21 +190,42 @@ object ValueGenerators {
       ContractId.V1.assertBuild(h, b)
     }
 
+  private val cidV2Gen: Gen[ContractId.V2] = Gen
+    .zip(
+      Gen
+        .containerOfN[Array, Byte](ContractId.V2.localSize, arbitrary[Byte])
+        .map(Bytes.fromByteArray),
+      genSuffixes,
+    )
+    .map { case (local, suffix) =>
+      ContractId.V2.assertBuild(local, suffix)
+    }
+
   /** Universes of totally-ordered ContractIds. */
   def comparableCoidsGen: Seq[Gen[ContractId]] =
-    Seq(suffixedV1CidGen, nonSuffixedCidV1Gen)
+    Seq(suffixedCidGen, unsuffixedCidGen)
 
-  def suffixedV1CidGen: Gen[ContractId] = Gen.zip(cidV1Gen, arbitrary[Byte]) map { case (b1, b) =>
-    ContractId.V1
-      .assertBuild(
-        b1.discriminator,
-        if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b),
+  private def unsuffixCid(cid: ContractId): ContractId = cid match {
+    case cidV1: ContractId.V1 => ContractId.V1(cidV1.discriminator)
+    case cidV2: ContractId.V2 => ContractId.V2(cidV2.local, Bytes.Empty)
+  }
+  private def suffixCid(cid: ContractId, suffix: Bytes): ContractId = cid match {
+    case cidV1: ContractId.V1 =>
+      ContractId.V1.assertBuild(
+        cidV1.discriminator,
+        if (cidV1.suffix.isEmpty) suffix else cidV1.suffix,
       )
+    case cidV2: ContractId.V2 =>
+      ContractId.V2.assertBuild(cidV2.local, if (cidV2.suffix.isEmpty) suffix else cidV2.suffix)
   }
 
-  def nonSuffixedCidV1Gen: Gen[ContractId] = cidV1Gen map (cid => ContractId.V1(cid.discriminator))
+  def unsuffixedCidGen: Gen[ContractId] = coidGen.map(unsuffixCid)
+  def suffixedCidGen: Gen[ContractId] =
+    Gen.zip(coidGen, arbitrary[Byte]).map { case (cid, suffixByte) =>
+      suffixCid(cid, Bytes.fromByteArray(Array(suffixByte)))
+    }
 
-  def coidGen: Gen[ContractId] = cidV1Gen
+  def coidGen: Gen[ContractId] = Gen.oneOf(cidV1Gen, cidV2Gen)
 
   def coidValueGen: Gen[ValueContractId] =
     coidGen.map(ValueContractId(_))
