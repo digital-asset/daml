@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, Contra
 import com.daml.ledger.javaapi.data.{Template, TransactionTree}
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
@@ -26,7 +25,9 @@ import com.digitalasset.canton.sequencing.{SequencerConnection, SequencerConnect
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{SynchronizerAlias, config}
 
 import java.time.{Duration, Instant}
 import java.util.concurrent.atomic.AtomicReference
@@ -186,7 +187,7 @@ class ReferenceDemoScript(
 
   private def connectSynchronizer(
       participant: ParticipantReference,
-      name: String,
+      name: SynchronizerAlias,
       connection: SequencerConnection,
   ): Unit = {
     participant.synchronizers.connect_by_config(
@@ -206,29 +207,6 @@ class ReferenceDemoScript(
       Noop,
       Noop,
       Action(
-        "Participants set up parties",
-        "admin-api",
-        "participant.parties.enable(NAME)",
-        () => {
-          execute(settings.map { case (name, participant, _, _) =>
-            logger.info(s"Enabling party $name on participant ${participant.id.toString}")
-            Future {
-              blocking {
-                val pid = participant.parties.enable(name)
-                (name, pid, participant)
-              }
-            }
-          }).foreach { case (name, pid, participant) =>
-            partyIdCache.put(name, (pid, participant)).discard
-            readyToSubscribeM
-              .updateAndGet(cur => cur + (name -> ParticipantTab.LedgerBegin))
-              .discard[Map[String, Long]]
-          }
-
-        },
-      ),
-      Noop,
-      Action(
         "Participants connect to synchronizer(s)",
         "admin-api",
         "participant.synchronizers.register(<name>, \"http(s)://hostname:port\")",
@@ -244,6 +222,39 @@ class ReferenceDemoScript(
             }
           }
           val _ = execute(res)
+        },
+      ),
+      Noop,
+      Action(
+        "Participants set up parties",
+        "admin-api",
+        "participant.parties.enable(NAME)",
+        () => {
+          execute(settings.map { case (name, participant, synchronizers, _) =>
+            logger.info(s"Enabling party $name on participant ${participant.id.toString}")
+            MonadUtil
+              .sequentialTraverse(synchronizers) { case (synchronizerAlias, _) =>
+                Future {
+                  blocking {
+                    participant.parties.enable(name, synchronizer = Some(synchronizerAlias))
+                  }
+                }
+              }
+              .map(parties =>
+                (
+                  name,
+                  parties.headOption
+                    .getOrElse(throw new IllegalStateException(s"unable to allocate party $name")),
+                  participant,
+                )
+              )
+          }).foreach { case (name, pid, participant) =>
+            partyIdCache.put(name, (pid, participant)).discard
+            readyToSubscribeM
+              .updateAndGet(cur => cur + (name -> ParticipantTab.LedgerBegin))
+              .discard[Map[String, Long]]
+          }
+
         },
       ),
       Noop,

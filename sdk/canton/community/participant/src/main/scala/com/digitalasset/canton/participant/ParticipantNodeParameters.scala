@@ -48,7 +48,8 @@ object ParticipantNodeParameters {
       loggingConfig = LoggingConfig(api = ApiLoggingConfig(messagePayloads = true)),
       processingTimeouts = DefaultProcessingTimeouts.testing,
       enablePreviewFeatures = false,
-      nonStandardConfig = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      nonStandardConfig = true,
       cachingConfigs = CachingConfigs(),
       batchingConfig = BatchingConfig(
         maxPruningBatchSize = PositiveNumeric.tryCreate(10),
@@ -69,7 +70,8 @@ object ParticipantNodeParameters {
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
       sessionSigningKeys = SessionSigningKeysConfig.disabled,
-      alphaVersionSupport = false,
+      // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
+      alphaVersionSupport = true,
       betaVersionSupport = true,
       dontWarnOnDeprecatedPV = false,
     ),

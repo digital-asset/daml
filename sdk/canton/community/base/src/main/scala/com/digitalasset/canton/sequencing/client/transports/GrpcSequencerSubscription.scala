@@ -8,17 +8,17 @@ import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, *}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
 import com.digitalasset.canton.sequencer.api.v30
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.sequencing.client.{SequencerSubscription, SubscriptionCloseReason}
 import com.digitalasset.canton.sequencing.protocol.SubscriptionResponse
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.tracing.TraceContext.withTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureUtil
@@ -287,7 +287,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
 object GrpcSequencerSubscription {
   def fromSubscriptionResponse[E](
       context: CancellableContext,
-      handler: SerializedEventHandler[E],
+      handler: SequencedEventHandler[E],
       hasRunOnClosing: HasRunOnClosing,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -307,7 +307,7 @@ object GrpcSequencerSubscription {
     )
 
   private def deserializingSubscriptionHandler[E, R](
-      handler: SerializedEventHandler[E],
+      handler: SequencedEventHandler[E],
       fromProto: (R, TraceContext) => ParsingResult[SubscriptionResponse],
   ): Traced[R] => EitherT[FutureUnlessShutdown, E, Unit] =
     withTraceContext { implicit traceContext => responseP =>
@@ -321,10 +321,9 @@ object GrpcSequencerSubscription {
                 )
               ),
             response => {
-              val signedEvent = response.signedSequencedEvent
-              val ordinaryEvent =
-                OrdinarySequencedEvent(signedEvent)(response.traceContext)
-              handler(ordinaryEvent)
+              handler(
+                SequencedEventWithTraceContext(response.signedSequencedEvent)(response.traceContext)
+              )
             },
           )
       )

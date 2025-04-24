@@ -51,7 +51,7 @@ final class BftOrderingSequencerAdminService(
         )
       )
     )
-    resultPromise.future.map(AddPeerEndpointResponse.of)
+    resultPromise.future.map(AddPeerEndpointResponse(_))
   }
 
   override def removePeerEndpoint(
@@ -71,7 +71,7 @@ final class BftOrderingSequencerAdminService(
         )
       )
     )
-    resultPromise.future.map(RemovePeerEndpointResponse.of)
+    resultPromise.future.map(RemovePeerEndpointResponse(_))
   }
 
   override def getPeerNetworkStatus(
@@ -121,7 +121,7 @@ final class BftOrderingSequencerAdminService(
       }
     )
     resultPromise.future.map { case (currentEpoch, nodes) =>
-      GetOrderingTopologyResponse.of(
+      GetOrderingTopologyResponse(
         currentEpoch,
         nodes.toSeq.sorted,
       )

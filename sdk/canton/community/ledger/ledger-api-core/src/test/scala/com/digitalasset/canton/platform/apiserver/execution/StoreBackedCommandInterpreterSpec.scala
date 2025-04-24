@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.PackageName
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
@@ -32,16 +32,8 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKeyWithMaintainers,
-  Node as LfNode,
-  SubmittedTransaction,
-  Transaction,
-  Versioned,
-}
+import com.digitalasset.daml.lf.transaction.{Node as LfNode, SubmittedTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueTrue}
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
@@ -71,14 +63,14 @@ class StoreBackedCommandInterpreterSpec
       coid = contractId,
       packageName = packageName,
       templateId = identifier,
-      arg = ValueTrue,
+      arg = Value.ValueTrue,
       signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
       stakeholders = Set(
         Ref.Party.assertFromString("unexpectedSig"),
         Ref.Party.assertFromString("unexpectedObs"),
       ),
       keyOpt = Some(
-        GlobalKeyWithMaintainers.assertBuild(
+        KeyWithMaintainers.assertBuild(
           templateId = identifier,
           LfValue.ValueTrue,
           Set(Ref.Party.assertFromString("unexpectedSig")),
@@ -93,7 +85,7 @@ class StoreBackedCommandInterpreterSpec
   private val disclosedContractCreateTime = Time.Timestamp.now()
 
   private val disclosedContract = DisclosedContract(
-    fatContractInstance = FatContractInstance.fromCreateNode(
+    fatContractInstance = FatContract.fromCreateNode(
       disclosedCreateNode,
       createTime = disclosedContractCreateTime,
       cantonData = salt,
@@ -102,7 +94,7 @@ class StoreBackedCommandInterpreterSpec
   )
 
   private val processedDisclosedContracts = ImmArray(
-    FatContractInstance.fromCreateNode(
+    FatContract.fromCreateNode(
       create = disclosedCreateNode,
       createTime = disclosedContractCreateTime,
       cantonData = salt,
@@ -133,7 +125,7 @@ class StoreBackedCommandInterpreterSpec
         submitters = any[Set[Ref.Party]],
         readAs = any[Set[Ref.Party]],
         cmds = any[com.digitalasset.daml.lf.command.ApiCommands],
-        disclosures = any[ImmArray[FatContractInstance]],
+        disclosures = any[ImmArray[FatContract]],
         participantId = any[ParticipantId],
         submissionSeed = any[Hash],
         prefetchKeys = any[Seq[ApiContractKey]],
@@ -264,17 +256,20 @@ class StoreBackedCommandInterpreterSpec
   "Upgrade Verification" should {
     val stakeholderContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "03")
     val stakeholderContract = ContractState.Active(
-      contractInstance = Versioned(
-        LfTransactionVersion.minVersion,
-        ContractInstance(packageName = packageName, template = identifier, arg = Value.ValueTrue),
-      ),
-      ledgerEffectiveTime = Timestamp.now(),
-      stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
-      signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
-      globalKey = None,
-      maintainers = None,
-      // Filled below conditionally
-      driverMetadata = Array.empty,
+      FatContract.fromCreateNode(
+        LfNode.Create(
+          coid = stakeholderContractId,
+          packageName = packageName,
+          templateId = identifier,
+          arg = Value.ValueTrue,
+          signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
+          stakeholders = Set(Ref.Party.assertFromString("unexpectedSig")),
+          keyOpt = None,
+          version = LfTransactionVersion.StableVersions.max,
+        ),
+        createTime = Timestamp.now(),
+        cantonData = Bytes.Empty,
+      )
     )
 
     val divulgedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "00")
@@ -300,7 +295,7 @@ class StoreBackedCommandInterpreterSpec
             signatories = Set(signatory),
             observers = Set(Ref.Party.assertFromString("observer")),
             keyOpt = Some(
-              GlobalKeyWithMaintainers
+              KeyWithMaintainers
                 .assertBuild(
                   identifier,
                   someContractKey(signatory, "some key"),
@@ -322,7 +317,7 @@ class StoreBackedCommandInterpreterSpec
           submitters = any[Set[Ref.Party]],
           readAs = any[Set[Ref.Party]],
           cmds = any[com.digitalasset.daml.lf.command.ApiCommands],
-          disclosures = any[ImmArray[FatContractInstance]],
+          disclosures = any[ImmArray[FatContract]],
           participantId = any[ParticipantId],
           submissionSeed = any[Hash],
           prefetchKeys = any[Seq[ApiContractKey]],
@@ -360,7 +355,13 @@ class StoreBackedCommandInterpreterSpec
         )
       ).thenReturn(
         Future.successful(
-          stakeholderContract.copy(driverMetadata = stakeholderContractDriverMetadata)
+          ContractState.Active(
+            FatContract.fromCreateNode(
+              stakeholderContract.contractInstance.toCreateNode,
+              createTime = stakeholderContract.contractInstance.createdAt,
+              cantonData = Bytes.fromByteArray(stakeholderContractDriverMetadata),
+            )
+          )
         )
       )
       when(
@@ -427,7 +428,7 @@ class StoreBackedCommandInterpreterSpec
 
     "disallow unauthorized disclosed contracts" in {
       val expected =
-        s"Upgrading contract with ContractId(${disclosedContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: TreeSet(unexpectedSig) vs Set(signatory)', 'observers mismatch: TreeSet(unexpectedObs) vs Set(observer)', 'key maintainers mismatch: TreeSet(unexpectedSig) vs Set(signatory)', 'key value mismatch: Some(GlobalKey(p:m:n, pkg-name, ValueBool(true))) vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+        s"Upgrading contract with ContractId(${disclosedContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: {unexpectedSig} vs {signatory}', 'observers mismatch: {unexpectedObs} vs {observer}', 'key value mismatch: Some(GlobalKey(p:m:n, pkg-name, ValueBool(true))) vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))', 'key maintainers mismatch: {unexpectedSig} vs {signatory}']"
       doTest(
         Some(disclosedContractId),
         Some(Some(expected)),
@@ -438,7 +439,7 @@ class StoreBackedCommandInterpreterSpec
     "disallow unauthorized stakeholder contracts" in {
       val errorMessage = "Not authorized"
       val expected =
-        s"Upgrading contract with ContractId(${stakeholderContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: Set(unexpectedSig) vs Set(signatory)', 'observers mismatch: Set() vs Set(observer)', 'key maintainers mismatch: Set() vs Set(signatory)', 'key value mismatch: None vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))']"
+        s"Upgrading contract with ContractId(${stakeholderContractId.coid}) failed authentication check with error: Not authorized. The following upgrading checks failed: ['signatories mismatch: {unexpectedSig} vs {signatory}', 'observers mismatch: {} vs {observer}', 'key value mismatch: None vs Some(GlobalKey(p:m:n, pkg-name, ValueRecord(None,ImmArray((None,ValueParty(signatory)),(None,ValueText(some key))))))', 'key maintainers mismatch: {} vs {signatory}']"
       doTest(
         Some(stakeholderContractId),
         Some(Some(expected)),

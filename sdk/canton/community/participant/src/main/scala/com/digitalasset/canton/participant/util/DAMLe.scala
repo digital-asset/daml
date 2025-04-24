@@ -381,7 +381,18 @@ class DAMLe(
           contracts
             .lookupLfInstance(acoid)
             .value
-            .flatMap(optInst => handleResultInternal(contracts, resume(optInst)))
+            .flatMap { optThinInst =>
+              val fatInstanceOpt: Option[LfFatContractInst] = optThinInst.map {
+                case Versioned(version, thinInst) =>
+                  LfFatContractInst.fromThinInstance(
+                    version = version,
+                    packageName = thinInst.packageName,
+                    template = thinInst.template,
+                    arg = thinInst.arg,
+                  )
+              }
+              handleResultInternal(contracts, resume(fatInstanceOpt))
+            }
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))
         case ResultInterruption(continue, _) =>
           // Run the interruption loop asynchronously to avoid blocking the calling thread.

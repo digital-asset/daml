@@ -470,13 +470,23 @@ object NamespaceDelegation extends TopologyMappingCompanion {
   def uniqueKey(namespace: Namespace, target: Fingerprint): MappingHash =
     TopologyMapping.buildUniqueKey(code)(_.add(namespace.fingerprint.unwrap).add(target.unwrap))
 
+  /** Creates a namespace delegation for the given namespace to the given target key with possible
+    * restrictions on the topology mappings the target key can authorize.
+    *
+    * @param namespace
+    *   the namespace for which the target key may sign topology transaction
+    * @param target
+    *   the key must have `Namespace` listed as a usage to be eligible as the target of a namespace
+    *   delegation.
+    * @param restrictedToMappings
+    *   mappings that the target key of this delegation is allowed to sign
+    */
   def create(
       namespace: Namespace,
       target: SigningPublicKey,
       restriction: DelegationRestriction,
   ): Either[String, NamespaceDelegation] =
     for {
-      // The key must have `Namespace` listed as a usage to be eligible as the target of a namespace delegation.
       _ <- Either.cond(
         SigningKeyUsage.matchesRelevantUsages(target.usage, SigningKeyUsage.NamespaceOnly),
         (),

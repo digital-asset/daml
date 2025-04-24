@@ -25,7 +25,6 @@ import com.digitalasset.canton.ledger.api.{
   PackageReference,
   SubmissionId,
 }
-import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, ConsistencyErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
@@ -39,6 +38,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService
 import com.digitalasset.canton.platform.apiserver.execution.{
@@ -197,7 +197,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
                   .lookupContractState(inputCoid)
                   .flatMap {
                     case active: ContractState.Active =>
-                      enrich(active.toFatContractInstance(inputCoid)).map(Right(_))
+                      enrich(active.contractInstance).map(Right(_))
                     // Engine interpretation likely would have failed if that was the case
                     // However it's possible that the contract was archived or pruned in the meantime
                     // That's not an issue however because if that was the case the transaction would have failed later
@@ -401,7 +401,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       .leftMap(err => FutureUnlessShutdown.failed[SynchronizerRank](err.asGrpcError))
       .merge
       .flatten
-      .failOnShutdownTo(ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
       .flatMap { synchronizerRank =>
         syncService
           .submitTransaction(

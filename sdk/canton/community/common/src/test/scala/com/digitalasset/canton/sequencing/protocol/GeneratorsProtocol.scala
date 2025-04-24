@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import com.daml.nonempty.NonEmptyUtil
+import com.digitalasset.canton.Generators
 import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.{AsymmetricEncrypted, Signature}
@@ -31,7 +32,6 @@ import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
-import com.digitalasset.canton.{Generators, SequencerCounter}
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
 import org.scalacheck.{Arbitrary, Gen}
@@ -130,13 +130,6 @@ final class GeneratorsProtocol(
     } yield TopologyStateForInitRequest(member, protocolVersion)
   )
 
-  implicit val subscriptionRequestArb: Arbitrary[SubscriptionRequest] = Arbitrary(
-    for {
-      member <- Arbitrary.arbitrary[Member]
-      counter <- Arbitrary.arbitrary[SequencerCounter]
-    } yield SubscriptionRequest.apply(member, counter, protocolVersion)
-  )
-
   implicit val subscriptionRequestV2Arb: Arbitrary[SubscriptionRequestV2] = Arbitrary(
     for {
       member <- Arbitrary.arbitrary[Member]
@@ -220,14 +213,12 @@ final class GeneratorsProtocol(
 
   private implicit val deliverErrorArb: Arbitrary[DeliverError] = Arbitrary(
     for {
-      sequencerCounter <- Arbitrary.arbitrary[SequencerCounter]
       pts <- Arbitrary.arbitrary[Option[CantonTimestamp]]
       ts <- Arbitrary.arbitrary[CantonTimestamp]
       synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
       messageId <- Arbitrary.arbitrary[MessageId]
       error <- sequencerDeliverErrorArb.arbitrary
     } yield DeliverError.create(
-      sequencerCounter,
       previousTimestamp = pts,
       timestamp = ts,
       synchronizerId = synchronizerId,
@@ -318,12 +309,10 @@ object GeneratorsProtocol {
   ): Gen[Deliver[Env]] = for {
     previousTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
     timestamp <- Arbitrary.arbitrary[CantonTimestamp]
-    counter <- Arbitrary.arbitrary[SequencerCounter]
     messageIdO <- Gen.option(Arbitrary.arbitrary[MessageId])
     topologyTimestampO <- Gen.option(Arbitrary.arbitrary[CantonTimestamp])
     trafficReceipt <- Gen.option(Arbitrary.arbitrary[TrafficReceipt])
   } yield Deliver.create(
-    counter,
     previousTimestamp,
     timestamp,
     synchronizerId,

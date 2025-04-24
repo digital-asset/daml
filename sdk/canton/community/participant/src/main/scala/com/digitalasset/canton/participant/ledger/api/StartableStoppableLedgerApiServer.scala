@@ -19,7 +19,7 @@ import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
 }
-import com.digitalasset.canton.config.{InProcessGrpcName, ProcessingTimeout}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
@@ -50,7 +50,11 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   ThreadpoolCheck,
 }
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManagementService
-import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
+import com.digitalasset.canton.platform.apiserver.{
+  ApiServiceOwner,
+  InProcessGrpcName,
+  LedgerFeatures,
+}
 import com.digitalasset.canton.platform.config.{
   IdentityProviderManagementConfig,
   IndexServiceConfig,

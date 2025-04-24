@@ -363,7 +363,7 @@ message TopologyMapping {
 // [docs-entry-end: topology mapping]
 
 message TopologyTransaction {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   Enums.TopologyChangeOp operation = 1;
 
@@ -389,7 +389,7 @@ message MultiTransactionSignatures {
 }
 
 message SignedTopologyTransaction {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // serialized topology transaction (protobuf bytestring)
   bytes transaction = 1;
@@ -412,7 +412,7 @@ message SignedTopologyTransaction {
 }
 
 message SignedTopologyTransactions {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   // serialized signed topology transaction (protobuf bytestring)
   repeated bytes signed_transaction = 1;
@@ -425,7 +425,7 @@ message SignedTopologyTransactions {
  * including the member the submitted the broadcast.
  */
 message TopologyTransactionsBroadcast {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   string synchronizer_id = 1;
   SignedTopologyTransactions signed_transactions = 2;

@@ -3,8 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
@@ -14,6 +17,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -26,11 +31,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
 
-import RetransmissionsManager.{HowManyEpochsToKeep, RetransmissionRequestPeriod}
+import RetransmissionsManager.{HowManyEpochsToKeep, NodeRoundRobin, RetransmissionRequestPeriod}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RetransmissionsManager[E <: Env[E]](
@@ -38,12 +44,20 @@ class RetransmissionsManager[E <: Env[E]](
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     abort: String => Nothing,
     previousEpochsCommitCerts: Map[EpochNumber, Seq[CommitCertificate]],
+    metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
+    extends NamedLogging {
   private var currentEpoch: Option[EpochState[E]] = None
+  private var validator: Option[RetransmissionMessageValidator] = None
 
   private var periodicStatusCancellable: Option[CancellableEvent] = None
   private var epochStatusBuilder: Option[EpochStatusBuilder] = None
+
+  private val roundRobin = new NodeRoundRobin()
+
+  private var incomingRetransmissionsRequestCount = 0
+  private var outgoingRetransmissionsRequestCount = 0
 
   private val previousEpochsRetransmissionsTracker = new PreviousEpochsRetransmissionsTracker(
     HowManyEpochsToKeep,
@@ -59,6 +73,7 @@ class RetransmissionsManager[E <: Env[E]](
   ): Unit = currentEpoch match {
     case None =>
       currentEpoch = Some(epochState)
+      validator = Some(new RetransmissionMessageValidator(epochState.epoch))
 
       // when we start an epoch, we immediately request retransmissions.
       // the subsequent requests are done periodically
@@ -74,7 +89,9 @@ class RetransmissionsManager[E <: Env[E]](
       case Some(epoch) =>
         previousEpochsRetransmissionsTracker.endEpoch(epoch.epoch.info.number, commitCertificates)
         currentEpoch = None
+        validator = None
         stopRequesting()
+        recordMetricsAndResetRequestCounts(epoch.epoch.info)
       case None =>
         abort("Tried to end epoch when there is none in progress")
     }
@@ -82,6 +99,23 @@ class RetransmissionsManager[E <: Env[E]](
   private def stopRequesting(): Unit = {
     periodicStatusCancellable.foreach(_.cancel())
     epochStatusBuilder = None
+  }
+
+  private def recordMetricsAndResetRequestCounts(epoch: EpochInfo): Unit = {
+    metrics.consensus.retransmissions.incomingRetransmissionsRequestsMeter
+      .mark(incomingRetransmissionsRequestCount.toLong)(
+        mc.withExtraLabels(
+          metrics.consensus.votes.labels.Epoch -> epoch.toString
+        )
+      )
+    metrics.consensus.retransmissions.outgoingRetransmissionsRequestsMeter
+      .mark(outgoingRetransmissionsRequestCount.toLong)(
+        mc.withExtraLabels(
+          metrics.consensus.votes.labels.Epoch -> epoch.toString
+        )
+      )
+    incomingRetransmissionsRequestCount = 0
+    outgoingRetransmissionsRequestCount = 0
   }
 
   def handleMessage(
@@ -92,26 +126,33 @@ class RetransmissionsManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = message match {
     case Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message) =>
-      context.pipeToSelf(
-        activeCryptoProvider.verifySignedMessage(
-          message,
-          AuthenticatedMessageType.BftSignedRetransmissionMessage,
-        )
-      ) {
-        case Failure(exception) =>
-          logger.error(
-            s"Can't verify ${shortType(message.message)} from ${message.from}",
-            exception,
-          )
-          None
-        case Success(Left(errors)) =>
-          // Info because it can also happen at epoch boundaries
-          logger.info(
-            s"Verification of ${shortType(message.message)} from ${message.from} failed: $errors"
-          )
-          None
-        case Success(Right(())) =>
-          Some(Consensus.RetransmissionsMessage.VerifiedNetworkMessage(message.message))
+      // do cheap validations before checking signature to potentially save ourselves from doing the expensive signature check
+      validateUnverifiedNetworkMessage(message.message) match {
+        case Left(error) =>
+          logger.info(error)
+          println(s"HERE $error")
+        case Right(()) =>
+          context.pipeToSelf(
+            activeCryptoProvider.verifySignedMessage(
+              message,
+              AuthenticatedMessageType.BftSignedRetransmissionMessage,
+            )
+          ) {
+            case Failure(exception) =>
+              logger.error(
+                s"Can't verify ${shortType(message.message)} from ${message.from}",
+                exception,
+              )
+              None
+            case Success(Left(errors)) =>
+              // Info because it can also happen at epoch boundaries
+              logger.info(
+                s"Verification of ${shortType(message.message)} from ${message.from} failed: $errors"
+              )
+              None
+            case Success(Right(())) =>
+              Some(Consensus.RetransmissionsMessage.VerifiedNetworkMessage(message.message))
+          }
       }
     // message from the network from a node requesting retransmissions of messages
     case Consensus.RetransmissionsMessage.VerifiedNetworkMessage(msg) =>
@@ -124,36 +165,41 @@ class RetransmissionsManager[E <: Env[E]](
               )
               currentEpoch.processRetransmissionsRequest(epochStatus)
             case None =>
-              val commitCertsToRetransmit =
-                previousEpochsRetransmissionsTracker.processRetransmissionsRequest(epochStatus)
-
-              if (commitCertsToRetransmit.nonEmpty) {
-                logger.info(
-                  s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
-                )
-                retransmitCommitCertificates(
-                  activeCryptoProvider,
-                  epochStatus.from,
-                  commitCertsToRetransmit,
-                )
+              logger.info(
+                s"Got a retransmission request from ${epochStatus.from} for a previous epoch ${epochStatus.epochNumber}"
+              )
+              previousEpochsRetransmissionsTracker.processRetransmissionsRequest(
+                epochStatus
+              ) match {
+                case Right(commitCertsToRetransmit) =>
+                  logger.info(
+                    s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
+                  )
+                  retransmitCommitCertificates(
+                    activeCryptoProvider,
+                    epochStatus.from,
+                    commitCertsToRetransmit,
+                  )
+                case Left(logMsg) =>
+                  logger.info(logMsg)
               }
           }
         case Consensus.RetransmissionsMessage.RetransmissionResponse(from, commitCertificates) =>
           currentEpoch match {
             case Some(epochState) =>
-              val epochNumber = epochState.epoch.info.number
-              // TODO(#23440) further validate commit certs
-              val wrongEpochs =
-                commitCertificates.view
-                  .map(_.prePrepare.message.blockMetadata.epochNumber)
-                  .filter(_ != epochNumber)
-              if (wrongEpochs.isEmpty) {
-                logger.debug(s"Got a retransmission response from $from at epoch $epochNumber")
-                epochState.processRetransmissionResponse(from, commitCertificates)
-              } else
-                logger.debug(
-                  s"Got a retransmission response for wrong epochs $wrongEpochs, while we're at $epochNumber, ignoring"
-                )
+              val currentEpochNumber = epochState.epoch.info.number
+              commitCertificates.headOption.foreach { commitCert =>
+                val msgEpochNumber = commitCert.prePrepare.message.blockMetadata.epochNumber
+                if (msgEpochNumber == epochState.epoch.info.number) {
+                  logger.debug(
+                    s"Got a retransmission response from $from at epoch $currentEpochNumber"
+                  )
+                  epochState.processRetransmissionResponse(from, commitCertificates)
+                } else
+                  logger.debug(
+                    s"Got a retransmission response from $from for wrong epoch $msgEpochNumber, while we're at $currentEpochNumber, ignoring"
+                  )
+              }
             case None =>
               logger.debug(
                 s"Received a retransmission response from $from while transitioning epochs, ignoring"
@@ -174,15 +220,41 @@ class RetransmissionsManager[E <: Env[E]](
 
         currentEpoch.foreach { e =>
           // after gathering the segment status from all segments,
-          // we can broadcast our whole epoch status
+          // we can send our whole epoch status
           // and effectively request retransmissions of missing messages
-          broadcastStatus(activeCryptoProvider, epochStatus, e.epoch.currentMembership.otherNodes)
+          sendStatus(activeCryptoProvider, epochStatus, e.epoch.currentMembership)
         }
 
         epochStatusBuilder = None
         rescheduleStatusBroadcast(context)
       }
   }
+
+  private def validateUnverifiedNetworkMessage(
+      msg: RetransmissionsNetworkMessage
+  ): Either[String, Unit] =
+    msg match {
+      case req @ Consensus.RetransmissionsMessage.RetransmissionRequest(status) =>
+        incomingRetransmissionsRequestCount += 1
+        (currentEpoch.zip(validator)) match {
+          case Some((epochState, validator))
+              if (epochState.epoch.info.number == status.epochNumber) =>
+            validator.validateRetransmissionRequest(req)
+          case _ =>
+            previousEpochsRetransmissionsTracker
+              .processRetransmissionsRequest(status)
+              .map(_ => ())
+        }
+      case response: Consensus.RetransmissionsMessage.RetransmissionResponse =>
+        validator match {
+          case Some(validator) =>
+            validator.validateRetransmissionResponse(response)
+          case None =>
+            Left(
+              s"Received a retransmission response from ${response.from} while transitioning epochs, ignoring"
+            )
+        }
+    }
 
   private def startRetransmissionsRequest()(implicit traceContext: TraceContext): Unit =
     currentEpoch.foreach { epoch =>
@@ -192,10 +264,10 @@ class RetransmissionsManager[E <: Env[E]](
       epochStatusBuilder = Some(epoch.requestSegmentStatuses())
     }
 
-  private def broadcastStatus(
+  private def sendStatus(
       activeCryptoProvider: CryptoProvider[E],
       epochStatus: ConsensusStatus.EpochStatus,
-      otherNodes: Set[BftNodeId],
+      membership: Membership,
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
@@ -203,10 +275,11 @@ class RetransmissionsManager[E <: Env[E]](
     activeCryptoProvider,
     Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus),
   ) { signedMessage =>
+    outgoingRetransmissionsRequestCount += 1
     p2pNetworkOut.asyncSend(
-      P2PNetworkOut.Multicast(
+      P2PNetworkOut.send(
         P2PNetworkOut.BftOrderingNetworkMessage.RetransmissionMessage(signedMessage),
-        otherNodes,
+        roundRobin.nextNode(membership),
       )
     )
   }
@@ -268,8 +341,23 @@ class RetransmissionsManager[E <: Env[E]](
 }
 
 object RetransmissionsManager {
-  val RetransmissionRequestPeriod: FiniteDuration = 10.seconds
+  val RetransmissionRequestPeriod: FiniteDuration = 3.seconds
 
   // TODO(#24443): unify this value with catch up and pass it as config
   val HowManyEpochsToKeep = 5
+
+  class NodeRoundRobin {
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    private var roundRobinCount = 0
+
+    def nextNode(membership: Membership): BftNodeId = {
+      roundRobinCount += 1
+      // if the count would make us pick ourselves, we make it pick the next one
+      if (roundRobinCount % membership.sortedNodes.size == 0) roundRobinCount = 1
+      // we start from our own index as zero, so that all nodes start at different points
+      val myIndex = membership.sortedNodes.indexOf(membership.myId)
+      val currentIndex = (myIndex + roundRobinCount) % membership.sortedNodes.size
+      membership.sortedNodes(currentIndex)
+    }
+  }
 }

@@ -12,12 +12,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SignedMessage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoFutureUnlessShutdown
+import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertion
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
 trait BftSequencerBaseTest extends BaseTest {
+
+  protected final implicit lazy val synchronizerProtocolVersion: ProtocolVersion =
+    testedProtocolVersion
+
   protected implicit def toFuture[X](x: PekkoFutureUnlessShutdown[X])(implicit
       ec: ExecutionContext
   ): Future[X] =

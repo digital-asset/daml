@@ -4,7 +4,7 @@
 package com.digitalasset.canton.version
 
 import cats.syntax.either.*
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.buildinfo.BuildInfo
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -226,8 +226,9 @@ object ProtocolVersion {
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
   // All stable protocol versions supported by this release
-  val stable: NonEmpty[List[ProtocolVersion]] =
-    NonEmptyUtil.fromUnsafe(parseFromBuildInfo(BuildInfo.stableProtocolVersions))
+  // TODO(#15561) Switch to non-empty again
+  val stable: List[ProtocolVersion] =
+    parseFromBuildInfo(BuildInfo.stableProtocolVersions.toSeq)
 
   private val deprecated: Seq[ProtocolVersion] = Seq()
 
@@ -242,33 +243,28 @@ object ProtocolVersion {
       ProtocolVersion(30),
       ProtocolVersion(31),
       ProtocolVersion(32),
+      ProtocolVersion(33),
     )
 
   val alpha: NonEmpty[List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha]]] =
-    NonEmpty.mk(List, ProtocolVersion.dev)
+    NonEmpty.mk(List, ProtocolVersion.v34, ProtocolVersion.dev)
 
   val beta: List[ProtocolVersionWithStatus[ProtocolVersionAnnotation.Beta]] =
-    parseFromBuildInfo(BuildInfo.betaProtocolVersions)
+    parseFromBuildInfo(BuildInfo.betaProtocolVersions.toSeq)
       .map(pv => ProtocolVersion.createBeta(pv.v))
 
   val supported: NonEmpty[List[ProtocolVersion]] = (alpha ++ beta ++ stable).sorted
 
   private val allProtocolVersions = deprecated ++ deleted ++ alpha ++ beta ++ stable
 
-  private val map: Map[String, Seq[ProtocolVersion]] = Map(
-    "deprecated" -> deprecated,
-    "deleted" -> deleted.forgetNE,
-    "alpha" -> alpha.forgetNE,
-    "stable" -> stable.forgetNE,
-  )
-
   require(
     allProtocolVersions.sizeCompare(allProtocolVersions.distinct) == 0,
     s"All the protocol versions should be distinct." +
-      s"Found: $map",
+      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted.forgetNE, "alpha" -> alpha.forgetNE, "stable" -> stable)}",
   )
 
-  val latest: ProtocolVersion = stable.last1
+  // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version
+  val latest: ProtocolVersion = stable.lastOption.getOrElse(alpha.head1)
 
   /** The protocol version used to bootstrap a synchronizer.
     *
@@ -287,11 +283,11 @@ object ProtocolVersion {
   lazy val dev: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
     ProtocolVersion.createAlpha(Int.MaxValue)
 
-  lazy val v33: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Stable] =
-    ProtocolVersion.createStable(33)
+  lazy val v34: ProtocolVersionWithStatus[ProtocolVersionAnnotation.Alpha] =
+    ProtocolVersion.createAlpha(34)
 
   // Minimum stable protocol version introduced
-  lazy val minimum: ProtocolVersion = v33
+  lazy val minimum: ProtocolVersion = v34
 
   private def parseFromBuildInfo(pv: Seq[String]): List[ProtocolVersion] =
     pv.map(parseUncheckedS)

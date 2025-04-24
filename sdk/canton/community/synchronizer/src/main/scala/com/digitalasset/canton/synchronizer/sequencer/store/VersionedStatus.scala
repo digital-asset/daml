@@ -28,7 +28,7 @@ object VersionedStatus extends VersioningCompanion2[VersionedStatus, VersionedSt
   override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec
       .storage(
-        ReleaseProtocolVersion(ProtocolVersion.v33),
+        ReleaseProtocolVersion(ProtocolVersion.v34),
         v30.VersionedStatus.messageCompanion,
       )(
         supportedProtoVersion(_)(fromProtoV30),

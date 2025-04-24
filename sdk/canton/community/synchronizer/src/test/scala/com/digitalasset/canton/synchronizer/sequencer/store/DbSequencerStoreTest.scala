@@ -4,7 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.CachingConfigs
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs}
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -32,7 +32,8 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
-        CachingConfigs(),
+        cachingConfigs = CachingConfigs(),
+        batchingConfig = BatchingConfig(),
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -46,7 +47,8 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
-        CachingConfigs(),
+        cachingConfigs = CachingConfigs(),
+        batchingConfig = BatchingConfig(),
       )
     )
   }
@@ -62,7 +64,8 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
-        CachingConfigs(),
+        cachingConfigs = CachingConfigs(),
+        batchingConfig = BatchingConfig(),
       )
     )
   }
@@ -79,7 +82,6 @@ object DbSequencerStoreTest {
       DBIO.seq(
         Seq(
           "sequencer_members",
-          "sequencer_counter_checkpoints",
           "sequencer_payloads",
           "sequencer_watermarks",
           "sequencer_events",

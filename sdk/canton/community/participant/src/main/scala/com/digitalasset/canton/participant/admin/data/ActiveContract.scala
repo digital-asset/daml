@@ -32,7 +32,7 @@ object ActiveContract extends VersioningCompanion[ActiveContract] {
   override def name: String = "ActiveContract"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ActiveContract)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ActiveContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

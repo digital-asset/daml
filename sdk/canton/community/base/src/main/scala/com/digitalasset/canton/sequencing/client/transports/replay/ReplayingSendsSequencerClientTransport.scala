@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
@@ -25,9 +24,9 @@ import com.digitalasset.canton.sequencing.client.transports.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{
-  OrdinarySerializedEvent,
+  SequencedEventHandler,
+  SequencedSerializedEvent,
   SequencerClientRecorder,
-  SerializedEventHandler,
 }
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
@@ -117,11 +116,10 @@ object ReplayingSendsSequencerClientTransport {
   final case class EventsReceivedReport(
       elapsedDuration: FiniteDuration,
       totalEventsReceived: Int,
-      finishedAtCounter: SequencerCounter,
       finishedAtTimestamp: Option[CantonTimestamp],
   ) {
     override def toString: String =
-      s"Received $totalEventsReceived events within ${elapsedDuration.toSeconds}s, finished at counter $finishedAtCounter and timestamp $finishedAtTimestamp"
+      s"Received $totalEventsReceived events within ${elapsedDuration.toSeconds}s, finished at sequencing timestamp $finishedAtTimestamp"
   }
 
 }
@@ -274,7 +272,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
 
   protected def subscribe(
       request: SubscriptionRequestV2,
-      handler: SerializedEventHandler[NotUsed],
+      handler: SequencedEventHandler[NotUsed],
   ): AutoCloseable
 
   /** Monitor that when created subscribes the underlying transports and waits for Deliver or
@@ -292,7 +290,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         startedAt: CantonTimestamp,
         lastEventAt: Option[CantonTimestamp],
         eventCounter: Int,
-        lastCounter: SequencerCounter,
         lastSequencingTimestamp: Option[CantonTimestamp],
     )
 
@@ -301,7 +298,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
         startedAt = CantonTimestamp.now(),
         lastEventAt = None,
         eventCounter = 0,
-        lastCounter = SequencerCounter.MinValue,
         lastSequencingTimestamp = None,
       )
     )
@@ -317,13 +313,11 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     scheduleCheck() // kick off checks
 
     private def updateLastDeliver(
-        counter: SequencerCounter,
-        sequencingTimestamp: CantonTimestamp,
+        sequencingTimestamp: CantonTimestamp
     ): Unit = {
-      val _ = stateRef.updateAndGet { case state @ State(_, _, eventCounter, _, _) =>
+      val _ = stateRef.updateAndGet { case state @ State(_, _, eventCounter, _) =>
         state.copy(
           lastEventAt = Some(CantonTimestamp.now()),
-          lastCounter = counter,
           eventCounter = eventCounter + 1,
           lastSequencingTimestamp = Some(sequencingTimestamp),
         )
@@ -350,7 +344,6 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
               EventsReceivedReport(
                 elapsedDuration.toScala,
                 totalEventsReceived = stateSnapshot.eventCounter,
-                finishedAtCounter = stateSnapshot.lastCounter,
                 finishedAtTimestamp = stateSnapshot.lastSequencingTimestamp,
               )
             )
@@ -369,8 +362,8 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     private def updateMetrics(event: SequencedEvent[ClosedEnvelope]): Unit =
       withEmptyMetricsContext { implicit metricsContext =>
         val messageIdO: Option[MessageId] = event match {
-          case Deliver(_, _, _, _, messageId, _, _, _) => messageId
-          case DeliverError(_, _, _, _, messageId, _, _) => Some(messageId)
+          case Deliver(_, _, _, messageId, _, _, _) => messageId
+          case DeliverError(_, _, _, messageId, _, _) => Some(messageId)
           case _ => None
         }
 
@@ -382,12 +375,12 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       }
 
     private def handle(
-        event: OrdinarySerializedEvent
+        event: SequencedSerializedEvent
     ): FutureUnlessShutdown[Either[NotUsed, Unit]] = {
       val content = event.signedEvent.content
 
       updateMetrics(content)
-      updateLastDeliver(content.counter, content.timestamp)
+      updateLastDeliver(content.timestamp)
 
       FutureUnlessShutdown.pure(Either.unit)
     }
@@ -463,7 +456,7 @@ class ReplayingSendsSequencerClientTransportImpl(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     EitherT.pure(())
 
-  override def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequestV2, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext
   ): SequencerSubscription[E] = new SequencerSubscription[E] {
     override protected def loggerFactory: NamedLoggerFactory =
@@ -482,7 +475,7 @@ class ReplayingSendsSequencerClientTransportImpl(
 
   override protected def subscribe(
       request: SubscriptionRequestV2,
-      handler: SerializedEventHandler[NotUsed],
+      handler: SequencedEventHandler[NotUsed],
   ): AutoCloseable =
     underlyingTransport.subscribe(request, handler)
 
@@ -523,7 +516,7 @@ class ReplayingSendsSequencerClientTransportPekko(
 
   override protected def subscribe(
       request: SubscriptionRequestV2,
-      handler: SerializedEventHandler[NotUsed],
+      handler: SequencedEventHandler[NotUsed],
   ): AutoCloseable = {
     val ((killSwitch, _), doneF) = subscribe(request).source
       .mapAsync(parallelism = 10)(eventKS =>

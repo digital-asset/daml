@@ -155,9 +155,8 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   TimeoutType,
 }
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
-  AssignedWrapper,
-  ReassignmentWrapper,
-  UnassignedWrapper,
+  EmptyOrAssignedWrapper,
+  EmptyOrUnassignedWrapper,
 }
 import com.digitalasset.canton.admin.api.client.data.{
   LedgerApiUser,
@@ -211,6 +210,7 @@ object LedgerApiCommands {
         partyIdHint: String,
         annotations: Map[String, String],
         identityProviderId: String,
+        synchronizerId: String,
     ) extends BaseCommand[AllocatePartyRequest, AllocatePartyResponse, PartyDetails] {
       override protected def createRequest(): Either[String, AllocatePartyRequest] =
         Right(
@@ -218,6 +218,7 @@ object LedgerApiCommands {
             partyIdHint = partyIdHint,
             localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
             identityProviderId = identityProviderId,
+            synchronizerId = synchronizerId,
           )
         )
       override protected def submitRequest(
@@ -1046,30 +1047,98 @@ object LedgerApiCommands {
       }
     }
 
+    sealed trait EmptyOrAssignedWrapper {
+      def updateId: String
+
+      def reassignment: Reassignment
+
+      def synchronizerId: String
+
+      final def assignedWrapper: AssignedWrapper = this match {
+        case w: AssignedWrapper => w
+        case _: EmptyReassignmentWrapper =>
+          throw new IllegalStateException("Reassignment was empty")
+      }
+    }
+    object EmptyOrAssignedWrapper {
+      def apply(
+          reassignment: Reassignment,
+          synchronizerId: SynchronizerId,
+      ): EmptyOrAssignedWrapper =
+        if (reassignment.events.isEmpty)
+          EmptyReassignmentWrapper(reassignment, synchronizerId.toProtoPrimitive)
+        else
+          ReassignmentWrapper(reassignment) match {
+            case a: AssignedWrapper => a
+            case invalid =>
+              throw new IllegalStateException(s"Invalid reassignment wrapper: $invalid")
+          }
+    }
+
+    sealed trait EmptyOrUnassignedWrapper {
+      def updateId: String
+
+      def reassignment: Reassignment
+
+      def synchronizerId: String
+
+      final def unassignedWrapper: UnassignedWrapper = this match {
+        case w: UnassignedWrapper => w
+        case _: EmptyReassignmentWrapper =>
+          throw new IllegalStateException("Reassignment was empty")
+      }
+    }
+    object EmptyOrUnassignedWrapper {
+      def apply(
+          reassignment: Reassignment,
+          synchronizerId: SynchronizerId,
+      ): EmptyOrUnassignedWrapper =
+        if (reassignment.events.isEmpty)
+          EmptyReassignmentWrapper(reassignment, synchronizerId.toProtoPrimitive)
+        else
+          ReassignmentWrapper(reassignment) match {
+            case u: UnassignedWrapper => u
+            case invalid =>
+              throw new IllegalStateException(s"Invalid reassignment wrapper: $invalid")
+          }
+    }
+
     final case class AssignedWrapper(
         reassignment: Reassignment,
-        assignedEvents: Seq[AssignedEvent],
-    ) extends ReassignmentWrapper {
+        events: Seq[AssignedEvent],
+    ) extends ReassignmentWrapper
+        with EmptyOrAssignedWrapper {
+      private val head =
+        events.headOption.getOrElse(throw new IllegalStateException("empty events"))
       override def synchronizerId = target
-      def events: Seq[AssignedEvent] = assignedEvents
-      def source: String = assignedEvents.headOption.map(_.source).getOrElse("")
-      def target: String = assignedEvents.headOption.map(_.target).getOrElse("")
-      def unassignId: String = assignedEvents.headOption.map(_.unassignId).getOrElse("")
+      def source: String = head.source
+      def target: String = head.target
+      def unassignId: String = head.unassignId
     }
 
     final case class UnassignedWrapper(
         reassignment: Reassignment,
-        unassignedEvents: Seq[UnassignedEvent],
-    ) extends ReassignmentWrapper {
+        events: Seq[UnassignedEvent],
+    ) extends ReassignmentWrapper
+        with EmptyOrUnassignedWrapper {
+      private val head =
+        events.headOption.getOrElse(throw new IllegalStateException("empty events"))
       override def synchronizerId = source
-      def events: Seq[UnassignedEvent] = unassignedEvents
-      def source: String = unassignedEvents.headOption.map(_.source).getOrElse("")
-      def target: String = unassignedEvents.headOption.map(_.target).getOrElse("")
-      def unassignId: String = unassignedEvents.headOption.map(_.unassignId).getOrElse("")
+      def source: String = head.source
+      def target: String = head.target
+      def unassignId: String = head.unassignId
       def reassignmentId: ReassignmentId = ReassignmentId(
         Source(SynchronizerId.tryFromString(source)),
         CantonTimestamp.assertFromLong(unassignId.toLong),
       )
+    }
+
+    final case class EmptyReassignmentWrapper(
+        reassignment: Reassignment,
+        override val synchronizerId: String,
+    ) extends EmptyOrAssignedWrapper
+        with EmptyOrUnassignedWrapper {
+      override def updateId: String = reassignment.updateId
     }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
@@ -1815,7 +1884,7 @@ object LedgerApiCommands {
     ) extends BaseCommand[
           SubmitAndWaitForReassignmentRequest,
           SubmitAndWaitForReassignmentResponse,
-          AssignedWrapper,
+          EmptyOrAssignedWrapper,
         ] {
       override protected def createRequest(): Either[String, SubmitAndWaitForReassignmentRequest] =
         Right(
@@ -1852,17 +1921,10 @@ object LedgerApiCommands {
 
       override protected def handleResponse(
           response: SubmitAndWaitForReassignmentResponse
-      ): Either[String, AssignedWrapper] =
+      ): Either[String, EmptyOrAssignedWrapper] =
         response.reassignment
           .toRight("Received response without any reassignment")
-          .map(reassignment =>
-            if (reassignment.events.isEmpty) AssignedWrapper(reassignment, Nil)
-            else ReassignmentWrapper(reassignment)
-          )
-          .flatMap {
-            case assigned: AssignedWrapper => Right(assigned)
-            case invalid => Left(s"AssignedWrapper expected, but got: $invalid")
-          }
+          .map(EmptyOrAssignedWrapper(_, target))
     }
 
     final case class SubmitAndWaitUnassign(
@@ -1878,7 +1940,7 @@ object LedgerApiCommands {
     ) extends BaseCommand[
           SubmitAndWaitForReassignmentRequest,
           SubmitAndWaitForReassignmentResponse,
-          UnassignedWrapper,
+          EmptyOrUnassignedWrapper,
         ] {
       override protected def createRequest(): Either[String, SubmitAndWaitForReassignmentRequest] =
         Right(
@@ -1915,18 +1977,10 @@ object LedgerApiCommands {
 
       override protected def handleResponse(
           response: SubmitAndWaitForReassignmentResponse
-      ): Either[String, UnassignedWrapper] =
+      ): Either[String, EmptyOrUnassignedWrapper] =
         response.reassignment
           .toRight("Received response without any reassignment")
-          .map(reassignment =>
-            if (reassignment.events.isEmpty) UnassignedWrapper(reassignment, Nil)
-            else ReassignmentWrapper(reassignment)
-          )
-          .flatMap {
-            case unassigned: UnassignedWrapper => Right(unassigned)
-            case invalid => Left(s"UnassignedWrapper expected, but got: $invalid")
-          }
-
+          .map(EmptyOrUnassignedWrapper(_, source))
     }
 
   }

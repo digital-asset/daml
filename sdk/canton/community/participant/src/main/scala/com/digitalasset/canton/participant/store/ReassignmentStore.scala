@@ -21,13 +21,12 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.sync.SyncPersistentStateLookup
 import com.digitalasset.canton.platform.indexer.parallel.ReassignmentOffsetPersistence
-import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{Checked, CheckedT, EitherTUtil, MonadUtil}
+import com.digitalasset.canton.util.{CheckedT, EitherTUtil, MonadUtil}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -35,39 +34,14 @@ import scala.concurrent.{ExecutionContext, Future}
 trait ReassignmentStore extends ReassignmentLookup {
   import ReassignmentStore.*
 
-  /** Adds the reassignment to the store.
+  /** Adds the unassignment data to the store.
     *
-    * Calls to this method are idempotent, independent of the order. Differences in
-    * [[protocol.reassignment.UnassignmentData!.unassignmentResult]] between two calls are ignored
-    * if the field is [[scala.None$]] in one of the calls. If applicable, the field content is
-    * merged.
-    *
+    * Calls to this method are idempotent, independent of the order.
     * @throws java.lang.IllegalArgumentException
     *   if the reassignment's target synchronizer is not the synchronizer this [[ReassignmentStore]]
     *   belongs to.
     */
-  def addUnassignmentData(reassignmentData: UnassignmentData)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit]
-
-  /** Adds the given [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] to the
-    * reassignment data in the store, provided that the reassignment data has previously been
-    * stored.
-    *
-    * The same [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] can be added
-    * any number of times. This includes unassignment results that are in the
-    * [[protocol.reassignment.UnassignmentData!.unassignmentResult]] added with
-    * [[addUnassignmentData]].
-    *
-    * @param unassignmentResult
-    *   The unassignment result to add
-    * @return
-    *   [[ReassignmentStore.UnknownReassignmentId]] if the reassignment has not previously been
-    *   added with [[addUnassignmentData]]. [[ReassignmentStore.UnassignmentResultAlreadyExists]] if
-    *   a different unassignment result for the same reassignment request has been added before,
-    *   including as part of [[addUnassignmentData]].
-    */
-  def addUnassignmentResult(unassignmentResult: DeliveredUnassignmentResult)(implicit
+  def addUnassignmentData(unassignmentData: UnassignmentData)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit]
 
@@ -109,17 +83,9 @@ trait ReassignmentStore extends ReassignmentLookup {
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit]
 
-  /** Removes the reassignment from the store, when the unassignment request is rejected or the
-    * reassignment is pruned.
-    */
-  def deleteReassignment(reassignmentId: ReassignmentId)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
-
   /** Removes all completions of reassignments that have been triggered by requests with at least
     * the given timestamp. This method must not be called concurrently with
-    * [[completeReassignment]], but may be called concurrently with [[addUnassignmentData]] and
-    * [[addUnassignmentResult]].
+    * [[completeReassignment]], but may be called concurrently with [[addUnassignmentData]].
     *
     * Therefore, this method need not be linearizable w.r.t. [[completeReassignment]]. For example,
     * if two requests at `ts1` and `ts2` complete two reassignments while [[deleteCompletionsSince]]
@@ -138,6 +104,14 @@ trait ReassignmentStore extends ReassignmentLookup {
   def addAssignmentDataIfAbsent(assignmentData: AssignmentData)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit]
+
+  /** Removes the reassignment from the store, when the unassignment request is rejected or the
+    * reassignment is pruned.
+    */
+  @VisibleForTesting
+  def deleteReassignment(reassignmentId: ReassignmentId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 }
 
 object ReassignmentStore {
@@ -262,23 +236,6 @@ object ReassignmentStore {
     override def cause: String = "assignment already completed before unassignment"
   }
 
-  final case class ReassignmentDataAlreadyExists(old: UnassignmentData, `new`: UnassignmentData)
-      extends ReassignmentStoreError {
-    def reassignmentId: ReassignmentId = old.reassignmentId
-
-    override def message: String =
-      s"Reassignment data for reassignment `$reassignmentId` already exists and differs from the new one"
-  }
-
-  final case class UnassignmentResultAlreadyExists(
-      reassignmentId: ReassignmentId,
-      old: DeliveredUnassignmentResult,
-      `new`: DeliveredUnassignmentResult,
-  ) extends ReassignmentStoreError {
-    override def message: String =
-      s"Unassignment result for reassignment `$reassignmentId` already exists and differs from the new one"
-  }
-
   final case class ReassignmentGlobalOffsetsMerge(
       reassignmentId: ReassignmentId,
       error: String,
@@ -304,59 +261,15 @@ object ReassignmentStore {
       reassignmentId: ReassignmentId,
       contract: SerializableContract,
       unassignmentRequest: Option[FullUnassignmentTree],
-      unassignmentDecisionTime: CantonTimestamp,
-      unassignmentResult: Option[DeliveredUnassignmentResult],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       assignmentTs: Option[CantonTimestamp],
   ) {
-    def unassignmentDataO: Option[UnassignmentData] = unassignmentRequest.map(
-      UnassignmentData(
-        reassignmentId,
-        _,
-        unassignmentDecisionTime,
-        unassignmentResult,
-      )
-    )
+    def unassignmentDataO: Option[UnassignmentData] =
+      unassignmentRequest.map(UnassignmentData(reassignmentId, _))
     def unassignmentTs: CantonTimestamp = reassignmentId.unassignmentTs
     def sourceSynchronizer: Source[SynchronizerId] = reassignmentId.sourceSynchronizer
     def unassignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.unassignment)
     def assignmentGlobalOffset: Option[Offset] = reassignmentGlobalOffset.flatMap(_.assignment)
-
-    def mergeWith(
-        otherReassignmentData: UnassignmentData
-    ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, ReassignmentEntry] =
-      for {
-        reassignmentData <- this.unassignmentDataO match {
-          case None => Checked.result(otherReassignmentData)
-          case Some(oldReassignmentData) =>
-            Checked.fromEither(
-              oldReassignmentData
-                .mergeWith(otherReassignmentData)
-                .toRight(ReassignmentDataAlreadyExists(oldReassignmentData, otherReassignmentData))
-            )
-        }
-      } yield ReassignmentEntry(reassignmentData, reassignmentGlobalOffset, assignmentTs)
-
-    private[store] def addUnassignmentResult(
-        unassignmentResult: DeliveredUnassignmentResult
-    ): Either[UnassignmentResultAlreadyExists, ReassignmentEntry] = {
-      val reassignmentData = unassignmentDataO.getOrElse(
-        throw new IllegalStateException("reassignment data should be inserted")
-      )
-      reassignmentData
-        .addUnassignmentResult(unassignmentResult)
-        .toRight {
-          val old = reassignmentData.unassignmentResult.getOrElse(
-            throw new IllegalStateException("unassignment result should not be empty")
-          )
-          UnassignmentResultAlreadyExists(
-            reassignmentData.reassignmentId,
-            old,
-            unassignmentResult,
-          )
-        }
-        .map(ReassignmentEntry(_, reassignmentGlobalOffset, assignmentTs))
-    }
 
     def clearCompletion: ReassignmentEntry = this.copy(assignmentTs = None)
   }
@@ -371,8 +284,6 @@ object ReassignmentStore {
         reassignmentData.reassignmentId,
         reassignmentData.contract,
         Some(reassignmentData.unassignmentRequest),
-        reassignmentData.unassignmentDecisionTime,
-        reassignmentData.unassignmentResult,
         reassignmentGlobalOffset,
         tsCompletion,
       )
@@ -385,8 +296,6 @@ object ReassignmentStore {
       ReassignmentEntry(
         assignmentData.reassignmentId,
         assignmentData.contract,
-        None,
-        assignmentData.unassignmentDecisionTime,
         None,
         reassignmentGlobalOffset,
         tsCompletion,

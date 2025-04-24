@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.CompleteBlockData
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput
 
 import java.time.{Duration, Instant}
 
@@ -22,12 +23,21 @@ private[output] object OutputModuleMetrics {
     val bytesOrdered = requests.map(_.payload.size().toLong).sum
     val requestsOrdered = requests.length.toLong
     val batchesOrdered = orderedBlockData.batches.length.toLong
-    metrics.output.blockSizeBytes.update(bytesOrdered)
-    metrics.output.blockSizeRequests.update(requestsOrdered)
-    metrics.output.blockSizeBatches.update(batchesOrdered)
+    val blockMode =
+      orderedBlockData.orderedBlockForOutput.mode match {
+        case OrderedBlockForOutput.Mode.FromConsensus =>
+          metrics.output.labels.mode.values.Consensus
+        case OrderedBlockForOutput.Mode.FromStateTransfer =>
+          metrics.output.labels.mode.values.StateTransfer
+      }
+    val outputMc = mc.withExtraLabels(metrics.output.labels.mode.Key -> blockMode)
+
+    metrics.output.blockSizeBytes.update(bytesOrdered)(outputMc)
+    metrics.output.blockSizeRequests.update(requestsOrdered)(outputMc)
+    metrics.output.blockSizeBatches.update(batchesOrdered)(outputMc)
     metrics.output.blockDelay.update(
       Duration.between(orderedBlockBftTime.toInstant, orderingCompletionInstant)
-    )
+    )(outputMc)
     metrics.global.blocksOrdered.mark(1L)
     orderedBlockData.batches.foreach { batch =>
       batch._2.requests.foreach { request =>

@@ -6,7 +6,6 @@ package com.digitalasset.canton.synchronizer.sequencer
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -23,7 +22,6 @@ import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.PayloadToEventTimeBoundExceeded
 import com.digitalasset.canton.synchronizer.sequencer.store.{
   BytesPayload,
-  CounterCheckpoint,
   DeliverErrorStoreEvent,
   DeliverStoreEvent,
   InMemorySequencerStore,
@@ -44,7 +42,6 @@ import com.digitalasset.canton.{
   FailOnShutdown,
   HasExecutorService,
   ProtocolVersionChecksAsyncWordSpec,
-  SequencerCounter,
   config,
 }
 import com.google.protobuf.ByteString
@@ -161,7 +158,6 @@ class SequencerWriterSourceTest
         loggerFactory,
         testedProtocolVersion,
         SequencerMetrics.noop(suiteName),
-        timeouts,
         blockSequencerMode = true,
       )(executorService, implicitly[TraceContext], implicitly[ErrorLoggingContext])
         .toMat(Sink.ignore)(Keep.both),
@@ -202,7 +198,6 @@ class SequencerWriterSourceTest
 
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
-  private val charlie = ParticipantId("charlie")
   private val messageId1 = MessageId.tryCreate("1")
   private val messageId2 = MessageId.tryCreate("2")
   private val nextPayload = new AtomicLong(1)
@@ -546,7 +541,7 @@ class SequencerWriterSourceTest
     } yield succeed
   }
 
-  private def eventuallyF[A](timeout: FiniteDuration, checkInterval: FiniteDuration = 100.millis)(
+  private def eventuallyF[A](timeout: FiniteDuration, checkInterval: FiniteDuration)(
       testCode: => Future[A]
   )(implicit env: Env): Future[A] = {
     val giveUpAt = Instant.now().plus(timeout.toMicros, ChronoUnit.MICROS)
@@ -575,67 +570,4 @@ class SequencerWriterSourceTest
       testCode: => FutureUnlessShutdown[A]
   )(implicit env: Env): FutureUnlessShutdown[A] =
     FutureUnlessShutdown.outcomeF(eventuallyF(timeout, checkInterval)(testCode.failOnShutdown))
-
-  "periodic checkpointing" should {
-    // TODO(#16087) ignore test for blockSequencerMode=false
-    "produce checkpoints" in withEnv() { implicit env =>
-      import env.*
-
-      for {
-        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch).failOnShutdown
-        _ <- store.registerMember(bob, CantonTimestamp.Epoch).failOnShutdown
-        _ <- store.registerMember(charlie, CantonTimestamp.Epoch).failOnShutdown
-        batch = Batch.fromClosed(
-          testedProtocolVersion,
-          ClosedEnvelope.create(
-            ByteString.EMPTY,
-            Recipients.cc(bob),
-            Seq.empty,
-            testedProtocolVersion,
-          ),
-        )
-        _ <- valueOrFail(
-          writer.blockSequencerWrite(
-            SubmissionOutcome.Deliver(
-              SubmissionRequest.tryCreate(
-                alice,
-                MessageId.tryCreate("test-deliver"),
-                batch = batch,
-                maxSequencingTime = CantonTimestamp.MaxValue,
-                topologyTimestamp = None,
-                aggregationRule = None,
-                submissionCost = None,
-                protocolVersion = testedProtocolVersion,
-              ),
-              sequencingTime = CantonTimestamp.Epoch.immediateSuccessor,
-              deliverToMembers = Set(alice, bob),
-              batch = batch,
-              submissionTraceContext = TraceContext.empty,
-              trafficReceiptO = None,
-              inFlightAggregation = None,
-            )
-          )
-        )("send").failOnShutdown
-        eventTs <- eventuallyF(10.seconds) {
-          for {
-            events <- env.store.readEvents(aliceId, alice).failOnShutdown
-            _ = events.events should have size 1
-          } yield events.events.headOption.map(_.timestamp).valueOrFail("expected event to exist")
-        }
-        _ = (0 to 30).foreach { _ =>
-          Threading.sleep(100L) // wait for checkpoints to be generated
-          env.clock.advance(java.time.Duration.ofMillis(100))
-        }
-        checkpointingTs = clock.now
-        checkpoints <- store.checkpointsAtTimestamp(checkpointingTs)
-      } yield {
-        val expectedCheckpoints = Map(
-          alice -> CounterCheckpoint(SequencerCounter(0), checkpointingTs, None),
-          bob -> CounterCheckpoint(SequencerCounter(0), checkpointingTs, None),
-          charlie -> CounterCheckpoint(SequencerCounter(-1), checkpointingTs, None),
-        )
-        checkpoints should contain theSameElementsAs expectedCheckpoints
-      }
-    }
-  }
 }

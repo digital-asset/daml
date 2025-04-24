@@ -145,8 +145,9 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       pickSynchronizer(repair) shouldBe repair
     }
 
-    "take minimum protocol version into account" in {
-      val oldPV = ProtocolVersion.v33
+    // TODO(#15561) Re-enable this test when we have a stable protocol version
+    "take minimum protocol version into account" ignore {
+      val oldPV = ProtocolVersion.v34
 
       val transactionVersion = LfLanguageVersion.v2_dev
       val newPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
@@ -166,20 +167,16 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         lfVersion = transactionVersion,
       )
 
-      selectorOldPV.forSingleSynchronizer
-        .leftOrFailShutdown(
-          "aborted due to shutdown."
-        )
-        .futureValue shouldBe InvalidPrescribedSynchronizerId.Generic(
+      selectorOldPV.forSingleSynchronizer.leftOrFailShutdown(
+        "aborted due to shutdown."
+      ) shouldBe InvalidPrescribedSynchronizerId.Generic(
         da,
         expectedError.toString,
       )
 
-      selectorOldPV.forMultiSynchronizer
-        .leftOrFailShutdown(
-          "aborted due to shutdown."
-        )
-        .futureValue shouldBe NoSynchronizerForSubmission.Error(
+      selectorOldPV.forMultiSynchronizer.leftOrFailShutdown(
+        "aborted due to shutdown."
+      ) shouldBe NoSynchronizerForSubmission.Error(
         Map(da -> expectedError.toString)
       )
 
@@ -189,8 +186,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         synchronizerProtocolVersion = _ => newPV,
       )
 
-      selectorNewPV.forSingleSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
-      selectorNewPV.forMultiSynchronizer.futureValueUS.value shouldBe defaultSynchronizerRank
+      selectorNewPV.forSingleSynchronizer.futureValueUS shouldBe defaultSynchronizerRank
+      selectorNewPV.forMultiSynchronizer.futureValueUS shouldBe defaultSynchronizerRank
     }
 
     "refuse to route to a synchronizer with missing package vetting" in {

@@ -847,7 +847,6 @@ final class UnassignmentProcessingStepsTest
           val batch: Batch[OpenEnvelope[SignedProtocolMessage[ConfirmationResultMessage]]] =
             Batch.of(testedProtocolVersion, (signedResult, Recipients.cc(submittingParticipant)))
           Deliver.create(
-            SequencerCounter(0),
             None,
             CantonTimestamp.Epoch,
             sourceSynchronizer.unwrap,
@@ -868,17 +867,11 @@ final class UnassignmentProcessingStepsTest
           .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
 
+        fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
+
         unassignmentValidationResult = UnassignmentValidationResult(
-          rootHash = rootHash,
-          contractId = contractId,
-          reassignmentCounter = ReassignmentCounter.Genesis,
-          templateId = ExampleTransactionFactory.templateId,
-          packageName = ExampleTransactionFactory.packageName,
-          submitterMetadata = submitterMetadata(submitter),
+          fullTree = fullUnassignmentTree,
           reassignmentId = reassignmentId,
-          targetSynchronizer = targetSynchronizer,
-          stakeholders = Set(party1),
-          targetTimeProof = timeProof,
           assignmentExclusivity = Some(Target(assignmentExclusivity)),
           hostedStakeholders = Set(party1),
           validationResult = UnassignmentValidationResult.ValidationResult(

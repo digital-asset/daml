@@ -40,6 +40,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewChange,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoEnv
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -400,7 +401,7 @@ object EpochStoreTest {
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ) = PrePrepare
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) = PrePrepare
     .create(
       BlockMetadata.mk(epochNumber, blockNumber),
       ViewNumber(viewNumber),
@@ -414,7 +415,7 @@ object EpochStoreTest {
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ) =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) =
     Prepare
       .create(
         BlockMetadata.mk(epochNumber, blockNumber),
@@ -428,7 +429,7 @@ object EpochStoreTest {
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ) = (0L to 2L).map { i =>
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) = (0L to 2L).map { i =>
     Commit
       .create(
         BlockMetadata.mk(epochNumber, blockNumber),
@@ -444,7 +445,7 @@ object EpochStoreTest {
       epochNumber: Long,
       segmentNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ): SignedMessage[ViewChange] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[ViewChange] =
     ViewChange
       .create(
         BlockMetadata.mk(epochNumber, segmentNumber),
@@ -459,7 +460,7 @@ object EpochStoreTest {
       epochNumber: Long,
       segmentNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ): SignedMessage[NewView] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[NewView] =
     NewView
       .create(
         BlockMetadata.mk(epochNumber, segmentNumber),

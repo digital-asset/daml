@@ -93,8 +93,11 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
 
-        alice = participant1.parties.enable("alice")
-        bob = participant2.parties.enable("bob")
+        alice = participant1.parties.enable("alice", synchronizer = daName)
+        participant1.parties.enable("alice", synchronizer = acmeName)
+
+        bob = participant2.parties.enable("bob", synchronizer = daName)
+        participant2.parties.enable("bob", synchronizer = acmeName)
 
         participantReactionTimeout = sequencer2.topology.synchronizer_parameters
           .get_dynamic_synchronizer_parameters(acmeId)
@@ -196,7 +199,6 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
           Seq(cid),
           daId,
           acmeId,
-          waitForParticipants = Map(participant1 -> alice),
         )
         .unassignId
 

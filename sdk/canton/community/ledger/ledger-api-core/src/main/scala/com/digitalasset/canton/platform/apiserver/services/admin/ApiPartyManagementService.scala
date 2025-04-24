@@ -37,6 +37,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
 }
 import com.digitalasset.canton.ledger.localstore.api.{
+  ObjectMetaUpdate,
   PartyDetailsUpdate,
   PartyRecord,
   PartyRecordStore,
@@ -252,8 +253,10 @@ private[apiserver] final class ApiPartyManagementService private (
             request.identityProviderId,
             "identity_provider_id",
           )
-        } yield (partyIdHintO, annotations, identityProviderId)
-      } { case (partyIdHintO, annotations, identityProviderId) =>
+          synchronizerIdO <- optionalSynchronizerId(request.synchronizerId, "synchronzier_id")
+
+        } yield (partyIdHintO, annotations, identityProviderId, synchronizerIdO)
+      } { case (partyIdHintO, annotations, identityProviderId, synchronizerIdO) =>
         val partyName = partyIdHintO.getOrElse(generatePartyName)
         val trackerKey = submissionIdGenerator(partyName)
         withEnrichedLoggingContext(telemetry)(logging.submissionId(trackerKey.submissionId)) {
@@ -269,7 +272,7 @@ private[apiserver] final class ApiPartyManagementService private (
                   FutureUnlessShutdown {
                     for {
                       result <- syncService
-                        .allocateParty(partyName, trackerKey.submissionId)
+                        .allocateParty(partyName, trackerKey.submissionId, synchronizerIdO)
                         .toScalaUnwrapped
                       _ <- checkSubmissionResult(result)
                     } yield UnlessShutdown.unit
@@ -280,15 +283,33 @@ private[apiserver] final class ApiPartyManagementService private (
                 identityProviderId,
                 allocated.partyDetails.party,
               )
-              partyRecord <- partyRecordStore
-                .createPartyRecord(
-                  PartyRecord(
-                    party = allocated.partyDetails.party,
-                    metadata = ObjectMeta(resourceVersionO = None, annotations = annotations),
-                    identityProviderId = identityProviderId,
-                  )
-                )
-                .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
+              existingPartyRecord <- partyRecordStore.getPartyRecordO(allocated.partyDetails.party)
+              partyRecord <-
+                if (existingPartyRecord.exists(_.nonEmpty)) {
+                  partyRecordStore
+                    .updatePartyRecord(
+                      PartyRecordUpdate(
+                        party = allocated.partyDetails.party,
+                        identityProviderId = identityProviderId,
+                        metadataUpdate = ObjectMetaUpdate(
+                          resourceVersionO = None,
+                          annotationsUpdateO = Some(annotations),
+                        ),
+                      ),
+                      ledgerPartyIsLocal = true,
+                    )
+                    .flatMap(handlePartyRecordStoreResult("updating a party record")(_))
+                } else {
+                  partyRecordStore
+                    .createPartyRecord(
+                      PartyRecord(
+                        party = allocated.partyDetails.party,
+                        metadata = ObjectMeta(resourceVersionO = None, annotations = annotations),
+                        identityProviderId = identityProviderId,
+                      )
+                    )
+                    .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
+                }
             } yield {
               val details = toProtoPartyDetails(
                 partyDetails = allocated.partyDetails,

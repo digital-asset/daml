@@ -11,11 +11,14 @@ import com.digitalasset.canton.ledger.participant.state.index.{
   MaximumLedgerTimeService,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
+import com.digitalasset.canton.platform.*
 import com.digitalasset.daml.lf.crypto.Hash
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.transaction.{GlobalKey, Node}
+import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AsyncFlatSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -238,16 +241,28 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
 
   private def timestampFromInstant(i: Instant): Timestamp = Timestamp.assertFromInstant(i)
 
+  private val alice = Party.assertFromString("Alice")
+
+  private val dummyCreate =
+    Node.Create(
+      coid = hashCid("dummy"),
+      packageName = PackageName.assertFromString("dummy"),
+      templateId = Identifier.assertFromString("abcd:dummy:dummy"),
+      arg = Value.ValueUnit,
+      signatories = Set(alice),
+      stakeholders = Set(alice),
+      keyOpt = None,
+      version = LanguageMajorVersion.V2.maxStableVersion,
+    )
+
   private def active(ledgerEffectiveTime: Timestamp): ContractState =
     Active(
-      null,
-      ledgerEffectiveTime,
-      Set.empty,
-      Set.empty,
-      None,
-      None,
-      Array.empty,
-    ) // we do not care about the payload here
+      FatContract.fromCreateNode(
+        dummyCreate, // we do not care about the payload here
+        ledgerEffectiveTime,
+        Bytes.Empty,
+      )
+    )
 
   private def testeeWithFixture(fixture: (ContractId, ContractState)*): MaximumLedgerTimeService = {
     val fixtureMap = fixture.toMap
@@ -255,7 +270,7 @@ class ContractStoreBasedMaximumLedgerTimeServiceSpec
       new ContractStore {
         override def lookupActiveContract(readers: Set[Party], contractId: ContractId)(implicit
             loggingContext: LoggingContextWithTrace
-        ): Future[Option[VersionedContractInstance]] =
+        ): Future[Option[FatContract]] =
           throw new UnsupportedOperationException
 
         override def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit

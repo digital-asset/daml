@@ -87,8 +87,10 @@ sealed trait ReassignmentPruningIntegrationTest
 
         participant1.health.ping(participant2.id)
 
-        alice = participant1.parties.enable("alice")
-        bank = participant2.parties.enable("bank")
+        alice = participant1.parties.enable("alice", synchronizer = daName)
+        participant1.parties.enable("alice", synchronizer = acmeName)
+        bank = participant2.parties.enable("bank", synchronizer = daName)
+        participant2.parties.enable("bank", synchronizer = acmeName)
 
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
         participant1.health.ping(participant2.id)
@@ -159,7 +161,6 @@ sealed trait ReassignmentPruningIntegrationTest
         Seq(contractId.toLf),
         origin,
         target,
-        waitForParticipants = Map.apply(participant1 -> alice),
       )
     val unassignOffsetP2 = unassignment.reassignment.offset
     val unassignmentId = unassignment.unassignId

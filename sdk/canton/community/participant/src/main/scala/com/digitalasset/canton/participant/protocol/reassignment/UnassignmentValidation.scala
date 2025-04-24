@@ -39,7 +39,6 @@ private[reassignment] class UnassignmentValidation(
 
     val reassignmentId: ReassignmentId =
       ReassignmentId(fullTree.sourceSynchronizer, parsedRequest.requestTimestamp)
-    val contract = fullTree.contract
 
     for {
 
@@ -69,16 +68,8 @@ private[reassignment] class UnassignmentValidation(
       }
 
     } yield UnassignmentValidationResult(
-      rootHash = fullTree.rootHash,
-      contractId = fullTree.contractId,
-      reassignmentCounter = fullTree.reassignmentCounter,
-      templateId = contract.rawContractInstance.contractInstance.unversioned.template,
-      packageName = contract.rawContractInstance.contractInstance.unversioned.packageName,
-      submitterMetadata = fullTree.submitterMetadata,
+      fullTree = fullTree,
       reassignmentId = reassignmentId,
-      targetSynchronizer = fullTree.targetSynchronizer,
-      stakeholders = fullTree.stakeholders.all,
-      targetTimeProof = fullTree.targetTimeProof,
       hostedStakeholders = hostedStakeholders,
       assignmentExclusivity = assignmentExclusivity,
       validationResult = validationResult,

@@ -40,7 +40,7 @@ class TopologyStoreTestData(
       op,
       serial,
       mapping,
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
     )
     val signingKeyIdsNE = NonEmptyUtil.fromUnsafe(signingKeys).map(_.id).toSet
     val keysWithUsage = TopologyManager
@@ -72,7 +72,7 @@ class TopologyStoreTestData(
     )(
       SignedTopologyTransaction.versioningTable
         .protocolVersionRepresentativeFor(
-          ProtocolVersion.v33
+          ProtocolVersion.v34
         )
     )
   }

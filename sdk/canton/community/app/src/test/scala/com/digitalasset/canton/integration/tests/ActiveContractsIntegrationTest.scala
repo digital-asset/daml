@@ -115,9 +115,11 @@ class ActiveContractsIntegrationTest
           )
         } yield p.synchronizers.connect_local(d, alias = a)
 
-        party1a = participant1.parties.enable("party1")
-        party1b = participant1.parties.enable("party1b")
-        party2 = participant2.parties.enable("party2")
+        Seq(daName, acmeName, repairSynchronizerName).foreach { alias =>
+          party1a = participant1.parties.enable("party1", synchronizer = alias)
+          party1b = participant1.parties.enable("party1b", synchronizer = alias)
+          party2 = participant2.parties.enable("party2", synchronizer = alias)
+        }
 
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
       }
@@ -187,7 +189,7 @@ class ActiveContractsIntegrationTest
 
     val packageName = Ref.PackageName.assertFromString("CantonExamples")
 
-    val contractInst = LfContractInst(
+    val contractInst = LfThinContractInst(
       packageName = packageName,
       template = lfTemplate,
       arg = Versioned(protocol.DummyTransactionVersion, lfArguments),

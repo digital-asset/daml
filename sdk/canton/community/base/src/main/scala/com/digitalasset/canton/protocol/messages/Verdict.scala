@@ -49,7 +49,7 @@ object Verdict
     with ProtocolVersionedCompanionDbHelpers[Verdict] {
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.Verdict)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.Verdict)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

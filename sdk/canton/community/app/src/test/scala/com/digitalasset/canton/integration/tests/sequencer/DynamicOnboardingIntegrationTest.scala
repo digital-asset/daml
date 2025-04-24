@@ -125,7 +125,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         testedProtocolVersion,
       )
       maxSequencingTimeOfAggregation = env.environment.clock.now.add(
-        Duration.ofMinutes(1)
+        Duration.ofMinutes(2)
       ) // cannot exceed the DynamicSynchronizerParameters.sequencerAggregateSubmissionTimeout (defaults to 5m)
       topologyTimestampTombstone = env.environment.clock.now
 
@@ -328,7 +328,6 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
                   _,
                   _,
                   _,
-                  _,
                   SequencerErrors.AggregateSubmissionAlreadySent(message),
                   _,
                 )
@@ -352,7 +351,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
               )
               logEntry.warningMessage should (
                 include(
-                  "This sequencer cannot sign the event with counter"
+                  "This sequencer cannot sign the event with sequencing timestamp"
                 ) and
                   include(
                     "for member PAR::participant3"

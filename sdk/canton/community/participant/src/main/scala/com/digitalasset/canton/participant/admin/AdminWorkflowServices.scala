@@ -327,7 +327,7 @@ class AdminWorkflowServices(
 
 object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
 
-  private val AdminWorkflowDarResourceName: String = "dar/AdminWorkflows.dar"
+  private val AdminWorkflowDarResourceName: String = "AdminWorkflows.dar"
   private val PartyReplicationDarResourceName: String = "PartyReplication.dar"
 
   private def getDarInputStream(resourceName: String): InputStream =

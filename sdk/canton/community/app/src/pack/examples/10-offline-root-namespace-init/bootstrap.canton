@@ -1,3 +1,42 @@
+import better.files.File
+import scala.sys.process.{Process, ProcessLogger}
+
 // start participant node
 participant1.start()
 
+val tmpDir = File.newTemporaryDirectory()
+// Generate intermediate key
+val delegateKeyPath = (tmpDir / "delegate_key.pub").pathAsString
+val delegateKey = participant1.keys.secret.generate_signing_key(
+  name = "NamespaceDelegation",
+  usage = com.digitalasset.canton.crypto.SigningKeyUsage.NamespaceOnly,
+)
+// Write public intermediate key to a file
+participant1.keys.public.download_to(delegateKey.id, delegateKeyPath)
+
+val opensslScriptDirectory = Option(System.getProperty("canton-examples.openssl-script-dir")).getOrElse(".")
+// Run the scripts generating the signed root and delegation certificates
+// This would usually be done on the offline site after having transfered delegate_key.pub to it
+val processLogger = new ProcessLogger {
+  override def out(s: => String): Unit = logger.debug(s)
+  override def err(s: => String): Unit = logger.error(s)
+  override def buffer[T](f: => T): T = f
+}
+Process(
+  Seq(
+    s"$opensslScriptDirectory/openssl-example.sh",
+    delegateKeyPath,
+  ),
+  cwd = File(opensslScriptDirectory).toJava,
+  extraEnv = "OUTPUT_DIR" -> tmpDir.pathAsString,
+).!(processLogger)
+
+// Once the certificates have be generated on the offline site, they can be transfered back
+// to initialize the participant node
+participant1.topology.init_id(
+  identifier = "participant1",
+  delegationFiles = Seq(
+    (tmpDir / "root_namespace.cert").pathAsString,
+    (tmpDir / "intermediate_namespace.cert").pathAsString,
+  ),
+)

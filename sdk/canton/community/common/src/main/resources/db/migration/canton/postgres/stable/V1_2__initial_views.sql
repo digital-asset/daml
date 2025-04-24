@@ -293,8 +293,6 @@ create or replace view debug.par_reassignments as
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
     unassignment_request,
-    debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
-    unassignment_result,
     contract,
     debug.canton_timestamp(assignment_timestamp) as assignment_timestamp
   from par_reassignments;
@@ -450,14 +448,6 @@ create or replace view debug.sequencer_watermarks as
     sequencer_online
   from sequencer_watermarks;
 
-create or replace view debug.sequencer_counter_checkpoints as
-  select
-    debug.resolve_sequencer_member(member) as member,
-    counter,
-    debug.canton_timestamp(ts) as ts,
-    debug.canton_timestamp(latest_sequencer_event_ts) as latest_sequencer_event_ts
-  from sequencer_counter_checkpoints;
-
 create or replace view debug.sequencer_acknowledgements as
   select
     debug.resolve_sequencer_member(member) as member,
@@ -467,7 +457,8 @@ create or replace view debug.sequencer_acknowledgements as
 create or replace view debug.sequencer_lower_bound as
   select
     single_row_lock,
-    debug.canton_timestamp(ts) as ts
+    debug.canton_timestamp(ts) as ts,
+    debug.canton_timestamp(latest_topology_client_timestamp) as latest_topology_client_timestamp
   from sequencer_lower_bound;
 
 create or replace view debug.sequencer_events as

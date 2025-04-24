@@ -11,7 +11,7 @@ import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthSta
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing, OnShutdownRunner}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.transports.SequencerClientTransportPekko
@@ -91,77 +91,83 @@ class ResilientSequencerSubscriberPekko[E](
 
   private val policy: RetrySourcePolicy[
     RestartSourceConfig,
-    Either[TriagedError[E], OrdinarySerializedEvent],
-  ] = new RetrySourcePolicy[RestartSourceConfig, Either[TriagedError[E], OrdinarySerializedEvent]] {
-    override def shouldRetry(
-        lastState: RestartSourceConfig,
-        lastEmittedElement: Option[Either[TriagedError[E], OrdinarySerializedEvent]],
-        lastFailure: Option[Throwable],
-    ): Option[(FiniteDuration, RestartSourceConfig)] = {
-      implicit val traceContext: TraceContext = lastState.traceContext
-      val retryPolicy = subscriptionFactory.retryPolicy
-      val hasReceivedEvent = lastEmittedElement.exists {
-        case Left(err) => err.hasReceivedElements
-        case Right(_) => true
-      }
-      val canRetry = lastFailure match {
-        case None =>
-          lastEmittedElement match {
-            case Some(Right(_)) => false
-            case Some(Left(err)) =>
-              val canRetry = err.retryable
-              if (!canRetry)
-                logger.warn(s"Closing resilient sequencer subscription due to error: ${err.error}")
-              canRetry
-            case None =>
-              logger.info("The sequencer subscription has been terminated by the server.")
-              false
-          }
-        case Some(ex: AbruptStageTerminationException) =>
-          logger.debug("Giving up on resilient sequencer subscription due to shutdown", ex)
-          false
-        case Some(ex) =>
-          val canRetry = retryPolicy.retryOnException(ex)
-          if (canRetry) {
-            logger.warn(
-              s"The sequencer subscription encountered an exception and will be restarted",
-              ex,
-            )
-            true
-          } else {
-            logger.error(
-              "Closing resilient sequencer subscription due to exception",
-              ex,
-            )
-            false
-          }
-      }
-      Option.when(canRetry) {
-        val currentDelay = lastState.delay
-        val logMessage =
-          s"Waiting ${LoggerUtil.roundDurationForHumans(currentDelay)} before reconnecting"
-        if (currentDelay < retryDelayRule.warnDelayDuration) {
-          logger.debug(logMessage)
-        } else if (lastState.health.isFailed) {
-          logger.info(logMessage)
-        } else {
-          val error =
-            LostSequencerSubscription.Warn(subscriptionFactory.sequencerId, _logOnCreation = true)
-          lastState.health.failureOccurred(error)
+    Either[TriagedError[E], SequencedSerializedEvent],
+  ] =
+    new RetrySourcePolicy[RestartSourceConfig, Either[TriagedError[E], SequencedSerializedEvent]] {
+      override def shouldRetry(
+          lastState: RestartSourceConfig,
+          lastEmittedElement: Option[Either[TriagedError[E], SequencedSerializedEvent]],
+          lastFailure: Option[Throwable],
+      ): Option[(FiniteDuration, RestartSourceConfig)] = {
+        implicit val traceContext: TraceContext = lastState.traceContext
+        val retryPolicy = subscriptionFactory.retryPolicy
+        val hasReceivedEvent = lastEmittedElement.exists {
+          case Left(err) => err.hasReceivedElements
+          case Right(_) => true
         }
+        val canRetry = lastFailure match {
+          case None =>
+            lastEmittedElement match {
+              case Some(Right(_)) => false
+              case Some(Left(err)) =>
+                val canRetry = err.retryable
+                if (!canRetry)
+                  logger.warn(
+                    s"Closing resilient sequencer subscription due to error: ${err.error}"
+                  )
+                canRetry
+              case None =>
+                logger.info("The sequencer subscription has been terminated by the server.")
+                false
+            }
+          case Some(ex: AbruptStageTerminationException) =>
+            logger.debug("Giving up on resilient sequencer subscription due to shutdown", ex)
+            false
+          case Some(ex) =>
+            val canRetry = retryPolicy.retryOnException(ex)
+            if (canRetry) {
+              logger.warn(
+                s"The sequencer subscription encountered an exception and will be restarted",
+                ex,
+              )
+              true
+            } else {
+              logger.error(
+                "Closing resilient sequencer subscription due to exception",
+                ex,
+              )
+              false
+            }
+        }
+        Option.when(canRetry) {
+          val currentDelay = lastState.delay
+          val logMessage =
+            s"Waiting ${LoggerUtil.roundDurationForHumans(currentDelay)} before reconnecting"
+          if (currentDelay < retryDelayRule.warnDelayDuration) {
+            logger.debug(logMessage)
+          } else if (lastState.health.isFailed) {
+            logger.info(logMessage)
+          } else {
+            val error =
+              LostSequencerSubscription.Warn(subscriptionFactory.sequencerId, _logOnCreation = true)
+            lastState.health.failureOccurred(error)
+          }
 
-        val nextStartingTimestamp = lastEmittedElement.fold(lastState.startingTimestamp)(
-          _.fold(_.lastEventTimestamp, _.timestamp.some)
-        )
-        val newDelay = retryDelayRule.nextDelay(currentDelay, hasReceivedEvent)
-        currentDelay -> lastState.copy(startingTimestamp = nextStartingTimestamp, delay = newDelay)
+          val nextStartingTimestamp = lastEmittedElement.fold(lastState.startingTimestamp)(
+            _.fold(_.lastEventTimestamp, _.timestamp.some)
+          )
+          val newDelay = retryDelayRule.nextDelay(currentDelay, hasReceivedEvent)
+          currentDelay -> lastState.copy(
+            startingTimestamp = nextStartingTimestamp,
+            delay = newDelay,
+          )
+        }
       }
     }
-  }
 
   private def mkSource(
       config: RestartSourceConfig
-  ): Source[Either[TriagedError[E], OrdinarySerializedEvent], (KillSwitch, Future[Done])] = {
+  ): Source[Either[TriagedError[E], SequencedSerializedEvent], (KillSwitch, Future[Done])] = {
     implicit val traceContext: TraceContext = config.traceContext
     val startingTimestamp = config.startingTimestamp
     val startingTimestampString = startingTimestamp.map(_.toString).getOrElse("the beginning")
@@ -177,10 +183,10 @@ class ResilientSequencerSubscriberPekko[E](
 
   private def triageError(health: ResilientSequencerSubscriptionHealth)(
       state: TriageState,
-      elementWithKillSwitch: WithKillSwitch[Either[E, OrdinarySerializedEvent]],
+      elementWithKillSwitch: WithKillSwitch[Either[E, SequencedSerializedEvent]],
   )(implicit
       traceContext: TraceContext
-  ): (TriageState, Either[TriagedError[E], OrdinarySerializedEvent]) = {
+  ): (TriageState, Either[TriagedError[E], SequencedSerializedEvent]) = {
     val element = elementWithKillSwitch.value
     val TriageState(hasPreviouslyReceivedEvents, lastEventTimestamp) = state
     val hasReceivedEvents = hasPreviouslyReceivedEvents || element.isRight

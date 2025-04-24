@@ -22,7 +22,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
 
   def createNode(
       cid: LfContractId,
-      contractInstance: LfContractInst = ExampleTransactionFactory.contractInstance(),
+      contractInstance: LfThinContractInst = ExampleTransactionFactory.contractInstance(),
       signatories: Set[LfPartyId] = Set(signatory),
       key: Option[LfGlobalKeyWithMaintainers] = None,
   ): LfNodeCreate =

@@ -4,12 +4,9 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.EitherT
-import cats.instances.option.*
-import cats.syntax.apply.*
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
@@ -52,7 +49,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureUtil.doNotAwait
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.Pause
-import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LoggerUtil, MonadUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
@@ -193,7 +190,6 @@ class DatabaseSequencer(
     timeouts.unbounded.await(s"Waiting for sequencer writer to fully start")(
       writer
         .startOrLogError(initialState, resetWatermarkTo)
-        .flatMap(_ => backfillCheckpoints())
         .onShutdown(logger.info("Sequencer writer not started due to shutdown"))
     )
 
@@ -207,41 +203,6 @@ class DatabaseSequencer(
       )
     )
   }
-
-  private def backfillCheckpoints()(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    for {
-      latestCheckpoint <- sequencerStore.fetchLatestCheckpoint()
-      watermark <- sequencerStore.safeWatermark
-      _ <- (latestCheckpoint, watermark)
-        .traverseN { (oldest, watermark) =>
-          val interval = config.writer.checkpointInterval
-          val checkpointsToWrite = LazyList
-            .iterate(oldest.plus(interval.asJava))(ts => ts.plus(interval.asJava))
-            .takeWhile(_ <= watermark)
-
-          if (checkpointsToWrite.nonEmpty) {
-            val start = System.nanoTime()
-            logger.info(
-              s"Starting to backfill checkpoints from $oldest to $watermark in intervals of $interval"
-            )
-            MonadUtil
-              .parTraverseWithLimit(config.writer.checkpointBackfillParallelism)(
-                checkpointsToWrite
-              )(cp => sequencerStore.recordCounterCheckpointsAtTimestamp(cp))
-              .map { _ =>
-                val elapsed = (System.nanoTime() - start).nanos
-                logger.info(
-                  s"Finished backfilling checkpoints from $oldest to $watermark in intervals of $interval in ${LoggerUtil
-                      .roundDurationForHumans(elapsed)}"
-                )
-              }
-          } else {
-            FutureUnlessShutdown.pure(())
-          }
-        }
-    } yield ()
 
   // periodically run the call to mark lagging sequencers as offline
   private def periodicallyMarkLaggingSequencersOffline(
@@ -292,7 +253,6 @@ class DatabaseSequencer(
       protocolVersion,
       timeouts,
       loggerFactory,
-      blockSequencerMode = blockSequencerMode,
     )
 
   override def isRegistered(member: Member)(implicit
@@ -362,14 +322,9 @@ class DatabaseSequencer(
   ): EitherT[FutureUnlessShutdown, SequencerDeliverError, Unit] =
     sendAsyncInternal(signedSubmission.content)
 
-  override def readInternal(member: Member, offset: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
-    reader.read(member, offset)
-
   override def readInternalV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     reader.readV2(member, timestamp)
 
   /** Internal method to be used in the sequencer integration.

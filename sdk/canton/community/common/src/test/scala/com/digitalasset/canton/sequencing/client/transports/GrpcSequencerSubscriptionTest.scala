@@ -57,7 +57,6 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
                   )
                 ),
                 synchronizerId = synchronizerId.toProtoPrimitive,
-                counter = 0L,
                 messageId = None,
                 deliverErrorReason = None,
                 topologyTimestamp = None,

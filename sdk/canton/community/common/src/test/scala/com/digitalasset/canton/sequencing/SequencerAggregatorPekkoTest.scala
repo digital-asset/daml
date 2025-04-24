@@ -85,7 +85,7 @@ class SequencerAggregatorPekkoTest
     )
 
   // Sort the signatures by the fingerprint of the key to get a deterministic ordering
-  private def normalize(event: OrdinarySerializedEvent): OrdinarySerializedEvent =
+  private def normalize(event: SequencedSerializedEvent): SequencedSerializedEvent =
     event.copy(signedEvent =
       event.signedEvent.copy(signatures =
         event.signedEvent.signatures.sortBy(_.signedBy.toProtoPrimitive)
@@ -330,8 +330,8 @@ class SequencerAggregatorPekkoTest
         timeouts,
       ) {
         override protected def verifySignature(
-            priorEventO: Option[PossiblyIgnoredSerializedEvent],
-            event: OrdinarySerializedEvent,
+            priorEventO: Option[ProcessingSerializedEvent],
+            event: SequencedSerializedEvent,
             sequencerId: SequencerId,
             protocolVersion: ProtocolVersion,
         ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =

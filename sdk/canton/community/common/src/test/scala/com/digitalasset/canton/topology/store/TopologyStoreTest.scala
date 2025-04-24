@@ -284,7 +284,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
             txProtocolVersion <- store.findStoredForVersion(
               CantonTimestamp.MaxValue,
               nsd_p1.transaction,
-              ProtocolVersion.v33,
+              ProtocolVersion.v34,
             )
 
             proposalTransactions <- inspect(

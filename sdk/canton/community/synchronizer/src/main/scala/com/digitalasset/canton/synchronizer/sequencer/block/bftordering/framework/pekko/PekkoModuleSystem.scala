@@ -373,9 +373,15 @@ object PekkoModuleSystem {
         Behaviors
           .supervise {
             Behaviors.setup[ModuleControl[PekkoEnv, Unit]] { actorContext =>
+              val logger = loggerFactory.getLogger(getClass)
               val moduleSystem = new PekkoModuleSystem(actorContext, loggerFactory)
               resultPromise.success(systemInitializer.initialize(moduleSystem, p2pManager))
-              Behaviors.same
+              Behaviors.receiveSignal { case (_, Terminated(actorRef)) =>
+                logger.debug(
+                  s"Pekko module system behavior received 'Terminated($actorRef)' signal"
+                )
+                Behaviors.same
+              }
             }
           }
           .onFailure(SupervisorStrategy.stop)

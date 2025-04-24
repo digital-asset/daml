@@ -6,19 +6,20 @@ package com.digitalasset.canton.platform.store.cache
 import cats.data.NonEmptyVector
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{GlobalKey, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64, ValueRecord}
+import com.digitalasset.daml.lf.transaction.Node as LfNode
+import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueRecord}
 import org.mockito.MockitoSugar
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 class ContractStateCachesSpec
     extends AnyFlatSpec
@@ -99,8 +100,8 @@ class ContractStateCachesSpec
   }
 
   private trait TestScope {
-    private val contractIdx: AtomicInteger = new AtomicInteger(0)
-    private val keyIdx: AtomicInteger = new AtomicInteger(0)
+    private val contractIdx: AtomicLong = new AtomicLong(0)
+    private val keyIdx: AtomicLong = new AtomicLong(0)
 
     val keyStateCache: StateCache[Key, ContractKeyStateValue] =
       mock[StateCache[Key, ContractKeyStateValue]]
@@ -118,17 +119,46 @@ class ContractStateCachesSpec
         withKey: Boolean,
     ): ContractStateEvent.Created = {
       val cId = contractIdx.incrementAndGet()
-      ContractStateEvent.Created(
-        contractId = contractId(cId),
-        contract = contract(cId),
-        globalKey = if (withKey) Some(globalKey(keyIdx.incrementAndGet())) else None,
-        ledgerEffectiveTime = Time.Timestamp(cId.toLong),
-        stakeholders = Set(Ref.Party.assertFromString(s"party-$cId")),
-        eventOffset = offset,
-        signatories = Set(Ref.Party.assertFromString(s"party-$cId")),
-        keyMaintainers = None,
-        driverMetadata = Array.empty,
+
+      val templateId = Identifier.assertFromString(s"some:template:name")
+      val packageName = Ref.PackageName.assertFromString("pkg-name")
+      val contractArgument = ValueRecord(
+        Some(templateId),
+        ImmArray(None -> ValueInt64(cId)),
       )
+      val signatories = Set(Ref.Party.assertFromString(s"party-$cId"))
+      val stakeholders = signatories
+
+      val key =
+        if (withKey)
+          Some(
+            KeyWithMaintainers.assertBuild(
+              templateId,
+              ValueInt64(keyIdx.incrementAndGet()),
+              Set.empty,
+              packageName,
+            )
+          )
+        else
+          None
+
+      val contractInstance =
+        FatContract.fromCreateNode(
+          LfNode.Create(
+            coid = contractId(cId),
+            packageName = Ref.PackageName.assertFromString("pkg-name"),
+            templateId = Identifier.assertFromString(s"some:template:name"),
+            arg = contractArgument,
+            signatories = signatories,
+            stakeholders = stakeholders,
+            keyOpt = key,
+            version = LanguageVersion.Major.V2.maxStableVersion,
+          ),
+          createTime = Time.Timestamp(cId),
+          cantonData = Bytes.Empty,
+        )
+
+      ContractStateEvent.Created(contractInstance, offset)
     }
 
     def archiveEvent(
@@ -138,52 +168,25 @@ class ContractStateCachesSpec
       ContractStateEvent.Archived(
         contractId = create.contractId,
         globalKey = create.globalKey,
-        stakeholders = create.stakeholders,
+        stakeholders = create.contract.stakeholders,
         eventOffset = offset,
       )
   }
 
   private def contractActive(create: ContractStateEvent.Created) =
-    ContractStateValue.Active(
-      create.contract,
-      create.stakeholders,
-      create.ledgerEffectiveTime,
-      create.signatories,
-      create.globalKey,
-      create.keyMaintainers,
-      create.driverMetadata,
-    )
+    ContractStateValue.Active(create.contract)
 
   private def contractArchived(create: ContractStateEvent.Created) =
-    ContractStateValue.Archived(create.stakeholders)
+    ContractStateValue.Archived(create.contract.stakeholders)
 
   private def keyAssigned(create: ContractStateEvent.Created) =
     ContractKeyStateValue.Assigned(
       create.contractId,
-      create.stakeholders,
+      create.contract.stakeholders,
     )
 
-  private def contractId(id: Int): ContractId =
+  private def contractId(id: Long): ContractId =
     ContractId.V1(Hash.hashPrivateKey(id.toString))
-
-  private def globalKey(id: Int): Key =
-    GlobalKey.assertBuild(
-      Identifier.assertFromString(s"some:template:name"),
-      ValueInt64(id.toLong),
-      Ref.PackageName.assertFromString("pkg-name"),
-    )
-
-  private def contract(id: Int): Contract = {
-    val templateId = Identifier.assertFromString(s"some:template:name")
-    val packageName = Ref.PackageName.assertFromString("pkg-name")
-    val contractArgument = ValueRecord(
-      Some(templateId),
-      ImmArray(None -> ValueInt64(id.toLong)),
-    )
-    val contractInstance =
-      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
-    Versioned(LanguageVersion.StableVersions(LanguageVersion.Major.V2).max, contractInstance)
-  }
 
   private def offset(idx: Int) = Offset.tryFromLong(idx.toLong)
 }

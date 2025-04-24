@@ -75,6 +75,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
@@ -113,8 +114,11 @@ final class IssConsensusModule[E <: Env[E]](
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
     // Only passed in tests
     private var messageAuthorizer: MessageAuthorizer = activeTopologyInfo.currentTopology,
-)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
-    extends Consensus[E]
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    config: BftBlockOrdererConfig,
+    mc: MetricsContext,
+) extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
 
   private val thisNode = initialState.topologyInfo.thisNode
@@ -128,6 +132,7 @@ final class IssConsensusModule[E <: Env[E]](
         epochLength,
         epochStore,
         random,
+        metrics,
         loggerFactory,
       )()
     )
@@ -402,9 +407,9 @@ final class IssConsensusModule[E <: Env[E]](
         def emitNonComplianceMetric(): Unit =
           emitNonCompliance(metrics)(
             from,
-            epochNumber,
-            viewNumber,
-            blockNumber,
+            Some(epochNumber),
+            Some(viewNumber),
+            Some(blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
           )
 
@@ -667,9 +672,9 @@ final class IssConsensusModule[E <: Env[E]](
     def emitNonComplianceMetric(): Unit =
       emitNonCompliance(metrics)(
         pbftMessagePayload.from,
-        pbftMessageBlockMetadata.epochNumber,
-        pbftMessagePayload.viewNumber,
-        pbftMessageBlockMetadata.blockNumber,
+        Some(pbftMessageBlockMetadata.epochNumber),
+        Some(pbftMessagePayload.viewNumber),
+        Some(pbftMessageBlockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
       )
 
@@ -899,10 +904,8 @@ object IssConsensusModule {
   ): ParsingResult[Consensus.StateTransferMessage.StateTransferNetworkMessage] =
     message.message match {
       case v30.StateTransferMessage.Message.BlockRequest(value) =>
-        Right(
-          Consensus.StateTransferMessage.BlockTransferRequest.fromProto(from, value)(
-            originalByteString
-          )
+        Consensus.StateTransferMessage.BlockTransferRequest.fromProto(from, value)(
+          originalByteString
         )
       case v30.StateTransferMessage.Message.BlockResponse(value) =>
         Consensus.StateTransferMessage.BlockTransferResponse.fromProto(from, value)(

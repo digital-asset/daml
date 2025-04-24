@@ -240,7 +240,7 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
   override val name: String = "ConfirmationResponses"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ConfirmationResponses)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ConfirmationResponses)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

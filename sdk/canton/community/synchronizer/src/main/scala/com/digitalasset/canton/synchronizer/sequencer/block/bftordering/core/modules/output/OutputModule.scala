@@ -97,13 +97,12 @@ class OutputModule[E <: Env[E]](
     epochStoreReader: EpochStoreReader[E],
     blockSubscription: BlockSubscription,
     metrics: BftOrderingMetrics,
-    protocolVersion: ProtocolVersion,
     override val availability: ModuleRef[Availability.Message[E]],
     override val consensus: ModuleRef[Consensus.Message[E]],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     requestInspector: RequestInspector = DefaultRequestInspector, // For testing
-)(implicit mc: MetricsContext)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends Output[E]
     with HasDelayedInit[Message[E]] {
 
@@ -596,7 +595,6 @@ class OutputModule[E <: Env[E]](
       case tracedOrderingRequest @ Traced(orderingRequest) =>
         requestInspector.isRequestToAllMembersOfSynchronizer(
           orderingRequest,
-          protocolVersion,
           logger,
           tracedOrderingRequest.traceContext,
         )
@@ -775,24 +773,23 @@ object OutputModule {
   }
 
   trait RequestInspector {
+
     def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
-        protocolVersion: ProtocolVersion,
         logger: TracedLogger,
         traceContext: TraceContext,
-    ): Boolean
+    )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean
   }
 
   object DefaultRequestInspector extends RequestInspector {
 
     override def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
-        protocolVersion: ProtocolVersion,
         logger: TracedLogger,
         traceContext: TraceContext,
-    ): Boolean =
+    )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
       // TODO(#21615) we should avoid a further deserialization downstream
-      deserializeSignedOrderingRequest(protocolVersion)(request.payload) match {
+      deserializeSignedOrderingRequest(synchronizerProtocolVersion)(request.payload) match {
         case Right(signedSubmissionRequest) =>
           signedSubmissionRequest.content.content.content.batch.allRecipients
             .contains(AllMembersOfSynchronizer)

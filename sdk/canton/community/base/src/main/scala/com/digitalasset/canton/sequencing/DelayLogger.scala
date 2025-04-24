@@ -9,6 +9,7 @@ import com.digitalasset.canton.sequencing.protocol.Deliver
 import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
+  SequencedEventWithTraceContext,
 }
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.tracing.TraceContext
@@ -26,28 +27,36 @@ class DelayLogger(
 ) {
   private val caughtUp = new AtomicBoolean(false)
 
-  def checkForDelay(event: PossiblyIgnoredSequencedEvent[_]): Unit = event match {
-    case OrdinarySequencedEvent(_, signedEvent) =>
-      implicit val traceContext: TraceContext = event.traceContext
-      signedEvent.content match {
-        case Deliver(counter, _, ts, _, _, _, _, _) =>
-          val now = clock.now
-          val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
-          val deltaMs = delta.toMillis
-          gauge.updateValue(deltaMs)
-          if (delta.compareTo(threshold.unwrap) > 0) {
-            if (caughtUp.compareAndSet(true, false)) {
-              logger.warn(
-                s"Late processing (or clock skew) of batch with counter=$counter with timestamp $delta ms after sequencing."
-              )
-            }
-          } else if (caughtUp.compareAndSet(false, true)) {
-            logger.info(
-              s"Caught up with batch with counter=$counter with sequencer with $delta ms delay"
+  def checkForDelay(event: PossiblyIgnoredSequencedEvent[?]): Unit =
+    event match {
+      case event: OrdinarySequencedEvent[_] =>
+        checkForDelay_(event.asSequencedSerializedEvent)
+      case _ => ()
+    }
+
+  def checkForDelay_(event: SequencedEventWithTraceContext[?]): Unit = {
+    implicit val traceContext: TraceContext = event.traceContext
+    event.signedEvent.content match {
+      case Deliver(_, ts, _, _, _, _, _) =>
+        val now = clock.now
+        val delta = java.time.Duration.between(ts.toInstant, now.toInstant)
+        val deltaMs = delta.toMillis
+        gauge.updateValue(deltaMs)
+        val thresholdDuration = threshold.unwrap
+        if (delta.compareTo(thresholdDuration) > 0) {
+          if (caughtUp.compareAndSet(true, false)) {
+            logger.warn(
+              s"Detected late processing (or clock skew) of batch with timestamp = $ts; delta = $delta " +
+                s"after sequencing (> threshold = $thresholdDuration)"
             )
           }
-        case _ => ()
-      }
-    case _ => ()
+        } else if (caughtUp.compareAndSet(false, true)) {
+          logger.info(
+            s"Caught up with sequencer on batch with timestamp = $ts; delta = $delta " +
+              s"(threshold = $thresholdDuration)"
+          )
+        }
+      case _ => ()
+    }
   }
 }

@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransportPekko,
 }
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.{SequencerClientRecorder, SerializedEventHandler}
+import com.digitalasset.canton.sequencing.{SequencedEventHandler, SequencerClientRecorder}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -76,7 +76,7 @@ class ReplayingEventsSequencerClientTransport(
     EitherT.pure(GetTrafficStateForMemberResponse(None, protocolVersion))
 
   /** Replays all events in `replayPath` to the handler. */
-  override def subscribe[E](request: SubscriptionRequestV2, handler: SerializedEventHandler[E])(
+  override def subscribe[E](request: SubscriptionRequestV2, handler: SequencedEventHandler[E])(
       implicit traceContext: TraceContext
   ): ReplayingSequencerSubscription[E] = {
     logger.info("Loading messages for replaying...")
@@ -87,12 +87,12 @@ class ReplayingEventsSequencerClientTransport(
     val startTime = CantonTimestamp.now()
     val startNanos = System.nanoTime()
     val replayF = MonadUtil
-      .sequentialTraverse(messages) { e =>
+      .sequentialTraverse(messages) { event =>
         logger.debug(
-          s"Replaying event with sequencer counter ${e.counter} and timestamp ${e.timestamp}"
-        )(e.traceContext)
+          s"Replaying event with sequencing timestamp ${event.timestamp}"
+        )(event.traceContext)
         for {
-          unitOrErr <- handler(e)
+          unitOrErr <- handler(event)
         } yield unitOrErr match {
           case Left(err) =>
             logger.error(s"The sequencer handler returned an error: $err")
