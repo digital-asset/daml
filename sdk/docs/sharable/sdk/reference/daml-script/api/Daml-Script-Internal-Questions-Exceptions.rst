@@ -102,6 +102,38 @@ Data Types
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"exc\" `Throw <type-daml-script-internal-questions-exceptions-throw-53740_>`_ `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_
 
+.. _type-daml-script-internal-questions-exceptions-tryfailurestatus-59844:
+
+**data** `TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844_>`_
+
+  .. _constr-daml-script-internal-questions-exceptions-tryfailurestatus-15589:
+
+  `TryFailureStatus <constr-daml-script-internal-questions-exceptions-tryfailurestatus-15589_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - act
+         - () \-\> :ref:`LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913>`
+         -
+       * - dummy
+         - ()
+         -
+
+  **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844_>`_ (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_ x)
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"act\" `TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844_>`_ (() \-\> :ref:`LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913>`)
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"dummy\" `TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844_>`_ ()
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" `TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844_>`_ (() \-\> :ref:`LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913>`)
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"dummy\" `TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844_>`_ ()
+
 Functions
 ---------
 
@@ -119,4 +151,9 @@ Functions
 
 `throwAnyException <function-daml-script-internal-questions-exceptions-throwanyexception-70957_>`_
   \: `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` t
+
+.. _function-daml-script-internal-questions-exceptions-tryfailurestatus-576:
+
+`tryFailureStatus <function-daml-script-internal-questions-exceptions-tryfailurestatus-576_>`_
+  \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_ a)
 
