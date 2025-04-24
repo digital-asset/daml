@@ -9,7 +9,7 @@ module Daml.Script.Internal
   , ErrorMessage (..)
   , tryCommands
   , FailedCmd (..)
-  , liftFailedCommandToException
+  , liftFailedCommandToFailureStatus
 
   , -- Packages
     PackageName (..)
