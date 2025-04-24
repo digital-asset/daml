@@ -102,14 +102,14 @@
         </rewrite>
 
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.auth.AuthorizationInterceptor</logger>
+            <logger>com.digitalasset.canton.auth.AuthInterceptor</logger>
             <maxLevel>INFO</maxLevel>
             <contains>The command is missing a (valid) JWT token </contains>
             <testing>true</testing>
         </rewrite>
 
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor</logger>
+            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor</logger>
             <maxLevel>INFO</maxLevel>
             <contains>Could not resolve is_deactivated status for user </contains>
             <testing>true</testing>

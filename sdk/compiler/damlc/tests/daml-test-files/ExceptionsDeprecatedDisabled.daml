@@ -4,7 +4,7 @@
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 
 -- Disable the warning using the GHC flag, so we can do it per file.
--- Normally you would use `--disable-deprecated-exceptions-warning` in your daml.yaml
+-- Normally you would use `-Wno-deprecated-exceptions` in your daml.yaml
 -- This file is a mirror of ExceptionsDeprecated.daml without the warning requirements, and an additional test
 {-# OPTIONS_GHC -Wno-x-exceptions #-}
 

@@ -10,6 +10,7 @@ module Daml.Script.Internal.Questions.Exceptions where
 import DA.Exception
 import DA.Optional
 import Daml.Script.Internal.LowLevel
+import DA.Fail
 
 data Catch = Catch with
   act : () -> LedgerValue

@@ -51,7 +51,7 @@ case class SerializableContract(
     extends HasVersionedWrapper[SerializableContract]
     with PrettyPrinting {
 
-  def contractInstance: LfContractInst = rawContractInstance.contractInstance
+  def contractInstance: LfThinContractInst = rawContractInstance.contractInstance
 
   override protected def companionObj: HasVersionedMessageCompanionCommon[SerializableContract] =
     SerializableContract
@@ -106,7 +106,7 @@ object SerializableContract
     with HasVersionedMessageCompanionDbHelpers[SerializableContract] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(protocol.v30.SerializableContract)(fromProtoV30),
       _.toProtoV30,
     )
@@ -129,7 +129,7 @@ object SerializableContract
 
   def apply(
       contractId: LfContractId,
-      contractInstance: LfContractInst,
+      contractInstance: LfThinContractInst,
       metadata: ContractMetadata,
       ledgerTime: CantonTimestamp,
       contractSalt: Salt,
@@ -161,7 +161,7 @@ object SerializableContract
             .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
             .map(_.salt)
       }
-      contractInstance = Versioned(fat.version, fat.toCreateNode.coinst)
+      contractInstance = fat.toCreateNode.versionedCoinst
       cantonContractMetadata <- ContractMetadata.create(
         signatories = fat.signatories,
         stakeholders = fat.stakeholders,

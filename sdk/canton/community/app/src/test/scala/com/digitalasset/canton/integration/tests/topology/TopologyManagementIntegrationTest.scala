@@ -103,25 +103,6 @@ trait TopologyManagementIntegrationTest
         val nd3 = sequencer1.topology.namespace_delegations.list(store = daId)
         assertResult(1, nd3.map(_.item))(nd3.length - nd.length)
       }
-
-      // add a new identifier delegation with a new key for the sequencer, using the intermediate CA
-      val identifierCAKey =
-        sequencer1.keys.secret
-          .generate_signing_key("identifier-ca", SigningKeyUsage.IdentityDelegationOnly)
-
-      val idt = sequencer1.topology.identifier_delegations.list(daId)
-      sequencer1.topology.identifier_delegations.propose(
-        daId.unwrap,
-        identifierCAKey,
-        store = daId,
-      )
-      eventually() { () =>
-        val idt2 = sequencer1.topology.identifier_delegations.list(
-          daId,
-          operation = Some(TopologyChangeOp.Replace),
-        )
-        assert(idt.length + 1 == idt2.length)
-      }
     }
 
     "allocate new parties" taggedAs_ { scenario =>
@@ -140,6 +121,7 @@ trait TopologyManagementIntegrationTest
       participant1.topology.party_to_participant_mappings.propose(
         newParty,
         List(p1Id -> ParticipantPermission.Submission),
+        store = daId,
       )
 
       eventually() {
@@ -253,6 +235,7 @@ trait TopologyManagementIntegrationTest
       def add() = participant1.topology.party_to_participant_mappings.propose(
         PartyId(participant1.uid.tryChangeId("Boris")),
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
+        store = daId,
       )
 
       // add once
@@ -572,6 +555,7 @@ trait TopologyManagementIntegrationTest
         PartyId(Rick.uid),
         removes = List(participant1.id),
         forceFlags = ForceFlags(DisablePartyWithActiveContracts),
+        store = daId,
       )
 
       eventually(timeUntilSuccess = 30.seconds) {
@@ -597,6 +581,7 @@ trait TopologyManagementIntegrationTest
           PartyId(participant1.uid.tryChangeId("Jeremias")),
           newParticipants = List(participant1.id -> ParticipantPermission.Submission),
           signedBy = signingKey.toList,
+          store = daId,
         )
       // vanilla add
       add(Some(participant1.fingerprint))
@@ -611,6 +596,7 @@ trait TopologyManagementIntegrationTest
         participant1.namespace,
         key1,
         CanSignAllButNamespaceDelegations,
+        store = daId,
       )
       // add previous statement again but signed with a different key
       add(Some(key1.fingerprint))
@@ -642,13 +628,13 @@ trait TopologyManagementIntegrationTest
 
       val key1 =
         participant1.keys.secret
-          .generate_signing_key("test-key1", SigningKeyUsage.NamespaceOrIdentityDelegation)
+          .generate_signing_key("test-key1", SigningKeyUsage.NamespaceOnly)
       val tx = genTx(
         participant1,
         TopologyTransaction(
           TopologyChangeOp.Remove,
           PositiveInt.tryCreate(1),
-          IdentifierDelegation.tryCreate(participant1.uid, key1),
+          NamespaceDelegation.tryCreate(participant1.namespace, key1, CanSignAllMappings),
           testedProtocolVersion,
         ),
         key1,
@@ -708,6 +694,7 @@ trait TopologyManagementIntegrationTest
           PartyId(participant2.uid.tryChangeId("NothingToSignWith")),
           newParticipants = List(participant2.id -> ParticipantPermission.Submission),
           signedBy = Seq.empty,
+          store = daId,
         ),
         _.shouldBeCommandFailure(TopologyManagerError.NoAppropriateSigningKeyInStore),
       )
@@ -727,6 +714,7 @@ trait TopologyManagementIntegrationTest
         newParticipants = List(participant2.id -> ParticipantPermission.Submission),
         signedBy = Seq(p2Key.fingerprint),
         forceFlags = if (force) ForceFlags(AllowUnvalidatedSigningKeys) else ForceFlags.none,
+        store = daId,
       )
 
       assertThrowsAndLogsCommandFailures(
@@ -765,6 +753,7 @@ trait TopologyManagementIntegrationTest
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
         signedBy = Seq(p1Key.fingerprint),
         forceFlags = if (force) ForceFlags(AllowUnvalidatedSigningKeys) else ForceFlags.none,
+        store = daId,
       )
 
       loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -788,7 +777,7 @@ trait TopologyManagementIntegrationTest
 
       val key1 =
         participant1.keys.secret
-          .generate_signing_key(usage = SigningKeyUsage.NamespaceOrIdentityDelegation)
+          .generate_signing_key(usage = SigningKeyUsage.NamespaceOnly)
       val sig = participant1.keys.secret
         .list(filterFingerprint = participant1.fingerprint.unwrap)
         .collectFirst { case PrivateKeyMetadata(x: SigningPublicKeyWithName, _, _) =>
@@ -801,7 +790,7 @@ trait TopologyManagementIntegrationTest
         TopologyTransaction(
           TopologyChangeOp.Replace,
           PositiveInt.tryCreate(serial),
-          IdentifierDelegation.tryCreate(participant1.uid, key1),
+          NamespaceDelegation.tryCreate(participant1.namespace, key1, CanSignAllMappings),
           testedProtocolVersion,
         ),
         sig,
@@ -983,26 +972,6 @@ trait TopologyManagementIntegrationTest
       )
     }
 
-    "query identifier delegations" in { implicit env =>
-      import env.*
-
-      val key =
-        participant1.keys.secret
-          .generate_signing_key(usage = SigningKeyUsage.IdentityDelegationOnly)
-      participant1.topology.identifier_delegations.propose(
-        participant1.uid,
-        key,
-      )
-      eventually() {
-        participant1.topology.identifier_delegations
-          .list(
-            store = TopologyStoreId.Authorized,
-            filterUid = participant1.filterString,
-          )
-          .map(_.item.target) should contain(key)
-      }
-    }
-
     "query owner to key mappings" in { implicit env =>
       import env.*
 
@@ -1042,6 +1011,7 @@ trait TopologyManagementIntegrationTest
       participant1.topology.party_to_participant_mappings.propose(
         PartyId(participant1.uid.tryChangeId("Bertram")),
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
+        store = daId,
       )
 
       eventually() {

@@ -93,7 +93,8 @@ trait CommandDeduplicationIntegrationTest
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
         participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
         participant1.dars.upload(CantonExamplesPath)
-        participant1.parties.enable("Alice")
+        participant1.parties.enable("Alice", synchronizer = daName)
+        participant1.parties.enable("Alice", synchronizer = acmeName)
       }
 
   private def checkAccepted(
@@ -323,7 +324,7 @@ trait CommandDeduplicationIntegrationTest
     WithContext { (alice, _) => implicit env =>
       import env.*
 
-      val bob = participant1.parties.enable("Bob")
+      val bob = participant1.parties.enable("Bob", synchronizer = daName)
 
       val createCycleContract =
         new C.Cycle(

@@ -16,6 +16,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
   InvalidTopologyMapping,
   ParticipantErrorGroup,
 }
+import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
   ParticipantPermission,
@@ -28,19 +29,26 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class PartyOps(
-    topologyManager: AuthorizedTopologyManager,
+    topologyManagerLookup: SynchronizerId => Option[SynchronizerTopologyManager],
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
   def allocateParty(
       partyId: PartyId,
       participantId: ParticipantId,
+      synchronizerId: SynchronizerId,
       protocolVersion: ProtocolVersion,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
     for {
+      topologyManager <- EitherT.fromOption[FutureUnlessShutdown](
+        topologyManagerLookup(synchronizerId),
+        ParticipantTopologyManagerError.IdentityManagerParentError(
+          TopologyManagerError.TopologyStoreUnknown.Failure(SynchronizerStore(synchronizerId))
+        ),
+      )
       storedTransactions <- EitherT
         .right(
           topologyManager.store.findPositiveTransactions(

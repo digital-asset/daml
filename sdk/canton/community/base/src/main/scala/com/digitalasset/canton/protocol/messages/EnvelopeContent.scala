@@ -27,7 +27,7 @@ object EnvelopeContent extends VersioningCompanionContextPVValidation2[EnvelopeC
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(
-      ProtocolVersion.v33
+      ProtocolVersion.v34
     )(v30.EnvelopeContent)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,

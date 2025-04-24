@@ -20,7 +20,7 @@ class TransactionViewTest extends AnyWordSpec with BaseTest with HasExecutionCon
 
   private val hashOps: HashOps = factory.cryptoOps
 
-  private val contractInst: LfContractInst = ExampleTransactionFactory.contractInstance()
+  private val contractInst: LfThinContractInst = ExampleTransactionFactory.contractInstance()
 
   private val cantonContractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11
   private val createdId: LfContractId =

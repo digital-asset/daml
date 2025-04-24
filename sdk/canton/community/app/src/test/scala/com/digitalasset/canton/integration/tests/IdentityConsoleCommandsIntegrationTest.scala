@@ -64,7 +64,7 @@ class IdentityConsoleCommandsIntegrationTest
         node.keys.secret.generate_signing_key("namespace", usage = SigningKeyUsage.NamespaceOnly)
       val uid = UniqueIdentifier.tryCreate(node.name, key.fingerprint)
       eventually() {
-        Try(node.topology.init_id(uid)).success
+        Try(node.topology.init_id_from_uid(uid)).success
       }
       // init_id should only return after the next bootstrap stage has been reached
       // and therefore the identity should be properly set

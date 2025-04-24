@@ -103,11 +103,6 @@ trait AcsCommitmentMetricsIntegrationTest
           )
         }
 
-        // Allocate parties
-        alice = participant1.parties.enable(aliceName)
-        bob = participant2.parties.enable(bobName)
-        charlie = participant3.parties.enable(charlieName)
-
         metricsSynchronizerAlias = daName.unquoted
 
         participants.all.foreach { participant =>
@@ -122,6 +117,14 @@ trait AcsCommitmentMetricsIntegrationTest
             synchronizerAlias = acmeName,
           )
         }
+
+        // Allocate parties
+        alice = participant1.parties.enable(aliceName, synchronizer = daName)
+        participant1.parties.enable(aliceName, synchronizer = acmeName)
+        bob = participant2.parties.enable(bobName, synchronizer = daName)
+        participant2.parties.enable(bobName, synchronizer = acmeName)
+        charlie = participant3.parties.enable(charlieName, synchronizer = daName)
+        participant3.parties.enable(charlieName, synchronizer = acmeName)
       }
 
   private def connect(

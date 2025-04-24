@@ -15,7 +15,7 @@ import com.digitalasset.canton.error.CantonErrorGroups.SequencerSubscriptionErro
 import com.digitalasset.canton.health.{CloseableAtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.sequencing.client.ResilientSequencerSubscription.LostSequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.{
   ApplicationHandlerException,
@@ -56,9 +56,10 @@ import scala.util.{Failure, Success, Try}
 class ResilientSequencerSubscription[HandlerError](
     sequencerId: SequencerId,
     startingTimestamp: Option[CantonTimestamp],
-    handler: SerializedEventHandler[HandlerError],
+    handler: SequencedEventHandler[HandlerError],
     subscriptionFactory: SequencerSubscriptionFactory[HandlerError],
     retryDelayRule: SubscriptionRetryDelayRule,
+    maybeExitOnFatalError: SubscriptionCloseReason[HandlerError] => Unit,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -241,6 +242,8 @@ class ResilientSequencerSubscription[HandlerError](
         fatalOccurred(ex.toString)
       case Success(error) =>
         logger.warn(s"Closing resilient sequencer subscription due to error: $error")
+        fatalOccurred(error.toString)
+        maybeExitOnFatalError(error)
       case Failure(exception) =>
         logger.error(s"Closing resilient sequencer subscription due to exception", exception)
         fatalOccurred(exception.toString)
@@ -312,8 +315,9 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       protocolVersion: ProtocolVersion,
       member: Member,
       getTransport: => UnlessShutdown[SequencerClientTransport],
-      handler: SerializedEventHandler[E],
+      handler: SequencedEventHandler[E],
       startingTimestamp: Option[CantonTimestamp],
+      maybeExitOnFatalError: SubscriptionCloseReason[E] => Unit,
       initialDelay: FiniteDuration,
       warnDelay: FiniteDuration,
       maxRetryDelay: FiniteDuration,
@@ -330,6 +334,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
         warnDelay,
         maxRetryDelay,
       ),
+      maybeExitOnFatalError,
       timeouts,
       loggerFactory,
     )
@@ -343,7 +348,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
     new SequencerSubscriptionFactory[E] {
       override def create(
           startingTimestamp: Option[CantonTimestamp],
-          handler: SerializedEventHandler[E],
+          handler: SequencedEventHandler[E],
       )(implicit
           traceContext: TraceContext
       ): UnlessShutdown[(SequencerSubscription[E], SubscriptionErrorRetryPolicy)] = {
@@ -414,7 +419,7 @@ final case class Fatal(msg: String) extends SequencerSubscriptionCreationError
 trait SequencerSubscriptionFactory[HandlerError] {
   def create(
       startingTimestamp: Option[CantonTimestamp],
-      handler: SerializedEventHandler[HandlerError],
+      handler: SequencedEventHandler[HandlerError],
   )(implicit
       traceContext: TraceContext
   ): UnlessShutdown[(SequencerSubscription[HandlerError], SubscriptionErrorRetryPolicy)]

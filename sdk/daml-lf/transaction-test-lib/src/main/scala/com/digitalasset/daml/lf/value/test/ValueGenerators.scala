@@ -271,12 +271,12 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
+  val versionedContractInstanceGen: Gen[Value.VersionedThinContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
       pkgName <- pkgNameGen
-    } yield arg.map(Value.ContractInstance(pkgName, template, _))
+    } yield arg.map(Value.ThinContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: TypeConName,
@@ -594,7 +594,6 @@ object ValueGenerators {
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
-      nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, Node])) { case (acc, (nodeId, node)) =>
         for {
           hashMap <- acc

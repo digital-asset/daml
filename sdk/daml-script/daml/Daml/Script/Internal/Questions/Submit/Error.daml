@@ -15,7 +15,7 @@ import DA.NonEmpty
 import DA.Text
 import DA.Foldable (foldMap)
 import DA.Exception
-import DA.Fail () -- Show instance for FailureStatus
+import DA.Fail
 
 data UpgradeErrorType
   = ValidationFailed with
@@ -193,7 +193,7 @@ instance Show SubmitError where
     DuplicateContractKey contractKey -> "Attempted to create a contract with a contract key that is already in use"
     InconsistentContractKey contractKey -> "Inconsistent contract key between daml and ledger"
     UnhandledException None -> "An Exception was thrown and not caught"
-    UnhandledException (Some exn) -> "An Exception was thrown and not caught - message: " <> (message exn)
+    UnhandledException (Some exn) -> "An Exception was thrown and not caught - message: " <> (DA.Exception.message exn)
     UserError errMessage -> "User Error: " <> errMessage
     TemplatePreconditionViolated {} -> "Template precondition was violated"
     CreateEmptyContractKeyMaintainers _ -> "Attempted to create a contract with empty key maintainers"

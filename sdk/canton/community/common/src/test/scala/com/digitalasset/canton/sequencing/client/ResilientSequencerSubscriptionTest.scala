@@ -25,8 +25,8 @@ import com.digitalasset.canton.sequencing.client.TestSubscriptionError.{
   UnretryableError,
 }
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent, SignedContent}
-import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHandler}
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.sequencing.{SequencedEventHandler, SequencerTestUtils}
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.topology.{SequencerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
@@ -233,7 +233,7 @@ class ResilientSequencerSubscriptionTest
         new SequencerSubscriptionFactory[TestHandlerError] {
           override def create(
               startingTimestamp: Option[CantonTimestamp],
-              handler: SerializedEventHandler[TestHandlerError],
+              handler: SequencedEventHandler[TestHandlerError],
           )(implicit traceContext: TraceContext): UnlessShutdown[
             (SequencerSubscription[TestHandlerError], SubscriptionErrorRetryPolicy)
           ] = {
@@ -253,6 +253,7 @@ class ResilientSequencerSubscriptionTest
         _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
+        doNotExitOnFatalErrors,
         timeouts,
         loggerFactory,
       )
@@ -272,7 +273,7 @@ class ResilientSequencerSubscriptionTest
         new SequencerSubscriptionFactory[TestHandlerError] {
           override def create(
               startingTimestamp: Option[CantonTimestamp],
-              handler: SerializedEventHandler[TestHandlerError],
+              handler: SequencedEventHandler[TestHandlerError],
           )(implicit traceContext: TraceContext): UnlessShutdown[
             (SequencerSubscription[TestHandlerError], SubscriptionErrorRetryPolicy)
           ] = AbortedDueToShutdown
@@ -284,6 +285,7 @@ class ResilientSequencerSubscriptionTest
         _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
+        doNotExitOnFatalErrors,
         timeouts,
         loggerFactory,
       )
@@ -369,6 +371,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
       subscriptionTestFactory,
       retryDelayRule,
+      doNotExitOnFatalErrors,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
@@ -376,15 +379,17 @@ trait ResilientSequencerSubscriptionTestUtils {
     subscription
   }
 
+  protected def doNotExitOnFatalErrors: SubscriptionCloseReason[TestHandlerError] => Unit = _ => ()
+
   trait SubscriptionTestFactory extends SequencerSubscriptionFactory[TestHandlerError] {
     protected def createInternal(
         startingTimestamp: Option[CantonTimestamp],
-        handler: SerializedEventHandler[TestHandlerError],
+        handler: SequencedEventHandler[TestHandlerError],
     )(implicit traceContext: TraceContext): SequencerSubscription[TestHandlerError]
 
     override def create(
         startingTimestamp: Option[CantonTimestamp],
-        handler: SerializedEventHandler[TestHandlerError],
+        handler: SequencedEventHandler[TestHandlerError],
     )(implicit
         traceContext: TraceContext
     ): UnlessShutdown[(SequencerSubscription[TestHandlerError], SubscriptionErrorRetryPolicy)] =
@@ -402,7 +407,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       new SubscriptionTestFactory {
         override def createInternal(
             startingTimestamp: Option[CantonTimestamp],
-            handler: SerializedEventHandler[TestHandlerError],
+            handler: SequencedEventHandler[TestHandlerError],
         )(implicit traceContext: TraceContext): SequencerSubscription[TestHandlerError] =
           new SequencerSubscription[TestHandlerError] {
             override protected def loggerFactory: NamedLoggerFactory =
@@ -423,7 +428,7 @@ trait ResilientSequencerSubscriptionTestUtils {
     type SubscriberDetails =
       (
           Option[CantonTimestamp],
-          SerializedEventHandler[TestHandlerError],
+          SequencedEventHandler[TestHandlerError],
           MockedSequencerSubscription,
       )
     private val activeSubscription =
@@ -433,7 +438,7 @@ trait ResilientSequencerSubscriptionTestUtils {
 
     class MockedSequencerSubscription(
         startingTimestamp: Option[CantonTimestamp],
-        handler: SerializedEventHandler[TestHandlerError],
+        handler: SequencedEventHandler[TestHandlerError],
     ) extends SequencerSubscription[TestHandlerError] {
       override protected def timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
       override protected def loggerFactory: NamedLoggerFactory =
@@ -461,7 +466,7 @@ trait ResilientSequencerSubscriptionTestUtils {
 
     def create(
         startingTimestamp: Option[CantonTimestamp],
-        handler: SerializedEventHandler[TestHandlerError],
+        handler: SequencedEventHandler[TestHandlerError],
     ): SequencerSubscription[TestHandlerError] =
       new MockedSequencerSubscription(startingTimestamp, handler)
 
@@ -472,7 +477,7 @@ trait ResilientSequencerSubscriptionTestUtils {
       }
 
     def handleCounter(sc: Long): FutureUnlessShutdown[Either[TestHandlerError, Unit]] =
-      fromSubscriber(_._2)(OrdinarySequencedEvent(deliverEvent(sc))(traceContext))
+      fromSubscriber(_._2)(SequencedEventWithTraceContext(deliverEvent(sc))(traceContext))
 
     def subscribedStartingTimestamp: Option[CantonTimestamp] = fromSubscriber(_._1)
 
@@ -488,8 +493,7 @@ trait ResilientSequencerSubscriptionTestUtils {
         offset: Long
     ): SignedContent[SequencedEvent[ClosedEnvelope]] = {
       val deliver = SequencerTestUtils.mockDeliver(
-        timestamp = CantonTimestamp.Epoch.addMicros(offset),
-        sc = offset,
+        timestamp = CantonTimestamp.Epoch.addMicros(offset)
       )
       SignedContent(deliver, SymbolicCrypto.emptySignature, None, testedProtocolVersion)
     }
@@ -520,7 +524,7 @@ trait ResilientSequencerSubscriptionTestUtils {
 
     override def createInternal(
         startingTimestamp: Option[CantonTimestamp],
-        handler: SerializedEventHandler[TestHandlerError],
+        handler: SequencedEventHandler[TestHandlerError],
     )(implicit traceContext: TraceContext): SequencerSubscription[TestHandlerError] =
       subscriptions(nextSubscription.getAndIncrement()).create(startingTimestamp, handler)
 

@@ -11,7 +11,6 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
@@ -40,8 +39,15 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.protocol.DynamicSynchronizerParametersWithValidity
 import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.UpstreamSubscriptionError
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, SequencedEvent}
-import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
-import com.digitalasset.canton.store.SequencedEventStore.IgnoredSequencedEvent
+import com.digitalasset.canton.sequencing.{
+  OrdinarySerializedEvent,
+  ProcessingSerializedEvent,
+  SequencedSerializedEvent,
+}
+import com.digitalasset.canton.store.SequencedEventStore.{
+  IgnoredSequencedEvent,
+  SequencedEventWithTraceContext,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
@@ -67,49 +73,42 @@ object SequencedEventValidationError {
       param("received", _.received),
     )
   }
-  final case class DecreasingSequencerCounter(
-      newCounter: SequencerCounter,
-      oldCounter: SequencerCounter,
+  final case class PreviousTimestampMismatch(
+      receivedPreviousTimestamp: Option[CantonTimestamp],
+      expectedPreviousTimestamp: Option[CantonTimestamp],
   ) extends SequencedEventValidationError[Nothing] {
-    override protected def pretty: Pretty[DecreasingSequencerCounter] = prettyOfClass(
-      param("new counter", _.newCounter),
-      param("old counter", _.oldCounter),
-    )
-  }
-  final case class GapInSequencerCounter(newCounter: SequencerCounter, oldCounter: SequencerCounter)
-      extends SequencedEventValidationError[Nothing] {
-    override protected def pretty: Pretty[GapInSequencerCounter] = prettyOfClass(
-      param("new counter", _.newCounter),
-      param("old counter", _.oldCounter),
+    override protected def pretty: Pretty[PreviousTimestampMismatch] = prettyOfClass(
+      param("received previous event timestamp", _.receivedPreviousTimestamp),
+      param("expected previous event timestamp", _.expectedPreviousTimestamp),
     )
   }
   final case class NonIncreasingTimestamp(
       newTimestamp: CantonTimestamp,
-      newCounter: SequencerCounter,
+      newPreviousTimestamp: Option[CantonTimestamp],
       oldTimestamp: CantonTimestamp,
-      oldCounter: SequencerCounter,
+      oldPreviousTimestamp: Option[CantonTimestamp],
   ) extends SequencedEventValidationError[Nothing] {
     override protected def pretty: Pretty[NonIncreasingTimestamp] = prettyOfClass(
       param("new timestamp", _.newTimestamp),
-      param("new counter", _.newCounter),
+      param("new previous event timestamp", _.newPreviousTimestamp),
       param("old timestamp", _.oldTimestamp),
-      param("old counter", _.oldCounter),
+      param("old previous event timestamp", _.oldPreviousTimestamp),
     )
   }
   final case class ForkHappened(
-      counter: SequencerCounter,
+      sequencingTimestamp: CantonTimestamp,
       suppliedEvent: SequencedEvent[ClosedEnvelope],
       expectedEvent: Option[SequencedEvent[ClosedEnvelope]],
   )(implicit
       val loggingContext: ErrorLoggingContext
   ) extends CantonError.Impl(
         cause =
-          "The sequencer responded with a different message for the same counter / timestamp, which means the sequencer forked."
+          "The sequencer responded with a different message for the same sequencing timestamp, which means the sequencer forked."
       )(ResilientSequencerSubscription.ForkHappened)
       with SequencedEventValidationError[Nothing]
       with PrettyPrinting {
     override protected def pretty: Pretty[ForkHappened] = prettyOfClass(
-      param("counter", _.counter),
+      param("sequencing timestamp", _.sequencingTimestamp),
       param("supplied event", _.suppliedEvent),
       paramIfDefined("expected event", _.expectedEvent),
     )
@@ -157,8 +156,8 @@ trait SequencedEventValidator extends AutoCloseable {
     * restart event processing.
     */
   def validate(
-      priorEvent: Option[PossiblyIgnoredSerializedEvent],
-      event: OrdinarySerializedEvent,
+      priorEvent: Option[ProcessingSerializedEvent],
+      event: SequencedSerializedEvent,
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
@@ -168,8 +167,8 @@ trait SequencedEventValidator extends AutoCloseable {
     * [[SequencedEventValidatorFactory.create]]
     */
   def validateOnReconnect(
-      priorEvent: Option[PossiblyIgnoredSerializedEvent],
-      reconnectEvent: OrdinarySerializedEvent,
+      priorEvent: Option[ProcessingSerializedEvent],
+      reconnectEvent: SequencedSerializedEvent,
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
@@ -189,7 +188,7 @@ trait SequencedEventValidator extends AutoCloseable {
     */
   def validatePekko[E: Pretty](
       subscription: SequencerSubscriptionPekko[E],
-      priorReconnectEvent: Option[OrdinarySerializedEvent],
+      priorReconnectEvent: Option[SequencedSerializedEvent],
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
@@ -201,16 +200,16 @@ object SequencedEventValidator extends HasLoggerName {
   /** Do not validate sequenced events */
   private case object NoValidation extends SequencedEventValidator {
     override def validate(
-        priorEvent: Option[PossiblyIgnoredSerializedEvent],
-        event: OrdinarySerializedEvent,
+        priorEvent: Option[ProcessingSerializedEvent],
+        event: SequencedSerializedEvent,
         sequencerId: SequencerId,
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
       EitherT(FutureUnlessShutdown.pure(Either.unit))
     override def validateOnReconnect(
-        priorEvent: Option[PossiblyIgnoredSerializedEvent],
-        reconnectEvent: OrdinarySerializedEvent,
+        priorEvent: Option[ProcessingSerializedEvent],
+        reconnectEvent: SequencedSerializedEvent,
         sequencerId: SequencerId,
     )(implicit
         traceContext: TraceContext
@@ -219,7 +218,7 @@ object SequencedEventValidator extends HasLoggerName {
 
     override def validatePekko[E: Pretty](
         subscription: SequencerSubscriptionPekko[E],
-        priorReconnectEvent: Option[OrdinarySerializedEvent],
+        priorReconnectEvent: Option[SequencedSerializedEvent],
         sequencerId: SequencerId,
     )(implicit
         traceContext: TraceContext
@@ -472,22 +471,23 @@ class SequencedEventValidatorImpl(
     * corrupt the prior event state.
     */
   override def validate(
-      priorEventO: Option[PossiblyIgnoredSerializedEvent],
-      event: OrdinarySerializedEvent,
+      priorEventO: Option[ProcessingSerializedEvent],
+      event: SequencedSerializedEvent,
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] = {
-    val oldCounter = priorEventO.fold(SequencerCounter.Genesis - 1L)(_.counter)
-    val newCounter = event.counter
+    val expectedPreviousTimestamp = priorEventO.map(_.timestamp).orElse(None)
     val newTimestamp = event.timestamp
 
-    def checkCounterIncreases: ValidationResult =
+    def checkPreviousTimestamp: ValidationResult =
       Either.cond(
-        newCounter == oldCounter + 1,
+        event.previousTimestamp == expectedPreviousTimestamp,
         (),
-        if (newCounter < oldCounter) DecreasingSequencerCounter(newCounter, oldCounter)
-        else GapInSequencerCounter(newCounter, oldCounter),
+        PreviousTimestampMismatch(
+          event.previousTimestamp,
+          expectedPreviousTimestamp,
+        ),
       )
 
     def checkTimestampIncreases: ValidationResult =
@@ -496,7 +496,12 @@ class SequencedEventValidatorImpl(
         Either.cond(
           newTimestamp > oldTimestamp,
           (),
-          NonIncreasingTimestamp(newTimestamp, newCounter, oldTimestamp, oldCounter),
+          NonIncreasingTimestamp(
+            newTimestamp,
+            event.previousTimestamp,
+            oldTimestamp,
+            prior.previousTimestamp,
+          ),
         )
       }
 
@@ -506,15 +511,16 @@ class SequencedEventValidatorImpl(
 
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
-        Seq(
-          checkCounterIncreases,
-          checkSynchronizerId(event),
-          checkTimestampIncreases,
-        ).sequence_
+        checkSynchronizerId(event)
+      )
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        checkPreviousTimestamp
+      )
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        checkTimestampIncreases
       )
       _ = logger.debug(
         s"Successfully checked synchronizer id (${event.signedEvent.content.synchronizerId}), " +
-          s"increasing counter (old = $oldCounter, new = $newCounter) " +
           s"and increasing timestamp (old = ${priorEventO.map(_.timestamp)}, new = $newTimestamp)"
       )
       // Verify the signature only if we know of a prior event.
@@ -527,8 +533,8 @@ class SequencedEventValidatorImpl(
   }
 
   override def validateOnReconnect(
-      priorEvent0: Option[PossiblyIgnoredSerializedEvent],
-      reconnectEvent: OrdinarySerializedEvent,
+      priorEvent0: Option[ProcessingSerializedEvent],
+      reconnectEvent: SequencedSerializedEvent,
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
@@ -537,11 +543,23 @@ class SequencedEventValidatorImpl(
     val priorEvent = priorEvent0.getOrElse(
       ErrorUtil.internalError(
         new IllegalStateException(
-          s"No prior event known even though the sequencer client resubscribes to $sequencerId at sequencer counter ${reconnectEvent.counter}"
+          s"No prior event known even though the sequencer client resubscribes to $sequencerId at sequencing timestamp ${reconnectEvent.timestamp}"
         )
       )
     )
-    val checkFork: Either[SequencedEventValidationError[Nothing], Unit] = priorEvent match {
+    def checkFork: Either[SequencedEventValidationError[Nothing], Unit] = priorEvent match {
+      case SequencedEventWithTraceContext(signedEvent) =>
+        val oldSequencedEvent = signedEvent.content
+        val newSequencedEvent = reconnectEvent.signedEvent.content
+        // We compare the contents of the `SequencedEvent` rather than their serialization
+        // because the SequencerReader serializes the `SequencedEvent` afresh upon each resubscription
+        // and the serialization may therefore differ from time to time. This is fine for auditability
+        // because the sequencer also delivers a new signature on the new serialization.
+        Either.cond(
+          oldSequencedEvent == newSequencedEvent,
+          (),
+          ForkHappened(oldSequencedEvent.timestamp, newSequencedEvent, Some(oldSequencedEvent)),
+        )
       case ordinaryPrior: OrdinarySerializedEvent =>
         val oldSequencedEvent = ordinaryPrior.signedEvent.content
         val newSequencedEvent = reconnectEvent.signedEvent.content
@@ -552,17 +570,15 @@ class SequencedEventValidatorImpl(
         Either.cond(
           oldSequencedEvent == newSequencedEvent,
           (),
-          ForkHappened(oldSequencedEvent.counter, newSequencedEvent, Some(oldSequencedEvent)),
+          ForkHappened(oldSequencedEvent.timestamp, newSequencedEvent, Some(oldSequencedEvent)),
         )
       case ignored: IgnoredSequencedEvent[ClosedEnvelope] =>
-        // If the event should be ignored, we nevertheless check the counter
-        // We merely check timestamp monotonicity, but not the exact timestamp
-        // because when we ignore unsequenced events, we assign them the least possible timestamp.
+        // If the event should be ignored, we nevertheless check the timestamp
         Either.cond(
-          ignored.counter == reconnectEvent.counter && ignored.timestamp <= reconnectEvent.timestamp,
+          ignored.timestamp == reconnectEvent.timestamp,
           (),
           ForkHappened(
-            ignored.counter,
+            ignored.timestamp,
             reconnectEvent.signedEvent.content,
             ignored.underlying.map(_.content),
           ),
@@ -571,17 +587,17 @@ class SequencedEventValidatorImpl(
 
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
-        Seq(
-          checkSynchronizerId(reconnectEvent),
-          checkFork,
-        ).sequence_
+        checkSynchronizerId(reconnectEvent)
+      )
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        checkFork
       )
       _ <- verifySignature(Some(priorEvent), reconnectEvent, sequencerId, protocolVersion)
     } yield ()
     // do not update the priorEvent because if it was ignored, then it was ignored for a reason.
   }
 
-  private def checkSynchronizerId(event: OrdinarySerializedEvent): ValidationResult = {
+  private def checkSynchronizerId(event: SequencedSerializedEvent): ValidationResult = {
     val receivedSynchronizerId = event.signedEvent.content.synchronizerId
     Either.cond(
       receivedSynchronizerId == synchronizerId,
@@ -592,13 +608,13 @@ class SequencedEventValidatorImpl(
 
   @VisibleForTesting
   protected def verifySignature(
-      priorEventO: Option[PossiblyIgnoredSerializedEvent],
-      event: OrdinarySerializedEvent,
+      priorEventO: Option[ProcessingSerializedEvent],
+      event: SequencedSerializedEvent,
       sequencerId: SequencerId,
       protocolVersion: ProtocolVersion,
   ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] = {
     implicit val traceContext: TraceContext = event.traceContext
-    if (event.counter == SequencerCounter.Genesis) {
+    if (event.previousTimestamp.isEmpty) {
       // TODO(#4933) This is a fresh subscription. Either fetch the synchronizer keys via a future sequencer API and validate the signature
       //  or wait until the topology processor has processed the topology information in the first message and then validate the signature.
       logger.info(
@@ -637,23 +653,23 @@ class SequencedEventValidatorImpl(
     * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]], so it must never be set as
     * [[com.digitalasset.canton.sequencing.protocol.SignedContent.timestampOfSigningKey]]
     */
-  private def checkNoTimestampOfSigningKey(event: OrdinarySerializedEvent): ValidationResult =
+  private def checkNoTimestampOfSigningKey(event: SequencedSerializedEvent): ValidationResult =
     event.signedEvent.timestampOfSigningKey
       .toLeft(())
       .leftMap(TimestampOfSigningKeyNotAllowed(event.timestamp, _))
 
   override def validatePekko[E: Pretty](
       subscription: SequencerSubscriptionPekko[E],
-      priorReconnectEvent: Option[OrdinarySerializedEvent],
+      priorReconnectEvent: Option[SequencedSerializedEvent],
       sequencerId: SequencerId,
   )(implicit
       traceContext: TraceContext
   ): SequencerSubscriptionPekko[SequencedEventValidationError[E]] = {
     def performValidation(
-        rememberedAndCurrent: NonEmpty[Seq[WithKillSwitch[Either[E, OrdinarySerializedEvent]]]]
+        rememberedAndCurrent: NonEmpty[Seq[WithKillSwitch[Either[E, SequencedSerializedEvent]]]]
     ): FutureUnlessShutdown[WithKillSwitch[
       // None if the element should not be emitted
-      Option[Either[SequencedEventValidationError[E], OrdinarySerializedEvent]]
+      Option[Either[SequencedEventValidationError[E], SequencedSerializedEvent]]
     ]] =
       rememberedAndCurrent.last1.traverse {
         case Left(err) => FutureUnlessShutdown.pure(Some(Left(UpstreamSubscriptionError(err))))
@@ -667,12 +683,12 @@ class SequencedEventValidatorImpl(
               val previousEvent = rememberedAndCurrent.head1.value.valueOr { previousErr =>
                 implicit val traceContext: TraceContext = current.traceContext
                 ErrorUtil.invalidState(
-                  s"Subscription for sequencer $sequencerId delivered an event at counter ${current.counter} after having previously signalled the error $previousErr"
+                  s"Subscription for sequencer $sequencerId delivered an event at sequencing timestamp ${current.timestamp} after having previously signalled the error $previousErr"
                 )
               }
               // SequencerSubscriptions may stutter on reconnect, e.g., inside a resilient sequencer subscription
-              val previousEventId = (previousEvent.counter, previousEvent.timestamp)
-              val currentEventId = (current.counter, current.timestamp)
+              val previousEventId = (previousEvent.previousTimestamp, previousEvent.timestamp)
+              val currentEventId = (current.previousTimestamp, current.timestamp)
               val stutter = previousEventId == currentEventId
               if (stutter)
                 validateOnReconnect(Some(previousEvent), current, sequencerId).value
@@ -721,7 +737,7 @@ object SequencedEventValidatorImpl {
     * application handlers on nodes that support ignoring events.
     */
   private[SequencedEventValidatorImpl] def lastTopologyClientTimestamp(
-      priorEvent: Option[PossiblyIgnoredSerializedEvent]
+      priorEvent: Option[ProcessingSerializedEvent]
   ): Option[CantonTimestamp] =
     priorEvent.map(_.timestamp)
 }

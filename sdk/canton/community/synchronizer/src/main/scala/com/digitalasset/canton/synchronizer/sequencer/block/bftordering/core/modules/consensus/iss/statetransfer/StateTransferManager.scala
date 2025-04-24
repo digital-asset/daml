@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.BftNodeShuffler
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.util.{Failure, Random, Success}
 
@@ -46,7 +47,7 @@ class StateTransferManager[E <: Env[E]](
 )(
     private val maybeCustomTimeoutManager: Option[TimeoutManager[E, Consensus.Message[E], String]] =
       None
-)(implicit config: BftBlockOrdererConfig)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, config: BftBlockOrdererConfig)
     extends NamedLogging {
 
   private val stateTransferStartEpoch = new SingleUseCell[EpochNumber]

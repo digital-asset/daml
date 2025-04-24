@@ -47,7 +47,7 @@ object SerializableTraceContext
     with HasVersionedMessageCompanionDbHelpers[SerializableTraceContext] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.TraceContext)(fromProtoV30),
       _.toProtoV30,
     )

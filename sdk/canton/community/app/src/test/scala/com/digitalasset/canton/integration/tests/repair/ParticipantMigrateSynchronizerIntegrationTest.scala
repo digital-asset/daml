@@ -136,11 +136,29 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     val alice = participant1.parties.enable(
       "Alice",
       synchronizeParticipants = Seq(participant2),
+      synchronizer = daName,
     )
     val bob = participant2.parties.enable(
       "Bob",
       synchronizeParticipants = Seq(participant1),
+      synchronizer = daName,
     )
+
+    // temporarily connect to synchronizer 2 and allocate parties there
+    participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
+    participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
+    participant1.parties.enable(
+      "Alice",
+      synchronizeParticipants = Seq(participant2),
+      synchronizer = acmeName,
+    )
+    participant2.parties.enable(
+      "Bob",
+      synchronizeParticipants = Seq(participant1),
+      synchronizer = acmeName,
+    )
+    participant1.synchronizers.disconnect(acmeName)
+    participant2.synchronizers.disconnect(acmeName)
 
     IouSyntax.createIou(participant1)(alice, bob)
 
@@ -532,10 +550,22 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     val alice = participant1.parties.enable(
       "Alice",
       synchronizeParticipants = Seq(participant2),
+      synchronizer = daName,
+    )
+    participant1.parties.enable(
+      "Alice",
+      synchronizeParticipants = Seq(participant2),
+      synchronizer = acmeName,
     )
     val bob = participant2.parties.enable(
       "Bob",
       synchronizeParticipants = Seq(participant1),
+      synchronizer = daName,
+    )
+    participant2.parties.enable(
+      "Bob",
+      synchronizeParticipants = Seq(participant1),
+      synchronizer = acmeName,
     )
 
     val iousCommands = Seq(100.0, 101.0).flatMap { amount =>

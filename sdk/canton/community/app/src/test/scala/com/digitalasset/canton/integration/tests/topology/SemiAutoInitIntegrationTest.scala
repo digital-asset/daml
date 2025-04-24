@@ -108,7 +108,7 @@ class SemiAutoInitIntegrationTest
       val namespace = sequencer1.keys.secret
         .generate_signing_key("my-namespace-key", usage = SigningKeyUsage.NamespaceOnly)
       // initialize node id
-      sequencer1.topology.init_id(
+      sequencer1.topology.init_id_from_uid(
         UniqueIdentifier.tryCreate("mysequencer1", namespace.fingerprint)
       )
       // wait until node is initialized
@@ -234,7 +234,7 @@ class SemiAutoInitIntegrationTest
 
       // fail to start with wrong uid
       this.assertThrowsAndLogsCommandFailures(
-        participant1.topology.init_id(
+        participant1.topology.init_id_from_uid(
           //  using wrong namespace of intermediateKey and not the rootKey
           UniqueIdentifier.tryCreate("myparticipant", intermediateKey.fingerprint),
           delegationFiles = Seq(intermediateCert.getPath),
@@ -245,7 +245,7 @@ class SemiAutoInitIntegrationTest
 
       // fail to start without root cert
       this.assertThrowsAndLogsCommandFailures(
-        participant1.topology.init_id(
+        participant1.topology.init_id_from_uid(
           UniqueIdentifier.tryCreate("myparticipant", rootNd.mapping.namespace),
           delegationFiles = Seq(intermediateCert.getPath),
         ),
@@ -254,7 +254,7 @@ class SemiAutoInitIntegrationTest
 
       // fail to start without intermediate cert
       this.assertThrowsAndLogsCommandFailures(
-        participant1.topology.init_id(
+        participant1.topology.init_id_from_uid(
           UniqueIdentifier.tryCreate("myparticipant", rootNd.mapping.namespace),
           delegations = Seq(rootNd),
         ),
@@ -268,7 +268,7 @@ class SemiAutoInitIntegrationTest
 
       val (rootNd, intermediateNd, intermediateKey) = certs.get.valueOrFail("should have certs")
 
-      participant1.topology.init_id(
+      participant1.topology.init_id_from_uid(
         UniqueIdentifier.tryCreate("myparticipant", rootNd.mapping.namespace),
         delegationFiles = Seq(intermediateCert.getPath),
         delegations = Seq(rootNd),

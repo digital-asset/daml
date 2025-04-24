@@ -165,6 +165,7 @@ lf_scalacopts = [
 lf_scalacopts_stricter = lf_scalacopts + [
     "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
     "-Xlint:_",
+    "-Xlint:-pattern-shadow",  # disable linting on pattern shadowing local val
 ]
 
 default_compile_arguments = {

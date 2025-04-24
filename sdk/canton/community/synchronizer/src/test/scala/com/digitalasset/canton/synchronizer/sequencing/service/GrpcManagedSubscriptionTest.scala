@@ -14,7 +14,7 @@ import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
@@ -23,7 +23,7 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.SerializableTraceContext
-import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.stub.ServerCallStreamObserver
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -36,7 +36,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
   private class Env {
     val sequencerSubscription = mock[SequencerSubscription[SequencedEventError]]
     val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
-    var handler: Option[SerializedEventOrErrorHandler[SequencedEventError]] = None
+    var handler: Option[SequencedEventOrErrorHandler[SequencedEventError]] = None
     val member = ParticipantId(DefaultTestIdentities.uid)
     val observer = mock[ServerCallStreamObserver[v30.SubscriptionResponse]]
     var cancelCallback: Option[Runnable] = None
@@ -48,7 +48,7 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       cancelCallback.fold(fail("no cancel handler registered"))(_.run())
 
     def createSequencerSubscription(
-        newHandler: SerializedEventOrErrorHandler[SequencedEventError]
+        newHandler: SequencedEventOrErrorHandler[SequencedEventError]
     ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, SequencerSubscription[
       SequencedEventError
     ]] = {
@@ -60,7 +60,6 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       val message = MockMessageContent.toByteString
       val event = SignedContent(
         Deliver.create(
-          SequencerCounter(0),
           None,
           CantonTimestamp.Epoch,
           synchronizerId,
@@ -81,11 +80,11 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
         testedProtocolVersion,
       )
       handler.fold(fail("handler not registered"))(h =>
-        Await.result(h(Right(OrdinarySequencedEvent(event)(traceContext))), 5.seconds)
+        Await.result(h(Right(SequencedEventWithTraceContext(event)(traceContext))), 5.seconds)
       )
     }
 
-    private def toSubscriptionResponseV30(event: OrdinarySerializedEvent) =
+    private def toSubscriptionResponseV30(event: SequencedSerializedEvent) =
       v30.SubscriptionResponse(
         signedSequencedEvent = event.signedEvent.toByteString,
         Some(SerializableTraceContext(event.traceContext).toProtoV30),

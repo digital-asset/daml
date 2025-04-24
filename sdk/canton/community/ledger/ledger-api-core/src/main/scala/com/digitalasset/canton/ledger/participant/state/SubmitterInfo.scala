@@ -80,14 +80,12 @@ object SubmitterInfo {
           signatures,
           transactionUUID,
           mediatorGroup,
-          usesLedgerEffectiveTime,
         ) =>
       LoggingValue.Nested.fromEntries(
         "version" -> version.index,
         "signatures" -> signatures.keys.map(_.toProtoPrimitive),
         "transactionUUID" -> transactionUUID.toString,
         "mediatorGroup" -> mediatorGroup.toString,
-        "usesLedgerEffectiveTime" -> usesLedgerEffectiveTime,
       )
   }
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
@@ -116,7 +114,6 @@ object SubmitterInfo {
       signatures: Map[PartyId, Seq[Signature]],
       transactionUUID: UUID,
       mediatorGroup: MediatorGroupIndex,
-      usesLedgerEffectiveTime: Boolean,
   )
 
 }

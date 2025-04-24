@@ -16,6 +16,7 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllMappings,
   CanSignSpecificMappings,
 }
+import com.digitalasset.canton.version.v1.UntypedVersionedMessage
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfPackageId}
 import com.google.protobuf.ByteString
 import org.scalatest.exceptions.TestFailedException
@@ -87,13 +88,21 @@ class TopologyTransactionTest
       runTest(nsd, nsd2)
     }
 
-    "namespace delegation restrictions are backwards compatible" in {
-      // Test case: is_root_delegation=true, restricted_to_mappings=empty <=> CanSignAllMappings
+    def mkProtoTransaction(nsd: v30.NamespaceDelegation) = v30.TopologyTransaction(
+      operation = v30.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+      serial = 1,
+      mapping = Some(
+        v30.TopologyMapping(v30.TopologyMapping.Mapping.NamespaceDelegation(nsd))
+      ),
+    )
+
+    "read legacy namespace delegations" in {
+      // Test case: is_root_delegation=true, restriction=empty <=> CanSignAllMappings
       val rootDelegationProto = v30.NamespaceDelegation(
         uid.namespace.toProtoPrimitive,
         Some(publicKey.toProtoV30),
         isRootDelegation = true,
-        restrictedToMappings = Seq.empty,
+        restriction = v30.NamespaceDelegation.Restriction.Empty,
       )
       val rootFromScala = NamespaceDelegation
         .create(
@@ -102,15 +111,27 @@ class TopologyTransactionTest
           CanSignAllMappings,
         )
         .value
+      // we don't need to check that inverse direction of serialization, because topology transactions are memoized,
+      // therefore we only need to be able to serialize to the new format
       NamespaceDelegation.fromProtoV30(rootDelegationProto).value shouldBe rootFromScala
-      rootFromScala.toProto shouldBe rootDelegationProto
 
-      // Test case: is_root_delegation=false, restricted_to_mappings=empty <=> CanSignAllButNamespaceDelegations
+      val protoTx = mkProtoTransaction(rootDelegationProto)
+      val scalaTxFromBytes = TopologyTransaction
+        .fromTrustedByteString(
+          UntypedVersionedMessage(
+            UntypedVersionedMessage.Wrapper.Data(protoTx.toByteString),
+            1,
+          ).toByteString
+        )
+        .value
+      scalaTxFromBytes.toByteString
+
+      // Test case: is_root_delegation=false, restriction=empty <=> CanSignAllButNamespaceDelegations
       val nonRootDelegationProto = v30.NamespaceDelegation(
         uid.namespace.toProtoPrimitive,
         Some(publicKey.toProtoV30),
         isRootDelegation = false,
-        restrictedToMappings = Seq.empty,
+        restriction = v30.NamespaceDelegation.Restriction.Empty,
       )
       val nonRootFromScala = NamespaceDelegation
         .create(
@@ -119,31 +140,43 @@ class TopologyTransactionTest
           CanSignAllButNamespaceDelegations,
         )
         .value
+      // we don't need to check that inverse direction of serialization, because topology transactions are memoized,
+      // therefore we only need to be able to serialize to the new format
       NamespaceDelegation.fromProtoV30(nonRootDelegationProto).value shouldBe nonRootFromScala
-      nonRootFromScala.toProto shouldBe nonRootDelegationProto
 
-      // Test case: is_root_delegation=false, restricted_to_mappings=non-empty <=> CanSignSpecificMappings
-      val restrictedDelegationProto = v30.NamespaceDelegation(
-        uid.namespace.toProtoPrimitive,
-        Some(publicKey.toProtoV30),
-        isRootDelegation = false,
-        restrictedToMappings = TopologyMapping.Code.all.map(_.toProtoV30),
-      )
-      val restrictedFromScala = NamespaceDelegation
-        .create(
-          uid.namespace,
-          publicKey,
-          CanSignSpecificMappings(NonEmpty.from(TopologyMapping.Code.all.toSet).value),
+      // Test case: is_root_delegation=false, restriction=non-empty <=> CanSignSpecificMappings
+      Seq(
+        v30.NamespaceDelegation.Restriction
+          .CanSignAllMappings(v30.NamespaceDelegation.CanSignAllMappings()) -> CanSignAllMappings,
+        v30.NamespaceDelegation.Restriction.CanSignAllButNamespaceDelegations(
+          v30.NamespaceDelegation.CanSignAllButNamespaceDelegations()
+        ) -> CanSignAllButNamespaceDelegations,
+        v30.NamespaceDelegation.Restriction.CanSignSpecificMapings(
+          v30.NamespaceDelegation.CanSignSpecificMappings(
+            // all but UNSPECIFIED
+            (v30.Enums.TopologyMappingCode.values.toSet - v30.Enums.TopologyMappingCode.TOPOLOGY_MAPPING_CODE_UNSPECIFIED).toSeq
+              .sortBy(_.value)
+          )
+        ) -> CanSignSpecificMappings(NonEmpty.from(TopologyMapping.Code.all).value.toSet),
+      ).foreach { case (protoRestriction, scalaRestriction) =>
+        val restrictedDelegationProto = v30.NamespaceDelegation(
+          uid.namespace.toProtoPrimitive,
+          Some(publicKey.toProtoV30),
+          isRootDelegation = false,
+          restriction = protoRestriction,
         )
-        .value
-      NamespaceDelegation.fromProtoV30(restrictedDelegationProto).value shouldBe restrictedFromScala
-      restrictedFromScala.toProto shouldBe restrictedDelegationProto
-    }
-
-    "identifier delegations" should {
-      val id1 = mk(IdentifierDelegation.tryCreate(uid, publicKey))
-      val id2 = mk(IdentifierDelegation.tryCreate(uid2, publicKey))
-      runTest(id1, id2)
+        val restrictedFromScala = NamespaceDelegation
+          .create(
+            uid.namespace,
+            publicKey,
+            scalaRestriction,
+          )
+          .value
+        NamespaceDelegation
+          .fromProtoV30(restrictedDelegationProto)
+          .value shouldBe restrictedFromScala
+        restrictedFromScala.toProto shouldBe restrictedDelegationProto
+      }
     }
 
     "key to owner mappings" should {

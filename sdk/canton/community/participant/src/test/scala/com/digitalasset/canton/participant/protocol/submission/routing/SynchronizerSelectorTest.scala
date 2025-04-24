@@ -147,7 +147,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
     // TODO(#15561) Re-enable this test when we have a stable protocol version
     "take minimum protocol version into account" ignore {
-      val oldPV = ProtocolVersion.v33
+      val oldPV = ProtocolVersion.v34
 
       val transactionVersion = LfLanguageVersion.v2_dev
       val newPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions

@@ -135,7 +135,7 @@ import DA.Daml.Options.Types (EnableScriptService(..),
                               optSkipScriptValidation,
                               optThreads,
                               optUpgradeInfo,
-                              optDamlWarningFlags,
+                              optTypecheckerWarningFlags,
                               pkgNameVersion,
                               projectPackageDatabase)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
@@ -990,7 +990,7 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
               (optUpgradeInfo opts)
-              (optDamlWarningFlags opts)
+              (optTypecheckerWarningFlags opts)
               (Just pkgPath)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       createDarFile loggerH fp dar

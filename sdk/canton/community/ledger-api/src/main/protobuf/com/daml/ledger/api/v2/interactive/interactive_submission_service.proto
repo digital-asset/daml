@@ -40,6 +40,8 @@ service InteractiveSubmissionService {
   // - which choices can be executed on a template or interface of a contract
   //
   // Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
+  //
+  // Experimental API: this endpoint is not guaranteed to provide backwards compatibility in future releases
   rpc GetPreferredPackageVersion(GetPreferredPackageVersionRequest) returns (GetPreferredPackageVersionResponse);
 }
 
@@ -231,6 +233,10 @@ message ExecuteSubmissionRequest {
 
   // The hashing scheme version used when building the hash
   HashingSchemeVersion hashing_scheme_version = 7;
+
+  // If set will influence the chosen ledger effective time but will not result in a submission delay so any override
+  // should be scheduled to executed within the window allowed by synchronizer.
+  MinLedgerTime min_ledger_time = 8; // Optional
 }
 
 message ExecuteSubmissionResponse {}
@@ -288,20 +294,13 @@ message Metadata {
     bytes driver_metadata = 1001;
   }
 
-  /* ******************************************************** */
-  /* ** Metadata information that needs to be signed in V1 ** */
-  /* ******************************************************** */
-  /*
-   * Ledger effective time picked during preparation of the command.
-   * This is optional, because if the transaction does NOT depend on time, this value will not be set.
-   * Instead, it will be chosen when the command is submitted through the [execute] RPC.
-   * This allows increasing the time window necessary to acquire the signature and submit the transaction
-   * (effectively the time between when [prepare] and [execute] are called).
-   * Note however that if the transaction does use time, then this value will bet set and will constrain the available
-   * time to perform the signature and submit the transaction. The time window allowed is a configuration of the ledger
-   * and usually is counted in minutes.
-   */
-  optional uint64 ledger_effective_time = 1;
+  /* ************************************************** */
+  /* ** Metadata information that needs to be signed ** */
+  /* ************************************************** */
+
+  // this used to contain the ledger effective time
+  reserved 1;
+
   SubmitterInfo submitter_info = 2;
   string synchronizer_id = 3;
   uint32 mediator_group = 4;
@@ -309,9 +308,21 @@ message Metadata {
   uint64 submission_time = 6;
   repeated InputContract input_contracts = 7;
 
-  /* **************************************************************** */
-  /* ** Metadata information that does NOT need to be signed in V1 ** */
-  /* **************************************************************** */
+  /*
+   * Where ledger time constraints are imposed during the execution of the contract they will be populated
+   * in the fields below. These are optional because if the transaction does NOT depend on time, these values
+   * do not need to be set.
+   * The final ledger effective time used will be chosen when the command is submitted through the [execute] RPC.
+   * If the ledger effective time is outside of any populated min/max bounds then a different transaction
+   * can result, that will cause a confirmation message rejection.
+   */
+  optional uint64 min_ledger_effective_time = 9;
+  optional uint64 max_ledger_effective_time = 10;
+
+  /* ********************************************************** */
+  /* ** Metadata information that does NOT need to be signed ** */
+  /* ********************************************************** */
+
   // Contextual information needed to process the transaction but not signed, either because it's already indirectly
   // signed by signing the transaction, or because it doesn't impact the ledger state
   repeated GlobalKeyMappingEntry global_key_mapping = 8;

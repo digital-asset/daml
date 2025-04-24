@@ -526,12 +526,6 @@ private[validation] object Typing {
         checkTopExpr(body, typ)
     }
 
-    @tailrec
-    private def dropForalls(typ0: Type): Type = typ0 match {
-      case TForall(_, typ) => dropForalls(typ)
-      case _ => typ0
-    }
-
     private[Typing] def checkRecordTypeTop(fields: ImmArray[(FieldName, Type)]): Unit = {
       // must *NOT* be used when nested with a type
       runWork(checkRecordType(fields) { Ret(()) })

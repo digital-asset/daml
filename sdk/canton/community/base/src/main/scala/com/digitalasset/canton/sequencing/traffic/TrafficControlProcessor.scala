@@ -87,8 +87,8 @@ class TrafficControlProcessor(
       implicit val tracContext: TraceContext = tracedEvent.traceContext
 
       tracedEvent.value match {
-        case Deliver(sc, _, ts, _, _, batch, topologyTimestampO, _) =>
-          logger.debug(s"Processing sequenced event with counter $sc and timestamp $ts")
+        case Deliver(_, ts, _, _, batch, topologyTimestampO, _) =>
+          logger.debug(s"Processing sequenced event with timestamp $ts")
 
           val synchronizerEnvelopes =
             ProtocolMessage.filterSynchronizerEnvelopes(batch.envelopes, synchronizerId) {
@@ -104,7 +104,6 @@ class TrafficControlProcessor(
           )
 
         case DeliverError(
-              _sc,
               _previousTimestamp,
               ts,
               _synchronizerId,

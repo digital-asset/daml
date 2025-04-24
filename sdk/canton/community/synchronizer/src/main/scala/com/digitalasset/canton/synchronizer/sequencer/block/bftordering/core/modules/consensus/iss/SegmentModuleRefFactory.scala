@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ConsensusSegment,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleName}
+import com.digitalasset.canton.version.ProtocolVersion
 
 import EpochState.Epoch
 
@@ -38,7 +39,8 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
     loggerFactory: NamedLoggerFactory,
     timeouts: ProcessingTimeout,
-) extends SegmentModuleRefFactory[E] {
+)(implicit synchronizerProtocolVersion: ProtocolVersion)
+    extends SegmentModuleRefFactory[E] {
   override def apply(
       context: E#ActorContextT[Consensus.Message[E]],
       epoch: Epoch,

@@ -20,6 +20,7 @@ import com.digitalasset.canton.ledger.api.{EventFormat, TransactionFormat, Updat
 import com.digitalasset.canton.ledger.participant.state.index.*
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
@@ -126,7 +127,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[Value.VersionedContractInstance]] =
+  ): Future[Option[FatContract]] =
     Timed.future(
       metrics.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),

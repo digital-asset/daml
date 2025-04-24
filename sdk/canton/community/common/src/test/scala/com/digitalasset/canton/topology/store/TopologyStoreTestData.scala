@@ -14,6 +14,7 @@ import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertions.fail
 import org.scalatest.concurrent.ScalaFutures.convertScalaFuture
@@ -39,7 +40,7 @@ class TopologyStoreTestData(
       op,
       serial,
       mapping,
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
     )
     val signingKeyIdsNE = NonEmptyUtil.fromUnsafe(signingKeys).map(_.id).toSet
     val keysWithUsage = TopologyManager
@@ -71,7 +72,7 @@ class TopologyStoreTestData(
     )(
       SignedTopologyTransaction.versioningTable
         .protocolVersionRepresentativeFor(
-          ProtocolVersion.v33
+          ProtocolVersion.v34
         )
     )
   }
@@ -177,12 +178,24 @@ class TopologyStoreTestData(
   val otk_p1 = makeSignedTx(
     OwnerToKeyMapping(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
   )((p1Key))
-  val idd_daSynchronizer_key1 = makeSignedTx(
-    IdentifierDelegation.tryCreate(da_p1p2_synchronizerId.uid, factory.SigningKeys.key1),
+  val p1_permission_daSynchronizer = makeSignedTx(
+    ParticipantSynchronizerPermission(
+      synchronizer1_p1p2_synchronizerId,
+      p1Id,
+      Submission,
+      None,
+      None,
+    ),
     serial = PositiveInt.tryCreate(1),
   )(dnd_p1p2_keys*)
-  val idd_daSynchronizer_key1_removal = makeSignedTx(
-    IdentifierDelegation.tryCreate(da_p1p2_synchronizerId.uid, factory.SigningKeys.key1),
+  val p1_permission_daSynchronizer_removal = makeSignedTx(
+    ParticipantSynchronizerPermission(
+      synchronizer1_p1p2_synchronizerId,
+      p1Id,
+      Submission,
+      None,
+      None,
+    ),
     op = TopologyChangeOp.Remove,
     serial = PositiveInt.tryCreate(2),
   )(dnd_p1p2_keys*)

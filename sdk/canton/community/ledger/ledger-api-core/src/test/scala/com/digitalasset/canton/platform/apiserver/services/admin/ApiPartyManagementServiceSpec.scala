@@ -28,6 +28,7 @@ import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagem
 import com.digitalasset.canton.platform.apiserver.services.admin.ApiPartyManagementServiceSpec.*
 import com.digitalasset.canton.platform.apiserver.services.admin.PartyAllocation
 import com.digitalasset.canton.platform.apiserver.services.tracking.{InFlight, StreamTracker}
+import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.daml.lf.data.Ref
@@ -132,7 +133,7 @@ class ApiPartyManagementServiceSpec
 
       // Kick the interaction off
       val future = apiService
-        .allocateParty(AllocatePartyRequest("aParty", None, ""))
+        .allocateParty(AllocatePartyRequest("aParty", None, "", ""))
         .thereafter { _ =>
           scope.close()
           span.end()
@@ -176,7 +177,8 @@ class ApiPartyManagementServiceSpec
       )
 
       // Kick the interaction off
-      val future = apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, ""))
+      val future =
+        apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", ""))
 
       // Close the service
       apiPartyManagementService.close()
@@ -190,18 +192,17 @@ class ApiPartyManagementServiceSpec
             assertError(
               actual = err,
               expectedStatusCode = Code.UNAVAILABLE,
-              expectedMessage = "SERVER_IS_SHUTTING_DOWN(1,0): Server is shutting down",
+              expectedMessage = "ABORTED_DUE_TO_SHUTDOWN(1,0): request aborted due to shutdown",
               expectedDetails = List(
                 ErrorDetails.ErrorInfoDetail(
-                  "SERVER_IS_SHUTTING_DOWN",
+                  "ABORTED_DUE_TO_SHUTDOWN",
                   Map(
                     "parties" -> "['aParty']",
                     "category" -> "1",
-                    "definite_answer" -> "false",
                     "test" -> s"'${getClass.getSimpleName}'",
                   ),
                 ),
-                RetryInfoDetail(1.second),
+                RetryInfoDetail(10.seconds),
               ),
               verifyEmptyStackTrace = true,
             )
@@ -291,6 +292,7 @@ object ApiPartyManagementServiceSpec {
     override def allocateParty(
         hint: Ref.Party,
         submissionId: Ref.SubmissionId,
+        synchronizerIdO: Option[SynchronizerId],
     )(implicit
         traceContext: TraceContext
     ): CompletionStage[state.SubmissionResult] = {

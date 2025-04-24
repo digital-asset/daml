@@ -7,7 +7,6 @@ import com.digitalasset.canton.admin.api.client.data.PartyDetails
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.CommandFailure
-import com.digitalasset.canton.console.commands.SynchronizerChoice
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -71,7 +70,7 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
         val partyId = participant1.parties.enable(
           name,
           synchronizeParticipants = Seq(participant1),
-          waitForSynchronizer = SynchronizerChoice.Only(Seq(daName)),
+          synchronizer = daName,
         )
         // Check that we see it
         participant1.topology.party_to_participant_mappings
@@ -99,7 +98,7 @@ trait PartyManagementIntegrationTest extends CommunityIntegrationTest with Share
         participant1.parties.enable(
           name,
           synchronizeParticipants = Seq(participant1),
-          waitForSynchronizer = SynchronizerChoice.Only(Seq(daName)),
+          synchronizer = daName,
         )
         eventually() {
           // Check that we see it again, but now with serial=3

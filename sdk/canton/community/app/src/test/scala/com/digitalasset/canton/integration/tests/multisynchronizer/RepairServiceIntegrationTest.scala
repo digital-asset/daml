@@ -71,8 +71,10 @@ abstract class RepairServiceIntegrationTest
 
         participant1.dars.upload(CantonExamplesPath)
 
-        payer = participant1.parties.enable(payerName)
-        owner = participant1.parties.enable(ownerName)
+        payer = participant1.parties.enable(payerName, synchronizer = daName)
+        participant1.parties.enable(payerName, synchronizer = acmeName)
+        owner = participant1.parties.enable(ownerName, synchronizer = daName)
+        participant1.parties.enable(ownerName, synchronizer = acmeName)
       }
 
   "repair.change_assignation" when {

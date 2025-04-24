@@ -495,9 +495,7 @@ object ModelConformanceChecker {
                 transactionUUID,
                 mediatorGroup,
                 synchronizerId,
-                Option.when(reInterpretationResult.usesLedgerTime)(
-                  reInterpretationResult.metadata.ledgerTime.toLf
-                ),
+                reInterpretationResult.timeBoundaries,
                 reInterpretationResult.metadata.submissionTime.toLf,
                 enrichedInputContracts,
               ),

@@ -5,11 +5,9 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
-import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 /** Stores the data of an unassignment that needs to be passed from the source synchronizer to the
@@ -18,8 +16,6 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 final case class UnassignmentData(
     reassignmentId: ReassignmentId,
     unassignmentRequest: FullUnassignmentTree,
-    unassignmentDecisionTime: CantonTimestamp,
-    unassignmentResult: Option[DeliveredUnassignmentResult],
 ) {
   def contract: SerializableContract = unassignmentRequest.contract
 
@@ -37,32 +33,6 @@ final case class UnassignmentData(
   def sourceMediator: MediatorGroupRecipient = unassignmentRequest.mediator
 
   def reassignmentCounter: ReassignmentCounter = unassignmentRequest.reassignmentCounter
-
-  def addUnassignmentResult(result: DeliveredUnassignmentResult): Option[UnassignmentData] =
-    mergeUnassignmentResult(Some(result))
-
-  def mergeWith(other: UnassignmentData): Option[UnassignmentData] =
-    if (this eq other) Some(this)
-    else
-      other match {
-        case UnassignmentData(
-              `reassignmentId`,
-              `unassignmentRequest`,
-              `unassignmentDecisionTime`,
-              otherResult,
-            ) =>
-          mergeUnassignmentResult(otherResult)
-        case _ => None
-      }
-
-  private[this] def mergeUnassignmentResult(
-      result: Option[DeliveredUnassignmentResult]
-  ): Option[UnassignmentData] = {
-    val oldResult = this.unassignmentResult
-    OptionUtil
-      .mergeEqual(oldResult, result)
-      .map(merged => if (merged eq oldResult) this else this.copy(unassignmentResult = merged))
-  }
 }
 
 object UnassignmentData {

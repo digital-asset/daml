@@ -40,7 +40,7 @@ message Enums {
   enum TopologyMappingCode {
     TOPOLOGY_MAPPING_CODE_UNSPECIFIED = 0;
     TOPOLOGY_MAPPING_CODE_NAMESPACE_DELEGATION = 1;
-    TOPOLOGY_MAPPING_CODE_IDENTIFIER_DELEGATION = 2;
+    reserved 2; // was IdentifierDelegation
     TOPOLOGY_MAPPING_CODE_DECENTRALIZED_NAMESPACE_DEFINITION = 3;
     TOPOLOGY_MAPPING_CODE_OWNER_TO_KEY_MAPPING = 4;
     TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_TRUST_CERTIFICATE = 5;
@@ -75,14 +75,27 @@ message NamespaceDelegation {
   com.digitalasset.canton.crypto.v30.SigningPublicKey target_key = 2;
   // flag indicating whether the given delegation is a root delegation or not
   // a root delegation is also allowed to issue other NamespaceDelegations.
-  bool is_root_delegation = 3;
+  bool is_root_delegation = 3 [deprecated = true];
   // restricts target_key to only sign transactions with the specified mapping types.
   // for backwards compatibility, only the following combinations are valid:
-  // * is_root_delegation = true,  restricted_to_mappings = empty: the key can sign all mappings
-  // * is_root_delegation = false, restricted_to_mappings = empty: the key can sign all mappings but namespace delegations
-  // * is_root_delegation = false, restricted_to_mappings = non-empty: the key can only sign the mappings specified in restricted_to_mappings
-  // input validation fails if is_root_delegation = true and restricted_to_mappings = non-empty
-  repeated Enums.TopologyMappingCode restricted_to_mappings = 4;
+  // * is_root_delegation = true,  restriction = empty: the key can sign all mappings
+  // * is_root_delegation = false, restriction = empty: the key can sign all mappings but namespace delegations
+  // * is_root_delegation = false, restriction = non-empty: the key can only sign the mappings according the restriction that is set
+  oneof restriction {
+    CanSignAllMappings can_sign_all_mappings = 4;
+    CanSignAllButNamespaceDelegations can_sign_all_but_namespace_delegations = 5;
+    CanSignSpecificMappings can_sign_specific_mapings = 6;
+  }
+
+  // the key can sign all currently known mappings and all mappings that will be added in future releases
+  message CanSignAllMappings {}
+  // the key can sign all currently known mappings and all mappings that will be added in future releases, except for
+  // namespace delegations
+  message CanSignAllButNamespaceDelegations {}
+  // the key can only sign the explicitly specified mappings
+  message CanSignSpecificMappings {
+    repeated Enums.TopologyMappingCode mappings = 1;
+  }
 }
 // [end NamespaceDelegation definition]
 
@@ -106,18 +119,6 @@ message DecentralizedNamespaceDefinition {
 
   // the namespaces of the owners
   repeated string owners = 3;
-}
-
-// identifier delegation giving right to issue topology transaction on that particular identifier
-// authorization: must have sufficient signatures by keys of the namespace of the given unique
-//   identifier. If the identifier is for a consortium, it can mean that we need multiple signatures
-// UNIQUE (all fields)
-message IdentifierDelegation {
-  // identifier
-  string unique_identifier = 1;
-
-  // target key getting the right
-  com.digitalasset.canton.crypto.v30.SigningPublicKey target_key = 2;
 }
 
 // mapping a member (participant, mediator, sequencer) to a key
@@ -337,7 +338,6 @@ message PurgeTopologyTransaction {
 message TopologyMapping {
   oneof mapping {
     NamespaceDelegation namespace_delegation = 1;
-    IdentifierDelegation identifier_delegation = 2;
     DecentralizedNamespaceDefinition decentralized_namespace_definition = 3;
 
     OwnerToKeyMapping owner_to_key_mapping = 4;
@@ -357,7 +357,8 @@ message TopologyMapping {
 
     PartyToKeyMapping party_to_key_mapping = 16;
   }
-  reserved 10; // was authority_of, but cannot be reserved inside the oneof
+  reserved 2; // was identifier_delegation
+  reserved 10; // was authority_of
 }
 // [docs-entry-end: topology mapping]
 

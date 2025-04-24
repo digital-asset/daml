@@ -15,44 +15,47 @@ import DA.Time (seconds)
 
 -- These tests rely on unvetting, none of them will work on IDE
 main : TestTree
-main = tests $
+main = tests $ []
+
+-- TODO: restore these tests once waiting for unvetting to have propagated is fixed
+testsToRestore =
   [ subtree "exercise"
     -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
-    [ broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command (should change the expectation to fails)", v1UnvettedOnSubmitterCommand)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface (should fail)", v1UnvettedOnSubmitterCommandInterface)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body (should fail)", v1UnvettedOnSubmitterChoiceBody)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface (should fail)", v1UnvettedOnSubmitterChoiceBodyInterface)
+    [ brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command (should change the expectation to fails)", v1UnvettedOnSubmitterCommand)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface (should fail)", v1UnvettedOnSubmitterCommandInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body (should fail)", v1UnvettedOnSubmitterChoiceBody)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface (should fail)", v1UnvettedOnSubmitterChoiceBodyInterface)
 
-    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command (should fail)", v1UnvettedOnSubmitterDisclosedCommand)
-    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface (should fail)", v1UnvettedOnSubmitterDisclosedCommandInterface)
-    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body (should fail)", v1UnvettedOnSubmitterDisclosedChoiceBody)
-    , broken ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface (should fail)", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command (should fail)", v1UnvettedOnSubmitterDisclosedCommand)
+    , brokenOnIDELedger ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface (should fail)", v1UnvettedOnSubmitterDisclosedCommandInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body (should fail)", v1UnvettedOnSubmitterDisclosedChoiceBody)
+    , brokenOnIDELedger ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface (should fail)", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
 
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command (should fail)", v1UnvettedOnNonConfirmingInformeeCommand)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface (should fail)", v1UnvettedOnNonConfirmingInformeeCommandInterface)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body (should fail)", v1UnvettedOnNonConfirmingInformeeChoiceBody)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface (should fail)", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command (should fail)", v1UnvettedOnNonConfirmingInformeeCommand)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface (should fail)", v1UnvettedOnNonConfirmingInformeeCommandInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body (should fail)", v1UnvettedOnNonConfirmingInformeeChoiceBody)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface (should fail)", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
 
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command (should fail)", v1UnvettedOnConfirmingInformeeCommand)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface (should fail)", v1UnvettedOnConfirmingInformeeCommandInterface)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body (should fail)", v1UnvettedOnConfirmingInformeeChoiceBody)
-    , broken ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface (should fail)", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command (should fail)", v1UnvettedOnConfirmingInformeeCommand)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface (should fail)", v1UnvettedOnConfirmingInformeeCommandInterface)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body (should fail)", v1UnvettedOnConfirmingInformeeChoiceBody)
+    , brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface (should fail)", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
     ]
   , subtree "fetch"
     -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
-    [ broken ("Fetch undistributed contract with source unvetted on submitter (should fail)", fetchUndistributedUnvettedOnSubmitter)
-    , broken ("Fetch undistributed contract with source unvetted on submitter via interface (should fail)", fetchUndistributedUnvettedOnSubmitterInterface)
-    , broken ("Fetch distributed contract with source unvetted on submitter (should fail)", fetchDistributedUnvettedOnSubmitter)
-    , broken ("Fetch distributed contract with source unvetted on submitter via interface (should fail)", fetchDistributedUnvettedOnSubmitterInterface)
-    , broken ("Fetch disclosed contract with source unvetted on submitter (should fail)", fetchDisclosedUnvettedOnSubmitter)
-    , broken ("Fetch disclosed contract with source unvetted on submitter via interface (should fail)", fetchDisclosedUnvettedOnSubmitterInterface)
-    , broken ("Fetch distributed contract with source unvetted on non-confirming informee (should fail)", fetchDistributedUnvettedOnNonConfirmingInformee)
-    , broken ("Fetch distributed contract with source unvetted on confirming informee (should fail)", fetchDistributedUnvettedOnConfirmingInformee)
-    , broken ("Fetch distributed contract with source unvetted on confirming informee via interface (should fail)", fetchDistributedUnvettedOnConfirmingInformeeInterface)
+    [ brokenOnIDELedger ("Fetch undistributed contract with source unvetted on submitter (should fail)", fetchUndistributedUnvettedOnSubmitter)
+    , brokenOnIDELedger ("Fetch undistributed contract with source unvetted on submitter via interface (should fail)", fetchUndistributedUnvettedOnSubmitterInterface)
+    , brokenOnIDELedger ("Fetch distributed contract with source unvetted on submitter (should fail)", fetchDistributedUnvettedOnSubmitter)
+    , brokenOnIDELedger ("Fetch distributed contract with source unvetted on submitter via interface (should fail)", fetchDistributedUnvettedOnSubmitterInterface)
+    , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on submitter (should fail)", fetchDisclosedUnvettedOnSubmitter)
+    , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on submitter via interface (should fail)", fetchDisclosedUnvettedOnSubmitterInterface)
+    , brokenOnIDELedger ("Fetch distributed contract with source unvetted on non-confirming informee (should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
+    , brokenOnIDELedger ("Fetch distributed contract with source unvetted on confirming informee (should fail)", fetchDistributedUnvettedOnConfirmingInformee)
+    , brokenOnIDELedger ("Fetch distributed contract with source unvetted on confirming informee via interface (should fail)", fetchDistributedUnvettedOnConfirmingInformeeInterface)
     -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
     -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should fail)", fetchDisclosedUnvettedOnNonConfirmingInformee)
-    , broken ("Fetch disclosed contract with source unvetted on confirming informee (should fail)", fetchDisclosedUnvettedOnConfirmingInformee)
-    , broken ("Fetch disclosed contract with source unvetted on confirming informee via interface (should fail)", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
+    , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on confirming informee (should fail)", fetchDisclosedUnvettedOnConfirmingInformee)
+    , brokenOnIDELedger ("Fetch disclosed contract with source unvetted on confirming informee via interface (should fail)", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
     ]
   , subtree "query"
     [ ("Query undistributed contract with source unvetted (should succeed)", queryUndistributedUnvetted)
@@ -216,11 +219,6 @@ contents: |
 
 testTemplateHelper : Party -> TestTemplateHelper
 testTemplateHelper p = TestTemplateHelper with p = p, sigs = [], obs = []
-
-expectPackageMissingFailure : Either SubmitError a -> Script ()
-expectPackageMissingFailure (Right _) = fail "Expected failure, got success."
-expectPackageMissingFailure (Left (UnknownError (isInfixOf "Some packages are not known to all informees" -> True))) = pure ()
-expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, got " <> show e
 
 expectNoDomainFailure : Either SubmitError a -> Script ()
 expectNoDomainFailure (Right _) = fail "Expected failure, got success."
@@ -445,7 +443,7 @@ fetchDistributedUnvettedOnNonConfirmingInformee = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
     (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
-    expectPackageMissingFailure
+    expectSuccess -- Because non-signatories do not get visibility of fetches
     participant1
     []
     [bob]

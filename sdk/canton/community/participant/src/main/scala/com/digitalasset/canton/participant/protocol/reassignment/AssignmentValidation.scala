@@ -5,15 +5,13 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.{EitherT, Validated}
 import cats.implicits.toFunctorOps
-import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.crypto.{SyncCryptoApi, SynchronizerSnapshotSyncCryptoApi}
+import com.digitalasset.canton.crypto.SynchronizerSnapshotSyncCryptoApi
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
-import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.InvalidUnassignmentResult.DeliveredUnassignmentResultError
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.{
   ContractDataMismatch,
   InconsistentReassignmentCounter,
@@ -32,9 +30,8 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
@@ -63,7 +60,7 @@ private[reassignment] class AssignmentValidation(
     val assignmentRequest: FullAssignmentTree = parsedRequest.fullViewTree
     val assignmentRequestTs = parsedRequest.requestTimestamp
 
-    val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
+    val reassignmentId = assignmentRequest.reassignmentId
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
     val isReassigningParticipant = assignmentRequest.isReassigningParticipant(participantId)
 
@@ -133,7 +130,7 @@ private[reassignment] class AssignmentValidation(
   ): FutureUnlessShutdown[AssignmentValidationResult.ValidationResult] = {
     val assignmentRequest: FullAssignmentTree = parsedRequest.fullViewTree
 
-    val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
+    val reassignmentId = assignmentRequest.reassignmentId
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
     val stakeholdersCheckResultET =
@@ -171,32 +168,9 @@ private[reassignment] class AssignmentValidation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Seq[ReassignmentValidationError]] = {
-    val sourceSynchronizer = unassignmentData.unassignmentRequest.sourceSynchronizer
-    val unassignmentTs = unassignmentData.unassignmentTs
+    val targetTimeProof = unassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
     for {
-      sourceStaticSynchronizerParam <- reassignmentCoordination
-        .getStaticSynchronizerParameter(sourceSynchronizer)
-      _ready <- {
-        logger.info(
-          s"Waiting for topology state at $unassignmentTs on unassignment synchronizer $sourceSynchronizer ..."
-        )
-        reassignmentCoordination
-          .awaitUnassignmentTimestamp(
-            sourceSynchronizer,
-            sourceStaticSynchronizerParam,
-            unassignmentTs,
-          )
-      }
-
-      sourceCrypto <- reassignmentCoordination
-        .cryptoSnapshot(
-          sourceSynchronizer,
-          sourceStaticSynchronizerParam,
-          unassignmentTs,
-        )
-
-      targetTimeProof = unassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
       // TODO(i12926): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
       cryptoSnapshotTargetTs <- reassignmentCoordination
@@ -214,16 +188,12 @@ private[reassignment] class AssignmentValidation(
         )
         .leftMap[ReassignmentProcessorError](ReassignmentParametersError(synchronizerId.unwrap, _))
 
-      // TODO(i12926): Validate the shipped unassignment result w.r.t. stakeholders
-
-      reassignmentDataResult <- EitherT.right(
+      reassignmentDataResult <- EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
         validateUnassignmentData(
           unassignmentData,
           assignmentRequest,
           assignmentRequestTs,
           exclusivityLimit,
-          sourceCrypto,
-          cryptoSnapshotTargetTs,
         )
       )
 
@@ -235,16 +205,12 @@ private[reassignment] class AssignmentValidation(
       assignmentRequest: FullAssignmentTree,
       assignmentRequestTs: CantonTimestamp,
       exclusivityLimit: Target[CantonTimestamp],
-      sourceTopology: Source[SyncCryptoApi],
-      targetTopologyTargetTs: Target[TopologySnapshot],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentValidationError]] = {
+  ): Seq[ReassignmentValidationError] = {
     // TODO(i12926): Validate that the unassignment result received matches the unassignment result in reassignmentData
 
     val UnassignmentData(
       reassignmentId,
       unassignmentRequest,
-      unassignmentDecisionTime,
-      unassignmentResult,
     ) = unassignmentData
 
     val reassigningParticipants = Validated.condNec(
@@ -283,30 +249,11 @@ private[reassignment] class AssignmentValidation(
         unassignmentData.reassignmentCounter,
       ),
     )
-
-    val incompleteUnassignment = Validated.condNec(
-      unassignmentResult.nonEmpty,
-      (),
-      AssignmentValidationError.UnassignmentIncomplete(reassignmentId),
-    )
-
-    for {
-      deliveredUnassignmentResult <- DeliveredUnassignmentResultValidation(
-        reassignmentId = reassignmentId,
-        unassignmentRequest = unassignmentRequest,
-        unassignmentDecisionTime = unassignmentDecisionTime,
-        sourceTopology = sourceTopology,
-        targetTopologyTargetTs = targetTopologyTargetTs,
-      )(assignmentRequest.unassignmentResultEvent).validate.leftMap { err =>
-        DeliveredUnassignmentResultError(reassignmentId, err.error).reported()
-      }.value
-    } yield Seq(
+    Seq(
       reassigningParticipants,
       contract,
       exclusivityTimeout,
       reassignmentCounter,
-      incompleteUnassignment,
-      deliveredUnassignmentResult.toValidatedNec,
     ).sequence_.fold(_.toList, _ => Nil)
   }
 }

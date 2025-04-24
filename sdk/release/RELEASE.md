@@ -11,7 +11,7 @@ the [assembly] repo.
 ## Release Branches
 
 In this repo, the release branch for minor version `A.B` must be named
-`release/A.B.x`, e.g.  `release/2.7.x`.
+`release/A.B.x`, e.g. `release/2.7.x`.
 
 > Note: This also means you should not create branches with those (or similar)
 > names if they are not meant to be release branches.
@@ -32,7 +32,7 @@ The steps to create a release are:
    commit sha of the code you want to release (at this point typically the tip
    of the release branch), the version number you want to attribute to the
    build, and the words `SPLIT_RELEASE` (for historical reason dating to
-   pre-2.0 days).  For a snapshot release, one can generate a snapshot version
+   pre-2.0 days). For a snapshot release, one can generate a snapshot version
    string using the `release.sh` script. For example, to create a PR for a
    2.0.0 snapshot release:
 
@@ -47,7 +47,7 @@ The steps to create a release are:
    For a stable release, follow the same steps but remove the `-snapshot.*`
    part of the generated string.
 
-   **Only change a single line** in [`LATEST`](../LATEST), otherwise 
+   **Only change a single line** in [`LATEST`](../LATEST), otherwise
    no release is going to be created.
 
 2. Make a PR **targeting the `main` branch** with just that one line added,
@@ -56,14 +56,14 @@ The steps to create a release are:
    **The main branch is the only one that triggers releases, even for "release
    line" releases.**
 
-4. When the PR is merged, the build of the corresponding commit on `main` will
+3. When the PR is merged, the build of the corresponding commit on `main` will
    create a "split release" bundle and push it to Artifactory. It then notifies
    on `#team-internal-releases` on Slack.
 
 ## Daily Snapshots
 
 CI will automatically create a daily snapshot using the tip of the `main` and
-`main-2.x` branch.  This does not appear in the [`LATEST`] file but is
+`main-2.x` branch. This does not appear in the [`LATEST`] file but is
 otherwise identical to a snapshot one would have created on the same commit
 using the steps in the previous section.
 
@@ -98,9 +98,9 @@ Remember that these steps are for testing the SDK within a Daml release.
 > could take a few minutes.
 >
 > A new GCP windows instance can be created by running `./ad-hoc.sh temp
-> windows` inside the `daml-language-ad-hoc` project. This command prints IP
+windows` inside the `daml-language-ad-hoc` project. This command prints IP
 > address, username and password for the created Windows VM. Save this
-> output.  You will need this information later when you create an RDP
+> output. You will need this information later when you create an RDP
 > connection.
 >
 > > ‼️ After starting, it's going to take some time for the machine to be
@@ -110,7 +110,7 @@ Remember that these steps are for testing the SDK within a Daml release.
 > the VPN is connected. On macOS you can do this by selecting the
 > preconfigured _Connect GCP Frankfurt full tunnel_ VPN profile.
 >
-> If you're on a Mac, you can use *Microsoft Remote Desktop* aka **Windows App** 
+> If you're on a Mac, you can use _Microsoft Remote Desktop_ aka **Windows App**
 > to connect. This can be installed via the Mac App Store or directly
 > [here](https://go.microsoft.com/fwlink/?linkid=868963).
 >
@@ -129,7 +129,8 @@ Remember that these steps are for testing the SDK within a Daml release.
 >
 > Once the Windows machine is up and running, use Firefox (in Windows) to
 > download and install `daml-sdk-$VERSION-windows.exe` from the [releases
-> page] (please ensure `$VERSION` is expanded correctly!.
+>
+> > page] (please ensure `$VERSION` is expanded correctly!.
 >
 > Ad-hoc machines come with VSCode and OpenJDK preinstalled.
 >
@@ -175,7 +176,6 @@ Remember that these steps are for testing the SDK within a Daml release.
    > Manual tests passed on Windows.
 
 1. Destroy your Windows VM.
-
 
 ### Linux/macOS
 
@@ -251,7 +251,15 @@ Remember that these steps are for testing the SDK within a Daml release.
       and verify that the output looks like:
 
       ```json
-      {"0":{"issuer":"EUR_Bank::NAMESPACE","owner":"Alice::NAMESPACE","currency":"EUR","amount":100.0000000000,"observers":[]}}
+      {
+        "0": {
+          "issuer": "EUR_Bank::NAMESPACE",
+          "owner": "Alice::NAMESPACE",
+          "currency": "EUR",
+          "amount": 100.0,
+          "observers": []
+        }
+      }
       ```
 
       where NAMESPACE is the same series of hex digits as in the previous step.
@@ -268,12 +276,12 @@ Remember that these steps are for testing the SDK within a Daml release.
    script results to appear.
 
 1. Add `+` at the end of line 14, after `(PartyIdHint "Alice")` and confirm you
-   get an  error in line 15.
+   get an error in line 15.
 
 1. Add `1` after the `+` and confirm you get a type error in line 14, which
    says that `Script Party` does not match `Int`.
 
-1. Delete the `+1` and the `e` in the first and second `"Alice"` and verify that the
+1. Delete the `+1` and the `e` in `"Alice"` and verify that the
    script results are updated to the misspelled name.
 
 1. Right click on `eurBank` in line 28 and verify that "Go to Definition" takes
@@ -311,7 +319,7 @@ Remember that these steps are for testing the SDK within a Daml release.
 
 1. for 3.x releases, that pass testing, please ensure that artifacts are successfully published on artifactory and github.
 
-1. for 2.10 rleases, that pass testing, please ensure that *key* stakeholders are pinged in the slack message that announces successful testing (that way they may inform selected end users of the snapshots availability).
+1. for 2.10 rleases, that pass testing, please ensure that _key_ stakeholders are pinged in the slack message that announces successful testing (that way they may inform selected end users of the snapshots availability).
 
 1. Announce the release on `#product-releases` on Slack. For a stable release,
    direct people to the release blog post. If there were any errors during testing,
@@ -322,7 +330,7 @@ For a stable release, you need to additionally:
 
 1. Go to the [releases page] and remove the prerelease marker on
    the release. Also change the text to
-   ```See [the release notes blog]() for details.```
+   `See [the release notes blog]() for details.`
    adding in the direct link to this version's [release notes].
 
 Thanks for making a release!

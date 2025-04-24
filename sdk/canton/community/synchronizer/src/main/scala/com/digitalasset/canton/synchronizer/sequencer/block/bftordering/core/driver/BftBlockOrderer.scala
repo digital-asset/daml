@@ -122,6 +122,8 @@ final class BftBlockOrderer(
 
   import BftBlockOrderer.*
 
+  private implicit val synchronizerProtocolVersion: ProtocolVersion = protocolVersion
+
   require(
     sequencerSubscriptionInitialHeight >= BlockNumber.First,
     s"The sequencer subscription initial height must be non-negative, but was $sequencerSubscriptionInitialHeight",
@@ -346,7 +348,6 @@ final class BftBlockOrderer(
         outputStore,
       )
     new BftOrderingModuleSystemInitializer(
-      protocolVersion,
       thisNode,
       config,
       BlockNumber(sequencerSubscriptionInitialHeight),

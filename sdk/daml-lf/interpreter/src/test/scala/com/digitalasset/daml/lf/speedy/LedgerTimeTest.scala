@@ -31,9 +31,10 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] val now = Time.Timestamp.now()
-  private[this] val nowP1 = now.addMicros(1)
-  private[this] val nowP2 = now.addMicros(2)
+  private[this] val t0 = Time.Timestamp.now()
+  private[this] val t1 = t0.addMicros(1)
+  private[this] val t2 = t0.addMicros(2)
+  private[this] val t3 = t0.addMicros(3)
 
   "ledger time primitives" - {
     "ledgerTimeLT" in {
@@ -42,70 +43,129 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
         // now > time
         // - lb < ub
         //   + time < lb
-        (nowP2, now, Time.Range(nowP1, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        (t2, t0, Time.Range(t1, t2), Some(false), Time.Range(t1, t2)),
+        (
+          Time.Timestamp.MaxValue,
+          t0,
+          Time.Range(t1, t2),
+          None,
+          Time.Range(t1, t2),
+        ), // NeedTime pre-condition failure
+        (t0, Time.Timestamp.MinValue, Time.Range(t0, t1), Some(false), Time.Range(t0, t1)),
         //   + time == lb
-        (nowP2, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        (t1, t0, Time.Range(t0, t1), Some(false), Time.Range(t0, t1)),
+        (t2, t0, Time.Range(t0, t1), None, Time.Range(t0, t1)), // NeedTime pre-condition failure
+        (
+          t0,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, t0),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, t0),
+        ),
         //   + time > lb
-        (nowP2, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        (t2, t1, Time.Range(t0, t1), None, Time.Range(t0, t1)), // NeedTime pre-condition failure
+        (t2, t1, Time.Range(t0, t2), Some(false), Time.Range(t1, t2)),
         // - lb == ub
         //   + time < lb
-        (nowP2, now, Time.Range(nowP1, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        (t1, t0, Time.Range(t1, t1), Some(false), Time.Range(t1, t1)),
+        (t2, t0, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
+        (t0, Time.Timestamp.MinValue, Time.Range(t0, t0), Some(false), Time.Range(t0, t0)),
         //   + time == lb
-        (nowP2, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        (t2, t0, Time.Range(t0, t0), None, Time.Range(t0, t0)), // NeedTime pre-condition failure
+        (
+          t0,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, t0),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, t0),
+        ),
         //   + time > lb
-        (nowP2, nowP1, Time.Range(now, now), None, Time.Range(now, now)), // Speedy crash expected
+        (t2, t1, Time.Range(t0, t0), None, Time.Range(t0, t0)), // NeedTime pre-condition failure
 
         // now == time
         // - lb < ub
         //   + time < lb
-        (now, now, Time.Range(nowP1, nowP2), Some(false), Time.Range(nowP1, nowP2)),
+        (t0, t0, Time.Range(t1, t2), None, Time.Range(t1, t2)), // NeedTime pre-condition failure
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(t0, t1),
+          None,
+          Time.Range(t0, t1),
+        ), // NeedTime pre-condition failure
         //   + time == lb
-        (now, now, Time.Range(now, nowP1), Some(false), Time.Range(now, nowP1)),
+        (t0, t0, Time.Range(t0, t1), Some(false), Time.Range(t0, t1)),
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, t0),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, t0),
+        ),
         //   + time > lb
-        (nowP1, nowP1, Time.Range(now, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        (t1, t1, Time.Range(t0, t1), Some(false), Time.Range(t1, t1)),
+        (t2, t2, Time.Range(t0, t1), None, Time.Range(t0, t1)), // NeedTime pre-condition failure
         // - lb == ub
         //   + time < lb
-        (now, now, Time.Range(nowP1, nowP1), Some(false), Time.Range(nowP1, nowP1)),
+        (t0, t0, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(t0, t0),
+          None,
+          Time.Range(t0, t0),
+        ), // NeedTime pre-condition failure
         //   + time == lb
-        (now, now, Time.Range(now, now), Some(false), Time.Range(now, now)),
+        (t0, t0, Time.Range(t0, t0), Some(false), Time.Range(t0, t0)),
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+        ),
         //   + time > lb
         (
-          nowP2,
-          nowP2,
-          Time.Range(nowP1, nowP1),
+          t2,
+          t2,
+          Time.Range(t1, t1),
           None,
-          Time.Range(nowP1, nowP1),
-        ), // Speedy crash expected
+          Time.Range(t1, t1),
+        ), // NeedTime pre-condition failure
 
         // now < time
         // - lb < ub
         //   + time-1 < ub
-        (now, nowP1, Time.Range(now, nowP1), Some(true), Time.Range(now, now)),
+        (t0, t2, Time.Range(t1, t2), None, Time.Range(t1, t2)), // NeedTime pre-condition failure
+        (t0, t1, Time.Range(t0, t1), Some(true), Time.Range(t0, t0)),
         //   + time-1 == ub
-        (now, nowP2, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        (t0, t3, Time.Range(t1, t2), None, Time.Range(t1, t2)), // NeedTime pre-condition failure
+        (t0, t2, Time.Range(t0, t1), Some(true), Time.Range(t0, t1)),
         //   + time-1 > ub
-        (now, Time.Timestamp.MaxValue, Time.Range(now, nowP1), Some(true), Time.Range(now, nowP1)),
+        (t0, t3, Time.Range(t0, t1), Some(true), Time.Range(t0, t1)),
+        (t0, Time.Timestamp.MaxValue, Time.Range(t0, t1), Some(true), Time.Range(t0, t1)),
         // - lb == ub
         //   + time-1 < ub
         (
-          now,
-          nowP1,
-          Time.Range(nowP1, nowP1),
+          t0,
+          t1,
+          Time.Range(t1, t1),
           None,
-          Time.Range(nowP1, nowP1),
-        ), // Speedy crash expected
+          Time.Range(t1, t1),
+        ), // NeedTime pre-condition failure
         //   + time-1 == ub
-        (now, nowP1, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (t0, t1, Time.Range(t0, t0), Some(true), Time.Range(t0, t0)),
+        (t0, t2, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
         //   + time-1 > ub
-        (now, nowP2, Time.Range(now, now), Some(true), Time.Range(now, now)),
+        (t0, t2, Time.Range(t0, t0), Some(true), Time.Range(t0, t0)),
+        (t0, t3, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
       )
 
       forEvery(testData) { (now, time, timeBoundaries, expectedResult, expectedTimeBoundaries) =>
         inside(runTimeMachine("ledger_time_lt", now, time, timeBoundaries)) {
           case (Success(Right(SValue.SBool(actualResult))), actualTimeBoundaries, messages) =>
             Some(actualResult) shouldBe expectedResult
-            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
-            messages shouldBe Seq("queried time", "")
+            messages shouldBe Seq("queried time")
             actualTimeBoundaries shouldBe expectedTimeBoundaries
 
           case (
@@ -115,9 +175,8 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
               ) =>
             expectedResult shouldBe None
             location shouldBe "com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine.needTime"
-            cause shouldBe "unexpected exception java.lang.AssertionError: assertion failed when running continuation of question NeedTime"
-            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
-            messages shouldBe Seq("queried time", "")
+            cause shouldBe s"unexpected exception java.lang.IllegalArgumentException: requirement failed: NeedTime pre-condition failed: time $now lies outside time boundaries $timeBoundaries when running continuation of question NeedTime"
+            messages shouldBe Seq("queried time")
             actualTimeBoundaries shouldBe expectedTimeBoundaries
         }
       }

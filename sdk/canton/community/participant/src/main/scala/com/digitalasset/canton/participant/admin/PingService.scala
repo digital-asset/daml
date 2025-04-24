@@ -23,7 +23,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.WorkflowId
 import com.digitalasset.canton.ledger.client.{LedgerClient, LedgerClientUtils}
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, RequestValidationErrors}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   HasCloseContext,
@@ -190,6 +190,7 @@ object PingService {
     TopologyErrors.NoCommonSynchronizer,
     TopologyErrors.UnknownContractSynchronizers, // required for restart tests
     RequestValidationErrors.NotFound.Package,
+    CommandExecutionErrors.PackageSelectionFailed,
   ).map(_.id)
 
   /** Cleanup time: when will we deregister pings after their completion */

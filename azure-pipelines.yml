@@ -130,6 +130,21 @@ jobs:
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
+        # Note: The last branch that doesn't have the sdk subdirectory is 2.7.x,
+        # and I don't think we're planning any releases from that branch
+        cd sdk || exit 1
+        # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(./dev-env/bin/dade-assist)"
+        source $(bash-lib)
+        wrap_gcloud "$GCRED" "./ci/get-unifi.sh" 
+        ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) $REGISTRY
+      name: publish_to_oci
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        REGISTRY: "europe-docker.pkg.dev/da-images-dev/oci-private"
+      condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+    - bash: |
+        set -euo pipefail
 
         if [ -d sdk ]; then
           cd sdk

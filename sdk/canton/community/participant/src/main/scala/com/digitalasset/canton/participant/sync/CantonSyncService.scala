@@ -27,7 +27,6 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
 }
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
@@ -69,6 +68,8 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
+  PartyAllocationCannotDetermineSynchronizer,
+  PartyAllocationNoSynchronizerError,
   SyncServiceBecamePassive,
   SyncServiceFailedSynchronizerConnection,
   SyncServicePurgeSynchronizerError,
@@ -111,8 +112,8 @@ import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -674,10 +675,35 @@ class CantonSyncService(
   override def allocateParty(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
+      synchronizerIdO: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    partyAllocation.allocate(hint, rawSubmissionId)
+  ): CompletionStage[SubmissionResult] = {
+    lazy val onlyConnectedSynchronzier = connectedSynchronizersMap.toSeq match {
+      case Seq((synchronizerId, _)) => Right(synchronizerId)
+      case Seq() =>
+        Left(
+          SubmissionResult.SynchronousError(
+            PartyAllocationNoSynchronizerError.Error(rawSubmissionId).asGrpcStatus
+          )
+        )
+      case otherwise =>
+        Left(
+          SubmissionResult.SynchronousError(
+            PartyAllocationCannotDetermineSynchronizer
+              .Error(hint)
+              .asGrpcStatus
+          )
+        )
+    }
+    val synchronizerIdOrDetectionError =
+      synchronizerIdO.map(Right(_)).getOrElse(onlyConnectedSynchronzier)
+
+    synchronizerIdOrDetectionError
+      .map(partyAllocation.allocate(hint, rawSubmissionId, _))
+      .leftMap(CompletableFuture.completedFuture[SubmissionResult])
+      .merge
+  }
 
   override def uploadDar(dars: Seq[ByteString], submissionId: Ref.SubmissionId)(implicit
       traceContext: TraceContext
@@ -696,7 +722,7 @@ class CantonSyncService(
             synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
           )
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
@@ -712,7 +738,7 @@ class CantonSyncService(
         packageService.value
           .validateDar(dar, darName)
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
@@ -722,14 +748,14 @@ class CantonSyncService(
   ): Future[Option[DamlLf.Archive]] =
     packageService.value
       .getLfArchive(packageId)
-      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
   ): Future[Seq[PackageDescription]] =
     packageService.value
       .listPackages()
-      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def getPackageMetadataSnapshot(implicit
       errorLoggingContext: ErrorLoggingContext
@@ -1780,7 +1806,7 @@ class CantonSyncService(
             )
             .mapK(FutureUnlessShutdown.outcomeK)
             .semiflatMap(Predef.identity)
-            .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+            .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
         } yield SubmissionResult.Acknowledged
       }
         .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))

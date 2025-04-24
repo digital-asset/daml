@@ -8,7 +8,7 @@ import com.digitalasset.canton.config.{CantonConfig, DbConfig, StorageConfig}
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UsePostgres
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.store.db.DbStorageSetup.DbBasicConfig
 import com.typesafe.config.Config
 import monocle.Lens
@@ -62,7 +62,7 @@ trait DbConfigIntegrationTest extends CommunityIntegrationTest with SharedEnviro
       manualCreateEnvironment(
         configTransform = _ =>
           ConfigTransforms.updateParticipantConfig("participant1") { config =>
-            val storageLens = GenLens[LocalParticipantConfig](_.storage)
+            val storageLens = GenLens[ParticipantNodeConfig](_.storage)
 
             storageLens
               .modify(setStorageConnectionTimeout)

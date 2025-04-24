@@ -5,8 +5,8 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.grpc.GrpcMetricsServerInterceptor
+import com.digitalasset.canton.config.KeepAliveServerConfig
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{InProcessGrpcName, KeepAliveServerConfig}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.error.ErrorInterceptor

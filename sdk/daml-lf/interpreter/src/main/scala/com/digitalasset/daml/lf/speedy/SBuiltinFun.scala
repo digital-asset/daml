@@ -1870,9 +1870,6 @@ private[lf] object SBuiltinFun {
 
       machine.needTime(now => {
         val Time.Range(lb, ub) = machine.getTimeBoundaries
-        // We only generate a transaction trace for the last exercise command
-        val message = machine.transactionTrace(1)
-        machine.traceLog.add(message, machine.getLastLocation)(machine.loggingContext)
 
         if (now < time) {
           machine.setTimeBoundaries(

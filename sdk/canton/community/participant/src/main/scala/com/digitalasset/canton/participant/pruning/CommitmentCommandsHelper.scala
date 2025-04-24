@@ -67,7 +67,7 @@ object CommitmentContractMetadata
     ] {
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContractMeta)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.CommitmentContractMeta)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -156,7 +156,7 @@ final case class CommitmentInspectContract(
 object CommitmentInspectContract extends VersioningCompanion[CommitmentInspectContract] {
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.CommitmentContract)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.CommitmentContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -491,7 +491,7 @@ object ContractStateOnSynchronizer
       ContractStateOnSynchronizer
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.ContractState.SynchronizerState
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -553,7 +553,7 @@ object ContractCreated
       ContractCreated
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Created)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Created)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -614,7 +614,7 @@ object ContractAssigned
       ContractAssigned
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Assigned)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Assigned)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -703,7 +703,7 @@ object ContractUnassigned
       ContractUnassigned
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Unassigned)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Unassigned)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -774,7 +774,7 @@ object ContractArchived
       ContractArchived
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Archived)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Archived)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -819,7 +819,7 @@ object ContractUnknown
       ContractUnknown
     ] {
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.ContractState.Unknown)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.ContractState.Unknown)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

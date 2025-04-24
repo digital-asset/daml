@@ -63,12 +63,12 @@ import com.digitalasset.canton.platform.{
   Party,
   PruneBuffers,
   TemplatePartiesFilter,
+  *,
 }
 import com.digitalasset.canton.{config, logging}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.transaction.GlobalKey
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
 import com.google.rpc.Status
 import io.grpc.StatusRuntimeException
 import org.apache.pekko.NotUsed
@@ -378,7 +378,7 @@ private[index] class IndexServiceImpl(
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[VersionedContractInstance]] =
+  ): Future[Option[FatContract]] =
     contractStore.lookupActiveContract(forParties, contractId)
 
   override def getTransactionById(

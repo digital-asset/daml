@@ -8,16 +8,16 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.sequencing.protocol.SignedContent
-import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHandler}
+import com.digitalasset.canton.sequencing.{SequencedEventHandler, SequencerTestUtils}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 final case class HandlerError(message: String)
 
 class EventTimestampCaptureTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  type TestEventHandler = SerializedEventHandler[HandlerError]
+  type TestEventHandler = SequencedEventHandler[HandlerError]
 
   "EventTimestampCapture" should {
     "return initial value if we've not successfully processed an event" in {
@@ -35,11 +35,13 @@ class EventTimestampCaptureTest extends AnyWordSpec with BaseTest with HasExecut
       val capturingHandler = timestampCapture(handler)
 
       val fut = capturingHandler(
-        OrdinarySequencedEvent(
+        SequencedEventWithTraceContext(
           sign(
-            SequencerTestUtils.mockDeliver(sc = 42, timestamp = CantonTimestamp.ofEpochSecond(42))
+            SequencerTestUtils.mockDeliver(timestamp = CantonTimestamp.ofEpochSecond(42))
           )
-        )(traceContext)
+        )(
+          traceContext
+        )
       )
 
       timestampCapture.latestEventTimestamp shouldBe Some(CantonTimestamp.ofEpochSecond(42))
@@ -54,11 +56,13 @@ class EventTimestampCaptureTest extends AnyWordSpec with BaseTest with HasExecut
       val capturingHandler = timestampCapture(handler)
 
       val fut = capturingHandler(
-        OrdinarySequencedEvent(
+        SequencedEventWithTraceContext(
           sign(
-            SequencerTestUtils.mockDeliver(sc = 42, timestamp = CantonTimestamp.ofEpochSecond(42))
+            SequencerTestUtils.mockDeliver(timestamp = CantonTimestamp.ofEpochSecond(42))
           )
-        )(traceContext)
+        )(
+          traceContext
+        )
       )
 
       timestampCapture.latestEventTimestamp shouldBe Some(CantonTimestamp.ofEpochSecond(2L))

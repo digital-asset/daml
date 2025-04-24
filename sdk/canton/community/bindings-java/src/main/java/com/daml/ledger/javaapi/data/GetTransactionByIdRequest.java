@@ -12,6 +12,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+/**
+ * Helper wrapper of a grpc message used in GetTransactionById and GetTransactionTreeById calls.
+ * Class will be removed in 3.4.0.
+ */
 public final class GetTransactionByIdRequest {
 
   @NonNull private final String updateId;

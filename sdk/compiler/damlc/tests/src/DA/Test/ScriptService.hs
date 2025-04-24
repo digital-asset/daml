@@ -153,7 +153,7 @@ testScriptService lfVersion getScriptService =
                       "  (cid1, cid2) <- submit p $ (,) <$> createCmd (T p 23) <*> createCmd (T p 42)",
                       "  submit p $ (,) <$> exerciseCmd cid1 C <*> exerciseCmd cid2 C",
                       "testArchive = do",
-                      "  p <- allocatePartyWithHint \"p\" (PartyIdHint \"p\")",
+                      "  p <- allocatePartyByHint (PartyIdHint \"p\")",
                       "  cid <- submit p (createCmd (T p 42))",
                       "  submit p (archiveCmd cid)"
                     ]
@@ -354,7 +354,7 @@ testScriptService lfVersion getScriptService =
                       "    signatory owner",
                       "    observer observer",
                       "partyManagement = do",
-                      "  alice <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "  alice <- allocatePartyByHint (PartyIdHint \"alice\")",
                       "  alice1 <- allocateParty \"alice\"",
                       "  t1 <- submit alice $ createCmd T { owner = alice, observer = alice1 }",
                       "  bob <- allocateParty \"bob\"",
@@ -364,9 +364,9 @@ testScriptService lfVersion getScriptService =
                       "  assertEq aliceDetails (PartyDetails alice True)",
                       "  assertEq alice1Details (PartyDetails alice1 True)",
                       "  assertEq bobDetails (PartyDetails bob True)",
-                      "duplicateAllocateWithHint = do",
-                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
-                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
+                      "duplicateAllocateByHint = do",
+                      "  _ <- allocatePartyByHint (PartyIdHint \"alice\")",
+                      "  _ <- allocatePartyByHint (PartyIdHint \"alice\")",
                       "  pure ()",
                       "partyWithEmptyDisplayName = do",
                       "  p1 <- allocateParty \"\"",
@@ -375,14 +375,19 @@ testScriptService lfVersion getScriptService =
                       "  let [p1Details, p2Details] = details",
                       "  assertEq p2Details.party (fromSome $ partyFromText \"hint\")",
                       "  t1 <- submit p1 $ createCmd T { owner = p1, observer = p2 }",
+                      "  pure ()",
+                      "mismatchingNameAndHint = do",
+                      "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"hint\")",
                       "  pure ()"
                     ]
                 expectScriptSuccess rs (vr "partyManagement") $ \r ->
                   matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
-                expectScriptFailure rs (vr "duplicateAllocateWithHint") $ \r ->
+                expectScriptFailure rs (vr "duplicateAllocateByHint") $ \r ->
                   matchRegex r "Tried to allocate a party that already exists: alice"
                 expectScriptSuccess rs (vr "partyWithEmptyDisplayName") $ \r ->
-                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$",
+                  matchRegex r "Active contracts:  #0:0\n\nReturn value: {}\n$"
+                expectScriptFailure rs (vr "mismatchingNameAndHint") $ \r ->
+                  matchRegex r "Requested name 'alice' cannot be different from id hint 'hint'",
               testCase "trace" $ do
                 rs <-
                   runScripts

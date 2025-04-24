@@ -71,7 +71,7 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
-        active.stakeholders -> active.signatories
+        active.stakeholders -> active.contract.signatories
       } shouldBe Some(Set(alice, bob) -> Set(alice, bob))
     }
   }

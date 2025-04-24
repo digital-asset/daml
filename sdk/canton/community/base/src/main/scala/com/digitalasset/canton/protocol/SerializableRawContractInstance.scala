@@ -32,7 +32,7 @@ import scala.annotation.unused
   *   [[TransactionCoder.encodeContractInstance]].
   */
 final case class SerializableRawContractInstance private (
-    contractInstance: LfContractInst
+    contractInstance: LfThinContractInst
 )(
     override val deserializedFrom: Option[ByteString]
 ) extends MemoizedEvidenceWithFailure[ValueCoder.EncodeError] {
@@ -56,7 +56,7 @@ final case class SerializableRawContractInstance private (
 
   @unused // needed for lenses
   private def copy(
-      contractInstance: LfContractInst
+      contractInstance: LfThinContractInst
   ): SerializableRawContractInstance =
     SerializableRawContractInstance(contractInstance)(None)
 }
@@ -64,7 +64,7 @@ final case class SerializableRawContractInstance private (
 object SerializableRawContractInstance {
 
   @VisibleForTesting
-  lazy val contractInstanceUnsafe: Lens[SerializableRawContractInstance, LfContractInst] =
+  lazy val contractInstanceUnsafe: Lens[SerializableRawContractInstance, LfThinContractInst] =
     GenLens[SerializableRawContractInstance](_.contractInstance)
 
   implicit def contractGetResult(implicit
@@ -81,7 +81,7 @@ object SerializableRawContractInstance {
     pp >> c.getCryptographicEvidence.toByteArray
 
   def create(
-      contractInstance: LfContractInst
+      contractInstance: LfThinContractInst
   ): Either[ValueCoder.EncodeError, SerializableRawContractInstance] =
     try {
       Right(new SerializableRawContractInstance(contractInstance)(None))
@@ -101,7 +101,7 @@ object SerializableRawContractInstance {
   ): ParsingResult[SerializableRawContractInstance] =
     for {
       contractInstanceP <- ProtoConverter.protoParser(
-        TransactionOuterClass.ContractInstance.parseFrom
+        TransactionOuterClass.ThinContractInstance.parseFrom
       )(bytes)
       contractInstance <- TransactionCoder
         .decodeContractInstance(protoCoinst = contractInstanceP)
@@ -109,7 +109,7 @@ object SerializableRawContractInstance {
     } yield createWithSerialization(contractInstance)(bytes)
 
   @VisibleForTesting
-  def createWithSerialization(contractInst: LfContractInst)(
+  def createWithSerialization(contractInst: LfThinContractInst)(
       deserializedFrom: ByteString
   ): SerializableRawContractInstance =
     new SerializableRawContractInstance(contractInst)(Some(deserializedFrom))

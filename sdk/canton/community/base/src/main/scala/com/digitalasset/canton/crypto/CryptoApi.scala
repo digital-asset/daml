@@ -246,19 +246,6 @@ trait SyncCryptoApi {
       usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
 
-  /** This verifies that at least one of the signature is a valid sequencer signature. In
-    * particular, it does not respect the participant trust threshold. This should be used only in
-    * the context of reassignment where the concept of cross-synchronizer proof of sequencing is not
-    * fully fleshed out.
-    *
-    * TODO(#12410) Remove this method and respect trust threshold
-    */
-  def unsafePartialVerifySequencerSignatures(
-      hash: Hash,
-      signatures: NonEmpty[Seq[Signature]],
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit]
-
   /** Decrypts a message using the private key of the public key identified by the fingerprint in
     * the AsymmetricEncrypted object.
     */

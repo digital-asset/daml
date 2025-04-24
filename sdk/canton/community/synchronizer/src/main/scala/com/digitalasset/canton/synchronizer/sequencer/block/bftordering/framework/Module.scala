@@ -47,10 +47,19 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       context: E#ActorContextT[MessageT],
       traceContext: TraceContext,
   ): Unit =
-    performUnlessClosing("receive")(receiveInternal(message))
-      .onShutdown {
-        logger.info(s"Received $message but won't process because we're shutting down")
-      }
+    try {
+      performUnlessClosing("receive")(receiveInternal(message))
+        .onShutdown {
+          logger.info(s"Received $message but won't process because we're shutting down")
+        }
+    } catch {
+      case t: Throwable =>
+        logger.error(
+          s"Internal: unexpected exception thrown in module while processing $message",
+          t,
+        )
+        context.abort(t)
+    }
 
   /** Called by the system construction logic when the system is functional and, in particular, the
     * module can send messages to references (including itself).

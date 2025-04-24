@@ -21,7 +21,6 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.UnassignmentIncomplete
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
   ViewHashAndRecipients,
@@ -146,12 +145,6 @@ private[reassignment] class AssignmentProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
 
-      unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
-        unassignmentData.unassignmentResult.toRight(
-          UnassignmentIncomplete(reassignmentId).toSubmissionValidationError
-        )
-      )
-
       targetSynchronizer = unassignmentData.targetSynchronizer
       _ = if (targetSynchronizer != synchronizerId)
         throw new IllegalStateException(
@@ -176,12 +169,12 @@ private[reassignment] class AssignmentProcessingSteps(
         makeFullAssignmentTree(
           pureCrypto,
           seed,
+          reassignmentId,
           submitterMetadata,
           unassignmentData.contract,
           unassignmentData.reassignmentCounter,
           targetSynchronizer,
           mediator,
-          unassignmentResult,
           assignmentUuid,
           targetProtocolVersion,
           unassignmentData.unassignmentRequest.reassigningParticipants,
@@ -324,14 +317,14 @@ private[reassignment] class AssignmentProcessingSteps(
         contracts = contractCheck,
         reassignmentIds =
           if (parsedRequest.fullViewTree.isReassigningParticipant(participantId))
-            Set(parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId)
+            Set(parsedRequest.fullViewTree.reassignmentId)
           else Set.empty,
       )
       Right(activenessSet)
     } else
       Left(
         UnexpectedSynchronizer(
-          parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId,
+          parsedRequest.fullViewTree.reassignmentId,
           targetSynchronizerId = parsedRequest.fullViewTree.synchronizerId,
           receivedOn = synchronizerId.unwrap,
         )
@@ -349,7 +342,7 @@ private[reassignment] class AssignmentProcessingSteps(
     ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val reassignmentId = parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId
+    val reassignmentId = parsedRequest.fullViewTree.reassignmentId
     val isReassigningParticipant =
       parsedRequest.fullViewTree.isReassigningParticipant(participantId)
 
@@ -369,7 +362,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
     } yield {
       val responseF = if (isReassigningParticipant) {
-        if (!assignmentValidationResult.validationResult.isUnassignmentDataNotFoundOrIncomplete)
+        if (!assignmentValidationResult.validationResult.isUnassignmentDataNotFound)
           createConfirmationResponses(
             parsedRequest.requestId,
             parsedRequest.snapshot.ipsSnapshot,
@@ -464,7 +457,7 @@ private[reassignment] class AssignmentProcessingSteps(
         // TODO(i22993): Adding this exception is a workaround, we should remove it once we have decided how to deal
         //  with completing assignment before unassignment.
         case _: Verdict.Approve
-            if !isSuccessful && !assignmentValidationResult.validationResult.isUnassignmentDataNotFoundOrIncomplete =>
+            if !isSuccessful && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound =>
           throw new RuntimeException(
             s"Assignment validation failed for $requestId because: ${assignmentValidationResult.validationResult}"
           )
@@ -479,7 +472,7 @@ private[reassignment] class AssignmentProcessingSteps(
             // TODO(i22993): workaround for issue 22993.
             _ <-
               if (
-                assignmentValidationResult.validationResult.isUnassignmentDataNotFoundOrIncomplete
+                assignmentValidationResult.validationResult.isUnassignmentDataNotFound
                 && assignmentValidationResult.isReassigningParticipant
               ) {
                 reassignmentCoordination.addAssignmentData(
@@ -574,12 +567,12 @@ object AssignmentProcessingSteps {
   private[reassignment] def makeFullAssignmentTree(
       pureCrypto: CryptoPureApi,
       seed: SaltSeed,
+      reassignmentId: ReassignmentId,
       submitterMetadata: ReassignmentSubmitterMetadata,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
       targetSynchronizer: Target[SynchronizerId],
       targetMediator: MediatorGroupRecipient,
-      unassignmentResult: DeliveredUnassignmentResult,
       assignmentUuid: UUID,
       targetProtocolVersion: Target[ProtocolVersion],
       reassigningParticipants: Set[ParticipantId],
@@ -604,8 +597,8 @@ object AssignmentProcessingSteps {
       view <- AssignmentView
         .create(pureCrypto)(
           viewSalt,
+          reassignmentId,
           contract,
-          unassignmentResult,
           targetProtocolVersion,
           reassignmentCounter,
         )

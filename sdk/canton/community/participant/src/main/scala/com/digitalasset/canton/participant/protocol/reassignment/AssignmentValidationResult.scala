@@ -152,9 +152,8 @@ object AssignmentValidationResult {
     ): ValidationResult =
       copy(validationErrors = validationErrors ++ this.validationErrors)
 
-    def isUnassignmentDataNotFoundOrIncomplete: Boolean = validationErrors.exists {
+    def isUnassignmentDataNotFound: Boolean = validationErrors.exists {
       case AssignmentValidationError.UnassignmentDataNotFound(_) => true
-      case AssignmentValidationError.UnassignmentIncomplete(_) => true
       case _ => false
     }
   }

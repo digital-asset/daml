@@ -267,10 +267,6 @@ trait MultiTenantedSequencerStoreTest
       def countEvents(store: SequencerStore, instanceIndex: Int): FutureUnlessShutdown[Int] =
         store.asInstanceOf[DbSequencerStore].countEventsForNode(instanceIndex)
 
-      @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-      def latestCheckpoint(store: SequencerStore): FutureUnlessShutdown[Option[CantonTimestamp]] =
-        store.asInstanceOf[DbSequencerStore].fetchLatestCheckpoint()
-
       "remove all events if the sequencer didn't write a watermark" in {
         val store = mk()
         val sequencer1 = mkInstanceStore(1, store)
@@ -280,7 +276,7 @@ trait MultiTenantedSequencerStoreTest
           _ <- writeDelivers(sequencer1, SequencerMemberId(0))(1, 3, 5)
           _ <- writeDelivers(sequencer2, SequencerMemberId(1))(2, 4, 6)
           _ <- sequencer1.saveWatermark(ts(3)).valueOrFail("watermark1")
-          _ <- sequencer2.deleteEventsAndCheckpointsPastWatermark()
+          _ <- sequencer2.deleteEventsPastWatermark()
           s1Count <- countEvents(store, 1)
           s2Count <- countEvents(store, 2)
         } yield {
@@ -299,7 +295,7 @@ trait MultiTenantedSequencerStoreTest
           _ <- writeDelivers(sequencer2, SequencerMemberId(3))(2, 4, 6)
           _ <- sequencer1.saveWatermark(ts(3)).valueOrFail("watermark1")
           _ <- sequencer2.saveWatermark(ts(4)).valueOrFail("watermark2")
-          _ <- sequencer2.deleteEventsAndCheckpointsPastWatermark()
+          _ <- sequencer2.deleteEventsPastWatermark()
           s1Count <- countEvents(store, 1)
           s2Count <- countEvents(store, 2)
         } yield {
@@ -308,28 +304,21 @@ trait MultiTenantedSequencerStoreTest
         }
       }
 
-      "remove all events and checkpoints past our watermark after it was reset" in {
+      "remove all events past our watermark after it was reset" in {
         val store = mk()
         val sequencer = mkInstanceStore(1, store)
 
         for {
           _ <- store.registerMember(alice, ts(0))
           _ <- writeDelivers(sequencer, SequencerMemberId(1))(1, 3, 5)
-          _ <- sequencer.saveWatermark(ts(2)).valueOrFail("watermark1")
-          _ <- sequencer.recordCounterCheckpointsAtTimestamp(ts(2))
           _ <- sequencer.saveWatermark(ts(3)).valueOrFail("watermark2")
-          _ <- sequencer.recordCounterCheckpointsAtTimestamp(ts(3))
           sequencerEventCountBeforeReset <- countEvents(store, 1)
-          latestCheckpointBeforeReset <- latestCheckpoint(store)
           _ <- sequencer.resetWatermark(ts(2)).value
-          _ <- sequencer.deleteEventsAndCheckpointsPastWatermark()
-          latestCheckpointAfterReset <- latestCheckpoint(store)
+          _ <- sequencer.deleteEventsPastWatermark()
           sequencerEventCountAfterReset <- countEvents(store, 1)
         } yield {
           sequencerEventCountBeforeReset shouldBe 3
           sequencerEventCountAfterReset shouldBe 1
-          latestCheckpointBeforeReset shouldBe Some(ts(3))
-          latestCheckpointAfterReset shouldBe Some(ts(2))
         }
       }
     }

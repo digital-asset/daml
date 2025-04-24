@@ -41,7 +41,7 @@ class PartiesService(
       ): ET[Option[Ref.Party]]
 
       apiParty <- rightT(
-        allocateParty(jwt, idHint)(lc)
+        allocateParty(jwt, idHint, request.synchronizerId)(lc)
       ): ET[com.digitalasset.canton.ledger.api.PartyDetails]
 
       httpParty = PartyDetails.fromLedgerApi(apiParty)

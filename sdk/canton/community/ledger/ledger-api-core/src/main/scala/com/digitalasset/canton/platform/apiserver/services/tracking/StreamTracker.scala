@@ -8,9 +8,9 @@ import com.daml.metrics.api.MetricHandle
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterAsyncOps
 import io.grpc.StatusRuntimeException
@@ -171,7 +171,7 @@ private[tracking] class StreamTrackerImpl[Key, Item](
 
   override def close(): Unit =
     pending.values.foreach { case (traceCtx, promise) =>
-      promise.tryFailure(CommonErrors.ServerIsShuttingDown.Reject()(traceCtx).asGrpcError).discard
+      promise.tryFailure(GrpcErrors.AbortedDueToShutdown.Error()(traceCtx).asGrpcError).discard
     }
 }
 
