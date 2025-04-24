@@ -258,9 +258,7 @@ object Value {
       val prefix: Bytes = Bytes.assertFromString("01")
 
       private[lf] val timePrefixSize: Int = 5
-      private val discriminatorSize: Int = 7
-
-      require(discriminatorSize <= crypto.Hash.underlyingHashLength)
+      private[lf] val discriminatorSize: Int = 7
 
       val localSize: Int = timePrefixSize + discriminatorSize
 
@@ -271,12 +269,12 @@ object Value {
           _ <- Either.cond(
             local.length == localSize,
             (),
-            s"The local part has the wrong size, expected $localSize, but got ${local.length}",
+            s"The local prefix has the wrong size, expected $localSize, but got ${local.length}",
           )
           _ <- Either.cond(
             suffix.length <= MaxSuffixLength,
             (),
-            s"the suffix is too long, expected at most $MaxSuffixLength bytes, but got ${suffix.length}",
+            s"The suffix is too long, expected at most $MaxSuffixLength bytes, but got ${suffix.length}",
           )
         } yield new V2(local, suffix)
       }

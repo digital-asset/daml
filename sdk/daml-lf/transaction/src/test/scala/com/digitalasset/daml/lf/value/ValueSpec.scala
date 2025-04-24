@@ -86,6 +86,9 @@ class ValueSpec
       }
     }
 
+    "discriminator is not longer than a hash" in {
+      ContractId.V2.discriminatorSize shouldBe <=(crypto.Hash.underlyingHashLength)
+    }
   }
 
   "ContractId" - {

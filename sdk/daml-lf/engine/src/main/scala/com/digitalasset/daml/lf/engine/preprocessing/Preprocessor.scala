@@ -28,7 +28,7 @@ import scala.annotation.tailrec
   *  - checks value nesting does not overpass 100;
   *  - checks a LF command/value is properly typed according the
   *    Daml-LF package definitions;
-  *  - checks for Contract ID suffix (see [[requireV1ContractIdSuffix]]);
+  *  - checks for Contract ID suffix (see [[requireContractIdSuffix]]);
   *  - translates a LF command/value into speedy command/value; and
   *  - translates a complete transaction into a list of speedy
   *    commands.
@@ -37,13 +37,13 @@ import scala.annotation.tailrec
   *   Daml-LF package definitions against the command should
   *   resolved/typechecked. It is updated dynamically each time the
   *   [[ResultNeedPackage]] continuation is called.
-  * @param requireV1ContractIdSuffix when `true` the preprocessor will reject
-  *   any value/command/transaction that contains V1 Contract IDs
+  * @param requireContractIdSuffix when `true` the preprocessor will reject
+  *   any value/command/transaction that contains Contract IDs
   *   without suffixed.
   */
 private[engine] final class Preprocessor(
     compiledPackages: MutableCompiledPackages,
-    requireV1ContractIdSuffix: Boolean = true,
+    requireContractIdSuffix: Boolean = true,
 ) {
 
   import Preprocessor._
@@ -53,7 +53,7 @@ private[engine] final class Preprocessor(
   val commandPreprocessor =
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
-      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+      requireContractIdSuffix = requireContractIdSuffix,
     )
 
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)

@@ -16,7 +16,7 @@ import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
-    requireV1ContractIdSuffix: Boolean,
+    requireContractIdSuffix: Boolean,
     shouldCheckDataSerializable: Boolean = true,
 ) {
 
@@ -46,7 +46,7 @@ private[lf] final class ValueTranslator(
   }
 
   val validateCid: ContractId => Unit =
-    if (requireV1ContractIdSuffix) {
+    if (requireContractIdSuffix) {
       case cid: ContractId.V1 =>
         if (cid.suffix.isEmpty)
           throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
