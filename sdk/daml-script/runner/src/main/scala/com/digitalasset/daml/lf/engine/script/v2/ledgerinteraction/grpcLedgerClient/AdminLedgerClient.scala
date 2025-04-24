@@ -248,18 +248,19 @@ class AdminLedgerClient private[grpcLedgerClient] (
       synchronizerId: String,
   ): Future[Seq[protocol.PartyToParticipant.HostingParticipant]] =
     topologyReadServiceStub
-      .listPartyToParticipant(makeListPartyToParticipantRequest(synchronizerId))
-      .map(
-        _.results.view
-          .collectFirst {
-            case result if result.item.get.party == partyId =>
-              result.item.get.participants
-          }
-          .getOrElse(Seq.empty)
-      )
+      .listPartyToParticipant(makeListPartyToParticipantRequest(partyId, synchronizerId))
+      .map(response => {
+        // We expect at most one result because makeListPartyToParticipantRequest filters by partyId
+        if (response.results.length > 1)
+          throw new IllegalStateException(
+            s"Expected at most one result, but got ${response.results.length}"
+          )
+        response.results.headOption.toList.flatMap(_.item.get.participants)
+      })
 
   private[this] def makeListPartyToParticipantRequest(
-      synchronizerId: String
+      partyId: String,
+      synchronizerId: String,
   ): admin_topology.ListPartyToParticipantRequest =
     admin_topology.ListPartyToParticipantRequest(
       baseQuery = Some(
@@ -279,7 +280,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
           protocolVersion = None,
         )
       ),
-      filterParty = "",
+      filterParty = partyId,
       filterParticipant = "",
     )
 
