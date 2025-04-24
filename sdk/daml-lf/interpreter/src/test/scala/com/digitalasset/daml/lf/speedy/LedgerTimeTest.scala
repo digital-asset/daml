@@ -31,28 +31,166 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
     ParserParameters.defaultFor[this.type](majorLanguageVersion)
   private[this] implicit def logContext: LoggingContext = LoggingContext.ForTesting
 
-  private[this] val now = Time.Timestamp.now()
-  private[this] val nowP1 = now.addMicros(1)
+  private[this] val t0 = Time.Timestamp.now()
+  private[this] val t1 = t0.addMicros(1)
+  private[this] val t2 = t0.addMicros(2)
+  private[this] val t3 = t0.addMicros(3)
 
   "ledger time primitives" - {
     "ledgerTimeLT" in {
-      val testData = Table[Time.Timestamp, Time.Timestamp, Boolean](
-        ("now", "time", "result"),
-        (nowP1, now, false),
-        (now, now, false),
-        (now, nowP1, true),
+      val testData = Table[Time.Timestamp, Time.Timestamp, Time.Range, Option[Boolean], Time.Range](
+        ("now", "time", "time-boundary", "result", "updated-time-boundary"),
+        // now > time
+        // - lb < ub
+        //   + time < lb
+        (t2, t0, Time.Range(t1, t2), Some(false), Time.Range(t1, t2)),
+        (
+          Time.Timestamp.MaxValue,
+          t0,
+          Time.Range(t1, t2),
+          None,
+          Time.Range(t1, t2),
+        ), // NeedTime pre-condition failure
+        (t0, Time.Timestamp.MinValue, Time.Range(t0, t1), Some(false), Time.Range(t0, t1)),
+        //   + time == lb
+        (t1, t0, Time.Range(t0, t1), Some(false), Time.Range(t0, t1)),
+        (t2, t0, Time.Range(t0, t1), None, Time.Range(t0, t1)), // NeedTime pre-condition failure
+        (
+          t0,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, t0),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, t0),
+        ),
+        //   + time > lb
+        (t2, t1, Time.Range(t0, t1), None, Time.Range(t0, t1)), // NeedTime pre-condition failure
+        (t2, t1, Time.Range(t0, t2), Some(false), Time.Range(t1, t2)),
+        // - lb == ub
+        //   + time < lb
+        (t1, t0, Time.Range(t1, t1), Some(false), Time.Range(t1, t1)),
+        (t2, t0, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
+        (t0, Time.Timestamp.MinValue, Time.Range(t0, t0), Some(false), Time.Range(t0, t0)),
+        //   + time == lb
+        (t2, t0, Time.Range(t0, t0), None, Time.Range(t0, t0)), // NeedTime pre-condition failure
+        (
+          t0,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, t0),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, t0),
+        ),
+        //   + time > lb
+        (t2, t1, Time.Range(t0, t0), None, Time.Range(t0, t0)), // NeedTime pre-condition failure
+
+        // now == time
+        // - lb < ub
+        //   + time < lb
+        (t0, t0, Time.Range(t1, t2), None, Time.Range(t1, t2)), // NeedTime pre-condition failure
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(t0, t1),
+          None,
+          Time.Range(t0, t1),
+        ), // NeedTime pre-condition failure
+        //   + time == lb
+        (t0, t0, Time.Range(t0, t1), Some(false), Time.Range(t0, t1)),
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, t0),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, t0),
+        ),
+        //   + time > lb
+        (t1, t1, Time.Range(t0, t1), Some(false), Time.Range(t1, t1)),
+        (t2, t2, Time.Range(t0, t1), None, Time.Range(t0, t1)), // NeedTime pre-condition failure
+        // - lb == ub
+        //   + time < lb
+        (t0, t0, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(t0, t0),
+          None,
+          Time.Range(t0, t0),
+        ), // NeedTime pre-condition failure
+        //   + time == lb
+        (t0, t0, Time.Range(t0, t0), Some(false), Time.Range(t0, t0)),
+        (
+          Time.Timestamp.MinValue,
+          Time.Timestamp.MinValue,
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+          Some(false),
+          Time.Range(Time.Timestamp.MinValue, Time.Timestamp.MinValue),
+        ),
+        //   + time > lb
+        (
+          t2,
+          t2,
+          Time.Range(t1, t1),
+          None,
+          Time.Range(t1, t1),
+        ), // NeedTime pre-condition failure
+
+        // now < time
+        // - lb < ub
+        //   + time-1 < ub
+        (t0, t2, Time.Range(t1, t2), None, Time.Range(t1, t2)), // NeedTime pre-condition failure
+        (t0, t1, Time.Range(t0, t1), Some(true), Time.Range(t0, t0)),
+        //   + time-1 == ub
+        (t0, t3, Time.Range(t1, t2), None, Time.Range(t1, t2)), // NeedTime pre-condition failure
+        (t0, t2, Time.Range(t0, t1), Some(true), Time.Range(t0, t1)),
+        //   + time-1 > ub
+        (t0, t3, Time.Range(t0, t1), Some(true), Time.Range(t0, t1)),
+        (t0, Time.Timestamp.MaxValue, Time.Range(t0, t1), Some(true), Time.Range(t0, t1)),
+        // - lb == ub
+        //   + time-1 < ub
+        (
+          t0,
+          t1,
+          Time.Range(t1, t1),
+          None,
+          Time.Range(t1, t1),
+        ), // NeedTime pre-condition failure
+        //   + time-1 == ub
+        (t0, t1, Time.Range(t0, t0), Some(true), Time.Range(t0, t0)),
+        (t0, t2, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
+        //   + time-1 > ub
+        (t0, t2, Time.Range(t0, t0), Some(true), Time.Range(t0, t0)),
+        (t0, t3, Time.Range(t1, t1), None, Time.Range(t1, t1)), // NeedTime pre-condition failure
       )
 
-      forEvery(testData) { (now, time, expected) =>
-        inside(runTimeMachine("ledger_time_lt", now, time)) {
-          case (Success(Right(SValue.SBool(`expected`))), messages) =>
+      forEvery(testData) { (now, time, timeBoundaries, expectedResult, expectedTimeBoundaries) =>
+        inside(runTimeMachine("ledger_time_lt", now, time, timeBoundaries)) {
+          case (Success(Right(SValue.SBool(actualResult))), actualTimeBoundaries, messages) =>
+            Some(actualResult) shouldBe expectedResult
+            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
+            messages shouldBe Seq("queried time", "")
+            actualTimeBoundaries shouldBe expectedTimeBoundaries
+
+          case (
+                Success(Left(SError.SErrorCrash(location, cause))),
+                actualTimeBoundaries,
+                messages,
+              ) =>
+            expectedResult shouldBe None
+            location shouldBe "com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine.needTime"
+            cause shouldBe s"unexpected exception java.lang.IllegalArgumentException: requirement failed: NeedTime pre-condition failed: time $now lies outside time boundaries $timeBoundaries when running continuation of question NeedTime"
+            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
             messages shouldBe Seq("queried time")
+            actualTimeBoundaries shouldBe expectedTimeBoundaries
         }
       }
     }
   }
 
-  private def runTimeMachine(builtin: String, now: Time.Timestamp, time: Time.Timestamp) = {
+  private def runTimeMachine(
+      builtin: String,
+      now: Time.Timestamp,
+      time: Time.Timestamp,
+      timeBoundaries: Time.Range,
+  ) = {
     val compilerConfig = Compiler.Config.Default(majorLanguageVersion)
     val pkgs = PureCompiledPackages.Empty(compilerConfig)
     val builtinSExpr = pkgs.compiler.unsafeCompile(e"""\(time: Timestamp) -> $builtin time""")
@@ -66,6 +204,9 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
         Set.empty,
         traceLog = traceLog,
       )
+
+    machine.setTimeBoundaries(timeBoundaries)
+
     val result = Try(
       SpeedyTestLib.run(
         machine,
@@ -73,7 +214,7 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
       )
     )
 
-    (result, traceLog.getMessages)
+    (result, machine.getTimeBoundaries, traceLog.getMessages)
   }
 }
 
