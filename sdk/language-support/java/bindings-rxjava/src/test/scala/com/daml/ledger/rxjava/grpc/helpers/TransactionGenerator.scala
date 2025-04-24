@@ -304,7 +304,6 @@ object TransactionGenerator {
     (scalaChoiceArgument, javaChoiceArgument) <- Gen.sized(valueGen)
     actingParties <- Gen.listOf(nonEmptyId)
     consuming <- Arbitrary.arbBool.arbitrary
-    (scalaChildren, javaChildren) <- eventsGen
     witnessParties <- Gen.listOf(nonEmptyId)
     (scalaExerciseResult, javaExerciseResult) <- Gen.sized(valueGen)
     implementedInterfaces <- Gen.listOf(identifierGen)
@@ -394,7 +393,7 @@ object TransactionGenerator {
     commandId <- nonEmptyId
     workflowId <- nonEmptyId
     (scalaTimestamp, javaTimestamp) <- timestampGen
-    (scalaEvents, javaEvents) <- eventsGen
+    (scalaEvents, _) <- eventsGen
     offset <- Gen.posNum[Long]
     domainId <- Gen.alphaNumStr
     traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))

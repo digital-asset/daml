@@ -617,7 +617,7 @@ private[inner] object TemplateClass extends StrictLogging {
         )
         .initializer(
           "$Znew $T<>(new $T($T.$N, $T.$N, $T.$N),$>$Z$S,$W$N,$W$T::new,$W$N -> $T.templateValueDecoder().decode($N),$W$T::fromJson,$W$T::new,$W$T.of($L)" + keyParams + "$<)",
-          Seq(
+          Seq[Object](
             fieldClass,
             nestedClassName(ClassName.get(classOf[ContractTypeCompanion[_, _, _, _]]), "Package"),
             templateClassName,

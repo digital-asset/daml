@@ -594,7 +594,6 @@ object ValueGenerators {
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
-      nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, Node])) { case (acc, (nodeId, node)) =>
         for {
           hashMap <- acc
