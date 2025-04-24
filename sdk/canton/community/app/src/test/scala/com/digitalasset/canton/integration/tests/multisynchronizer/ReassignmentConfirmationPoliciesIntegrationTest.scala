@@ -142,10 +142,23 @@ sealed trait ReassignmentConfirmationPoliciesPartyIntegrationTest
     val alice = participant1.parties.enable(
       "alice",
       synchronizeParticipants = Seq(participant2),
+      synchronizer = daName,
     )
+    participant1.parties.enable(
+      "alice",
+      synchronizeParticipants = Seq(participant2),
+      synchronizer = acmeName,
+    )
+
     val bob = participant2.parties.enable(
       "bob",
       synchronizeParticipants = Seq(participant1),
+      synchronizer = daName,
+    )
+    participant2.parties.enable(
+      "bob",
+      synchronizeParticipants = Seq(participant1),
+      synchronizer = acmeName,
     )
 
     val iou = IouSyntax.createIou(participant1, Some(daId))(alice, bob)

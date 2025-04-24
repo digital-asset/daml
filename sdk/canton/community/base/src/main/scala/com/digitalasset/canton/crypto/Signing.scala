@@ -13,6 +13,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
+import com.digitalasset.canton.crypto.SigningKeyUsage.encodeUsageForHash
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -489,13 +490,16 @@ object SignatureDelegation {
 
   def generateHash(
       synchronizerId: SynchronizerId,
-      id: Fingerprint,
+      sessionKey: SigningPublicKey,
       validityPeriod: SignatureDelegationValidityPeriod,
   ): Hash = {
     val hashBuilder =
       HashBuilderFromMessageDigest(HashAlgorithm.Sha256, HashPurpose.SessionKeyDelegation)
     hashBuilder
-      .add(id.unwrap)
+      .add(sessionKey.id.unwrap)
+      .add(sessionKey.keySpec.toProtoEnum.value)
+      .add(sessionKey.format.toProtoEnum.value)
+      .add(encodeUsageForHash(sessionKey.usage))
       .add(validityPeriod.getCryptographicEvidence)
       .add(synchronizerId.toProtoPrimitive)
       .finish()
@@ -702,6 +706,16 @@ object SigningKeyUsage {
           .find(sku => sku.dbType == dbTypeInt.toByte)
           .getOrElse(throw new DbDeserializationException(s"Unknown key usage id: $dbTypeInt"))
       )
+
+  /** Encodes a non-empty set of signing key usages into a ByteString for hashing. The usages are
+    * converted to their proto enum integer values and sorted to ensure determinism.
+    */
+  def encodeUsageForHash(usage: NonEmpty[Set[SigningKeyUsage]]): ByteString = {
+    val orderedUsages = usage.forgetNE.toSeq.map(_.toProtoEnum.value).sorted
+    DeterministicEncoding.encodeSeqWith(orderedUsages)(usageInt =>
+      DeterministicEncoding.encodeInt(usageInt)
+    )
+  }
 
   case object Namespace extends SigningKeyUsage {
     override val identifier: String = "namespace"

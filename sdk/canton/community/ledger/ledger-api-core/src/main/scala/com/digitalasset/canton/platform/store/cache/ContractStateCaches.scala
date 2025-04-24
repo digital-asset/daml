@@ -7,6 +7,7 @@ import cats.data.NonEmptyVector
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
 import com.digitalasset.canton.platform.store.cache.ContractStateValue.{
   Active,
@@ -51,20 +52,13 @@ class ContractStateCaches(
 
     eventsBatch.toVector.foreach {
       case created: ContractStateEvent.Created =>
-        created.globalKey.foreach { key =>
-          keyMappingsBuilder.addOne(key -> Assigned(created.contractId, created.stakeholders))
-        }
+        created.globalKey.foreach(key =>
+          keyMappingsBuilder.addOne(
+            key -> Assigned(created.contractId, created.contract.stakeholders)
+          )
+        )
         contractMappingsBuilder.addOne(
-          created.contractId ->
-            Active(
-              contract = created.contract,
-              stakeholders = created.stakeholders,
-              createLedgerEffectiveTime = created.ledgerEffectiveTime,
-              signatories = created.signatories,
-              globalKey = created.globalKey,
-              keyMaintainers = created.keyMaintainers,
-              driverMetadata = created.driverMetadata,
-            )
+          created.contractId -> Active(created.contract)
         )
 
       case archived: ContractStateEvent.Archived =>

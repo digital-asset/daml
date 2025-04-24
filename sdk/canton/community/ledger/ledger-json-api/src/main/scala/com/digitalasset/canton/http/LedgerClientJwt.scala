@@ -204,12 +204,13 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       ec: EC,
       traceContext: TraceContext,
   ): AllocateParty =
-    (jwt, identifierHint) =>
+    (jwt, identifierHint, synchronizerIdO) =>
       implicit lc => {
         logFuture(AllocatePartyLog) {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
             token = bearer(jwt),
+            synchronizerId = synchronizerIdO,
           )
         }
       }
@@ -380,6 +381,7 @@ object LedgerClientJwt {
     (
         Jwt,
         Option[Ref.Party],
+        Option[String],
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[apiPartyDetails]
 
   type ListPackages =

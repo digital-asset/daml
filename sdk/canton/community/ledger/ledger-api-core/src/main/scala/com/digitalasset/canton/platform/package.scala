@@ -17,8 +17,8 @@ package object platform {
   private[platform] type ContractId = lfval.ContractId
   private[platform] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[platform] type Value = lfval.VersionedValue
-  private[platform] type Contract = lfTrans.FatContractInstance
-  private[platform] val Contract: lfTrans.FatContractInstance.type = lfTrans.FatContractInstance
+  private[platform] type FatContract = lfTrans.FatContractInstance
+  private[platform] val FatContract: lfTrans.FatContractInstance.type = lfTrans.FatContractInstance
   private[platform] type ThinContract = lfval.VersionedThinContractInstance
   private[platform] val ThinContract: lfval.VersionedContractInstance.type =
     lfval.VersionedContractInstance
@@ -29,7 +29,10 @@ package object platform {
   private[platform] type Create = lftx.Node.Create
   private[platform] type Exercise = lftx.Node.Exercise
   private[platform] type Key = lftx.GlobalKey
-  private[platform] val Key = lftx.GlobalKey
+  private[platform] val Key: lftx.GlobalKey.type = lftx.GlobalKey
+  private[platform] type KeyWithMaintainers = lftx.GlobalKeyWithMaintainers
+  private[platform] val KeyWithMaintainers: lftx.GlobalKeyWithMaintainers.type =
+    lftx.GlobalKeyWithMaintainers
 
   import com.digitalasset.daml.lf.data as lfdata
   private[platform] type Party = lfdata.Ref.Party

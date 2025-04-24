@@ -43,6 +43,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
@@ -66,7 +67,8 @@ class IssSegmentModule[E <: Env[E]](
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-) extends Module[E, ConsensusSegment.Message]
+)(implicit synchronizerProtocolVersion: ProtocolVersion)
+    extends Module[E, ConsensusSegment.Message]
     with NamedLogging {
 
   private val viewChangeTimeoutManager =

@@ -5,7 +5,6 @@ package com.digitalasset.canton.platform.store.dao.events
 
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.platform.*
-import com.digitalasset.daml.lf.data.Time.Timestamp
 
 sealed trait ContractStateEvent extends Product with Serializable {
   def eventOffset: Offset
@@ -13,16 +12,12 @@ sealed trait ContractStateEvent extends Product with Serializable {
 
 object ContractStateEvent {
   final case class Created(
-      contractId: ContractId,
-      contract: ThinContract,
-      globalKey: Option[Key],
-      ledgerEffectiveTime: Timestamp,
-      stakeholders: Set[Party],
+      contract: FatContract,
       eventOffset: Offset,
-      signatories: Set[Party],
-      keyMaintainers: Option[Set[Party]],
-      driverMetadata: Array[Byte],
-  ) extends ContractStateEvent
+  ) extends ContractStateEvent {
+    def contractId: ContractId = contract.contractId
+    def globalKey: Option[Key] = contract.contractKeyWithMaintainers.map(_.globalKey)
+  }
   final case class Archived(
       contractId: ContractId,
       globalKey: Option[Key],

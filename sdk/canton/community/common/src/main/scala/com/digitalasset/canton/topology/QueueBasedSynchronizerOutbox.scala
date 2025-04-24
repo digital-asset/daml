@@ -24,6 +24,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, FutureUnlessShutdownUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
@@ -151,7 +152,11 @@ class QueueBasedSynchronizerOutbox(
     // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
       TraceContext.withNewTraceContext(implicit tc =>
-        EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "synchronizer outbox flusher")
+        EitherTUtil.doNotAwait(
+          flush().onShutdown(Either.unit),
+          "synchronizer outbox flusher",
+          level = Level.WARN,
+        )
       )
     }
 

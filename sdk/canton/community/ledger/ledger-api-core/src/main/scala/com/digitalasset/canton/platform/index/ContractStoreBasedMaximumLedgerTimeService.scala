@@ -48,7 +48,7 @@ class ContractStoreBasedMaximumLedgerTimeService(
               case active: ContractState.Active =>
                 val newMaximumLedgerTime = resultSoFar
                   .getOrElse(Timestamp.MinValue)
-                  .pipe(Ordering[Timestamp].max(_, active.ledgerEffectiveTime))
+                  .pipe(Ordering[Timestamp].max(_, active.contractInstance.createdAt))
                   .pipe(Some(_))
                 goAsync(newMaximumLedgerTime, otherContractIds)
             }(directEc)

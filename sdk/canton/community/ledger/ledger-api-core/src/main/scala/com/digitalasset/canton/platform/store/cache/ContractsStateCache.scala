@@ -7,8 +7,6 @@ import com.digitalasset.canton.caching.SizedCache
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.GlobalKey
 
 import scala.concurrent.ExecutionContext
 
@@ -40,15 +38,7 @@ object ContractStateValue {
 
   sealed trait ExistingContractValue extends ContractStateValue
 
-  final case class Active(
-      contract: ThinContract,
-      stakeholders: Set[Party],
-      createLedgerEffectiveTime: Timestamp,
-      signatories: Set[Party],
-      globalKey: Option[GlobalKey],
-      keyMaintainers: Option[Set[Party]],
-      driverMetadata: Array[Byte],
-  ) extends ExistingContractValue
+  final case class Active(contract: FatContract) extends ExistingContractValue
 
   final case class Archived(stakeholders: Set[Party]) extends ExistingContractValue
 }

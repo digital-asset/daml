@@ -486,14 +486,17 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
       partyId: PartyId,
       synchronize: Boolean,
   )(implicit env: ConsoleEnvironment): Unit = {
-    // remove any topology transaction that points to source participant
-    sourceParticipant.topology.party_to_participant_mappings
-      .propose_delta(
-        partyId,
-        removes = List(sourceParticipant.id),
-        forceFlags = ForceFlags(DisablePartyWithActiveContracts),
-      )
-      .discard
+    sourceParticipant.synchronizers.list_connected().foreach { synchronizer =>
+      // remove any topology transaction that points to source participant
+      sourceParticipant.topology.party_to_participant_mappings
+        .propose_delta(
+          partyId,
+          removes = List(sourceParticipant.id),
+          forceFlags = ForceFlags(DisablePartyWithActiveContracts),
+          store = synchronizer.synchronizerId,
+        )
+        .discard
+    }
     if (synchronize) {
       // there's a gap between having received the transaction, but it hasn't been fully processed yet,
       // so the node status will return that the node is idle, when that's not really the case.

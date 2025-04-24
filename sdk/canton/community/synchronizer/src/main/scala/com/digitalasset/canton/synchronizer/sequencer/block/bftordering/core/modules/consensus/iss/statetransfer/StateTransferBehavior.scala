@@ -38,6 +38,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
@@ -88,8 +89,9 @@ final class StateTransferBehavior[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(private val maybeCustomStateTransferManager: Option[StateTransferManager[E]] = None)(implicit
-    mc: MetricsContext,
+    synchronizerProtocolVersion: ProtocolVersion,
     config: BftBlockOrdererConfig,
+    mc: MetricsContext,
 ) extends Consensus[E] {
 
   private val thisNode = initialState.topologyInfo.thisNode

@@ -153,6 +153,11 @@ message AllocatePartyRequest {
   // The id of the ``Identity Provider``
   // Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
   string identity_provider_id = 4;
+
+  // The synchronizer, on which the party should be allocated.
+  // For backwards compatibility, this field may be omitted, if the participant is connected to only one synchronizer.
+  // Otherwise a synchronizer must be specified.
+  string synchronizer_id = 5;
 }
 
 message AllocatePartyResponse {

@@ -15,11 +15,13 @@ bootstrap.synchronizer(
 val darPath = Option(System.getProperty("canton-examples.dar-path")).getOrElse("dars/CantonExamples.dar")
 participants.all.dars.upload(darPath)
 
+// connect participants to synchronizer
+Seq(participant1, participant2).foreach(_.synchronizers.connect_local(sequencer1, alias = "lostSynchronizer"))
+
+// setup parties
 val Alice = participant1.parties.enable("Alice")
 val Bob = participant2.parties.enable("Bob")
 
-// setup parties and connect participants to synchronizer
-Seq(participant1, participant2).foreach(_.synchronizers.connect_local(sequencer1, alias = "lostSynchronizer"))
 
 utils.retry_until_true {
     participant1.synchronizers.active("lostSynchronizer") && participant2.synchronizers.active("lostSynchronizer")

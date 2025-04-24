@@ -39,6 +39,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.INFO
 
@@ -1591,7 +1592,7 @@ object SegmentStateTest {
       blockNumber: BlockNumber,
       view: Long,
       from: BftNodeId,
-  ): SignedMessage[PrePrepare] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
         BlockMetadata(epochInfo.number, blockNumber),
@@ -1606,7 +1607,7 @@ object SegmentStateTest {
       blockNumber: Long,
       view: Long,
       from: BftNodeId,
-  ): SignedMessage[PrePrepare] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
         BlockMetadata.mk(epochInfo.number, blockNumber),
@@ -1622,7 +1623,7 @@ object SegmentStateTest {
       view: Long,
       from: BftNodeId,
       hash: Hash,
-  ): SignedMessage[Prepare] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Prepare] =
     Prepare
       .create(
         BlockMetadata.mk(epochInfo.number, blockNumber),
@@ -1649,7 +1650,7 @@ object SegmentStateTest {
       view: Long,
       from: BftNodeId,
       hash: Hash,
-  ): SignedMessage[Commit] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Commit] =
     Commit
       .create(
         BlockMetadata.mk(epochInfo.number, blockNumber),
@@ -1664,7 +1665,7 @@ object SegmentStateTest {
       blockNumber: Long,
       view: Long,
       prePrepareSource: BftNodeId,
-  ): PrepareCertificate = {
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): PrepareCertificate = {
     val prePrepare = createPrePrepare(blockNumber, view, prePrepareSource)
     val prePrepareHash = prePrepare.message.hash
     val prepareSeq = allIds
@@ -1679,7 +1680,7 @@ object SegmentStateTest {
       from: BftNodeId,
       originalLeader: BftNodeId = myId,
       slotsAndViewNumbers: Seq[(Long, Long)] = Seq.empty,
-  ): SignedMessage[ViewChange] = {
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[ViewChange] = {
     val originalLeaderIndex = allIds.indexOf(originalLeader)
     val certs = slotsAndViewNumbers.map { case (slot, view) =>
       createPrepareCertificate(
@@ -1703,7 +1704,7 @@ object SegmentStateTest {
       viewNumber: Long,
       originalLeader: BftNodeId,
       viewNumbersPerNode: Seq[Map[Long, Long]],
-  ): IndexedSeq[SignedMessage[ViewChange]] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): IndexedSeq[SignedMessage[ViewChange]] =
     allIds.zip(viewNumbersPerNode).map { case (node, slotToViewNumber) =>
       val slotsAndViewNumbers = slotToViewNumber.toList
       createViewChange(viewNumber, node, originalLeader, slotsAndViewNumbers)
@@ -1715,7 +1716,7 @@ object SegmentStateTest {
       originalLeader: BftNodeId,
       vcSet: Seq[SignedMessage[ViewChange]],
       ppSet: Seq[SignedMessage[PrePrepare]],
-  ): SignedMessage[NewView] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[NewView] =
     NewView
       .create(
         blockMetaData,

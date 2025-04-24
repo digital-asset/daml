@@ -1542,12 +1542,16 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
         """Allocates a new party on the ledger.
           party: a hint for generating the party identifier
           annotations: key-value pairs associated with this party and stored locally on this Ledger API server
-          identityProviderId: identity provider id"""
+          identityProviderId: identity provider id
+          synchronizerId: The synchronizer on which the party should be allocated.
+                          The participant must be connected to the synchronizer.
+                          The parameter may be omitted if the participant is connected to only one synchronizer."""
       )
       def allocate(
           party: String,
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
+          synchronizerId: String = "",
       ): PartyDetails = {
         val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
@@ -1555,6 +1559,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               partyIdHint = party,
               annotations = annotations,
               identityProviderId = identityProviderId,
+              synchronizerId = synchronizerId,
             )
           )
         })

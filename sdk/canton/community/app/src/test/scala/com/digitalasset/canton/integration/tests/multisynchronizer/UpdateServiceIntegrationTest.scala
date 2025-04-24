@@ -64,7 +64,8 @@ abstract class UpdateServiceIntegrationTest
       participant1.dars.upload(CantonExamplesPath)
 
       // Allocate parties
-      otherParty = participant1.parties.enable(otherPartyName)
+      otherParty = participant1.parties.enable(otherPartyName, synchronizer = daName)
+      participant1.parties.enable(otherPartyName, synchronizer = acmeName)
 
     }
 

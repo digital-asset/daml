@@ -71,20 +71,17 @@ trait ReassignmentServiceConcurrentReassignmentsIntegrationTest
         disableAutomaticAssignment(sequencer1)
         disableAutomaticAssignment(sequencer2)
 
-        party1aId = participant1.parties.enable(
-          party1a
-        )
-        participant1.parties.enable(
-          party1b
-        )
-        party2Id = participant2.parties.enable(
-          party2
-        )
-
         participants.all.synchronizers.connect_local(sequencer1, alias = daName)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
 
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
+
+        party1aId = participant1.parties.enable(party1a, synchronizer = daName)
+        participant1.parties.enable(party1a, synchronizer = acmeName)
+        participant1.parties.enable(party1b, synchronizer = daName)
+        participant1.parties.enable(party1b, synchronizer = acmeName)
+        party2Id = participant2.parties.enable(party2, synchronizer = daName)
+        participant2.parties.enable(party2, synchronizer = acmeName)
 
         programmableSequencers.put(
           daName,

@@ -1334,6 +1334,7 @@ scala_library(
 scala_library(
     name = "community_app-base",
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
+    plugins = [kind_projector_plugin],
     resource_strip_prefix = "/canton/community/app-base/src/main/resources",
     resources = glob(["community/app-base/src/main/resources/**"]),
     scalacopts = canton_scalacopts + ["-language:postfixOps"],

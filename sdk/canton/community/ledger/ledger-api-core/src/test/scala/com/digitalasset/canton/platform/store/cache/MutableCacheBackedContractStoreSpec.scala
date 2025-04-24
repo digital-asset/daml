@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.index.ContractState
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreSpec.*
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
@@ -19,11 +20,10 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 }
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.IdString
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
-import com.digitalasset.daml.lf.value.Value.{ThinContractInstance, ValueRecord, ValueText}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.transaction.{Node, Versioned}
+import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.mockito.MockitoSugar
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
@@ -76,8 +76,8 @@ class MutableCacheBackedContractStoreSpec
           spyContractsReader,
         ).asFuture
         _ = store.contractStateCaches.contractState.cacheIndex = Some(offset1)
-        cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
-        another_cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
+        cId2_lookup <- store.lookupActiveContract(Set(charlie), cId_2)
+        another_cId2_lookup <- store.lookupActiveContract(Set(charlie), cId_2)
 
         _ = store.contractStateCaches.contractState.cacheIndex = Some(offset2)
         cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
@@ -91,8 +91,8 @@ class MutableCacheBackedContractStoreSpec
         cId2_lookup shouldBe Option.empty
         another_cId2_lookup shouldBe Option.empty
 
-        cId3_lookup shouldBe Some(contract3)
-        another_cId3_lookup shouldBe Some(contract3)
+        cId3_lookup.map(_.templateId) shouldBe Some(contract3.unversioned.template)
+        another_cId3_lookup.map(_.templateId) shouldBe Some(contract3.unversioned.template)
 
         nonExistentCId_lookup shouldBe Option.empty
         another_nonExistentCId_lookup shouldBe Option.empty
@@ -142,15 +142,15 @@ class MutableCacheBackedContractStoreSpec
         _ = store.contractStateCaches.contractState.cacheIndex = Some(offset2)
         cId2_lookup2 <- store.lookupActiveContract(Set(bob), cId_2)
         cid2_lookup2_divulged <- store.lookupActiveContract(Set(charlie), cId_2)
-        cid2_lookup2_nonVisible <- store.lookupActiveContract(Set(alice), cId_2)
+        cid2_lookup2_nonVisible <- store.lookupActiveContract(Set(charlie), cId_2)
       } yield {
-        cId1_lookup0 shouldBe Some(contract1)
+        cId1_lookup0.map(_.templateId) shouldBe Some(contract1.unversioned.template)
         cId2_lookup0 shouldBe Option.empty
 
         cId1_lookup1 shouldBe Option.empty
         cid1_lookup1_archivalNotDivulged shouldBe None
 
-        cId2_lookup2 shouldBe Some(contract2)
+        cId2_lookup2.map(_.templateId) shouldBe Some(contract2.unversioned.template)
         cid2_lookup2_divulged shouldBe None
         cid2_lookup2_nonVisible shouldBe Option.empty
       }
@@ -215,25 +215,18 @@ class MutableCacheBackedContractStoreSpec
 
   "lookupContractStateWithoutDivulgence" should {
 
-    val stateValueActive = ContractStateValue.Active(
-      contract = contract4,
+    lazy val contract = fatContract(
+      contractId = cId_4,
+      thinContract = contract4,
       createLedgerEffectiveTime = t4,
       stakeholders = exStakeholders,
       signatories = exSignatories,
-      globalKey = Some(someKey),
-      keyMaintainers = exMaintainers,
+      key = Some(KeyWithMaintainers(someKey, exMaintainers)),
       driverMetadata = exDriverMetadata,
     )
 
-    val stateActive = ContractState.Active(
-      contractInstance = contract4,
-      ledgerEffectiveTime = t4,
-      stakeholders = exStakeholders,
-      signatories = exSignatories,
-      globalKey = Some(someKey),
-      maintainers = exMaintainers,
-      driverMetadata = exDriverMetadata,
-    )
+    val stateValueActive = ContractStateValue.Active(contract)
+    val stateActive = ContractState.Active(contract)
 
     "resolve lookup from cache" in {
       for {
@@ -282,19 +275,23 @@ object MutableCacheBackedContractStoreSpec {
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
     Seq(cId_1, cId_2, cId_3, cId_4, cId_5, cId_6, cId_7),
-    Seq(contract1, contract2, contract3, contract4, _, contract6, _),
+    contracts @ Seq(contract1, contract2, contract3, contract4, _, contract6, _),
     Seq(t1, t2, t3, t4, _, t6, _),
   ) =
     (1 to 7).map { id =>
-      (contractId(id), contract(s"id$id"), Timestamp.assertFromLong(id.toLong * 1000L))
+      (contractId(id), thinContract(s"id$id"), Time.Timestamp.assertFromLong(id.toLong * 1000L))
     }.unzip3
+
+  // We double check all the contracts have different templateId
+  assert(contracts.distinctBy(_.unversioned.template).sizeIs.==(7))
 
   private val someKey = globalKey("key1")
 
-  private val exStakeholders = Set(bob)
+  private val exStakeholders = Set(bob, alice)
   private val exSignatories = Set(alice)
-  private val exMaintainers = Some(Set(bob))
-  private val exDriverMetadata = "meta".getBytes
+  private val exMaintainers = Set(alice)
+  private val exDriverMetadata = Bytes.fromByteArray("meta".getBytes)
+  private val someKeyWithMaintainers = KeyWithMaintainers(someKey, exMaintainers)
 
   private def contractStore(
       cachesSize: Long,
@@ -334,41 +331,43 @@ object MutableCacheBackedContractStoreSpec {
         loggingContext: LoggingContextWithTrace
     ): Future[Option[LedgerDaoContractsReader.ContractState]] =
       (contractId, validAt) match {
-        case (`cId_1`, `offset0`) => activeContract(contract1, Set(alice), t1)
+        case (`cId_1`, `offset0`) => activeContract(cId_1, contract1, Set(alice), t1)
         case (`cId_1`, validAt) if validAt > offset0 => archivedContract(Set(alice))
         case (`cId_2`, validAt) if validAt >= offset1 =>
-          activeContract(contract2, exStakeholders, t2)
-        case (`cId_3`, _) => activeContract(contract3, exStakeholders, t3)
-        case (`cId_4`, _) => activeContract(contract4, exStakeholders, t4)
+          activeContract(cId_2, contract2, exStakeholders, t2)
+        case (`cId_3`, _) => activeContract(cId_3, contract3, exStakeholders, t3)
+        case (`cId_4`, _) => activeContract(cId_4, contract4, exStakeholders, t4)
         case (`cId_5`, _) => archivedContract(Set(bob))
         case (`cId_6`, _) =>
           // Simulate store being populated from one query to another
           val result = initialResultForCid6
-          initialResultForCid6 = activeContract(contract6, Set(alice), t6)
+          initialResultForCid6 = activeContract(cId_6, contract6, Set(alice), t6)
           result
         case _ => Future.successful(Option.empty)
       }
   }
 
   private def activeContract(
+      contractId: ContractId,
       contract: ThinContract,
       stakeholders: Set[Party],
-      ledgerEffectiveTime: Timestamp,
+      ledgerEffectiveTime: Time.Timestamp,
       signatories: Set[Party] = exSignatories,
-      globalKey: Option[GlobalKey] = Some(someKey),
-      maintainers: Option[Set[Party]] = exMaintainers,
-      driverMetadata: Array[Byte] = exDriverMetadata,
+      key: Option[KeyWithMaintainers] = Some(someKeyWithMaintainers),
+      driverMetadata: Bytes = exDriverMetadata,
   ): Future[Option[LedgerDaoContractsReader.ActiveContract]] =
     Future.successful(
       Some(
         LedgerDaoContractsReader.ActiveContract(
-          contract = contract,
-          stakeholders = stakeholders,
-          ledgerEffectiveTime = ledgerEffectiveTime,
-          signatories = signatories,
-          globalKey = globalKey,
-          keyMaintainers = maintainers,
-          driverMetadata = driverMetadata,
+          contract = fatContract(
+            contractId = contractId,
+            thinContract = contract,
+            createLedgerEffectiveTime = ledgerEffectiveTime,
+            stakeholders = stakeholders,
+            signatories = signatories,
+            key = key,
+            driverMetadata = driverMetadata,
+          )
         )
       )
     )
@@ -378,9 +377,9 @@ object MutableCacheBackedContractStoreSpec {
   ): Future[Option[LedgerDaoContractsReader.ArchivedContract]] =
     Future.successful(Some(LedgerDaoContractsReader.ArchivedContract(parties)))
 
-  private def party(name: String): IdString.Party = Party.assertFromString(name)
+  private def party(name: String): Party = Party.assertFromString(name)
 
-  private def contract(templateName: String): ThinContract = {
+  private def thinContract(templateName: String): ThinContract = {
     val templateId = Identifier.assertFromString(s"some:template:$templateName")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
 
@@ -388,16 +387,42 @@ object MutableCacheBackedContractStoreSpec {
       Some(templateId),
       ImmArray.Empty,
     )
-    val contractInstance =
-      ThinContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
-    Versioned(TransactionVersion.StableVersions.max, contractInstance)
+    ThinContract(
+      packageName = packageName,
+      template = templateId,
+      arg = Versioned(LanguageMajorVersion.V2.maxStableVersion, contractArgument),
+    )
   }
+
+  private def fatContract(
+      contractId: ContractId,
+      thinContract: ThinContract,
+      createLedgerEffectiveTime: Time.Timestamp,
+      stakeholders: Set[Party],
+      signatories: Set[Party],
+      key: Option[KeyWithMaintainers],
+      driverMetadata: Bytes,
+  ) =
+    FatContract.fromCreateNode(
+      Node.Create(
+        coid = contractId,
+        packageName = thinContract.unversioned.packageName,
+        templateId = thinContract.unversioned.template,
+        arg = thinContract.unversioned.arg,
+        signatories = signatories,
+        stakeholders = stakeholders,
+        keyOpt = key,
+        version = thinContract.version,
+      ),
+      createTime = createLedgerEffectiveTime,
+      cantonData = driverMetadata,
+    )
 
   private def contractId(id: Int): ContractId =
     ContractId.V1(Hash.hashPrivateKey(id.toString))
 
   private def globalKey(desc: String): Key =
-    GlobalKey.assertBuild(
+    Key.assertBuild(
       Identifier.assertFromString(s"some:template:$desc"),
       ValueText(desc),
       Ref.PackageName.assertFromString("pkg-name"),

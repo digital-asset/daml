@@ -121,6 +121,7 @@ trait TopologyManagementIntegrationTest
       participant1.topology.party_to_participant_mappings.propose(
         newParty,
         List(p1Id -> ParticipantPermission.Submission),
+        store = daId,
       )
 
       eventually() {
@@ -234,6 +235,7 @@ trait TopologyManagementIntegrationTest
       def add() = participant1.topology.party_to_participant_mappings.propose(
         PartyId(participant1.uid.tryChangeId("Boris")),
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
+        store = daId,
       )
 
       // add once
@@ -553,6 +555,7 @@ trait TopologyManagementIntegrationTest
         PartyId(Rick.uid),
         removes = List(participant1.id),
         forceFlags = ForceFlags(DisablePartyWithActiveContracts),
+        store = daId,
       )
 
       eventually(timeUntilSuccess = 30.seconds) {
@@ -578,6 +581,7 @@ trait TopologyManagementIntegrationTest
           PartyId(participant1.uid.tryChangeId("Jeremias")),
           newParticipants = List(participant1.id -> ParticipantPermission.Submission),
           signedBy = signingKey.toList,
+          store = daId,
         )
       // vanilla add
       add(Some(participant1.fingerprint))
@@ -592,6 +596,7 @@ trait TopologyManagementIntegrationTest
         participant1.namespace,
         key1,
         CanSignAllButNamespaceDelegations,
+        store = daId,
       )
       // add previous statement again but signed with a different key
       add(Some(key1.fingerprint))
@@ -689,6 +694,7 @@ trait TopologyManagementIntegrationTest
           PartyId(participant2.uid.tryChangeId("NothingToSignWith")),
           newParticipants = List(participant2.id -> ParticipantPermission.Submission),
           signedBy = Seq.empty,
+          store = daId,
         ),
         _.shouldBeCommandFailure(TopologyManagerError.NoAppropriateSigningKeyInStore),
       )
@@ -708,6 +714,7 @@ trait TopologyManagementIntegrationTest
         newParticipants = List(participant2.id -> ParticipantPermission.Submission),
         signedBy = Seq(p2Key.fingerprint),
         forceFlags = if (force) ForceFlags(AllowUnvalidatedSigningKeys) else ForceFlags.none,
+        store = daId,
       )
 
       assertThrowsAndLogsCommandFailures(
@@ -746,6 +753,7 @@ trait TopologyManagementIntegrationTest
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
         signedBy = Seq(p1Key.fingerprint),
         forceFlags = if (force) ForceFlags(AllowUnvalidatedSigningKeys) else ForceFlags.none,
+        store = daId,
       )
 
       loggerFactory.assertThrowsAndLogs[CommandFailure](
@@ -1003,6 +1011,7 @@ trait TopologyManagementIntegrationTest
       participant1.topology.party_to_participant_mappings.propose(
         PartyId(participant1.uid.tryChangeId("Bertram")),
         newParticipants = List(participant1.id -> ParticipantPermission.Submission),
+        store = daId,
       )
 
       eventually() {

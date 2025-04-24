@@ -463,7 +463,7 @@ class QueueBasedSynchronizerOutboxTest
       }
       loggerFactory.assertLogs(
         action,
-        _.errorMessage should include("failed the following topology transactions"),
+        _.warningMessage should include("failed the following topology transactions"),
       )
     }
   }

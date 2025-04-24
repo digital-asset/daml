@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AnyWordSpec
 
 class BlockedProgressDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -134,7 +135,9 @@ object BlockedProgressDetectorTest {
     previousMembership = membership, // Not relevant for the test
   )
 
-  private def completedBlock(blockNumber: BlockNumber) =
+  private def completedBlock(blockNumber: BlockNumber)(implicit
+      synchronizerProtocolVersion: ProtocolVersion
+  ) =
     Block(
       epochNumber,
       blockNumber,
