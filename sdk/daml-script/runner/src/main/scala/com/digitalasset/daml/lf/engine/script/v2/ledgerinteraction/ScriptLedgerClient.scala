@@ -282,13 +282,7 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
 
-  def importParty(party: Ref.Party)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit]
-
-  def exportParty(party: Ref.Party, toParticipantId: String)(implicit
+  def proposePartyReplication(party: Ref.Party, toParticipantId: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,

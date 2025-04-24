@@ -223,22 +223,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
         }
       }
 
-  def importParty(partyId: String): Future[Unit] = {
-    for {
-      synchronizerId <- getSynchronizerId
-      hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
-      _ <- topologyWriteServiceStub.authorize(
-        makePartyReplicationAuthorizeRequest(
-          hostingParticipants,
-          partyId,
-          participantUid,
-          synchronizerId,
-        )
-      )
-    } yield ()
-  }
-
-  def exportParty(partyId: String, toParticipantUid: String): Future[Unit] = {
+  def proposePartyReplication(partyId: String, toParticipantUid: String): Future[Unit] = {
     for {
       synchronizerId <- getSynchronizerId
       hostingParticipants <- listHostingParticipants(partyId, synchronizerId)

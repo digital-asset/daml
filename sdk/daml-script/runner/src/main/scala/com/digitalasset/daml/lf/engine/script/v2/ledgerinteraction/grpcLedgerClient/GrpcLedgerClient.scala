@@ -630,20 +630,7 @@ class GrpcLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
 
-  override def importParty(party: Ref.Party)(implicit
-      ec: ExecutionContext,
-      esf: ExecutionSequencerFactory,
-      mat: Materializer,
-  ): Future[Unit] = {
-    val adminClient = oAdminClient.getOrElse(
-      throw new IllegalArgumentException(
-        "Attempted to use importParty without specifying a adminPort"
-      )
-    )
-    adminClient.importParty(party)
-  }
-
-  def exportParty(party: Ref.Party, toParticipantId: String)(implicit
+  def proposePartyReplication(party: Ref.Party, toParticipantId: String)(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
@@ -653,7 +640,7 @@ class GrpcLedgerClient(
         "Attempted to use exportParty without specifying a adminPort"
       )
     )
-    adminClient.exportParty(party, toParticipantId)
+    adminClient.proposePartyReplication(party, toParticipantId)
   }
 
   override def getParticipantUid: String = oAdminClient

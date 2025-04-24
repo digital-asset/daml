@@ -437,8 +437,8 @@ object ScriptF {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
-        _ <- toClient.importParty(party)
-        _ <- fromClient.exportParty(party, toClient.getParticipantUid)
+        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
+        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
       } yield ()
 
       val mainParticipant = participants.headOption
@@ -457,30 +457,6 @@ object ScriptF {
         SEValue(SParty(party))
       }
     }
-  }
-  final case class ReplicateParty(
-      party: Party,
-      participant: Participant,
-  ) extends Cmd {
-    override def execute(env: Env)(implicit
-        ec: ExecutionContext,
-        mat: Materializer,
-        esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        toClient <- env.clients.getParticipant(Some(participant)) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        _ <- toClient.importParty(party)
-        fromClient <- env.clients.getPartiesParticipant(OneAnd(party, Set.empty)) match {
-          case Right(client) => Future.successful(client)
-          case Left(err) => Future.failed(new RuntimeException(err))
-        }
-        _ <- fromClient.exportParty(party, toClient.getParticipantUid)
-      } yield {
-        SEValue(SUnit)
-      }
   }
   final case class ListKnownParties(
       participant: Option[Participant]
