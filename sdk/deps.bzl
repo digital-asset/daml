@@ -75,8 +75,8 @@ rules_bazel_common_version = "0.0.1"
 rules_bazel_common_sha256 = "97bfda563b1c755d5cb4fae7aa1f48b43b2f4c2ca6fd6202076c910dcbeae772"
 go_googleapis_version = "83c3605afb5a39952bf0a0809875d41cf2a558ca"
 go_googleapis_sha256 = "ba694861340e792fd31cb77274eacaf6e4ca8bda97707898f41d8bebfd8a4984"
-rules_pkg_version = "1.0.1"
-rules_pkg_sha256 = "d20c951960ed77cb7b341c2a59488534e494d5ad1d30c4818c736d57772a9fef"
+rules_pkg_version = "1.1.0"
+rules_pkg_sha256 = "b7215c636f22c1849f1c3142c72f4b954bb12bb8dcf3cbe229ae6e69cc6479db"
 
 # Recent davl.
 davl_version = "f2d7480d118f32626533d6a150a8ee7552cc0222"  # 2020-03-23, "Deploy upgrade to SDK 0.13.56-snapshot.20200318",https://github.com/digital-asset/davl/pull/233/commits.
