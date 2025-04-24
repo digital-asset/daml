@@ -211,7 +211,7 @@ class JsCommandService(
 
 final case class JsSubmitAndWaitForTransactionRequest(
     commands: JsCommands,
-    transactionFormat: TransactionFormat,
+    transactionFormat: Option[TransactionFormat] = None,
 )
 
 final case class JsSubmitAndWaitForTransactionTreeResponse(

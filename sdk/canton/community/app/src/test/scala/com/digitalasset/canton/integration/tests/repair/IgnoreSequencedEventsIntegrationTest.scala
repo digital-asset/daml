@@ -421,7 +421,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
             {
               participant2.topology.owner_to_key_mappings.propose(
                 otk,
-                PositiveInt.tryCreate(2),
+                Some(PositiveInt.tryCreate(2)),
                 signedBy = Seq(signingKey.fingerprint),
                 store = daId,
                 force = ForceFlags(ForceFlag.AlienMember),

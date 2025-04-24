@@ -4172,7 +4172,6 @@ components:
       type: object
       required:
       - commands
-      - transactionFormat
       properties:
         commands:
           $ref: '#/components/schemas/JsCommands'
@@ -4181,7 +4180,11 @@ components:
             Required
         transactionFormat:
           $ref: '#/components/schemas/TransactionFormat'
-          description: Required
+          description: |-
+            If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+            TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+            filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+            Optional
     JsSubmitAndWaitForTransactionResponse:
       title: JsSubmitAndWaitForTransactionResponse
       type: object
