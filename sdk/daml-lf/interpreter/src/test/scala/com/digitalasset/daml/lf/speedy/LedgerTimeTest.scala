@@ -165,8 +165,7 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
         inside(runTimeMachine("ledger_time_lt", now, time, timeBoundaries)) {
           case (Success(Right(SValue.SBool(actualResult))), actualTimeBoundaries, messages) =>
             Some(actualResult) shouldBe expectedResult
-            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
-            messages shouldBe Seq("queried time", "")
+            messages shouldBe Seq("queried time")
             actualTimeBoundaries shouldBe expectedTimeBoundaries
 
           case (
@@ -177,7 +176,6 @@ class LedgerTimeTest(majorLanguageVersion: LanguageMajorVersion)
             expectedResult shouldBe None
             location shouldBe "com.digitalasset.daml.lf.speedy.Speedy.UpdateMachine.needTime"
             cause shouldBe s"unexpected exception java.lang.IllegalArgumentException: requirement failed: NeedTime pre-condition failed: time $now lies outside time boundaries $timeBoundaries when running continuation of question NeedTime"
-            // Empty string is due to use of transactionTrace and no commands being in the transaction tree
             messages shouldBe Seq("queried time")
             actualTimeBoundaries shouldBe expectedTimeBoundaries
         }
