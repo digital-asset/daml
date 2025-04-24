@@ -216,6 +216,6 @@ manySubViews = test do
   factory2 <- submit p5 (createCmd V2.AssetFactory { sig = p5, extra = Some "extra" })
 
   asset <- (actAs p1 <> readAs [p3, p5]) `submit` (exerciseCmd top (MkTransaction top1 top2 factory1 factory2))
-  p5 `submit` (archiveCmd asset)
+  p5 `submit` archiveCmd asset
 
   pure ()
