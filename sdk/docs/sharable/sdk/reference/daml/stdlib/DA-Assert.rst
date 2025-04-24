@@ -60,7 +60,13 @@ Functions
 `assertWithinDeadline <function-da-assert-assertwithindeadline-85580_>`_
   \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` ()
 
+  Check whether the ledger time of the transaction is strictly before the given deadline\.
+  If it's not, abort with a message\.
+
 .. _function-da-assert-assertdeadlineexceeded-21600:
 
 `assertDeadlineExceeded <function-da-assert-assertdeadlineexceeded-21600_>`_
   \: :ref:`Text <type-ghc-types-text-51952>` \-\> :ref:`Time <type-da-internal-lf-time-63886>` \-\> :ref:`Update <type-da-internal-lf-update-68072>` ()
+
+  Check whether the ledger time of the transaction is at or after the given deadline\.
+  If it's not, abort with a message\.

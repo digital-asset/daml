@@ -65,7 +65,7 @@ assertBeforeMsg msg time = do
     then assertFail msg
     else return ()
 
--- Check whether the ledger time of the transaction is strictly before the given deadline.
+-- | Check whether the ledger time of the transaction is strictly before the given deadline.
 -- If it's not, abort with a message.
 assertWithinDeadline: Text -> Time -> Update ()
 assertWithinDeadline name deadline = do
@@ -77,7 +77,7 @@ assertWithinDeadline name deadline = do
       ("Ledger time is at or past deadline '" <> name <> "' at " <> show deadline)
       (TextMap.fromList [("deadline", show deadline)])
 
--- Check whether the ledger time of the transaction is at or after the given deadline.
+-- | Check whether the ledger time of the transaction is at or after the given deadline.
 -- If it's not, abort with a message.
 assertDeadlineExceeded: Text -> Time -> Update ()
 assertDeadlineExceeded name deadline = do
