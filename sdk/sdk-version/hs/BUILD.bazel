@@ -6,12 +6,13 @@ load("@build_environment//:configuration.bzl", "ghc_version", "mvn_version", "sd
 
 da_haskell_library(
     name = "sdk-version-class-lib",
-    srcs = [":src/SdkVersion/Class.hs"],
+    srcs = ["src/SdkVersion/Class.hs"],
     hackage_deps = [
         "base",
         "text",
         "ghc-lib-parser",
     ],
+    src_strip_prefix = "src",
     visibility = ["//visibility:public"],
     deps = [
         "//libs-haskell/da-version-types",
