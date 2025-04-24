@@ -76,7 +76,7 @@ assertWithinDeadline name deadline = do
 
 {-# WARNING in "x-ledger-time" assertDeadlineExceeded ["This is an alpha feature. It can change without notice.", "Use `-Wno-ledger-time-is-alpha` to disable this warning."] #-}
 -- | HIDE
--- Check whether the ledger time of the transaction ia at or after the given deadline.
+-- Check whether the ledger time of the transaction is at or after the given deadline.
 -- If it's not, abort with a message.
 assertDeadlineExceeded: Text -> Time -> Update ()
 assertDeadlineExceeded name deadline = do
