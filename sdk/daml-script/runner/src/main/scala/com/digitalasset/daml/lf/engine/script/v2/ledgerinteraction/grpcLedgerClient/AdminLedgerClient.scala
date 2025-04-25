@@ -164,22 +164,17 @@ class AdminLedgerClient private[grpcLedgerClient] (
         for {
           vettedPackages <- listVettedPackages()
           _ <- Future {
+            val vettedPackageIds = vettedPackages
+              .getOrElse(onParticipantUid, Seq.empty)
+              .map(_.packageId)
+              .toSet
             assert(
-              packageIds.forall(pkgId =>
-                vettedPackages.getOrElse(onParticipantUid, Seq.empty).forall(_.packageId != pkgId)
-              )
+              packageIds.toSet.intersect(vettedPackageIds).isEmpty,
+              s"Participant $participantUid does not see that $onParticipantUid unvets ${packages.mkString(",")}",
             )
           }
         } yield ()
       }
-      .recoverWith(_ =>
-        Future.failed(
-          new IllegalStateException(
-            s"Participant $participantUid does not yet see that $onParticipantUid unvetted ${packages
-                .mkString(",")}"
-          )
-        )
-      )
   } yield ()
 
   def vetPackages(packages: Iterable[ScriptLedgerClient.ReadablePackageId]): Future[Unit] = for {
@@ -199,21 +194,17 @@ class AdminLedgerClient private[grpcLedgerClient] (
         for {
           vettedPackages <- listVettedPackages()
           _ <- Future {
+            val vettedPackageIds = vettedPackages
+              .getOrElse(onParticipantUid, Seq.empty)
+              .map(_.packageId)
+              .toSet
             assert(
-              packageIds.forall(pkgId =>
-                vettedPackages.getOrElse(onParticipantUid, Seq.empty).exists(_.packageId == pkgId)
-              )
+              packageIds.toSet.subsetOf(vettedPackageIds),
+              s"Participant $participantUid does not see that $onParticipantUid vets ${packages.mkString(",")}",
             )
           }
         } yield ()
       }
-      .recoverWith(_ =>
-        Future.failed(
-          new IllegalStateException(
-            s"Participant $participantUid does not yet see that $onParticipantUid vetted ${packages.mkString(",")}"
-          )
-        )
-      )
   } yield ()
 
   private[this] def getPackageIds(
@@ -310,16 +301,14 @@ class AdminLedgerClient private[grpcLedgerClient] (
       .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
         for {
           hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
-          _ <- Future { assert(hostingParticipants.exists(_.participantUid == onParticipantUid)) }
+          _ <- Future {
+            assert(
+              hostingParticipants.exists(_.participantUid == onParticipantUid),
+              s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId",
+            )
+          }
         } yield ()
       }
-      .recoverWith(_ =>
-        Future.failed(
-          new IllegalStateException(
-            s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId after $attempts attempts"
-          )
-        )
-      )
   } yield ()
 
   private[this] def getSynchronizerId: Future[String] =
