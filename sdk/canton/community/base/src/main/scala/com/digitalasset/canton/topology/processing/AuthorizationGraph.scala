@@ -34,7 +34,6 @@ final case class AuthorizedTopologyTransaction[T <: TopologyMapping](
 object AuthorizedTopologyTransaction {
 
   type AuthorizedNamespaceDelegation = AuthorizedTopologyTransaction[NamespaceDelegation]
-  type AuthorizedIdentifierDelegation = AuthorizedTopologyTransaction[IdentifierDelegation]
   type AuthorizedDecentralizedNamespaceDefinition =
     AuthorizedTopologyTransaction[DecentralizedNamespaceDefinition]
 }

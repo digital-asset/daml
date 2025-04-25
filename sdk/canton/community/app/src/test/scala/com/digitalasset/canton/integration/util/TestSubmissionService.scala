@@ -23,7 +23,7 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UpdateTreeWrapper
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
-import com.digitalasset.canton.data.DeduplicationPeriod
+import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.integration.util.TestSubmissionService.{
   CommandsWithMetadata,
@@ -83,7 +83,7 @@ class TestSubmissionService(
     participantId: ParticipantId,
     maxDeduplicationDuration: NonNegativeFiniteDuration,
     damle: Engine,
-    contractResolver: LfContractId => TraceContext => Future[Option[LfContractInst]],
+    contractResolver: LfContractId => TraceContext => Future[Option[LfThinContractInst]],
     keyResolver: TestKeyResolver,
     packageResolver: PackageResolver,
     syncService: SyncService,
@@ -337,8 +337,16 @@ class TestSubmissionService(
 
       case ResultNeedContract(acoid, resume) =>
         for {
-          contractO <- contractResolver(acoid)(traceContext)
-          r <- resolve(resume(contractO))
+          thinContractO <- contractResolver(acoid)(traceContext)
+          fatContract0 = thinContractO.map { case thinContract =>
+            LfFatContractInst.fromThinInstance(
+              version = thinContract.version,
+              packageName = thinContract.unversioned.packageName,
+              template = thinContract.unversioned.template,
+              arg = thinContract.unversioned.arg,
+            )
+          }
+          r <- resolve(resume(fatContract0))
         } yield r
 
       case ResultNeedPackage(packageId, resume) =>
@@ -412,7 +420,7 @@ object TestSubmissionService {
 
     def resolveContract(
         coid: LfContractId
-    )(traceContext: TraceContext): Future[Option[LfContractInst]] =
+    )(traceContext: TraceContext): Future[Option[LfThinContractInst]] =
       participantNode.sync.participantNodePersistentState.value.contractStore
         .lookupLfInstance(coid)(traceContext)
         .value
@@ -609,6 +617,7 @@ object TestSubmissionService {
         workflowIdO,
         submissionTime,
         submissionSeed,
+        timeBoundaries = LedgerTimeBoundaries.unconstrained,
         Some(usedPackages),
         Some(nodeSeeds),
         Some(byKeyNodes),

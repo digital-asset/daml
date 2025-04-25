@@ -101,14 +101,34 @@ abstract class ReassignmentServiceIntegrationTest
         party1a = participant1.parties.enable(
           party1aName,
           synchronizeParticipants = Seq(participant2),
+          synchronizer = daName,
         )
+        participant1.parties.enable(
+          party1aName,
+          synchronizeParticipants = Seq(participant2),
+          synchronizer = acmeName,
+        )
+
         party1b = participant1.parties.enable(
           party1bName,
           synchronizeParticipants = Seq(participant2),
+          synchronizer = daName,
         )
+        participant1.parties.enable(
+          party1bName,
+          synchronizeParticipants = Seq(participant2),
+          synchronizer = acmeName,
+        )
+
         party2 = participant2.parties.enable(
           party2Name,
           synchronizeParticipants = Seq(participant1),
+          synchronizer = daName,
+        )
+        participant2.parties.enable(
+          party2Name,
+          synchronizeParticipants = Seq(participant1),
+          synchronizer = acmeName,
         )
 
         synchronizerOwners2.foreach(

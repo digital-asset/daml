@@ -1041,14 +1041,35 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
   }
 
   @Explanation(
-    "A package-name required in command interpretation was discarded in topology-aware package selection."
+    """The package-id selection preference specified in the command does not refer to any package vetted for one or more package-names."""
+  )
+  @Resolution(
+    "Adjust the package-id selection preference in the command or contact the participant operator for updating the participant's vetting state."
+  )
+  object UserPackagePreferenceNotVetted
+      extends ErrorCode(
+        id = "USER_PACKAGE_PREFERENCE_NOT_VETTED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Reject(
+        packageName: Ref.PackageName
+    )(implicit
+        loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"There is no package with valid vetting for package-name $packageName"
+        ) {}
+  }
+
+  @Explanation(
+    "A package-name required in command interpretation was discarded in topology-aware package selection due to vetting topology restrictions."
   )
   @Resolution(
     "Revisit the command submission and ensure it conforms with the vetted topology state of the submitters and informees."
   )
-  object PackageNameDiscarded
+  object PackageNameDiscardedDueToUnvettedPackages
       extends ErrorCode(
-        id = "PACKAGE_NAME_DISCARDED",
+        id = "PACKAGE_NAME_DISCARDED_DUE_TO_UNVETTED_PACKAGES",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
       ) {
 
@@ -1059,8 +1080,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         loggingContext: ErrorLoggingContext
     ) extends DamlErrorWithDefiniteAnswer(
           cause =
-            // TODO(#23334): Improve error reporting for package-name discarded errors
-            s"Command interpretation failed due to the required $pkgName being discarded in package selection: $reference."
+            s"Command interpretation failed: No packages with valid vetting exist that conform to topology restrictions for $pkgName, encountered in $reference."
         )
   }
 }

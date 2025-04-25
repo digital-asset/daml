@@ -6,7 +6,7 @@ package com.digitalasset.canton.sequencing.handlers
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.SerializedEventHandler
+import com.digitalasset.canton.sequencing.SequencedEventHandler
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.atomic.AtomicReference
@@ -27,7 +27,7 @@ class EventTimestampCapture(
   /** Wrap a handler and capture the timestamp of a successfully processed event. It only makes
     * sense to wrap a single handler however this is not enforced.
     */
-  def apply[E](handler: SerializedEventHandler[E]): SerializedEventHandler[E] = {
+  def apply[E](handler: SequencedEventHandler[E]): SequencedEventHandler[E] = {
     implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)
     event => {
       implicit val traceContext: TraceContext = event.traceContext

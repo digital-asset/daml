@@ -55,7 +55,8 @@ trait Phase37Processor[RequestBatch] {
     *   aborts with an error.
     */
   def processResult(
-      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
+      counter: SequencerCounter,
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit
       traceContext: TraceContext
   ): HandlerResult

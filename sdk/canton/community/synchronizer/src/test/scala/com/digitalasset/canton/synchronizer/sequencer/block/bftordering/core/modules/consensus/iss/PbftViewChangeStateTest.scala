@@ -170,6 +170,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             case Right(r) => r
             case Left(toSign) => toSign.fakeSign
           },
+          fail(_),
         )
 
         nv.prePrepares.size should be(maybePrePrepares.size)
@@ -238,6 +239,50 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           myId -> 3,
         )
         prePrepares should have size slotNumbers.size.toLong
+      }
+
+      "produce a New View with the same set of ViewChange messages used to SignPrePrepares" in {
+        val systemState = new SystemState(
+          Seq(
+            Map.empty[Long, Long],
+            Map.empty[Long, Long],
+            Map.empty[Long, Long],
+            Map(BlockNumber.First -> ViewNumber.First),
+          )
+        )
+        import systemState.*
+
+        // separate 3f+1 total view change messages into (extra, 2f+1) sets
+        val (extraVC, quorumVC) = vcSet.splitAt(1)
+
+        // process the 2f+1 view change messages
+        quorumVC.foreach(vcState.processMessage)
+        vcState.shouldCreateNewView shouldBe true
+
+        val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData)
+        val prePrepares = maybePrePrepares.map {
+          case Right(r) => r
+          case Left(l) => l.fakeSign
+        }
+
+        prePrepares.size should be(maybePrePrepares.size)
+        prePrepares.map(pp =>
+          pp.from -> pp.message.viewNumber
+        ) should contain theSameElementsInOrderAs Seq(
+          originalLeader -> 0,
+          myId -> 1,
+          myId -> 1,
+        )
+        prePrepares should have size slotNumbers.size.toLong
+
+        // process the last remaining extra view change message
+        extraVC.foreach(vcState.processMessage)
+
+        val newView =
+          vcState.createNewViewMessage(blockMetaData, segmentIndex, prePrepares, fail(_))
+
+        // NewView.viewChanges should match the original quorumVC (unaffected by extraVC)
+        newView.viewChanges shouldBe quorumVC
       }
     }
   }

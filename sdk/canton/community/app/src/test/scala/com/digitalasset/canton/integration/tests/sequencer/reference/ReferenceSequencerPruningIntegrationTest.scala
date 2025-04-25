@@ -62,19 +62,19 @@ class ReferenceSequencerPruningIntegrationTest extends SequencerPruningIntegrati
 
   override protected val pruningRegex: String =
     """Removed ([1-9]\d*) blocks
-        |Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints
+        |Removed at least ([1-9]\d*) events, at least (\d+) payloads
         |Removed ([0-9]\d*) traffic purchased entries
         |Removed ([1-9]\d*) traffic consumed entries""".stripMargin
 
   override protected val pruningNothing: String =
     """Removed 0 blocks
-        |Removed at least 0 events, at least 0 payloads, at least 0 counter checkpoints
+        |Removed at least 0 events, at least 0 payloads
         |Removed 0 traffic purchased entries
         |Removed 0 traffic consumed entries""".stripMargin
 
   override protected val pruningRegexWithTrafficPurchase =
     """Removed ([1-9]\d*) blocks
-        |Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints
+        |Removed at least ([1-9]\d*) events, at least (\d+) payloads
         |Removed ([1-9]\d*) traffic purchased entries
         |Removed ([1-9]\d*) traffic consumed entries""".stripMargin
 }

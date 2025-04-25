@@ -59,6 +59,7 @@ trait SynchronizerRouterIntegrationTestSetup
               )
           )
         }
+        assignPartyIdReferences()
       }
 
   protected val darPath: String = CantonTestsPath
@@ -77,19 +78,31 @@ trait SynchronizerRouterIntegrationTestSetup
   protected var party3Id: PartyId = _
   protected var party4Id: PartyId = _
 
+  protected def defaultTopology(implicit
+      env: TestConsoleEnvironment
+  ): Map[ParticipantReference, Set[SynchronizerAlias]] = Map(
+    env.p("participant1") -> allSynchronizers.toSet,
+    env.p("participant2") -> Set(synchronizer2, synchronizer3),
+    env.p("participant3") -> Set(synchronizer3),
+    env.p("participant4") -> Set(synchronizer2),
+  )
+
+  protected def participantsToParties(implicit
+      env: TestConsoleEnvironment
+  ): Map[ParticipantReference, Set[String]] = Map(
+    env.p("participant1") -> Set("party1", "party1a", "party1b", "party1c"),
+    env.p("participant2") -> Set("party2"),
+    env.p("participant3") -> Set("party3"),
+    env.p("participant4") -> Set("party4"),
+  )
+
   protected def connectToDefaultSynchronizers()(implicit
       env: TestConsoleEnvironment
   ): Unit =
-    connectToCustomSynchronizers(
-      Map(
-        env.participant1 -> allSynchronizers.toSet,
-        env.participant2 -> Set(synchronizer2, synchronizer3),
-        env.participant3 -> Set(synchronizer3),
-      )
-    )
+    connectToCustomSynchronizers(defaultTopology)
 
   protected def connectToCustomSynchronizers(
-      synchronizersByParticipant: Map[LocalParticipantReference, Set[SynchronizerAlias]]
+      synchronizersByParticipant: Map[ParticipantReference, Set[SynchronizerAlias]]
   )(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
     for ((participant, synchronizers) <- synchronizersByParticipant) {
@@ -122,10 +135,45 @@ trait SynchronizerRouterIntegrationTestSetup
           participant.id,
           permission = ParticipantPermission.Submission,
         )
+        // allocate parties on synchronizers where they aren't allocated yet
+        allocateParties(participant, synchronizerAlias)
       }
     }
-
     synchronizeTopologyState()
+  }
+
+  private def allocateParties(
+      participant: ParticipantReference,
+      synchronizerAlias: SynchronizerAlias,
+  )(implicit env: TestConsoleEnvironment): Unit = {
+    import env.*
+    participantsToParties
+      .getOrElse(participant, Set.empty)
+      .filter(party =>
+        participant.parties
+          .hosted(
+            party,
+            synchronizerIds = Set(initializedSynchronizers(synchronizerAlias).synchronizerId),
+          )
+          .isEmpty
+      )
+      .foreach { party =>
+        participant.parties.enable(party, synchronizer = synchronizerAlias)
+
+      }
+  }
+
+  private def assignPartyIdReferences()(implicit env: TestConsoleEnvironment): Unit = {
+    import env.*
+    // first wait for all participants to be initialized, so that we can properly fetch the ID to get the namespace.
+    participants.all.foreach(_.health.wait_for_initialized())
+    party1Id = PartyId.tryCreate("party1", p("participant1").namespace)
+    party1aId = PartyId.tryCreate("party1a", p("participant1").namespace)
+    party1bId = PartyId.tryCreate("party1b", p("participant1").namespace)
+    party1cId = PartyId.tryCreate("party1c", p("participant1").namespace)
+    party2Id = PartyId.tryCreate("party2", p("participant2").namespace)
+    party3Id = PartyId.tryCreate("party3", p("participant3").namespace)
+    party4Id = PartyId.tryCreate("party4", p("participant4").namespace)
   }
 
   protected def synchronizeTopologyState()(implicit env: TestConsoleEnvironment): Unit = {

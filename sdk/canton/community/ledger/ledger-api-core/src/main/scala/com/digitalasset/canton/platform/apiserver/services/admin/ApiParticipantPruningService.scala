@@ -17,7 +17,6 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ParticipantOffsetValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
-import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SyncService
@@ -37,6 +36,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.tracing.TraceContext
@@ -110,7 +110,7 @@ final class ApiParticipantPruningService private (
                 validAt = pruneUpTo,
                 stakeholders = Set.empty, // getting all incomplete reassignments
               )
-              .failOnShutdownTo(ServerIsShuttingDown.Reject().asGrpcError)
+              .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
 
             _ = logger.debug("Pruning Ledger API Server")
             pruneResponse <- Tracked.future(

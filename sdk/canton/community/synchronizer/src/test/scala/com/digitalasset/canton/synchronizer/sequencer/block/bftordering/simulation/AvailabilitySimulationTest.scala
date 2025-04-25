@@ -4,11 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
   P2PEndpointConfig,
@@ -85,7 +85,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.DurationInt
 import scala.util.Random
 
-class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
+class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
   private val RandomSeed = 4L
   private val SimulationVirtualDuration = 2.minutes

@@ -75,7 +75,7 @@ class SerializableRawContractInstanceTest
 
       def inst(arg: Value): SerializableRawContractInstance =
         SerializableRawContractInstance.createWithSerialization(
-          LfContractInst(
+          LfThinContractInst(
             packageName = ExampleTransactionFactory.packageName,
             template = ExampleTransactionFactory.templateId,
             arg = Versioned(transactionVersion, arg),

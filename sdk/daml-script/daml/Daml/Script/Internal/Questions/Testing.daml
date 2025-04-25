@@ -6,9 +6,8 @@ module Daml.Script.Internal.Questions.Testing where
 import Daml.Script.Internal.LowLevel
 import Daml.Script.Internal.Questions.Exceptions ()
 import DA.Bifunctor
-import DA.Exception
-import GHC.Types (primitive)
-import DA.Record
+import qualified DA.TextMap as TextMap
+import DA.Fail
 
 newtype CommandName = CommandName
   with getCommandName : Text
@@ -45,25 +44,17 @@ data FailedCmd = FailedCmd with
     errorMessage : ErrorMessage
   deriving (Eq, Show)
 
-instance HasThrow FailedCmd where
-    throwPure _ = error "Tried to throw daml-script pseudo-exception"
-
-instance GetField "message" FailedCmd Text where
-    getField (FailedCmd _ _ msg) = getErrorMessage msg
-
-instance HasMessage FailedCmd where
-    message (FailedCmd _ _ msg) = getErrorMessage msg
-
--- These primitives do not check that the type arguments are real templates
--- they also use the same internal representation in the engine as exceptions
--- (SBToAny, SBFromAny)
--- So we hijack them until Daml 3.4, where either exceptions are removed, or not serializable
-instance HasToAnyException FailedCmd where
-    toAnyException = anyToAnyException . primitive @"EToAnyTemplate"
-
-instance HasFromAnyException FailedCmd where
-    fromAnyException = primitive @"EFromAnyTemplate" . anyExceptionToAny
-
 -- Runs a script and lifts FailedCmd scala exceptions into the FailedCmd daml exception, which can be caught via try-catch
-liftFailedCommandToException : Script a -> Script a
-liftFailedCommandToException act = tryCommands act >>= either throw pure
+liftFailedCommandToFailureStatus : Script a -> Script a
+liftFailedCommandToFailureStatus act = tryCommands act >>= either (failWithStatus . failedCmdToFailureStatus) pure
+  where
+    failedCmdToFailureStatus : FailedCmd -> FailureStatus
+    failedCmdToFailureStatus (FailedCmd cmdName className errMessage) =
+      FailureStatus with
+        errorId = "UNHANDLED_EXCEPTION/Daml.Script:FailedCmd"
+        category = InvalidGivenCurrentSystemStateOther
+        message = getErrorMessage errMessage
+        meta = TextMap.fromList
+          [ ("commandName", getCommandName cmdName)
+          , ("className", getErrorClassName className)
+          ]

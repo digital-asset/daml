@@ -213,7 +213,7 @@ object SignedTopologyTransaction
     SignedTopologyTransaction[TopologyChangeOp.Replace, TopologyMapping]
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.SignedTopologyTransaction
     )(
       supportedProtoVersion(_)(fromProtoV30),
@@ -469,7 +469,7 @@ object SignedTopologyTransactions
       ProtocolVersionValidation,
     ] {
   override val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.SignedTopologyTransactions
     )(
       supportedProtoVersion(_)(fromProtoV30),

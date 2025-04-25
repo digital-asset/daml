@@ -25,9 +25,13 @@ import java.nio.file.{Path, Paths}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
-class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with Matchers {
+class UpgradesIT(numParticipants: Int, testCaseFilter: TestCase => Boolean)
+    extends AsyncWordSpec
+    with AbstractScriptTest
+    with Inside
+    with Matchers {
 
-  final override protected lazy val nParticipants = 2
+  final override protected lazy val nParticipants = numParticipants
   final override protected lazy val timeMode = ScriptTimeMode.WallClock
 
   final override protected lazy val devMode = true
@@ -54,7 +58,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
-    testCases.foreach { testCase =>
+    testCases.filter(testCaseFilter).foreach { testCase =>
       (testCase.name + " on IDE Ledger") in {
         for {
           // Build dars
@@ -173,3 +177,18 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       })
   }
 }
+
+// Because the test cases are listed even before the canton fixture is initialized,
+// `bazel run --sandbox_debug -- -z SubViews` will not wastefully spawn canton for UpgradesITSmall. It is thus safe
+// to break down tests into many classes like this.
+class UpgradesITSmall
+    extends UpgradesIT(
+      numParticipants = 2,
+      testCaseFilter = _.name != "SubViews",
+    )
+
+class UpgradesITSLarge
+    extends UpgradesIT(
+      numParticipants = 5,
+      testCaseFilter = _.name == "SubViews",
+    )

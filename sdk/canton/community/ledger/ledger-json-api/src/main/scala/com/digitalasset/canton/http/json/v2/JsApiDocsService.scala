@@ -19,7 +19,7 @@ class JsApiDocsService(
 )(implicit
     executionContext: ExecutionContext
 ) extends Endpoints {
-
+  private val apidocsGenerator = new ApiDocsGenerator(loggerFactory)
   private lazy val docs: Endpoint[CallerContext, Unit, Unit, Unit, Any] =
     baseEndpoint.in(sttp.tapir.stringToPath("docs"))
 
@@ -55,7 +55,7 @@ class JsApiDocsService(
     apiDocsCache.get().map(Future.successful(_)).getOrElse {
       for {
         version <- versionClient.getApiVersion(token)
-        apidocs = ApiDocsGenerator.createDocs(version, endpointDescriptions)
+        apidocs = apidocsGenerator.createDocs(version, endpointDescriptions)
         _ = apiDocsCache.set(Some(apidocs))
       } yield apidocs
     }

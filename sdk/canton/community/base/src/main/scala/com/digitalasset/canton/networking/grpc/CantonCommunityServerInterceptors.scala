@@ -8,8 +8,8 @@ import com.daml.metrics.grpc.{GrpcMetricsServerInterceptor, GrpcServerMetrics}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.{
   AdminAuthorizer,
+  AuthInterceptor,
   AuthServiceWildcard,
-  AuthorizationInterceptor,
   CantonAdminToken,
   CantonAdminTokenAuthService,
 }
@@ -63,7 +63,7 @@ class CantonCommunityServerInterceptors(
   ): ServerServiceDefinition =
     intercept(service, new GrpcMetricsServerInterceptor(grpcMetrics))
 
-  private def addAuthorizationInterceptor(
+  private def addAuthInterceptor(
       service: ServerServiceDefinition
   ): ServerServiceDefinition = {
     val authServices = new CantonAdminTokenAuthService(adminToken) +:
@@ -76,11 +76,11 @@ class CantonCommunityServerInterceptors(
              loggerFactory,
            )
          ))
-    val interceptor = new AuthorizationInterceptor(
+    val interceptor = new AuthInterceptor(
       authServices,
       telemetry,
       loggerFactory,
-      DirectExecutionContext(loggerFactory.getLogger(AuthorizationInterceptor.getClass)),
+      DirectExecutionContext(loggerFactory.getLogger(AuthInterceptor.getClass)),
       AdminAuthorizer,
     )
     intercept(service, interceptor)
@@ -94,5 +94,5 @@ class CantonCommunityServerInterceptors(
       .pipe(interceptForLogging(_, withLogging))
       .pipe(addTraceContextInterceptor)
       .pipe(addMetricsInterceptor)
-      .pipe(addAuthorizationInterceptor)
+      .pipe(addAuthInterceptor)
 }

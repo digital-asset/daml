@@ -96,7 +96,7 @@ message AssignmentView {
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   v30.SerializableContract contract = 2;
-  // Serialized SignedContent[SequencedEvent]
-  bytes unassignment_result_event = 3;
+  reserved 3; // bytes unassignment_result_event
   int64 reassignment_counter = 4;
+  ReassignmentId reassignment_id = 5;
 }

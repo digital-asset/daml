@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.resource.MemoryStorage
@@ -45,6 +45,7 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       sequencerMember = sequencerId,
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
     )
     DatabaseSequencer.single(
       dbConfig,

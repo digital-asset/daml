@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageValidator
@@ -27,7 +29,10 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
 
   import StateTransferMessageValidatorTest.*
 
-  private val validator = new StateTransferMessageValidator(loggerFactory)
+  implicit private val metricsContext: MetricsContext = MetricsContext.Empty
+
+  private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+  private val validator = new StateTransferMessageValidator(metrics, loggerFactory)
 
   "validate block transfer request" in {
     Table[BlockTransferRequest, Membership, Either[String, Unit]](

@@ -354,7 +354,7 @@ maven_install(
         "io.grpc:grpc-services:{}".format(grpc_version),
         "io.grpc:grpc-stub:{}".format(grpc_version),
         "com.github.scopt:scopt_{}:3.7.1".format(scala_major_version),
-        "org.wartremover:wartremover_{}:2.4.21".format(scala_version),
+        "org.wartremover:wartremover_{}:3.2.5".format(scala_version),
         "io.spray:spray-json_{}:1.3.5".format(scala_major_version),
     ],
     maven_install_json = "@compatibility//:maven_install.json",

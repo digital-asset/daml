@@ -80,7 +80,6 @@ import scala.util.Random
 /** A module system initializer for the concrete Canton BFT ordering system.
   */
 private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
-    protocolVersion: ProtocolVersion,
     node: BftNodeId,
     config: BftBlockOrdererConfig,
     sequencerSubscriptionInitialBlockNumber: BlockNumber,
@@ -96,9 +95,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     timeouts: ProcessingTimeout,
     requestInspector: RequestInspector =
       OutputModule.DefaultRequestInspector, // Only set by simulation tests
-)(implicit
-    mc: MetricsContext
-) extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message]
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
+    extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message]
     with NamedLogging {
 
   override def initialize(
@@ -251,7 +249,6 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             stores.epochStoreReader,
             blockSubscription,
             metrics,
-            protocolVersion,
             availabilityRef,
             consensusRef,
             loggerFactory,

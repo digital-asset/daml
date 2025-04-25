@@ -68,7 +68,7 @@ object LfTransactionUtil {
   def suffixContractInst(
       unicumOfDiscriminator: LfHash => Option[Unicum],
       cantonContractId: CantonContractIdVersion,
-  )(contractInst: LfContractInst): Either[String, LfContractInst] =
+  )(contractInst: LfThinContractInst): Either[String, LfThinContractInst] =
     contractInst.unversioned
       .suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId))
       .map(unversionedContractInst => // traverse being added in daml-lf

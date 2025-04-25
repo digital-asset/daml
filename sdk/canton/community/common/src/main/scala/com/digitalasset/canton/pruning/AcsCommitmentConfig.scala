@@ -144,7 +144,7 @@ object CounterParticipantIntervalsBehind
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(
         partV30.CounterParticipantInfo
       )(fromProtoV30),

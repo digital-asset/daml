@@ -36,7 +36,7 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftSequencerFactory
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
@@ -99,7 +99,7 @@ abstract class ExternalSequencerIntegrationTest(override val name: String)
         }.toMap,
         mediators = Map(InstanceName.tryCreate(s"mediator1") -> MediatorNodeConfig()),
         participants = (1 to 2).map { i =>
-          InstanceName.tryCreate(s"participant$i") -> LocalParticipantConfig()
+          InstanceName.tryCreate(s"participant$i") -> ParticipantNodeConfig()
         }.toMap,
         monitoring = MonitoringConfig(
           tracing = TracingConfig(propagation = Propagation.Enabled),

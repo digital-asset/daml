@@ -60,9 +60,16 @@ final class Adapter(
   def adapt(k: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
     k.copy(globalKey = adapt(k.globalKey))
 
-  def adapt(coinst: Value.VersionedContractInstance): Value.VersionedContractInstance =
+  def adapt(coinst: Value.VersionedThinContractInstance): Value.VersionedThinContractInstance =
     coinst.map(unversioned =>
       unversioned.copy(template = adapt(unversioned.template), arg = adapt(unversioned.arg))
+    )
+
+  def adapt(coinst: FatContractInstance): FatContractInstance =
+    coinst.toImplementation.copy(
+      templateId = adapt(coinst.templateId),
+      createArg = adapt(coinst.createArg),
+      contractKeyWithMaintainers = coinst.contractKeyWithMaintainers.map(adapt),
     )
 
   def adapt(gkey: GlobalKey): GlobalKey =

@@ -1010,13 +1010,12 @@ object TopologyManager {
 
   /** Assigns the appropriate key usage for a given set of keys based on the current topology
     * request and necessary authorizations. In most cases, the request is expected to be signed with
-    * Namespace or IdentityDelegation keys. However, for requests like OwnerToKeyMapping or
-    * PartyToKeyMapping, keys must be able to prove their ownership. For these requests we also
-    * accept namespace as a valid usage when verifying a signature, as this ensures backwards
-    * compatibility (e.g. older topology states might have mistakenly added a namespace key to this
-    * mapping). By enforcing only ProofOfOwnership on the sign path, we ensure that this new
-    * restriction applies to any newly added key, preventing the addition of namespace-only keys to
-    * these requests.
+    * Namespace keys. However, for requests like OwnerToKeyMapping or PartyToKeyMapping, keys must
+    * be able to prove their ownership. For these requests we also accept namespace as a valid usage
+    * when verifying a signature, as this ensures backwards compatibility (e.g. older topology
+    * states might have mistakenly added a namespace key to this mapping). By enforcing only
+    * ProofOfOwnership on the sign path, we ensure that this new restriction applies to any newly
+    * added key, preventing the addition of namespace-only keys to these requests.
     *
     * @param mapping
     *   The current topology request
@@ -1034,12 +1033,11 @@ object TopologyManager {
   ): NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]] = {
 
     def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth match {
-      case _: RequiredAuth.RequiredNamespaces => true
-      case _: RequiredAuth.RequiredUids => false
+      case RequiredAuth.RequiredNamespaces(_, extraKeys) => extraKeys.isEmpty
       case RequiredAuth.Or(first, second) => onlyNamespaceAuth(first) && onlyNamespaceAuth(second)
     }
 
-    // True if the mapping must be signed only by a namespace key but not by an identity delegation
+    // True if the mapping must be signed only by a namespace key but not extra keys
     val strictNamespaceAuth = onlyNamespaceAuth(mapping.requiredAuth(None))
 
     mapping match {
@@ -1057,17 +1055,13 @@ object TopologyManager {
               // also allow keys with NamespaceOnly to have proven ownership in historical topology states.
               keyId -> SigningKeyUsage.NamespaceOrProofOfOwnership
           case keyId =>
-            // all other keys must be namespace or identifier delegation keys
-            keyId -> SigningKeyUsage.NamespaceOrIdentityDelegation
+            // all other keys must be namespace delegation keys
+            keyId -> SigningKeyUsage.NamespaceOnly
         }.toMap
-
-      case _ if strictNamespaceAuth =>
-        // For namespace authorization, only a namespace key can sign
-        signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
       case _ =>
         // If strict namespace authorization is not true, either a namespace key or an identity delegation can sign
-        signingKeys.map(_ -> SigningKeyUsage.NamespaceOrIdentityDelegation).toMap
+        signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
     }
   }

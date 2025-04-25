@@ -222,7 +222,7 @@ class SyncCryptoVerifier(
           validKeys,
           SignatureDelegation.generateHash(
             synchronizerId,
-            signatureDelegation.sessionKey.id,
+            signatureDelegation.sessionKey,
             signatureDelegation.validityPeriod,
           ),
           signatureDelegation.signature,

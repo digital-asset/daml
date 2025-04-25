@@ -46,9 +46,12 @@ object EnvelopeBox {
   def apply[Box[+_ <: Envelope[_]]](implicit Box: EnvelopeBox[Box]): EnvelopeBox[Box] = Box
 
   implicit val unsignedEnvelopeBox: EnvelopeBox[UnsignedEnvelopeBox] = {
-    type TracedSeqTraced[+A] = Traced[Seq[Traced[A]]]
+    type TracedSeqWithCounterTraced[+A] = Traced[Seq[WithCounter[Traced[A]]]]
     EnvelopeBox[SequencedEvent].revCompose(
-      Traverse[Traced].compose[Seq].compose[Traced]: Traverse[TracedSeqTraced]
+      Traverse[Traced]
+        .compose[Seq]
+        .compose[WithCounter]
+        .compose[Traced]: Traverse[TracedSeqWithCounterTraced]
     )
   }
 

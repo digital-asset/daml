@@ -7,12 +7,17 @@ import com.daml.ledger.api.v2.interactive.interactive_submission_service
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   GetPreferredPackageVersionRequest,
   InteractiveSubmissionServiceGrpc,
+  MinLedgerTime,
 }
 import com.daml.ledger.api.v2.package_reference
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsCantonError,
+  stringDecoderForEnum,
+  stringEncoderForEnum,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -131,6 +136,7 @@ final case class JsExecuteSubmissionRequest(
     submissionId: String,
     userId: String,
     hashingSchemeVersion: interactive_submission_service.HashingSchemeVersion,
+    minLedgerTime: Option[MinLedgerTime] = None,
 )
 
 object JsInteractiveSubmissionService extends DocumentationEndpoints {
@@ -176,7 +182,6 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
 object JsInteractiveSubmissionServiceCodecs {
   import JsCommandServiceCodecs.*
   import JsSchema.config
-  import io.circe.generic.extras.auto.*
 
   implicit val timeRW: Codec[interactive_submission_service.MinLedgerTime.Time] =
     deriveConfiguredCodec // ADT
@@ -195,13 +200,13 @@ object JsInteractiveSubmissionServiceCodecs {
   implicit val prepareSubmissionResponseRW: Codec[JsPrepareSubmissionResponse] =
     deriveConfiguredCodec
 
-  implicit val hashingSchemeVersionRW: Codec[interactive_submission_service.HashingSchemeVersion] =
-    deriveConfiguredCodec // ADT
-  implicit val hashingSchemeVersionRecognizedRW
-      : Codec[interactive_submission_service.HashingSchemeVersion.Recognized] =
-    deriveConfiguredCodec // ADT
-  implicit val hashingSchemeVersionUnrecognizedRW
-      : Codec[interactive_submission_service.HashingSchemeVersion.Unrecognized] = deriveRelaxedCodec
+  implicit val hashingSchemeVersionEncoder
+      : Encoder[interactive_submission_service.HashingSchemeVersion] =
+    stringEncoderForEnum()
+
+  implicit val hashingSchemeVersionDecoder
+      : Decoder[interactive_submission_service.HashingSchemeVersion] =
+    stringDecoderForEnum()
 
   implicit val executeSubmissionResponseRW
       : Codec[interactive_submission_service.ExecuteSubmissionResponse] =
@@ -221,27 +226,17 @@ object JsInteractiveSubmissionServiceCodecs {
   implicit val signatureRW: Codec[interactive_submission_service.Signature] =
     deriveRelaxedCodec
 
-  implicit val signingAlgorithmSpecUnrecognizedRW
-      : Codec[interactive_submission_service.SigningAlgorithmSpec.Unrecognized] =
-    deriveRelaxedCodec
+  implicit val signingAlgorithmSpecEncoder
+      : Encoder[interactive_submission_service.SigningAlgorithmSpec] =
+    stringEncoderForEnum()
+  implicit val signingAlgorithmSpecDecoder
+      : Decoder[interactive_submission_service.SigningAlgorithmSpec] =
+    stringDecoderForEnum()
 
-  implicit val signingAlgorithmSpecRecognizedRW
-      : Codec[interactive_submission_service.SigningAlgorithmSpec.Recognized] =
-    deriveConfiguredCodec // ADT
-
-  implicit val signingAlgorithmSpecRW: Codec[interactive_submission_service.SigningAlgorithmSpec] =
-    deriveConfiguredCodec // ADT
-
-  implicit val signatureFormatRW: Codec[interactive_submission_service.SignatureFormat] =
-    deriveConfiguredCodec // ADT
-
-  implicit val signatureFormatUnrecognizedRW
-      : Codec[interactive_submission_service.SignatureFormat.Unrecognized] =
-    deriveRelaxedCodec
-
-  implicit val signatureFormatRecognizedRW
-      : Codec[interactive_submission_service.SignatureFormat.Recognized] =
-    deriveConfiguredCodec // ADT
+  implicit val signatureFormatDecoder: Decoder[interactive_submission_service.SignatureFormat] =
+    stringDecoderForEnum()
+  implicit val signatureFormatEncoder: Encoder[interactive_submission_service.SignatureFormat] =
+    stringEncoderForEnum()
 
   implicit val jsExecuteSubmissionRequestRW: Codec[JsExecuteSubmissionRequest] =
     deriveConfiguredCodec
@@ -255,12 +250,11 @@ object JsInteractiveSubmissionServiceCodecs {
     deriveRelaxedCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
-  // I cannot force oneOfWrapped schema on those 2 types - strangely they are no different to for instance HashingSchemeVersion which works fine
-//  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
-//    Schema.oneOfWrapped
+  implicit val signatureFormatSchema: Schema[interactive_submission_service.SignatureFormat] =
+    Schema.string
 
-//  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
-//    Schema.oneOfWrapped
+  implicit val signingAlgorithmSpec: Schema[interactive_submission_service.SigningAlgorithmSpec] =
+    Schema.string
 
   implicit val timeSchema: Schema[interactive_submission_service.MinLedgerTime.Time] =
     Schema.oneOfWrapped
@@ -271,5 +265,5 @@ object JsInteractiveSubmissionServiceCodecs {
 
   implicit val hashingSchemeVersionSchema
       : Schema[interactive_submission_service.HashingSchemeVersion] =
-    Schema.oneOfWrapped
+    Schema.string
 }

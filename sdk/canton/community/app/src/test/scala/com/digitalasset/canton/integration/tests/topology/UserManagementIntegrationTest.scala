@@ -368,7 +368,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
 
       // look into authorized store, so we don't have to wait until stuff propagated
       def findParty(str: String) = participant1.topology.party_to_participant_mappings
-        .list_from_authorized(filterParty = str)
+        .list(daId, filterParty = str)
         .map(_.item.partyId)
         .headOption
         .valueOrFail(s"where is $str")

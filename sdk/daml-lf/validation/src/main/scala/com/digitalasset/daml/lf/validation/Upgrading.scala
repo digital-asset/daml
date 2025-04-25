@@ -249,7 +249,7 @@ final case class ModuleWithMetadata(module: Ast.Module) {
     for {
       (templateName, template) <- module.templates
       prefix = templateName.segments.init
-      (choiceName, choice) <- template.choices
+      (choiceName, _) <- template.choices
       fullName = prefix.slowSnoc(choiceName)
     } yield (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
 
@@ -471,7 +471,7 @@ case class TypecheckUpgrades(
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
-      (existingTemplates, newTemplates) <- checkDeleted(
+      (existingTemplates, _) <- checkDeleted(
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
       )
@@ -488,7 +488,7 @@ case class TypecheckUpgrades(
       )
       _ <- checkDeletedInstances(instanceDel)
 
-      (existingDatatypes, _new) <- checkDeleted(
+      (existingDatatypes, _) <- checkDeleted(
         unownedDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
         filter = (_: Ref.DottedName, dt: Ast.DDataType) => dt.serializable,
@@ -544,7 +544,7 @@ case class TypecheckUpgrades(
   ): Try[Unit] = {
     val (templateName, template) = templateAndName
     for {
-      (existingChoices, _newChoices) <- checkDeleted(
+      (existingChoices, _) <- checkDeleted(
         template.map(_.choices),
         (name: Ref.ChoiceName, _: Ast.TemplateChoice) => UpgradeError.MissingChoice(name),
       )
@@ -678,7 +678,7 @@ case class TypecheckUpgrades(
                 val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
                   upgrade.map(variant => Map.from(variant.variants.iterator))
                 for {
-                  (existing, new_) <- checkDeleted(
+                  (existing, _) <- checkDeleted(
                     variants,
                     (_: Ast.VariantConName, _: Ast.Type) =>
                       UpgradeError.VariantRemovedVariant(origin.present),
@@ -711,7 +711,7 @@ case class TypecheckUpgrades(
                     Map.from(enums.constructors.iterator.map(enum => (enum, ())))
                   )
                 for {
-                  (_, new_) <- checkDeleted(
+                  _ <- checkDeleted(
                     enums,
                     (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
                   )

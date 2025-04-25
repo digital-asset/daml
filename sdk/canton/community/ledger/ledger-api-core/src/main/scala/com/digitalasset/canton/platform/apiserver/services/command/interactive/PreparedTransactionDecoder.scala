@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.interactive.{
   interactive_submission_service as iss,
 }
 import com.daml.ledger.api.v2.value as lapiValue
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   TransactionData,
@@ -158,6 +159,10 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   private implicit val timestampTransformer: PartialTransformer[Long, lf.data.Time.Timestamp] =
     PartialTransformer(src => lf.data.Time.Timestamp.fromLong(src).toResult)
+
+  private implicit val optionalTimestampTransformer
+      : PartialTransformer[Option[Long], Option[lf.data.Time.Timestamp]] =
+    PartialTransformer.derive[Option[Long], Option[lf.data.Time.Timestamp]]
 
   private implicit val packageNameTransformer: PartialTransformer[String, lf.data.Ref.PackageName] =
     PartialTransformer(src => lf.data.Ref.PackageName.fromString(src).toResult)
@@ -369,34 +374,42 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       )
     }
 
+  private implicit def timeBoundariesTransformer
+      : PartialTransformer[iss.Metadata, LedgerTimeBoundaries] =
+    PartialTransformer { src =>
+      for {
+        min <- src.minLedgerEffectiveTime.transformIntoPartial[Option[Time.Timestamp]]
+        max <- src.maxLedgerEffectiveTime.transformIntoPartial[Option[Time.Timestamp]]
+      } yield LedgerTimeBoundaries.fromConstraints(min, max)
+    }
+
   private def requireField[A](optA: Option[A], field: String)(implicit
       errorLoggingContext: ErrorLoggingContext
   ): Future[A] =
     Future.fromTry(
       optA.toRight(RequestValidationErrors.MissingField.Reject(field).asGrpcError).toTry
     )
-  def extractLedgerEffectiveTime(executeRequest: ExecuteRequest)(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ErrorLoggingContext,
-  ): Future[Option[Time.Timestamp]] = {
-    implicit val traceContext: TraceContext = loggingContext.traceContext
-    for {
-      metadataProto <- requireField(executeRequest.preparedTransaction.metadata, "metadata")
-      letE = metadataProto.ledgerEffectiveTime.traverse(Time.Timestamp.fromLong)
-      let <- letE.toResult.toFutureWithLoggedFailures(
-        "Failed to deserialize transaction meta",
-        logger,
-      )
-    } yield let
+
+  private def adjustLedgerTimeToBounds(
+      requested: Time.Timestamp,
+      timeRange: Time.Range,
+  )(implicit traceContext: TraceContext): Time.Timestamp = {
+    val adjusted = if (requested < timeRange.min) {
+      timeRange.min
+    } else if (requested <= timeRange.max) {
+      requested
+    } else {
+      timeRange.max
+    }
+
+    if (adjusted != requested) logger.debug(s"Ledger time adjusted from $requested to $adjusted")
+
+    adjusted
   }
 
   /** Decodes a prepared transaction back into a DeserializationResult that can be submitted.
     */
-  def deserialize(
-      executeRequest: ExecuteRequest,
-      ledgerEffectiveTime: Time.Timestamp,
-  )(implicit
+  def deserialize(executeRequest: ExecuteRequest)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ErrorLoggingContext,
@@ -430,7 +443,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
               executeRequest.signatures,
               transactionUUID = transactionUUID,
               mediatorGroup = mediatorGroup,
-              usesLedgerEffectiveTime = metadataProto.ledgerEffectiveTime.isDefined,
             )
           ),
         )
@@ -447,6 +459,13 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         executeRequest.preparedTransaction.transaction,
         "transaction",
       )
+      timeBoundaries <- metadataProto
+        .transformIntoPartial[LedgerTimeBoundaries]
+        .toFutureWithLoggedFailures("Failed to deserialize time boundaries", logger)
+      ledgerEffectiveTime = adjustLedgerTimeToBounds(
+        executeRequest.tentativeLedgerEffectiveTime,
+        timeBoundaries.range,
+      )
       transactionMeta <-
         metadataProto
           .intoPartial[state.TransactionMeta]
@@ -460,6 +479,10 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
             transactionProto.nodeSeeds
               .transformIntoPartial[ImmArray[(NodeId, lf.crypto.Hash)]]
               .map(Some(_)),
+          )
+          .withFieldConst(
+            _.timeBoundaries,
+            timeBoundaries,
           )
           // Unused field
           .withFieldConst(_.optByKeyNodes, None)
@@ -511,7 +534,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         synchronizerId = synchronizerId,
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
-        dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,
         globalKeyMapping = globalKeyMapping,
         inputContracts = inputContracts,
       )

@@ -7,7 +7,6 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.ledger.api.v2.interactive.interactive_submission_service as proto
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
-import com.daml.timer.Delayed
 import com.digitalasset.base.error.ErrorCode.LoggedApiException
 import com.digitalasset.base.error.RpcError
 import com.digitalasset.canton.LfPartyId
@@ -20,15 +19,12 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
   PrepareRequest as PrepareRequestInternal,
   TransactionData,
 }
-import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.{
   Commands as ApiCommands,
   DisclosedContract,
   PackageReference,
   SubmissionId,
 }
-import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
-import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, ConsistencyErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
@@ -42,17 +38,16 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.platform.PackagePreferenceBackend
 import com.digitalasset.canton.platform.apiserver.SeedService
 import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
 }
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl.ExecutionTimes
 import com.digitalasset.canton.platform.apiserver.services.{
   ErrorCause,
   RejectionGenerators,
-  TimeProviderType,
   logging,
 }
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
@@ -66,28 +61,20 @@ import com.digitalasset.canton.util.{MonadUtil, TryUtil}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.PackageName
-import com.digitalasset.daml.lf.data.{ImmArray, Time}
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, SubmittedTransaction, Transaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import io.opentelemetry.api.trace.Tracer
 
-import java.time.{Duration, Instant}
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
 private[apiserver] object InteractiveSubmissionServiceImpl {
 
-  private final case class ExecutionTimes(
-      ledgerEffective: Time.Timestamp,
-      submitAt: Option[Instant],
-  )
-
   def createApiService(
       submissionSyncService: state.SyncService,
-      timeProvider: TimeProvider,
-      timeProviderType: TimeProviderType,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       metrics: LedgerApiServerMetrics,
@@ -102,8 +89,6 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
       tracer: Tracer,
   ): InteractiveSubmissionService & AutoCloseable = new InteractiveSubmissionServiceImpl(
     submissionSyncService,
-    timeProvider,
-    timeProviderType,
     seedService,
     commandExecutor,
     metrics,
@@ -119,8 +104,6 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
 
 private[apiserver] final class InteractiveSubmissionServiceImpl private[services] (
     syncService: state.SyncService,
-    timeProvider: TimeProvider,
-    timeProviderType: TimeProviderType,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     metrics: LedgerApiServerMetrics,
@@ -214,7 +197,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
                   .lookupContractState(inputCoid)
                   .flatMap {
                     case active: ContractState.Active =>
-                      enrich(active.toFatContractInstance(inputCoid)).map(Right(_))
+                      enrich(active.contractInstance).map(Right(_))
                     // Engine interpretation likely would have failed if that was the case
                     // However it's possible that the contract was archived or pruned in the meantime
                     // That's not an issue however because if that was the case the transaction would have failed later
@@ -295,8 +278,6 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         submitterInfo = commandExecutionResult.commandInterpretationResult.submitterInfo,
         transactionMeta = commandExecutionResult.commandInterpretationResult.transactionMeta,
         transaction = SubmittedTransaction(enrichedTransaction),
-        dependsOnLedgerTime =
-          commandExecutionResult.commandInterpretationResult.dependsOnLedgerTime,
         globalKeyMapping = commandExecutionResult.commandInterpretationResult.globalKeyMapping,
         inputContracts = inputContracts,
         synchronizerId = synchronizerId,
@@ -325,9 +306,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         transactionUUID,
         mediatorGroup,
         synchronizerId,
-        Option.when(transactionData.dependsOnLedgerTime)(
-          transactionData.transactionMeta.ledgerEffectiveTime
-        ),
+        transactionData.transactionMeta.timeBoundaries,
         transactionData.transactionMeta.submissionTime,
         inputContracts,
       )
@@ -387,15 +366,12 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
 
   override def close(): Unit = ()
 
-  private def submitIfNotOverloaded(
-      transactionInfo: TransactionData,
-      submitAt: Option[Instant],
-  )(implicit
+  private def submitIfNotOverloaded(transactionInfo: TransactionData)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[SubmissionResult] =
     checkOverloaded(loggingContext.traceContext) match {
       case Some(submissionResult) => Future.successful(submissionResult)
-      case None => submitTransactionAt(transactionInfo, submitAt)
+      case None => submitTransaction(transactionInfo)
     }
 
   private def submitTransaction(
@@ -425,7 +401,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       .leftMap(err => FutureUnlessShutdown.failed[SynchronizerRank](err.asGrpcError))
       .merge
       .flatten
-      .failOnShutdownTo(ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
       .flatMap { synchronizerRank =>
         syncService
           .submitTransaction(
@@ -473,42 +449,6 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     }
   }
 
-  private def submitTransactionAt(
-      transactionInfo: TransactionData,
-      submitAt: Option[Instant],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[state.SubmissionResult] = {
-    val delayO = submitAt.map(Duration.between(timeProvider.getCurrentTime, _))
-    delayO match {
-      case Some(delay) if delay.isNegative =>
-        submitTransaction(transactionInfo)
-      case Some(delay) =>
-        logger.info(s"Delaying submission by $delay")
-        metrics.commands.delayedSubmissions.mark()
-        val scalaDelay = scala.concurrent.duration.Duration.fromNanos(delay.toNanos)
-        Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
-      case None =>
-        submitTransaction(transactionInfo)
-    }
-  }
-
-  /** @param ledgerEffectiveTimeO
-    *   set if the ledger effective time was used when preparing the transaction
-    */
-  private def deriveExecutionTimes(ledgerEffectiveTimeO: Option[Time.Timestamp]): ExecutionTimes =
-    (ledgerEffectiveTimeO, timeProviderType) match {
-      case (Some(let), _) =>
-        // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals
-        // ledger time. If the ledger time of the transaction is far in the future (farther than the expected
-        // latency), the submission to the SyncService is delayed.
-        val submitAt =
-          let.toInstant.minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
-        ExecutionTimes(let, Some(submitAt))
-      case (None, _) =>
-        // If the ledger effective time was not set in the request, it means the transaction is assumed not to use time.
-        // So we use the current time here at submission time.
-        ExecutionTimes(Time.Timestamp.assertFromInstant(timeProvider.getCurrentTime), None)
-    }
-
   override def execute(
       executionRequest: ExecuteRequest
   )(implicit
@@ -528,16 +468,10 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         s"Requesting execution of daml transaction with submission ID ${executionRequest.submissionId}"
       )
       for {
-        ledgerEffectiveTimeO <- transactionDecoder.extractLedgerEffectiveTime(executionRequest)
-        times = deriveExecutionTimes(ledgerEffectiveTimeO)
-        deserializationResult <- transactionDecoder.deserialize(
-          executionRequest,
-          times.ledgerEffective,
-        )
-        _ <- submitIfNotOverloaded(deserializationResult.preparedTransactionData, times.submitAt)
+        deserializationResult <- transactionDecoder.deserialize(executionRequest)
+        _ <- submitIfNotOverloaded(deserializationResult.preparedTransactionData)
           .transform(handleSubmissionResult)
       } yield proto.ExecuteSubmissionResponse()
-
     }
   }
 

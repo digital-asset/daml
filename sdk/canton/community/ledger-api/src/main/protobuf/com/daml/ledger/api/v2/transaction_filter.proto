@@ -96,7 +96,7 @@ message TemplateFilter {
   bool include_created_event_blob = 2;
 }
 
-// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 // Used both for filtering create and archive events as well as for filtering transaction trees.
 message TransactionFilter {
   // Each key must be a valid PartyIdString (as described in ``value.proto``).

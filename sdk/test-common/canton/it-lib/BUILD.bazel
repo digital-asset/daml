@@ -30,7 +30,7 @@ da_scala_library(
         "//canton:base_daml-jwt",
         "//canton:base_daml-tls",
         "//canton:community_ledger_ledger-common",
-        "//canton:community_util-logging",
+        "//canton:community_util-observability",
         "//daml-lf/data",
         "//libs-scala/fs-utils",
         "//libs-scala/ledger-resources",

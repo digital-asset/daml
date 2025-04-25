@@ -126,10 +126,58 @@ object ScriptF {
   }
 
   final case class Throw(exc: SAny) extends Cmd {
-    override def execute(
-        env: Env
-    )(implicit ec: ExecutionContext, mat: Materializer, esf: ExecutionSequencerFactory) =
-      Future.successful(SBThrow(SEValue(exc)))
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = {
+      def makeFailureStatus(name: Identifier, msg: String) =
+        Future.failed(
+          free.InterpretationError(
+            SError.SErrorDamlException(
+              IE.FailureStatus(
+                "UNHANDLED_EXCEPTION/" + name.qualifiedName.toString,
+                Ast.FCInvalidGivenCurrentSystemStateOther.cantonCategoryId,
+                msg,
+                Map(),
+              )
+            )
+          )
+        )
+      def userManagementDef(name: String) =
+        env.scriptIds.damlScriptModule("Daml.Script.Internal.Questions.UserManagement", name)
+      val invalidUserId = userManagementDef("InvalidUserId")
+      val userAlreadyExists = userManagementDef("UserAlreadyExists")
+      val userNotFound = userManagementDef("UserNotFound")
+      (exc, convertLegacyExceptions) match {
+        // Pseudo exceptions defined by daml-script need explicit conversion logic, as compiler won't generate them
+        // Can be removed in 3.4, when exceptions will be replaced with FailureStatus (https://github.com/DACH-NY/canton/issues/23881)
+        case (SAnyException(SRecord(`invalidUserId`, _, ArrayList(SText(msg)))), true) =>
+          makeFailureStatus(invalidUserId, msg)
+        case (
+              SAnyException(
+                SRecord(`userAlreadyExists`, _, ArrayList(SRecord(_, _, ArrayList(SText(userId)))))
+              ),
+              true,
+            ) =>
+          makeFailureStatus(userAlreadyExists, "User already exists: " + userId)
+        case (
+              SAnyException(
+                SRecord(`userNotFound`, _, ArrayList(SRecord(_, _, ArrayList(SText(userId)))))
+              ),
+              true,
+            ) =>
+          makeFailureStatus(userNotFound, "User not found: " + userId)
+        case _ => Future.successful(SBThrow(SEValue(exc)))
+      }
+    }
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future.failed(new NotImplementedError)
   }
 
   final case class Catch(act: SValue) extends Cmd {
@@ -164,6 +212,55 @@ object ScriptF {
                 )
             }
 
+          case Failure(e) => Future.failed(e)
+        }
+
+    override def execute(env: Env)(implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] = Future.failed(new NotImplementedError)
+  }
+
+  final case class TryFailureStatus(act: SValue) extends Cmd {
+    override def executeWithRunner(env: Env, runner: v2.Runner, convertLegacyExceptions: Boolean)(
+        implicit
+        ec: ExecutionContext,
+        mat: Materializer,
+        esf: ExecutionSequencerFactory,
+    ): Future[SExpr] =
+      runner
+        .run(SEAppAtomic(SEValue(act), Array(SEValue(SUnit))), convertLegacyExceptions = true)
+        .transformWith {
+          case Success(v) =>
+            Future.successful(SEAppAtomic(right, Array(SEValue(v))))
+          case Failure(
+                free.InterpretationError(
+                  SError.SErrorDamlException(
+                    IE.FailureStatus(errorId, failureCategory, errorMessage, metadata)
+                  )
+                )
+              ) =>
+            import com.daml.script.converter.Converter.record
+            Future.successful(
+              SEAppAtomic(
+                left,
+                Array(
+                  SEValue(
+                    record(
+                      StablePackagesV2.FailureStatus,
+                      ("errorId", SText(errorId)),
+                      ("category", SInt64(failureCategory.toLong)),
+                      ("message", SText(errorMessage)),
+                      (
+                        "meta",
+                        SMap(true, metadata.map { case (k, v) => (SText(k), SText(v)) }),
+                      ),
+                    )
+                  )
+                ),
+              )
+            )
           case Failure(e) => Future.failed(e)
         }
 
@@ -421,25 +518,45 @@ object ScriptF {
   }
   final case class AllocParty(
       idHint: String,
-      participant: Option[Participant],
+      participants: List[Participant],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        client <- env.clients.getParticipant(participant) match {
+    ): Future[SExpr] = {
+      def replicateParty(
+          party: Party,
+          fromClient: ScriptLedgerClient,
+          toParticipant: Participant,
+      ): Future[Unit] = for {
+        toClient <- env.clients.getParticipant(Some(toParticipant)) match {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
-        party <- client.allocateParty(idHint)
+        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
+        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
+        _ <- Future.traverse(env.clients.participants.values)(client =>
+          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
+        )
+      } yield ()
 
+      val mainParticipant = participants.headOption
+      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
+      for {
+        mainClient <- env.clients.getParticipant(mainParticipant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        party <- mainClient.allocateParty(idHint)
+        _ <- Future.traverse(additionalParticipants)(toParticipant =>
+          replicateParty(party, mainClient, toParticipant)
+        )
       } yield {
-        participant.foreach(env.addPartyParticipantMapping(party, _))
+        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
       }
-
+    }
   }
   final case class ListKnownParties(
       participant: Option[Participant]
@@ -978,13 +1095,23 @@ object ScriptF {
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
 
-  private def parseAllocParty(v: SValue): Either[String, AllocParty] =
+  private def parseAllocPartyV1(v: SValue): Either[String, AllocParty] =
     v match {
       case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName)
+        } yield AllocParty(idHint, participantName.toList)
+      case _ => Left(s"Expected AllocParty payload but got $v")
+    }
+
+  private def parseAllocPartyV2(v: SValue): Either[String, AllocParty] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantNames)) =>
+        for {
+          participantNames <- Converter.toParticipantNames(participantNames)
+          idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
+        } yield AllocParty(idHint, participantNames)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
@@ -992,7 +1119,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- Converter.toOptionalParticipantName(participantName)
         } yield ListKnownParties(participantName)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
@@ -1042,6 +1169,13 @@ object ScriptF {
       case _ => Left(s"Expected Throw payload but got $v")
     }
 
+  private def parseTryFailureStatus(v: SValue): Either[String, TryFailureStatus] =
+    v match {
+      // TryFailureStatus includes a dummy field for old style typeclass LF encoding, we ignore it here.
+      case SRecord(_, _, ArrayList(act, _)) => Right(TryFailureStatus(act))
+      case _ => Left(s"Expected TryFailureStatus payload but got $v")
+    }
+
   private def parseValidateUserId(v: SValue): Either[String, ValidateUserId] =
     v match {
       case SRecord(_, _, ArrayList(userName)) =>
@@ -1056,7 +1190,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(user, rights, participant)) =>
         for {
           user <- Converter.toUser(user)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
           rights <- Converter.toList(rights, Converter.toUserRight)
         } yield CreateUser(user, rights, participant)
       case _ => Left(s"Exected CreateUser payload but got $v")
@@ -1067,7 +1201,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield GetUser(userId, participant)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
@@ -1077,7 +1211,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield DeleteUser(userId, participant)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
@@ -1086,7 +1220,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participant)) =>
         for {
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield ListAllUsers(participant)
       case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
@@ -1097,7 +1231,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield GrantUserRights(userId, rights, participant)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
@@ -1108,7 +1242,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield RevokeUserRights(userId, rights, participant)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
@@ -1118,7 +1252,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield ListUserRights(userId, participant)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
@@ -1140,7 +1274,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(packages, participant)) =>
         for {
           packageIds <- Converter.toList(packages, toReadablePackageId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield wrap(packageIds, participant)
       case _ => Left(s"Expected (Vet|Unvet)Packages payload but got $v")
     }
@@ -1189,7 +1323,8 @@ object ScriptF {
       case ("QueryInterface", 1) => parseQueryInterface(v)
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
       case ("QueryContractKey", 1) => parseQueryContractKey(v)
-      case ("AllocateParty", 1) => parseAllocParty(v)
+      case ("AllocateParty", 1) => parseAllocPartyV1(v)
+      case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)
       case ("GetTime", 1) => parseEmpty(GetTime())(v)
       case ("SetTime", 1) => parseSetTime(v)
@@ -1212,6 +1347,7 @@ object ScriptF {
       case ("ListAllPackages", 1) => parseEmpty(ListAllPackages())(v)
       case ("TryCommands", 1) => parseTryCommands(v)
       case ("FailWithStatus", 1) => parseFailWithStatus(v)
+      case ("TryFailureStatus", 1) => parseTryFailureStatus(v)
       case _ => Left(s"Unknown command $commandName - Version $version")
     }
 

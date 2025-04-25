@@ -76,7 +76,7 @@ object OrderingRequest
   override def name: String = "OrderingRequest"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.OrderingRequest)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.OrderingRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )

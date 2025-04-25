@@ -14,11 +14,11 @@ import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.tracing
 import com.daml.tracing.{SpanAttribute, Spans}
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
@@ -600,7 +600,7 @@ class ACSReader(
               .map(_._2)
           }.onShutdown {
             Source.failed(
-              ServerIsShuttingDown.Reject().asGrpcError
+              AbortedDueToShutdown.Error().asGrpcError
             )
           }
         )

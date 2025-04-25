@@ -219,6 +219,15 @@ class SequencerNodeBootstrap(
     })
     addCloseable(sequencerPublicApiHealthService)
     addCloseable(sequencerHealth)
+    // TODO(#25118) clean up manual cache removal
+    addCloseable(new AutoCloseable {
+      override def close(): Unit = {
+        // This is a pretty ugly work around for the fact that cache metrics are left dangling and
+        // are not closed properly
+        arguments.metrics.trafficControl.purchaseCache.closeAcquired()
+        arguments.metrics.trafficControl.consumedCache.closeAcquired()
+      }
+    })
 
     private def mkFactory(
         protocolVersion: ProtocolVersion

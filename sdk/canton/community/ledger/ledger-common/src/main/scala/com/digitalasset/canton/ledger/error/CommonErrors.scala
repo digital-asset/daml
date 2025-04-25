@@ -114,20 +114,6 @@ object CommonErrors extends CommonErrorGroup {
         )
   }
 
-  @Explanation("This rejection is given when the participant server is shutting down.")
-  @Resolution("Contact the participant operator.")
-  object ServerIsShuttingDown
-      extends ErrorCode(
-        id = "SERVER_IS_SHUTTING_DOWN",
-        ErrorCategory.TransientServerFailure,
-      ) {
-    final case class Reject()(implicit
-        loggingContext: ErrorLoggingContext
-    ) extends DamlErrorWithDefiniteAnswer(
-          cause = "Server is shutting down"
-        )
-  }
-
   @Explanation("""This error occurs if one of the services encountered an unexpected exception.""")
   @Resolution("Contact support.")
   object ServiceInternalError

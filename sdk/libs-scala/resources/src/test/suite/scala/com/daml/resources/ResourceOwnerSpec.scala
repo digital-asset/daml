@@ -22,7 +22,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.{Second, Span}
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutorService, Future, Promise}
 import scala.jdk.CollectionConverters._
@@ -213,9 +212,6 @@ final class ResourceOwnerSpec extends AsyncWordSpec with Matchers with Eventuall
       val ownerA = TestResourceOwner(99)
       val ownerB = TestResourceOwner(100)
 
-      @nowarn(
-        "msg=parameter resourceA .* is never used"
-      ) // stray reference inserted by withFilter
       val resource = for {
         resourceA <- ownerA.acquire()
         if false

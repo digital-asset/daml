@@ -29,7 +29,7 @@ service CommandService {
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWaitForTransaction(SubmitAndWaitForTransactionRequest) returns (SubmitAndWaitForTransactionResponse);
 
-  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+  // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Submits a single composite command, waits for its result, and returns the transaction tree.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWaitForTransactionTree(SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
@@ -52,7 +52,10 @@ message SubmitAndWaitForTransactionRequest {
   // Required
   Commands commands = 1;
 
-  // Required
+  // If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+  // TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+  // filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+  // Optional
   TransactionFormat transaction_format = 2;
 }
 
@@ -74,7 +77,7 @@ message SubmitAndWaitForTransactionResponse {
   Transaction transaction = 1;
 }
 
-// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
   // The transaction might contain no events (request conditions result in filtering out all of them).

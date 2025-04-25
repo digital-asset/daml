@@ -9,8 +9,8 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
-  ContractInstance,
-  VersionedContractInstance,
+  ThinContractInstance,
+  VersionedThinContractInstance,
 }
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -126,16 +126,16 @@ object TransactionBuilder {
     data.assertRight(assignVersion(v0, supportedVersions))
 
   def asVersionedContract(
-      contract: ContractInstance,
+      contract: ThinContractInstance,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): Either[String, VersionedContractInstance] =
+  ): Either[String, VersionedThinContractInstance] =
     assignVersion(contract.arg, supportedVersions)
       .map(Versioned(_, contract))
 
   def assertAsVersionedContract(
-      contract: ContractInstance,
+      contract: ThinContractInstance,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): VersionedContractInstance =
+  ): VersionedThinContractInstance =
     data.assertRight(asVersionedContract(contract, supportedVersions))
 
   object Implicits {

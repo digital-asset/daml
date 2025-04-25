@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.config
 
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.InitConfigBase.NodeIdentifierConfig
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 
@@ -42,28 +41,6 @@ object InitConfigBase {
       override val identifierName: Option[String] = None
     }
   }
-
-}
-
-/** Control the dynamic state of the node through a state configuration file
-  *
-  * @param file
-  *   which file to read the state from
-  * @param refreshInterval
-  *   how often to check the file for changes
-  * @param consistencyTimeout
-  *   how long to wait for the changes to be successfully applied
-  */
-final case class StateConfig(
-    file: File,
-    refreshInterval: config.NonNegativeFiniteDuration =
-      config.NonNegativeFiniteDuration.ofSeconds(5),
-    consistencyTimeout: config.NonNegativeDuration = config.NonNegativeDuration.ofMinutes(1),
-) extends UniformCantonConfigValidation
-
-object StateConfig {
-  implicit val stateConfigCantonConfigValidator: CantonConfigValidator[StateConfig] =
-    CantonConfigValidatorDerivation[StateConfig]
 }
 
 /** Control how the identity of the node is determined.
@@ -120,7 +97,6 @@ object IdentityConfig {
 
 trait InitConfigBase {
   def identity: IdentityConfig
-  def state: Option[StateConfig]
   def generateIntermediateKey: Boolean
   def generateTopologyTransactionsAndKeys: Boolean
 }
@@ -139,7 +115,6 @@ final case class InitConfig(
     identity: IdentityConfig = IdentityConfig.Auto(),
     generateIntermediateKey: Boolean = false,
     generateTopologyTransactionsAndKeys: Boolean = true,
-    state: Option[StateConfig] = None,
 ) extends InitConfigBase
     with UniformCantonConfigValidation
 

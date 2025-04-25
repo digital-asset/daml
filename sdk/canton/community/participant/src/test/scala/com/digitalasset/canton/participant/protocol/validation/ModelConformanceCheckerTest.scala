@@ -78,6 +78,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   private def reinterpretExample(
       example: ExampleTransaction,
       usedPackages: Set[PackageId] = Set.empty,
+      timeBoundaries: LedgerTimeBoundaries = LedgerTimeBoundaries.unconstrained,
   ): HasReinterpret & HashReInterpretationCounter = new HasReinterpret
     with HashReInterpretationCounter {
 
@@ -116,7 +117,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           metadata,
           keyResolver,
           usedPackages,
-          usesLedgerTime = false,
+          timeBoundaries,
         )
       )
     }
@@ -446,7 +447,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
               subviewMissing.metadata,
               subviewMissing.keyResolver,
               Set.empty,
-              usesLedgerTime = true,
+              LedgerTimeBoundaries.unconstrained,
             )
           )
         })

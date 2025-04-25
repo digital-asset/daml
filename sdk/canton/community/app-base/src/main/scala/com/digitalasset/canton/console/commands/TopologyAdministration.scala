@@ -18,7 +18,7 @@ import com.digitalasset.canton.admin.api.client.data.{
 }
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration, RequireTypes}
+import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.console.{
@@ -104,12 +104,16 @@ class TopologyAdministrationGroup(
                       |node (during major version upgrades) or if the root namespace key of the node is
                       |kept offline.
                       |
+                      |If known, the namespace can be set to verify that it matches the root certificate.
+                      |Otherwise it will be read from the delegation.
+                      |
                       |Optionally, a set of delegations can be provided if the root namespace key is not available.
                       |These delegations can be either in files or passed as objects. Their version needs to match the
                       |necessary protocol version of the synchronizers we are going to connect to.
                       |""")
   def init_id(
-      identifier: UniqueIdentifier,
+      identifier: String,
+      namespace: String = "",
       delegations: Seq[GenericSignedTopologyTransaction] = Seq.empty,
       delegationFiles: Seq[String] = Seq.empty,
       waitForReady: Boolean = true,
@@ -133,14 +137,45 @@ class TopologyAdministrationGroup(
       ConsoleCommandResult.fromEither(certs).flatMap { fileBasedDelegations =>
         adminCommand(
           TopologyAdminCommands.Init.InitId(
-            identifier = identifier.identifier.toProtoPrimitive,
-            namespace = identifier.namespace.toProtoPrimitive,
+            identifier = identifier,
+            namespace = namespace,
             delegations = delegations ++ fileBasedDelegations,
           )
         )
       }
     }
   }
+
+  @Help.Summary("Initialize the node with a unique identifier")
+  @Help.Description("""Every node in Canton is identified using a unique identifier, which is composed
+                      |of a user-chosen string and the fingerprint of a signing key. The signing key is the root key
+                      |defining a so-called namespace, where the signing key has the ultimate control over
+                      |issuing new identifiers.
+                      |During initialisation, we have to pick such a unique identifier.
+                      |By default, initialisation happens automatically, but it can be changed to either initialize
+                      |manually or to read a set of identities and delegations from a file.
+                      |
+                      |Automatic node initialisation is usually turned off to preserve the identity of a participant or synchronizer
+                      |node (during major version upgrades) or if the root namespace key of the node is
+                      |kept offline.
+                      |
+                      |Optionally, a set of delegations can be provided if the root namespace key is not available.
+                      |These delegations can be either in files or passed as objects. Their version needs to match the
+                      |necessary protocol version of the synchronizers we are going to connect to.
+                      |""")
+  def init_id_from_uid(
+      identifier: UniqueIdentifier,
+      delegations: Seq[GenericSignedTopologyTransaction] = Seq.empty,
+      delegationFiles: Seq[String] = Seq.empty,
+      waitForReady: Boolean = true,
+  ): Unit =
+    init_id(
+      identifier.identifier.toProtoPrimitive,
+      identifier.namespace.toProtoPrimitive,
+      delegations,
+      delegationFiles,
+      waitForReady,
+    )
 
   private def getIdCommand(): ConsoleCommandResult[UniqueIdentifier] =
     adminCommand(TopologyAdminCommands.Init.GetId())
@@ -992,90 +1027,6 @@ class TopologyAdministrationGroup(
     }
   }
 
-  @Help.Summary("Manage identifier delegations")
-  @Help.Group("Identifier delegations")
-  object identifier_delegations extends Helpful {
-
-    @Help.Summary("Propose new identifier delegations")
-    @Help.Description(
-      """An identifier delegation allows the owner of a unique identifier to delegate signing privileges for
-        |topology transactions on behalf of said identifier to additional/specific signing keys.
-
-        uid: the unique identifier for which the target key can be used to sign topology transactions
-        targetKey: the target key to be used for signing topology transactions on behalf of the unique identifier
-
-        store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
-                               propagated to connected synchronizers, if applicable.
-               - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
-                                storing it locally first. This also means it will _not_ be synchronized to other synchronizers
-                                automatically.
-        mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
-                            sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
-                            when set to false, the proposal retains the proposal status until enough signatures are accumulated to
-                            satisfy the mapping's authorization requirements.
-        serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
-                This transaction will be rejected if another fully authorized transaction with the same serial already
-                exists, or if there is a gap between this serial and the most recently used serial.
-                If None, the serial will be automatically selected by the node.
-        signedBy: the list of keys used to sign the proposal. If empty, it will be auto-computed.
-        """
-    )
-    def propose(
-        uid: UniqueIdentifier,
-        targetKey: SigningPublicKey,
-        synchronize: Option[NonNegativeDuration] = Some(
-          consoleEnvironment.commandTimeouts.bounded
-        ),
-        // Using the authorized store by default
-        store: TopologyStoreId = TopologyStoreId.Authorized,
-        mustFullyAuthorize: Boolean = true,
-        serial: Option[PositiveInt] = None,
-        signedBy: Seq[Fingerprint] = Seq.empty,
-        change: TopologyChangeOp = TopologyChangeOp.Replace,
-    ): SignedTopologyTransaction[TopologyChangeOp, IdentifierDelegation] = {
-      val command = new TopologyAdminCommands.Write.Propose(
-        mapping = IdentifierDelegation.create(
-          identifier = uid,
-          target = targetKey,
-        ),
-        signedBy = signedBy,
-        serial = serial,
-        change = change,
-        mustFullyAuthorize = mustFullyAuthorize,
-        store = store,
-        waitToBecomeEffective = synchronize,
-        forceChanges = ForceFlags.none,
-      )
-      runAdminCommand(command)
-    }
-
-    def list(
-        store: TopologyStoreId,
-        proposals: Boolean = false,
-        timeQuery: TimeQuery = TimeQuery.HeadState,
-        operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
-        filterUid: String = "",
-        filterSigningKey: String = "",
-        filterTargetKey: Option[Fingerprint] = None,
-        protocolVersion: Option[String] = None,
-    ): Seq[ListIdentifierDelegationResult] = consoleEnvironment.run {
-      adminCommand(
-        TopologyAdminCommands.Read.ListIdentifierDelegation(
-          BaseQuery(
-            store,
-            proposals,
-            timeQuery,
-            operation,
-            filterSigningKey,
-            protocolVersion.map(ProtocolVersion.tryCreate),
-          ),
-          filterUid,
-          filterTargetKey,
-        )
-      )
-    }
-  }
-
   // TODO(#14057) complete @Help.Description's (by adapting TopologyAdministrationGroup descriptions from main-2.x)
   @Help.Summary("Manage owner to key mappings")
   @Help.Group("Owner to key mappings")
@@ -1372,7 +1323,7 @@ class TopologyAdministrationGroup(
 
       propose(
         proposedMapping,
-        serial,
+        Some(serial),
         ops,
         signedBy,
         TopologyStoreId.Authorized,
@@ -1384,7 +1335,7 @@ class TopologyAdministrationGroup(
 
     def propose(
         proposedMapping: OwnerToKeyMapping,
-        serial: RequireTypes.PositiveNumeric[Int],
+        serial: Option[PositiveInt] = None,
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Seq[Fingerprint] = Seq.empty,
         store: TopologyStoreId = TopologyStoreId.Authorized,
@@ -1401,7 +1352,7 @@ class TopologyAdministrationGroup(
           signedBy = signedBy,
           store = store,
           change = ops,
-          serial = Some(serial),
+          serial = serial,
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = force,
           waitToBecomeEffective = synchronize,
@@ -1442,7 +1393,7 @@ class TopologyAdministrationGroup(
     @Help.Summary("Propose a party to key mapping")
     def propose(
         proposedMapping: PartyToKeyMapping,
-        serial: RequireTypes.PositiveNumeric[Int],
+        serial: Option[PositiveInt] = None,
         ops: TopologyChangeOp = TopologyChangeOp.Replace,
         signedBy: Option[Fingerprint] = None,
         store: TopologyStoreId = TopologyStoreId.Authorized,
@@ -1459,7 +1410,7 @@ class TopologyAdministrationGroup(
           signedBy = signedBy.toList,
           store = store,
           change = ops,
-          serial = Some(serial),
+          serial = serial,
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = force,
           waitToBecomeEffective = synchronize,
@@ -2332,10 +2283,8 @@ class TopologyAdministrationGroup(
         serial: Option[PositiveInt] = None,
         signedBy: Option[Fingerprint] = None,
         force: ForceFlags = ForceFlags.none,
+        operation: TopologyChangeOp = TopologyChangeOp.Replace,
     ): Unit = {
-
-      val topologyChangeOp =
-        if (packages.isEmpty) TopologyChangeOp.Remove else TopologyChangeOp.Replace
 
       val command = TopologyAdminCommands.Write.Propose(
         mapping = VettedPackages.create(
@@ -2344,7 +2293,7 @@ class TopologyAdministrationGroup(
         ),
         signedBy = signedBy.toList,
         serial = serial,
-        change = topologyChangeOp,
+        change = operation,
         mustFullyAuthorize = mustFullyAuthorize,
         store = store,
         forceChanges = force,

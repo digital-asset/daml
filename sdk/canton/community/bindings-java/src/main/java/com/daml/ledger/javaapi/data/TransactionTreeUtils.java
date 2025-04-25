@@ -19,7 +19,7 @@ public class TransactionTreeUtils {
    * @param transactionTree the transaction tree
    * @param createWrappedEvent the function that constructs a WrappedEvent node of the tree given
    *     the current node and its converted children as a list of WrappedEvents nodes
-   * @return the list of the wrapped root events
+   * @return the list of the wrapped root events. Method will be removed in 3.4.0
    */
   public static <WrappedEvent> List<WrappedEvent> buildTree(
       TransactionTree transactionTree,

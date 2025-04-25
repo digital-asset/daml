@@ -914,7 +914,7 @@ object Hash {
     val ContractKey = new Purpose(2)
     val MaintainerContractKeyUUID = new Purpose(4)
     val PrivateKey = new Purpose(3)
-    val ContractInstance = new Purpose(5)
+    val ThinContractInstance = new Purpose(5)
     val ChangeId = new Purpose(6)
     val TransactionHash = new Purpose(7)
     val MetadataHash = new Purpose(8)
@@ -1007,7 +1007,7 @@ object Hash {
       packageName: Ref.PackageName,
       upgradeFriendly: Boolean = false,
   ): Hash = {
-    builder(Purpose.ContractInstance, aCid2Bytes, upgradeFriendly)
+    builder(Purpose.ThinContractInstance, aCid2Bytes, upgradeFriendly)
       .addString(packageName)
       .addIdentifier(templateId)
       .addTypedValue(arg)

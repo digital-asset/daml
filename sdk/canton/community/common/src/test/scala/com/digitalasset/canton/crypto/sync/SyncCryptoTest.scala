@@ -81,7 +81,6 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
   protected lazy val syncCryptoVerifierP2: SyncCryptoVerifier = p2.syncCryptoVerifier
 
   def syncCryptoSignerTest(): Unit = {
-    // TODO(#23732): Add verify signature part and remaining tests (e.g. multiple signatures, etc,.)
     "correctly sign and verify a message" in {
       val signature = syncCryptoSignerP1
         .sign(

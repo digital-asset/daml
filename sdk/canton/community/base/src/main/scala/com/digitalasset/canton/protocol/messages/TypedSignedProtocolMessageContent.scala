@@ -65,7 +65,7 @@ object TypedSignedProtocolMessageContent
 
   override def versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec(
-      ProtocolVersion.v33
+      ProtocolVersion.v34
     )(v30.TypedSignedProtocolMessageContent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,

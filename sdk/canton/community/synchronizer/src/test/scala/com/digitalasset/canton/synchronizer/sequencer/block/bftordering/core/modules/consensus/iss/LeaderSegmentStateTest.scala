@@ -33,6 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -244,7 +245,7 @@ object LeaderSegmentStateTest {
       previousMembership = currentMembership, // not relevant
     )
 
-  private val commits = (otherIds + myId)
+  private def commits(implicit synchronizerProtocolVersion: ProtocolVersion) = (otherIds + myId)
     .map { node =>
       Commit
         .create(

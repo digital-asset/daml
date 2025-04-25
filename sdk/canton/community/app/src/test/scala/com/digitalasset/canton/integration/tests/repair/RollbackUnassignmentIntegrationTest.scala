@@ -45,14 +45,18 @@ sealed trait RollbackUnassignmentIntegrationTest
           p.dars.upload(CantonExamplesPath)
         }
 
-        participant1.parties.enable(
-          aliceS,
-          synchronizeParticipants = Seq(participant2),
-        )
-        participant2.parties.enable(
-          bobS,
-          synchronizeParticipants = Seq(participant1),
-        )
+        Seq(daName, acmeName).foreach { alias =>
+          participant1.parties.enable(
+            aliceS,
+            synchronizeParticipants = Seq(participant2),
+            synchronizer = alias,
+          )
+          participant2.parties.enable(
+            bobS,
+            synchronizeParticipants = Seq(participant1),
+            synchronizer = alias,
+          )
+        }
       }
 
   "Can rollback an unassignment" in { implicit env =>

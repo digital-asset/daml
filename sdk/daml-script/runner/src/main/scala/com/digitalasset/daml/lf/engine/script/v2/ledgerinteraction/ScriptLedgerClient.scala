@@ -281,4 +281,10 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
+
+  def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit]
+
+  def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit]
+
+  def getParticipantUid: String
 }

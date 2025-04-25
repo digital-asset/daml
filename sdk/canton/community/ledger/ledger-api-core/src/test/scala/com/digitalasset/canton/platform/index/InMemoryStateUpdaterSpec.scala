@@ -7,7 +7,7 @@ import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
@@ -755,6 +755,7 @@ object InMemoryStateUpdaterSpec {
     workflowId = Some(workflowId),
     submissionTime = Timestamp.Epoch,
     submissionSeed = crypto.Hash.hashPrivateKey("SomeTxMeta"),
+    timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,

@@ -54,10 +54,12 @@ sealed abstract class SynchronizerRepairIntegrationTest
         participant1.parties.enable(
           aliceS,
           synchronizeParticipants = Seq(participant2),
+          synchronizer = lostSynchronizerAlias,
         )
         participant2.parties.enable(
           bobS,
           synchronizeParticipants = Seq(participant1),
+          synchronizer = lostSynchronizerAlias,
         )
       }
 
@@ -134,6 +136,17 @@ sealed abstract class SynchronizerRepairIntegrationTest
           ) shouldBe (true, true)
         )
       }
+
+      participant1.parties.enable(
+        aliceS,
+        synchronizeParticipants = Seq(participant2),
+        synchronizer = newSynchronizerAlias,
+      )
+      participant2.parties.enable(
+        bobS,
+        synchronizeParticipants = Seq(participant1),
+        synchronizer = newSynchronizerAlias,
+      )
 
       // Note that merely registering the synchronizer is not good enough as we need the topology state to be built.
       // For that we connect to replacement synchronizer and disconnect once the participants have the new synchronizer topology state.

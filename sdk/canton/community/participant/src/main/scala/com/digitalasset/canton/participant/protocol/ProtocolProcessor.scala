@@ -1248,14 +1248,14 @@ abstract class ProtocolProcessor[
       .getOrElse(AsyncResult.immediate)
 
   override def processResult(
-      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
+      counter: SequencerCounter,
+      event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): HandlerResult = {
     val content = event.event.content
     val ts = content.timestamp
-    val sc = content.counter
 
     val processedET = performUnlessClosingEitherUSFAsync(
-      s"ProtocolProcess.processResult(sc=$sc, traceId=${traceContext.traceId}"
+      s"ProtocolProcess.processResult(sc=$counter, traceId=${traceContext.traceId}"
     ) {
       val resultEnvelopes =
         content.batch.envelopes
@@ -1272,7 +1272,7 @@ abstract class ProtocolProcessor[
         show"Got result for ${steps.requestKind.unquoted} request at $requestId: $resultEnvelopes"
       )
 
-      processResultInternal1(event, result, requestId, ts, sc)
+      processResultInternal1(event, result, requestId, ts, counter)
     }(_.value)
 
     handlerResultForConfirmationResult(ts, processedET)

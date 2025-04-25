@@ -105,6 +105,7 @@ enum EncryptionKeySpec {
   ENCRYPTION_KEY_SPEC_RSA_2048 = 2;
 }
 
+// [start-docs-entry: signing key spec proto]
 enum SigningKeySpec {
   SIGNING_KEY_SPEC_UNSPECIFIED = 0;
 
@@ -125,6 +126,7 @@ enum SigningKeySpec {
   // as defined in https://www.secg.org/sec2-v2.pdf
   SIGNING_KEY_SPEC_EC_SECP256K1 = 4;
 }
+// [end-docs-entry: signing key spec proto]
 
 message PublicKey {
   oneof key {
@@ -157,8 +159,8 @@ enum SigningKeyUsage {
   SIGNING_KEY_USAGE_UNSPECIFIED = 0;
   // the root namespace key that defines a node's identity and signs topology requests
   SIGNING_KEY_USAGE_NAMESPACE = 1;
-  // keys that act as delegation keys for the root namespace and that can also be used to sign topology requests
-  SIGNING_KEY_USAGE_IDENTITY_DELEGATION = 2;
+  // No longer used (only kept for backwards compatibility)
+  SIGNING_KEY_USAGE_IDENTITY_DELEGATION = 2 [deprecated = true];
   // keys that authenticate members of the network towards a sequencer
   SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION = 3;
   // keys that deal with all the signing that happens as part of the protocol

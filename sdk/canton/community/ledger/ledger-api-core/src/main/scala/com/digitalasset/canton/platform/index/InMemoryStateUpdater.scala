@@ -27,7 +27,7 @@ import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
+import com.digitalasset.canton.platform.{FatContract, InMemoryState, Key, KeyWithMaintainers, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
@@ -383,21 +383,29 @@ private[platform] object InMemoryStateUpdater {
       : PartialFunction[TransactionLogUpdate.Event, ContractStateEvent] = {
     case createdEvent: TransactionLogUpdate.CreatedEvent =>
       ContractStateEvent.Created(
-        contractId = createdEvent.contractId,
-        contract = Contract(
-          packageName = createdEvent.packageName,
-          template = createdEvent.templateId,
-          arg = createdEvent.createArgument,
+        contract = FatContract.fromCreateNode(
+          Create(
+            coid = createdEvent.contractId,
+            packageName = createdEvent.packageName,
+            templateId = createdEvent.templateId,
+            arg = createdEvent.createArgument.unversioned,
+            signatories = createdEvent.createSignatories,
+            stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
+            keyOpt = (createdEvent.contractKey zip createdEvent.createKeyMaintainers).map {
+              case (k, maintainers) =>
+                KeyWithMaintainers.assertBuild(
+                  templateId = createdEvent.templateId,
+                  value = k.unversioned,
+                  maintainers = maintainers,
+                  packageName = createdEvent.packageName,
+                )
+            },
+            version = createdEvent.createArgument.version,
+          ),
+          createTime = createdEvent.ledgerEffectiveTime,
+          cantonData = createdEvent.driverMetadata,
         ),
-        globalKey = createdEvent.contractKey.map(k =>
-          Key.assertBuild(createdEvent.templateId, k.unversioned, createdEvent.packageName)
-        ),
-        ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
-        stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
         eventOffset = createdEvent.eventOffset,
-        signatories = createdEvent.createSignatories,
-        keyMaintainers = createdEvent.createKeyMaintainers,
-        driverMetadata = createdEvent.driverMetadata.toByteArray,
       )
     case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
       ContractStateEvent.Archived(

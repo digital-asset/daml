@@ -505,11 +505,7 @@ setupDamlGHC mbProjectRoot options@Options{..} = do
   liftIO $ initUniqSupply 0 1
 
   let
-    ghcCustomOpts =
-      if getDisableDeprecatedExceptions optDisableDeprecatedExceptions
-        -- Add disable deprecations flag last, so it takes precedence over other options (such as -Werror)
-        then optGhcCustomOpts ++ ["-Wno-x-exceptions"]
-        else optGhcCustomOpts
+    ghcCustomOpts = optGhcCustomOpts ++ inlineDamlCustomWarningToGhcFlag optInlineDamlCustomWarningFlags
 
   unless (null ghcCustomOpts) $ do
     damlDFlags <- getSessionDynFlags

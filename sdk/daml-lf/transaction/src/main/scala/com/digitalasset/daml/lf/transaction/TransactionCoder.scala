@@ -14,6 +14,7 @@ import com.digitalasset.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.scalautil.Statement.discard
 import com.google.protobuf.{ByteString, ProtocolStringList}
 
+import scala.annotation.nowarn
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.{HashMap, TreeSet}
 import scala.jdk.CollectionConverters._
@@ -52,12 +53,12 @@ object TransactionCoder {
     * @return protobuf wire format contract instance
     */
   def encodeContractInstance(
-      coinst: Versioned[Value.ContractInstance]
-  ): Either[EncodeError, TransactionOuterClass.ContractInstance] =
+      coinst: Versioned[Value.ThinContractInstance]
+  ): Either[EncodeError, TransactionOuterClass.ThinContractInstance] =
     for {
       value <- ValueCoder.encodeVersionedValue(coinst.version, coinst.unversioned.arg)
     } yield {
-      val builder = TransactionOuterClass.ContractInstance.newBuilder()
+      val builder = TransactionOuterClass.ThinContractInstance.newBuilder()
       discard(builder.setPackageName(coinst.unversioned.packageName))
       discard(builder.setTemplateId(ValueCoder.encodeIdentifier(coinst.unversioned.template)))
       discard(builder.setArgVersioned(value))
@@ -84,14 +85,14 @@ object TransactionCoder {
     * @return contract instance value
     */
   def decodeContractInstance(
-      protoCoinst: TransactionOuterClass.ContractInstance
-  ): Either[DecodeError, Versioned[Value.ContractInstance]] =
+      protoCoinst: TransactionOuterClass.ThinContractInstance
+  ): Either[DecodeError, Versioned[Value.ThinContractInstance]] =
     for {
       _ <- ensureNoUnknownFields(protoCoinst)
       id <- ValueCoder.decodeIdentifier(protoCoinst.getTemplateId)
       value <- ValueCoder.decodeVersionedValue(protoCoinst.getArgVersioned)
       pkgName <- decodePackageName(protoCoinst.getPackageName)
-    } yield value.map(arg => Value.ContractInstance(pkgName, id, arg))
+    } yield value.map(arg => Value.ThinContractInstance(pkgName, id, arg))
 
   private[transaction] def encodeKeyWithMaintainers(
       version: TransactionVersion,
@@ -816,6 +817,7 @@ object TransactionCoder {
       cantonData = data.Bytes.fromByteString(cantonData),
     )
 
+  @nowarn("cat=unused-pat-vars") // suppress wrong warnings that version and unversioned are unused
   def decodeFatContractInstance(bytes: ByteString): Either[DecodeError, FatContractInstance] =
     for {
       versionedBlob <- decodeVersioned(bytes)

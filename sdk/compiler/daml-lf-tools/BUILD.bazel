@@ -7,6 +7,7 @@ da_haskell_library(
     name = "daml-lf-tools",
     srcs = glob(["src/**/*.hs"]),
     hackage_deps = [
+        "ansi-wl-pprint",
         "base",
         "containers",
         "deepseq",
@@ -17,6 +18,7 @@ da_haskell_library(
         "hashable",
         "lens",
         "mtl",
+        "optparse-applicative",
         "recursion-schemes",
         "safe",
         "shake",
@@ -30,6 +32,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-tools-util",
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",

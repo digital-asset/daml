@@ -27,7 +27,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.SuppressionRule.{Level, forLogger}
 import com.digitalasset.canton.participant.admin.data.{ActiveContract, ContractIdImportMode}
 import com.digitalasset.canton.participant.admin.repair.ContractIdsImportProcessor
-import com.digitalasset.canton.protocol.{LfContractId, LfContractInst, LfHash}
+import com.digitalasset.canton.protocol.{LfContractId, LfHash, LfThinContractInst}
 import com.digitalasset.canton.topology.ForceFlag.DisablePartyWithActiveContracts
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ForceFlags, PartyId}
@@ -400,7 +400,7 @@ class ExportContractsIdRecomputationArchivedDependencyIntegrationTest
     refersToArchivedContract
   }
 
-  private def toContractInstance(contract: LapiActiveContract): LfContractInst = {
+  private def toContractInstance(contract: LapiActiveContract): LfThinContractInst = {
     val res = for {
       event <- Either.fromOption(
         contract.createdEvent,
@@ -413,7 +413,7 @@ class ExportContractsIdRecomputationArchivedDependencyIntegrationTest
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
-    } yield LfContractInst(
+    } yield LfThinContractInst(
       fatContract.packageName,
       fatContract.templateId,
       transaction.Versioned(fatContract.version, fatContract.createArg),

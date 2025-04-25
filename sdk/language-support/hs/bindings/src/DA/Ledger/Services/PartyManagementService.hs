@@ -95,4 +95,5 @@ allocateParty request =
             let allocatePartyRequestPartyIdHint = partyIdHint
             let allocatePartyRequestLocalMetadata = Nothing
             let allocatePartyRequestIdentityProviderId = ""
+            let allocatePartyRequestSynchronizerId = ""
             LL.AllocatePartyRequest {..}

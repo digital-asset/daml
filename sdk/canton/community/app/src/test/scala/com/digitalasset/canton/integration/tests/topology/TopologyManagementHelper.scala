@@ -5,7 +5,6 @@ package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{InstanceReference, LocalInstanceReference}
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.topology.*
@@ -114,7 +113,7 @@ trait TopologyManagementHelper { this: BaseTest =>
     // in production, use a "random" identifier. for testing and development, use something
     // helpful so you don't have to grep for hashes in your log files.
     val namespace = Namespace(namespaceKey.id)
-    node.topology.init_id(
+    node.topology.init_id_from_uid(
       UniqueIdentifier.tryCreate("manual-" + node.name, namespace)
     )
     node.health.wait_for_ready_for_node_topology()
@@ -132,7 +131,6 @@ trait TopologyManagementHelper { this: BaseTest =>
         node.id.member,
         NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
       ),
-      serial = PositiveInt.one,
       signedBy = Seq(namespaceKey.fingerprint, sequencerAuthKey.fingerprint, signingKey.fingerprint),
     )
     // architecture-handbook-entry-end: Node

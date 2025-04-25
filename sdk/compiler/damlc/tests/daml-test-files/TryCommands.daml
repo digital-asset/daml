@@ -12,6 +12,7 @@ import Daml.Script
 import Daml.Script.Internal
 import DA.Assert
 import DA.Text
+import qualified DA.TextMap as Map
 
 template Name
   with
@@ -23,8 +24,8 @@ template Name
 -- Takes a unit to avoid it being run directly
 failedAuthScript : () -> Script ()
 failedAuthScript _ = do
-  a <- allocatePartyWithHint "alice" (PartyIdHint "alice")
-  b <- allocatePartyWithHint "bob" (PartyIdHint "bob")
+  a <- allocatePartyByHint (PartyIdHint "alice")
+  b <- allocatePartyByHint (PartyIdHint "bob")
   a `submit` createCmd Name with party = b
   pure ()
 
@@ -60,6 +61,14 @@ tryCommandsContractNotActive = do
 -- Check that the lifted error can be caught
 liftedFailedCmdException : Script ()
 liftedFailedCmdException = do
-  try
-    liftFailedCommandToException $ failedAuthScript ()
-  catch (e : FailedCmd) -> e === failedAuthError
+  res <- tryFailureStatus $ liftFailedCommandToFailureStatus $ failedAuthScript ()
+  case res of
+    Right _ -> fail "Expected failure, got success"
+    Left fs
+      | fs.message == getErrorMessage failedAuthError.errorMessage
+      , fs.meta == Map.fromList
+          [ ("commandName", getCommandName failedAuthError.commandName)
+          , ("className", getErrorClassName failedAuthError.errorClassName)
+          ]
+      -> pure ()
+    Left _ -> fail "Incorrect failure status reported"

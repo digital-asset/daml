@@ -6,7 +6,7 @@ import Daml.Script
 import DA.Assert
 
 test = script do
-  p <- allocatePartyWithHint "alice" (PartyIdHint "alice")
+  p <- allocatePartyByHint (PartyIdHint "alice")
   show p === "'alice'"
   partyToText p === "alice"
   partyFromText "alice" === Some p

@@ -78,7 +78,7 @@ object SequencerClientFactory {
       replayConfigForMember: Member => Option[ReplayConfig],
       metrics: SequencerClientMetrics,
       loggingConfig: LoggingConfig,
-      exitOnTimeout: Boolean,
+      exitOnFatalErrors: Boolean,
       namedLoggerFactory: NamedLoggerFactory,
       supportedProtocolVersions: Seq[ProtocolVersion],
   ): SequencerClientFactory & SequencerClientTransportFactory =
@@ -239,7 +239,7 @@ object SequencerClientFactory {
           syncCryptoApi,
           loggingConfig,
           Some(trafficStateController),
-          exitOnTimeout,
+          exitOnFatalErrors,
           loggerFactory,
           futureSupervisor,
         )

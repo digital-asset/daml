@@ -15,7 +15,7 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.console.FeatureFlag
 import com.digitalasset.canton.participant.config.{
-  LocalParticipantConfig,
+  ParticipantNodeConfig,
   RemoteParticipantConfig,
   TestingTimeServiceConfig,
   UnsafeOnlinePartyReplicationConfig,
@@ -357,7 +357,7 @@ object ConfigTransforms {
   }
 
   /** Enable the testing time service in the ledger API */
-  def useTestingTimeService: LocalParticipantConfig => LocalParticipantConfig =
+  def useTestingTimeService: ParticipantNodeConfig => ParticipantNodeConfig =
     _.focus(_.testingTime).replace(Some(TestingTimeServiceConfig.MonotonicTime))
 
   def updateContractIdSeeding(seeding: Seeding): ConfigTransform =
@@ -393,7 +393,7 @@ object ConfigTransforms {
     modifyAllStorageConfigs((_, nodeName, config) => withUniqueDbName(nodeName, config))
 
   def updateParticipantConfig(participantName: String)(
-      update: LocalParticipantConfig => LocalParticipantConfig
+      update: ParticipantNodeConfig => ParticipantNodeConfig
   ): ConfigTransform =
     cantonConfig =>
       cantonConfig
@@ -402,12 +402,12 @@ object ConfigTransforms {
         .modify(update)
 
   def updateAllParticipantConfigs_(
-      update: LocalParticipantConfig => LocalParticipantConfig
+      update: ParticipantNodeConfig => ParticipantNodeConfig
   ): ConfigTransform =
     updateAllParticipantConfigs((_, participantConfig) => update(participantConfig))
 
   def updateAllParticipantConfigs(
-      update: (String, LocalParticipantConfig) => LocalParticipantConfig
+      update: (String, ParticipantNodeConfig) => ParticipantNodeConfig
   ): ConfigTransform =
     cantonConfig =>
       cantonConfig
@@ -794,8 +794,8 @@ object ConfigTransforms {
   }
 
   def defaultsForNodes: Seq[ConfigTransform] =
-    setProtocolVersion(ProtocolVersion.v33) :+
-      ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v33)
+    setProtocolVersion(ProtocolVersion.v34) :+
+      ConfigTransforms.updateAllInitialProtocolVersion(ProtocolVersion.v34)
 
   def setTopologyTransactionRegistrationTimeout(
       timeout: config.NonNegativeDuration
@@ -820,4 +820,7 @@ object ConfigTransforms {
       _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
     ),
   )
+
+  def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
+    _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
 }

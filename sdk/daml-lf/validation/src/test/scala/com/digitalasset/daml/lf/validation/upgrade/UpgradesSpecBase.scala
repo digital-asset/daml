@@ -248,7 +248,6 @@ abstract class UpgradesSpec(val suffix: String)
     }
   }
 
-  @scala.annotation.nowarn("cat=unused")
   def assertDuplicatePackageUpload()(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),

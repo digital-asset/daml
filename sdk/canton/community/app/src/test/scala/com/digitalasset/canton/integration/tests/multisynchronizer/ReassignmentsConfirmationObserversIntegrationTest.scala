@@ -34,7 +34,6 @@ import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentCompleted
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.ReassignmentId
-import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.synchronizer.sequencer.{
   HasProgrammableSequencer,
   ProgrammableSequencer,
@@ -228,14 +227,11 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       val reassignmentId =
         ReassignmentId(Source(daId), CantonTimestamp.fromProtoPrimitive(unassignId.toLong).value)
 
-      // Check that reassignment store is populated on both participants
+      // Check that reassignment store is populated on 3 participants
       eventually() {
-        lookupReassignment(participant1, reassignmentId).value.unassignmentResult.value shouldBe
-          a[DeliveredUnassignmentResult]
-        lookupReassignment(participant2, reassignmentId).value.unassignmentResult.value shouldBe
-          a[DeliveredUnassignmentResult]
-        lookupReassignment(participant3, reassignmentId).value.unassignmentResult.value shouldBe
-          a[DeliveredUnassignmentResult]
+        lookupReassignment(participant1, reassignmentId).value shouldBe a[UnassignmentData]
+        lookupReassignment(participant2, reassignmentId).value shouldBe a[UnassignmentData]
+        lookupReassignment(participant3, reassignmentId).value shouldBe a[UnassignmentData]
       }
 
       participant1.ledger_api.commands.submit_assign(signatory, unassignId, daId, acmeId)

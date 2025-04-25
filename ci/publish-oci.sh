@@ -57,7 +57,7 @@ apiVersion: digitalasset.com/v1
 kind: Component
 spec:
   jar-commands:
-    - path: daml-script-'${RELEASE_TAG}'.jar
+    - path: daml-script-'"${RELEASE_TAG}"'.jar
       name: daml-script
       desc: "Daml Script Binary"
 '
@@ -110,7 +110,7 @@ cd "${STAGING_DIR}" || exit 1
   info "Create directory structure...\t"
   mkdir -p dist/generic/daml-script && info_done
 
-  info "Proccesing daml-script for generic"
+  info "Proccesing daml-script for generic..."
   (
     artifact="$(find . -type f -name daml-script-"${RELEASE_TAG}".jar | head -1 )"
     cp "${artifact}" dist/generic/daml-script

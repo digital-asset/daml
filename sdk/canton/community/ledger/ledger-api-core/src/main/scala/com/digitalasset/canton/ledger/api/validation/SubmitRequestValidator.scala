@@ -151,6 +151,7 @@ class SubmitRequestValidator(
 
   def validateExecute(
       req: iss.ExecuteSubmissionRequest,
+      currentLedgerTime: Instant,
       submissionIdGenerator: SubmissionIdGenerator,
       maxDeduplicationDuration: Duration,
   )(implicit
@@ -163,6 +164,7 @@ class SubmitRequestValidator(
       submissionIdP,
       userIdP,
       hashingSchemeVersionP,
+      minLedgerTimeP,
     ) = req
     for {
       submissionId <- validateSubmissionId(submissionIdP)
@@ -188,6 +190,11 @@ class SubmitRequestValidator(
         "synchronizer_id",
       )
       synchronizerId <- validateSynchronizerId(synchronizerIdString).leftMap(_.asGrpcError)
+      ledgerEffectiveTime <- commandsValidator.validateLedgerTime(
+        currentLedgerTime,
+        minLedgerTimeP.flatMap(_.time.minLedgerTimeAbs),
+        minLedgerTimeP.flatMap(_.time.minLedgerTimeRel),
+      )
     } yield {
       ExecuteRequest(
         userId,
@@ -197,6 +204,7 @@ class SubmitRequestValidator(
         preparedTransaction,
         version,
         synchronizerId,
+        ledgerEffectiveTime,
       )
     }
   }
