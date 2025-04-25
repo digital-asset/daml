@@ -15,10 +15,7 @@ import DA.Time (seconds)
 
 -- These tests rely on unvetting, none of them will work on IDE
 main : TestTree
-main = tests $ []
-
--- TODO: restore these tests once waiting for unvetting to have propagated is fixed
-testsToRestore =
+main = tests $
   [ subtree "exercise"
     -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
     [ brokenOnIDELedger ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command (should change the expectation to fails)", v1UnvettedOnSubmitterCommand)

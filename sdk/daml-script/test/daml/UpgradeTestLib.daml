@@ -30,7 +30,6 @@ import Daml.Script.Internal
 import DA.Assert
 import DA.Fail
 import DA.Foldable
-import DA.Time
 
 import DA.Text qualified as T
 
@@ -105,13 +104,11 @@ expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, g
 withUnvettedPackage : Text -> Text -> Script a -> Script a
 withUnvettedPackage packageName packageVersion act = do
   let pkg = PackageName packageName packageVersion
-  unsafeUnvetPackages [pkg] (Some participant0)
-  unsafeUnvetPackages [pkg] (Some participant1)
-  sleep $ seconds 1
+  unvetPackagesOnParticipant [pkg] participant0
+  unvetPackagesOnParticipant [pkg] participant1
   res <- tryFailureStatus $ liftFailedCommandToFailureStatus act
-  unsafeVetPackages [pkg] (Some participant0)
-  unsafeVetPackages [pkg] (Some participant1)
-  sleep $ seconds 1
+  vetPackagesOnParticipant [pkg] participant0
+  vetPackagesOnParticipant [pkg] participant1
   case res of
     Left fs -> failWithStatus fs
     Right r -> pure r

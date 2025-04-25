@@ -15,10 +15,8 @@ module Daml.Script.Internal
     PackageName (..)
   , listVettedPackages
   , listAllPackages
-  , unsafeVetPackages
   , vetPackages
   , vetPackagesOnParticipant
-  , unsafeUnvetPackages
   , unvetPackages
   , unvetPackagesOnParticipant
 
