@@ -57,18 +57,22 @@ class AdminLedgerClient private[grpcLedgerClient] (
       token,
     )
 
-  def listVettedPackages(): Future[Map[String, Seq[protocol.VettedPackages.VettedPackage]]] =
-    topologyReadServiceStub
-      .listVettedPackages(makeListVettedPackagesRequest())
+  def listVettedPackages(): Future[Map[String, Seq[protocol.VettedPackages.VettedPackage]]] = for {
+    synchronizerId <- getSynchronizerId
+    res <- topologyReadServiceStub
+      .listVettedPackages(makeListVettedPackagesRequest(synchronizerId))
       .map(_.results.view.map(res => (res.item.get.participantUid -> res.item.get.packages)).toMap)
+  } yield res
 
-  private[this] def makeListVettedPackagesRequest() =
+  private[this] def makeListVettedPackagesRequest(synchronizerId: String) =
     admin_topology.ListVettedPackagesRequest(
       baseQuery = Some(
         admin_topology.BaseQuery(
           store = Some(
             admin_topology.StoreId(
-              admin_topology.StoreId.Store.Authorized(admin_topology.StoreId.Authorized())
+              admin_topology.StoreId.Store.Synchronizer(
+                admin_topology.StoreId.Synchronizer(synchronizerId)
+              )
             )
           ),
           proposals = false,
@@ -144,30 +148,85 @@ class AdminLedgerClient private[grpcLedgerClient] (
     )
 
   def unvetPackages(packages: Iterable[ScriptLedgerClient.ReadablePackageId]): Future[Unit] = for {
-    packageMap <- getPackageMap()
-    _ <- unvetPackagesById(
-      packages
-        .map(pkg =>
-          packageMap.getOrElse(
-            pkg,
-            throw new IllegalArgumentException(s"Package $pkg not found on participant"),
+    packageIds <- getPackageIds(packages)
+    _ <- unvetPackagesById(packageIds)
+  } yield ()
+
+  def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+      attempts: Int = 10,
+      firstWaitTime: Duration = 100.millis,
+  ): Future[Unit] = for {
+    packageIds <- getPackageIds(packages)
+    _ <- RetryStrategy
+      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+        for {
+          vettedPackages <- listVettedPackages()
+          _ <- Future {
+            assert(
+              packageIds.forall(pkgId =>
+                vettedPackages.getOrElse(onParticipantUid, Seq.empty).forall(_.packageId != pkgId)
+              )
+            )
+          }
+        } yield ()
+      }
+      .recoverWith(_ =>
+        Future.failed(
+          new IllegalStateException(
+            s"Participant $participantUid does not yet see that $onParticipantUid unvetted ${packages
+                .mkString(",")}"
           )
         )
-    )
+      )
   } yield ()
 
   def vetPackages(packages: Iterable[ScriptLedgerClient.ReadablePackageId]): Future[Unit] = for {
-    packageMap <- getPackageMap()
-    _ <- vetPackagesById(
-      packages
-        .map(pkg =>
-          packageMap.getOrElse(
-            pkg,
-            throw new IllegalArgumentException(s"Package $pkg not found on participant"),
+    packageIds <- getPackageIds(packages)
+    _ <- vetPackagesById(packageIds)
+  } yield ()
+
+  def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+      attempts: Int = 10,
+      firstWaitTime: Duration = 100.millis,
+  ): Future[Unit] = for {
+    packageIds <- getPackageIds(packages)
+    _ <- RetryStrategy
+      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+        for {
+          vettedPackages <- listVettedPackages()
+          _ <- Future {
+            assert(
+              packageIds.forall(pkgId =>
+                vettedPackages.getOrElse(onParticipantUid, Seq.empty).exists(_.packageId == pkgId)
+              )
+            )
+          }
+        } yield ()
+      }
+      .recoverWith(_ =>
+        Future.failed(
+          new IllegalStateException(
+            s"Participant $participantUid does not yet see that $onParticipantUid vetted ${packages.mkString(",")}"
           )
         )
-    )
+      )
   } yield ()
+
+  private[this] def getPackageIds(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId]
+  ): Future[Iterable[String]] = for {
+    packageMap <- getPackageMap()
+    packageIds = packages.map(pkg =>
+      packageMap.getOrElse(
+        pkg,
+        throw new IllegalArgumentException(s"Package $pkg not found on participant"),
+      )
+    )
+  } yield packageIds
 
   private[this] def getPackageMap(): Future[Map[ScriptLedgerClient.ReadablePackageId, String]] =
     for {
