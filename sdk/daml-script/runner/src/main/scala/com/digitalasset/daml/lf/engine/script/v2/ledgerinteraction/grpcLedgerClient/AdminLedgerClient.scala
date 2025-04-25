@@ -7,6 +7,7 @@ package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
 import com.daml.grpc.AuthCallCredentials
+import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
@@ -20,12 +21,13 @@ import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.{Closeable, File, FileInputStream}
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 
 class AdminLedgerClient private[grpcLedgerClient] (
     val channel: Channel,
     token: Option[String],
-    participantId: String,
+    val participantUid: String,
 )(implicit ec: ExecutionContext)
     extends Closeable {
 
@@ -46,6 +48,12 @@ class AdminLedgerClient private[grpcLedgerClient] (
   private[grpcLedgerClient] val topologyWriteServiceStub =
     AdminLedgerClient.stub(
       admin_topology.TopologyManagerWriteServiceGrpc.stub(channel),
+      token,
+    )
+
+  private[grpcLedgerClient] val synchronizerConnectivityStub =
+    AdminLedgerClient.stub(
+      admin_participant.SynchronizerConnectivityServiceGrpc.stub(channel),
       token,
     )
 
@@ -79,9 +87,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
       vettedPackages <- listVettedPackages()
       newVettedPackages = packageIds.map(pkgId =>
         protocol.VettedPackages.VettedPackage(pkgId, None, None)
-      ) ++ vettedPackages(participantId)
+      ) ++ vettedPackages(participantUid)
       _ <- topologyWriteServiceStub.authorize(
-        makeAuthorizeRequest(participantId, newVettedPackages)
+        makeAuthorizeRequest(participantUid, newVettedPackages)
       )
     } yield ()
   }
@@ -90,11 +98,11 @@ class AdminLedgerClient private[grpcLedgerClient] (
     val packageIdsSet = packageIds.toSet
     for {
       vettedPackages <- listVettedPackages()
-      newVettedPackages = vettedPackages(participantId).filterNot(pkg =>
+      newVettedPackages = vettedPackages(participantUid).filterNot(pkg =>
         packageIdsSet.contains(pkg.packageId)
       )
       _ <- topologyWriteServiceStub.authorize(
-        makeAuthorizeRequest(participantId, newVettedPackages)
+        makeAuthorizeRequest(participantUid, newVettedPackages)
       )
     } yield ()
   }
@@ -216,6 +224,132 @@ class AdminLedgerClient private[grpcLedgerClient] (
           case UploadDarResponse(hash) => Right(hash.head)
         }
       }
+
+  def proposePartyReplication(partyId: String, toParticipantUid: String): Future[Unit] = {
+    for {
+      synchronizerId <- getSynchronizerId
+      hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+      _ <- topologyWriteServiceStub.authorize(
+        makePartyReplicationAuthorizeRequest(
+          hostingParticipants,
+          partyId,
+          toParticipantUid,
+          synchronizerId,
+        )
+      )
+    } yield ()
+  }
+
+  def waitUntilHostingVisible(
+      partyId: String,
+      onParticipantUid: String,
+      attempts: Int = 10,
+      firstWaitTime: Duration = 100.millis,
+  ): Future[Unit] = for {
+    synchronizerId <- getSynchronizerId
+    _ <- RetryStrategy
+      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+        for {
+          hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+          _ <- Future { assert(hostingParticipants.exists(_.participantUid == onParticipantUid)) }
+        } yield ()
+      }
+      .recoverWith(_ =>
+        Future.failed(
+          new IllegalStateException(
+            s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId after $attempts attempts"
+          )
+        )
+      )
+  } yield ()
+
+  private[this] def getSynchronizerId: Future[String] =
+    synchronizerConnectivityStub
+      .listConnectedSynchronizers(admin_participant.ListConnectedSynchronizersRequest())
+      .map(_.connectedSynchronizers.head.synchronizerId)
+
+  private[this] def listHostingParticipants(
+      partyId: String,
+      synchronizerId: String,
+  ): Future[Seq[protocol.PartyToParticipant.HostingParticipant]] =
+    topologyReadServiceStub
+      .listPartyToParticipant(makeListPartyToParticipantRequest(partyId, synchronizerId))
+      .map(response => {
+        // We expect at most one result because makeListPartyToParticipantRequest filters by partyId
+        if (response.results.length > 1)
+          throw new IllegalStateException(
+            s"Expected at most one result, but got ${response.results.length}"
+          )
+        response.results.headOption.toList.flatMap(_.item.get.participants)
+      })
+
+  private[this] def makeListPartyToParticipantRequest(
+      partyId: String,
+      synchronizerId: String,
+  ): admin_topology.ListPartyToParticipantRequest =
+    admin_topology.ListPartyToParticipantRequest(
+      baseQuery = Some(
+        admin_topology.BaseQuery(
+          store = Some(
+            admin_topology.StoreId(
+              admin_topology.StoreId.Store.Synchronizer(
+                admin_topology.StoreId.Synchronizer(synchronizerId)
+              )
+            )
+          ),
+          proposals = false,
+          operation = protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_UNSPECIFIED,
+          timeQuery = admin_topology.BaseQuery.TimeQuery
+            .HeadState(com.google.protobuf.empty.Empty()),
+          filterSignedKey = "",
+          protocolVersion = None,
+        )
+      ),
+      filterParty = partyId,
+      filterParticipant = "",
+    )
+
+  private[this] def makePartyReplicationAuthorizeRequest(
+      currentHostingParticipants: Seq[protocol.PartyToParticipant.HostingParticipant],
+      partyId: String,
+      participantId: String,
+      synchronizerId: String,
+  ): admin_topology.AuthorizeRequest = {
+    val newEntry = protocol.PartyToParticipant.HostingParticipant(
+      participantId,
+      protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+    )
+    admin_topology.AuthorizeRequest(
+      admin_topology.AuthorizeRequest.Type.Proposal(
+        admin_topology.AuthorizeRequest.Proposal(
+          protocol.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+          0, // will be picked by the participant
+          Some(
+            protocol.TopologyMapping(
+              protocol.TopologyMapping.Mapping.PartyToParticipant(
+                protocol.PartyToParticipant(
+                  partyId,
+                  1,
+                  newEntry +: currentHostingParticipants,
+                )
+              )
+            )
+          ),
+        )
+      ),
+      mustFullyAuthorize = false,
+      forceChanges = Seq.empty,
+      signedBy = Seq.empty,
+      store = Some(
+        admin_topology.StoreId(
+          admin_topology.StoreId.Store.Synchronizer(
+            admin_topology.StoreId.Synchronizer(synchronizerId)
+          )
+        )
+      ),
+      waitToBecomeEffective = Some(com.google.protobuf.duration.Duration(1, 0)),
+    )
+  }
 
   override def close(): Unit = GrpcChannel.close(channel)
 }

@@ -22,6 +22,9 @@ module Daml.Script.Internal
   , unvetPackages
   , unvetPackagesOnParticipant
 
+  , -- Party Management
+    allocateReplicatedPartyOn
+  , allocateReplicatedPartyWithHintOn
 
   , -- Concurrent submit
     concurrently
