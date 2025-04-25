@@ -168,14 +168,14 @@ Functions
 `unvetPackagesOnParticipant <function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
-.. _function-daml-script-internal-questions-packages-unsafevetpackages-17811:
+.. _function-daml-script-internal-questions-packages-vetpackagesinternal-63788:
 
-`unsafeVetPackages <function-daml-script-internal-questions-packages-unsafevetpackages-17811_>`_
+`vetPackagesInternal <function-daml-script-internal-questions-packages-vetpackagesinternal-63788_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
-.. _function-daml-script-internal-questions-packages-unsafeunvetpackages-73826:
+.. _function-daml-script-internal-questions-packages-unvetpackagesinternal-72541:
 
-`unsafeUnvetPackages <function-daml-script-internal-questions-packages-unsafeunvetpackages-73826_>`_
+`unvetPackagesInternal <function-daml-script-internal-questions-packages-unvetpackagesinternal-72541_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
 .. _function-daml-script-internal-questions-packages-listvettedpackages-3001:
@@ -187,9 +187,4 @@ Functions
 
 `listAllPackages <function-daml-script-internal-questions-packages-listallpackages-50063_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
-
-.. _function-daml-script-internal-questions-packages-thenwait-34974:
-
-`thenWait <function-daml-script-internal-questions-packages-thenwait-34974_>`_
-  \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a
 
