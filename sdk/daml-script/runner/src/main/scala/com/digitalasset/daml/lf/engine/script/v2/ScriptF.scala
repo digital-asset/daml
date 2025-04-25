@@ -439,6 +439,9 @@ object ScriptF {
         }
         _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
         _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
+        _ <- Future.traverse(env.clients.participants.values)(client =>
+          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
+        )
       } yield ()
 
       val mainParticipant = participants.headOption

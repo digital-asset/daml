@@ -7,6 +7,7 @@ package com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction
 package grpcLedgerClient
 
 import com.daml.grpc.AuthCallCredentials
+import com.daml.timer.RetryStrategy
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.admin.participant.{v30 => admin_participant}
@@ -20,6 +21,7 @@ import io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.AbstractStub
 
 import java.io.{Closeable, File, FileInputStream}
+import scala.concurrent.duration.{Duration, DurationInt}
 import scala.concurrent.{ExecutionContext, Future}
 
 class AdminLedgerClient private[grpcLedgerClient] (
@@ -237,6 +239,29 @@ class AdminLedgerClient private[grpcLedgerClient] (
       )
     } yield ()
   }
+
+  def waitUntilHostingVisible(
+      partyId: String,
+      onParticipantUid: String,
+      attempts: Int = 10,
+      firstWaitTime: Duration = 100.millis,
+  ): Future[Unit] = for {
+    synchronizerId <- getSynchronizerId
+    _ <- RetryStrategy
+      .exponentialBackoff(attempts, firstWaitTime) { (_, _) =>
+        for {
+          hostingParticipants <- listHostingParticipants(partyId, synchronizerId)
+          _ <- Future { assert(hostingParticipants.exists(_.participantUid == onParticipantUid)) }
+        } yield ()
+      }
+      .recoverWith(_ =>
+        Future.failed(
+          new IllegalStateException(
+            s"Participant $participantUid does not yet see that $onParticipantUid hosts $partyId after $attempts attempts"
+          )
+        )
+      )
+  } yield ()
 
   private[this] def getSynchronizerId: Future[String] =
     synchronizerConnectivityStub
