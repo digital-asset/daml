@@ -613,7 +613,7 @@ trait SynchronizerGovernanceSnapshotClient {
 trait MembersTopologySnapshotClient {
   this: BaseTopologySnapshotClient =>
 
-  /** Convenience method to determin all members with `isMemberKnown`. */
+  /** Convenience method to determine all members with `isMemberKnown`. */
   def allMembers()(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[Member]]
 
   /** Determines if a member is known on the synchronizer (through a SynchronizerTrustCertificate,

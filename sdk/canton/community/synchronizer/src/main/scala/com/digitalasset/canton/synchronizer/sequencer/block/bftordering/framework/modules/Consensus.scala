@@ -116,7 +116,7 @@ object Consensus {
         with HasProtocolVersionedWrapper[RetransmissionRequest] {
 
       def toProto: v30.RetransmissionMessage =
-        v30.RetransmissionMessage.of(
+        v30.RetransmissionMessage(
           v30.RetransmissionMessage.Message.RetransmissionRequest(
             epochStatus.toProto
           )
@@ -187,7 +187,7 @@ object Consensus {
     ) extends RetransmissionsNetworkMessage
         with HasProtocolVersionedWrapper[RetransmissionResponse] {
       def toProto: v30.RetransmissionMessage =
-        v30.RetransmissionMessage.of(
+        v30.RetransmissionMessage(
           v30.RetransmissionMessage.Message.RetransmissionResponse(
             v30.RetransmissionResponse(commitCertificates.map(_.toProto))
           )
@@ -269,9 +269,9 @@ object Consensus {
         with HasProtocolVersionedWrapper[BlockTransferRequest] {
 
       def toProto: v30.StateTransferMessage =
-        v30.StateTransferMessage.of(
+        v30.StateTransferMessage(
           v30.StateTransferMessage.Message.BlockRequest(
-            v30.BlockTransferRequest.of(epoch)
+            v30.BlockTransferRequest(epoch)
           )
         )
 
@@ -340,9 +340,9 @@ object Consensus {
         with HasProtocolVersionedWrapper[BlockTransferResponse] {
 
       def toProto: v30.StateTransferMessage =
-        v30.StateTransferMessage.of(
+        v30.StateTransferMessage(
           v30.StateTransferMessage.Message.BlockResponse(
-            v30.BlockTransferResponse.of(commitCertificate.map(_.toProto))
+            v30.BlockTransferResponse(commitCertificate.map(_.toProto))
           )
         )
       override protected val companionObj: BlockTransferResponse.type = BlockTransferResponse

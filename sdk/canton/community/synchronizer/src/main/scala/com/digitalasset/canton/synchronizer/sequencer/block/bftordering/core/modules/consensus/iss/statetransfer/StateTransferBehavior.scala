@@ -107,6 +107,7 @@ final class StateTransferBehavior[E <: Env[E]](
       epochLength,
       epochStore,
       random,
+      metrics,
       loggerFactory,
     )()
   )

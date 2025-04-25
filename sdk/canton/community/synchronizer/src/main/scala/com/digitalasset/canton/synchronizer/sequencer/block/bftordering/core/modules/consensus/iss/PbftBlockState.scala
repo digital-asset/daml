@@ -256,9 +256,9 @@ final class PbftBlockState(
     if (pp.message.viewNumber == view && pp.from != leader) {
       emitNonCompliance(metrics)(
         pp.from,
-        epoch,
-        view,
-        pp.message.blockMetadata.blockNumber,
+        Some(epoch),
+        Some(view),
+        Some(pp.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(
@@ -297,9 +297,9 @@ final class PbftBlockState(
         if (prepare.message.hash != p.message.hash) {
           emitNonCompliance(metrics)(
             p.from,
-            epoch,
-            view,
-            p.message.blockMetadata.blockNumber,
+            Some(epoch),
+            Some(view),
+            Some(p.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(
@@ -322,9 +322,9 @@ final class PbftBlockState(
         if (commit.message.hash != c.message.hash) {
           emitNonCompliance(metrics)(
             c.from,
-            epoch,
-            view,
-            c.message.blockMetadata.blockNumber,
+            Some(epoch),
+            Some(view),
+            Some(c.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(

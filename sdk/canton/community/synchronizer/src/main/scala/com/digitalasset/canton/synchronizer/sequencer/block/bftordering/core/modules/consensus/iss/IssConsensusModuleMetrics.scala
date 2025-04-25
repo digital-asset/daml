@@ -97,20 +97,38 @@ private[iss] object IssConsensusModuleMetrics {
 
   def emitNonCompliance(metrics: BftOrderingMetrics)(
       from: BftNodeId,
-      epoch: EpochNumber,
-      view: ViewNumber,
-      block: BlockNumber,
+      epoch: Option[EpochNumber],
+      view: Option[ViewNumber],
+      block: Option[BlockNumber],
       kind: metrics.security.noncompliant.labels.violationType.values.ViolationTypeValue,
-  )(implicit mc: MetricsContext): Unit =
-    metrics.security.noncompliant.behavior.mark()(
-      mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Sequencer -> from,
-        metrics.security.noncompliant.labels.Epoch -> epoch.toString,
-        metrics.security.noncompliant.labels.View -> view.toString,
-        metrics.security.noncompliant.labels.Block -> block.toString,
-        metrics.security.noncompliant.labels.violationType.Key -> kind,
-      )
+  )(implicit mc: MetricsContext): Unit = {
+    val mcWithLabels = mc.withExtraLabels(
+      metrics.security.noncompliant.labels.Sequencer -> from,
+      metrics.security.noncompliant.labels.violationType.Key -> kind,
     )
+    val mcWithEpoch = epoch
+      .map(epochNumber =>
+        mcWithLabels.withExtraLabels(
+          metrics.security.noncompliant.labels.Epoch -> epochNumber.toString
+        )
+      )
+      .getOrElse(mcWithLabels)
+    val mcWithView = view
+      .map(viewNumber =>
+        mcWithEpoch.withExtraLabels(
+          metrics.security.noncompliant.labels.View -> viewNumber.toString
+        )
+      )
+      .getOrElse(mcWithEpoch)
+    val mcWithBlock = block
+      .map(blockNumber =>
+        mcWithView.withExtraLabels(
+          metrics.security.noncompliant.labels.Block -> blockNumber.toString
+        )
+      )
+      .getOrElse(mcWithView)
+    metrics.security.noncompliant.behavior.mark()(mcWithBlock)
+  }
 
   private final case class VoteStatsSpec(
       getGauge: BftNodeId => Gauge[Double],

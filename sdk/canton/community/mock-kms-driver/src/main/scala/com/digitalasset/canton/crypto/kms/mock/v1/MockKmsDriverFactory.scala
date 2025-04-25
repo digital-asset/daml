@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, ProcessingT
 import com.digitalasset.canton.crypto.KeyName
 import com.digitalasset.canton.crypto.kms.driver.api.v1.KmsDriverFactory
 import com.digitalasset.canton.crypto.kms.driver.v1.KmsDriverSpecsConverter
+import com.digitalasset.canton.crypto.kms.mock.v1.MockKmsDriverFactory.mockKmsDriverName
 import com.digitalasset.canton.crypto.provider.jce.JceCrypto
 import com.digitalasset.canton.crypto.store.memory.{
   InMemoryCryptoPrivateStore,
@@ -29,7 +30,7 @@ import scala.concurrent.ExecutionContext
 class MockKmsDriverFactory extends KmsDriverFactory {
   override type Driver = MockKmsDriver
 
-  override def name: String = "mock-kms"
+  override def name: String = mockKmsDriverName
 
   override def buildInfo: Option[String] = Some(BuildInfo.version)
 
@@ -125,4 +126,8 @@ class MockKmsDriverFactory extends KmsDriverFactory {
       throw new RuntimeException(s"Failed to create driver: $err")
     }
   }
+}
+
+object MockKmsDriverFactory {
+  lazy val mockKmsDriverName: String = "mock-kms"
 }

@@ -316,21 +316,15 @@ class BlockSequencer(
       // TODO(i17584): revisit the consequences of no longer enforcing that
       //  aggregated submissions with signed envelopes define a topology snapshot
       _ <- validateMaxSequencingTime(submission)
-      memberCheck <- EitherT
-        .right[SequencerDeliverError](
-          // Using currentSnapshotApproximation due to members registration date
-          // expected to be before submission sequencing time
-          cryptoApi.currentSnapshotApproximation.ipsSnapshot
-            .allMembers()
-            .map(allMembers => (member: Member) => allMembers.contains(member))
-        )
       // TODO(#19476): Why we don't check group recipients here?
-      _ <- SequencerValidations
+      _ <- SubmissionRequestValidations
         .checkSenderAndRecipientsAreRegistered(
           submission,
-          memberCheck,
+          // Using currentSnapshotApproximation due to members registration date
+          // expected to be before submission sequencing time
+          cryptoApi.currentSnapshotApproximation.ipsSnapshot,
         )
-        .toEitherT[FutureUnlessShutdown]
+        .leftMap(_.toSequencerDeliverError)
       _ = if (logEventDetails)
         logger.debug(
           s"Invoking send operation on the ledger with the following protobuf message serialized to bytes ${prettyPrinter

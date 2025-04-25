@@ -366,6 +366,7 @@ class BftOrderingMetrics private[metrics] (
             case object ConsensusInvalidMessage extends ViolationTypeValue
             case object ConsensusDataEquivocation extends ViolationTypeValue
             case object ConsensusRoleEquivocation extends ViolationTypeValue
+            case object StateTransferInvalidMessage extends ViolationTypeValue
           }
         }
       }

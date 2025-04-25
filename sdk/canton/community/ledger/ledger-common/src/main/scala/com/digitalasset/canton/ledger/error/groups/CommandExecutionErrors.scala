@@ -1041,6 +1041,27 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
   }
 
   @Explanation(
+    """The package-id selection preference specified in the command does not refer to any package vetted for one or more package-names."""
+  )
+  @Resolution(
+    "Adjust the package-id selection preference in the command or contact the participant operator for updating the participant's vetting state."
+  )
+  object UserPackagePreferenceNotVetted
+      extends ErrorCode(
+        id = "USER_PACKAGE_PREFERENCE_NOT_VETTED",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+
+    final case class Reject(
+        packageName: Ref.PackageName
+    )(implicit
+        loggingContext: ErrorLoggingContext
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"There is no package with valid vetting for package-name $packageName"
+        ) {}
+  }
+
+  @Explanation(
     "A package-name required in command interpretation was discarded in topology-aware package selection due to vetting topology restrictions."
   )
   @Resolution(

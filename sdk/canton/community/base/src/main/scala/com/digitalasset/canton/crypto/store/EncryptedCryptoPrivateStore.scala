@@ -334,7 +334,7 @@ object EncryptedCryptoPrivateStore extends EncryptedCryptoPrivateStoreHelper wit
     for {
       // get (or generate) a new kms key
       keyId <- kmsKeyId match {
-        // if key is defined and it exists in the KMS use that id
+        // if key is defined, and it exists in the KMS use that id
         case Some(keyId) =>
           kms
             .keyExistsAndIsActive(keyId)
