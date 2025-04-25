@@ -46,7 +46,6 @@ jobs:
       --detect.bazel.target=//... \
       --detect.bazel.workspace.rules=${BAZEL_DEPENDENCY_TYPE} \
       --detect.notices.report=true \
-      --detect.npm.dependency.types.excluded=DEV \
       --detect.code.location.name=digital-asset_daml_${BAZEL_DEPENDENCY_TYPE} \
       --detect.timeout=1500
     displayName: 'Blackduck Bazel Haskell Scan'
