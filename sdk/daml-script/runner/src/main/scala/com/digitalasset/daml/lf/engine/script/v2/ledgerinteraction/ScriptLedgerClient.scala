@@ -264,10 +264,20 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Unit]
 
+  def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit]
+
   def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
+  ): Future[Unit]
+
+  def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
   ): Future[Unit]
 
   def listVettedPackages()(implicit

@@ -1005,6 +1005,12 @@ class IdeLedgerClient(
     updateCompiledPackages()
   }
 
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] =
+    Future.successful(())
+
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -1018,6 +1024,12 @@ class IdeLedgerClient(
     unvettedPackages = unvettedPackages ++ pkgIdsToUnvet.toSet
     updateCompiledPackages()
   }
+
+  override def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] =
+    Future.successful(())
 
   override def listVettedPackages()(implicit
       ec: ExecutionContext,

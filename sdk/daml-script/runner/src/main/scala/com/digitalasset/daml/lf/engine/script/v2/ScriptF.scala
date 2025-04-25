@@ -773,6 +773,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetPackages(packages)
+        _ <- Future.traverse(env.clients.participants.values)(
+          _.waitUntilVettingVisible(packages, client.getParticipantUid)
+        )
       } yield SEValue(SUnit)
   }
 
@@ -788,6 +791,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetPackages(packages)
+        _ <- Future.traverse(env.clients.participants.values)(
+          _.waitUntilUnvettingVisible(packages, client.getParticipantUid)
+        )
       } yield SEValue(SUnit)
   }
 

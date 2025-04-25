@@ -28,7 +28,6 @@ import Daml.Script
 import Daml.Script.Internal
 import DA.Assert
 import DA.Foldable
-import DA.Time
 
 import DA.Text qualified as T
 
@@ -97,13 +96,11 @@ withUnvettedPackageOnParticipant packageName packageVersion participant act = do
 withUnvettedPackage : Text -> Text -> Script a -> Script a
 withUnvettedPackage packageName packageVersion act = do
   let pkg = PackageName packageName packageVersion
-  unsafeUnvetPackages [pkg] (Some participant0)
-  unsafeUnvetPackages [pkg] (Some participant1)
-  sleep $ seconds 1
+  unvetPackagesOnParticipant [pkg] participant0
+  unvetPackagesOnParticipant [pkg] participant1
   res <- tryToEither (\() -> liftFailedCommandToException act)
-  unsafeVetPackages [pkg] (Some participant0)
-  unsafeVetPackages [pkg] (Some participant1)
-  sleep $ seconds 1
+  vetPackagesOnParticipant [pkg] participant0
+  vetPackagesOnParticipant [pkg] participant1
   case res of
     Left e -> throwAnyException e
     Right r -> pure r
