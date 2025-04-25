@@ -79,19 +79,19 @@ jobs:
       cd sdk
       eval "$(dev-env/bin/dade-assist)"
 
-      (cd language-support/ts && yarn install)
+      # npm install for canton npm examples
+      (cd canton/community/app/src/pack/examples/09-json-api/typescript && npm install && npm ls)
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
       ci-build digital-asset_daml $(Build.SourceBranchName) \
       --logging.level.com.synopsys.integration=DEBUG \
       --detect.tools=DETECTOR \
       --detect.included.detector.types=YARN,NPM,CLANG \
-      --detect.accuracy.required=NONE \
       --detect.yarn.dependency.types.excluded=NON_PRODUCTION \
       --detect.follow.symbolic.links=false \
-      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-*\
-      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
-      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env,result-* \
+      --detect.excluded.directories=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,language-support/ts/codegen/tests/ts,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.blackduck.signature.scanner.exclusion.name.patterns=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react.bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
+      --detect.detector.search.exclusion.paths=language-support/ts/daml-ledger,language-support/ts/daml-types,language-support/ts/daml-react,bazel-out,bazel-bin,.bazel-cache,bazel-testlogs,bazel-daml,bazel-s,node_modules,dev-env \
       --detect.notices.report=true \
       --detect.code.location.name=digital-asset_daml_npm \
       --detect.timeout=1500
