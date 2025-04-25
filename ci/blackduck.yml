@@ -80,6 +80,7 @@ jobs:
       eval "$(dev-env/bin/dade-assist)"
 
       # npm install for canton npm examples
+      (cd language-support/ts && yarn install)
       (cd canton/community/app/src/pack/examples/09-json-api/typescript && npm install && npm ls)
 
       bash <(curl -s https://raw.githubusercontent.com/DACH-NY/security-blackduck/$(blackduck_script_sha)/synopsys-detect) \
