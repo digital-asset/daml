@@ -8,6 +8,9 @@ module UpgradeTestLib (
   TestState (..),
   participant0,
   participant1,
+  participant2,
+  participant3,
+  participant4,
   test,
   tests,
   subtree,
@@ -34,6 +37,15 @@ participant0 = ParticipantName "participant0"
 
 participant1 : ParticipantName
 participant1 = ParticipantName "participant1"
+
+participant2 : ParticipantName
+participant2 = ParticipantName "participant2"
+
+participant3 : ParticipantName
+participant3 = ParticipantName "participant3"
+
+participant4 : ParticipantName
+participant4 = ParticipantName "participant4"
 
 data RunMode
   = IdeLedger

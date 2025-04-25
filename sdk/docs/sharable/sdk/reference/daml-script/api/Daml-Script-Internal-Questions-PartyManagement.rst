@@ -13,6 +13,9 @@ Data Types
 
 **data** `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_
 
+  An empty 'participants' means we pick the default one\. Otherwise, the first participant of the list is considered
+  to be the \"main\" one, which is the participant to which commands submitted by the allocated will be routed\.
+
   .. _constr-daml-script-internal-questions-partymanagement-allocateparty-9792:
 
   `AllocateParty <constr-daml-script-internal-questions-partymanagement-allocateparty-9792_>`_
@@ -30,21 +33,21 @@ Data Types
        * - idHint
          - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
          -
-       * - participant
-         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
+       * - participants
+         - \[`Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_\]
          -
 
   **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"idHint\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"participant\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"participants\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ \[`Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_\]
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"requestedName\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"idHint\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"participant\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_)
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"participants\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ \[`Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_\]
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"requestedName\" `AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
@@ -202,6 +205,24 @@ Functions
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
   Deprecated
+
+.. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671:
+
+`allocateReplicatedPartyOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671_>`_
+  \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> \[`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+
+  Allocate a party with the given display name on the specified main participant using the party management service
+  and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the
+  allocated party will be routed to the main participant\.
+
+.. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144:
+
+`allocateReplicatedPartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144_>`_
+  \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> \[`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
+
+  Allocate a party with the given display name and id hint on the specified main participant using the party
+  management service and replicates it to the specified (possibly empty) list of additional participants\. Commands
+  submitted by the allocated party will be routed to the main participant\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218:
 
