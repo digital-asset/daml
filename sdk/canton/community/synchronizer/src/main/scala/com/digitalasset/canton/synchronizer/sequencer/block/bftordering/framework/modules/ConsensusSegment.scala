@@ -206,12 +206,12 @@ object ConsensusSegment {
       }
 
       override def toProto: v30.ConsensusMessage =
-        v30.ConsensusMessage.of(
+        v30.ConsensusMessage(
           Some(blockMetadata.toProto),
           viewNumber,
           from,
           v30.ConsensusMessage.Message.PrePrepare(
-            v30.PrePrepare.of(
+            v30.PrePrepare(
               Some(block.toProto),
               Some(canonicalCommitSet.toProto),
             )
@@ -286,13 +286,9 @@ object ConsensusSegment {
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.ConsensusMessage)(
-            supportedProtoVersionMemoized(_)(
-              PrePrepare.fromProtoConsensusMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
+            supportedProtoVersionMemoized(_)(PrePrepare.fromProtoConsensusMessage),
             _.toProto,
           )
       )
@@ -309,12 +305,12 @@ object ConsensusSegment {
     ) extends PbftNormalCaseMessage
         with HasProtocolVersionedWrapper[Prepare] {
       override def toProto: v30.ConsensusMessage =
-        v30.ConsensusMessage.of(
+        v30.ConsensusMessage(
           Some(blockMetadata.toProto),
           viewNumber,
           from,
           v30.ConsensusMessage.Message.Prepare(
-            v30.Prepare.of(
+            v30.Prepare(
               hash.getCryptographicEvidence
             )
           ),
@@ -376,13 +372,9 @@ object ConsensusSegment {
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.ConsensusMessage)(
-            supportedProtoVersionMemoized(_)(
-              Prepare.fromProtoConsensusMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
+            supportedProtoVersionMemoized(_)(Prepare.fromProtoConsensusMessage),
             _.toProto,
           )
       )
@@ -400,12 +392,12 @@ object ConsensusSegment {
     ) extends PbftNormalCaseMessage
         with HasProtocolVersionedWrapper[Commit] {
       override def toProto: v30.ConsensusMessage =
-        v30.ConsensusMessage.of(
+        v30.ConsensusMessage(
           Some(blockMetadata.toProto),
           viewNumber,
           from,
           v30.ConsensusMessage.Message.Commit(
-            v30.Commit.of(hash.getCryptographicEvidence, localTimestamp.toMicros)
+            v30.Commit(hash.getCryptographicEvidence, localTimestamp.toMicros)
           ),
         )
 
@@ -467,13 +459,9 @@ object ConsensusSegment {
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.ConsensusMessage)(
-            supportedProtoVersionMemoized(_)(
-              Commit.fromProtoConsensusMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
+            supportedProtoVersionMemoized(_)(Commit.fromProtoConsensusMessage),
             _.toProto,
           )
       )
@@ -491,15 +479,15 @@ object ConsensusSegment {
     ) extends PbftViewChangeMessage
         with HasProtocolVersionedWrapper[ViewChange] {
       override def toProto: v30.ConsensusMessage =
-        v30.ConsensusMessage.of(
+        v30.ConsensusMessage(
           Some(blockMetadata.toProto),
           viewNumber,
           from,
           v30.ConsensusMessage.Message.ViewChange(
-            v30.ViewChange.of(
+            v30.ViewChange(
               segmentIndex,
               consensusCerts.map(certificate =>
-                v30.ConsensusCertificate.of(certificate match {
+                v30.ConsensusCertificate(certificate match {
                   case pc: PrepareCertificate =>
                     v30.ConsensusCertificate.Certificate.PrepareCertificate(pc.toProto)
                   case cc: CommitCertificate =>
@@ -564,13 +552,9 @@ object ConsensusSegment {
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.ConsensusMessage)(
-            supportedProtoVersionMemoized(_)(
-              ViewChange.fromProtoConsensusMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
+            supportedProtoVersionMemoized(_)(ViewChange.fromProtoConsensusMessage),
             _.toProto,
           )
       )
@@ -598,12 +582,12 @@ object ConsensusSegment {
       lazy val stored = NewViewStored(blockMetadata, viewNumber)
 
       override def toProto: v30.ConsensusMessage =
-        v30.ConsensusMessage.of(
+        v30.ConsensusMessage(
           Some(blockMetadata.toProto),
           viewNumber,
           from,
           v30.ConsensusMessage.Message.NewView(
-            v30.NewView.of(
+            v30.NewView(
               segmentIndex,
               sortedViewChanges.map(_.toProtoV1),
               prePrepares.map(_.toProtoV1),
@@ -681,13 +665,9 @@ object ConsensusSegment {
         )(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.ConsensusMessage)(
-            supportedProtoVersionMemoized(_)(
-              NewView.fromProtoConsensusMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.ConsensusMessage)(
+            supportedProtoVersionMemoized(_)(NewView.fromProtoConsensusMessage),
             _.toProto,
           )
       )

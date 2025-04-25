@@ -132,6 +132,7 @@ final class IssConsensusModule[E <: Env[E]](
         epochLength,
         epochStore,
         random,
+        metrics,
         loggerFactory,
       )()
     )
@@ -406,9 +407,9 @@ final class IssConsensusModule[E <: Env[E]](
         def emitNonComplianceMetric(): Unit =
           emitNonCompliance(metrics)(
             from,
-            epochNumber,
-            viewNumber,
-            blockNumber,
+            Some(epochNumber),
+            Some(viewNumber),
+            Some(blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
           )
 
@@ -671,9 +672,9 @@ final class IssConsensusModule[E <: Env[E]](
     def emitNonComplianceMetric(): Unit =
       emitNonCompliance(metrics)(
         pbftMessagePayload.from,
-        pbftMessageBlockMetadata.epochNumber,
-        pbftMessagePayload.viewNumber,
-        pbftMessageBlockMetadata.blockNumber,
+        Some(pbftMessageBlockMetadata.epochNumber),
+        Some(pbftMessagePayload.viewNumber),
+        Some(pbftMessageBlockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
       )
 

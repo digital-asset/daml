@@ -71,18 +71,17 @@ final case class OrderingRequestBatch private (
   private def orderingRequestToProtoV30(
       orderingRequest: OrderingRequest,
       traceContext: Option[String],
-  ): v30.OrderingRequest = v30.OrderingRequest.of(
+  ): v30.OrderingRequest = v30.OrderingRequest(
     traceContext = traceContext.getOrElse(""),
     orderingRequest.tag,
     orderingRequest.payload,
     orderingRequest.orderingStartInstant.map(i =>
-      com.google.protobuf.timestamp.Timestamp
-        .of(i.getEpochSecond, i.getNano)
+      com.google.protobuf.timestamp.Timestamp(i.getEpochSecond, i.getNano)
     ),
   )
 
   def toProtoV30: v30.Batch =
-    v30.Batch.of(
+    v30.Batch(
       requests.map { orderingRequest =>
         orderingRequestToProtoV30(
           orderingRequest.value,
@@ -139,12 +138,8 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
   override def versioningTable: framework.data.OrderingRequestBatch.VersioningTable =
     VersioningTable(
       SupportedVersions.ProtoData ->
-        VersionedProtoCodec(
-          SupportedVersions.CantonProtocol
-        )(v30.Batch)(
-          supportedProtoVersion(_)(
-            fromProtoV30
-          ),
+        VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.Batch)(
+          supportedProtoVersion(_)(fromProtoV30),
           _.toProtoV30,
         )
     )

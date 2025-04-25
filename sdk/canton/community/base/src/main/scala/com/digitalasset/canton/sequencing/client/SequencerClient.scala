@@ -415,9 +415,10 @@ abstract class SequencerClientImpl(
 
         // Snapshot used both for cost computation and signing the submission request
         val syncCryptoApi = syncCryptoClient.currentSnapshotApproximation
+        val snapshot = syncCryptoApi.ipsSnapshot
         for {
           cost <- EitherT.liftF(
-            trafficStateController.flatTraverse(_.computeCost(batch, syncCryptoApi.ipsSnapshot))
+            trafficStateController.flatTraverse(_.computeCost(batch, snapshot))
           )
           requestE = mkRequestE(cost)
           request <- EitherT.fromEither[FutureUnlessShutdown](requestE)
@@ -425,6 +426,17 @@ abstract class SequencerClientImpl(
           _ <- EitherT.fromEither[FutureUnlessShutdown](
             checkRequestSize(request, synchronizerParams.maxRequestSize)
           )
+          _ <- SubmissionRequestValidations
+            .checkSenderAndRecipientsAreRegistered(request, snapshot)
+            .leftMap {
+              case SubmissionRequestValidations.MemberCheckError(
+                    unregisteredRecipients,
+                    unregisteredSenders,
+                  ) =>
+                SendAsyncClientError.RequestInvalid(
+                  s"Unregistered recipients: $unregisteredRecipients, unregistered senders: $unregisteredSenders"
+                )
+            }
           _ <- trackSend
           _ = recorderO.foreach(_.recordSubmission(request))
           _ <- performSend(

@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusSignatureVerifier
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
@@ -31,8 +34,10 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.util.{Failure, Success}
 
 final class StateTransferMessageValidator[E <: Env[E]](
-    override val loggerFactory: NamedLoggerFactory
-) extends NamedLogging {
+    metrics: BftOrderingMetrics,
+    override val loggerFactory: NamedLoggerFactory,
+)(implicit mc: MetricsContext)
+    extends NamedLogging {
 
   private val signatureVerifier = new IssConsensusSignatureVerifier[E]()
 
@@ -136,6 +141,13 @@ final class StateTransferMessageValidator[E <: Env[E]](
           )
           None
         case Success(Left(errors)) =>
+          emitNonCompliance(metrics)(
+            unverifiedMessage.from,
+            epoch = None,
+            view = None,
+            block = None,
+            metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
+          )
           logger.warn(
             s"Message $unverifiedMessage from ${unverifiedMessage.from} failed verified, dropping: $errors"
           )
@@ -164,13 +176,19 @@ final class StateTransferMessageValidator[E <: Env[E]](
           StateTransferMessage.BlockVerified(commitCertificate, from)
         )
       case Success(Left(errors)) =>
-        // TODO(#23313) emit metrics
+        val blockMetadata = commitCertificate.prePrepare.message.blockMetadata
         logger.warn(
           s"State transfer: commit certificate from '$from' failed signature verification, dropping: $errors"
         )
+        emitNonCompliance(metrics)(
+          from,
+          Some(blockMetadata.epochNumber),
+          view = None,
+          Some(blockMetadata.blockNumber),
+          metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
+        )
         None
       case Failure(exception) =>
-        // TODO(#23313) emit metrics
         logger.warn(
           s"State transfer: commit certificate from '$from' could not be verified, dropping",
           exception,

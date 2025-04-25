@@ -36,7 +36,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SupportedVersions,
 }
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
-import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.AvailabilityMessage
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -125,7 +124,7 @@ object Availability {
       override protected val companionObj: RemoteBatch.type = RemoteBatch
 
       protected override def toProtoV30: v30.AvailabilityMessage =
-        v30.AvailabilityMessage.of(
+        v30.AvailabilityMessage(
           v30.AvailabilityMessage.Message.StoreRequest(
             v30.StoreRequest(batchId.hash.getCryptographicEvidence, Some(batch.toProtoV30))
           )
@@ -139,14 +138,15 @@ object Availability {
 
       override def name: String = "RemoteBatch"
 
-      override def versioningTable: VersioningTable = VersioningTable(
-        SupportedVersions.ProtoData -> {
-          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
-            supportedProtoVersionMemoized(_)(RemoteBatch.fromProtoAvailabilityMessage),
-            _.toProtoV30,
-          )
-        }
-      )
+      override def versioningTable: VersioningTable =
+        VersioningTable(
+          SupportedVersions.ProtoData -> {
+            VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
+              supportedProtoVersionMemoized(_)(RemoteBatch.fromProtoAvailabilityMessage),
+              _.toProtoV30,
+            )
+          }
+        )
 
       def fromProtoAvailabilityMessage(from: BftNodeId, value: v30.AvailabilityMessage)(
           bytes: ByteString
@@ -198,7 +198,7 @@ object Availability {
       override protected val companionObj: RemoteBatchAcknowledged.type = RemoteBatchAcknowledged
 
       protected override def toProtoV30: v30.AvailabilityMessage =
-        v30.AvailabilityMessage.of(
+        v30.AvailabilityMessage(
           v30.AvailabilityMessage.Message.StoreResponse(
             v30.StoreResponse(
               batchId.hash.getCryptographicEvidence,
@@ -220,13 +220,9 @@ object Availability {
       override def name: String = "RemoteBatchAcknowledged"
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.AvailabilityMessage)(
-            supportedProtoVersionMemoized(_)(
-              RemoteBatchAcknowledged.fromAvailabilityMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
+            supportedProtoVersionMemoized(_)(RemoteBatchAcknowledged.fromAvailabilityMessage),
             _.toProtoV30,
           )
       )
@@ -318,8 +314,8 @@ object Availability {
 
       override protected val companionObj: FetchRemoteBatchData.type = FetchRemoteBatchData
 
-      protected override def toProtoV30 =
-        v30.AvailabilityMessage.of(
+      protected override def toProtoV30: v30.AvailabilityMessage =
+        v30.AvailabilityMessage(
           v30.AvailabilityMessage.Message.BatchRequest(
             v30.BatchRequest(batchId.hash.getCryptographicEvidence)
           )
@@ -338,10 +334,8 @@ object Availability {
       override def name: String = "FetchRemoteBatchData"
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v34
-          )(v30.AvailabilityMessage)(
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.AvailabilityMessage)(
             supportedProtoVersionMemoized(_)(
               FetchRemoteBatchData.fromAvailabilityMessage
             ),
@@ -395,8 +389,8 @@ object Availability {
         with HasProtocolVersionedWrapper[RemoteBatchDataFetched] {
       override protected val companionObj: RemoteBatchDataFetched.type = RemoteBatchDataFetched
 
-      protected override def toProtoV30: AvailabilityMessage =
-        v30.AvailabilityMessage.of(
+      protected override def toProtoV30: v30.AvailabilityMessage =
+        v30.AvailabilityMessage(
           v30.AvailabilityMessage.Message.BatchResponse(
             v30.BatchResponse(batchId.hash.getCryptographicEvidence, Some(batch.toProtoV30))
           )
