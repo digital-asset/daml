@@ -87,16 +87,19 @@ message UnassignmentView {
   string target_synchronizer_id = 3;
   com.digitalasset.canton.time.v30.TimeProof target_time_proof = 4;
   int32 target_protocol_version = 5;
-  int64 reassignment_counter = 6;
-  com.digitalasset.canton.protocol.v30.SerializableContract contract = 7;
+  repeated ActiveContract contracts = 6;
 }
 
 message AssignmentView {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
-  v30.SerializableContract contract = 2;
-  reserved 3; // bytes unassignment_result_event
-  int64 reassignment_counter = 4;
-  ReassignmentId reassignment_id = 5;
+  repeated ActiveContract contracts = 2;
+  ReassignmentId reassignment_id = 3;
+}
+
+message ActiveContract {
+  // Serialized SignedContent[SequencedEvent]
+  v30.SerializableContract contract = 1;
+  int64 reassignment_counter = 2;
 }

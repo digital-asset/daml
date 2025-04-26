@@ -464,7 +464,14 @@ object Availability {
         epochNumber: EpochNumber,
         orderedBatchIds: Seq[BatchId] = Seq.empty,
     ) extends Consensus[E]
+
+    final case class UpdateTopologyDuringStateTransfer[E <: Env[E]](
+        orderingTopology: OrderingTopology,
+        cryptoProvider: CryptoProvider[E],
+    ) extends Consensus[E]
+
     final case class Ordered(batchIds: Seq[BatchId]) extends Consensus[Nothing]
+
     final case object LocalClockTick extends Consensus[Nothing]
   }
 }

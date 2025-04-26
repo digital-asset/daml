@@ -46,6 +46,21 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
       )
     )
   }
+
+}
+
+class DbContractsTest extends AsyncWordSpec with BaseTest {
+  import DbReassignmentStore.DbContracts
+
+  "DbContracts" should {
+    "roundTrip" in {
+      val contract = ReassignmentStoreTest.contract
+
+      DbContracts.tryDeserializeOne(
+        DbContracts.serializeOne(testedProtocolVersion)(contract)
+      ) shouldBe contract
+    }
+  }
 }
 
 class ReassignmentStoreTestH2 extends DbReassignmentStoreTest with H2Test

@@ -284,12 +284,25 @@ object Sequencer extends HasLoggerName {
     * that received the submission request. Inner signature is the signature of the member from
     * which the submission request originated.
     *
-    * ┌─────────────────┐ ┌────────────┐ │SenderSigned │ │Sequencer │ ┌─────────────────┐ │
-    * ┌──────────────┤ │ │ │Sender │signs │ │Submission │sends │ │ │(e.g participant)├───────►│
-    * │Request ├──────►│ │ └─────────────────┘ └──┴──────────────┘ └─────┬──────┘ │ │signs ▼
-    * ┌──────────────────────┐ │SequencerSigned │ │ ┌────────────────────┤ send to │ │SenderSigned │
-    * ordering│ │ ┌──────────────────┤ ◄────────┤ │ │Submission │ │ │ │Request │
-    * └─┴─┴──────────────────┘
+    * {{{
+    *                            ┌─────────────────┐       ┌────────────┐
+    *                            │SenderSigned     │       │Sequencer   │
+    * ┌─────────────────┐        │  ┌──────────────┤       │            │
+    * │Sender           │signs   │  │Submission    │sends  │            │
+    * │(e.g participant)├───────►│  │Request       ├──────►│            │
+    * └─────────────────┘        └──┴──────────────┘       └─────┬──────┘
+    *                                                            │
+    *                                                            │signs
+    *                                                            ▼
+    *                                                 ┌──────────────────────┐
+    *                                                 │SequencerSigned       │
+    *                                                 │ ┌────────────────────┤
+    *                                         send to │ │SenderSigned        │
+    *                                         ordering│ │ ┌──────────────────┤
+    *                                        ◄────────┤ │ │Submission        │
+    *                                                 │ │ │Request           │
+    *                                                 └─┴─┴──────────────────┘
+    * }}}
     */
   type SignedOrderingRequest = SequencerSigned[SubmissionRequest]
 

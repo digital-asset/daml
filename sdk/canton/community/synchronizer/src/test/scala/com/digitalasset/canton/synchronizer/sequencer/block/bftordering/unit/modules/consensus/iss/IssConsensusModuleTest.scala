@@ -786,11 +786,12 @@ class IssConsensusModuleTest
                 Map(
                   myId -> NodeActiveAt(
                     timestamp = TopologyActivationTime(CantonTimestamp.Epoch),
-                    epochNumber = Some(aStartEpochNumber),
-                    firstBlockNumberInEpoch = Some(aStartEpoch.startBlockNumber),
-                    epochTopologyQueryTimestamp = Some(aStartEpoch.topologyActivationTime),
-                    epochCouldAlterOrderingTopology = None,
+                    startEpochNumber = Some(aStartEpochNumber),
+                    firstBlockNumberInStartEpoch = Some(aStartEpoch.startBlockNumber),
+                    startEpochTopologyQueryTimestamp = Some(aStartEpoch.topologyActivationTime),
+                    startEpochCouldAlterOrderingTopology = None,
                     previousBftTime = None,
+                    previousEpochTopologyQueryTimestamp = None,
                   )
                 )
               )

@@ -16,11 +16,12 @@ sealed trait ReassignmentRef {
 object ReassignmentRef {
 
   /** Used when submitting an unassignment (the reassignmentId is not yet known) */
-  final case class ContractIdRef(contractId: LfContractId) extends ReassignmentRef
+  final case class ContractIdRef(contractIds: Set[LfContractId]) extends ReassignmentRef
 
   /** Used when submitting an assignment */
   final case class ReassignmentIdRef(reassignmentId: ReassignmentId) extends ReassignmentRef
 
-  def apply(cid: LfContractId): ReassignmentRef = ContractIdRef(cid)
+  def apply(cids: Set[LfContractId]): ReassignmentRef = ContractIdRef(cids)
+  def apply(cid: LfContractId): ReassignmentRef = ContractIdRef(Set(cid))
   def apply(rid: ReassignmentId): ReassignmentRef = ReassignmentIdRef(rid)
 }

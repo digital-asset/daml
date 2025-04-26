@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.{
   ContractDataMismatch,
-  InconsistentReassignmentCounter,
+  InconsistentReassignmentCounters,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
   ReassignmentDataCompleted,
   UnassignmentDataNotFound,
@@ -111,8 +111,7 @@ private[reassignment] class AssignmentValidation(
 
     } yield AssignmentValidationResult(
       rootHash = assignmentRequest.rootHash,
-      contract = assignmentRequest.contract,
-      reassignmentCounter = assignmentRequest.reassignmentCounter,
+      contracts = assignmentRequest.contracts,
       submitterMetadata = assignmentRequest.submitterMetadata,
       reassignmentId = reassignmentId,
       isReassigningParticipant = isReassigningParticipant,
@@ -224,7 +223,7 @@ private[reassignment] class AssignmentValidation(
     )
 
     val contract = Validated.condNec(
-      unassignmentRequest.contract == assignmentRequest.contract,
+      unassignmentRequest.contracts.contracts.toSeq == assignmentRequest.contracts.contracts.toSeq,
       (),
       ContractDataMismatch(reassignmentId),
     )
@@ -240,15 +239,19 @@ private[reassignment] class AssignmentValidation(
       ),
     )
 
-    val reassignmentCounter = Validated.condNec(
-      assignmentRequest.reassignmentCounter == unassignmentData.reassignmentCounter,
-      (),
-      InconsistentReassignmentCounter(
-        reassignmentId,
-        assignmentRequest.reassignmentCounter,
-        unassignmentData.reassignmentCounter,
-      ),
-    )
+    val reassignmentCounter = {
+      val declaredCounters = assignmentRequest.contracts.contractIdCounters
+      val expectedCounters = unassignmentData.unassignmentRequest.contracts.contractIdCounters
+      Validated.condNec(
+        declaredCounters == expectedCounters,
+        (),
+        InconsistentReassignmentCounters(
+          reassignmentId,
+          declaredCounters.diff(expectedCounters).toMap,
+          expectedCounters.diff(declaredCounters).toMap,
+        ),
+      )
+    }
     Seq(
       reassigningParticipants,
       contract,

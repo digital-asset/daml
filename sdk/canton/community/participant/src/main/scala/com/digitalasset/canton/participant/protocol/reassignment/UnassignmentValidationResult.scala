@@ -40,11 +40,6 @@ final case class UnassignmentValidationResult(
     validationResult: ValidationResult,
 ) extends ReassignmentValidationResult {
   val rootHash = fullTree.rootHash
-  val contractId = fullTree.contractId
-  val reassignmentCounter = fullTree.reassignmentCounter
-  val contract = fullTree.contract
-  val templateId = contract.rawContractInstance.contractInstance.unversioned.template
-  val packageName = contract.rawContractInstance.contractInstance.unversioned.packageName
   val submitterMetadata = fullTree.submitterMetadata
   val targetSynchronizer = fullTree.targetSynchronizer
   val stakeholders = fullTree.stakeholders.all
@@ -60,19 +55,21 @@ final case class UnassignmentValidationResult(
   def metadataResultET: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
     validationResult.metadataResultET
   def validationErrors: Seq[ReassignmentValidationError] = validationResult.validationErrors
+  def contracts = fullTree.contracts
 
   def commitSet = CommitSet(
     archivals = Map.empty,
     creations = Map.empty,
-    unassignments = Map(
-      contractId -> CommitSet
-        .UnassignmentCommit(
-          targetSynchronizer,
-          stakeholders,
-          reassignmentCounter,
-        )
-    ),
     assignments = Map.empty,
+    unassignments = (contracts.contractIdCounters
+      .map { case (contractId, reassignmentCounter) =>
+        (
+          contractId,
+          CommitSet.UnassignmentCommit(targetSynchronizer, stakeholders, reassignmentCounter),
+        )
+      })
+      .toMap
+      .forgetNE,
   )
 
   def createReassignmentAccepted(
@@ -107,18 +104,23 @@ final case class UnassignmentValidationResult(
         sourceSynchronizer = reassignmentId.sourceSynchronizer,
         targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
-        reassignmentCounter = reassignmentCounter.unwrap,
         unassignId = reassignmentId.unassignmentTs,
         isReassigningParticipant = isReassigningParticipant,
       ),
-      reassignment = Reassignment.Unassign(
-        contractId = contractId,
-        templateId = templateId,
-        packageName = packageName,
-        stakeholders = stakeholders.toList,
-        assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
-      ),
+      reassignment =
+        Reassignment.Batch(contracts.contracts.zipWithIndex.map { case (reassign, idx) =>
+          Reassignment.Unassign(
+            contractId = reassign.contract.contractId,
+            templateId = reassign.templateId,
+            packageName = reassign.packageName,
+            stakeholders = contracts.stakeholders.all,
+            assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
+            reassignmentCounter = reassign.counter.unwrap,
+            nodeId = idx,
+          )
+        }),
       recordTime = reassignmentId.unassignmentTs,
+      synchronizerId = reassignmentId.sourceSynchronizer.unwrap,
     )
 }
 

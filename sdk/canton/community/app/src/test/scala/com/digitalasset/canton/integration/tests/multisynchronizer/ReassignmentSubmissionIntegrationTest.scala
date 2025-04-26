@@ -176,7 +176,25 @@ sealed trait ReassignmentSubmissionIntegrationTest
         .submit_unassign_with_format(observer1, Seq(iou.id.toLf), daId, acmeId, eventFormat = None)
 
       unassigned.reassignment.events shouldBe empty
+  }
 
+  "check that we can reassign two contracts in one command" in { implicit env =>
+    import env.*
+
+    val iou1 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)
+    val iou2 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer1)
+
+    val (unassigned, assigned) = participant1.ledger_api.commands.submit_reassign(
+      signatory,
+      Seq(iou1.id.toLf, iou2.id.toLf),
+      daId,
+      acmeId,
+    )
+
+    unassigned.unassignId shouldBe assigned.unassignId
+
+    unassigned.events.size shouldBe 2
+    assigned.events.size shouldBe 2
   }
 }
 

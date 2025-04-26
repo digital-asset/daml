@@ -560,19 +560,16 @@ final class GeneratorsData(
   implicit val assignmentViewArb: Arbitrary[AssignmentView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
+      contracts <- Arbitrary.arbitrary[ContractsReassignmentBatch]
       reassignmentId <- Arbitrary.arbitrary[ReassignmentId]
-      reassignmentCounter <- reassignmentCounterGen
-
       hashOps = TestHash // Not used for serialization
 
     } yield AssignmentView
       .create(hashOps)(
         salt,
         reassignmentId,
-        contract,
+        contracts,
         targetProtocolVersion,
-        reassignmentCounter,
       )
       .value
   )
@@ -581,23 +578,21 @@ final class GeneratorsData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
 
-      contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
+      contracts <- Arbitrary.arbitrary[ContractsReassignmentBatch]
 
       targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
       timeProof <- timeProofArb(protocolVersion).arbitrary
-      reassignmentCounter <- reassignmentCounterGen
 
       hashOps = TestHash // Not used for serialization
 
     } yield UnassignmentView
       .create(hashOps)(
         salt,
-        contract,
+        contracts,
         targetSynchronizerId,
         timeProof,
         sourceProtocolVersion,
         targetProtocolVersion,
-        reassignmentCounter,
       )
   )
 
