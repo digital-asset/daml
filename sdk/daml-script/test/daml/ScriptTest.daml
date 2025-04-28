@@ -388,13 +388,13 @@ tupleKey = do
 tree : Script ()
 tree = do
   p1 <- allocateParty "p1"
-  TransactionTree [CreatedEvent (Created cid arg)] <- submitTree p1 (createCmd (T p1 p1))
+  TransactionTree [CreatedEvent (Created cid arg)] _ <- submitTree p1 (createCmd (T p1 p1))
   fromAnyTemplate arg === Some (T p1 p1)
   let Some cid' = fromAnyContractId @T cid
   optT <- queryContractId p1 cid'
   optT === Some (T p1 p1)
   cid <- submit p1 (createCmd (MessageSize p1))
-  TransactionTree [ExercisedEvent ex] <- submitTree p1 (exerciseCmd cid (CreateN 3))
+  TransactionTree [ExercisedEvent ex] _ <- submitTree p1 (exerciseCmd cid (CreateN 3))
   fromAnyContractId @MessageSize ex.contractId === Some cid
   let [CreatedEvent c1, CreatedEvent c2, CreatedEvent c3] = ex.childEvents
   fromAnyTemplate c1.argument === Some (MessageSize p1)

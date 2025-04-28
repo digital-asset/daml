@@ -84,7 +84,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             childEvents,
           ) =>
         for {
-          evs <- childEvents.traverse(translateTreeEvent(_))
+          evs <- childEvents.traverse(translateTreeEvent)
           anyChoice <- fromAnyChoice(
             lookupChoice,
             translator,
@@ -106,11 +106,19 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           ),
         )
     }
+    def translateTimeRange(timeRange: Time.Range): SValue =
+      record(
+        scriptIds.damlScriptModule("DA.Time", "Range"),
+        ("min", STimestamp(timeRange.min)),
+        ("max", STimestamp(timeRange.max)),
+      )
     for {
-      events <- tree.rootEvents.traverse(translateTreeEvent(_)): Either[String, List[SValue]]
+      events <- tree.rootEvents.traverse(translateTreeEvent): Either[String, List[SValue]]
+      timeBoundaries = tree.timeBoundaries.map(translateTimeRange)
     } yield record(
       damlTree("TransactionTree"),
       ("rootEvents", SList(events.to(FrontStack))),
+      ("timeBoundaries", SOptional(timeBoundaries)),
     )
   }
 
@@ -269,7 +277,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                 .validateValue(exercised.getExerciseResult)
                 .left
                 .map(_.toString)
-              childEvents <- tree.childNodeIds(exercised).toList.traverse(convEvent(_, None))
+              childEvents <- tree.childNodeIds(exercised).traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
                 .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),

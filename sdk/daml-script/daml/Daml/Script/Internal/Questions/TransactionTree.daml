@@ -8,10 +8,12 @@ module Daml.Script.Internal.Questions.TransactionTree where
 import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total
+import DA.Time qualified as Time
 
 data TransactionTree = TransactionTree
   with
     rootEvents: [TreeEvent]
+    timeBoundaries: Optional Time.Range
   deriving Show
 
 data TreeEvent
