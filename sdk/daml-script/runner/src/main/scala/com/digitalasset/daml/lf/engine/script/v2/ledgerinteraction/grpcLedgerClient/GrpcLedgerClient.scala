@@ -607,6 +607,18 @@ class GrpcLedgerClient(
     adminClient.vetPackages(packages)
   }
 
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException(
+        "Attempted to use waitUntilVettingVisible without specifying a adminPort"
+      )
+    )
+    adminClient.waitUntilVettingVisible(packages, onParticipantUid)
+  }
+
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -616,6 +628,18 @@ class GrpcLedgerClient(
       throw new IllegalArgumentException("Attempted to use unvetDar without specifying a adminPort")
     )
     adminClient.unvetPackages(packages)
+  }
+
+  override def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException(
+        "Attempted to use waitUntilUnvettingVisible without specifying a adminPort"
+      )
+    )
+    adminClient.waitUntilUnvettingVisible(packages, onParticipantUid)
   }
 
   override def listVettedPackages()(implicit
@@ -629,4 +653,30 @@ class GrpcLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] = unsupportedOn("listAllPackages")
+
+  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException(
+        "Attempted to use exportParty without specifying a adminPort"
+      )
+    )
+    adminClient.proposePartyReplication(party, toParticipantId)
+  }
+
+  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] = {
+    val adminClient = oAdminClient.getOrElse(
+      throw new IllegalArgumentException(
+        "Attempted to use waitUntilHostingVisible without specifying a adminPort"
+      )
+    )
+    adminClient.waitUntilHostingVisible(party, onParticipantUid)
+  }
+
+  override def getParticipantUid: String = oAdminClient
+    .getOrElse(
+      throw new IllegalArgumentException(
+        "Attempted to use getParticipantUid without specifying a adminPort"
+      )
+    )
+    .participantUid
 }

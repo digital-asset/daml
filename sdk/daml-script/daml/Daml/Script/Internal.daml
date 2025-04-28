@@ -15,13 +15,14 @@ module Daml.Script.Internal
     PackageName (..)
   , listVettedPackages
   , listAllPackages
-  , unsafeVetPackages
   , vetPackages
   , vetPackagesOnParticipant
-  , unsafeUnvetPackages
   , unvetPackages
   , unvetPackagesOnParticipant
 
+  , -- Party Management
+    allocateReplicatedPartyOn
+  , allocateReplicatedPartyWithHintOn
 
   , -- Concurrent submit
     concurrently

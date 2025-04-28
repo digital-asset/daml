@@ -267,10 +267,20 @@ trait ScriptLedgerClient {
       mat: Materializer,
   ): Future[Unit]
 
+  def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit]
+
   def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
+  ): Future[Unit]
+
+  def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
   ): Future[Unit]
 
   def listVettedPackages()(implicit
@@ -284,4 +294,10 @@ trait ScriptLedgerClient {
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]]
+
+  def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit]
+
+  def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit]
+
+  def getParticipantUid: String
 }

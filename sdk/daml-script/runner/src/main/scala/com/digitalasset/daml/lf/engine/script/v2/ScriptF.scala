@@ -518,25 +518,45 @@ object ScriptF {
   }
   final case class AllocParty(
       idHint: String,
-      participant: Option[Participant],
+      participants: List[Participant],
   ) extends Cmd {
     override def execute(env: Env)(implicit
         ec: ExecutionContext,
         mat: Materializer,
         esf: ExecutionSequencerFactory,
-    ): Future[SExpr] =
-      for {
-        client <- env.clients.getParticipant(participant) match {
+    ): Future[SExpr] = {
+      def replicateParty(
+          party: Party,
+          fromClient: ScriptLedgerClient,
+          toParticipant: Participant,
+      ): Future[Unit] = for {
+        toClient <- env.clients.getParticipant(Some(toParticipant)) match {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
-        party <- client.allocateParty(idHint)
+        _ <- toClient.proposePartyReplication(party, toClient.getParticipantUid)
+        _ <- fromClient.proposePartyReplication(party, toClient.getParticipantUid)
+        _ <- Future.traverse(env.clients.participants.values)(client =>
+          client.waitUntilHostingVisible(party, toClient.getParticipantUid)
+        )
+      } yield ()
 
+      val mainParticipant = participants.headOption
+      val additionalParticipants = if (participants.isEmpty) List.empty else participants.tail
+      for {
+        mainClient <- env.clients.getParticipant(mainParticipant) match {
+          case Right(client) => Future.successful(client)
+          case Left(err) => Future.failed(new RuntimeException(err))
+        }
+        party <- mainClient.allocateParty(idHint)
+        _ <- Future.traverse(additionalParticipants)(toParticipant =>
+          replicateParty(party, mainClient, toParticipant)
+        )
       } yield {
-        participant.foreach(env.addPartyParticipantMapping(party, _))
+        mainParticipant.foreach(env.addPartyParticipantMapping(party, _))
         SEValue(SParty(party))
       }
-
+    }
   }
   final case class ListKnownParties(
       participant: Option[Participant]
@@ -850,6 +870,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.vetPackages(packages)
+        _ <- Future.traverse(env.clients.participants.values)(
+          _.waitUntilVettingVisible(packages, client.getParticipantUid)
+        )
       } yield SEValue(SUnit)
   }
 
@@ -865,6 +888,9 @@ object ScriptF {
       for {
         client <- Converter.toFuture(env.clients.getParticipant(participant))
         _ <- client.unvetPackages(packages)
+        _ <- Future.traverse(env.clients.participants.values)(
+          _.waitUntilUnvettingVisible(packages, client.getParticipantUid)
+        )
       } yield SEValue(SUnit)
   }
 
@@ -1075,13 +1101,23 @@ object ScriptF {
       case _ => Left(s"Expected QueryContractKey payload but got $v")
     }
 
-  private def parseAllocParty(v: SValue): Either[String, AllocParty] =
+  private def parseAllocPartyV1(v: SValue): Either[String, AllocParty] =
     v match {
       case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- Converter.toOptionalParticipantName(participantName)
           idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
-        } yield AllocParty(idHint, participantName)
+        } yield AllocParty(idHint, participantName.toList)
+      case _ => Left(s"Expected AllocParty payload but got $v")
+    }
+
+  private def parseAllocPartyV2(v: SValue): Either[String, AllocParty] =
+    v match {
+      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantNames)) =>
+        for {
+          participantNames <- Converter.toParticipantNames(participantNames)
+          idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
+        } yield AllocParty(idHint, participantNames)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 
@@ -1089,7 +1125,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participantName)) =>
         for {
-          participantName <- Converter.toParticipantName(participantName)
+          participantName <- Converter.toOptionalParticipantName(participantName)
         } yield ListKnownParties(participantName)
       case _ => Left(s"Expected ListKnownParties payload but got $v")
     }
@@ -1160,7 +1196,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(user, rights, participant)) =>
         for {
           user <- Converter.toUser(user)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
           rights <- Converter.toList(rights, Converter.toUserRight)
         } yield CreateUser(user, rights, participant)
       case _ => Left(s"Exected CreateUser payload but got $v")
@@ -1171,7 +1207,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield GetUser(userId, participant)
       case _ => Left(s"Expected GetUser payload but got $v")
     }
@@ -1181,7 +1217,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield DeleteUser(userId, participant)
       case _ => Left(s"Expected DeleteUser payload but got $v")
     }
@@ -1190,7 +1226,7 @@ object ScriptF {
     v match {
       case SRecord(_, _, ArrayList(participant)) =>
         for {
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield ListAllUsers(participant)
       case _ => Left(s"Expected ListAllUsers payload but got $v")
     }
@@ -1201,7 +1237,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield GrantUserRights(userId, rights, participant)
       case _ => Left(s"Expected GrantUserRights payload but got $v")
     }
@@ -1212,7 +1248,7 @@ object ScriptF {
         for {
           userId <- Converter.toUserId(userId)
           rights <- Converter.toList(rights, Converter.toUserRight)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield RevokeUserRights(userId, rights, participant)
       case _ => Left(s"Expected RevokeUserRights payload but got $v")
     }
@@ -1222,7 +1258,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(userId, participant)) =>
         for {
           userId <- Converter.toUserId(userId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield ListUserRights(userId, participant)
       case _ => Left(s"Expected ListUserRights payload but got $v")
     }
@@ -1244,7 +1280,7 @@ object ScriptF {
       case SRecord(_, _, ArrayList(packages, participant)) =>
         for {
           packageIds <- Converter.toList(packages, toReadablePackageId)
-          participant <- Converter.toParticipantName(participant)
+          participant <- Converter.toOptionalParticipantName(participant)
         } yield wrap(packageIds, participant)
       case _ => Left(s"Expected (Vet|Unvet)Packages payload but got $v")
     }
@@ -1293,7 +1329,8 @@ object ScriptF {
       case ("QueryInterface", 1) => parseQueryInterface(v)
       case ("QueryInterfaceContractId", 1) => parseQueryInterfaceContractId(v)
       case ("QueryContractKey", 1) => parseQueryContractKey(v)
-      case ("AllocateParty", 1) => parseAllocParty(v)
+      case ("AllocateParty", 1) => parseAllocPartyV1(v)
+      case ("AllocateParty", 2) => parseAllocPartyV2(v)
       case ("ListKnownParties", 1) => parseListKnownParties(v)
       case ("GetTime", 1) => parseEmpty(GetTime())(v)
       case ("SetTime", 1) => parseSetTime(v)

@@ -1006,6 +1006,12 @@ class IdeLedgerClient(
     updateCompiledPackages()
   }
 
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] =
+    Future.successful(())
+
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -1020,6 +1026,12 @@ class IdeLedgerClient(
     updateCompiledPackages()
   }
 
+  override def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] =
+    Future.successful(())
+
   override def listVettedPackages()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -1033,4 +1045,12 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
+
+  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
+    Future.successful(())
+
+  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+    Future.successful(())
+
+  override def getParticipantUid: String = ""
 }
