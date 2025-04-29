@@ -180,13 +180,18 @@ object ValueGenerators {
         crypto.Hash.underlyingHashLength,
         arbitrary[Byte],
       ) map crypto.Hash.assertFromByteArray
-  private val genSuffixes: Gen[Bytes] = for {
+  private val genSuffixesV1: Gen[Bytes] = for {
     sz <- Gen.chooseNum(0, ContractId.V1.MaxSuffixLength)
     ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
   } yield Bytes fromByteArray ab
 
+  private val genSuffixesV2: Gen[Bytes] = for {
+    sz <- Gen.chooseNum(0, ContractId.V2.MaxSuffixLength)
+    ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
+  } yield Bytes fromByteArray ab
+
   private val cidV1Gen: Gen[ContractId.V1] =
-    Gen.zip(genHash, genSuffixes) map { case (h, b) =>
+    Gen.zip(genHash, genSuffixesV1) map { case (h, b) =>
       ContractId.V1.assertBuild(h, b)
     }
 
@@ -195,7 +200,7 @@ object ValueGenerators {
       Gen
         .containerOfN[Array, Byte](ContractId.V2.localSize, arbitrary[Byte])
         .map(Bytes.fromByteArray),
-      genSuffixes,
+      genSuffixesV2,
     )
     .map { case (local, suffix) =>
       ContractId.V2.assertBuild(local, suffix)
