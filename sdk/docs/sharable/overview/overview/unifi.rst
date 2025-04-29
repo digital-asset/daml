@@ -1,11 +1,21 @@
 Unifi
-=====
+#####
 
-Overview
---------
+.. note::
+   * CREATE A VIDEO / ANIMATED RECORDING
+     
+   * REVIEW the open source vs enterprise split.
+     right now its very canton focused.
+     zero about utilties
 
-- CREATE A VIDEO / ANIMATED RECORDING
-- REVIEW the open source vs enterprise split. right now its very canton focused. zero about utilties
+   * Review the downloading section.
+     Add CN artifacts if there are any offerings on that,
+     refer to https://docs.sync.global/ for OSS docs
+
+
+
+What is Unifi?
+**************
 
 
 Unifi is the enterprise platform built for all enterprises navigating the Canton Network.
@@ -36,7 +46,7 @@ for high volume applications.
 
 
 Unifi or Open Source
----------------------
+********************
 
 The Canton distributed ledger is included with Unifi, or available as open source. Which role the application takes
 depends on the configuration. The main administration interface of the Canton application is the embedded console, which
@@ -90,8 +100,8 @@ Please follow below instructions in order to obtain your copy of Canton.
 
 .. _downloading:
 
-Downloading the Enterprise Edition
-----------------------------------
+Downloading Unifi
+*****************
 
 Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
 respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__, or you can use
@@ -99,7 +109,7 @@ our Canton Enterprise Docker images as described in our :ref:`Docker instruction
 
 
 Downloading the Open Source Edition
------------------------------------
+***********************************
 
 The Open Source release is available from `Github <https://github.com/digital-asset/daml/releases/latest>`__.
 You can also use our Canton Docker images by following our :ref:`Docker instructions <docker-instructions>`.
