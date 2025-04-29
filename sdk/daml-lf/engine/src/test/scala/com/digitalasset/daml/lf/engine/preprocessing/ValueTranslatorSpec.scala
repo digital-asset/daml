@@ -607,7 +607,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
     }
 
-    "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
+    "reject non suffixed V1/V2 Contract IDs when requireContractIdSuffix is true" in {
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
@@ -620,7 +620,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         )
       val legalCidV2 = ContractId.V2.assertBuild(
         Bytes.fromByteArray(Array.fill[Byte](ContractId.V2.localSize)(0x12.toByte)),
-        Bytes.assertFromString("00"),
+        Bytes.assertFromString("80"),
       )
       val illegalCidV1 =
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
@@ -628,10 +628,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         Time.Timestamp.Epoch,
         crypto.Hash.hashPrivateKey("an illegal Contract ID"),
       )
+      val anotherIllegalCidV2 =
+        ContractId.V2.assertBuild(illegalCidV2.local, Bytes.assertFromString("00"))
       val failureV1 =
         Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCidV1))
       val failureV2 =
         Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(illegalCidV2))
+      val failureAnotherV2 =
+        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(anotherIllegalCidV2))
 
       forEvery(testCasesForCid(legalCidV1))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
@@ -644,6 +648,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
       forEvery(testCasesForCid(illegalCidV2))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failureV2
+      )
+      forEvery(testCasesForCid(anotherIllegalCidV2))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failureAnotherV2
       )
     }
 

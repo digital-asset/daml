@@ -15,6 +15,7 @@ import org.scalatest.wordspec.AnyWordSpec
 class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
 
   private[this] val txVersion = TransactionVersion.maxVersion
+  private[this] val contractIdVersion = ContractIdVersion.V2
 
   private[this] val transactionSeed = crypto.Hash.hashPrivateKey("PartialTransactionSpec")
   private[this] val pkgName = data.Ref.PackageName.assertFromString("-package-name-")
@@ -57,7 +58,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           submissionTime = data.Time.Timestamp.Epoch,
           contract = contract,
           optLocation = None,
-          contractIdVersion = ContractIdVersion.V1,
+          contractIdVersion = contractIdVersion,
         )
         .toOption
         .get

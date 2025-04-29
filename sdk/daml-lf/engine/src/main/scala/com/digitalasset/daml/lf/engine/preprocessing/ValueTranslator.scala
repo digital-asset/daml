@@ -51,7 +51,7 @@ private[lf] final class ValueTranslator(
         if (cid.suffix.isEmpty)
           throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
       case cid: ContractId.V2 =>
-        if (cid.suffix.isEmpty)
+        if (!cid.isAbsolute)
           throw Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(cid)
     }
     else { _ => () }
