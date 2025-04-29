@@ -15,14 +15,6 @@ The bounds for Time are 0001\-01\-01T00\:00\:00\.000000Z and
 Data Types
 ----------
 
-.. _type-da-time-range-81490:
-
-**data** `Range <type-da-time-range-81490_>`_
-
-  Defines a range of time with an inclusive lower and upper time bound
-
-  **instance** :ref:`Show <class-ghc-show-show-65360>` `Range <type-da-time-range-81490_>`_
-
 .. _type-da-time-types-reltime-23082:
 
 **data** `RelTime <type-da-time-types-reltime-23082_>`_

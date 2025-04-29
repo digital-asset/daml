@@ -180,7 +180,7 @@ Data Types
          - \[`TreeEvent <type-daml-script-internal-questions-transactiontree-treeevent-1267_>`_\]
          -
        * - timeBoundaries
-         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <https://docs.daml.com/daml/stdlib/DA-Time.html#type-da-time-range-81490>`_
+         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`Range <type-daml-script-internal-questions-time-range-12652>`
          -
 
   **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` :ref:`Submit <type-daml-script-internal-questions-submit-submit-31549>` \[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` (\[:ref:`CommandResult <type-daml-script-internal-questions-commands-commandresult-15750>`\], `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_)\]
@@ -191,13 +191,13 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"rootEvents\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ \[`TreeEvent <type-daml-script-internal-questions-transactiontree-treeevent-1267_>`_\]
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <https://docs.daml.com/daml/stdlib/DA-Time.html#type-da-time-range-81490>`_)
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`Range <type-daml-script-internal-questions-time-range-12652>`)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"continue\" (:ref:`ConcurrentSubmits <type-daml-script-internal-questions-submit-concurrentsubmits-82688>` a) (\[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` (\[:ref:`CommandResult <type-daml-script-internal-questions-commands-commandresult-15750>`\], `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_)\] \-\> a)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"rootEvents\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ \[`TreeEvent <type-daml-script-internal-questions-transactiontree-treeevent-1267_>`_\]
 
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <https://docs.daml.com/daml/stdlib/DA-Time.html#type-da-time-range-81490>`_)
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`Range <type-daml-script-internal-questions-time-range-12652>`)
 
 .. _type-daml-script-internal-questions-transactiontree-treeevent-1267:
 

@@ -26,6 +26,44 @@ Data Types
 
   **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` `GetTime <type-daml-script-internal-questions-time-gettime-36498_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
 
+.. _type-daml-script-internal-questions-time-range-12652:
+
+**data** `Range <type-daml-script-internal-questions-time-range-12652_>`_
+
+  Defines a range of time with an inclusive lower and upper time bound
+
+  .. _constr-daml-script-internal-questions-time-range-98483:
+
+  `Range <constr-daml-script-internal-questions-time-range-98483_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - min
+         - `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+         -
+       * - max
+         - `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+         -
+
+  **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ `Range <type-daml-script-internal-questions-time-range-12652_>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"max\" `Range <type-daml-script-internal-questions-time-range-12652_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"min\" `Range <type-daml-script-internal-questions-time-range-12652_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"timeBoundaries\" :ref:`TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781>` (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-time-range-12652_>`_)
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"max\" `Range <type-daml-script-internal-questions-time-range-12652_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"min\" `Range <type-daml-script-internal-questions-time-range-12652_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"timeBoundaries\" :ref:`TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781>` (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-time-range-12652_>`_)
+
 .. _type-daml-script-internal-questions-time-settime-6646:
 
 **data** `SetTime <type-daml-script-internal-questions-time-settime-6646_>`_

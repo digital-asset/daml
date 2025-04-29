@@ -23,7 +23,6 @@ module DA.Time
   , time
   , convertRelTimeToMicroseconds
   , convertMicrosecondsToRelTime
-  , Range
   , isLedgerTimeLT
   , isLedgerTimeLE
   , isLedgerTimeGT
@@ -91,13 +90,6 @@ deriving instance Show RelTime
 deriving instance Additive RelTime
 deriving instance Signed RelTime
 deriving instance Bounded RelTime
-
--- | Defines a range of time with an inclusive lower and upper time bound
-data Range = Range
-  with
-    min: Time
-    max: Time
-  deriving Show
 
 -- | The minBound corresponds to 0001-01-01T00:00:00.000000Z,
 -- while the maxBound corresponds to 9999-12-31T23:59:59.999999Z.
