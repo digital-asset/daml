@@ -75,6 +75,7 @@ module Daml.Script
   , passTime
   , sleep
   , script
+  , Range(..)
   , TransactionTree(..)
   , TreeEvent(..)
   , Created(..)

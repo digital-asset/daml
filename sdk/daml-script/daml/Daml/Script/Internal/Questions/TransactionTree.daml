@@ -5,15 +5,20 @@
 
 module Daml.Script.Internal.Questions.TransactionTree where
 
-import Daml.Script.Internal.Questions.Time qualified as Time
 import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total
 
+data Range = Range
+  with
+    min: Time
+    max: Time
+  deriving Show
+
 data TransactionTree = TransactionTree
   with
     rootEvents: [TreeEvent]
-    timeBoundaries: Optional Time.Range
+    timeBoundaries: Optional Range
   deriving Show
 
 data TreeEvent

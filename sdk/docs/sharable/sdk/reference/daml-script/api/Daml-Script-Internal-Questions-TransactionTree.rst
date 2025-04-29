@@ -161,6 +161,42 @@ Data Types
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"templateId\" (`ExercisedIndexPayload <type-daml-script-internal-questions-transactiontree-exercisedindexpayload-19779_>`_ t) `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_
 
+.. _type-daml-script-internal-questions-transactiontree-range-99384:
+
+**data** `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_
+
+  .. _constr-daml-script-internal-questions-transactiontree-range-68973:
+
+  `Range <constr-daml-script-internal-questions-transactiontree-range-68973_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - min
+         - `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+         -
+       * - max
+         - `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+         -
+
+  **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"max\" `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"min\" `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_)
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"max\" `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"min\" `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_)
+
 .. _type-daml-script-internal-questions-transactiontree-transactiontree-91781:
 
 **data** `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_
@@ -180,7 +216,7 @@ Data Types
          - \[`TreeEvent <type-daml-script-internal-questions-transactiontree-treeevent-1267_>`_\]
          -
        * - timeBoundaries
-         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`Range <type-daml-script-internal-questions-time-range-12652>`
+         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_
          -
 
   **instance** :ref:`IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227>` :ref:`Submit <type-daml-script-internal-questions-submit-submit-31549>` \[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` (\[:ref:`CommandResult <type-daml-script-internal-questions-commands-commandresult-15750>`\], `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_)\]
@@ -191,13 +227,13 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"rootEvents\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ \[`TreeEvent <type-daml-script-internal-questions-transactiontree-treeevent-1267_>`_\]
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`Range <type-daml-script-internal-questions-time-range-12652>`)
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"continue\" (:ref:`ConcurrentSubmits <type-daml-script-internal-questions-submit-concurrentsubmits-82688>` a) (\[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` (\[:ref:`CommandResult <type-daml-script-internal-questions-commands-commandresult-15750>`\], `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_)\] \-\> a)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"rootEvents\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ \[`TreeEvent <type-daml-script-internal-questions-transactiontree-treeevent-1267_>`_\]
 
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`Range <type-daml-script-internal-questions-time-range-12652>`)
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"timeBoundaries\" `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Range <type-daml-script-internal-questions-transactiontree-range-99384_>`_)
 
 .. _type-daml-script-internal-questions-transactiontree-treeevent-1267:
 

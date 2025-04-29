@@ -62,10 +62,3 @@ passTime : RelTime -> Script ()
 passTime rt = do
   t <- getTime
   setTime (addRelTime t rt)
-
--- | Defines a range of time with an inclusive lower and upper time bound
-data Range = Range
-  with
-    min: Time
-    max: Time
-  deriving Show

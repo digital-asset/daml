@@ -119,7 +119,7 @@ final class ConverterSpec extends AsyncFreeSpec with Matchers with Inside {
           new PackageInterface(PartialFunction.empty),
           requireContractIdSuffix = false,
         ),
-        ScriptIds(Ref.PackageId.assertFromString("ledgerTimePackageId"), isLegacy = false),
+        ScriptIds(Ref.PackageId.assertFromString("-pkg-id-"), isLegacy = false),
         TransactionTree(List.empty, timeBoundaries),
       )
 
