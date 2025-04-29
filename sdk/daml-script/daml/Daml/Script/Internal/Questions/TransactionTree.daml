@@ -9,7 +9,7 @@ import Daml.Script.Internal.Questions.Util
 import DA.Optional
 import DA.List.Total
 
-data Range = Range
+data TimeRange = TimeRange
   with
     min: Time
     max: Time
@@ -18,7 +18,7 @@ data Range = Range
 data TransactionTree = TransactionTree
   with
     rootEvents: [TreeEvent]
-    timeBoundaries: Optional Range
+    timeBoundaries: Optional TimeRange
   deriving Show
 
 data TreeEvent

@@ -71,49 +71,49 @@ main =
 
     -- isLedgerTimeLT
     setTime timeNow
-    (lt0, TransactionTree _ (Some (Range lt0LB lt0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeNext)
+    (lt0, TransactionTree _ (Some (TimeRange lt0LB lt0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeNext)
     lt0 === True
     lt0LB === timeMin
     lt0UB === timeNow
     setTime timeNow
-    (lt1, TransactionTree _ (Some (Range lt1LB lt1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeNow)
+    (lt1, TransactionTree _ (Some (TimeRange lt1LB lt1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeNow)
     lt1 === False
     lt1LB === timeNow
     lt1UB === timeMax
     setTime timeNow
-    (lt2, TransactionTree _ (Some (Range lt2LB lt2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timePrev)
+    (lt2, TransactionTree _ (Some (TimeRange lt2LB lt2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timePrev)
     lt2 === False
     lt2LB === timePrev
     lt2UB === timeMax
     setTime timeNow
-    (lt3, TransactionTree _ (Some (Range lt3LB lt3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeMin)
+    (lt3, TransactionTree _ (Some (TimeRange lt3LB lt3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeMin)
     lt3 === False
     lt3LB === timeMin
     lt3UB === timeMax
     setTime timeNow
-    (lt4, TransactionTree _ (Some (Range lt4LB lt4UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeMax)
+    (lt4, TransactionTree _ (Some (TimeRange lt4LB lt4UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLT timeMax)
     lt4 === True
     lt4LB === timeMin
     subTime timeMax lt4UB === microseconds 1
 
     -- isLedgerTimeLE
     setTime timeNow
-    (le0, TransactionTree _ (Some (Range le0LB le0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timeNext)
+    (le0, TransactionTree _ (Some (TimeRange le0LB le0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timeNext)
     le0 === True
     le0LB === timeMin
     le0UB === timeNext
     setTime timeNow
-    (le1, TransactionTree _ (Some (Range le1LB le1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timeNow)
+    (le1, TransactionTree _ (Some (TimeRange le1LB le1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timeNow)
     le1 === True
     le1LB === timeMin
     le1UB === timeNow
     setTime timeNow
-    (le2, TransactionTree _ (Some (Range le2LB le2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timePrev)
+    (le2, TransactionTree _ (Some (TimeRange le2LB le2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timePrev)
     le2 === False
     le2LB === timeNow
     le2UB === timeMax
     setTime timeNow
-    (le3, TransactionTree _ (Some (Range le3LB le3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timeMin)
+    (le3, TransactionTree _ (Some (TimeRange le3LB le3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckLE timeMin)
     le3 === False
     subTime le3LB timeMin === microseconds 1
     le3UB === timeMax
@@ -129,22 +129,22 @@ main =
 
     -- isLedgerTimeGT
     setTime timeNow
-    (gt0, TransactionTree _ (Some (Range gt0LB gt0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timeNext)
+    (gt0, TransactionTree _ (Some (TimeRange gt0LB gt0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timeNext)
     gt0 === False
     gt0LB === timeMin
     gt0UB === timeNext
     setTime timeNow
-    (gt1, TransactionTree _ (Some (Range gt1LB gt1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timeNow)
+    (gt1, TransactionTree _ (Some (TimeRange gt1LB gt1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timeNow)
     gt1 === False
     gt1LB === timeMin
     gt1UB === timeNow
     setTime timeNow
-    (gt2, TransactionTree _ (Some (Range gt2LB gt2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timePrev)
+    (gt2, TransactionTree _ (Some (TimeRange gt2LB gt2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timePrev)
     gt2 === True
     gt2LB === timeNow
     gt2UB === timeMax
     setTime timeNow
-    (gt3, TransactionTree _ (Some (Range gt3LB gt3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timeMin)
+    (gt3, TransactionTree _ (Some (TimeRange gt3LB gt3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGT timeMin)
     gt3 === True
     subTime gt3LB timeMin === microseconds 1
     gt3UB === timeMax
@@ -160,27 +160,27 @@ main =
 
     -- isLedgerTimeGE
     setTime timeNow
-    (ge0, TransactionTree _ (Some (Range ge0LB ge0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeNext)
+    (ge0, TransactionTree _ (Some (TimeRange ge0LB ge0UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeNext)
     ge0 === False
     ge0LB === timeMin
     ge0UB === timeNow
     setTime timeNow
-    (ge1, TransactionTree _ (Some (Range ge1LB ge1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeNow)
+    (ge1, TransactionTree _ (Some (TimeRange ge1LB ge1UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeNow)
     ge1 === True
     ge1LB === timeNow
     ge1UB === timeMax
     setTime timeNow
-    (ge2, TransactionTree _ (Some (Range ge2LB ge2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timePrev)
+    (ge2, TransactionTree _ (Some (TimeRange ge2LB ge2UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timePrev)
     ge2 === True
     ge2LB === timePrev
     ge2UB === timeMax
     setTime timeNow
-    (ge3, TransactionTree _ (Some (Range ge3LB ge3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeMin)
+    (ge3, TransactionTree _ (Some (TimeRange ge3LB ge3UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeMin)
     ge3 === True
     ge3LB === timeMin
     ge3UB === timeMax
     setTime timeNow
-    (ge4, TransactionTree _ (Some (Range ge4LB ge4UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeMax)
+    (ge4, TransactionTree _ (Some (TimeRange ge4LB ge4UB))) <- submitResultAndTree alice $ exerciseCmd cid (CheckGE timeMax)
     ge4 === False
     ge4LB === timeMin
     subTime timeMax ge4UB === microseconds 1

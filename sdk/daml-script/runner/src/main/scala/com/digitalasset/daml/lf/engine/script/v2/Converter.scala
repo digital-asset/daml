@@ -108,7 +108,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
     }
     def translateTimeRange(timeRange: Time.Range): SValue =
       record(
-        damlTree("Range"),
+        damlTree("TimeRange"),
         ("min", STimestamp(timeRange.min)),
         ("max", STimestamp(timeRange.max)),
       )
