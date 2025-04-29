@@ -1286,10 +1286,10 @@ private[lf] object SBuiltinFun {
         val pkgName = srcContract.packageName
         val srcArg = srcContract.value.asInstanceOf[SRecord]
         resolvePackageName(machine, pkgName) { pkgId =>
-          val dstTmplId = srcTmplId.copy(packageId = pkgId)
+          val dstTmplId = srcTmplId.copy(pkg = pkgId)
           machine.ensurePackageIsLoaded(
             dstTmplId.packageId,
-            language.Reference.Template(dstTmplId),
+            language.Reference.Template(dstTmplId.toRef),
           ) { () =>
             ensureTemplateImplementsInterface(machine, interfaceId, coid, dstTmplId) {
               fromInterface(machine, srcTmplId, srcArg, dstTmplId) {
@@ -2248,7 +2248,7 @@ private[lf] object SBuiltinFun {
         continue = pid =>
           Control.Expression(
             SEApp(
-              SEVal(TemplateChoiceDefRef(templateId.copy(packageId = pid), choice)),
+              SEVal(TemplateChoiceDefRef(templateId.copy(pkg = pid), choice)),
               args.asScala.toArray,
             )
           ),
@@ -2398,7 +2398,7 @@ private[lf] object SBuiltinFun {
           else
             machine.ensurePackageIsLoaded(
               dstTmplId.packageId,
-              language.Reference.Template(dstTmplId),
+              language.Reference.Template(dstTmplId.toRef),
             ) { () =>
               importValue(
                 machine,
@@ -2467,7 +2467,7 @@ private[lf] object SBuiltinFun {
         machine.lookupContract(coid)(coinst =>
           machine.ensurePackageIsLoaded(
             coinst.template.packageId,
-            language.Reference.Template(coinst.template),
+            language.Reference.Template(coinst.template.toRef),
           ) { () =>
             importValue(machine, coinst.template, coinst.arg) { templateArg =>
               getContractInfo(

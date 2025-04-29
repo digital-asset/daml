@@ -285,8 +285,8 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
 
     "accepts valid identifiers" in {
       Identifier.fromString("foo:bar:baz").toOption.get shouldBe Identifier(
-        packageId = PackageId.assertFromString("foo"),
-        qualifiedName = QualifiedName.assertFromString("bar:baz"),
+        PackageId.assertFromString("foo"),
+        QualifiedName.assertFromString("bar:baz"),
       )
     }
   }
@@ -452,8 +452,9 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
     }
   }
 
-  private def testOrdered[X <: Ordered[X]](name: String, elems: Iterable[X]): Unit =
+  private def testOrdered[X: Ordering](name: String, elems: Iterable[X]): Unit =
     s"$name#compare" - {
+      import Ordered.orderingToOrdered
       "agrees with equality" in {
         for {
           x <- elems

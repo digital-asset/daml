@@ -1897,7 +1897,7 @@ object UpgradeTest {
           Some(
             ImmArray(
               ApiCommand.Exercise(
-                ifaceId,
+                ifaceId.toRef,
                 globalContractId,
                 ChoiceName.assertFromString("InterfaceChoice"),
                 ValueUnit,
@@ -1919,7 +1919,7 @@ object UpgradeTest {
           Some(
             ImmArray(
               ApiCommand.Create(
-                v1TplId,
+                v1TplId.toRef,
                 globalContractArg,
               ),
               ApiCommand.ExerciseByKey(
@@ -1934,7 +1934,7 @@ object UpgradeTest {
           Some(
             ImmArray(
               ApiCommand.Exercise(
-                clientTplId,
+                clientTplId.toRef,
                 clientContractId,
                 ChoiceName.assertFromString(
                   s"${operation.name}${catchBehavior.name}Global${templateName}"
@@ -1952,7 +1952,7 @@ object UpgradeTest {
           Some(
             ImmArray(
               ApiCommand.Exercise(
-                clientTplId,
+                clientTplId.toRef,
                 clientContractId,
                 ChoiceName.assertFromString(
                   s"${operation.name}${catchBehavior.name}Local${templateName}"

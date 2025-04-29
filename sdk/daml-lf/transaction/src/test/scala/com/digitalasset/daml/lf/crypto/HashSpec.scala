@@ -1098,12 +1098,12 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
 
     "produce an identical hash to the same template in a different package" in {
       val h1 = Hash.assertHashContractKey(
-        templateId.copy(packageId = Ref.PackageId.assertFromString("package-1")),
+        templateId.copy(pkg = Ref.PackageId.assertFromString("package-1")),
         packageName0,
         ValueTrue,
       )
       val h2 = Hash.assertHashContractKey(
-        templateId.copy(packageId = Ref.PackageId.assertFromString("package-2")),
+        templateId.copy(pkg = Ref.PackageId.assertFromString("package-2")),
         packageName0,
         ValueTrue,
       )

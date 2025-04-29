@@ -99,7 +99,7 @@ private[engine] final class Preprocessor(
   ): List[(Ref.PackageId, language.Reference)] =
     tyRefs
       .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
-        val pkgId = tycon.pkgRef match {
+        val pkgId = tycon.pkg match {
           case Ref.PackageRef.Name(name) =>
             pkgResolution.get(name)
           case Ref.PackageRef.Id(id) =>
@@ -109,7 +109,7 @@ private[engine] final class Preprocessor(
           case Some(id) if !compiledPackages.contains(id) && !acc.contains(id) =>
             acc.updated(
               id,
-              language.Reference.TemplateOrInterface(Ref.TypeConName(id, tycon.qName)),
+              language.Reference.TemplateOrInterface(tycon.copy(Ref.PackageRef.Id(id))),
             )
           case _ =>
             acc
@@ -126,7 +126,7 @@ private[engine] final class Preprocessor(
         if (compiledPackages.contains(pkgId) || acc.contains(pkgId))
           acc
         else
-          acc.updated(pkgId, language.Reference.TemplateOrInterface(tycon))
+          acc.updated(pkgId, language.Reference.TemplateOrInterface(tycon.toRef))
       }
       .toList
 

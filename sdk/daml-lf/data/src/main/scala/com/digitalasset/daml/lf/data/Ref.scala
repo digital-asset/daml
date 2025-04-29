@@ -4,7 +4,6 @@
 package com.digitalasset.daml.lf
 package data
 
-import com.digitalasset.daml.lf
 import com.daml.scalautil.Statement.discard
 import scalaz.Scalaz.eitherMonad
 import scalaz.syntax.traverse._
@@ -220,38 +219,59 @@ object Ref {
       assertRight(fromString(s))
   }
 
-  /* A fully-qualified identifier pointing to a definition in the
-   * specified package. */
-  final case class Identifier(packageId: PackageId, qualifiedName: QualifiedName)
-      extends Ordered[Identifier] {
-    override def toString: String = packageId + ":" + qualifiedName.toString
+  final case class FullReference[X](pkg: X, qualifiedName: QualifiedName) {
+    def map[Y](f: X => Y): FullReference[Y] = FullReference(f(pkg), qualifiedName)
 
-    override def compare(that: Identifier): Int = {
-      val diffPkgId = this.packageId compare that.packageId
-      if (diffPkgId != 0)
-        diffPkgId
-      else
-        this.qualifiedName compare that.qualifiedName
+    // to keep backward compatibility of Identifier#packageId
+    def packageId(implicit ev: X <:< PackageId): PackageId = ev(pkg)
+
+    // TODO: https://github.com/digital-asset/daml/issues/17995
+    //   drop this method
+    def assertToTypeConName(implicit ev: X <:< PackageRef): TypeConName = ev(pkg) match {
+      case PackageRef.Id(id) =>
+        copy(pkg = id)
+      case PackageRef.Name(_) =>
+        throw new IllegalArgumentException("call by package name is not supported")
     }
 
-    private[lf] def toRef = TypeConRef(PackageRef.Id(packageId), qualifiedName)
+    def toRef(implicit ev: X <:< PackageId): TypeConRef =
+      copy(pkg = PackageRef.Id(pkg))
   }
 
-  object Identifier {
-    def fromString(s: String): Either[String, Identifier] = {
-      splitInTwo(s, ':').fold[Either[String, Identifier]](
-        Left(s"Separator ':' between package identifier and qualified name not found in $s")
-      ) { case (packageIdString, qualifiedNameString) =>
-        for {
-          packageId <- PackageId.fromString(packageIdString)
-          qualifiedName <- QualifiedName.fromString(qualifiedNameString)
-        } yield Identifier(packageId, qualifiedName)
+  object FullReference {
+    implicit def ordering[X: Ordering]: Ordering[FullReference[X]] =
+      Ordering.by(f => (f.pkg, f.qualifiedName))
+  }
+
+  sealed abstract class FullReferenceCompanion[X] {
+
+    def pkgFromString(s: String): Either[String, X]
+
+    final def fromString(s: String): Either[String, FullReference[X]] =
+      splitInTwo(s, ':') match {
+        case Some((packageString, qualifiedNameString)) =>
+          for {
+            pkgRef <- pkgFromString(packageString)
+            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
+          } yield FullReference(pkgRef, qualifiedName)
+        case None =>
+          Left(s"Separator ':' between package identifier and qualified name not found in $s")
       }
-    }
 
     @throws[IllegalArgumentException]
-    def assertFromString(s: String): Identifier =
-      assertRight(fromString(s))
+    final def assertFromString(s: String): FullReference[X] = assertRight(fromString(s))
+
+    final def apply(pkg: X, qualifiedName: QualifiedName): FullReference[X] =
+      FullReference(pkg, qualifiedName)
+
+    final def unapply(f: FullReference[X]): Some[(X, QualifiedName)] = Some(
+      (f.pkg, f.qualifiedName)
+    )
+  }
+
+  type Identifier = FullReference[PackageId]
+  object Identifier extends FullReferenceCompanion[PackageId] {
+    override def pkgFromString(s: String): Either[String, PackageId] = Ref.PackageId.fromString(s)
   }
 
   /* Choice name in a template. */
@@ -301,35 +321,9 @@ object Ref {
       assertRight(fromString(s))
   }
 
-  final case class TypeConRef(pkgRef: PackageRef, qName: QualifiedName) {
-    override def toString: String = s"$pkgRef:$qName"
-
-    // TODO: https://github.com/digital-asset/daml/issues/17995
-    //   drop this method
-    def assertToTypeConName: lf.data.Ref.ValueRef = pkgRef match {
-      case PackageRef.Name(_) =>
-        throw new IllegalArgumentException("call by package name is not supported")
-      case PackageRef.Id(id) =>
-        TypeConName(id, qName)
-    }
-  }
-
-  object TypeConRef {
-    def fromString(s: String): Either[String, TypeConRef] =
-      splitInTwo(s, ':') match {
-        case Some((packageRefString, qualifiedNameString)) =>
-          for {
-            packageRef <- PackageRef.fromString(packageRefString)
-            qualifiedName <- QualifiedName.fromString(qualifiedNameString)
-          } yield TypeConRef(packageRef, qualifiedName)
-        case None =>
-          Left(s"Separator ':' between package identifier and qualified name not found in $s")
-      }
-
-    def assertFromString(s: String): TypeConRef = assertRight(fromString(s))
-
-    def fromIdentifier(identifier: Identifier): TypeConRef =
-      TypeConRef(PackageRef.Id(identifier.packageId), identifier.qualifiedName)
+  type TypeConRef = FullReference[PackageRef]
+  val TypeConRef = new FullReferenceCompanion[PackageRef] {
+    override def pkgFromString(s: String): Either[String, PackageRef] = PackageRef.fromString(s)
   }
 
   /*

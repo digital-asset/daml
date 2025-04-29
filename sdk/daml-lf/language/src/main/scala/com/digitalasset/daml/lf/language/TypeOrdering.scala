@@ -42,7 +42,7 @@ object TypeOrdering extends Ordering[Type] {
         case (Ast.TBuiltin(b1), Ast.TBuiltin(b2)) =>
           diff = builtinTypeIdx(b1) compare builtinTypeIdx(b2)
         case (Ast.TTyCon(con1), Ast.TTyCon(con2)) =>
-          diff = con1 compare con2
+          diff = implicitly[Ordering[Ref.FullReference[Ref.PackageId]]].compare(con1, con2)
         case (Ast.TNat(n1), Ast.TNat(n2)) =>
           diff = n1 compareTo n2
         case (Ast.TStruct(xs), Ast.TStruct(ys)) =>

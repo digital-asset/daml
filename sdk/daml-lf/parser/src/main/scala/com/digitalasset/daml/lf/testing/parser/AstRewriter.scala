@@ -35,7 +35,7 @@ private[daml] class AstRewriter(
     if (identifierRule.isDefinedAt(identifier))
       identifierRule(identifier)
     else if (packageIdRule.isDefinedAt(identifier.packageId))
-      identifier.copy(packageId = packageIdRule(identifier.packageId))
+      identifier.copy(pkg = packageIdRule(identifier.packageId))
     else
       identifier
 

@@ -181,11 +181,11 @@ private[digitalasset] class PackageInterface(
     lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
       _.templates
         .get(name.qualifiedName.name)
-        .toRight(LookupError.NotFound(Reference.Template(name), context))
+        .toRight(LookupError.NotFound(Reference.Template(name.toRef), context))
     )
 
   def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
-    lookupTemplate(name, Reference.Template(name))
+    lookupTemplate(name, Reference.Template(name.toRef))
 
   private[this] def lookupInterface(
       name: TypeConName,
@@ -289,7 +289,7 @@ private[digitalasset] class PackageInterface(
           mod.interfaces.get(identier.qualifiedName.name) match {
             case Some(interface) => Right(TemplateOrInterface.Interface(interface))
             case None =>
-              Left(LookupError.NotFound(Reference.TemplateOrInterface(identier), context))
+              Left(LookupError.NotFound(Reference.TemplateOrInterface(identier.toRef), context))
           }
       }
     )
@@ -297,7 +297,7 @@ private[digitalasset] class PackageInterface(
   def lookupTemplateOrInterface(
       name: TypeConName
   ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
-    lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name))
+    lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name.toRef))
 
   private[this] def lookupInterfaceMethod(
       ifaceName: TypeConName,

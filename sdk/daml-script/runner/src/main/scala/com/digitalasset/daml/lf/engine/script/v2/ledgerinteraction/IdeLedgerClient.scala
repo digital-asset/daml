@@ -270,7 +270,7 @@ class IdeLedgerClient(
           for {
             preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
             view <- computeView(
-              contract.templateId.copy(packageId = preferredPkgId),
+              contract.templateId.copy(pkg = preferredPkgId),
               interfaceId,
               contract.createArg,
             )
@@ -466,7 +466,7 @@ class IdeLedgerClient(
     )
 
   private[this] def tyConRefToPkgId(tyCon: Ref.TypeConRef) =
-    tyCon.pkgRef match {
+    tyCon.pkg match {
       case PackageRef.Id(id) =>
         id
       case PackageRef.Name(_) =>
@@ -749,7 +749,7 @@ class IdeLedgerClient(
                   ScriptLedgerClient.Created(
                     oIntendedPackageId
                       .fold(create.templateId)(intendedPackageId =>
-                        create.templateId.copy(packageId = intendedPackageId)
+                        create.templateId.copy(pkg = intendedPackageId)
                       ),
                     create.coid,
                     create.arg,
@@ -761,7 +761,7 @@ class IdeLedgerClient(
                   ScriptLedgerClient.Exercised(
                     oIntendedPackageId
                       .fold(exercise.templateId)(intendedPackageId =>
-                        exercise.templateId.copy(packageId = intendedPackageId)
+                        exercise.templateId.copy(pkg = intendedPackageId)
                       ),
                     exercise.interfaceId,
                     exercise.targetCoid,
