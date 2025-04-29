@@ -412,7 +412,7 @@ abstract class ReassignmentServiceIntegrationTest
 
       inside(submitReassignment(unassignmentCmd)) { case error: GenericCommandError =>
         error.cause should include(
-          TargetSynchronizerIsSourceSynchronizer(daId, cid).message
+          TargetSynchronizerIsSourceSynchronizer(daId, Seq(cid)).message
         )
       }
 

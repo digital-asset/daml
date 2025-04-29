@@ -684,7 +684,8 @@ object EventStorageBackendTemplate {
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
       byteArray("driver_metadata") ~
-      long("event_sequential_id")
+      long("event_sequential_id") ~
+      int("node_id")
 
   private def assignActiveContractParser(
       allQueryingPartiesO: Option[Set[Int]],
@@ -710,7 +711,8 @@ object EventStorageBackendTemplate {
           ledgerEffectiveTime ~
           createKeyHash ~
           driverMetadata ~
-          eventSequentialId =>
+          eventSequentialId ~
+          nodeId =>
         RawActiveContract(
           workflowId = workflowId,
           synchronizerId = stringInterning.synchronizerId.unsafe.externalize(targetSynchronizerId),
@@ -718,7 +720,7 @@ object EventStorageBackendTemplate {
           rawCreatedEvent = RawCreatedEvent(
             updateId = updateId,
             offset = offset,
-            nodeId = 0,
+            nodeId = nodeId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),

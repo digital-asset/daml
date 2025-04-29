@@ -13,7 +13,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
-import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.error.{CantonError, ContextualizedCantonError, ParentCantonError}
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -59,7 +59,6 @@ class SynchronizerMigration(
       Unit,
     ],
     sequencerInfoLoader: SequencerInfoLoader,
-    batchingConfig: BatchingConfig,
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -317,8 +316,7 @@ class SynchronizerMigration(
       target: Target[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
-    val batchSize = batchingConfig.maxItemsInBatch
+  ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] =
     for {
       // load all contracts on source synchronizer
       acs <- performUnlessClosingEitherUSF(functionFullName)(
@@ -342,7 +340,6 @@ class SynchronizerMigration(
               source,
               target,
               skipInactive = true,
-              batchSize,
             )
           )
             .leftMap[SynchronizerMigrationError](
@@ -351,7 +348,6 @@ class SynchronizerMigration(
             )
       }
     } yield ()
-  }
 
 }
 

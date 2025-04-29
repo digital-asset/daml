@@ -105,7 +105,7 @@ final case class DelegationCryptoProvider[E <: Env[E]](
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
     signer.signHash(hash)
 
-  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence with MessageFrom](
+  override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit

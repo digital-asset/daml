@@ -42,14 +42,14 @@ object BootstrapDetector {
           )
 
         val startEpochInfo = EpochInfo(
-          activeAt.epochNumber.getOrElse(
+          activeAt.startEpochNumber.getOrElse(
             abort("No starting epoch number found for new node onboarding")
           ),
-          activeAt.firstBlockNumberInEpoch.getOrElse(
+          activeAt.firstBlockNumberInStartEpoch.getOrElse(
             abort("No starting epoch's first block number found for new node onboarding")
           ),
           epochLength,
-          activeAt.epochTopologyQueryTimestamp.getOrElse(
+          activeAt.startEpochTopologyQueryTimestamp.getOrElse(
             abort("No starting epoch's topology query timestamp found for new node onboarding")
           ),
         )

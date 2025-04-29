@@ -3,11 +3,10 @@
 
 package com.digitalasset.canton.protocol
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
+import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch, ViewPosition}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
@@ -18,6 +17,7 @@ import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.transaction.ParticipantSynchronizerLimits
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
 import magnolify.scalacheck.auto.*
@@ -178,14 +178,13 @@ final class GeneratorsProtocol(
     }).discard
   }
   def serializableContractArb(
-      canHaveEmptyKey: Boolean
+      metadata: ContractMetadata
   ): Arbitrary[SerializableContract] = {
     val contractIdVersion = AuthenticatedContractIdVersionV11
 
     Arbitrary(
       for {
         rawContractInstance <- Arbitrary.arbitrary[SerializableRawContractInstance]
-        metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
         ledgerCreateTime <- Arbitrary.arbitrary[LedgerCreateTime]
 
         synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
@@ -223,6 +222,14 @@ final class GeneratorsProtocol(
       )
     )
   }
+  def serializableContractArb(
+      canHaveEmptyKey: Boolean
+  ): Arbitrary[SerializableContract] = Arbitrary(
+    for {
+      metadata <- contractMetadataArb(canHaveEmptyKey).arbitrary
+      contract <- serializableContractArb(metadata).arbitrary
+    } yield contract
+  )
 
   implicit val globalKeyWithMaintainersArb: Arbitrary[Versioned[LfGlobalKeyWithMaintainers]] =
     Arbitrary(
@@ -283,6 +290,18 @@ final class GeneratorsProtocol(
         rolledBack,
       )
       .value
+  )
+
+  implicit val contractReassignmentBatch: Arbitrary[ContractsReassignmentBatch] = Arbitrary(
+    for {
+      metadata <- contractMetadataArb(canHaveEmptyKey = true).arbitrary
+      contracts <- Gen.nonEmptyContainerOf[Seq, SerializableContract](
+        serializableContractArb(metadata).arbitrary
+      )
+      reassignmentCounters <- Gen
+        .containerOfN[Seq, ReassignmentCounter](contracts.length, reassignmentCounterGen)
+      contractCounters = contracts.zip(reassignmentCounters)
+    } yield ContractsReassignmentBatch.create(contractCounters).value
   )
 
   implicit val externalAuthorizationArb: Arbitrary[ExternalAuthorization] = Arbitrary(

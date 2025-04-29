@@ -5,8 +5,8 @@ package com.digitalasset.canton.data
 
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
-import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract, Stakeholders}
+import com.digitalasset.canton.{LfPackageId, ReassignmentCounter}
 
 final case class ContractReassignment(
     contract: SerializableContract,
@@ -24,6 +24,8 @@ final case class ContractsReassignmentBatch private (
   def contractIdCounters: NonEmpty[Seq[(LfContractId, ReassignmentCounter)]] = contracts.map {
     case item => (item.contract.contractId, item.counter)
   }
+
+  def packageIds: Set[LfPackageId] = contracts.view.map(_.templateId.packageId).toSet
 
   def stakeholders: Stakeholders = Stakeholders(contracts.head1.contract.metadata)
 }

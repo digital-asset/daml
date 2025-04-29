@@ -3,11 +3,11 @@
 
 package com.digitalasset.canton.data
 
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.crypto.{HashOps, Salt}
-import com.digitalasset.canton.protocol.{LfTemplateId, SerializableContract, Stakeholders}
+import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import java.util.UUID
 
@@ -44,9 +44,5 @@ trait ReassignmentCommonData extends ProtocolVersionedMemoizedEvidence {
 
 trait ReassignmentView extends ProtocolVersionedMemoizedEvidence {
   def salt: Salt
-  def contract: SerializableContract
-  def reassignmentCounter: ReassignmentCounter
-
-  def templateId: LfTemplateId =
-    contract.rawContractInstance.contractInstance.unversioned.template
+  def contracts: ContractsReassignmentBatch
 }

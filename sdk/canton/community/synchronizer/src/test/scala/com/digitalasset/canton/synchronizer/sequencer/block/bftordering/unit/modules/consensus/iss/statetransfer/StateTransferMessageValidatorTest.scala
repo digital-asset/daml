@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageValidator
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -18,11 +19,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingTopology,
   SequencingParameters,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.{
   BlockTransferRequest,
   BlockTransferResponse,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer.StateTransferTestHelpers.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
+  ProgrammableUnitTestContext,
+  ProgrammableUnitTestEnv,
+  failingCryptoProvider,
+}
 import org.scalatest.wordspec.AnyWordSpec
 
 class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTest {
@@ -32,7 +39,8 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
   implicit private val metricsContext: MetricsContext = MetricsContext.Empty
 
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
-  private val validator = new StateTransferMessageValidator(metrics, loggerFactory)
+  private val validator =
+    new StateTransferMessageValidator[ProgrammableUnitTestEnv](metrics, loggerFactory)
 
   "validate block transfer request" in {
     Table[BlockTransferRequest, Membership, Either[String, Unit]](
@@ -153,6 +161,21 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         membership,
       ) shouldBe expectedResult
     }
+  }
+
+  "skip block transfer response signature verification" in {
+    implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
+      new ProgrammableUnitTestContext
+
+    val response = BlockTransferResponse.create(None, otherId)
+    validator.verifyStateTransferMessage(
+      response.fakeSign,
+      aMembershipWith2Nodes,
+      failingCryptoProvider,
+    )
+
+    context.extractSelfMessages() should contain only
+      Consensus.StateTransferMessage.VerifiedStateTransferMessage(response)
   }
 }
 

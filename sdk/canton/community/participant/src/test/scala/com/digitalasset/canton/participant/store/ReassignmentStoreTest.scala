@@ -10,7 +10,7 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch, Offset}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentData.*
@@ -208,7 +208,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
       val data = unassignmentData
       val assignmentData = AssignmentData(
         data.reassignmentId,
-        data.contract,
+        data.contracts,
       )
 
       "be idempotent" in {
@@ -223,16 +223,14 @@ trait ReassignmentStoreTest extends FailOnShutdown {
       "AddAssignmentData doesn't update if conflicting data" in {
         val store = mk(indexedTargetSynchronizer)
 
-        val initialMetadata = assignmentData.contract.metadata
-
-        val updatedMetadata = ContractMetadata.tryCreate(
-          initialMetadata.signatories,
-          initialMetadata.stakeholders + LfPartyId.assertFromString("other"),
-          None,
-        )
-
-        val updatedAssignmentData =
-          assignmentData.focus(_.contract.metadata).replace(updatedMetadata)
+        val updatedBatch = ContractsReassignmentBatch
+          .create(assignmentData.contracts.contracts.map { reassign =>
+            val newCid =
+              LfContractId.assertFromString(reassign.contract.contractId.coid.replace("1", "2"))
+            (reassign.contract.copy(contractId = newCid), reassign.counter)
+          })
+          .value
+        val updatedAssignmentData = assignmentData.focus(_.contracts).replace(updatedBatch)
 
         for {
           _ <- store.addAssignmentDataIfAbsent(assignmentData).value
@@ -240,7 +238,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
             store.addAssignmentDataIfAbsent(updatedAssignmentData)
           )("addAssignmentDataIfAbsent")
           entry <- store.findReassignmentEntry(data.reassignmentId).value
-        } yield entry.map(_.contract) shouldBe Right(data.contract)
+        } yield entry.map(_.contracts) shouldBe Right(data.contracts.contracts.map(_.contract))
       }
 
       "AddAssignmentData doesn't update the entry once the reassignment data is inserted" in {
@@ -302,7 +300,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
           entry1 shouldBe Right(
             ReassignmentEntry(
               data.reassignmentId,
-              data.contract,
+              NonEmpty.mk(Seq, contract),
               None,
               None,
               None,
@@ -566,34 +564,41 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
       def assertIsIncomplete(
           incompletes: Seq[IncompleteReassignmentData],
-          expectedReassignmentEntry: ReassignmentEntry,
+          expectedReassignmentEntries: Seq[ReassignmentEntry],
           queryOffset: Offset,
       ): Assertion = {
-        val expectedIncomplete = IncompleteReassignmentData.tryCreate(
-          expectedReassignmentEntry.sourceSynchronizer,
-          expectedReassignmentEntry.unassignmentTs,
-          expectedReassignmentEntry.unassignmentRequest,
-          expectedReassignmentEntry.reassignmentGlobalOffset,
-          queryOffset,
-        )
-        incompletes.map(_.reassignmentId) shouldBe Seq(expectedReassignmentEntry.reassignmentId)
-        incompletes shouldBe Seq(expectedIncomplete)
+        val expectedIncomplete = expectedReassignmentEntries.map { expectedReassignmentEntry =>
+          IncompleteReassignmentData.tryCreate(
+            expectedReassignmentEntry.sourceSynchronizer,
+            expectedReassignmentEntry.unassignmentTs,
+            expectedReassignmentEntry.unassignmentRequest,
+            expectedReassignmentEntry.reassignmentGlobalOffset,
+            queryOffset,
+          )
+        }
+        incompletes.map(_.reassignmentId) shouldBe expectedReassignmentEntries.map(_.reassignmentId)
+        incompletes shouldBe expectedIncomplete
       }
 
       "list incomplete reassignments (unassignment done)" in {
         val store = mk(indexedTargetSynchronizer)
-        val reassignmentId = unassignmentData.reassignmentId
+        val reassignmentId1 = unassignmentData.reassignmentId
+        val reassignmentId2 = unassignmentData2.reassignmentId
 
         val unassignmentOsset = 10L
         val assignmentOffset = 20L
 
         for {
-          _ <- valueOrFail(store.addUnassignmentData(unassignmentData))("add failed")
+          _ <- valueOrFail(store.addUnassignmentData(unassignmentData))("add 1 failed")
+          _ <- valueOrFail(store.addUnassignmentData(unassignmentData2))("add 2 failed")
           lookupNoOffset <- store.findIncomplete(None, Long.MaxValue, None, limit)
 
           _ <- store
             .addReassignmentsOffsets(
-              Map(reassignmentId -> UnassignmentGlobalOffset(unassignmentOsset))
+              Map(
+                reassignmentId1 -> UnassignmentGlobalOffset(unassignmentOsset),
+                reassignmentId2 -> UnassignmentGlobalOffset(unassignmentOsset),
+              )
             )
             .valueOrFail(
               "add unassignment offset failed"
@@ -611,7 +616,10 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
           _ <- store
             .addReassignmentsOffsets(
-              Map(reassignmentId -> AssignmentGlobalOffset(assignmentOffset))
+              Map(
+                reassignmentId1 -> AssignmentGlobalOffset(assignmentOffset),
+                reassignmentId2 -> AssignmentGlobalOffset(assignmentOffset),
+              )
             )
             .valueOrFail(
               "add assignment offset failed"
@@ -643,20 +651,34 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
           assertIsIncomplete(
             lookupAtUnassignment,
-            ReassignmentEntry(
-              unassignmentData,
-              Some(UnassignmentGlobalOffset(unassignmentOsset)),
-              None,
+            Seq(
+              ReassignmentEntry(
+                unassignmentData,
+                Some(UnassignmentGlobalOffset(unassignmentOsset)),
+                None,
+              ),
+              ReassignmentEntry(
+                unassignmentData2,
+                Some(UnassignmentGlobalOffset(unassignmentOsset)),
+                None,
+              ),
             ),
             unassignmentOsset,
           )
 
           assertIsIncomplete(
             lookupBeforeAssignment,
-            ReassignmentEntry(
-              unassignmentData,
-              Some(UnassignmentGlobalOffset(unassignmentOsset)),
-              None,
+            Seq(
+              ReassignmentEntry(
+                unassignmentData,
+                Some(UnassignmentGlobalOffset(unassignmentOsset)),
+                None,
+              ),
+              ReassignmentEntry(
+                unassignmentData2,
+                Some(UnassignmentGlobalOffset(unassignmentOsset)),
+                None,
+              ),
             ),
             assignmentOffset - 1,
           )
@@ -674,7 +696,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
         val unassignmentOffset = 20L
         val assignmentData = AssignmentData(
           unassignmentData.reassignmentId,
-          unassignmentData.contract,
+          unassignmentData.contracts,
         )
 
         for {
@@ -738,20 +760,24 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 
           assertIsIncomplete(
             lookupAtAssignment,
-            ReassignmentEntry(
-              assignmentData,
-              Some(AssignmentGlobalOffset(assignmentOffset)),
-              None,
+            Seq(
+              ReassignmentEntry(
+                assignmentData,
+                Some(AssignmentGlobalOffset(assignmentOffset)),
+                None,
+              )
             ),
             assignmentOffset,
           )
 
           assertIsIncomplete(
             lookupBeforeUnassignment,
-            ReassignmentEntry(
-              unassignmentData,
-              Some(AssignmentGlobalOffset(assignmentOffset)),
-              None,
+            Seq(
+              ReassignmentEntry(
+                unassignmentData,
+                Some(AssignmentGlobalOffset(assignmentOffset)),
+                None,
+              )
             ),
             unassignmentOffset - 1,
           )
@@ -822,10 +848,10 @@ trait ReassignmentStoreTest extends FailOnShutdown {
             _.reassignmentId
           )
           lookupAlice.map(_.reassignmentId) should contain theSameElementsAs reassignmentsData
-            .filter(_.contract == aliceContract)
+            .filter(_.contracts.contracts.map(_.contract).contains(aliceContract))
             .map(_.reassignmentId)
           lookupBob.map(_.reassignmentId) should contain theSameElementsAs reassignmentsData
-            .filter(_.contract == bobContract)
+            .filter(_.contracts.contracts.map(_.contract).contains(bobContract))
             .map(_.reassignmentId)
         }
       }
@@ -853,8 +879,8 @@ trait ReassignmentStoreTest extends FailOnShutdown {
           lookup1c <- store.findIncomplete(None, offset, None, limit)
         } yield {
           lookup1a shouldBe empty
-          assertIsIncomplete(lookup1b, entry, offset)
-          assertIsIncomplete(lookup1c, entry, offset)
+          assertIsIncomplete(lookup1b, Seq(entry), offset)
+          assertIsIncomplete(lookup1c, Seq(entry), offset)
         }
       }
 

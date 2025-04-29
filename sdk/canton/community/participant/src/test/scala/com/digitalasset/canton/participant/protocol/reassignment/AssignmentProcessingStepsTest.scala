@@ -602,7 +602,7 @@ class AssignmentProcessingStepsTest
             case other => fail(s"Did not expect $other")
           }
 
-          assignmentValidationResult.validationErrors shouldBe Seq(
+          assignmentValidationResult.validationErrors should contain(
             ContractDataMismatch(reassignmentId)
           )
         }
@@ -761,8 +761,7 @@ class AssignmentProcessingStepsTest
         SequencerCounter(1),
         assignmentValidationResult = AssignmentValidationResult(
           rootHash,
-          contract,
-          initialReassignmentCounter,
+          ContractsReassignmentBatch(contract, initialReassignmentCounter),
           submitterInfo(submitter),
           reassignmentId,
           isReassigningParticipant = false,
@@ -899,8 +898,7 @@ class AssignmentProcessingStepsTest
         seed,
         reassignmentId,
         submitterInfo(submitter),
-        contract,
-        initialReassignmentCounter,
+        ContractsReassignmentBatch(contract, initialReassignmentCounter),
         targetSynchronizer,
         targetMediator,
         uuid,

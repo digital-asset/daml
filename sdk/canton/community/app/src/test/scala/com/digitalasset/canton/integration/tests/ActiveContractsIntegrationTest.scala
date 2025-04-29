@@ -263,7 +263,7 @@ class ActiveContractsIntegrationTest
     ContractData(contract, createdEvent)
   }
 
-  private def submitAssignment(
+  private def submitAssignments(
       out: UnassignedWrapper,
       submitter: PartyId,
       participantOverride: Option[LocalParticipantReference],
@@ -485,7 +485,7 @@ class ActiveContractsIntegrationTest
       )
 
       // Submit the assignments
-      val (assignment1, _) = submitAssignment(unassignment1, observer, Some(participant2))
+      val (assignment1, _) = submitAssignments(unassignment1, observer, Some(participant2))
 
       checkACS(participant2, assignment1.reassignment.offset)(
         activationFromCreate = Seq((contract3.createdEvent, acmeId, ReassignmentCounter(0))),
@@ -493,7 +493,7 @@ class ActiveContractsIntegrationTest
         incompletesUnassigned = Seq(2),
       )
 
-      val (assignment2, _) = submitAssignment(unassignment2, observer, Some(participant2))
+      val (assignment2, _) = submitAssignments(unassignment2, observer, Some(participant2))
 
       // wait until participant2 is synchronized
       eventually() {
@@ -598,7 +598,7 @@ class ActiveContractsIntegrationTest
       unassignment1.events.loneElement.reassignmentCounter shouldBe 1
       getReassignmentCountersFromACS() shouldBe List(1)
 
-      val (assignment1, _) = submitAssignment(unassignment1, signatory, Some(participant1))
+      val (assignment1, _) = submitAssignments(unassignment1, signatory, Some(participant1))
       assignment1.events.loneElement.reassignmentCounter shouldBe 1
       getReassignmentCountersFromACS() shouldBe List(1)
 
@@ -612,7 +612,7 @@ class ActiveContractsIntegrationTest
       unassignment2.events.loneElement.reassignmentCounter shouldBe 2
       getReassignmentCountersFromACS() shouldBe List(2)
 
-      val (assignment2, _) = submitAssignment(unassignment2, signatory, Some(participant1))
+      val (assignment2, _) = submitAssignments(unassignment2, signatory, Some(participant1))
       assignment2.events.loneElement.reassignmentCounter shouldBe 2
       getReassignmentCountersFromACS() shouldBe List(2)
 
@@ -748,7 +748,7 @@ class ActiveContractsIntegrationTest
       checkACS(activeOn = None, incompleteReassignment = true, Seq()) // no filtering
       checkACS(activeOn = None, incompleteReassignment = false, Seq(otherTemplate))
 
-      val (in, _) = submitAssignment(out, party, Some(participant1))
+      val (in, _) = submitAssignments(out, party, Some(participant1))
 
       checkACS(activeOn = Some(in), incompleteReassignment = false, Seq(contractTemplate))
       checkACS(
@@ -810,7 +810,7 @@ class ActiveContractsIntegrationTest
       checkACS(activeOn = None, incompleteReassignment = true, otherParty)
       checkACS(activeOn = None, incompleteReassignment = false, otherParty)
 
-      val (in, _) = submitAssignment(out, party, Some(participant1))
+      val (in, _) = submitAssignments(out, party, Some(participant1))
 
       checkACS(activeOn = Some(in), incompleteReassignment = false, party)
       checkACS(activeOn = None, incompleteReassignment = false, otherParty)

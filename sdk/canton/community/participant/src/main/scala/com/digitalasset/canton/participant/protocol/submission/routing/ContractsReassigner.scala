@@ -47,7 +47,7 @@ private[routing] class ContractsReassigner(
               submitterInfo.userId,
               workflowId = None,
             ),
-            cid,
+            Seq(cid),
           )
       }
     } else {
@@ -58,7 +58,7 @@ private[routing] class ContractsReassigner(
       sourceSynchronizerId: Source[SynchronizerId],
       targetSynchronizerId: Target[SynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
-      contractId: LfContractId,
+      contractIds: Seq[LfContractId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     val reassignment = for {
       sourceSynchronizer <- EitherT.fromEither[Future](
@@ -81,9 +81,9 @@ private[routing] class ContractsReassigner(
         )
 
       unassignmentResult <- sourceSynchronizer
-        .submitUnassignment(
+        .submitUnassignments(
           submitterMetadata,
-          contractId,
+          contractIds,
           targetSynchronizerId,
           Target(targetSynchronizer.staticSynchronizerParameters.protocolVersion),
         )
@@ -106,7 +106,7 @@ private[routing] class ContractsReassigner(
         )
 
       assignmentResult <- targetSynchronizer
-        .submitAssignment(
+        .submitAssignments(
           submitterMetadata,
           unassignmentResult.reassignmentId,
         )

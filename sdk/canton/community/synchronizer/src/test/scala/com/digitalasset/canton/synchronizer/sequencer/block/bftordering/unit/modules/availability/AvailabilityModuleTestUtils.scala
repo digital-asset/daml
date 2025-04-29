@@ -348,6 +348,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       p2pNetworkOut: ModuleRef[P2PNetworkOut.Message] = fakeIgnoringModule,
       disseminationProtocolState: DisseminationProtocolState = new DisseminationProtocolState(),
       outputFetchProtocolState: MainOutputFetchProtocolState = new MainOutputFetchProtocolState(),
+      customMembership: Option[Membership] = None,
       customMessageAuthorizer: Option[MessageAuthorizer] = None,
   )(implicit
       synchronizerProtocolVersion: ProtocolVersion,
@@ -364,13 +365,17 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       consensus,
       output,
     )
-    val membership = Membership.forTesting(
-      myId,
-      otherNodes,
-      nodesTopologyInfos = otherNodesCustomKeys.map { case (nodeId, keyId) =>
-        nodeId -> NodeTopologyInfo(TopologyActivationTime(CantonTimestamp.MinValue), Set(keyId))
-      },
-    )
+    val membership =
+      customMembership.getOrElse(
+        Membership.forTesting(
+          myId,
+          otherNodes,
+          nodesTopologyInfos = otherNodesCustomKeys.map { case (nodeId, keyId) =>
+            nodeId -> NodeTopologyInfo(TopologyActivationTime(CantonTimestamp.MinValue), Set(keyId))
+          },
+        )
+      )
+    val messageAuthorizer = customMessageAuthorizer.getOrElse(membership.orderingTopology)
     val availability = new AvailabilityModule[E](
       membership,
       initialEpochNumber,
@@ -385,7 +390,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       timeouts,
       disseminationProtocolState,
       outputFetchProtocolState,
-    )(customMessageAuthorizer.getOrElse(membership.orderingTopology))(
+    )(messageAuthorizer)(
       synchronizerProtocolVersion,
       MetricsContext.Empty,
     )

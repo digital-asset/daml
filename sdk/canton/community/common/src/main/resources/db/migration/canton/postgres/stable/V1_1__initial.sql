@@ -269,7 +269,7 @@ create table par_reassignments (
   -- defined if reassignment was completed
   -- UTC timestamp in microseconds relative to EPOCH
   assignment_timestamp bigint,
-  contract bytea not null
+  contracts bytea array not null
 );
 
 -- stores all requests for the request journal
@@ -776,9 +776,6 @@ create table seq_traffic_control_consumed_journal (
     -- traffic entries have a unique sequencing_timestamp per member
        primary key (member, sequencing_timestamp)
 );
-
--- This index helps joining traffic receipts without a member reference
-create index on seq_traffic_control_consumed_journal(sequencing_timestamp);
 
 --   BFT Ordering Tables
 
