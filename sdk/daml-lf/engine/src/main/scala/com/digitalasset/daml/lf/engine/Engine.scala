@@ -102,7 +102,7 @@ class Engine(val config: EngineConfig) {
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
-      requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
+      requireContractIdSuffix = config.requireSuffixedGlobalContractId,
     )
 
   def info = new EngineInfo(config)

@@ -247,7 +247,7 @@ private[lf] object IdeLedgerRunner {
     val valueTranslator =
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,
-        requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
+        requireContractIdSuffix = config.requireSuffixedGlobalContractId,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
       valueTranslator.strictTranslateValue(typ, value) match {

@@ -251,17 +251,30 @@ class TransactionSpec
   "suffixCid" - {
     "suffix non suffixed and only non suffixed contract ids" in {
 
-      val cids = List.fill(2)(TransactionBuilder.newV1Cid)
+      val cidsV1 = List.fill(3)(TransactionBuilder.newV1Cid)
+      val cidsV2 = List.fill(3)(TransactionBuilder.newV2Cid)
+      val cids = cidsV1 ++ cidsV2
       assert(cids.distinct.length == cids.length)
-      val List(cid1, cid2) = cids
-      val mapping1 = cids.map { cid =>
-        assert(cid.suffix.isEmpty)
-        cid.discriminator -> cid.discriminator.bytes.slice(10, 20)
+      val List(cid1, cid2, cid3, cid4, cid5, cid6) = cids
+
+      val mappingV1 = cidsV1.map { cidV1 =>
+        assert(cidV1.suffix.isEmpty)
+        cidV1.discriminator -> cidV1.discriminator.bytes.slice(10, 20)
       }.toMap
-      val mapping2: V.ContractId => V.ContractId = {
+      val mappingV2 = cidsV2.map { cidV2 =>
+        assert(cidV2.suffix.isEmpty)
+        cidV2.local -> cidV2.local.slice(3, 9)
+      }.toMap
+
+      val mappingAll: V.ContractId => V.ContractId = {
         case cid @ V.ContractId.V1(discriminator, Bytes.Empty) =>
-          mapping1.get(discriminator) match {
+          mappingV1.get(discriminator) match {
             case Some(value) => V.ContractId.V1.assertBuild(discriminator, value)
+            case None => cid
+          }
+        case cid @ V.ContractId.V2(local, Bytes.Empty) =>
+          mappingV2.get(local) match {
+            case Some(value) => V.ContractId.V2.assertBuild(local, value)
             case None => cid
           }
         case cid => cid
@@ -270,19 +283,26 @@ class TransactionSpec
       val tx = mkTransaction(
         HashMap(
           NodeId(0) -> dummyCreateNode(cid1),
-          NodeId(0) -> dummyExerciseNode(cid1, ImmArray(NodeId(0)), true),
-          NodeId(1) -> dummyExerciseNode(cid2, ImmArray(NodeId(1)), true),
+          NodeId(1) -> dummyExerciseNode(cid1, ImmArray(NodeId(1))),
+          NodeId(2) -> dummyExerciseNode(cid2, ImmArray(NodeId(3))),
+          // Already suffixed
+          NodeId(3) -> dummyExerciseNode(mappingAll(cid3), ImmArray.empty),
+          NodeId(4) -> dummyCreateNode(cid4),
+          NodeId(5) -> dummyExerciseNode(cid4, ImmArray(NodeId(6))),
+          NodeId(6) -> dummyExerciseNode(cid5, ImmArray(NodeId(7))),
+          NodeId(7) -> dummyExerciseNode(mappingAll(cid6), ImmArray.empty),
         ),
-        ImmArray(NodeId(0), NodeId(1)),
+        ImmArray(NodeId(0), NodeId(1), NodeId(4)),
       )
 
-      val tx1 = tx.suffixCid(mapping1)
-      val tx2 = tx.suffixCid(mapping1)
+      val tx1 =
+        tx.suffixCid(mappingV1.getOrElse(_, Bytes.Empty), mappingV2.getOrElse(_, Bytes.Empty))
+      val tx2 =
+        tx.suffixCid(mappingV1.getOrElse(_, Bytes.Empty), mappingV2.getOrElse(_, Bytes.Empty))
 
-      tx1 shouldNot be(tx)
-      tx2 shouldBe tx1
-      tx1 shouldBe Right(tx.mapCid(mapping2))
-
+      tx1 shouldBe Right(tx.mapCid(mappingAll))
+      tx1 shouldNot be(tx) // Sanity check: ensure that at least some suffixing is happening
+      tx2 shouldBe tx1 // Sanity check: Suffixing is deterministic
     }
   }
 

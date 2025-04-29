@@ -81,7 +81,7 @@ class IdeLedgerClient(
   private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      requireContractIdSuffix = false,
     )
 
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
@@ -197,7 +197,7 @@ class IdeLedgerClient(
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      requireContractIdSuffix = false,
     )
 
     valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {

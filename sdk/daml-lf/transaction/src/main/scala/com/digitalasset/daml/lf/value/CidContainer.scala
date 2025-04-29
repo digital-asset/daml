@@ -42,13 +42,15 @@ trait CidContainer[+A] {
     }
   }
 
-  // Sets the suffix of any the V1 ContractId `coid` of the container that are not already suffixed.
-  // Uses `f(coid.discriminator)` as suffix.
-  final def suffixCid(f: crypto.Hash => Bytes): Either[String, A] =
+  // Sets the suffix of any V1 or V2 ContractId `coid` of the container that are not already suffixed.
+  // Uses `f1(coid.discriminator.bytes)` or `f2(coid.local)` as suffix.
+  final def suffixCid(f1: crypto.Hash => Bytes, f2: Bytes => Bytes): Either[String, A] =
     traverseCid[String] {
       case Value.ContractId.V1(discriminator, Bytes.Empty) =>
-        Value.ContractId.V1.build(discriminator, f(discriminator))
-      case acoid @ Value.ContractId.V1(_, _) => Right(acoid)
+        Value.ContractId.V1.build(discriminator, f1(discriminator))
+      case Value.ContractId.V2(local, Bytes.Empty) =>
+        Value.ContractId.V2.build(local, f2(local))
+      case suffixed @ (Value.ContractId.V1(_, _) | Value.ContractId.V2(_, _)) => Right(suffixed)
     }
 
 }

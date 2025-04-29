@@ -113,9 +113,8 @@ object Hash {
 
   implicit val order: Order[Hash] = Order.fromScalaOrdering
 
-  private[lf] val aCid2Bytes: Value.ContractId => Bytes = { case cid @ Value.ContractId.V1(_, _) =>
-    cid.toBytes
-  }
+  private[lf] val aCid2Bytes: Value.ContractId => Bytes =
+    cid => cid.toBytes
 
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => throw HashingError.ForbiddenContractId()

@@ -7,6 +7,7 @@ package svalue
 
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nameof.NameOf
+import com.digitalasset.daml.lf.data.Bytes
 
 import scala.jdk.CollectionConverters._
 
@@ -36,6 +37,27 @@ private[lf] object Equality {
     }
 
     @inline
+    def compareContractIdsByComponent(
+        cid1: ContractId,
+        prefix1: Bytes,
+        suffix1: Bytes,
+        cid2: ContractId,
+        prefix2: Bytes,
+        suffix2: Bytes,
+    ): Boolean = {
+      if (prefix1 != prefix2) false
+      else if (suffix1.isEmpty)
+        throw SError.SErrorDamlException(
+          interpretation.Error.ContractIdComparability(cid2)
+        )
+      else if (suffix2.isEmpty)
+        throw SError.SErrorDamlException(
+          interpretation.Error.ContractIdComparability(cid1)
+        )
+      else false
+    }
+
+    @inline
     def step(tuple: (SValue, SValue)) =
       tuple match {
         case (x: SBuiltinLit, y: SBuiltinLit) =>
@@ -47,17 +69,20 @@ private[lf] object Equality {
                 case (
                       SContractId(cid1 @ ContractId.V1(discriminator1, suffix1)),
                       SContractId(cid2 @ ContractId.V1(discriminator2, suffix2)),
-                    ) if discriminator1 == discriminator2 =>
-                  if (suffix1.isEmpty)
-                    throw SError.SErrorDamlException(
-                      interpretation.Error.ContractIdComparability(cid2)
-                    )
-                  else if (suffix2.isEmpty)
-                    throw SError.SErrorDamlException(
-                      interpretation.Error.ContractIdComparability(cid1)
-                    )
-                  else
-                    false
+                    ) =>
+                  compareContractIdsByComponent(
+                    cid1,
+                    discriminator1.bytes,
+                    suffix1,
+                    cid2,
+                    discriminator2.bytes,
+                    suffix2,
+                  )
+                case (
+                      SContractId(cid1 @ ContractId.V2(local1, suffix1)),
+                      SContractId(cid2 @ ContractId.V2(local2, suffix2)),
+                    ) =>
+                  compareContractIdsByComponent(cid1, local1, suffix1, cid2, local2, suffix2)
                 case _ =>
                   false
               }
