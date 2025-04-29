@@ -19,28 +19,28 @@ exports_files([".hlint.yaml"])
 config_setting(
     name = "on_linux",
     constraint_values = [
-        "@bazel_tools//platforms:linux",
+        "@platforms//os:linux",
     ],
 )
 
 config_setting(
     name = "on_osx",
     constraint_values = [
-        "@bazel_tools//platforms:osx",
+        "@platforms//os:osx",
     ],
 )
 
 config_setting(
     name = "on_freebsd",
     constraint_values = [
-        "@bazel_tools//platforms:freebsd",
+        "@platforms//os:freebsd",
     ],
 )
 
 config_setting(
     name = "on_windows",
     constraint_values = [
-        "@bazel_tools//platforms:windows",
+        "@platforms//os:windows",
     ],
 )
 
