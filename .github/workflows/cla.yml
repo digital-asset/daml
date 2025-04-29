@@ -29,7 +29,7 @@ jobs:
           # branch should not be protected
           branch: 'main'
           allowlist: bot*
-          custom-notsigned-prcomment: '🎉 Thank you for your contribution! It appears you have not yet signed the Agreement [DA Contributor License Agreement (CLA)](https://gist.github.com/digitalasset-cla), which is required for your changes to be incorporated into an Open Source Software (OSS) project. Please kindly read the and reply on a new comment with the following text to agree:'
+          custom-notsigned-prcomment: '🎉 Thank you for your contribution! It appears you have not yet signed the Agreement [DA Contributor License Agreement (CLA)](https://gist.github.com/digitalasset-cla), which is required for your changes to be incorporated into an Open Source Software (OSS) project. Please kindly read the license agreement and reply on a new comment with the following text to agree:'
           custom-pr-sign-comment: 'I have hereby read the Digital Asset CLA and agree to its terms'
           custom-allsigned-prcomment: '✅ All required contributors have signed the CLA for this PR. Thank you!'
           # Remote repository storing CLA signatures.
