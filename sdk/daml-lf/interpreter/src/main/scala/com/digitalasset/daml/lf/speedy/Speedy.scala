@@ -31,7 +31,7 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionVersion => TxVersion,
 }
 import com.digitalasset.daml.lf.value.Value.ValueArithmeticError
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
@@ -176,6 +176,7 @@ private[lf] object Speedy {
       val validating: Boolean, // TODO: Better: Mode = SubmissionMode | ValidationMode
       val submissionTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
+      val contractIdVersion: ContractIdVersion,
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
       /* Committers of the action. */
@@ -761,6 +762,7 @@ private[lf] object Speedy {
         traceLog: TraceLog = newTraceLog,
         warningLog: WarningLog = newWarningLog,
         contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
+        contractIdVersion: ContractIdVersion = ContractIdVersion.V1,
         commitLocation: Option[Location] = None,
         limits: interpretation.Limits = interpretation.Limits.Lenient,
     )(implicit loggingContext: LoggingContext): UpdateMachine =
@@ -780,6 +782,7 @@ private[lf] object Speedy {
         readAs = readAs,
         commitLocation = commitLocation,
         contractKeyUniqueness = contractKeyUniqueness,
+        contractIdVersion = contractIdVersion,
         limits = limits,
         traceLog = traceLog,
         warningLog = warningLog,

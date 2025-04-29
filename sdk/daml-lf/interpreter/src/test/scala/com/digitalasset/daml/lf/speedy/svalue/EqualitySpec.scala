@@ -20,12 +20,13 @@ class EqualitySpec extends AnyWordSpec with Inside with Matchers with ScalaCheck
 
   "Equality.areEquals" should {
 
-    "fail when trying to compare local contract ID with global contract ID with same prefix" in {
+    "fail when trying to compare local/relative contract ID with global/absolute/relative contract ID with same prefix" in {
 
       val discriminator1 = crypto.Hash.hashPrivateKey("discriminator1")
       val discriminator2 = crypto.Hash.hashPrivateKey("discriminator2")
       val suffix1 = Bytes.assertFromString("00")
-      val suffix2 = Bytes.assertFromString("01")
+      val suffix2 = Bytes.assertFromString("80")
+      val suffix3 = Bytes.assertFromString("11")
 
       val cid10 = Value.ContractId.V1(discriminator1, Bytes.Empty)
       val cid11 = Value.ContractId.V1(discriminator1, suffix1)
@@ -38,9 +39,10 @@ class EqualitySpec extends AnyWordSpec with Inside with Matchers with ScalaCheck
       val cid31 = Value.ContractId.V2(local1, suffix1)
       val cid32 = Value.ContractId.V2(local1, suffix2)
       val cid41 = Value.ContractId.V2(local2, suffix1)
+      val cid43 = Value.ContractId.V2(local2, suffix3)
 
-      val List(vCid10, vCid11, vCid12, vCid21, vCid30, vCid31, vCid32, vCid41) =
-        List(cid10, cid11, cid12, cid21, cid30, cid31, cid32, cid41).map(SContractId)
+      val List(vCid10, vCid11, vCid12, vCid21, vCid30, vCid31, vCid32, vCid41, vCid43) =
+        List(cid10, cid11, cid12, cid21, cid30, cid31, cid32, cid41, cid43).map(SContractId)
 
       val negativeTestCases =
         Table(
@@ -51,19 +53,28 @@ class EqualitySpec extends AnyWordSpec with Inside with Matchers with ScalaCheck
           vCid11 -> vCid21,
           vCid30 -> vCid30,
           vCid31 -> vCid31,
-          vCid31 -> vCid32,
           vCid31 -> vCid41,
+          vCid31 -> vCid43,
+          vCid32 -> vCid43,
           vCid10 -> vCid30,
           vCid10 -> vCid31,
           vCid11 -> vCid30,
         )
 
-      val positiveTestCases = Table(
-        "localCid" -> "globalCid",
+      val positiveLocalTestCases = Table(
+        "local Cid" -> "global/absolute/relative Cid",
         vCid10 -> cid11,
         vCid10 -> cid12,
         vCid30 -> cid31,
         vCid30 -> cid32,
+      )
+
+      val positiveRelativeTestCases = Table(
+        "relative Cid" -> "absolute/relative Cid",
+        // relative -> absolute
+        cid31 -> cid32,
+        // relative -> relative
+        cid41 -> cid43,
       )
 
       forEvery(negativeTestCases) { (cid1, cid2) =>
@@ -71,11 +82,18 @@ class EqualitySpec extends AnyWordSpec with Inside with Matchers with ScalaCheck
         Equality.areEqual(cid2, cid1) shouldBe (cid1 == cid2)
       }
 
-      forEvery(positiveTestCases) { (localCid, globalCid) =>
+      forEvery(positiveLocalTestCases) { (localCid, globalCid) =>
         Try(Equality.areEqual(localCid, SContractId(globalCid))) shouldBe
           Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
         Try(Equality.areEqual(SContractId(globalCid), localCid)) shouldBe
           Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
+      }
+
+      forEvery(positiveRelativeTestCases) { (relativeCid, otherCid) =>
+        Try(Equality.areEqual(SContractId(relativeCid), SContractId(otherCid))) shouldBe
+          Failure(SError.SErrorDamlException(ContractIdComparability(relativeCid)))
+        Try(Equality.areEqual(SContractId(otherCid), SContractId(relativeCid))) shouldBe
+          Failure(SError.SErrorDamlException(ContractIdComparability(otherCid)))
       }
     }
   }

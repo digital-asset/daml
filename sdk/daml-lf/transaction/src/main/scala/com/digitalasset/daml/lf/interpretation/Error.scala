@@ -129,7 +129,7 @@ object Error {
   // as are not serializable.
   final case object NonComparableValues extends Error
 
-  // Attempt to compare the global contract ID `globalCid` and a local
+  // Attempt to compare the global/relative contract ID `globalCid` and a local/relative
   // contract ID with same discriminator / local prefix. See the "Contract ID
   // Comparability" section in the contract ID specification
   // (//daml-lf/spec/contract-id.rst) for more details.

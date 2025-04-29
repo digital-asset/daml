@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Node, TransactionVersion}
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import org.scalatest._
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -57,6 +57,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
           submissionTime = data.Time.Timestamp.Epoch,
           contract = contract,
           optLocation = None,
+          contractIdVersion = ContractIdVersion.V1,
         )
         .toOption
         .get

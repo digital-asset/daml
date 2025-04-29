@@ -7,7 +7,7 @@ package speedy
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Time}
 import com.digitalasset.daml.lf.ledger.Authorize
-import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
+import com.digitalasset.daml.lf.speedy.Speedy.{CachedKey, ContractInfo}
 import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 import com.digitalasset.daml.lf.transaction.{
   ContractStateMachine,
@@ -19,7 +19,7 @@ import com.digitalasset.daml.lf.transaction.{
   TransactionErrors => TxErr,
   TransactionVersion => TxVersion,
 }
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
@@ -341,15 +341,26 @@ private[speedy] case class PartialTransaction(
       submissionTime: Time.Timestamp,
       contract: ContractInfo,
       optLocation: Option[Location],
+      contractIdVersion: ContractIdVersion,
   ): Either[
     (PartialTransaction, TxErr.TransactionError),
     (Value.ContractId, PartialTransaction),
   ] = {
     val auth = Authorize(context.info.authorizers)
     val actionNodeSeed = context.nextActionChildSeed
-    val discriminator =
-      crypto.Hash.deriveContractDiscriminator(actionNodeSeed, submissionTime, contract.stakeholders)
-    val cid = Value.ContractId.V1(discriminator)
+
+    val cid = contractIdVersion match {
+      case ContractIdVersion.V1 =>
+        val discriminator =
+          crypto.Hash.deriveContractDiscriminator(
+            actionNodeSeed,
+            submissionTime,
+            contract.stakeholders,
+          )
+        Value.ContractId.V1(discriminator)
+      case ContractIdVersion.V2 =>
+        Value.ContractId.V2.unsuffixed(submissionTime, actionNodeSeed)
+    }
     val createNode = contract.toCreateNode(cid)
     val nid = NodeId(nextNodeIdx)
     val ptx = copy(

@@ -107,7 +107,13 @@ object Ordering extends scala.math.Ordering[SValue] {
   }
   @inline
   private[this] def compareCid(cid1: ContractId, cid2: ContractId): Int = {
-    def compareByComponents(prefix1: Bytes, suffix1: Bytes, prefix2: Bytes, suffix2: Bytes): Int = {
+    def compareByComponents(
+        prefix1: Bytes,
+        suffix1: Bytes,
+        prefix2: Bytes,
+        suffix2: Bytes,
+        allowDifferentSuffix: Boolean,
+    ): Int = {
       val c1 = Bytes.ordering.compare(prefix1, prefix2)
       if (c1 != 0) {
         c1
@@ -121,16 +127,31 @@ object Ordering extends scala.math.Ordering[SValue] {
         if (suffix2.isEmpty) {
           throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid1))
         } else {
-          Bytes.ordering.compare(suffix1, suffix2)
+          val diff = Bytes.ordering.compare(suffix1, suffix2)
+          if (diff != 0 && !allowDifferentSuffix)
+            throw SError.SErrorDamlException(interpretation.Error.ContractIdComparability(cid1))
+          diff
         }
       }
     }
 
     (cid1, cid2) match {
       case (ContractId.V1(discriminator1, suffix1), ContractId.V1(discriminator2, suffix2)) =>
-        compareByComponents(discriminator1.bytes, suffix1, discriminator2.bytes, suffix2)
-      case (ContractId.V2(local1, suffix1), ContractId.V2(local2, suffix2)) =>
-        compareByComponents(local1, suffix1, local2, suffix2)
+        compareByComponents(
+          discriminator1.bytes,
+          suffix1,
+          discriminator2.bytes,
+          suffix2,
+          allowDifferentSuffix = true,
+        )
+      case (cid1V2 @ ContractId.V2(local1, suffix1), cid2V2 @ ContractId.V2(local2, suffix2)) =>
+        compareByComponents(
+          local1,
+          suffix1,
+          local2,
+          suffix2,
+          cid1V2.isAbsolute && cid2V2.isAbsolute,
+        )
       case (_: ContractId.V1, _: ContractId.V2) => -1
       case (_: ContractId.V2, _: ContractId.V1) => 1
     }

@@ -44,9 +44,11 @@ private[lf] object Equality {
         cid2: ContractId,
         prefix2: Bytes,
         suffix2: Bytes,
+        allowDifferentNonemptySuffixes: Boolean,
     ): Boolean = {
-      if (prefix1 != prefix2) false
-      else if (suffix1.isEmpty)
+      if (prefix1 != prefix2) {
+        false
+      } else if (suffix1.isEmpty)
         throw SError.SErrorDamlException(
           interpretation.Error.ContractIdComparability(cid2)
         )
@@ -54,7 +56,11 @@ private[lf] object Equality {
         throw SError.SErrorDamlException(
           interpretation.Error.ContractIdComparability(cid1)
         )
-      else false
+      else if (!allowDifferentNonemptySuffixes) {
+        throw SError.SErrorDamlException(
+          interpretation.Error.ContractIdComparability(cid1)
+        )
+      } else false
     }
 
     @inline
@@ -77,12 +83,21 @@ private[lf] object Equality {
                     cid2,
                     discriminator2.bytes,
                     suffix2,
+                    allowDifferentNonemptySuffixes = true,
                   )
                 case (
                       SContractId(cid1 @ ContractId.V2(local1, suffix1)),
                       SContractId(cid2 @ ContractId.V2(local2, suffix2)),
                     ) =>
-                  compareContractIdsByComponent(cid1, local1, suffix1, cid2, local2, suffix2)
+                  compareContractIdsByComponent(
+                    cid1,
+                    local1,
+                    suffix1,
+                    cid2,
+                    local2,
+                    suffix2,
+                    cid1.isAbsolute && cid2.isAbsolute,
+                  )
                 case _ =>
                   false
               }
