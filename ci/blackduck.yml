@@ -8,7 +8,7 @@ jobs:
                        eq(variables['Build.SourceBranchName'], 'main-2.x')),
                     eq(variables['Build.DefinitionName'], 'digital-asset.daml-daily-compat')),
                 and(eq(variables['Build.DefinitionName'], 'PRs'),
-                    startsWith(variables['Build.SourceBranchName'], 'bump-blackduck-script-')))
+                    startsWith(variables['System.PullRequest.SourceBranch'], 'bump-blackduck-script-')))
   pool:
     name: ubuntu_20_04
     demands: assignment -equals default
