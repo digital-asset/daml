@@ -22,7 +22,7 @@ import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{
   Proposal,
-  TransactionHashBytes,
+  TransactionHashRaw,
 }
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceGrpc.IdentityInitializationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
@@ -928,7 +928,7 @@ object TopologyAdminCommands {
 
       override protected def createRequest(): Either[String, AuthorizeRequest] = Right(
         AuthorizeRequest(
-          TransactionHashBytes(transactionHash),
+          TransactionHashRaw(transactionHash),
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = Seq.empty,
           signedBy = signedBy.map(_.toProtoPrimitive),
