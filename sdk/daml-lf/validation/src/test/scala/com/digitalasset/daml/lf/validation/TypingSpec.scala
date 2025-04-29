@@ -41,7 +41,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] val tuple2TyCon: String = {
     import stablePackages.Tuple2
-    s"'${Tuple2.packageId}':${Tuple2.qualifiedName}"
+    s"'${Tuple2.pkg}':${Tuple2.qualifiedName}"
   }
 
   import SpecUtil._

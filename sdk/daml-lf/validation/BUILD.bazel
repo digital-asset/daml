@@ -150,7 +150,7 @@ da_scala_test_suite(
         ],
     ),
     data = [],
-    scala_deps = ["@maven//:org_scalaz_scalaz_core"],
+    scala_deps = [],
     scalacopts = lf_scalacopts,
     deps = [
         ":validation",
