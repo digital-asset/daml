@@ -285,8 +285,8 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
 
     "accepts valid identifiers" in {
       Identifier.fromString("foo:bar:baz").toOption.get shouldBe Identifier(
-        PackageId.assertFromString("foo"),
-        QualifiedName.assertFromString("bar:baz"),
+        pkg = PackageId.assertFromString("foo"),
+        qualifiedName = QualifiedName.assertFromString("bar:baz"),
       )
     }
   }
