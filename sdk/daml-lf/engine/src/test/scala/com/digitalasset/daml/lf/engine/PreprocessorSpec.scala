@@ -582,9 +582,9 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
       Bytes.assertFromString("deadbeef"),
     )
   val pkgRef: PackageRef.Name = Ref.PackageRef.Name(pkgName)
-  val withoutKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithoutKey")
+  val withoutKeyTmplId: Ref.TypeConId = Ref.Identifier.assertFromString("-pkgId-:Mod:WithoutKey")
   val withoutKeyTmplRef: Ref.TypeConRef = Ref.TypeConRef(pkgRef, withoutKeyTmplId.qualifiedName)
-  val withKeyTmplId: Ref.TypeConName = Ref.Identifier.assertFromString("-pkgId-:Mod:WithKey")
+  val withKeyTmplId: Ref.TypeConId = Ref.Identifier.assertFromString("-pkgId-:Mod:WithKey")
   val withKeyTmplRef: Ref.TypeConRef = Ref.TypeConRef(pkgRef, withKeyTmplId.qualifiedName)
   val key: Value.ValueRecord = Value.ValueRecord(
     None,
@@ -595,7 +595,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
   )
   val keyHash: Hash = crypto.Hash.assertHashContractKey(withKeyTmplId, pkgName, key)
 
-  val withContractIdTmplId: Ref.TypeConName =
+  val withContractIdTmplId: Ref.TypeConId =
     Ref.Identifier.assertFromString("-pkgId-:Mod:WithContractId")
   val withContractIdTmplRef: Ref.TypeConRef =
     Ref.TypeConRef(pkgRef, withContractIdTmplId.qualifiedName)
@@ -613,7 +613,7 @@ final class PreprocessorSpecHelpers(majorLanguageVersion: LanguageMajorVersion) 
 
   def buildDisclosedContract(
       contractId: ContractId = contractId,
-      templateId: Ref.TypeConName = withoutKeyTmplId,
+      templateId: Ref.TypeConId = withoutKeyTmplId,
       withNormalization: Boolean = true,
       withFieldsReversed: Boolean = false,
       key: Option[Value] = None,

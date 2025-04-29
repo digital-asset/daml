@@ -27,16 +27,16 @@ private[lf] final case class StablePackage(
 private[daml] abstract class StablePackages {
   val allPackages: Seq[StablePackage]
 
-  val ArithmeticError: Ref.TypeConName
-  val AnyChoice: Ref.TypeConName
-  val AnyContractKey: Ref.TypeConName
-  val AnyTemplate: Ref.TypeConName
-  val TemplateTypeRep: Ref.TypeConName
-  val NonEmpty: Ref.TypeConName
-  val Tuple2: Ref.TypeConName
-  val Tuple3: Ref.TypeConName
-  val Either: Ref.TypeConName
-  val FailureStatus: Ref.TypeConName
+  val ArithmeticError: Ref.TypeConId
+  val AnyChoice: Ref.TypeConId
+  val AnyContractKey: Ref.TypeConId
+  val AnyTemplate: Ref.TypeConId
+  val TemplateTypeRep: Ref.TypeConId
+  val NonEmpty: Ref.TypeConId
+  val Tuple2: Ref.TypeConId
+  val Tuple3: Ref.TypeConId
+  val Either: Ref.TypeConId
+  val FailureStatus: Ref.TypeConId
 
   final def packagesMap: Map[Ref.PackageId, Ast.Package] =
     allPackages.view.map(sp => sp.packageId -> sp.pkg).toMap

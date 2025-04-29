@@ -41,7 +41,7 @@ final case class PackageSignature(
   def getInterfaces: j.Map[QualifiedName, DefInterface.FWT] = interfaces.asJava
 
   private def resolveChoices(
-      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT],
+      findInterface: PartialFunction[Ref.TypeConId, DefInterface.FWT],
       failIfUnresolvedChoicesLeft: Boolean,
   ): PackageSignature = {
     val outside = findInterface.lift
@@ -89,7 +89,7 @@ final case class PackageSignature(
     * }}}
     */
   def resolveChoicesAndFailOnUnresolvableChoices(
-      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+      findInterface: PartialFunction[Ref.TypeConId, DefInterface.FWT]
   ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = true)
 
   /** Like resolveChoicesAndFailOnUnresolvableChoices, but simply discard
@@ -97,7 +97,7 @@ final case class PackageSignature(
     * without a complete environment provided as the argument.
     */
   def resolveChoicesAndIgnoreUnresolvedChoices(
-      findInterface: PartialFunction[Ref.TypeConName, DefInterface.FWT]
+      findInterface: PartialFunction[Ref.TypeConId, DefInterface.FWT]
   ): PackageSignature = resolveChoices(findInterface, failIfUnresolvedChoicesLeft = false)
 
   /** Update internal templates, as well as external templates via `setTemplates`,
@@ -109,11 +109,11 @@ final case class PackageSignature(
     */
   private def resolveRetroImplements[S](
       s: S
-  )(setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate.FWT]): (S, PackageSignature) = {
+  )(setTemplate: SetterAt[Ref.TypeConId, S, DefTemplate.FWT]): (S, PackageSignature) = {
     type SandTpls = (S, Map[QualifiedName, TypeDecl.Template])
     def setTpl(
         sm: SandTpls,
-        tcn: Ref.TypeConName,
+        tcn: Ref.TypeConId,
     ): Option[(DefTemplate.FWT => DefTemplate.FWT) => SandTpls] = {
       import PackageSignature.findTemplate
       val (s, tplsM) = sm
@@ -129,7 +129,7 @@ final case class PackageSignature(
       ((s, Map.empty): SandTpls, Map.empty[QualifiedName, DefInterface.FWT])
     ) { case ((s, astIfs), (ifcName, astIf)) =>
       astIf
-        .resolveRetroImplements(Ref.TypeConName(packageId, ifcName), s)(setTpl)
+        .resolveRetroImplements(Ref.TypeConId(packageId, ifcName), s)(setTpl)
         .rightMap(newIf => astIfs.updated(ifcName, newIf))
     }
     (sEnd, copy(typeDecls = typeDecls ++ newTpls, interfaces = newIfcs))
@@ -197,8 +197,8 @@ object PackageSignature {
   // for setters on specific templates in that set of packages.
   private[this] def setPackageTemplates[S](
       findPackage: GetterSetterAt[PackageId, S, PackageSignature]
-  ): SetterAt[Ref.TypeConName, S, DefTemplate.FWT] = {
-    def go(s: S, tcn: Ref.TypeConName): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
+  ): SetterAt[Ref.TypeConId, S, DefTemplate.FWT] = {
+    def go(s: S, tcn: Ref.TypeConId): Option[(DefTemplate.FWT => DefTemplate.FWT) => S] = for {
       foundPkg <- findPackage(s, tcn.packageId)
       (ifc, sIfc) = foundPkg
       itt <- findTemplate(ifc.typeDecls, tcn.qualifiedName)
@@ -247,7 +247,7 @@ object PackageSignature {
     */
   def findInterface(
       findPackage: PartialFunction[PackageId, PackageSignature]
-  ): PartialFunction[Ref.TypeConName, DefInterface.FWT] = {
+  ): PartialFunction[Ref.TypeConId, DefInterface.FWT] = {
     val pkg = findPackage.lift
     def go(id: Identifier) = pkg(id.packageId).flatMap(_.interfaces get id.qualifiedName)
     Function unlift go
@@ -259,7 +259,7 @@ object PackageSignature {
     */
   def resolveInterfaceViewType(
       findPackage: PartialFunction[PackageId, PackageSignature]
-  ): PartialFunction[Ref.TypeConName, DefInterface.ViewTypeFWT] =
+  ): PartialFunction[Ref.TypeConId, DefInterface.ViewTypeFWT] =
     Function unlift { tcn =>
       findPackage.lift(tcn.packageId) flatMap (_ resolveInterfaceViewType tcn.qualifiedName)
     }

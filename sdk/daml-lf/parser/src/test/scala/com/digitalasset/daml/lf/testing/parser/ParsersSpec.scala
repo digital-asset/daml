@@ -88,7 +88,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "parses properly type constructor" in {
-      val testCases = Table[String, TypeConName](
+      val testCases = Table[String, TypeConId](
         "string to parse" -> "expected type constructor",
         "Mod:T" -> T.tycon,
         "'-pkgId-':Mod:T" -> T.tycon,

@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
   CreateTransactionVersion,
 }
-import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKeyWithMaintainers,
@@ -37,7 +37,7 @@ trait TestNodeBuilder {
 
   def create(
       id: ContractId,
-      templateId: TypeConName,
+      templateId: TypeConId,
       argument: Value,
       signatories: Set[Party],
       observers: Set[Party] = Set.empty,
@@ -87,7 +87,7 @@ trait TestNodeBuilder {
       actingParties: Set[Ref.Party],
       argument: Value,
       byKey: Boolean,
-      interfaceId: Option[Ref.TypeConName] = None,
+      interfaceId: Option[Ref.TypeConId] = None,
       result: Option[Value] = None,
       choiceObservers: Set[Ref.Party] = Set.empty,
       children: ImmArray[NodeId] = ImmArray.empty,

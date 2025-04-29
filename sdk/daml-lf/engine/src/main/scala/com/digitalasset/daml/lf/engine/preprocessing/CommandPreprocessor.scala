@@ -149,11 +149,11 @@ private[lf] final class CommandPreprocessor(
     speedy.Command.LookupByKey(templateId, key)
   }
 
-  private[preprocessing] def unsafeResolveTyConName(
+  private[preprocessing] def unsafeResolveTyConId(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       tyConRef: Ref.TypeConRef,
       context: => language.Reference,
-  ): Ref.TypeConName = {
+  ): Ref.TypeConId = {
     val pkgId = tyConRef.pkg match {
       case PackageRef.Id(id) => id
       case PackageRef.Name(name) =>
@@ -162,7 +162,7 @@ private[lf] final class CommandPreprocessor(
           throw Error.Preprocessing.UnresolvedPackageName(name, context),
         )
     }
-    Ref.TypeConName(pkgId, tyConRef.qualifiedName)
+    Ref.TypeConId(pkgId, tyConRef.qualifiedName)
   }
 
   // returns the speedy translation of an API command.
@@ -174,14 +174,14 @@ private[lf] final class CommandPreprocessor(
     cmd match {
       case command.ApiCommand.Create(templateRef, argument) =>
         val templateId =
-          unsafeResolveTyConName(
+          unsafeResolveTyConId(
             pkgResolution,
             templateRef,
             language.Reference.Template(templateRef),
           )
         unsafePreprocessCreate(templateId, argument)
       case command.ApiCommand.Exercise(typeRef, contractId, choiceId, argument) =>
-        val typeId = unsafeResolveTyConName(
+        val typeId = unsafeResolveTyConId(
           pkgResolution,
           typeRef,
           language.Reference.TemplateOrInterface(typeRef),
@@ -189,7 +189,7 @@ private[lf] final class CommandPreprocessor(
         unsafePreprocessExercise(typeId, contractId, choiceId, argument)
       case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, argument) =>
         val templateId =
-          unsafeResolveTyConName(
+          unsafeResolveTyConId(
             pkgResolution,
             templateRef,
             language.Reference.Template(templateRef),
@@ -202,7 +202,7 @@ private[lf] final class CommandPreprocessor(
             choiceArgument,
           ) =>
         val templateId =
-          unsafeResolveTyConName(
+          unsafeResolveTyConId(
             pkgResolution,
             templateRef,
             language.Reference.Template(templateRef),
@@ -311,7 +311,7 @@ private[lf] final class CommandPreprocessor(
       key: ApiContractKey,
   ): GlobalKey = {
     val templateRef = key.templateRef
-    val templateId = unsafeResolveTyConName(
+    val templateId = unsafeResolveTyConId(
       pkgResolution,
       templateRef,
       language.Reference.Template(templateRef),
@@ -326,7 +326,7 @@ private[lf] final class CommandPreprocessor(
   }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessContractKey(contractKey: Value, templateId: Ref.TypeConName): GlobalKey = {
+  def unsafePreprocessContractKey(contractKey: Value, templateId: Ref.TypeConId): GlobalKey = {
     val ckTtype: Ast.Type = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
     val preprocessedKey = unsafeTranslateValue(ckTtype, contractKey)
     speedy.Speedy.Machine

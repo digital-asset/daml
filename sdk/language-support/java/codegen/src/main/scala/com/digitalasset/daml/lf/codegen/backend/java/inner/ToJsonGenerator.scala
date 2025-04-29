@@ -254,9 +254,9 @@ private[inner] object ToJsonGenerator {
       CodeBlock.join(types.map(t => encoderOf(t, nesting + 1)).asJava, ", ")
 
     damlType match {
-      case TypeCon(TypeConName(ident), IndexedSeq()) =>
+      case TypeCon(TypeConId(ident), IndexedSeq()) =>
         CodeBlock.of("$T::jsonEncoder", guessClass(ident))
-      case TypeCon(TypeConName(_), typeParams) =>
+      case TypeCon(TypeConId(_), typeParams) =>
         // We are introducing identifiers into the namespace, so try to make them unique.
         val argName = CodeBlock.of("_x$L", nesting)
         CodeBlock.of("$L -> $L.jsonEncoder($L)", argName, argName, typeEncoders(typeParams))

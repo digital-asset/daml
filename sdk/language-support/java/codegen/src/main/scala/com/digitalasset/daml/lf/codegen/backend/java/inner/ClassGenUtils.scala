@@ -41,7 +41,7 @@ private[inner] object ClassGenUtils {
       typeCon: TypeCon,
       identifierToType: AuxiliarySignatures,
   ): Option[Record.FWT] = {
-    val TypeCon(TypeConName(Ref.Identifier(packageId, qualName)), _) = typeCon
+    val TypeCon(TypeConId(Ref.Identifier(packageId, qualName)), _) = typeCon
     identifierToType get packageId flatMap (_.typeDecls get qualName) collect {
       case TypeDecl.Normal(DefDataType(_, record: Record.FWT)) =>
         record

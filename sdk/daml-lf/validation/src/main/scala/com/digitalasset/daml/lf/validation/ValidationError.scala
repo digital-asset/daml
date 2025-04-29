@@ -121,11 +121,11 @@ case object URGenMap extends UnserializabilityReason {
 case object URContractId extends UnserializabilityReason {
   def pretty: String = "ContractId not applied to a template type"
 }
-final case class URDataType(conName: TypeConName) extends UnserializabilityReason {
-  def pretty: String = s"unserializable data type ${conName.qualifiedName}"
+final case class URDataType(conId: TypeConId) extends UnserializabilityReason {
+  def pretty: String = s"unserializable data type ${conId.qualifiedName}"
 }
-final case class URTypeSyn(synName: TypeSynName) extends UnserializabilityReason {
-  def pretty: String = s"type synonym ${synName.qualifiedName}"
+final case class URTypeSyn(synId: TypeSynId) extends UnserializabilityReason {
+  def pretty: String = s"type synonym ${synId.qualifiedName}"
 }
 final case class URHigherKinded(varName: TypeVarName, kind: Kind) extends UnserializabilityReason {
   def pretty: String = s"higher-kinded type variable $varName : ${kind.pretty}"
@@ -175,7 +175,7 @@ final case class EUnknownDefinition(context: Context, lookupError: language.Look
 final case class ETypeSynAppWrongArity(
     context: Context,
     expectedArity: Int,
-    syn: TypeSynName,
+    syn: TypeSynId,
     args: ImmArray[Type],
 ) extends ValidationError {
   protected def prettyInternal: String =
@@ -213,12 +213,11 @@ final case class EFieldMismatch(
   protected def prettyInternal: String =
     s"field mismatch: * expected: $conApp * record expression: $fields"
 }
-final case class EExpectedVariantType(context: Context, conName: TypeConName)
-    extends ValidationError {
-  protected def prettyInternal: String = s"expected variant type: ${conName.qualifiedName}"
+final case class EExpectedVariantType(context: Context, tycon: TypeConId) extends ValidationError {
+  protected def prettyInternal: String = s"expected variant type: ${tycon.qualifiedName}"
 }
-final case class EExpectedEnumType(context: Context, conName: TypeConName) extends ValidationError {
-  protected def prettyInternal: String = s"expected enum type: ${conName.qualifiedName}"
+final case class EExpectedEnumType(context: Context, tycon: TypeConId) extends ValidationError {
+  protected def prettyInternal: String = s"expected enum type: ${tycon.qualifiedName}"
 }
 final case class EUnknownVariantCon(context: Context, conName: VariantConName)
     extends ValidationError {
@@ -324,15 +323,15 @@ final case class EClashingPatternVariables(context: Context, varName: ExprVarNam
     extends ValidationError {
   protected def prettyInternal: String = s"$varName is used more than one in pattern"
 }
-final case class EExpectedTemplatableType(context: Context, conName: TypeConName)
+final case class EExpectedTemplatableType(context: Context, tycon: TypeConId)
     extends ValidationError {
   protected def prettyInternal: String =
-    s"expected monomorphic record type in template definition, but found: ${conName.qualifiedName}"
+    s"expected monomorphic record type in template definition, but found: ${tycon.qualifiedName}"
 }
-final case class EExpectedExceptionableType(context: Context, conName: TypeConName)
+final case class EExpectedExceptionableType(context: Context, tycon: TypeConId)
     extends ValidationError {
   protected def prettyInternal: String =
-    s"expected monomorphic record type in exception definition, but found: ${conName.qualifiedName}"
+    s"expected monomorphic record type in exception definition, but found: ${tycon.qualifiedName}"
 }
 final case class EExpectedViewType(context: Context, typ: Type) extends ValidationError {
   protected def prettyInternal: String =
@@ -372,39 +371,38 @@ final case class EViewTypeConNotRecord(context: Context, badCons: DataCons, typ:
 }
 final case class EViewTypeMismatch(
     context: Context,
-    ifaceName: TypeConName,
-    tplName: TypeConName,
+    ifaceId: TypeConId,
+    tplId: TypeConId,
     foundType: Type,
     expectedType: Type,
     expr: Option[Expr],
 ) extends ValidationError {
   protected def prettyInternal: String =
-    s"""Tried to implement a view of type ${foundType.pretty} on interface ${ifaceName.qualifiedName} for template ${tplName.qualifiedName}, but the definition of interface ${ifaceName.qualifiedName} requires a view of type ${expectedType.pretty}"""
+    s"""Tried to implement a view of type ${foundType.pretty} on interface ${ifaceId.qualifiedName} for template ${tplId.qualifiedName}, but the definition of interface ${ifaceId.qualifiedName} requires a view of type ${expectedType.pretty}"""
 }
 final case class EMethodTypeMismatch(
     context: Context,
-    ifaceName: TypeConName,
-    tplName: TypeConName,
+    ifaceId: TypeConId,
+    tplId: TypeConId,
     methodName: MethodName,
     foundType: Type,
     expectedType: Type,
     expr: Option[Expr],
 ) extends ValidationError {
   protected def prettyInternal: String =
-    s"Implementation of method $methodName on interface $ifaceName should return ${expectedType.pretty} but instead returns ${foundType.pretty}"
+    s"Implementation of method $methodName on interface $ifaceId should return ${expectedType.pretty} but instead returns ${foundType.pretty}"
 }
 final case class EImportCycle(context: Context, modName: List[ModuleName]) extends ValidationError {
   protected def prettyInternal: String = s"cycle in module dependency ${modName.mkString(" -> ")}"
 }
-final case class ETypeSynCycle(context: Context, names: List[TypeSynName]) extends ValidationError {
+final case class ETypeSynCycle(context: Context, names: List[TypeSynId]) extends ValidationError {
   protected def prettyInternal: String =
     s"cycle in type synonym definitions ${names.mkString(" -> ")}"
 }
-final case class EIllegalHigherEnumType(context: Context, defn: TypeConName)
-    extends ValidationError {
+final case class EIllegalHigherEnumType(context: Context, defn: TypeConId) extends ValidationError {
   protected def prettyInternal: String = s"illegal higher order enum type"
 }
-final case class EIllegalHigherInterfaceType(context: Context, defn: TypeConName)
+final case class EIllegalHigherInterfaceType(context: Context, defn: TypeConId)
     extends ValidationError {
   protected def prettyInternal: String = s"illegal higher interface type"
 }
@@ -456,8 +454,8 @@ final case class EMissingMethodInInterfaceInstance(
 final case class EUnknownMethodInInterfaceInstance(
     context: Context,
     method: MethodName,
-    iface: TypeConName,
-    tpl: TypeConName,
+    iface: TypeConId,
+    tpl: TypeConId,
 ) extends ValidationError {
   override protected def prettyInternal: String =
     s"Tried to implement method $method but interface $iface does not have a method with that name."
@@ -465,7 +463,7 @@ final case class EUnknownMethodInInterfaceInstance(
 
 final case class EMissingRequiredInterfaceInstance(
     context: Context,
-    requiringIface: TypeConName,
+    requiringIface: TypeConId,
     missingRequiredInterfaceInstance: Reference.InterfaceInstance,
 ) extends ValidationError {
   override protected def prettyInternal: String =
@@ -473,31 +471,31 @@ final case class EMissingRequiredInterfaceInstance(
 }
 final case class EWrongInterfaceRequirement(
     context: Context,
-    requiringIface: TypeConName,
-    wrongRequiredIface: TypeConName,
+    requiringIface: TypeConId,
+    wrongRequiredIface: TypeConId,
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Interface $requiringIface does not require $wrongRequiredIface"
 }
 final case class ENotClosedInterfaceRequires(
     context: Context,
-    iface: TypeConName,
-    requiredIface: TypeConName,
-    missingRequiredIface: TypeConName,
+    iface: TypeConId,
+    requiredIface: TypeConId,
+    missingRequiredIface: TypeConId,
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Interface $iface is missing requirements $missingRequiredIface required by $requiredIface"
 }
 final case class ECircularInterfaceRequires(
     context: Context,
-    iface: TypeConName,
+    iface: TypeConId,
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"Circular interface requirement is not allowed: interface $iface requires itself."
 }
 final case class ESoftFetchTemplateWithKey(
     context: Context,
-    templateId: TypeConName,
+    templateId: TypeConId,
 ) extends ValidationError {
   protected def prettyInternal: String =
     s"softFetch is not supported on template with key declaration: $templateId."

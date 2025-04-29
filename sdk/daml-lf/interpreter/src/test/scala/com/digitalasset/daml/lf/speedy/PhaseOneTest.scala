@@ -238,7 +238,7 @@ class PhaseOneTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChe
   private def tvBinder: (TypeVarName, Kind) = (tvar, KStar)
   private def varname: ExprVarName = Name.assertFromString("x")
   private def tvar: TypeVarName = Name.assertFromString("T")
-  private def tcon: TypeConName = Identifier.assertFromString("P:M:tcon")
+  private def tcon: TypeConId = Identifier.assertFromString("P:M:tcon")
   private def choice: ChoiceName = Name.assertFromString("choice")
   private def tapp: TypeConApp = TypeConApp(tcon, ImmArray.empty)
   private def field: FieldName = Name.assertFromString("field")

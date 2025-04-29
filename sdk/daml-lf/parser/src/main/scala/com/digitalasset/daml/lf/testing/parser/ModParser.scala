@@ -247,7 +247,7 @@ private[parser] class ModParser[P](parameters: ParserParameters[P]) {
   private val interfaceView: Parser[Type] =
     Id("viewtype") ~>! typ
 
-  private val interfaceRequires: Parser[Ref.TypeConName] =
+  private val interfaceRequires: Parser[Ref.TypeConId] =
     Id("requires") ~>! fullIdentifier
 
   private val interfaceMethod: Parser[InterfaceMethod] =

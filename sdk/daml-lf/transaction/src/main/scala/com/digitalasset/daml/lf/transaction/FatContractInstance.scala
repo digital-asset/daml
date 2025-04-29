@@ -15,7 +15,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val version: TransactionVersion
   val contractId: Value.ContractId
   val packageName: Ref.PackageName
-  val templateId: Ref.TypeConName
+  val templateId: Ref.TypeConId
   val createArg: Value
   val signatories: TreeSet[Ref.Party]
   val stakeholders: TreeSet[Ref.Party]
@@ -64,7 +64,7 @@ private[lf] final case class FatContractInstanceImpl(
     version: TransactionVersion,
     contractId: Value.ContractId,
     packageName: Ref.PackageName,
-    templateId: Ref.TypeConName,
+    templateId: Ref.TypeConId,
     createArg: Value,
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],

@@ -485,7 +485,7 @@ private[lf] final class Compiler(
 
   private[this] def translateChoiceBody(
       env: Env,
-      tmplId: TypeConName,
+      tmplId: TypeConId,
       tmpl: Template,
       choice: TemplateChoice,
   )(
@@ -547,7 +547,7 @@ private[lf] final class Compiler(
   //   Try to factorise this with compileChoiceBody above.
   private[this] def translateInterfaceChoiceBody(
       env: Env,
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       param: ExprVarName,
       choice: TemplateChoice,
   )(
@@ -610,7 +610,7 @@ private[lf] final class Compiler(
   }
 
   private[this] def compileInterfaceChoice(
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       param: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
@@ -625,7 +625,7 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileTemplateChoice(
-      tmplId: TypeConName,
+      tmplId: TypeConId,
       tmpl: Template,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
@@ -640,7 +640,7 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileChoiceController(
-      typeId: TypeConName,
+      typeId: TypeConId,
       contractVarName: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
@@ -657,7 +657,7 @@ private[lf] final class Compiler(
     }
 
   private[this] def compileChoiceObserver(
-      typeId: TypeConName,
+      typeId: TypeConId,
       contractVarName: ExprVarName,
       choice: TemplateChoice,
   ): (t.SDefinitionRef, SDefinition) =
@@ -679,7 +679,7 @@ private[lf] final class Compiler(
 
   /** Compile a choice into a top-level function for exercising that choice */
   private[this] def compileChoiceByKey(
-      tmplId: TypeConName,
+      tmplId: TypeConId,
       tmpl: Template,
       tmplKey: TemplateKey,
       choice: TemplateChoice,
@@ -817,10 +817,10 @@ private[lf] final class Compiler(
   // Compile the contents of an interface instance, including a witness for
   // the existence of said interface instance.
   private[this] def compileInterfaceInstance(
-      parent: TypeConName,
+      parent: TypeConId,
       tmplParam: Name,
-      interfaceId: TypeConName,
-      templateId: TypeConName,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
       interfaceInstanceBody: InterfaceInstanceBody,
   ): Iterable[(t.SDefinitionRef, SDefinition)] = {
     val builder = Iterable.newBuilder[(t.SDefinitionRef, SDefinition)]
@@ -896,7 +896,7 @@ private[lf] final class Compiler(
 
   // Convenience function for creating a call to the above ThrowExceptionAsFailureStatusDefRef
   def throwExceptionAsFailureStatusSExpr(
-      exceptionId: TypeConName,
+      exceptionId: TypeConId,
       exceptionValue: SValue,
   ): t.SExpr =
     t.SELet1(
@@ -990,7 +990,7 @@ private[lf] final class Compiler(
 
   @inline
   private[this] def compileFetchByKey(
-      tmplId: TypeConName,
+      tmplId: TypeConId,
       tmplKey: TemplateKey,
   ): (t.SDefinitionRef, SDefinition) =
     // compile a template with key into

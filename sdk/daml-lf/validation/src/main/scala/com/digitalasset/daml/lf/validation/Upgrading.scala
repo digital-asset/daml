@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package validation
 
 import scala.util.{Try, Success, Failure}
-import com.digitalasset.daml.lf.data.Ref.TypeConName
+import com.digitalasset.daml.lf.data.Ref.TypeConId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
@@ -191,8 +191,7 @@ object UpgradeError {
       s"Tried to upgrade interface $iface, but interfaces cannot be upgraded. They should be removed in any upgrading package."
   }
 
-  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConName)
-      extends Error {
+  final case class MissingImplementation(tpl: Ref.DottedName, iface: Ref.TypeConId) extends Error {
     override def message: String =
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
@@ -231,7 +230,7 @@ final case class TemplateChoiceInput(template: Ref.DottedName, choice: Ref.Choic
     s"input type of choice $choice on template $template"
 }
 
-final case class VariantConstructor(datatype: Ref.DottedName, variant: Ref.TypeConName)
+final case class VariantConstructor(datatype: Ref.DottedName, variant: Ref.TypeConId)
     extends UpgradedRecordOrigin {
   override def toString(): String =
     s"variant constructor ${variant.qualifiedName.name} from variant $datatype"
@@ -253,7 +252,7 @@ final case class ModuleWithMetadata(module: Ast.Module) {
       fullName = prefix.slowSnoc(choiceName)
     } yield (Ref.DottedName.unsafeFromNames(fullName), (templateName, choiceName))
 
-  type VariantNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.TypeConName)]
+  type VariantNameMap = Map[Ref.DottedName, (Ref.DottedName, Ref.TypeConId)]
 
   lazy val variantNameMap: VariantNameMap =
     for {
@@ -263,10 +262,10 @@ final case class ModuleWithMetadata(module: Ast.Module) {
       fullName = dataTypeName.segments.slowSnoc(recordName)
     } yield (Ref.DottedName.unsafeFromNames(fullName), (dataTypeName, variantName))
 
-  private def leftMostApp(typ: Ast.Type): Option[Ref.TypeConName] = {
+  private def leftMostApp(typ: Ast.Type): Option[Ref.TypeConId] = {
     typ match {
       case Ast.TApp(func, arg @ _) => leftMostApp(func)
-      case Ast.TTyCon(typeConName) => Some(typeConName)
+      case Ast.TTyCon(typeConId) => Some(typeConId)
       case _ => None
     }
   }
@@ -455,7 +454,7 @@ case class TypecheckUpgrades(
 
   def flattenInstances(
       module: Ast.Module
-  ): Map[(Ref.DottedName, Ref.TypeConName), (Ast.Template, Ast.TemplateImplements)] = {
+  ): Map[(Ref.DottedName, Ref.TypeConId), (Ast.Template, Ast.TemplateImplements)] = {
     for {
       (templateName, template) <- module.templates
       (implName, impl) <- template.implements.toMap
@@ -532,7 +531,7 @@ case class TypecheckUpgrades(
   }
 
   private def checkDeletedInstances(
-      deletedInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+      deletedInstances: Map[(Ref.DottedName, TypeConId), (Ast.Template, Ast.TemplateImplements)]
   ): Try[Unit] =
     deletedInstances.headOption match {
       case Some(((tpl, iface), _)) => fail(UpgradeError.MissingImplementation(tpl, iface))

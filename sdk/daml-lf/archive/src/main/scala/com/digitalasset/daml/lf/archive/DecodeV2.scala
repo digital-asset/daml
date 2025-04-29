@@ -773,13 +773,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       ValueRef(packageId, QualifiedName(module, name))
     }
 
-    private[this] def decodeTypeConId(lfTyConName: PLF.TypeConId): TypeConName = {
+    private[this] def decodeTypeConId(lfTyConName: PLF.TypeConId): TypeConId = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
       val name = getInternedDottedName(lfTyConName.getNameInternedDname)
       Identifier(packageId, QualifiedName(module, name))
     }
 
-    private[this] def decodeTypeSynId(lfTySynName: PLF.TypeSynId): TypeSynName = {
+    private[this] def decodeTypeSynId(lfTySynName: PLF.TypeSynId): TypeSynId = {
       val (packageId, module) = decodeModuleRef(lfTySynName.getModule)
       val name = getInternedDottedName(lfTySynName.getNameInternedDname)
       Identifier(packageId, QualifiedName(module, name))
@@ -1228,7 +1228,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodeRetrieveByKey(value: PLF.Update.RetrieveByKey): Work[TypeConName] = {
+    private[this] def decodeRetrieveByKey(value: PLF.Update.RetrieveByKey): Work[TypeConId] = {
       assertSince(LV.Features.contractKeys, "RetrieveByKey")
       Ret(decodeTypeConId(value.getTemplate))
     }

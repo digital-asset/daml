@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package transaction
 
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.data.Ref.{Party, Identifier, PackageName, TypeConName, ChoiceName}
+import com.digitalasset.daml.lf.data.Ref.{Party, Identifier, PackageName, TypeConId, ChoiceName}
 import com.digitalasset.daml.lf.value.{Value => V}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -205,7 +205,7 @@ class ValidationSpec extends AnyFreeSpec with Matchers with TableDrivenPropertyC
     if (x != samContractId1) samContractId1 else samContractId2
   }
 
-  private def changeTemplateId(x: TypeConName): TypeConName = {
+  private def changeTemplateId(x: TypeConId): TypeConId = {
     if (x != samTemplateId1) samTemplateId1 else samTemplateId2
   }
 

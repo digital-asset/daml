@@ -431,9 +431,9 @@ private[lf] object SExpr {
     * package in case it's missing.
     */
   final case class InterfaceInstanceDefRef(
-      parent: TypeConName,
-      interfaceId: TypeConName,
-      templateId: TypeConName,
+      parent: TypeConId,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
   ) extends SDefinitionRef {
     override def ref = parent;
   }

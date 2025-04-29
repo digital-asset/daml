@@ -13,7 +13,7 @@ object Ast {
   //
 
   /** Fully applied type constructor. */
-  final case class TypeConApp(tycon: TypeConName, args: ImmArray[Type]) {
+  final case class TypeConApp(tycon: TypeConId, args: ImmArray[Type]) {
     def pretty: String = this.toType.pretty
     def toType: Type = args.foldLeft[Type](TTyCon(tycon))(TApp)
   }
@@ -83,7 +83,7 @@ object Ast {
   final case class EVariantCon(tycon: TypeConApp, variant: VariantConName, arg: Expr) extends Expr
 
   /** Variant construction. */
-  final case class EEnumCon(tyConName: TypeConName, con: EnumConName) extends ExprAtomic
+  final case class EEnumCon(tyCon: TypeConId, con: EnumConName) extends ExprAtomic
 
   /** Struct construction. */
   final case class EStructCon(fields: ImmArray[(FieldName, Expr)]) extends Expr
@@ -152,7 +152,7 @@ object Ast {
 
   /** Extract the controllers from a contract and a choice */
   final case class EChoiceController(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
       contractExpr: Expr,
       choiceArgExpr: Expr,
@@ -160,7 +160,7 @@ object Ast {
 
   /** Extract the observers from a contract and a choice */
   final case class EChoiceObserver(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
       contractExpr: Expr,
       choiceArgExpr: Expr,
@@ -170,34 +170,34 @@ object Ast {
   sealed abstract class ExprInterface extends Expr
 
   /** Convert template payload to interface it implements */
-  final case class EToInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
+  final case class EToInterface(interfaceId: TypeConId, templateId: TypeConId, value: Expr)
       extends ExprInterface
 
   /** Convert interface back to template payload if possible */
-  final case class EFromInterface(interfaceId: TypeConName, templateId: TypeConName, value: Expr)
+  final case class EFromInterface(interfaceId: TypeConId, templateId: TypeConId, value: Expr)
       extends ExprInterface
 
   /** Convert interface back to template payload,
     * or raise a WronglyTypedContracg error if not possible
     */
   final case class EUnsafeFromInterface(
-      interfaceId: TypeConName,
-      templateId: TypeConName,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
       contractIdExpr: Expr,
       ifaceExpr: Expr,
   ) extends ExprInterface
 
   /** Upcast from an interface payload to an interface it requires. */
   final case class EToRequiredInterface(
-      requiredIfaceId: TypeConName,
-      requiringIfaceId: TypeConName,
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
       body: Expr,
   ) extends ExprInterface
 
   /** Downcast from an interface payload to an interface that requires it, if possible. */
   final case class EFromRequiredInterface(
-      requiredIfaceId: TypeConName,
-      requiringIfaceId: TypeConName,
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
       body: Expr,
   ) extends ExprInterface
 
@@ -205,37 +205,37 @@ object Ast {
     * or raise a WronglyTypedContract error if not possible.
     */
   final case class EUnsafeFromRequiredInterface(
-      requiredIfaceId: TypeConName,
-      requiringIfaceId: TypeConName,
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
       contractIdExpr: Expr,
       ifaceExpr: Expr,
   ) extends ExprInterface
 
   /** Invoke an interface method */
-  final case class ECallInterface(interfaceId: TypeConName, methodName: MethodName, value: Expr)
+  final case class ECallInterface(interfaceId: TypeConId, methodName: MethodName, value: Expr)
       extends ExprInterface
 
   /** Obtain the type representation of a contract's template through an interface. */
   final case class EInterfaceTemplateTypeRep(
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       body: Expr,
   ) extends ExprInterface
 
   /** Obtain the signatories of a contract through an interface. */
   final case class ESignatoryInterface(
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       body: Expr,
   ) extends ExprInterface
 
   /** Obtain the observers of a contract through an interface. */
   final case class EObserverInterface(
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       body: Expr,
   ) extends ExprInterface
 
   /** Obtain the view of an interface. */
   final case class EViewInterface(
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       expr: Expr,
   ) extends ExprInterface
 
@@ -347,10 +347,10 @@ object Ast {
   }
 
   /** Fully applied type synonym. */
-  final case class TSynApp(tysyn: TypeSynName, args: ImmArray[Type]) extends Type
+  final case class TSynApp(tysyn: TypeSynId, args: ImmArray[Type]) extends Type
 
   /** Reference to a type constructor. */
-  final case class TTyCon(tycon: TypeConName) extends Type
+  final case class TTyCon(tycon: TypeConId) extends Type
 
   /** Reference to builtin type. */
   final case class TBuiltin(bt: BuiltinType) extends Type
@@ -582,32 +582,32 @@ object Ast {
 
   final case class UpdatePure(t: Type, expr: Expr) extends Update
   final case class UpdateBlock(bindings: ImmArray[Binding], body: Expr) extends Update
-  final case class UpdateCreate(templateId: TypeConName, arg: Expr) extends Update
-  final case class UpdateCreateInterface(interfaceId: TypeConName, arg: Expr) extends Update
-  final case class UpdateFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
-  final case class UpdateSoftFetchTemplate(templateId: TypeConName, contractId: Expr) extends Update
-  final case class UpdateFetchInterface(interfaceId: TypeConName, contractId: Expr) extends Update
+  final case class UpdateCreate(templateId: TypeConId, arg: Expr) extends Update
+  final case class UpdateCreateInterface(interfaceId: TypeConId, arg: Expr) extends Update
+  final case class UpdateFetchTemplate(templateId: TypeConId, contractId: Expr) extends Update
+  final case class UpdateSoftFetchTemplate(templateId: TypeConId, contractId: Expr) extends Update
+  final case class UpdateFetchInterface(interfaceId: TypeConId, contractId: Expr) extends Update
 
   final case class UpdateExercise(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
   ) extends Update
   final case class UpdateSoftExercise(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
   ) extends Update
   final case class UpdateDynamicExercise(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
   ) extends Update
   final case class UpdateExerciseInterface(
-      interfaceId: TypeConName,
+      interfaceId: TypeConId,
       choice: ChoiceName,
       cidE: Expr,
       argE: Expr,
@@ -617,15 +617,15 @@ object Ast {
       // false, or an exception is raised during evaluation, the transaction is aborted.
   ) extends Update
   final case class UpdateExerciseByKey(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
       keyE: Expr,
       argE: Expr,
   ) extends Update
   case object UpdateGetTime extends Update
   final case class UpdateLedgerTimeLT(time: Expr) extends Update
-  final case class UpdateFetchByKey(templateId: TypeConName) extends Update
-  final case class UpdateLookupByKey(templateId: TypeConName) extends Update
+  final case class UpdateFetchByKey(templateId: TypeConId) extends Update
+  final case class UpdateLookupByKey(templateId: TypeConId) extends Update
   final case class UpdateEmbedExpr(typ: Type, body: Expr) extends Update
   final case class UpdateTryCatch(
       typ: Type,
@@ -641,10 +641,10 @@ object Ast {
   sealed abstract class CasePat extends Product with Serializable
 
   // Match on variant
-  final case class CPVariant(tycon: TypeConName, variant: VariantConName, binder: ExprVarName)
+  final case class CPVariant(tycon: TypeConId, variant: VariantConName, binder: ExprVarName)
       extends CasePat
   // Match on enum
-  final case class CPEnum(tycon: TypeConName, constructor: EnumConName) extends CasePat
+  final case class CPEnum(tycon: TypeConId, constructor: EnumConName) extends CasePat
   // Match on builtin constructor.
   final case class CPBuiltinCon(pc: BuiltinCon) extends CasePat
   // Match on an empty list.
@@ -737,19 +737,18 @@ object Ast {
   val TemplateKeySignature = new GenTemplateKeyCompanion[Unit]
 
   final case class GenDefInterface[E](
-      requires: Set[TypeConName],
+      requires: Set[TypeConId],
       param: ExprVarName, // Binder for template argument.
       choices: Map[ChoiceName, GenTemplateChoice[E]],
       methods: Map[MethodName, InterfaceMethod],
-      coImplements: Map[TypeConName, GenInterfaceCoImplements[E]] =
-        Map.empty, // Only used by LF 1.x
+      coImplements: Map[TypeConId, GenInterfaceCoImplements[E]] = Map.empty, // Only used by LF 1.x
       view: Type,
   )
 
   final class GenDefInterfaceCompanion[E] {
     @throws[PackageError]
     def build(
-        requires: Iterable[TypeConName],
+        requires: Iterable[TypeConId],
         param: ExprVarName, // Binder for template argument.
         choices: Iterable[GenTemplateChoice[E]],
         methods: Iterable[InterfaceMethod],
@@ -758,7 +757,7 @@ object Ast {
     ): GenDefInterface[E] = {
       val requiresSet = toSetWithoutDuplicate(
         requires,
-        (name: TypeConName) => PackageError(s"repeated required interface $name"),
+        (tycon: TypeConId) => PackageError(s"repeated required interface $tycon"),
       )
       val choiceMap = toMapWithoutDuplicate(
         choices.view.map(c => c.name -> c),
@@ -770,31 +769,30 @@ object Ast {
       )
       val coImplementsMap = toMapWithoutDuplicate(
         coImplements.view.map(c => c.templateId -> c),
-        (templateId: TypeConName) =>
+        (templateId: TypeConId) =>
           PackageError(s"repeated interface co-implementation ${templateId.toString}"),
       )
       GenDefInterface(requiresSet, param, choiceMap, methodMap, coImplementsMap, view)
     }
 
     def apply(
-        requires: Set[TypeConName],
+        requires: Set[TypeConId],
         param: ExprVarName,
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         methods: Map[MethodName, InterfaceMethod],
         view: Type,
-        coImplements: Map[TypeConName, GenInterfaceCoImplements[E]] =
-          Map.empty, // Only used by LF 1.x
+        coImplements: Map[TypeConId, GenInterfaceCoImplements[E]] = Map.empty, // Only used by LF 1.x
     ): GenDefInterface[E] =
       GenDefInterface(requires, param, choices, methods, coImplements, view)
 
     def unapply(arg: GenDefInterface[E]): Some[
       (
-          Set[TypeConName],
+          Set[TypeConId],
           ExprVarName,
           Map[ChoiceName, GenTemplateChoice[E]],
           Map[MethodName, InterfaceMethod],
           Type,
-          Map[TypeConName, GenInterfaceCoImplements[E]],
+          Map[TypeConId, GenInterfaceCoImplements[E]],
       )
     ] =
       Some((arg.requires, arg.param, arg.choices, arg.methods, arg.view, arg.coImplements))
@@ -812,13 +810,13 @@ object Ast {
   )
 
   final case class GenInterfaceCoImplements[E](
-      templateId: TypeConName,
+      templateId: TypeConId,
       body: GenInterfaceInstanceBody[E],
   )
 
   final class GenInterfaceCoImplementsCompanion[E] private[Ast] {
     def build(
-        templateId: TypeConName,
+        templateId: TypeConId,
         body: GenInterfaceInstanceBody[E],
     ): GenInterfaceCoImplements[E] =
       new GenInterfaceCoImplements[E](
@@ -827,14 +825,14 @@ object Ast {
       )
 
     def apply(
-        templateId: TypeConName,
+        templateId: TypeConId,
         body: GenInterfaceInstanceBody[E],
     ): GenInterfaceCoImplements[E] =
       GenInterfaceCoImplements[E](templateId, body)
 
     def unapply(
         arg: GenInterfaceCoImplements[E]
-    ): Some[(TypeConName, GenInterfaceInstanceBody[E])] =
+    ): Some[(TypeConId, GenInterfaceInstanceBody[E])] =
       Some((arg.templateId, arg.body))
   }
 
@@ -851,7 +849,7 @@ object Ast {
       choices: Map[ChoiceName, GenTemplateChoice[E]], // Choices available in the template.
       observers: E, // Observers of the contract.
       key: Option[GenTemplateKey[E]],
-      implements: VectorMap[TypeConName, GenTemplateImplements[
+      implements: VectorMap[TypeConId, GenTemplateImplements[
         E
       ]], // We use a VectorMap to preserve insertion order. The order of the implements determines the order in which to evaluate interface preconditions.
   )
@@ -879,7 +877,7 @@ object Ast {
         key = key,
         implements = toVectorMapWithoutDuplicate(
           implements.map(i => i.interfaceId -> i),
-          (ifaceId: TypeConName) =>
+          (ifaceId: TypeConId) =>
             PackageError(s"repeated interface implementation ${ifaceId.toString}"),
         ),
       )
@@ -891,7 +889,7 @@ object Ast {
         choices: Map[ChoiceName, GenTemplateChoice[E]],
         observers: E,
         key: Option[GenTemplateKey[E]],
-        implements: VectorMap[TypeConName, GenTemplateImplements[E]],
+        implements: VectorMap[TypeConId, GenTemplateImplements[E]],
     ) = GenTemplate(
       param = param,
       precond = precond,
@@ -910,7 +908,7 @@ object Ast {
           Map[ChoiceName, GenTemplateChoice[E]],
           E,
           Option[GenTemplateKey[E]],
-          VectorMap[TypeConName, GenTemplateImplements[E]],
+          VectorMap[TypeConId, GenTemplateImplements[E]],
       )
     ] = Some(
       (
@@ -994,13 +992,13 @@ object Ast {
   val TemplateChoiceSignature = new GenTemplateChoiceCompanion[Unit]
 
   final case class GenTemplateImplements[E](
-      interfaceId: TypeConName,
+      interfaceId: TypeConId,
       body: GenInterfaceInstanceBody[E],
   )
 
   final class GenTemplateImplementsCompanion[E] private[Ast] {
     def build(
-        interfaceId: TypeConName,
+        interfaceId: TypeConId,
         body: GenInterfaceInstanceBody[E],
     ): GenTemplateImplements[E] =
       new GenTemplateImplements[E](
@@ -1009,14 +1007,14 @@ object Ast {
       )
 
     def apply(
-        interfaceId: TypeConName,
+        interfaceId: TypeConId,
         body: GenInterfaceInstanceBody[E],
     ): GenTemplateImplements[E] =
       new GenTemplateImplements[E](interfaceId, body)
 
     def unapply(
         arg: GenTemplateImplements[E]
-    ): Some[(TypeConName, GenInterfaceInstanceBody[E])] =
+    ): Some[(TypeConId, GenInterfaceInstanceBody[E])] =
       Some((arg.interfaceId, arg.body))
   }
 

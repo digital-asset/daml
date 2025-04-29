@@ -608,7 +608,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       Work.bind(decodeInterfaceInstanceBody(lfImpl.getBody)) { body =>
         Ret(
           TemplateImplements.build(
-            interfaceId = decodeTypeConName(lfImpl.getInterface),
+            interfaceId = decodeTypeConId(lfImpl.getInterface),
             body,
           )
         )
@@ -732,7 +732,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
                       requires =
                         if (lfInterface.getRequiresCount != 0) {
                           assertSince(Features.basicInterfaces, "DefInterface.requires")
-                          lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
+                          lfInterface.getRequiresList.asScala.view.map(decodeTypeConId)
                         } else
                           List.empty,
                       param =
@@ -768,7 +768,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       Work.bind(decodeInterfaceInstanceBody(lfCoImpl.getBody)) { body =>
         Ret(
           InterfaceCoImplements.build(
-            templateId = decodeTypeConName(lfCoImpl.getTemplate),
+            templateId = decodeTypeConId(lfCoImpl.getTemplate),
             body,
           )
         )
@@ -851,7 +851,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           Work.sequence(tcon.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
-            Ret(types.foldLeft[Type](TTyCon(decodeTypeConName(tcon.getTycon)))(TApp))
+            Ret(types.foldLeft[Type](TTyCon(decodeTypeConId(tcon.getTycon)))(TApp))
           }
         case PLF.Type.SumCase.SYN =>
           val tsyn = lfType.getSyn
@@ -935,7 +935,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       (pkgId, modName)
     }
 
-    private[this] def decodeTypeConName(lfTyConName: PLF.TypeConName): TypeConName = {
+    private[this] def decodeTypeConId(lfTyConName: PLF.TypeConName): TypeConId = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
       val name = handleDottedName(
         lfTyConName.getNameCase,
@@ -948,7 +948,7 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       Identifier(packageId, QualifiedName(module, name))
     }
 
-    private[this] def decodeTypeSynName(lfTySynName: PLF.TypeSynName): TypeSynName = {
+    private[this] def decodeTypeSynName(lfTySynName: PLF.TypeSynName): TypeSynId = {
       val (packageId, module) = decodeModuleRef(lfTySynName.getModule)
       val name = handleDottedName(
         lfTySynName.getNameCase,

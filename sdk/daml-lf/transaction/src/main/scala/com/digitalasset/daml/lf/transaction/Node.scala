@@ -38,7 +38,7 @@ object Node {
 
     def packageName: PackageName
 
-    def templateId: TypeConName
+    def templateId: TypeConId
 
     /** The package ids used by this action node.
       */
@@ -84,7 +84,7 @@ object Node {
   final case class Create(
       coid: ContractId,
       override val packageName: PackageName,
-      override val templateId: TypeConName,
+      override val templateId: TypeConId,
       arg: Value,
       signatories: Set[Party],
       stakeholders: Set[Party],
@@ -145,13 +145,13 @@ object Node {
   final case class Fetch(
       coid: ContractId,
       override val packageName: PackageName,
-      override val templateId: TypeConName,
+      override val templateId: TypeConId,
       actingParties: Set[Party],
       signatories: Set[Party],
       stakeholders: Set[Party],
       override val keyOpt: Option[GlobalKeyWithMaintainers],
       override val byKey: Boolean,
-      val interfaceId: Option[TypeConName],
+      val interfaceId: Option[TypeConId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction {
@@ -179,8 +179,8 @@ object Node {
   final case class Exercise(
       targetCoid: ContractId,
       override val packageName: PackageName,
-      override val templateId: TypeConName,
-      interfaceId: Option[TypeConName],
+      override val templateId: TypeConId,
+      interfaceId: Option[TypeConId],
       choiceId: ChoiceName,
       consuming: Boolean,
       actingParties: Set[Party],
@@ -197,7 +197,7 @@ object Node {
       override val version: TransactionVersion,
   ) extends Action {
 
-    def qualifiedChoiceName = QualifiedChoiceName(interfaceId, choiceId)
+    def qualifiedChoiceName = QualifiedChoiceId(interfaceId, choiceId)
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
@@ -233,7 +233,7 @@ object Node {
 
   final case class LookupByKey(
       override val packageName: PackageName,
-      override val templateId: TypeConName,
+      override val templateId: TypeConId,
       key: GlobalKeyWithMaintainers,
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.

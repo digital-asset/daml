@@ -45,7 +45,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
 
   val alice: Ref.Party = "Alice"
   val aliceS: Set[Ref.Party] = Set(alice)
-  val templateId: Ref.TypeConName = "Template:Id"
+  val templateId: Ref.TypeConId = "Template:Id"
   val choiceId: Ref.ChoiceName = "Choice"
   val pkgName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val txVersion: TransactionVersion = TransactionVersion.maxVersion
@@ -64,13 +64,13 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
   }
 
   private def toKeyWithMaintainers(
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       key: String,
   ): GlobalKeyWithMaintainers =
     GlobalKeyWithMaintainers.assertBuild(templateId, Value.ValueText(key), aliceS, pkgName)
 
   private def toOptKeyWithMaintainers(
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       key: String,
   ): Option[GlobalKeyWithMaintainers] =
     if (key.isEmpty) None

@@ -53,8 +53,8 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     actual.typeDecls shouldBe expectedResult
   }
 
-  private[this] def nameClashRecordVariantName(tail: String): TypeConName =
-    TypeConName(
+  private[this] def nameClashRecordVariantName(tail: String): TypeConId =
+    TypeConId(
       Ref.Identifier(
         packageId,
         Ref.QualifiedName(dnfs("Main"), dnfs("NameClashRecordVariant", tail)),
@@ -250,11 +250,11 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
           val ItpPid = itpPid
           ty match {
             case TemplateChoice(
-                  TypeCon(TypeConName(Ref.Identifier(ItpPid, uselessTy)), Seq()),
+                  TypeCon(TypeConId(Ref.Identifier(ItpPid, uselessTy)), Seq()),
                   true,
                   TypePrim(
                     PrimType.ContractId,
-                    Seq(TypeCon(TypeConName(Ref.Identifier(ItpPid, tIf)), Seq())),
+                    Seq(TypeCon(TypeConId(Ref.Identifier(ItpPid, tIf)), Seq())),
                   ),
                 ) =>
               Some((uselessTy, tIf))
@@ -277,7 +277,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
       }
 
       "identify a record interface view" in {
-        inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConName(_, LibTIfView)) =>
+        inside(itp.main.interfaces(LibTIf).viewType) { case Some(Ref.TypeConId(_, LibTIfView)) =>
         }
       }
 
@@ -352,7 +352,7 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
         assume(v == LanguageVersion.Major.V1)
         itp.main.interfaces.keySet should ===(Set(LibTIf, TIf, RetroIf))
         itp.main.interfaces(RetroIf).retroImplements should ===(
-          Set(Ref.TypeConName(itp.main.packageId, Foo))
+          Set(Ref.TypeConId(itp.main.packageId, Foo))
         )
       }
 
@@ -379,21 +379,21 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
           }
           inside(packageSignature.typeDecls.get(Foo)) {
             case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-              implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
+              implementedInterfaces should contain(Ref.TypeConId(itp.main.packageId, RetroIf))
           }
         }
 
         val itsESResolvedRetro = itpES.resolveRetroImplements
         itsESResolvedRetro should !==(itpES)
         inside(
-          itsESResolvedRetro.interfaces.get(Ref.TypeConName(itp.main.packageId, RetroIf))
+          itsESResolvedRetro.interfaces.get(Ref.TypeConId(itp.main.packageId, RetroIf))
         ) { case Some(DefInterface(_, _, retroImplements)) =>
           retroImplements shouldBe empty
         }
 
-        inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConName(itp.main.packageId, Foo))) {
+        inside(itsESResolvedRetro.typeDecls.get(Ref.TypeConId(itp.main.packageId, Foo))) {
           case Some(TypeDecl.Template(_, DefTemplate(_, _, implementedInterfaces))) =>
-            implementedInterfaces should contain(Ref.TypeConName(itp.main.packageId, RetroIf))
+            implementedInterfaces should contain(Ref.TypeConId(itp.main.packageId, RetroIf))
         }
       }
     }
@@ -425,9 +425,9 @@ class SignatureReaderSpec extends AnyWordSpec with Matchers with Inside {
     field -> (args foldLeft (Ast.TBuiltin(primType): Ast.Type))(Ast.TApp)
 
   private def typeConstructorField(field: Ast.FieldName, segments: List[String]) =
-    field -> typeConName(segments)
+    field -> typeConId(segments)
 
-  private def typeConName(segments: List[String]): Ast.TTyCon =
+  private def typeConId(segments: List[String]): Ast.TTyCon =
     Ast.TTyCon(Ref.Identifier(packageId, QualifiedName(moduleName, dottedName(segments))))
 
   private implicit def name(s: String): Ref.Name = Ref.Name.assertFromString(s)

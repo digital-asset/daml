@@ -64,38 +64,38 @@ object Reference {
     override def pretty: String = s"definition $identifier"
   }
 
-  final case class TypeSyn(tyCon: TypeConName) extends Reference {
+  final case class TypeSyn(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"type synonym $tyCon"
   }
 
-  final case class DataType(tyCon: TypeConName) extends Reference {
+  final case class DataType(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"data type $tyCon"
   }
 
-  final case class DataRecord(tyCon: TypeConName) extends Reference {
+  final case class DataRecord(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"record $tyCon"
   }
 
-  final case class DataRecordField(tyCon: TypeConName, fieldName: Ast.FieldName) extends Reference {
+  final case class DataRecordField(tyCon: TypeConId, fieldName: Ast.FieldName) extends Reference {
     override def pretty: String = s"record field $fieldName in record $tyCon"
   }
 
-  final case class DataVariant(tyCon: TypeConName) extends Reference {
+  final case class DataVariant(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"variant $tyCon"
   }
 
   final case class DataVariantConstructor(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       constructorName: Ast.VariantConName,
   ) extends Reference {
     override def pretty: String = s"constructor $constructorName in variant $tyCon"
   }
 
-  final case class DataEnum(tyCon: TypeConName) extends Reference {
+  final case class DataEnum(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"enumeration $tyCon"
   }
 
-  final case class DataEnumConstructor(tyCon: TypeConName, constructorName: Ast.EnumConName)
+  final case class DataEnumConstructor(tyCon: TypeConId, constructorName: Ast.EnumConName)
       extends Reference {
     override def pretty: String = s"constructor $constructorName in enumeration $tyCon"
   }
@@ -108,51 +108,51 @@ object Reference {
     override def pretty: String = s"template $tyCon"
   }
 
-  final case class Interface(tyCon: TypeConName) extends Reference {
+  final case class Interface(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"interface $tyCon"
   }
 
-  final case class TemplateKey(tyCon: TypeConName) extends Reference {
+  final case class TemplateKey(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"template without contract key $tyCon."
   }
 
   /** References an non-retroactive interface implementation of interfaceName for templateName.
     */
-  final case class InterfaceInstance(interfaceName: TypeConName, templateName: TypeConName)
+  final case class InterfaceInstance(interfaceId: TypeConId, templateId: TypeConId)
       extends Reference {
-    override def pretty: String = s"interface instance $interfaceName for $templateName"
+    override def pretty: String = s"interface instance $interfaceId for $templateId"
   }
 
-  final case class TemplateChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
+  final case class TemplateChoice(tyCon: TypeConId, choiceName: ChoiceName) extends Reference {
     override def pretty: String = s"choice $choiceName in template $tyCon"
   }
 
-  final case class InterfaceChoice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
+  final case class InterfaceChoice(tyCon: TypeConId, choiceName: ChoiceName) extends Reference {
     override def pretty: String = s"choice $choiceName in interface $tyCon"
   }
 
   final case class InheritedChoice(
-      ifaceName: TypeConName,
-      templateName: TypeConName,
+      ifaceId: TypeConId,
+      templateId: TypeConId,
       choiceName: ChoiceName,
   ) extends Reference {
     override def pretty: String =
-      s"choice $choiceName in template $templateName by interface $ifaceName"
+      s"choice $choiceName in template $templateId by interface $ifaceId"
   }
 
   final case class TemplateOrInterface(tyCon: TypeConRef) extends Reference {
     override def pretty: String = s"template or interface $tyCon"
   }
 
-  final case class Choice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {
+  final case class Choice(tyCon: TypeConId, choiceName: ChoiceName) extends Reference {
     override def pretty: String = s"choice $choiceName in template or interface $tyCon"
   }
 
-  final case class Method(tyCon: TypeConName, methodName: MethodName) extends Reference {
+  final case class Method(tyCon: TypeConId, methodName: MethodName) extends Reference {
     override def pretty: String = s"method $methodName in interface $tyCon"
   }
 
-  final case class Exception(tyCon: TypeConName) extends Reference {
+  final case class Exception(tyCon: TypeConId) extends Reference {
     override def pretty: String = s"exception $tyCon"
   }
 

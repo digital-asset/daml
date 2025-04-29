@@ -585,9 +585,9 @@ class DecodeV2Spec
           DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(2)
         val requiredIfaceTyConName =
           DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(3)
-        val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
-        val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
-        val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
+        val scalaTemplateTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:T")
+        val scalaIfaceTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:I")
+        val scalaRequiredIfaceTyConName = Ref.TypeConId.assertFromString("noPkgId:Mod:J")
 
         val signatoryInterface = DamlLf2.Expr
           .newBuilder()
@@ -1050,9 +1050,9 @@ class DecodeV2Spec
       val requiresDefInterfaceScala =
         Ast.DefInterface(
           requires = Set(
-            Ref.TypeConName.assertFromString("noPkgId:Mod:J"),
-            Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
-            Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
+            Ref.TypeConId.assertFromString("noPkgId:Mod:J"),
+            Ref.TypeConId.assertFromString("noPkgId:Mod:K"),
+            Ref.TypeConId.assertFromString("noPkgId:Mod:K"),
           ),
           param = Ref.IdString.Name.assertFromString("this"),
           choices = Map.empty,

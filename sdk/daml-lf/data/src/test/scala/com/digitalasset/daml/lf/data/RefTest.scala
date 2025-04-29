@@ -392,20 +392,20 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
       )
 
       forEvery(testCases)(s =>
-        if (QualifiedChoiceName.fromString(s).isRight)
-          QualifiedChoiceName.fromString(s) shouldBe Left(s)
+        if (QualifiedChoiceId.fromString(s).isRight)
+          QualifiedChoiceId.fromString(s) shouldBe Left(s)
         else
-          QualifiedChoiceName.fromString(s) shouldBe a[Left[_, _]]
+          QualifiedChoiceId.fromString(s) shouldBe a[Left[_, _]]
       )
     }
 
     "accepts valid identifiers" in {
-      QualifiedChoiceName.fromString("ChName") shouldBe
-        Right(QualifiedChoiceName(None, ChoiceName.assertFromString("ChName")))
+      QualifiedChoiceId.fromString("ChName") shouldBe
+        Right(QualifiedChoiceId(None, ChoiceName.assertFromString("ChName")))
 
-      QualifiedChoiceName.fromString("#-pkgId-:Mod:Name#ChName") shouldBe
+      QualifiedChoiceId.fromString("#-pkgId-:Mod:Name#ChName") shouldBe
         Right(
-          QualifiedChoiceName(
+          QualifiedChoiceId(
             Some(Identifier.assertFromString("-pkgId-:Mod:Name")),
             ChoiceName.assertFromString("ChName"),
           )

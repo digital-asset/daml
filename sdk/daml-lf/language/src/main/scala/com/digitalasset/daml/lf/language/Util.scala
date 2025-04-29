@@ -14,11 +14,11 @@ import scala.collection.immutable.HashMap
 object Util {
 
   object TTyConApp {
-    def apply(con: Ref.TypeConName, args: ImmArray[Type]): Type =
+    def apply(con: Ref.TypeConId, args: ImmArray[Type]): Type =
       args.foldLeft[Type](TTyCon(con))((typ, arg) => TApp(typ, arg))
-    def unapply(typ: Type): Option[(Ref.TypeConName, ImmArray[Type])] = {
+    def unapply(typ: Type): Option[(Ref.TypeConId, ImmArray[Type])] = {
       @tailrec
-      def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConName, ImmArray[Type])] =
+      def go(typ: Type, targs: List[Type]): Option[(Ref.TypeConId, ImmArray[Type])] =
         typ match {
           case TApp(tfun, targ) => go(tfun, targ :: targs)
           case TTyCon(con) => Some((con, targs.to(ImmArray)))
@@ -312,7 +312,7 @@ object Util {
     import iterable.{ExprIterable, TypeIterable}
     def identifiersInTypes(typ: Type): Iterator[Ref.Identifier] = {
       val ids = typ match {
-        case TTyCon(typeConName) => Iterator.single(typeConName)
+        case TTyCon(typeConId) => Iterator.single(typeConId)
         case TSynApp(typeSynName, args @ _) => Iterator.single(typeSynName)
         case otherwise @ _ => Iterator.empty
       }

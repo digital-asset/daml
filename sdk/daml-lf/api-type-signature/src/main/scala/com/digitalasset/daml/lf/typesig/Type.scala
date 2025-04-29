@@ -64,13 +64,13 @@ sealed abstract class Type extends Product with Serializable {
   def mapTypeVars(f: TypeVar => Type): Type =
     this match {
       case t @ TypeVar(_) => f(t)
-      case t @ TypeCon(_, _) => TypeCon(t.name, t.typArgs.map(_.mapTypeVars(f)))
+      case t @ TypeCon(_, _) => TypeCon(t.tycon, t.typArgs.map(_.mapTypeVars(f)))
       case t @ TypePrim(_, _) => TypePrim(t.typ, t.typArgs.map(_.mapTypeVars(f)))
       case t @ TypeNumeric(_) => t
     }
 
-  /** Fold over the [[TypeConNameOrPrimType]]s therein. */
-  def foldMapConsPrims[Z: Monoid](f: TypeConNameOrPrimType => Z): Z = this match {
+  /** Fold over the [[TypeConIdOrPrimType]]s therein. */
+  def foldMapConsPrims[Z: Monoid](f: TypeConIdOrPrimType => Z): Z = this match {
     case TypeCon(typ, typArgs) =>
       f(typ) |+| typArgs.foldMap(_.foldMapConsPrims(f))
     case TypePrim(typ, typArgs) =>
@@ -79,7 +79,7 @@ sealed abstract class Type extends Product with Serializable {
   }
 }
 
-final case class TypeCon(name: TypeConName, typArgs: ImmArraySeq[Type])
+final case class TypeCon(tycon: TypeConId, typArgs: ImmArraySeq[Type])
     extends Type
     with Type.HasTypArgs {
 
@@ -117,15 +117,15 @@ object Type {
   }
 }
 
-sealed abstract class TypeConNameOrPrimType extends Product with Serializable {
-  def fold[Z](typeConName: TypeConName => Z, primType: PrimType => Z): Z = this match {
-    case tc @ TypeConName(_) => typeConName(tc)
+sealed abstract class TypeConIdOrPrimType extends Product with Serializable {
+  def fold[Z](TypeConId: TypeConId => Z, primType: PrimType => Z): Z = this match {
+    case tc: TypeConId => TypeConId(tc)
     case pt: PrimType => primType(pt)
   }
 }
 
-final case class TypeConName(identifier: Ref.TypeConName) extends TypeConNameOrPrimType
-sealed abstract class PrimType extends TypeConNameOrPrimType {
+final case class TypeConId(identifier: Ref.TypeConId) extends TypeConIdOrPrimType
+sealed abstract class PrimType extends TypeConIdOrPrimType {
 
   /** Named pattern match for Java. */
   def fold[Z](v: PrimTypeVisitor[Z]): Z = {

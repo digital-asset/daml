@@ -262,7 +262,7 @@ class PackageService(
       \/-(
         typesig
           .TypeCon(
-            typesig.TypeConName(IdentifierConverters.lfIdentifier(templateId)),
+            typesig.TypeConId(IdentifierConverters.lfIdentifier(templateId)),
             ImmArraySeq(),
           )
       )
@@ -559,7 +559,7 @@ object PackageService {
 
   private def getTChoices[Ty](
       choices: Map[Ref.ChoiceName, NonEmpty[
-        Map[Option[Ref.TypeConName], typesig.TemplateChoice[Ty]]
+        Map[Option[Ref.TypeConId], typesig.TemplateChoice[Ty]]
       ]]
   ): ChoicesByInterface[Ty] = {
     import typesig.*

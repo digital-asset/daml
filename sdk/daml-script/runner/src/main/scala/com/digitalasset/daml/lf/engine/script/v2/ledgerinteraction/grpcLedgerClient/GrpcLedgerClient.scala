@@ -440,9 +440,9 @@ class GrpcLedgerClient(
   private def toCommandPackageIds(cmd: ScriptLedgerClient.CommandWithMeta): List[PackageId] =
     cmd.command match {
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
-        List(tmplRef.assertToTypeConName.packageId, tmplRef.assertToTypeConName.packageId)
+        List(tmplRef.assertToTypeConId.packageId, tmplRef.assertToTypeConId.packageId)
       case cmd =>
-        List(cmd.typeRef.assertToTypeConName.packageId)
+        List(cmd.typeRef.assertToTypeConId.packageId)
     }
 
   private def toCommand(cmd: ScriptLedgerClient.CommandWithMeta): Either[String, Command] =
@@ -452,7 +452,7 @@ class GrpcLedgerClient(
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(
           CreateCommand(
-            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConId, cmd.explicitPackageId)),
             Some(arg),
           )
         )
@@ -463,7 +463,7 @@ class GrpcLedgerClient(
           // TODO: https://github.com/digital-asset/daml/issues/14747
           //  Fix once the new field interface_id have been added to the API Exercise Command
           ExerciseCommand(
-            Some(toApiIdentifierUpgrades(typeRef.assertToTypeConName, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(typeRef.assertToTypeConId, cmd.explicitPackageId)),
             contractId.coid,
             choice,
             Some(arg),
@@ -475,7 +475,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withExerciseByKey(
           ExerciseByKeyCommand(
-            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConId, cmd.explicitPackageId)),
             Some(key),
             choice,
             Some(argument),
@@ -487,7 +487,7 @@ class GrpcLedgerClient(
           argument <- lfValueToApiValue(true, argument)
         } yield Command().withCreateAndExercise(
           CreateAndExerciseCommand(
-            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConName, cmd.explicitPackageId)),
+            Some(toApiIdentifierUpgrades(tmplRef.assertToTypeConId, cmd.explicitPackageId)),
             Some(template),
             choice,
             Some(argument),

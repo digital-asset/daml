@@ -266,7 +266,7 @@ object SValue {
   final case class SAny(ty: Type, value: SValue) extends SValue
 
   object SAnyException {
-    def apply(tyCon: Ref.TypeConName, value: SRecord): SAny = SAny(TTyCon(tyCon), value)
+    def apply(tyCon: Ref.TypeConId, value: SRecord): SAny = SAny(TTyCon(tyCon), value)
 
     def unapply(any: SAny): Option[SRecord] =
       any match {
@@ -278,7 +278,7 @@ object SValue {
   }
 
   object SAnyContract {
-    def apply(tyCon: Ref.TypeConName, value: SValue): SAny = {
+    def apply(tyCon: Ref.TypeConId, value: SValue): SAny = {
       value match {
         case record: SRecord =>
           // TODO: https://github.com/digital-asset/daml/issues/17082

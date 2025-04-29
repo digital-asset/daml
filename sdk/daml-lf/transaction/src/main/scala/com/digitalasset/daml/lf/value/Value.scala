@@ -6,7 +6,7 @@ package value
 
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, TypeConId}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.{Ast, StablePackages}
 import data.ScalazEqual._
@@ -99,7 +99,7 @@ object Value {
   ) extends Value
 
   class ValueArithmeticError(stablePackages: StablePackages) {
-    val tyCon: TypeConName = stablePackages.ArithmeticError
+    val tyCon: TypeConId = stablePackages.ArithmeticError
     val typ: Ast.Type = Ast.TTyCon(tyCon)
     private val someTyCon = Some(tyCon)
     val fieldName: Ref.Name = Ref.Name.assertFromString("message")

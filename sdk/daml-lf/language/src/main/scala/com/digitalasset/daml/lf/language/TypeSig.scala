@@ -11,26 +11,26 @@ import com.digitalasset.daml.lf.language.TypeSig._
 import scala.collection.immutable.VectorMap
 
 final case class TypeSig(
-    enumDefs: Map[Ref.TypeConName, EnumSig],
-    variantDefs: Map[Ref.TypeConName, VariantSig],
-    recordDefs: Map[Ref.TypeConName, RecordSig],
-    templateDefs: Map[Ref.TypeConName, TemplateSig],
-    interfaceDefs: Map[Ref.TypeConName, InterfaceSig],
+    enumDefs: Map[Ref.TypeConId, EnumSig],
+    variantDefs: Map[Ref.TypeConId, VariantSig],
+    recordDefs: Map[Ref.TypeConId, RecordSig],
+    templateDefs: Map[Ref.TypeConId, TemplateSig],
+    interfaceDefs: Map[Ref.TypeConId, InterfaceSig],
 ) {
 
-  def addEnumDefs(id: Ref.TypeConName, defn: EnumSig): TypeSig =
+  def addEnumDefs(id: Ref.TypeConId, defn: EnumSig): TypeSig =
     copy(enumDefs = enumDefs.updated(id, defn))
 
-  def addVariantDefs(id: Ref.TypeConName, defn: VariantSig): TypeSig =
+  def addVariantDefs(id: Ref.TypeConId, defn: VariantSig): TypeSig =
     copy(variantDefs = variantDefs.updated(id, defn))
 
-  def addRecordDefs(id: Ref.TypeConName, defn: RecordSig): TypeSig =
+  def addRecordDefs(id: Ref.TypeConId, defn: RecordSig): TypeSig =
     copy(recordDefs = recordDefs.updated(id, defn))
 
-  def addTemplateDefs(id: Ref.TypeConName, defn: TemplateSig): TypeSig =
+  def addTemplateDefs(id: Ref.TypeConId, defn: TemplateSig): TypeSig =
     copy(templateDefs = templateDefs.updated(id, defn))
 
-  def addInterfaceDefs(id: Ref.TypeConName, defn: InterfaceSig): TypeSig =
+  def addInterfaceDefs(id: Ref.TypeConId, defn: InterfaceSig): TypeSig =
     copy(interfaceDefs = interfaceDefs.updated(id, defn))
 
   def merge(other: TypeSig): TypeSig = TypeSig(
@@ -51,13 +51,13 @@ object TypeSig {
   sealed abstract class TemplateOrInterface extends Product with Serializable
 
   object TemplateOrInterface {
-    final case class Template(tycon: Ref.TypeConName) extends TemplateOrInterface
+    final case class Template(tycon: Ref.TypeConId) extends TemplateOrInterface
 
-    final case class Interface(tycon: Ref.TypeConName) extends TemplateOrInterface
+    final case class Interface(tycon: Ref.TypeConId) extends TemplateOrInterface
   }
 
   object SerializableType {
-    final case class Enum(tycon: Ref.TypeConName) extends SerializableType
+    final case class Enum(tycon: Ref.TypeConId) extends SerializableType
 
     case object Int64 extends SerializableType
 
@@ -75,10 +75,10 @@ object TypeSig {
 
     case object Unit extends SerializableType
 
-    final case class Record(tyCon: Ref.TypeConName, params: Seq[SerializableType])
+    final case class Record(tyCon: Ref.TypeConId, params: Seq[SerializableType])
         extends SerializableType
 
-    final case class Variant(tyCon: Ref.TypeConName, params: Seq[SerializableType])
+    final case class Variant(tyCon: Ref.TypeConId, params: Seq[SerializableType])
         extends SerializableType
 
     final case class ContractId(typeId: Option[TemplateOrInterface]) extends SerializableType
@@ -113,7 +113,7 @@ object TypeSig {
   final case class TemplateSig(
       key: Option[SerializableType],
       choices: Map[Ref.Name, ChoiceSig],
-      implements: Set[Ref.TypeConName],
+      implements: Set[Ref.TypeConId],
   )
 
   final case class InterfaceSig(choices: Map[Ref.Name, ChoiceSig], viewType: SerializableType)

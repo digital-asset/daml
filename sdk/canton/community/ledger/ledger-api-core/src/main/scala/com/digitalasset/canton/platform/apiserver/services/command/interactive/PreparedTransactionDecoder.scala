@@ -37,7 +37,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
-import com.digitalasset.daml.lf.data.Ref.TypeConName
+import com.digitalasset.daml.lf.data.Ref.TypeConId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId}
@@ -193,9 +193,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     // GlobalKey default constructor is private, so create a constructor function from the companion builder
     // and pass that to chimney so it can construct the instance
     def globalKeyConstructor(
-        templateId: TypeConName,
-        key: Value,
-        packageName: Ref.PackageName,
+                              templateId: TypeConId,
+                              key: Value,
+                              packageName: Ref.PackageName,
     ): Result[lf.transaction.GlobalKey] =
       lf.transaction.GlobalKey.build(templateId, key, packageName).leftMap(_.msg).toResult
 

@@ -39,7 +39,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eFromAny |
       eToAnyException |
       eFromAnyException |
-      eToTextTypeConName |
+      eToTextTypeConId |
       eThrow |
       eCallInterface |
       eToInterface |
@@ -238,7 +238,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       EThrow(retType, excepType, exception)
     }
 
-  private lazy val eToTextTypeConName: Parser[Expr] =
+  private lazy val eToTextTypeConId: Parser[Expr] =
     `type_rep` ~>! argTyp ^^ ETypeRep
 
   private lazy val eToInterface: Parser[Expr] =

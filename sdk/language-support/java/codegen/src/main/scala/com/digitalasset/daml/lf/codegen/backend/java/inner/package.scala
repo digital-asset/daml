@@ -60,8 +60,8 @@ package object inner {
       damlType: Type
   )(implicit packagePrefixes: PackagePrefixes): TypeName =
     damlType match {
-      case TypeCon(TypeConName(ident), Seq()) => guessClass(ident).box()
-      case TypeCon(TypeConName(ident), typeParameters) =>
+      case TypeCon(TypeConId(ident), Seq()) => guessClass(ident).box()
+      case TypeCon(TypeConId(ident), typeParameters) =>
         ParameterizedTypeName.get(
           guessClass(ident),
           typeParameters.map(toJavaTypeName(_)): _*

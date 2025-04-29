@@ -117,7 +117,7 @@ private[lf] object Speedy {
       key: SValue,
   ) {
     def globalKey: GlobalKey = globalKeyWithMaintainers.globalKey
-    def templateId: TypeConName = globalKey.templateId
+    def templateId: TypeConId = globalKey.templateId
     def maintainers: Set[Party] = globalKeyWithMaintainers.maintainers
     val lfValue: V = globalKey.key
     def renormalizedGlobalKeyWithMaintainers(version: TxVersion) = {
@@ -130,7 +130,7 @@ private[lf] object Speedy {
   final case class ContractInfo(
       version: TxVersion,
       packageName: Ref.PackageName,
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       value: SValue,
       signatories: Set[Party],
       observers: Set[Party],
@@ -479,13 +479,13 @@ private[lf] object Speedy {
       *      - Consulted (getIfLocalContract) by fetchAny (SBuiltin).
       *      - Updated   (storeLocalContract) by SBUCreate.
       */
-    private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
-    private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
+    private[speedy] var localContractStore: Map[V.ContractId, (TypeConId, SValue)] = Map.empty
+    private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConId, SValue)] = {
       localContractStore.get(coid)
     }
     private[speedy] def storeLocalContract(
         coid: V.ContractId,
-        templateId: TypeConName,
+        templateId: TypeConId,
         templateArg: SValue,
     ): Unit = {
       localContractStore = localContractStore + (coid -> (templateId, templateArg))
@@ -585,7 +585,7 @@ private[lf] object Speedy {
     private[speedy] def enforceChoiceControllersLimit(
         controllers: Set[Party],
         cid: V.ContractId,
-        templateId: TypeConName,
+        templateId: TypeConId,
         choiceName: ChoiceName,
         arg: V,
     ): Unit =
@@ -599,7 +599,7 @@ private[lf] object Speedy {
     private[speedy] def enforceChoiceObserversLimit(
         observers: Set[Party],
         cid: V.ContractId,
-        templateId: TypeConName,
+        templateId: TypeConId,
         choiceName: ChoiceName,
         arg: V,
     ): Unit =
@@ -613,7 +613,7 @@ private[lf] object Speedy {
     private[speedy] def enforceChoiceAuthorizersLimit(
         authorizers: Set[Party],
         cid: V.ContractId,
-        templateId: TypeConName,
+        templateId: TypeConId,
         choiceName: ChoiceName,
         arg: V,
     ): Unit =
@@ -693,7 +693,7 @@ private[lf] object Speedy {
     private[speedy] var lastCommand: Option[Command] = None
 
     def transactionTrace(numOfCmds: Int): String = {
-      def prettyTypeId(typeId: TypeConName): String =
+      def prettyTypeId(typeId: TypeConId): String =
         s"${typeId.packageId.take(8)}:${typeId.qualifiedName}"
       def prettyCoid(coid: V.ContractId): String = coid.coid.take(10)
       def prettyValue(v: SValue) = Pretty.prettyValue(false)(v.toUnnormalizedValue)
@@ -873,7 +873,7 @@ private[lf] object Speedy {
     // originalExceptionId as the original exceptionId, and we won't trigger a conversion
     protected final def unhandledException(
         excep: SValue.SAny,
-        originalExceptionId: Option[TypeConName] = None,
+        originalExceptionId: Option[TypeConId] = None,
     ): Control[Nothing] = {
       abort()
       if (convertLegacyExceptions) {
@@ -967,10 +967,10 @@ private[lf] object Speedy {
       envBase = 0
     }
 
-    final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
+    final def tmplId2TxVersion(tmplId: TypeConId): TxVersion =
       Machine.tmplId2TxVersion(compiledPackages.pkgInterface, tmplId)
 
-    final def tmplId2PackageName(tmplId: TypeConName): PackageName =
+    final def tmplId2PackageName(tmplId: TypeConId): PackageName =
       Machine.tmplId2PackageName(compiledPackages.pkgInterface, tmplId)
 
     private[lf] def abort(): Unit = {
@@ -1576,12 +1576,12 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): Either[SError, SValue] =
       fromPureSExpr(compiledPackages, expr, iterationsBetweenInterruptions).runPure()
 
-    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConName): TxVersion =
+    def tmplId2TxVersion(pkgInterface: PackageInterface, tmplId: TypeConId): TxVersion =
       pkgInterface.packageLanguageVersion(tmplId.packageId)
 
     def tmplId2PackageName(
         pkgInterface: PackageInterface,
-        tmplId: TypeConName,
+        tmplId: TypeConId,
     ): PackageName =
       pkgInterface.signatures(tmplId.packageId).pkgName
 
@@ -1600,7 +1600,7 @@ private[lf] object Speedy {
     private[lf] def globalKey(
         packageTxVersion: TxVersion,
         pkgName: PackageName,
-        templateId: TypeConName,
+        templateId: TypeConId,
         keyValue: SValue,
     ): Option[GlobalKey] = {
       val lfValue = keyValue.toNormalizedValue(packageTxVersion)
@@ -1612,7 +1612,7 @@ private[lf] object Speedy {
     private[lf] def assertGlobalKey(
         packageTxVersion: TxVersion,
         pkgName: PackageName,
-        templateId: TypeConName,
+        templateId: TypeConId,
         keyValue: SValue,
     ) =
       globalKey(packageTxVersion, pkgName, templateId, keyValue)
@@ -2092,9 +2092,9 @@ private[lf] object Speedy {
 
   private[speedy] final case class KCheckChoiceGuard(
       coid: V.ContractId,
-      templateId: TypeConName,
+      templateId: TypeConId,
       choiceName: ChoiceName,
-      byInterface: Option[TypeConName],
+      byInterface: Option[TypeConId],
   ) extends Kont[Question.Update] {
     def abort(): Nothing =
       throw SErrorDamlException(
@@ -2153,8 +2153,7 @@ private[lf] object Speedy {
   // For when converting an exception to a failure status
   // if an exception is thrown during that conversion, we need to know to not try to convert that too,
   // but instead give back the original exception with a replacement message
-  private[speedy] final case class KConvertingException[Q](exceptionId: TypeConName)
-      extends Kont[Q] {
+  private[speedy] final case class KConvertingException[Q](exceptionId: TypeConId) extends Kont[Q] {
     override def execute(v: SValue): Control.Value = {
       Control.Value(v)
     }

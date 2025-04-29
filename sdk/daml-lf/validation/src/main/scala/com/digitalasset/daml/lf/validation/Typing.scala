@@ -341,10 +341,10 @@ private[validation] object Typing {
           case DataVariant(fields) =>
             env.checkVariantType(fields)
           case DataEnum(values) =>
-            val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+            val tyConName = TypeConId(pkgId, QualifiedName(mod.name, dfnName))
             env.checkEnumType(tyConName, params, values)
           case DataInterface =>
-            val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+            val tyConName = TypeConId(pkgId, QualifiedName(mod.name, dfnName))
             env.checkInterfaceType(tyConName, params)
         }
       case (dfnName, dfn: DValue) =>
@@ -368,7 +368,7 @@ private[validation] object Typing {
         env.checkType(replacementTyp, KStar)
     }
     mod.templates.foreach { case (dfnName, template) =>
-      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, dfnName))
+      val tyConName = TypeConId(pkgId, QualifiedName(mod.name, dfnName))
       val env =
         Env(
           languageVersion = langVersion,
@@ -385,7 +385,7 @@ private[validation] object Typing {
       }
     }
     mod.exceptions.foreach { case (exnName, message) =>
-      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, exnName))
+      val tyConName = TypeConId(pkgId, QualifiedName(mod.name, exnName))
       val env =
         Env(
           languageVersion = langVersion,
@@ -403,7 +403,7 @@ private[validation] object Typing {
     }
     mod.interfaces.foreach { case (ifaceName, iface) =>
       // uniquess of choice names is already checked on construction of the choice map.
-      val tyConName = TypeConName(pkgId, QualifiedName(mod.name, ifaceName))
+      val tyConName = TypeConId(pkgId, QualifiedName(mod.name, ifaceName))
       val env =
         Env(
           languageVersion = langVersion,
@@ -504,7 +504,7 @@ private[validation] object Typing {
     }
 
     private[Typing] def checkEnumType[X](
-        tyConName: => TypeConName,
+        tyConName: => TypeConId,
         params: ImmArray[X],
         values: ImmArray[EnumConName],
     ): Unit = {
@@ -513,7 +513,7 @@ private[validation] object Typing {
     }
 
     private[Typing] def checkInterfaceType[X](
-        tyConName: => TypeConName,
+        tyConName: => TypeConId,
         params: ImmArray[X],
     ): Unit = {
       if (params.nonEmpty) throw EIllegalHigherInterfaceType(ctx, tyConName)
@@ -531,7 +531,7 @@ private[validation] object Typing {
       runWork(checkRecordType(fields) { Ret(()) })
     }
 
-    private def checkChoice(tplName: TypeConName, choice: TemplateChoice): Unit =
+    private def checkChoice(tplId: TypeConId, choice: TemplateChoice): Unit =
       choice match {
         case TemplateChoice(
               name @ _,
@@ -553,13 +553,13 @@ private[validation] object Typing {
           choiceAuthorizers.foreach(
             introExprVar(param, paramType).checkTopExpr(_, TParties)
           )
-          introExprVar(selfBinder, TContractId(TTyCon(tplName)))
+          introExprVar(selfBinder, TContractId(TTyCon(tplId)))
             .introExprVar(param, paramType)
             .checkTopExpr(update, TUpdate(returnType))
           ()
       }
 
-    private[Typing] def checkTemplate(tplName: TypeConName, template: Template): Unit = {
+    private[Typing] def checkTemplate(tplId: TypeConId, template: Template): Unit = {
       val Template(
         param,
         precond,
@@ -570,16 +570,16 @@ private[validation] object Typing {
         implementations,
       ) =
         template
-      val env = introExprVar(param, TTyCon(tplName))
+      val env = introExprVar(param, TTyCon(tplId))
       env.checkTopExpr(precond, TBool)
       env.checkTopExpr(signatories, TParties)
       env.checkTopExpr(observers, TParties)
-      choices.values.foreach(env.checkChoice(tplName, _))
+      choices.values.foreach(env.checkChoice(tplId, _))
       implementations.values.foreach { impl =>
         checkInterfaceInstance(
           tmplParam = param,
           interfaceId = impl.interfaceId,
-          templateId = tplName,
+          templateId = tplId,
           iiBody = impl.body,
         )
       }
@@ -591,19 +591,19 @@ private[validation] object Typing {
       }
     }
 
-    private[Typing] def checkDefIface(ifaceName: TypeConName, iface: DefInterface): Unit =
+    private[Typing] def checkDefIface(ifaceId: TypeConId, iface: DefInterface): Unit =
       iface match {
         case DefInterface(requires, param, choices, methods, view, _) =>
-          val env = introExprVar(param, TTyCon(ifaceName))
-          if (requires(ifaceName))
-            throw ECircularInterfaceRequires(ctx, ifaceName)
+          val env = introExprVar(param, TTyCon(ifaceId))
+          if (requires(ifaceId))
+            throw ECircularInterfaceRequires(ctx, ifaceId)
           for {
             required <- requires
             requiredRequired <- handleLookup(ctx, pkgInterface.lookupInterface(required)).requires
             if !requires(requiredRequired)
-          } throw ENotClosedInterfaceRequires(ctx, ifaceName, required, requiredRequired)
+          } throw ENotClosedInterfaceRequires(ctx, ifaceId, required, requiredRequired)
           methods.values.foreach(checkIfaceMethod)
-          choices.values.foreach(env.checkChoice(ifaceName, _))
+          choices.values.foreach(env.checkChoice(ifaceId, _))
           view match {
             case TTyCon(tycon) => {
               val DDataType(_, args, dataCon) =
@@ -632,8 +632,8 @@ private[validation] object Typing {
         AlphaEquiv.alphaEquiv(expandTypeSynonyms(t1), expandTypeSynonyms(t2))
 
     private def checkInterfaceInstance(
-        interfaceId: TypeConName,
-        templateId: TypeConName,
+        interfaceId: TypeConId,
+        templateId: TypeConId,
     ): Unit = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(interfaceId)))
       discard(handleLookup(ctx, pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
@@ -641,8 +641,8 @@ private[validation] object Typing {
 
     private def checkInterfaceInstance(
         tmplParam: ExprVarName,
-        interfaceId: TypeConName,
-        templateId: TypeConName,
+        interfaceId: TypeConId,
+        templateId: TypeConId,
         iiBody: InterfaceInstanceBody,
     ): Unit = {
       val ctx = Context.Reference(Reference.InterfaceInstance(interfaceId, templateId))
@@ -708,10 +708,10 @@ private[validation] object Typing {
     }
 
     private[Typing] def checkDefException(
-        excepName: TypeConName,
+        excepId: TypeConId,
         defException: DefException,
     ): Unit = {
-      checkTopExpr(defException.message, TTyCon(excepName) ->: TText)
+      checkTopExpr(defException.message, TTyCon(excepId) ->: TText)
       ()
     }
 
@@ -806,7 +806,7 @@ private[validation] object Typing {
         TStruct(recordType.mapValues(expandTypeSynonyms(_)))
     }
 
-    private def expandSynApp(syn: TypeSynName, tArgs: ImmArray[Type]): Type = {
+    private def expandSynApp(syn: TypeSynId, tArgs: ImmArray[Type]): Type = {
       val DTypeSyn(tparams, replacementTyp) = handleLookup(ctx, pkgInterface.lookupTypeSyn(syn))
       if (tparams.length != tArgs.length)
         throw ETypeSynAppWrongArity(ctx, tparams.length, syn, tArgs)
@@ -841,12 +841,12 @@ private[validation] object Typing {
           throw EExpectedVariantType(ctx, typ.tycon)
       }
 
-    private def checkEnumCon(typConName: TypeConName, con: EnumConName): Unit =
-      handleLookup(ctx, pkgInterface.lookupDataType(typConName)).cons match {
+    private def checkEnumCon(typConId: TypeConId, con: EnumConName): Unit =
+      handleLookup(ctx, pkgInterface.lookupDataType(typConId)).cons match {
         case DataEnum(enumType) =>
           if (!enumType.toSeq.contains(con)) throw EUnknownEnumCon(ctx, con)
         case _ =>
-          throw EExpectedEnumType(ctx, typConName)
+          throw EExpectedEnumType(ctx, typConId)
       }
 
     private def typeOfRecProj(typ0: TypeConApp, field: FieldName, record: Expr): Work[Type] =
@@ -965,7 +965,7 @@ private[validation] object Typing {
     }
 
     private[this] def introPatternVariant(
-        scrutTCon: TypeConName,
+        scrutTCon: TypeConId,
         scrutTArgs: ImmArray[Type],
         tparams: ImmArray[TypeVarName],
         cons: ImmArray[(VariantConName, Type)],
@@ -980,7 +980,7 @@ private[validation] object Typing {
     }
 
     private[this] def introPatternEnum(
-        scrutTCon: TypeConName,
+        scrutTCon: TypeConId,
         cons: ImmArray[VariantConName],
     ): CasePat => Env = {
       case CPEnum(patnTCon, con) if scrutTCon == patnTCon =>
@@ -1225,14 +1225,14 @@ private[validation] object Typing {
       loop(this, bindings.toList)
     }
 
-    private def typeOfCreate(tpl: TypeConName, arg: Expr): Work[Type] = {
+    private def typeOfCreate(tpl: TypeConId, arg: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
       checkExpr(arg, TTyCon(tpl)) {
         Ret(TUpdate(TContractId(TTyCon(tpl))))
       }
     }
 
-    private def typeOfCreateInterface(iface: TypeConName, arg: Expr): Work[Type] = {
+    private def typeOfCreateInterface(iface: TypeConId, arg: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(iface)))
       checkExpr(arg, TTyCon(iface)) {
         Ret(TUpdate(TContractId(TTyCon(iface))))
@@ -1240,7 +1240,7 @@ private[validation] object Typing {
     }
 
     private def typeOfExercise(
-        tpl: TypeConName,
+        tpl: TypeConId,
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
@@ -1254,7 +1254,7 @@ private[validation] object Typing {
     }
 
     private def typeOfExerciseInterface(
-        interfaceId: TypeConName,
+        interfaceId: TypeConId,
         chName: ChoiceName,
         cid: Expr,
         arg: Expr,
@@ -1276,7 +1276,7 @@ private[validation] object Typing {
     }
 
     private def typeOfExerciseByKey(
-        tmplId: TypeConName,
+        tmplId: TypeConId,
         chName: ChoiceName,
         key: Expr,
         arg: Expr,
@@ -1289,14 +1289,14 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfFetchTemplate(tpl: TypeConName, cid: Expr): Work[Type] = {
+    private def typeOfFetchTemplate(tpl: TypeConId, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl))) {
         Ret(TUpdate(TTyCon(tpl)))
       }
     }
 
-    private def typeOfSoftFetchTemplate(tpl: TypeConName, cid: Expr): Work[Type] = {
+    private def typeOfSoftFetchTemplate(tpl: TypeConId, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupTemplate(tpl)))
       pkgInterface.lookupTemplateKey(tpl) match {
         case Right(_) => throw ESoftFetchTemplateWithKey(ctx, tpl)
@@ -1307,14 +1307,14 @@ private[validation] object Typing {
       }
     }
 
-    private def typeOfFetchInterface(tpl: TypeConName, cid: Expr): Work[Type] = {
+    private def typeOfFetchInterface(tpl: TypeConId, cid: Expr): Work[Type] = {
       discard(handleLookup(ctx, pkgInterface.lookupInterface(tpl)))
       checkExpr(cid, TContractId(TTyCon(tpl))) {
         Ret(TUpdate(TTyCon(tpl)))
       }
     }
 
-    private def checkByKey[T](tmplId: TypeConName, key: Expr)(work: => Work[T]): Work[T] = {
+    private def checkByKey[T](tmplId: TypeConId, key: Expr)(work: => Work[T]): Work[T] = {
       val tmplKey = handleLookup(ctx, pkgInterface.lookupTemplateKey(tmplId))
       checkExpr(key, tmplKey.typ) {
         work
@@ -1426,7 +1426,7 @@ private[validation] object Typing {
     }
 
     private[Typing] def typeOfChoiceControllerOrObserver(
-        ty: TypeConName,
+        ty: TypeConId,
         choiceName: ChoiceName,
         contract: Expr,
         choiceArg: Expr,
@@ -1632,13 +1632,13 @@ private[validation] object Typing {
 
   private[this] val wildcard: ExprVarName = Name.assertFromString("_")
   private[this] def variantExpectedPatterns(
-      scrutTCon: TypeConName,
+      scrutTCon: TypeConId,
       cons: ImmArray[(VariantConName, _)],
   ) = new ExpectedPatterns(
     cons.length,
     cons.iterator.map { case (variants, _) => CPVariant(scrutTCon, variants, wildcard) },
   )
-  private[this] def enumExpectedPatterns(scrutTCon: TypeConName, cons: ImmArray[EnumConName]) =
+  private[this] def enumExpectedPatterns(scrutTCon: TypeConId, cons: ImmArray[EnumConName]) =
     new ExpectedPatterns(cons.length, cons.iterator.map(CPEnum(scrutTCon, _)))
   private[this] val unitExpectedPatterns = ExpectedPatterns(CPUnit)
   private[this] val booleanExpectedPatterns = ExpectedPatterns(CPFalse, CPTrue)

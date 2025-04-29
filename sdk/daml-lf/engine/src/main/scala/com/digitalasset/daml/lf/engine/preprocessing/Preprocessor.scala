@@ -118,7 +118,7 @@ private[engine] final class Preprocessor(
       .toList
 
   private[this] def collectNewPackagesFromTemplatesOrInterfaces(
-      tycons: Iterable[Ref.TypeConName]
+      tycons: Iterable[Ref.TypeConId]
   ): List[(Ref.PackageId, language.Reference)] =
     tycons
       .foldLeft(Map.empty[Ref.PackageId, language.Reference]) { (acc, tycon) =>
@@ -157,7 +157,7 @@ private[engine] final class Preprocessor(
   ): Result[Unit] =
     pullPackages(collectNewPackagesFromTemplatesOrInterfaces(pkgResolution, tyCons))
 
-  private[this] def pullPackage(tyCons: Iterable[Ref.TypeConName]): Result[Unit] =
+  private[this] def pullPackage(tyCons: Iterable[Ref.TypeConId]): Result[Unit] =
     pullPackages(collectNewPackagesFromTemplatesOrInterfaces(tyCons))
 
   /** Translates the LF value `v0` of type `ty0` to a speedy value.
@@ -209,7 +209,7 @@ private[engine] final class Preprocessor(
     )
 
   def buildGlobalKey(
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       contractKey: Value,
   ): Result[GlobalKey] = {
     safelyRun(pullPackage(Seq(templateId))) {

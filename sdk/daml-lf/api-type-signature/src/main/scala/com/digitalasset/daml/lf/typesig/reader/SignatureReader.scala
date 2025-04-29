@@ -192,7 +192,7 @@ object SignatureReader {
 
   private[this] def visitChoices[Ty](
       choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      astInterfaces: Map[Ref.TypeConName, Ast.GenTemplateImplements[_]],
+      astInterfaces: Map[Ref.TypeConId, Ast.GenTemplateImplements[_]],
   ): TemplateChoices[Ty] =
     astInterfaces.keySet match {
       case NonEmpty(unresolvedInherited) =>
@@ -252,7 +252,7 @@ object SignatureReader {
     choices <- astIf.choices.traverse(visitChoice(name, _))
     rawViewType <- toIfaceType(name, astIf.view)
     viewType <- rawViewType match {
-      case TypeCon(TypeConName(tcn), Seq()) => \/-(Some(tcn))
+      case TypeCon(TypeConId(tcn), Seq()) => \/-(Some(tcn))
       case TypePrim(PrimType.Unit, _) => \/-(None)
       case _ =>
         invalidDataTypeDefinition(
@@ -275,7 +275,7 @@ object SignatureReader {
         else
           unserializableDataType(ctx, "arguments passed to a type parameter")
       case Ast.TTyCon(c) =>
-        \/-(TypeCon(TypeConName(c), args.toImmArray.toSeq))
+        \/-(TypeCon(TypeConId(c), args.toImmArray.toSeq))
       case AstUtil.TNumeric(Ast.TNat(n)) if args.empty =>
         \/-(TypeNumeric(n))
       case Ast.TBuiltin(bt) =>

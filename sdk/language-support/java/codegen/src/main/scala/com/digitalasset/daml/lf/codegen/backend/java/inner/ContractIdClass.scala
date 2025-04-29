@@ -42,7 +42,7 @@ object ContractIdClass {
   ) {
     def build(): TypeSpec = idClassBuilder.build()
 
-    def addConversionForImplementedInterfaces(implementedInterfaces: Seq[Ref.TypeConName])(implicit
+    def addConversionForImplementedInterfaces(implementedInterfaces: Seq[Ref.TypeConId])(implicit
         packagePrefixes: PackagePrefixes
     ): Builder = {
       idClassBuilder.addMethods(
@@ -154,7 +154,7 @@ object ContractIdClass {
   private[inner] def generateToInterfaceMethods(
       nestedReturn: String,
       selfArgs: String,
-      implementedInterfaces: Seq[Ref.TypeConName],
+      implementedInterfaces: Seq[Ref.TypeConId],
   )(implicit
       packagePrefixes: PackagePrefixes
   ) =

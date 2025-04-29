@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
@@ -205,10 +205,10 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
         }
       """
   val contractParty: IdString.Party = Ref.Party.assertFromString("contractParty")
-  val implementsTemplateId: Ref.TypeConName =
-    Ref.TypeConName.assertFromString(s"$implementsPkgId:ImplementsMod:TemplateImplements1")
-  val implementsInterfaceId: Ref.TypeConName =
-    Ref.TypeConName.assertFromString(s"$interfacesPkgId:InterfaceMod:Interface1")
+  val implementsTemplateId: Ref.TypeConId =
+    Ref.TypeConId.assertFromString(s"$implementsPkgId:ImplementsMod:TemplateImplements1")
+  val implementsInterfaceId: Ref.TypeConId =
+    Ref.TypeConId.assertFromString(s"$interfacesPkgId:InterfaceMod:Interface1")
   val contractId: ContractId =
     Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
   val implementsContract: Versioned[Value.ThinContractInstance] = Versioned(
@@ -232,8 +232,8 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
 
   def evaluateBeginExercise(
       pkgs: CompiledPackages,
-      templateId: TypeConName,
-      interfaceId: Option[TypeConName],
+      templateId: TypeConId,
+      interfaceId: Option[TypeConId],
       contractId: ContractId,
       committers: Set[Party] = Set.empty,
       controllers: Set[Party] = Set.empty,

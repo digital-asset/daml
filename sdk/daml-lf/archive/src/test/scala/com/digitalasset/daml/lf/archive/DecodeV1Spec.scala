@@ -550,9 +550,9 @@ class DecodeV1Spec
       val requiresDefInterfaceScala =
         Ast.DefInterface(
           requires = Set(
-            Ref.TypeConName.assertFromString("noPkgId:Mod:J"),
-            Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
-            Ref.TypeConName.assertFromString("noPkgId:Mod:K"),
+            Ref.TypeConId.assertFromString("noPkgId:Mod:J"),
+            Ref.TypeConId.assertFromString("noPkgId:Mod:K"),
+            Ref.TypeConId.assertFromString("noPkgId:Mod:K"),
           ),
           param = Ref.IdString.Name.assertFromString("this"),
           choices = Map.empty,

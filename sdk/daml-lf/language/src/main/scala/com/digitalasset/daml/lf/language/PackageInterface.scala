@@ -38,48 +38,48 @@ private[digitalasset] class PackageInterface(
     lookupModule(pkgId, modName, Reference.Module(pkgId, modName))
 
   private[this] def lookupDefinition(
-      name: TypeConName,
+      tycon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DefinitionSignature] =
-    lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
+    lookupModule(tycon.packageId, tycon.qualifiedName.module, context).flatMap(
       _.definitions
-        .get(name.qualifiedName.name)
-        .toRight(LookupError.NotFound(Reference.Definition(name), context))
+        .get(tycon.qualifiedName.name)
+        .toRight(LookupError.NotFound(Reference.Definition(tycon), context))
     )
 
-  def lookupDefinition(name: TypeConName): Either[LookupError, DefinitionSignature] =
-    lookupDefinition(name, Reference.Definition(name))
+  def lookupDefinition(tycon: TypeConId): Either[LookupError, DefinitionSignature] =
+    lookupDefinition(tycon, Reference.Definition(tycon))
 
   // Throws a Definition LookupError, if name does not maps to a Definition.
   // Throws a TypeSyn LookupError, if name map to a Definition which is not a DTypeSyn.
   private[this] def lookupTypeSyn(
-      name: TypeSynName,
+      tycon: TypeSynId,
       context: => Reference,
   ): Either[LookupError, DTypeSyn] =
-    lookupDefinition(name, context).flatMap {
+    lookupDefinition(tycon, context).flatMap {
       case typeSyn: DTypeSyn => Right(typeSyn)
-      case _ => Left(LookupError.NotFound(Reference.TypeSyn(name), context))
+      case _ => Left(LookupError.NotFound(Reference.TypeSyn(tycon), context))
     }
 
-  def lookupTypeSyn(name: TypeSynName): Either[LookupError, DTypeSyn] =
-    lookupTypeSyn(name, Reference.TypeSyn(name))
+  def lookupTypeSyn(tycon: TypeSynId): Either[LookupError, DTypeSyn] =
+    lookupTypeSyn(tycon, Reference.TypeSyn(tycon))
 
   // Throws a Definition LookupError, if name does not maps to a Definition.
   // Throws a TypeSyn LookupError, if name map to a Definition which is not a DDataType.
   private[this] def lookupDataType(
-      name: TypeConName,
+      tycon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DDataType] =
-    lookupDefinition(name, context).flatMap {
+    lookupDefinition(tycon, context).flatMap {
       case dataType: DDataType => Right(dataType)
-      case _ => Left(LookupError.NotFound(Reference.DataType(name), context))
+      case _ => Left(LookupError.NotFound(Reference.DataType(tycon), context))
     }
 
-  def lookupDataType(name: TypeConName): Either[LookupError, DDataType] =
-    lookupDataType(name, Reference.DataType(name))
+  def lookupDataType(tycon: TypeConId): Either[LookupError, DDataType] =
+    lookupDataType(tycon, Reference.DataType(tycon))
 
   private[this] def lookupDataRecord(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DataRecordInfo] =
     lookupDataType(tyCon, context).flatMap { dataType =>
@@ -89,11 +89,11 @@ private[digitalasset] class PackageInterface(
       }
     }
 
-  def lookupDataRecord(tyCon: TypeConName): Either[LookupError, DataRecordInfo] =
+  def lookupDataRecord(tyCon: TypeConId): Either[LookupError, DataRecordInfo] =
     lookupDataRecord(tyCon, Reference.DataRecord(tyCon))
 
   private[this] def lookupRecordFieldInfo(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       fieldName: FieldName,
       context: => Reference,
   ): Either[LookupError, RecordFieldInfo] =
@@ -106,13 +106,13 @@ private[digitalasset] class PackageInterface(
     }
 
   def lookupRecordFieldInfo(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       fieldName: FieldName,
   ): Either[LookupError, RecordFieldInfo] =
     lookupRecordFieldInfo(tyCon, fieldName, Reference.DataRecordField(tyCon, fieldName))
 
   private[this] def lookupDataVariant(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DataVariantInfo] =
     lookupDataType(tyCon, context).flatMap(dataType =>
@@ -122,11 +122,11 @@ private[digitalasset] class PackageInterface(
       }
     )
 
-  def lookupDataVariant(tyCon: TypeConName): Either[LookupError, DataVariantInfo] =
+  def lookupDataVariant(tyCon: TypeConId): Either[LookupError, DataVariantInfo] =
     lookupDataVariant(tyCon, Reference.DataVariant(tyCon))
 
   private[this] def lookupVariantConstructor(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       consName: VariantConName,
       context: => Reference,
   ): Either[LookupError, VariantConstructorInfo] =
@@ -139,13 +139,13 @@ private[digitalasset] class PackageInterface(
     )
 
   def lookupVariantConstructor(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       consName: VariantConName,
   ): Either[LookupError, VariantConstructorInfo] =
     lookupVariantConstructor(tyCon, consName, Reference.DataVariantConstructor(tyCon, consName))
 
   private[this] def lookupDataEnum(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DataEnumInfo] =
     lookupDataType(tyCon, context).flatMap { dataType =>
@@ -155,11 +155,11 @@ private[digitalasset] class PackageInterface(
       }
     }
 
-  def lookupDataEnum(tyCon: TypeConName): Either[LookupError, DataEnumInfo] =
+  def lookupDataEnum(tyCon: TypeConId): Either[LookupError, DataEnumInfo] =
     lookupDataEnum(tyCon, Reference.DataEnum(tyCon))
 
   private[this] def lookupEnumConstructor(
-      tyCon: TypeConName,
+      tyCon: TypeConId,
       consName: EnumConName,
       context: => Reference,
   ): Either[LookupError, Int] =
@@ -171,60 +171,60 @@ private[digitalasset] class PackageInterface(
       }
     }
 
-  def lookupEnumConstructor(tyCon: TypeConName, consName: EnumConName): Either[LookupError, Int] =
+  def lookupEnumConstructor(tyCon: TypeConId, consName: EnumConName): Either[LookupError, Int] =
     lookupEnumConstructor(tyCon, consName, Reference.DataEnumConstructor(tyCon, consName))
 
   private[this] def lookupTemplate(
-      name: TypeConName,
+      tycon: TypeConId,
       context: => Reference,
   ): Either[LookupError, TemplateSignature] =
-    lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
+    lookupModule(tycon.packageId, tycon.qualifiedName.module, context).flatMap(
       _.templates
-        .get(name.qualifiedName.name)
-        .toRight(LookupError.NotFound(Reference.Template(name.toRef), context))
+        .get(tycon.qualifiedName.name)
+        .toRight(LookupError.NotFound(Reference.Template(tycon.toRef), context))
     )
 
-  def lookupTemplate(name: TypeConName): Either[LookupError, TemplateSignature] =
-    lookupTemplate(name, Reference.Template(name.toRef))
+  def lookupTemplate(tycon: TypeConId): Either[LookupError, TemplateSignature] =
+    lookupTemplate(tycon, Reference.Template(tycon.toRef))
 
   private[this] def lookupInterface(
-      name: TypeConName,
+      tycon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DefInterfaceSignature] =
-    lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
+    lookupModule(tycon.packageId, tycon.qualifiedName.module, context).flatMap(
       _.interfaces
-        .get(name.qualifiedName.name)
-        .toRight(LookupError.NotFound(Reference.Interface(name), context))
+        .get(tycon.qualifiedName.name)
+        .toRight(LookupError.NotFound(Reference.Interface(tycon), context))
     )
 
-  def lookupInterface(name: TypeConName): Either[LookupError, DefInterfaceSignature] =
-    lookupInterface(name, Reference.Interface(name))
+  def lookupInterface(tycon: TypeConId): Either[LookupError, DefInterfaceSignature] =
+    lookupInterface(tycon, Reference.Interface(tycon))
 
   /** Look up a template's choice by name.
     * This purposefully does not return choices inherited via interfaces.
     * Use lookupChoice for a more flexible lookup.
     */
   private[this] def lookupTemplateChoice(
-      tmpName: TypeConName,
+      tmplId: TypeConId,
       chName: ChoiceName,
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupTemplate(tmpName, context).flatMap(template =>
+    lookupTemplate(tmplId, context).flatMap(template =>
       template.choices
         .get(chName)
-        .toRight(LookupError.NotFound(Reference.TemplateChoice(tmpName, chName), context))
+        .toRight(LookupError.NotFound(Reference.TemplateChoice(tmplId, chName), context))
     )
 
   /** Look up a template's own choice. Does not return choices inherited via interfaces. */
   def lookupTemplateChoice(
-      tmpName: TypeConName,
+      tmplId: TypeConId,
       chName: ChoiceName,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupTemplateChoice(tmpName, chName, Reference.TemplateChoice(tmpName, chName))
+    lookupTemplateChoice(tmplId, chName, Reference.TemplateChoice(tmplId, chName))
 
   private[lf] def lookupChoice(
-      templateId: TypeConName,
-      mbInterfaceId: Option[TypeConName],
+      templateId: TypeConId,
+      mbInterfaceId: Option[TypeConId],
       chName: ChoiceName,
   ): Either[LookupError, TemplateChoiceSignature] =
     mbInterfaceId match {
@@ -233,53 +233,53 @@ private[digitalasset] class PackageInterface(
     }
 
   private[this] def lookupInterfaceInstance(
-      interfaceName: TypeConName,
-      templateName: TypeConName,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
       context: => Reference,
   ): Either[
     LookupError,
     TemplateImplementsSignature,
   ] = for {
-    template <- lookupTemplate(templateName, context)
+    template <- lookupTemplate(templateId, context)
     inst <- template.implements
-      .get(interfaceName)
+      .get(interfaceId)
       .toRight(
-        LookupError.NotFound(Reference.InterfaceInstance(interfaceName, templateName), context)
+        LookupError.NotFound(Reference.InterfaceInstance(interfaceId, templateId), context)
       )
   } yield inst
 
   def lookupInterfaceInstance(
-      interfaceName: TypeConName,
-      templateName: TypeConName,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
   ): Either[
     LookupError,
     TemplateImplementsSignature,
   ] =
     lookupInterfaceInstance(
-      interfaceName,
-      templateName,
-      Reference.InterfaceInstance(interfaceName, templateName),
+      interfaceId,
+      templateId,
+      Reference.InterfaceInstance(interfaceId, templateId),
     )
 
   private[this] def lookupInterfaceChoice(
-      ifaceName: TypeConName,
+      ifaceId: TypeConId,
       chName: ChoiceName,
       context: => Reference,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupInterface(ifaceName, context).flatMap(
+    lookupInterface(ifaceId, context).flatMap(
       _.choices
         .get(chName)
-        .toRight(LookupError.NotFound(Reference.InterfaceChoice(ifaceName, chName), context))
+        .toRight(LookupError.NotFound(Reference.InterfaceChoice(ifaceId, chName), context))
     )
 
   def lookupInterfaceChoice(
-      ifaceName: TypeConName,
+      ifaceId: TypeConId,
       chName: ChoiceName,
   ): Either[LookupError, TemplateChoiceSignature] =
-    lookupInterfaceChoice(ifaceName, chName, Reference.InterfaceChoice(ifaceName, chName))
+    lookupInterfaceChoice(ifaceId, chName, Reference.InterfaceChoice(ifaceId, chName))
 
   private[lf] def lookupTemplateOrInterface(
-      identier: TypeConName,
+      identier: TypeConId,
       context: => Reference,
   ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
     lookupModule(identier.packageId, identier.qualifiedName.module, context).flatMap(mod =>
@@ -295,37 +295,37 @@ private[digitalasset] class PackageInterface(
     )
 
   def lookupTemplateOrInterface(
-      name: TypeConName
+      tycon: TypeConId
   ): Either[LookupError, TemplateOrInterface[TemplateSignature, DefInterfaceSignature]] =
-    lookupTemplateOrInterface(name, Reference.TemplateOrInterface(name.toRef))
+    lookupTemplateOrInterface(tycon, Reference.TemplateOrInterface(tycon.toRef))
 
   private[this] def lookupInterfaceMethod(
-      ifaceName: TypeConName,
+      ifaceId: TypeConId,
       methodName: MethodName,
       context: => Reference,
   ): Either[LookupError, InterfaceMethod] =
-    lookupInterface(ifaceName, context).flatMap(
+    lookupInterface(ifaceId, context).flatMap(
       _.methods
         .get(methodName)
-        .toRight(LookupError.NotFound(Reference.Method(ifaceName, methodName), context))
+        .toRight(LookupError.NotFound(Reference.Method(ifaceId, methodName), context))
     )
 
   def lookupInterfaceMethod(
-      ifaceName: TypeConName,
+      ifaceId: TypeConId,
       methodName: MethodName,
   ): Either[LookupError, InterfaceMethod] =
-    lookupInterfaceMethod(ifaceName, methodName, Reference.Method(ifaceName, methodName))
+    lookupInterfaceMethod(ifaceId, methodName, Reference.Method(ifaceId, methodName))
 
   private[this] def lookupTemplateKey(
-      name: TypeConName,
+      tycon: TypeConId,
       context: => Reference,
   ): Either[LookupError, TemplateKeySignature] =
-    lookupTemplate(name, context).flatMap(
-      _.key.toRight(LookupError.NotFound(Reference.TemplateKey(name), context))
+    lookupTemplate(tycon, context).flatMap(
+      _.key.toRight(LookupError.NotFound(Reference.TemplateKey(tycon), context))
     )
 
-  def lookupTemplateKey(name: TypeConName): Either[LookupError, TemplateKeySignature] =
-    lookupTemplateKey(name, Reference.TemplateKey(name))
+  def lookupTemplateKey(tycon: TypeConId): Either[LookupError, TemplateKeySignature] =
+    lookupTemplateKey(tycon, Reference.TemplateKey(tycon))
 
   private[this] def lookupValue(
       name: ValueRef,
@@ -336,21 +336,21 @@ private[digitalasset] class PackageInterface(
       case _ => Left(LookupError.NotFound(Reference.Value(name), context))
     }
 
-  def lookupValue(name: ValueRef): Either[LookupError, DValueSignature] =
-    lookupValue(name, Reference.Value(name))
+  def lookupValue(tycon: ValueRef): Either[LookupError, DValueSignature] =
+    lookupValue(tycon, Reference.Value(tycon))
 
   private[this] def lookupException(
-      name: TypeConName,
+      tycon: TypeConId,
       context: => Reference,
   ): Either[LookupError, DefExceptionSignature] =
-    lookupModule(name.packageId, name.qualifiedName.module, context).flatMap(
+    lookupModule(tycon.packageId, tycon.qualifiedName.module, context).flatMap(
       _.exceptions
-        .get(name.qualifiedName.name)
-        .toRight(LookupError.NotFound(Reference.Exception(name), context))
+        .get(tycon.qualifiedName.name)
+        .toRight(LookupError.NotFound(Reference.Exception(tycon), context))
     )
 
-  def lookupException(name: TypeConName): Either[LookupError, DefExceptionSignature] =
-    lookupException(name, Reference.Exception(name))
+  def lookupException(tycon: TypeConId): Either[LookupError, DefExceptionSignature] =
+    lookupException(tycon, Reference.Exception(tycon))
 
   def lookupPackageLanguageVersion(pkgId: PackageId): Either[LookupError, LanguageVersion] =
     lookupPackage(pkgId).map(_.languageVersion)
@@ -418,7 +418,7 @@ object PackageInterface {
 
     final case class Template(choice: TemplateChoiceSignature) extends ChoiceInfo
 
-    final case class Inherited(ifaceId: TypeConName, choice: TemplateChoiceSignature)
+    final case class Inherited(ifaceId: TypeConId, choice: TemplateChoiceSignature)
         extends ChoiceInfo
 
   }

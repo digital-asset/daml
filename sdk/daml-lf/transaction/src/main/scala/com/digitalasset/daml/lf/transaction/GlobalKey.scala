@@ -6,14 +6,14 @@ package transaction
 
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Party, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{Party, TypeConId}
 import com.digitalasset.daml.lf.value.Value
 
 /** Useful in various circumstances -- basically this is what a ledger implementation must use as
   * a key. The 'hash' is guaranteed to be stable over time.
   */
 final class GlobalKey private (
-    val templateId: Ref.TypeConName,
+    val templateId: Ref.TypeConId,
     val packageName: Ref.PackageName,
     val key: Value,
     val hash: crypto.Hash,
@@ -48,7 +48,7 @@ object GlobalKey {
 
   // Will fail if key contains contract ids
   def build(
-      templateId: TypeConName,
+      templateId: TypeConId,
       key: Value,
       packageName: Ref.PackageName,
   ): Either[crypto.Hash.HashingError, GlobalKey] = {
@@ -58,14 +58,14 @@ object GlobalKey {
   }
 
   def assertBuild(
-      templateId: TypeConName,
+      templateId: TypeConId,
       key: Value,
       packageName: Ref.PackageName,
   ): GlobalKey = {
     data.assertRight(build(templateId, key, packageName).left.map(_.msg))
   }
 
-  private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConName, Value)] =
+  private[lf] def unapply(globalKey: GlobalKey): Some[(TypeConId, Value)] =
     Some((globalKey.templateId, globalKey.key))
 
 }
@@ -80,7 +80,7 @@ final case class GlobalKeyWithMaintainers(
 object GlobalKeyWithMaintainers {
 
   def assertBuild(
-      templateId: TypeConName,
+      templateId: TypeConId,
       value: Value,
       maintainers: Set[Party],
       packageName: Ref.PackageName,
@@ -88,7 +88,7 @@ object GlobalKeyWithMaintainers {
     data.assertRight(build(templateId, value, maintainers, packageName).left.map(_.msg))
 
   def build(
-      templateId: TypeConName,
+      templateId: TypeConId,
       value: Value,
       maintainers: Set[Party],
       packageName: Ref.PackageName,

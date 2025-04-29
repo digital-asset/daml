@@ -394,7 +394,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   // The given contractSValue is wrapped as a disclosedContract
   def goDisclosed(
       e: Expr,
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       contractSValue: SValue,
   ): Either[SError, Success] = {
 

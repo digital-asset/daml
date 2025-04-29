@@ -66,7 +66,7 @@ final class RecordFieldsSpec extends AnyFlatSpec with Matchers {
       RecordFields(
         getFieldsWithTypes(
           ImmArraySeq(
-            Ref.Name.assertFromString("field") -> TypeCon(TypeConName(ident), ImmArraySeq.empty)
+            Ref.Name.assertFromString("field") -> TypeCon(TypeConId(ident), ImmArraySeq.empty)
           )
         )
       )

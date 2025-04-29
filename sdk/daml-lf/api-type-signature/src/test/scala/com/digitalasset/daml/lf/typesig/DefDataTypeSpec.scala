@@ -48,7 +48,7 @@ object DefDataTypeSpec {
   private[this] implicit def `ChoiceName arb`: Arbitrary[Ref.ChoiceName] = Arbitrary(
     ValueGenerators.nameGen
   )
-  private[this] implicit def `TypeConName arb`: Arbitrary[Ref.TypeConName] = Arbitrary(
+  private[this] implicit def `TypeConId arb`: Arbitrary[Ref.TypeConId] = Arbitrary(
     ValueGenerators.idGen
   )
 

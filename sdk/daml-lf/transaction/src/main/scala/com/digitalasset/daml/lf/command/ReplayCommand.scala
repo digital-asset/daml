@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.value.Value
 
 /** Accepted commands for replay */
 sealed abstract class ReplayCommand extends Product with Serializable {
-  val templateId: TypeConName
+  val templateId: TypeConId
 }
 
 object ReplayCommand {
@@ -22,8 +22,8 @@ object ReplayCommand {
 
   /** Exercise a template choice, by template Id or interface Id. */
   final case class Exercise(
-      templateId: TypeConName,
-      interfaceId: Option[TypeConName],
+      templateId: TypeConId,
+      interfaceId: Option[TypeConId],
       contractId: Value.ContractId,
       choiceId: ChoiceName,
       argument: Value,

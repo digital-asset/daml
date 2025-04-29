@@ -42,14 +42,14 @@ object TypeDestructor {
     final case class TextMapF[Type](a: Type) extends SerializableTypeF[Type]
 
     final case class RecordF[Type](
-        tyCon: Ref.TypeConName,
+        tyCon: Ref.TypeConId,
         pkgName: Ref.PackageName,
         fieldNames: ArraySeq[Ref.Name],
         fieldTypes: ArraySeq[Type],
     ) extends SerializableTypeF[Type]
 
     final case class VariantF[Type](
-        tyCon: Ref.TypeConName,
+        tyCon: Ref.TypeConId,
         pkgName: Ref.PackageName,
         cons: ArraySeq[Ref.Name],
         consTypes: ArraySeq[Type],
@@ -64,7 +64,7 @@ object TypeDestructor {
     }
 
     final case class EnumF(
-        tyCon: Ref.TypeConName,
+        tyCon: Ref.TypeConId,
         pkgName: Ref.PackageName,
         cons: ArraySeq[Ref.Name],
     ) extends SerializableTypeF[Nothing] {

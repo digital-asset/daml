@@ -173,8 +173,8 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
         case Success(
               Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))
             ) =>
-          iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
-          tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
+          iface shouldBe Ref.TypeConId.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
+          tid shouldBe Ref.TypeConId.assertFromString(s"${implemPkgId(1)}:Mod:T")
       }
     }
 
@@ -201,8 +201,8 @@ class SBuiltinInterfaceUpgradeImplementationTest extends AnyFreeSpec with Matche
         case Success(
               Left(SErrorDamlException(IE.ContractDoesNotImplementInterface(iface, _, tid)))
             ) =>
-          iface shouldBe Ref.TypeConName.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
-          tid shouldBe Ref.TypeConName.assertFromString(s"${implemPkgId(1)}:Mod:T")
+          iface shouldBe Ref.TypeConId.assertFromString(s"${ifacePkgId}:Mod:IfaceB")
+          tid shouldBe Ref.TypeConId.assertFromString(s"${implemPkgId(1)}:Mod:T")
       }
     }
   }
@@ -375,7 +375,7 @@ class SBuiltinInterfaceTest(languageVersion: LanguageVersion, compilerConfig: Co
 
   "Interface operations" - {
     val iouTypeRep =
-      Ref.TypeConName.assertFromString(s"${basePkgId}:Mod:Iou")
+      Ref.TypeConId.assertFromString(s"${basePkgId}:Mod:Iou")
     implicit val parserParameters: ParserParameters[helpers.type] = basePkgParserParams
 
     val testCases = Table[String, SValue](

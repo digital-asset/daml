@@ -341,7 +341,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
         .setBound(binding.bound)
         .build()
 
-    private implicit def encodeRetrieveByKey(tmplId: TypeConName): PLF.Update.RetrieveByKey =
+    private implicit def encodeRetrieveByKey(tmplId: TypeConId): PLF.Update.RetrieveByKey =
       PLF.Update.RetrieveByKey.newBuilder().setTemplate(tmplId).build()
 
     private implicit def encodeUpdate(upd0: Update): PLF.Update = {
@@ -889,7 +889,7 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
     }
 
     private implicit def encodeTemplateImplements(
-        interfaceWithImplements: (TypeConName, TemplateImplements)
+        interfaceWithImplements: (TypeConId, TemplateImplements)
     ): PLF.DefTemplate.Implements = {
       val (interface, implements) = interfaceWithImplements
       val b = PLF.DefTemplate.Implements.newBuilder()
