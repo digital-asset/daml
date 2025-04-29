@@ -220,7 +220,8 @@ object Ref {
   }
 
   final case class FullReference[X](pkg: X, qualifiedName: QualifiedName) {
-    def map[Y](f: X => Y): FullReference[Y] = FullReference(f(pkg), qualifiedName)
+
+    override def toString = s"$pkg:${qualifiedName.toString}"
 
     // to keep backward compatibility of Identifier#packageId
     def packageId(implicit ev: X <:< PackageId): PackageId = ev(pkg)
