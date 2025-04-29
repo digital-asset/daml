@@ -192,6 +192,7 @@ genrule(
 genrule(
     name = "sharable-docs",
     srcs = [
+        ":hoogle_db.tar.gz",
         ":sources",
         "//templates:templates-tarball",
     ],
@@ -203,6 +204,9 @@ genrule(
     mkdir -p $$DIR/docs
 
     tar xf $(location :sources) -C $$DIR/docs
+
+    # Append hoogle DB
+    tar xf $(location :hoogle_db.tar.gz) -C $$DIR/docs/source
 
     MKTGZ=$$PWD/$(execpath //bazel_tools/sh:mktgz)
     OUT_PATH=$$PWD/$@
