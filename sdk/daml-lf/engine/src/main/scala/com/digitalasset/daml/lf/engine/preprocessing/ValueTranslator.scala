@@ -51,7 +51,9 @@ private[lf] final class ValueTranslator(
         if (cid.suffix.isEmpty)
           throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
       case cid: ContractId.V2 =>
-        if (!cid.isAbsolute)
+        // We allow relative contract IDs in Engine commands because they may appear
+        // in reinterpretation of projections
+        if (cid.suffix.isEmpty)
           throw Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(cid)
     }
     else { _ => () }
