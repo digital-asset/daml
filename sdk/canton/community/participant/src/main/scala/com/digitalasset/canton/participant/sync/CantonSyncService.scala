@@ -27,18 +27,12 @@ import com.digitalasset.canton.error.TransactionRoutingError.{
 }
 import com.digitalasset.canton.health.MutableHealthComponent
 import com.digitalasset.canton.ledger.api.health.HealthStatus
-import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedSynchronizerResponse
 import com.digitalasset.canton.lifecycle.*
-import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
-  ErrorLoggingContext,
-  NamedLoggerFactory,
-  NamedLogging,
-}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.*
 import com.digitalasset.canton.participant.Pruning.*
@@ -49,7 +43,6 @@ import com.digitalasset.canton.participant.admin.inspection.{
   JournalGarbageCollectorControl,
   SyncStateInspection,
 }
-import com.digitalasset.canton.participant.admin.party.PartyReplicator
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.admin.repair.RepairService.SynchronizerLookup
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
@@ -75,6 +68,8 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
+  PartyAllocationCannotDetermineSynchronizer,
+  PartyAllocationNoSynchronizerError,
   SyncServiceBecamePassive,
   SyncServiceFailedSynchronizerConnection,
   SyncServicePurgeSynchronizerError,
@@ -117,8 +112,8 @@ import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import java.util.concurrent.CompletionStage
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.{CompletableFuture, CompletionStage}
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -167,6 +162,7 @@ class CantonSyncService(
     metrics: ParticipantMetrics,
     sequencerInfoLoader: SequencerInfoLoader,
     val isActive: () => Boolean,
+    declarativeChangeTrigger: () => Unit,
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
@@ -314,6 +310,10 @@ class CantonSyncService(
       parameters.reassignmentTimeProofFreshnessProportion,
       syncPersistentStateManager,
       connectedSynchronizersLookup.get,
+      synchronizerId =>
+        connectedSynchronizersLookup
+          .get(synchronizerId.unwrap)
+          .map(_.ephemeral.reassignmentSynchronizer),
       syncCrypto,
       loggerFactory,
     )(ec)
@@ -385,11 +385,6 @@ class CantonSyncService(
     connectQueue,
     loggerFactory,
   )
-
-  val partyReplicatorO: Option[PartyReplicator] =
-    parameters.unsafeOnlinePartyReplication.map(_ =>
-      new PartyReplicator(participantId, this, parameters.processingTimeouts, loggerFactory)
-    )
 
   private val migrationService =
     new SynchronizerMigration(
@@ -680,10 +675,35 @@ class CantonSyncService(
   override def allocateParty(
       hint: LfPartyId,
       rawSubmissionId: LedgerSubmissionId,
+      synchronizerIdO: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): CompletionStage[SubmissionResult] =
-    partyAllocation.allocate(hint, rawSubmissionId)
+  ): CompletionStage[SubmissionResult] = {
+    lazy val onlyConnectedSynchronzier = connectedSynchronizersMap.toSeq match {
+      case Seq((synchronizerId, _)) => Right(synchronizerId)
+      case Seq() =>
+        Left(
+          SubmissionResult.SynchronousError(
+            PartyAllocationNoSynchronizerError.Error(rawSubmissionId).asGrpcStatus
+          )
+        )
+      case otherwise =>
+        Left(
+          SubmissionResult.SynchronousError(
+            PartyAllocationCannotDetermineSynchronizer
+              .Error(hint)
+              .asGrpcStatus
+          )
+        )
+    }
+    val synchronizerIdOrDetectionError =
+      synchronizerIdO.map(Right(_)).getOrElse(onlyConnectedSynchronzier)
+
+    synchronizerIdOrDetectionError
+      .map(partyAllocation.allocate(hint, rawSubmissionId, _))
+      .leftMap(CompletableFuture.completedFuture[SubmissionResult])
+      .merge
+  }
 
   override def uploadDar(dars: Seq[ByteString], submissionId: Ref.SubmissionId)(implicit
       traceContext: TraceContext
@@ -702,7 +722,7 @@ class CantonSyncService(
             synchronizeVetting = synchronizeVettingOnConnectedSynchronizers,
           )
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
@@ -718,7 +738,7 @@ class CantonSyncService(
         packageService.value
           .validateDar(dar, darName)
           .map(_ => SubmissionResult.Acknowledged)
-          .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+          .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
           .valueOr(err => SubmissionResult.SynchronousError(err.asGrpcStatus))
       }
     }
@@ -728,17 +748,17 @@ class CantonSyncService(
   ): Future[Option[DamlLf.Archive]] =
     packageService.value
       .getLfArchive(packageId)
-      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def listLfPackages()(implicit
       traceContext: TraceContext
   ): Future[Seq[PackageDescription]] =
     packageService.value
       .listPackages()
-      .failOnShutdownTo(CommonErrors.ServerIsShuttingDown.Reject().asGrpcError)
+      .failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   override def getPackageMetadataSnapshot(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PackageMetadata = packageService.value.packageMetadataView.getSnapshot
 
   /** Executes ordered sequence of steps to recover any state that might have been lost if the
@@ -1516,6 +1536,7 @@ class CantonSyncService(
       } yield {
         // remove this one from the reconnect attempt list, as we are successfully connected now
         this.resolveReconnectAttempts(synchronizerAlias)
+        declarativeChangeTrigger()
       }
 
       def disconnectOn(): Unit =
@@ -1727,7 +1748,7 @@ class CantonSyncService(
       migrationService,
       repairService,
       pruningProcessor,
-    ) ++ partyReplicatorO.toList ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
+    ) ++ syncCrypto.ips.allSynchronizers.toSeq ++ connectedSynchronizersMap.values.toSeq ++ Seq(
       transactionRoutingProcessor,
       synchronizerRegistry,
       synchronizerConnectionConfigStore,
@@ -1785,7 +1806,7 @@ class CantonSyncService(
             )
             .mapK(FutureUnlessShutdown.outcomeK)
             .semiflatMap(Predef.identity)
-            .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+            .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
         } yield SubmissionResult.Acknowledged
       }
         .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))
@@ -1987,6 +2008,7 @@ class CantonSyncService(
       traceContext: TraceContext
   ): RoutingSynchronizerState =
     RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
+
 }
 
 object CantonSyncService {
@@ -2062,6 +2084,7 @@ object CantonSyncService {
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
         connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
+        triggerDeclarativeChange: () => Unit,
     )(implicit ec: ExecutionContextExecutor, mat: Materializer, tracer: Tracer): T
   }
 
@@ -2096,6 +2119,7 @@ object CantonSyncService {
         testingConfig: TestingConfigInternal,
         ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
         connectedSynchronizersLookupContainer: ConnectedSynchronizersLookupContainer,
+        triggerDeclarativeChange: () => Unit,
     )(implicit
         ec: ExecutionContextExecutor,
         mat: Materializer,
@@ -2126,6 +2150,7 @@ object CantonSyncService {
         metrics,
         sequencerInfoLoader,
         () => storage.isActive,
+        triggerDeclarativeChange,
         futureSupervisor,
         loggerFactory,
         testingConfig,

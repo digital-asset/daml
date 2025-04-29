@@ -25,7 +25,7 @@ object HashingSchemeVersion {
 
   private val ProtocolVersionToHashingVersion =
     SortedMap[ProtocolVersion, NonEmpty[SortedSet[HashingSchemeVersion]]](
-      ProtocolVersion.v33 -> NonEmpty.mk(SortedSet, V2),
+      ProtocolVersion.v34 -> NonEmpty.mk(SortedSet, V2),
       ProtocolVersion.dev -> NonEmpty.mk(SortedSet, V2),
     )
 
@@ -38,8 +38,8 @@ object HashingSchemeVersion {
       protocolVersion: ProtocolVersion
   ): NonEmpty[SortedSet[HashingSchemeVersion]] = {
     assert(
-      protocolVersion >= ProtocolVersion.v33,
-      s"Canton only supports external signing from ProtocolVersions >= ${ProtocolVersion.v33}",
+      protocolVersion >= ProtocolVersion.v34,
+      s"Canton only supports external signing from ProtocolVersions >= ${ProtocolVersion.v34}",
     )
     ProtocolVersionToHashingVersion(protocolVersion)
   }

@@ -19,7 +19,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
   OrderedBlock,
-  OrderedBlockForOutput,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.{
@@ -27,7 +26,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   SignedMessage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, Module}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  Env,
+  Module,
+  SupportedVersions,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -113,7 +116,7 @@ object Consensus {
         with HasProtocolVersionedWrapper[RetransmissionRequest] {
 
       def toProto: v30.RetransmissionMessage =
-        v30.RetransmissionMessage.of(
+        v30.RetransmissionMessage(
           v30.RetransmissionMessage.Message.RetransmissionRequest(
             epochStatus.toProto
           )
@@ -133,44 +136,41 @@ object Consensus {
           BftNodeId,
         ] {
       override def name: String = "RetransmissionRequest"
-      def create(epochStatus: ConsensusStatus.EpochStatus): RetransmissionRequest =
+      def create(
+          epochStatus: ConsensusStatus.EpochStatus
+      )(implicit synchronizerProtocolVersion: ProtocolVersion): RetransmissionRequest =
         RetransmissionRequest(epochStatus)(
-          protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
+          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
           None,
         )
 
       private def fromProtoRetransmissionMessage(
           from: BftNodeId,
           value: v30.RetransmissionMessage,
-      )(
-          originalByteString: ByteString
-      ): ParsingResult[RetransmissionRequest] = for {
-        protoRetransmissionRequest <- value.message.retransmissionRequest.toRight(
-          ProtoDeserializationError.OtherError(s"Not a $name message")
-        )
-        result <- fromProto(from, protoRetransmissionRequest)(originalByteString)
-      } yield result
+      )(originalByteString: ByteString): ParsingResult[RetransmissionRequest] =
+        for {
+          protoRetransmissionRequest <- value.message.retransmissionRequest.toRight(
+            ProtoDeserializationError.OtherError(s"Not a $name message")
+          )
+          result <- fromProto(from, protoRetransmissionRequest)(originalByteString)
+        } yield result
 
       def fromProto(
           from: BftNodeId,
           proto: v30.EpochStatus,
-      )(
-          originalByteString: ByteString
-      ): ParsingResult[RetransmissionRequest] = for {
-        epochStatus <- ConsensusStatus.EpochStatus.fromProto(from, proto)
-      } yield RetransmissionRequest(epochStatus)(
-        protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
-        Some(originalByteString),
-      )
+      )(originalByteString: ByteString): ParsingResult[RetransmissionRequest] =
+        for {
+          epochStatus <- ConsensusStatus.EpochStatus.fromProto(from, proto)
+          rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
+        } yield RetransmissionRequest(epochStatus)(
+          rpv,
+          Some(originalByteString),
+        )
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v33
-          )(v30.RetransmissionMessage)(
-            supportedProtoVersionMemoized(_)(
-              fromProtoRetransmissionMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.RetransmissionMessage)(
+            supportedProtoVersionMemoized(_)(fromProtoRetransmissionMessage),
             _.toProto,
           )
       )
@@ -187,7 +187,7 @@ object Consensus {
     ) extends RetransmissionsNetworkMessage
         with HasProtocolVersionedWrapper[RetransmissionResponse] {
       def toProto: v30.RetransmissionMessage =
-        v30.RetransmissionMessage.of(
+        v30.RetransmissionMessage(
           v30.RetransmissionMessage.Message.RetransmissionResponse(
             v30.RetransmissionResponse(commitCertificates.map(_.toProto))
           )
@@ -208,46 +208,41 @@ object Consensus {
       def create(
           from: BftNodeId,
           commitCertificates: Seq[CommitCertificate],
-      ): RetransmissionResponse =
+      )(implicit synchronizerProtocolVersion: ProtocolVersion): RetransmissionResponse =
         RetransmissionResponse(from, commitCertificates)(
-          protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
+          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
           None,
         )
 
       private def fromProtoRetransmissionMessage(
           from: BftNodeId,
           value: v30.RetransmissionMessage,
-      )(
-          originalByteString: ByteString
-      ): ParsingResult[RetransmissionResponse] = for {
-        protoRetransmissionResponse <- value.message.retransmissionResponse.toRight(
-          ProtoDeserializationError.OtherError(s"Not a $name message")
-        )
-        response <- fromProto(from, protoRetransmissionResponse)(originalByteString)
-      } yield response
+      )(originalByteString: ByteString): ParsingResult[RetransmissionResponse] =
+        for {
+          protoRetransmissionResponse <- value.message.retransmissionResponse.toRight(
+            ProtoDeserializationError.OtherError(s"Not a $name message")
+          )
+          response <- fromProto(from, protoRetransmissionResponse)(originalByteString)
+        } yield response
 
       def fromProto(
           from: BftNodeId,
           protoRetransmissionResponse: v30.RetransmissionResponse,
-      )(
-          originalByteString: ByteString
-      ): ParsingResult[RetransmissionResponse] = for {
-        commitCertificates <- protoRetransmissionResponse.commitCertificates.traverse(
-          CommitCertificate.fromProto
+      )(originalByteString: ByteString): ParsingResult[RetransmissionResponse] =
+        for {
+          commitCertificates <- protoRetransmissionResponse.commitCertificates.traverse(
+            CommitCertificate.fromProto
+          )
+          rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
+        } yield RetransmissionResponse(from, commitCertificates)(
+          rpv,
+          Some(originalByteString),
         )
-      } yield RetransmissionResponse(from, commitCertificates)(
-        protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
-        Some(originalByteString),
-      )
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v33
-          )(v30.RetransmissionMessage)(
-            supportedProtoVersionMemoized(_)(
-              fromProtoRetransmissionMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.RetransmissionMessage)(
+            supportedProtoVersionMemoized(_)(fromProtoRetransmissionMessage),
             _.toProto,
           )
       )
@@ -272,10 +267,11 @@ object Consensus {
         override val deserializedFrom: Option[ByteString],
     ) extends StateTransferNetworkMessage
         with HasProtocolVersionedWrapper[BlockTransferRequest] {
+
       def toProto: v30.StateTransferMessage =
-        v30.StateTransferMessage.of(
+        v30.StateTransferMessage(
           v30.StateTransferMessage.Message.BlockRequest(
-            v30.BlockTransferRequest.of(epoch)
+            v30.BlockTransferRequest(epoch)
           )
         )
 
@@ -290,47 +286,50 @@ object Consensus {
           BlockTransferRequest,
           BftNodeId,
         ] {
+
       override def name: String = "BlockTransferRequest"
+
       def create(
           epoch: EpochNumber,
           from: BftNodeId,
-      ): BlockTransferRequest = BlockTransferRequest(epoch, from)(
-        protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
-        None,
-      )
+      )(implicit synchronizerProtocolVersion: ProtocolVersion): BlockTransferRequest =
+        BlockTransferRequest(epoch, from)(
+          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
+          None,
+        )
 
       private def fromProtoStateTransferMessage(from: BftNodeId, value: v30.StateTransferMessage)(
           originalByteString: ByteString
-      ): ParsingResult[BlockTransferRequest] = for {
-        protoBlockTransferRequest <- value.message.blockRequest.toRight(
-          ProtoDeserializationError.OtherError(s"Not a $name message")
-        )
-      } yield fromProto(from, protoBlockTransferRequest)(originalByteString)
+      ): ParsingResult[BlockTransferRequest] =
+        for {
+          protoBlockTransferRequest <- value.message.blockRequest.toRight(
+            ProtoDeserializationError.OtherError(s"Not a $name message")
+          )
+          result <- fromProto(from, protoBlockTransferRequest)(originalByteString)
+        } yield result
 
       def fromProto(from: BftNodeId, request: v30.BlockTransferRequest)(
           originalByteString: ByteString
-      ): BlockTransferRequest =
-        BlockTransferRequest(EpochNumber(request.epoch), from)(
-          protocolVersionRepresentativeFor(ProtocolVersion.minimum),
+      ): ParsingResult[BlockTransferRequest] =
+        for {
+          rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
+        } yield BlockTransferRequest(EpochNumber(request.epoch), from)(
+          rpv,
           Some(originalByteString),
-        ) // TODO(#23248)
+        )
 
-      override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v33
-          )(v30.StateTransferMessage)(
-            supportedProtoVersionMemoized(_)(
-              fromProtoStateTransferMessage
-            ),
-            _.toProto,
-          )
-      )
+      override def versioningTable: VersioningTable =
+        VersioningTable(
+          SupportedVersions.ProtoData ->
+            VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.StateTransferMessage)(
+              supportedProtoVersionMemoized(_)(fromProtoStateTransferMessage),
+              _.toProto,
+            )
+        )
     }
 
     final case class BlockTransferResponse private (
         commitCertificate: Option[CommitCertificate],
-        latestCompletedEpoch: EpochNumber,
         from: BftNodeId,
     )(
         override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -339,10 +338,11 @@ object Consensus {
         override val deserializedFrom: Option[ByteString],
     ) extends StateTransferNetworkMessage
         with HasProtocolVersionedWrapper[BlockTransferResponse] {
+
       def toProto: v30.StateTransferMessage =
-        v30.StateTransferMessage.of(
+        v30.StateTransferMessage(
           v30.StateTransferMessage.Message.BlockResponse(
-            v30.BlockTransferResponse.of(commitCertificate.map(_.toProto), latestCompletedEpoch)
+            v30.BlockTransferResponse(commitCertificate.map(_.toProto))
           )
         )
       override protected val companionObj: BlockTransferResponse.type = BlockTransferResponse
@@ -356,19 +356,20 @@ object Consensus {
           BlockTransferResponse,
           BftNodeId,
         ] {
+
       override def name: String = "BlockTransferResponse"
+
       def create(
           commitCertificate: Option[CommitCertificate],
-          latestCompletedEpoch: EpochNumber,
           from: BftNodeId,
-      ): BlockTransferResponse = BlockTransferResponse(
-        commitCertificate,
-        latestCompletedEpoch,
-        from,
-      )(
-        protocolVersionRepresentativeFor(ProtocolVersion.minimum), // TODO(#23248)
-        None,
-      )
+      )(implicit synchronizerProtocolVersion: ProtocolVersion): BlockTransferResponse =
+        BlockTransferResponse(
+          commitCertificate,
+          from,
+        )(
+          protocolVersionRepresentativeFor(synchronizerProtocolVersion),
+          None,
+        )
 
       private def fromProtoStateTransferMessage(from: BftNodeId, value: v30.StateTransferMessage)(
           originalByteString: ByteString
@@ -382,24 +383,18 @@ object Consensus {
       def fromProto(
           from: BftNodeId,
           protoResponse: v30.BlockTransferResponse,
-      )(originalByteString: ByteString): ParsingResult[BlockTransferResponse] =
+      )(
+          originalByteString: ByteString
+      ): ParsingResult[BlockTransferResponse] =
         for {
           commitCert <- protoResponse.commitCertificate.map(CommitCertificate.fromProto).sequence
-          rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-        } yield BlockTransferResponse(
-          commitCert,
-          EpochNumber(protoResponse.latestCompletedEpoch),
-          from,
-        )(rpv, Some(originalByteString))
+          rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
+        } yield BlockTransferResponse(commitCert, from)(rpv, Some(originalByteString))
 
       override def versioningTable: VersioningTable = VersioningTable(
-        ProtoVersion(30) ->
-          VersionedProtoCodec(
-            ProtocolVersion.v33
-          )(v30.StateTransferMessage)(
-            supportedProtoVersionMemoized(_)(
-              fromProtoStateTransferMessage
-            ),
+        SupportedVersions.ProtoData ->
+          VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.StateTransferMessage)(
+            supportedProtoVersionMemoized(_)(fromProtoStateTransferMessage),
             _.toProto,
           )
       )
@@ -416,13 +411,11 @@ object Consensus {
 
     final case class BlockVerified[E <: Env[E]](
         commitCertificate: CommitCertificate,
-        remoteLatestCompleteEpoch: EpochNumber,
         from: BftNodeId,
     ) extends StateTransferMessage
 
     final case class BlockStored[E <: Env[E]](
         commitCertificate: CommitCertificate,
-        remoteLatestCompleteEpoch: EpochNumber,
         from: BftNodeId,
     ) extends StateTransferMessage
   }
@@ -435,7 +428,6 @@ object Consensus {
       epochNumber: EpochNumber,
       membership: Membership,
       cryptoProvider: CryptoProvider[E],
-      lastBlockFromPreviousEpochMode: OrderedBlockForOutput.Mode,
   ) extends Message[E]
 
   final case class NewEpochStored[E <: Env[E]](

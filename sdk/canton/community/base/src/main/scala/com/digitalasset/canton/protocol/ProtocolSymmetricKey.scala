@@ -30,7 +30,7 @@ object ProtocolSymmetricKey extends VersioningCompanion[ProtocolSymmetricKey] {
   override def name: String = "ProtocolSymmetricKey"
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SymmetricKey)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SymmetricKey)(
       supportedProtoVersion(_)(fromProtoV30),
       _.key.toProtoV30,
     )

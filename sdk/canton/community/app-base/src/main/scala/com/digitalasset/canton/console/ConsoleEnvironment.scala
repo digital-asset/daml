@@ -551,6 +551,8 @@ object ConsoleEnvironment {
       SynchronizerAlias.tryCreate(alias)
     implicit def toSynchronizerAliases(aliases: Seq[String]): Seq[SynchronizerAlias] =
       aliases.map(SynchronizerAlias.tryCreate)
+    implicit def toSomeSynchronizerAlias(alias: SynchronizerAlias): Option[SynchronizerAlias] =
+      Some(alias)
 
     implicit def toInstanceName(name: String): InstanceName = InstanceName.tryCreate(name)
 

@@ -9,8 +9,8 @@ import value.{CidContainer, Value}
 
 import scala.collection.immutable.TreeSet
 
-// This should replace value.ContractInstance in the whole daml/canton codespace
-// TODO: Rename to ContractInstance once value.ContractInstance is properly deprecated
+// This should replace value.ThinContractInstance in the whole daml/canton codespace
+// TODO: Rename to ContractInstance once value.ThinContractInstance is properly deprecated
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
   val version: TransactionVersion
   val contractId: Value.ContractId
@@ -41,6 +41,23 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     keyOpt = contractKeyWithMaintainers,
     version = version,
   )
+
+  private[lf] def toThinInstance: Value.ThinContractInstance =
+    Value.ThinContractInstance(
+      packageName,
+      templateId,
+      createArg,
+    )
+
+  private[lf] def toVersionedThinInstance: Value.VersionedThinContractInstance =
+    Versioned(
+      version,
+      Value.ThinContractInstance(
+        packageName,
+        templateId,
+        createArg,
+      ),
+    )
 }
 
 private[lf] final case class FatContractInstanceImpl(
@@ -100,6 +117,30 @@ object FatContractInstance {
         create.keyOpt.map(k => k.copy(maintainers = TreeSet.from(k.maintainers))),
       createdAt = createTime,
       cantonData = cantonData,
+    )
+
+  // TOTO https://github.com/DACH-NY/canton/issues/24843
+  //  drop when canton produce proper FatContract
+  private[this] val DummyCid = Value.ContractId.V1.assertFromString("00" + "00" * 32)
+  private[this] val DummyParties = TreeSet(Ref.Party.assertFromString("DummyParty"))
+
+  def fromThinInstance(
+      version: TransactionVersion,
+      packageName: Ref.PackageName,
+      template: Ref.Identifier,
+      arg: Value,
+  ): FatContractInstance =
+    FatContractInstanceImpl(
+      version = version,
+      contractId = DummyCid,
+      packageName = packageName,
+      templateId = template,
+      createArg = arg,
+      signatories = DummyParties,
+      stakeholders = DummyParties,
+      contractKeyWithMaintainers = None,
+      createdAt = Time.Timestamp.MinValue,
+      cantonData = Bytes.Empty,
     )
 
 }

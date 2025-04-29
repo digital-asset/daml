@@ -12,6 +12,7 @@ option java_outer_classname = "InteractiveSubmissionCommonDataOuterClass";
 option java_package = "com.daml.ledger.api.v2.interactive";
 
 message GlobalKey {
+  // The identifier uses the package-id reference format.
   Identifier template_id = 1;
   string package_name = 2;
   Value key = 3;

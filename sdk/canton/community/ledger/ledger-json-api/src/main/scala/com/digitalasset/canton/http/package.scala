@@ -256,7 +256,10 @@ package http {
 
   final case class DeleteUserRequest(userId: String)
 
-  final case class AllocatePartyRequest(identifierHint: Option[Party])
+  final case class AllocatePartyRequest(
+      identifierHint: Option[Party],
+      synchronizerId: Option[String],
+  )
 
   // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed abstract class DeduplicationPeriod extends Product with Serializable {

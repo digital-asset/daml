@@ -148,7 +148,7 @@ object CryptoKeyPair extends HasVersionedMessageCompanion[CryptoKeyPair[PublicKe
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.CryptoKeyPair)(fromProtoCryptoKeyPairV30),
       _.toProtoCryptoKeyPairV30,
     )
@@ -279,7 +279,7 @@ object PublicKeyWithName extends HasVersionedMessageCompanion[PublicKeyWithName]
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.PublicKeyWithName)(fromProto30),
       _.toProtoV30,
     )

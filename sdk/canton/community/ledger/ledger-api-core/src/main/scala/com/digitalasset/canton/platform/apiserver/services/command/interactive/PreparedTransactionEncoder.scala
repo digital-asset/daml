@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -315,13 +315,6 @@ final class PreparedTransactionEncoder(
     Transformer
       .definePartial[TransactionData, iss.Metadata]
       .withFieldComputed(_.submissionTime, _.transactionMeta.submissionTime.transformInto[Long])
-      .withFieldComputed(
-        _.ledgerEffectiveTime,
-        r =>
-          Option.when(r.dependsOnLedgerTime)(
-            r.transactionMeta.ledgerEffectiveTime.transformInto[Long]
-          ),
-      )
       .withFieldConstPartial(
         _.inputContracts,
         // The hashing algorithm expects disclosed contracts to be sorted by contract ID, so pre-sort them for the client
@@ -334,6 +327,14 @@ final class PreparedTransactionEncoder(
       .withFieldConst(_.synchronizerId, synchronizerId.transformInto[String])
       .withFieldConst(_.transactionUuid, transactionUUID.toString)
       .withFieldConst(_.mediatorGroup, mediatorGroup)
+      .withFieldComputed(
+        _.minLedgerEffectiveTime,
+        _.transactionMeta.timeBoundaries.minConstraint.map(_.transformInto[Long]),
+      )
+      .withFieldComputed(
+        _.maxLedgerEffectiveTime,
+        _.transactionMeta.timeBoundaries.maxConstraint.map(_.transformInto[Long]),
+      )
       .buildTransformer
 
   @VisibleForTesting
@@ -342,7 +343,7 @@ final class PreparedTransactionEncoder(
       nodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[DamlTransaction] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     implicit val implicitTransactionTransformer
@@ -364,7 +365,7 @@ final class PreparedTransactionEncoder(
   )(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[iss.PreparedTransaction] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     implicit val metadataTransformer: PartialTransformer[TransactionData, Metadata] =

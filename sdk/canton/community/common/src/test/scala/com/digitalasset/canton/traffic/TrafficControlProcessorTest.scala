@@ -15,6 +15,7 @@ import com.digitalasset.canton.protocol.messages.{
   SignedProtocolMessage,
   TopologyTransactionsBroadcast,
 }
+import com.digitalasset.canton.sequencing.WithCounter
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.InvalidTrafficPurchasedMessage
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor.TrafficControlSubscriber
@@ -120,12 +121,10 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
   }
 
   private def mkDeliver(
-      sc: SequencerCounter,
       ts: CantonTimestamp,
       batch: Batch[DefaultOpenEnvelope],
   ): Deliver[DefaultOpenEnvelope] =
     Deliver.create(
-      sc,
       None,
       ts,
       synchronizerId,
@@ -137,11 +136,9 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
     )
 
   private def mkDeliverError(
-      sc: SequencerCounter,
-      ts: CantonTimestamp,
+      ts: CantonTimestamp
   ): DeliverError =
     DeliverError.create(
-      sc,
       None,
       ts,
       synchronizerId,
@@ -156,10 +153,10 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
       val batch = Batch.of(testedProtocolVersion, topoTx -> Recipients.cc(participantId))
       val events = Traced(
         Seq(
-          mkDeliver(sc1, ts1, batch),
-          mkDeliverError(sc2, ts2),
-          mkDeliver(sc3, ts3, batch),
-        ).map(v => Traced(v))
+          sc1 -> mkDeliver(ts1, batch),
+          sc2 -> mkDeliverError(ts2),
+          sc3 -> mkDeliver(ts3, batch),
+        ).map { case (counter, e) => WithCounter(counter, Traced(e)) }
       )
 
       val (tcp, observedTs, updates) = mkTrafficProcessor()

@@ -27,7 +27,7 @@ import com.digitalasset.canton.metrics.MetricsConfig.JvmMetrics
 import com.digitalasset.canton.metrics.{CantonHistograms, MetricsRegistry}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.*
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.resource.DbMigrationsMetaFactory
 import com.digitalasset.canton.synchronizer.mediator.{
   MediatorNodeBootstrap,
@@ -52,6 +52,7 @@ import org.apache.pekko.actor.ActorSystem
 import org.slf4j.bridge.SLF4JBridgeHandler
 
 import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Future, blocking}
@@ -60,7 +61,7 @@ import scala.util.control.NonFatal
 /** Holds all significant resources held by this process.
   */
 class Environment(
-    val config: CantonConfig,
+    initialConfig: CantonConfig,
     edition: CantonEdition,
     val testingConfig: TestingConfigInternal,
     participantNodeFactory: ParticipantNodeBootstrapFactory,
@@ -78,6 +79,37 @@ class Environment(
       noTracingLogger,
     )
 
+  def config: CantonConfig = currentConfig.get()
+  def pokeOrUpdateConfig(
+      newConfig: Option[Either[String, CantonConfig]]
+  )(implicit traceContext: TraceContext): Unit = {
+    def pokeDeclarativeApis(configState: Either[Unit, Boolean]): Unit =
+      Seq(sequencers, mediators, participants).foreach { group =>
+        group.pokeDeclarativeApis(configState)
+      }
+    newConfig match {
+      case Some(Left(error)) =>
+        logger.error(s"Failed to load new dynamic configuration: $error")
+        pokeDeclarativeApis(Left(()))
+      case Some(Right(newConfig)) if currentConfig.get().parameters.alphaVersionSupport =>
+        logger.info(
+          s"Loaded new configuration. Static node changes will only be applied after a node restart."
+        )
+        currentConfig.set(newConfig)
+        pokeDeclarativeApis(Right(true))
+      case Some(Right(newConfig)) =>
+        val changedConfig = config.mergeDynamicChanges(newConfig)
+        logger.info(
+          s"Loaded new configuration. As we are running without alpha-features enabled, only the dynamic changes will be reused"
+        )
+        currentConfig.set(changedConfig)
+        pokeDeclarativeApis(Right(true))
+      case None =>
+        pokeDeclarativeApis(Right(false))
+    }
+  }
+
+  private val currentConfig = new AtomicReference[CantonConfig](initialConfig)
   private val histogramInventory = new HistogramInventory()
   private val histograms = new CantonHistograms()(histogramInventory)
   private val baseFilter = new MetricsInfoFilter(
@@ -273,6 +305,7 @@ class Environment(
       config.participantsByString,
       config.participantNodeParametersByString,
       apiName => GrpcAdminCommandRunner(this, apiName),
+      config.parameters.enableAlphaStateViaConfig,
       loggerFactory,
     )
 
@@ -298,7 +331,7 @@ class Environment(
   // convenient grouping of all node collections for performing operations
   // intentionally defined in the order we'd like to start them
   protected def allNodes: List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]] =
-    List(sequencers, mediators, participants)
+    List[Nodes[CantonNode, CantonNodeBootstrap[CantonNode]]](sequencers, mediators, participants)
 
   private def runningNodes: Seq[CantonNodeBootstrap[CantonNode]] = allNodes.flatMap(_.running)
 
@@ -366,7 +399,7 @@ class Environment(
       instance.getNode match {
         case None =>
           // should not happen, but if it does, display at least a warning.
-          if (instance.config.init.autoInit) {
+          if (!instance.config.init.identity.isManual) {
             logger.error(
               s"Auto-initialisation failed or was too slow for ${instance.name}. Will not automatically re-connect to synchronizers."
             )
@@ -505,7 +538,7 @@ class Environment(
 
   protected def createParticipant(
       name: String,
-      participantConfig: LocalParticipantConfig,
+      participantConfig: ParticipantNodeConfig,
   ): ParticipantNodeBootstrap =
     participantNodeFactory
       .create(

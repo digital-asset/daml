@@ -60,6 +60,9 @@ message InterfaceFilter {
   // The interface that a matching contract must implement.
   // The ``interface_id`` needs to be valid: corresponding interface should be defined in
   // one of the available packages at the time of the query.
+  // Both package-name and package-id reference formats for the identifier are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+  //
   // Required
   Identifier interface_id = 1;
 
@@ -80,6 +83,9 @@ message TemplateFilter {
   // A template for which the payload should be included in the response.
   // The ``template_id`` needs to be valid: corresponding template should be defined in
   // one of the available packages at the time of the query.
+  // Both package-name and package-id reference formats for the identifier are supported.
+  // Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+  //
   // Required
   Identifier template_id = 1;
 
@@ -90,7 +96,7 @@ message TemplateFilter {
   bool include_created_event_blob = 2;
 }
 
-// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 // Used both for filtering create and archive events as well as for filtering transaction trees.
 message TransactionFilter {
   // Each key must be a valid PartyIdString (as described in ``value.proto``).

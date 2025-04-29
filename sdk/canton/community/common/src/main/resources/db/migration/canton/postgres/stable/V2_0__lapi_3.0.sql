@@ -1,44 +1,5 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
-
----------------------------------------------------------------------------------------------------
--- Metering parameters
---
--- This table is meant to have a single row storing the current metering parameters.
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_metering_parameters (
-    ledger_metering_end bigint,
-    ledger_metering_timestamp bigint not null
-);
-
----------------------------------------------------------------------------------------------------
--- Metering consolidated entries
---
--- This table is written periodically to store partial sums of transaction metrics.
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_participant_metering (
-    user_id varchar collate "C" not null,
-    from_timestamp bigint not null,
-    to_timestamp bigint not null,
-    action_count integer not null,
-    ledger_offset bigint
-);
-
-CREATE UNIQUE INDEX lapi_participant_metering_from_to_user_idx ON lapi_participant_metering(from_timestamp, to_timestamp, user_id);
-
----------------------------------------------------------------------------------------------------
--- Metering raw entries
---
--- This table is written for every transaction and stores its metrics.
----------------------------------------------------------------------------------------------------
-CREATE TABLE lapi_transaction_metering (
-    user_id varchar collate "C" not null,
-    action_count integer not null,
-    metering_timestamp bigint not null,
-    ledger_offset bigint
-);
-
-CREATE INDEX lapi_transaction_metering_ledger_offset_idx ON lapi_transaction_metering USING btree (ledger_offset);
 
 ---------------------------------------------------------------------------------------------------
 -- Parameters
@@ -146,7 +107,6 @@ CREATE TABLE lapi_events_assign (
     contract_id bytea not null,
     template_id integer not null,
     package_name integer not null,
-    package_version integer, -- Can be null for LF 2.1
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
 
     -- * common reassignment
@@ -265,7 +225,6 @@ CREATE TABLE lapi_events_create (
     contract_id bytea not null,
     template_id integer not null,
     package_name integer not null,
-    package_version integer, -- Can be null for LF 2.1
     flat_event_witnesses integer[] default '{}'::integer[] not null, -- stakeholders
     tree_event_witnesses integer[] default '{}'::integer[] not null, -- informees
 

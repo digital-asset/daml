@@ -6,7 +6,7 @@ package transaction
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedThinContractInstance}
 import com.digitalasset.daml.lf.value._
 
 /** Generic transaction node type for both update transactions and the
@@ -86,7 +86,6 @@ object Node {
       override val packageName: PackageName,
       override val templateId: TypeConName,
       arg: Value,
-      agreementText: String = "", // to be removed
       signatories: Set[Party],
       stakeholders: Set[Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
@@ -109,10 +108,10 @@ object Node {
 
     def versionedArg: Value.VersionedValue = versioned(arg)
 
-    def coinst: Value.ContractInstance =
-      Value.ContractInstance(packageName, templateId, arg)
+    def coinst: Value.ThinContractInstance =
+      Value.ThinContractInstance(packageName, templateId, arg)
 
-    def versionedCoinst: Value.VersionedContractInstance = versioned(coinst)
+    def versionedCoinst: Value.VersionedThinContractInstance = versioned(coinst)
 
     def versionedKey: Option[Versioned[GlobalKeyWithMaintainers]] = keyOpt.map(versioned(_))
 
@@ -124,7 +123,7 @@ object Node {
 
     def apply(
         coid: ContractId,
-        contract: VersionedContractInstance,
+        contract: VersionedThinContractInstance,
         signatories: Set[Party],
         stakeholders: Set[Party],
         key: Option[GlobalKeyWithMaintainers],

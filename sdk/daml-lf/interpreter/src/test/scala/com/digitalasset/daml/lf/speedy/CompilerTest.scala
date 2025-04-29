@@ -21,7 +21,7 @@ import com.digitalasset.daml.lf.transaction.{
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 import com.digitalasset.daml.lf.value.Value.ContractId.`Cid Order`
 import com.digitalasset.daml.lf.value.Value.ContractId.V1.`V1 Order`
 import org.scalatest.Inside
@@ -68,11 +68,15 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   "compileWithContractDisclosures" should {
     val version = pkg.languageVersion
     val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
-    val cid2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
+    val cid2 = Value.ContractId.V2
+      .unsuffixed(Time.Timestamp.Epoch, crypto.Hash.hashPrivateKey("test-contract-id-2"))
     val disclosedCid1 =
       Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-1"))
     val disclosedCid2 =
-      Value.ContractId.V1(crypto.Hash.hashPrivateKey("disclosed-test-contract-id-2"))
+      Value.ContractId.V2.unsuffixed(
+        Time.Timestamp.Epoch,
+        crypto.Hash.hashPrivateKey("disclosed-test-contract-id-2"),
+      )
 
     "using a template with preconditions" should {
       val templateId = Ref.Identifier.assertFromString("-pkgId-:Module:Record")
@@ -86,7 +90,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         )
       val versionedContract1 = Versioned(
         version = version,
-        ContractInstance(
+        ThinContractInstance(
           packageName = pkg.pkgName,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
@@ -96,7 +100,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         buildDisclosedContract(cid2, alice, templateId, hasKey = false, precondition = false)
       val versionedContract2 = Versioned(
         version = version,
-        ContractInstance(
+        ThinContractInstance(
           packageName = pkg.pkgName,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
@@ -135,7 +139,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         buildDisclosedContract(disclosedCid1, alice, templateId, hasKey = false)
       val versionedContract1 = Versioned(
         version = version,
-        ContractInstance(
+        ThinContractInstance(
           packageName = pkg.pkgName,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
@@ -145,7 +149,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         buildDisclosedContract(disclosedCid2, alice, templateId, hasKey = false)
       val versionedContract2 = Versioned(
         version = version,
-        ContractInstance(
+        ThinContractInstance(
           packageName = pkg.pkgName,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
@@ -319,7 +323,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         )
       val versionedContract1 = Versioned(
         version = version,
-        ContractInstance(
+        ThinContractInstance(
           packageName = pkg.pkgName,
           template = templateId,
           arg = disclosedContract1.argument.toUnnormalizedValue,
@@ -335,7 +339,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
         )
       val versionedContract2 = Versioned(
         version = version,
-        ContractInstance(
+        ThinContractInstance(
           packageName = pkg.pkgName,
           template = templateId,
           arg = disclosedContract2.argument.toUnnormalizedValue,
@@ -555,7 +559,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalSExpr(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] =
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
         PartialFunction.empty,
       committers: Set[Party] = Set.empty,
   ): Either[

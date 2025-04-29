@@ -327,7 +327,8 @@ generateSrcFromLf env = noLoc mod
             , modRefImpSpec = EmptyImpSpec
             }
 
-    {- # Exports/Re-exports #
+    {-
+    # Exports/Re-exports #
     Before Daml 3.3, data dependencies only preserved re-export information, that is explicit definitions that the 
     data dependency re-exports from another module. For definitions defined in this module, we exported everything
     (using `module ThisModule` in the export list)

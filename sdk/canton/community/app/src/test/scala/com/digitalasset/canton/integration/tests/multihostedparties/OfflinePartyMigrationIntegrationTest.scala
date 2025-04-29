@@ -58,15 +58,36 @@ trait OfflinePartyMigrationIntegrationTest
         alice = participant1.parties.enable(
           aliceName,
           synchronizeParticipants = Seq(participant2, participant3),
+          synchronizer = daName,
         )
+        participant1.parties.enable(
+          aliceName,
+          synchronizeParticipants = Seq(participant2, participant3),
+          synchronizer = acmeName,
+        )
+
         bob = participant2.parties.enable(
           bobName,
           synchronizeParticipants = Seq(participant1, participant3),
+          synchronizer = daName,
         )
+        participant2.parties.enable(
+          bobName,
+          synchronizeParticipants = Seq(participant1, participant3),
+          synchronizer = acmeName,
+        )
+
         charlie = participant3.parties.enable(
           charlieName,
           synchronizeParticipants = Seq(participant1, participant2),
+          synchronizer = daName,
         )
+        participant3.parties.enable(
+          charlieName,
+          synchronizeParticipants = Seq(participant1, participant2),
+          synchronizer = acmeName,
+        )
+
       }
 
   private val acsFilename: String = "alize.gz"
@@ -114,7 +135,7 @@ trait OfflinePartyMigrationIntegrationTest
 
       participant1.ledger_api.commands.submit_reassign(
         alice,
-        reassignedContractCid,
+        Seq(reassignedContractCid),
         daId,
         acmeId,
         submissionId = "some-submission-id",
@@ -122,7 +143,7 @@ trait OfflinePartyMigrationIntegrationTest
 
       participant1.ledger_api.commands.submit_reassign(
         alice,
-        reassignedContractCid,
+        Seq(reassignedContractCid),
         acmeId,
         daId,
         submissionId = "some-submission-id",
@@ -211,6 +232,12 @@ trait OfflinePartyMigrationIntegrationTest
     val boris = participant1.parties.enable(
       "Boris",
       synchronizeParticipants = Seq(participant3),
+      synchronizer = daName,
+    )
+    participant1.parties.enable(
+      "Boris",
+      synchronizeParticipants = Seq(participant3),
+      synchronizer = acmeName,
     )
 
     participant3.ledger_api.javaapi.commands

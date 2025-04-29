@@ -14,12 +14,6 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.{
 }
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.*
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigServiceStub
-import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportServiceStub
-import com.daml.ledger.api.v2.admin.metering_report_service.{
-  GetMeteringReportRequest,
-  GetMeteringReportResponse,
-  MeteringReportServiceGrpc,
-}
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
 import com.daml.ledger.api.v2.admin.package_management_service.*
 import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementServiceStub
@@ -60,6 +54,8 @@ import com.daml.ledger.api.v2.command_completion_service.{
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandServiceStub
 import com.daml.ledger.api.v2.command_service.{
   CommandServiceGrpc,
+  SubmitAndWaitForReassignmentRequest,
+  SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
@@ -158,9 +154,12 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   ServerEnforcedTimeout,
   TimeoutType,
 }
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
+  EmptyOrAssignedWrapper,
+  EmptyOrUnassignedWrapper,
+}
 import com.digitalasset.canton.admin.api.client.data.{
   LedgerApiUser,
-  LedgerMeteringReport,
   ListLedgerApiUsersResult,
   TemplateId,
   UserRights,
@@ -211,6 +210,7 @@ object LedgerApiCommands {
         partyIdHint: String,
         annotations: Map[String, String],
         identityProviderId: String,
+        synchronizerId: String,
     ) extends BaseCommand[AllocatePartyRequest, AllocatePartyResponse, PartyDetails] {
       override protected def createRequest(): Either[String, AllocatePartyRequest] =
         Right(
@@ -218,6 +218,7 @@ object LedgerApiCommands {
             partyIdHint = partyIdHint,
             localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
             identityProviderId = identityProviderId,
+            synchronizerId = synchronizerId,
           )
         )
       override protected def submitRequest(
@@ -959,46 +960,6 @@ object LedgerApiCommands {
 
   }
 
-  object Metering {
-    abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
-      override type Svc = MeteringReportServiceStub
-
-      override def createService(channel: ManagedChannel): MeteringReportServiceStub =
-        MeteringReportServiceGrpc.stub(channel)
-    }
-
-    final case class GetReport(
-        from: CantonTimestamp,
-        to: Option[CantonTimestamp],
-        userId: Option[String],
-    ) extends BaseCommand[
-          GetMeteringReportRequest,
-          GetMeteringReportResponse,
-          String,
-        ] {
-
-      override protected def submitRequest(
-          service: MeteringReportServiceStub,
-          request: GetMeteringReportRequest,
-      ): Future[GetMeteringReportResponse] =
-        service.getMeteringReport(request)
-
-      override protected def createRequest(): Either[String, GetMeteringReportRequest] =
-        Right(
-          GetMeteringReportRequest(
-            from = Some(from.toProtoTimestamp),
-            to = to.map(_.toProtoTimestamp),
-            userId = userId.getOrElse(""),
-          )
-        )
-
-      override protected def handleResponse(
-          response: GetMeteringReportResponse
-      ): Either[String, String] =
-        LedgerMeteringReport.fromProtoV0(response).leftMap(_.toString)
-    }
-  }
-
   object UpdateService {
 
     sealed trait UpdateTreeWrapper {
@@ -1006,32 +967,32 @@ object LedgerApiCommands {
     }
     sealed trait UpdateWrapper {
       def updateId: String
-      def isUnassignment: Boolean
-      def createEvent: Option[CreatedEvent] =
+      def isUnassignment = this match {
+        case _: UnassignedWrapper => true
+        case _ => false
+      }
+      def createEvents: Iterator[CreatedEvent] =
         this match {
-          case UpdateService.TransactionWrapper(t) => t.events.headOption.map(_.getCreated)
-          case u: UpdateService.AssignedWrapper => u.assignedEvent.createdEvent
-          case _: UpdateService.UnassignedWrapper => None
-          case _: UpdateService.TopologyTransactionWrapper => None
+          case UpdateService.TransactionWrapper(t) => t.events.iterator.map(_.getCreated)
+          case u: UpdateService.AssignedWrapper => u.events.iterator.flatMap(_.createdEvent)
+          case _: UpdateService.UnassignedWrapper => Iterator.empty
+          case _: UpdateService.TopologyTransactionWrapper => Iterator.empty
         }
 
       def synchronizerId: String
     }
-
     final case class TransactionTreeWrapper(transactionTree: TransactionTree)
         extends UpdateTreeWrapper {
       override def updateId: String = transactionTree.updateId
     }
     final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
       override def updateId: String = transaction.updateId
-      override def isUnassignment: Boolean = false
 
       override def synchronizerId: String = transaction.synchronizerId
     }
     final case class TopologyTransactionWrapper(topologyTransaction: TopologyTransaction)
         extends UpdateWrapper {
       override def updateId: String = topologyTransaction.updateId
-      override def isUnassignment: Boolean = false
 
       override def synchronizerId: String = topologyTransaction.synchronizerId
     }
@@ -1039,41 +1000,145 @@ object LedgerApiCommands {
       override def updateId: String = reassignment.updateId
 
       def reassignment: Reassignment
-      def event: ReassignmentEvent.Event
-      def offset: Long = reassignment.offset
     }
 
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper =
         reassignment.events match {
-          case Seq(ReassignmentEvent(ReassignmentEvent.Event.Assigned(evt))) =>
-            AssignedWrapper(reassignment, evt)
-          case Seq(ReassignmentEvent(ReassignmentEvent.Event.Unassigned(evt))) =>
-            UnassignedWrapper(reassignment, evt)
+          case ReassignmentEvent(ReassignmentEvent.Event.Assigned(head)) +: tail =>
+            AssignedWrapper(
+              reassignment,
+              head +: validateRest(head, tail, _.event.assigned),
+            )
+          case ReassignmentEvent(ReassignmentEvent.Event.Unassigned(head)) +: tail =>
+            UnassignedWrapper(
+              reassignment,
+              head +: validateRest(head, tail, _.event.unassigned),
+            )
           case _ =>
             throw new IllegalStateException(
-              s"Invalid reassignment event (only supported single UnassignedEvent and AssignedEvent): ${reassignment.events}"
+              s"Invalid reassignment events: ${reassignment.events}"
             )
         }
+
+      // Fields shared by AssignedEvent and UnassignedEvent that must be invariant with a batch.
+      private type ValidatableEvent = {
+        val source: String; val target: String; val unassignId: String
+      }
+
+      import scala.language.reflectiveCalls
+      private def validateRest[E <: ValidatableEvent](
+          first: E,
+          rest: Seq[ReassignmentEvent],
+          getEvent: ReassignmentEvent => Option[E],
+      ): Seq[E] = rest match {
+        case hd +: tl =>
+          getEvent(hd) match {
+            case Some(e) =>
+              if (
+                e.unassignId != first.unassignId ||
+                e.source != first.source ||
+                e.target != first.target
+              ) throw new IllegalStateException(s"Invalid event batch elements: $first vs $e")
+              e +: validateRest(first, tl, getEvent)
+            case None => throw new IllegalStateException(s"Inconsistent event type: $hd")
+          }
+        case _ => Seq.empty
+      }
     }
 
-    final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
-        extends ReassignmentWrapper {
-      override def isUnassignment: Boolean = false
-      override def synchronizerId: String = assignedEvent.target
-      override def event = ReassignmentEvent.Event.Assigned(assignedEvent)
-    }
-    final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
-        extends ReassignmentWrapper {
-      override def isUnassignment: Boolean = true
-      override def synchronizerId: String = unassignedEvent.source
-      override def event = ReassignmentEvent.Event.Unassigned(unassignedEvent)
+    sealed trait EmptyOrAssignedWrapper {
+      def updateId: String
 
-      def unassignId: String = unassignedEvent.unassignId
+      def reassignment: Reassignment
+
+      def synchronizerId: String
+
+      final def assignedWrapper: AssignedWrapper = this match {
+        case w: AssignedWrapper => w
+        case _: EmptyReassignmentWrapper =>
+          throw new IllegalStateException("Reassignment was empty")
+      }
+    }
+    object EmptyOrAssignedWrapper {
+      def apply(
+          reassignment: Reassignment,
+          synchronizerId: SynchronizerId,
+      ): EmptyOrAssignedWrapper =
+        if (reassignment.events.isEmpty)
+          EmptyReassignmentWrapper(reassignment, synchronizerId.toProtoPrimitive)
+        else
+          ReassignmentWrapper(reassignment) match {
+            case a: AssignedWrapper => a
+            case invalid =>
+              throw new IllegalStateException(s"Invalid reassignment wrapper: $invalid")
+          }
+    }
+
+    sealed trait EmptyOrUnassignedWrapper {
+      def updateId: String
+
+      def reassignment: Reassignment
+
+      def synchronizerId: String
+
+      final def unassignedWrapper: UnassignedWrapper = this match {
+        case w: UnassignedWrapper => w
+        case _: EmptyReassignmentWrapper =>
+          throw new IllegalStateException("Reassignment was empty")
+      }
+    }
+    object EmptyOrUnassignedWrapper {
+      def apply(
+          reassignment: Reassignment,
+          synchronizerId: SynchronizerId,
+      ): EmptyOrUnassignedWrapper =
+        if (reassignment.events.isEmpty)
+          EmptyReassignmentWrapper(reassignment, synchronizerId.toProtoPrimitive)
+        else
+          ReassignmentWrapper(reassignment) match {
+            case u: UnassignedWrapper => u
+            case invalid =>
+              throw new IllegalStateException(s"Invalid reassignment wrapper: $invalid")
+          }
+    }
+
+    final case class AssignedWrapper(
+        reassignment: Reassignment,
+        events: Seq[AssignedEvent],
+    ) extends ReassignmentWrapper
+        with EmptyOrAssignedWrapper {
+      private val head =
+        events.headOption.getOrElse(throw new IllegalStateException("empty events"))
+      override def synchronizerId = target
+      def source: String = head.source
+      def target: String = head.target
+      def unassignId: String = head.unassignId
+    }
+
+    final case class UnassignedWrapper(
+        reassignment: Reassignment,
+        events: Seq[UnassignedEvent],
+    ) extends ReassignmentWrapper
+        with EmptyOrUnassignedWrapper {
+      private val head =
+        events.headOption.getOrElse(throw new IllegalStateException("empty events"))
+      override def synchronizerId = source
+      def source: String = head.source
+      def target: String = head.target
+      def unassignId: String = head.unassignId
       def reassignmentId: ReassignmentId = ReassignmentId(
-        Source(SynchronizerId.tryFromString(unassignedEvent.source)),
+        Source(SynchronizerId.tryFromString(source)),
         CantonTimestamp.assertFromLong(unassignId.toLong),
       )
+    }
+
+    final case class EmptyReassignmentWrapper(
+        reassignment: Reassignment,
+        override val synchronizerId: String,
+    ) extends EmptyOrAssignedWrapper
+        with EmptyOrUnassignedWrapper {
+      override def updateId: String = reassignment.updateId
     }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
@@ -1492,7 +1557,7 @@ object LedgerApiCommands {
         commandId: String,
         submitter: LfPartyId,
         submissionId: String,
-        contractId: LfContractId,
+        contractIds: Seq[LfContractId],
         source: SynchronizerId,
         target: SynchronizerId,
     ) extends BaseCommand[SubmitReassignmentRequest, SubmitReassignmentResponse, Unit] {
@@ -1504,7 +1569,7 @@ object LedgerApiCommands {
               userId = userId,
               commandId = commandId,
               submitter = submitter.toString,
-              commands = Seq(
+              commands = contractIds.map(contractId =>
                 ReassignmentCommand(
                   ReassignmentCommand.Command.UnassignCommand(
                     UnassignCommand(
@@ -1645,6 +1710,7 @@ object LedgerApiCommands {
             userId = userId,
             deduplicationPeriod = serializeDeduplicationPeriod(deduplicationPeriod),
             hashingSchemeVersion = hashingSchemeVersion,
+            minLedgerTime = None,
           )
         )
 
@@ -1804,6 +1870,119 @@ object LedgerApiCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
 
     }
+
+    final case class SubmitAndWaitAssign(
+        workflowId: String,
+        userId: String,
+        commandId: String,
+        submitter: LfPartyId,
+        submissionId: String,
+        unassignId: String,
+        source: SynchronizerId,
+        target: SynchronizerId,
+        eventFormat: Option[EventFormat],
+    ) extends BaseCommand[
+          SubmitAndWaitForReassignmentRequest,
+          SubmitAndWaitForReassignmentResponse,
+          EmptyOrAssignedWrapper,
+        ] {
+      override protected def createRequest(): Either[String, SubmitAndWaitForReassignmentRequest] =
+        Right(
+          SubmitAndWaitForReassignmentRequest(
+            reassignmentCommands = Some(
+              ReassignmentCommands(
+                workflowId = workflowId,
+                userId = userId,
+                commandId = commandId,
+                submitter = submitter.toString,
+                commands = Seq(
+                  ReassignmentCommand(
+                    ReassignmentCommand.Command.AssignCommand(
+                      AssignCommand(
+                        unassignId = unassignId,
+                        source = source.toProtoPrimitive,
+                        target = target.toProtoPrimitive,
+                      )
+                    )
+                  )
+                ),
+                submissionId = submissionId,
+              )
+            ),
+            eventFormat = eventFormat,
+          )
+        )
+
+      override protected def submitRequest(
+          service: CommandServiceStub,
+          request: SubmitAndWaitForReassignmentRequest,
+      ): Future[SubmitAndWaitForReassignmentResponse] =
+        service.submitAndWaitForReassignment(request)
+
+      override protected def handleResponse(
+          response: SubmitAndWaitForReassignmentResponse
+      ): Either[String, EmptyOrAssignedWrapper] =
+        response.reassignment
+          .toRight("Received response without any reassignment")
+          .map(EmptyOrAssignedWrapper(_, target))
+    }
+
+    final case class SubmitAndWaitUnassign(
+        workflowId: String,
+        userId: String,
+        commandId: String,
+        submitter: LfPartyId,
+        submissionId: String,
+        contractIds: Seq[LfContractId],
+        source: SynchronizerId,
+        target: SynchronizerId,
+        eventFormat: Option[EventFormat],
+    ) extends BaseCommand[
+          SubmitAndWaitForReassignmentRequest,
+          SubmitAndWaitForReassignmentResponse,
+          EmptyOrUnassignedWrapper,
+        ] {
+      override protected def createRequest(): Either[String, SubmitAndWaitForReassignmentRequest] =
+        Right(
+          SubmitAndWaitForReassignmentRequest(
+            Some(
+              ReassignmentCommands(
+                workflowId = workflowId,
+                userId = userId,
+                commandId = commandId,
+                submitter = submitter.toString,
+                commands = contractIds.map(contractId =>
+                  ReassignmentCommand(
+                    ReassignmentCommand.Command.UnassignCommand(
+                      UnassignCommand(
+                        contractId = contractId.coid.toString,
+                        source = source.toProtoPrimitive,
+                        target = target.toProtoPrimitive,
+                      )
+                    )
+                  )
+                ),
+                submissionId = submissionId,
+              )
+            ),
+            eventFormat = eventFormat,
+          )
+        )
+
+      override protected def submitRequest(
+          service: CommandServiceStub,
+          request: SubmitAndWaitForReassignmentRequest,
+      ): Future[SubmitAndWaitForReassignmentResponse] =
+        service.submitAndWaitForReassignment(request)
+
+      override protected def handleResponse(
+          response: SubmitAndWaitForReassignmentResponse
+      ): Either[String, EmptyOrUnassignedWrapper] =
+        response.reassignment
+          .toRight("Received response without any reassignment")
+          .map(EmptyOrUnassignedWrapper(_, source))
+    }
+
   }
 
   object StateService {

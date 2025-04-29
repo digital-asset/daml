@@ -157,31 +157,27 @@ private[dao] final class UpdateReader(
   override def lookupTransactionTreeById(
       updateId: data.UpdateId,
       requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[GetTransactionTreeResponse]] =
     treeTransactionPointwiseReader.lookupTransactionBy(
       lookupKey = LookupKey.UpdateId(updateId),
       requestingParties = requestingParties,
-      eventProjectionProperties = EventProjectionProperties(
-        verbose = true,
-        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
-      ),
+      eventProjectionProperties = eventProjectionProperties,
     )
 
   override def lookupTransactionTreeByOffset(
       offset: data.Offset,
       requestingParties: Set[Party],
+      eventProjectionProperties: EventProjectionProperties,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[GetTransactionTreeResponse]] =
     treeTransactionPointwiseReader.lookupTransactionBy(
       lookupKey = LookupKey.Offset(offset),
       requestingParties = requestingParties,
-      eventProjectionProperties = EventProjectionProperties(
-        verbose = true,
-        templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
-      ),
+      eventProjectionProperties = eventProjectionProperties,
     )
 
   override def getTransactionTrees(

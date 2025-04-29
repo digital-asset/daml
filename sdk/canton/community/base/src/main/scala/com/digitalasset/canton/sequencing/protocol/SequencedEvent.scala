@@ -50,18 +50,12 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
     */
   val previousTimestamp: Option[CantonTimestamp]
 
-  /** a sequence counter for each recipient.
-    */
-  val counter: SequencerCounter
-
   /** a timestamp defining the order (requestId)
     */
   val timestamp: CantonTimestamp
 
   /** The synchronizer which this deliver event belongs to */
   val synchronizerId: SynchronizerId
-
-  def isTombstone: Boolean = false
 
   protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -84,7 +78,7 @@ object SequencedEvent
   override def name: String = "SequencedEvent"
 
   override val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.SequencedEvent)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.SequencedEvent)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -95,7 +89,6 @@ object SequencedEvent
   ): ParsingResult[SequencedEvent[ClosedEnvelope]] = {
     import cats.syntax.traverse.*
     val v30.SequencedEvent(
-      counter,
       previousTimestampP,
       tsP,
       synchronizerIdP,
@@ -105,8 +98,6 @@ object SequencedEvent
       topologyTimestampP,
       trafficConsumedP,
     ) = sequencedEventP
-
-    val sequencerCounter = SequencerCounter(counter)
 
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
@@ -138,7 +129,6 @@ object SequencedEvent
               OtherError("topology_timestamp must not be set for DeliverError"),
             )
           } yield new DeliverError(
-            sequencerCounter,
             previousTimestamp,
             timestamp,
             synchronizerId,
@@ -151,7 +141,6 @@ object SequencedEvent
             topologyTimestampO <- topologyTimestampP.traverse(CantonTimestamp.fromProtoPrimitive)
             msgIdO <- mbMsgIdP.traverse(MessageId.fromProtoPrimitive)
           } yield Deliver(
-            sequencerCounter,
             previousTimestamp,
             timestamp,
             synchronizerId,
@@ -205,7 +194,6 @@ object SequencedEvent
 }
 
 sealed abstract case class DeliverError private[sequencing] (
-    override val counter: SequencerCounter,
     override val previousTimestamp: Option[CantonTimestamp],
     override val timestamp: CantonTimestamp,
     override val synchronizerId: SynchronizerId,
@@ -219,7 +207,6 @@ sealed abstract case class DeliverError private[sequencing] (
     with NoCopy {
 
   def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
-    counter = counter.toProtoPrimitive,
     previousTimestamp = previousTimestamp.map(_.toProtoPrimitive),
     timestamp = timestamp.toProtoPrimitive,
     synchronizerId = synchronizerId.toProtoPrimitive,
@@ -231,7 +218,6 @@ sealed abstract case class DeliverError private[sequencing] (
   )
 
   def updateTrafficReceipt(trafficReceipt: Option[TrafficReceipt]): DeliverError = new DeliverError(
-    counter,
     previousTimestamp,
     timestamp,
     synchronizerId,
@@ -248,7 +234,6 @@ sealed abstract case class DeliverError private[sequencing] (
   ): F[SequencedEvent[Env]] = F.pure(this)
 
   override protected def pretty: Pretty[DeliverError] = prettyOfClass(
-    param("counter", _.counter),
     param("previous timestamp", _.previousTimestamp),
     param("timestamp", _.timestamp),
     param("synchronizer id", _.synchronizerId),
@@ -258,11 +243,6 @@ sealed abstract case class DeliverError private[sequencing] (
   )
 
   def envelopes: Seq[Nothing] = Seq.empty
-
-  override def isTombstone: Boolean = reason match {
-    case SequencerErrors.PersistTombstone(_) => true
-    case _ => false
-  }
 
   override def timestampOfSigningKey: CantonTimestamp = timestamp
 }
@@ -281,7 +261,6 @@ object DeliverError {
   }
 
   def create(
-      counter: SequencerCounter,
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
       synchronizerId: SynchronizerId,
@@ -291,7 +270,6 @@ object DeliverError {
       trafficReceipt: Option[TrafficReceipt],
   ): DeliverError =
     new DeliverError(
-      counter,
       previousTimestamp,
       timestamp,
       synchronizerId,
@@ -304,7 +282,6 @@ object DeliverError {
     ) {}
 
   def create(
-      counter: SequencerCounter,
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
       synchronizerId: SynchronizerId,
@@ -314,7 +291,6 @@ object DeliverError {
       trafficReceipt: Option[TrafficReceipt],
   ): DeliverError =
     new DeliverError(
-      counter,
       previousTimestamp,
       timestamp,
       synchronizerId,
@@ -330,8 +306,9 @@ object DeliverError {
 /** Intuitively, the member learns all envelopes addressed to it. It learns some recipients of these
   * envelopes, as defined by [[com.digitalasset.canton.sequencing.protocol.Recipients.forMember]]
   *
-  * @param counter
-  *   a monotonically increasing counter for each recipient.
+  * @param previousTimestamp
+  *   a timestamp of the previous event in the member's subscription, or `None` if this event is the
+  *   first
   * @param timestamp
   *   a timestamp defining the order.
   * @param messageIdO
@@ -344,7 +321,6 @@ object DeliverError {
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class Deliver[+Env <: Envelope[_]] private[sequencing] (
-    override val counter: SequencerCounter,
     override val previousTimestamp: Option[CantonTimestamp],
     override val timestamp: CantonTimestamp,
     override val synchronizerId: SynchronizerId,
@@ -363,7 +339,6 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
   lazy val isReceipt: Boolean = messageIdO.isDefined
 
   protected[sequencing] def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
-    counter = counter.toProtoPrimitive,
     previousTimestamp = previousTimestamp.map(_.toProtoPrimitive),
     timestamp = timestamp.toProtoPrimitive,
     synchronizerId = synchronizerId.toProtoPrimitive,
@@ -379,7 +354,6 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
   )(implicit F: Applicative[F]): F[SequencedEvent[Env2]] =
     F.map(batch.traverse(f))(
       Deliver(
-        counter,
         previousTimestamp,
         timestamp,
         synchronizerId,
@@ -395,7 +369,6 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
 
   @VisibleForTesting
   private[canton] def copy[Env2 <: Envelope[?]](
-      counter: SequencerCounter = this.counter,
       previousTimestamp: Option[CantonTimestamp] = this.previousTimestamp,
       timestamp: CantonTimestamp = this.timestamp,
       synchronizerId: SynchronizerId = this.synchronizerId,
@@ -406,7 +379,6 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       trafficReceipt: Option[TrafficReceipt] = this.trafficReceipt,
   ): Deliver[Env2] =
     Deliver[Env2](
-      counter,
       previousTimestamp,
       timestamp,
       synchronizerId,
@@ -424,7 +396,6 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
 
   override protected def pretty: Pretty[this.type] =
     prettyOfClass(
-      param("counter", _.counter),
       param("previous timestamp", _.previousTimestamp),
       param("timestamp", _.timestamp),
       paramIfNonEmpty("message id", _.messageIdO),
@@ -441,7 +412,6 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
 
 object Deliver {
   def create[Env <: Envelope[_]](
-      counter: SequencerCounter,
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
       synchronizerId: SynchronizerId,
@@ -452,7 +422,6 @@ object Deliver {
       trafficReceipt: Option[TrafficReceipt],
   ): Deliver[Env] =
     Deliver[Env](
-      counter,
       previousTimestamp,
       timestamp,
       synchronizerId,
@@ -469,7 +438,7 @@ object Deliver {
       deliverEvent: SequencedEvent[Env]
   ): Option[Deliver[Env]] =
     deliverEvent match {
-      case deliver @ Deliver(_, _, _, _, _, _, _, _) => Some(deliver)
+      case deliver @ Deliver(_, _, _, _, _, _, _) => Some(deliver)
       case _: DeliverError => None
     }
 

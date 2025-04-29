@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.digitalasset.canton.data.LedgerTimeBoundaries
+import com.digitalasset.canton.logging.pretty.PrettyInstances.prettyTimeBoundaries
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
@@ -10,8 +12,8 @@ import com.digitalasset.daml.lf.transaction.NodeId
 
 /** Meta-data of a transaction visible to all parties that can see a part of the transaction.
   *
-  * @param ledgerEffectiveTime
-  *   : the submitter-provided time at which the transaction should be interpreted. This is the time
+  * @param ledgerEffectiveTime:
+  *   the submitter-provided time at which the transaction should be interpreted. This is the time
   *   returned by the Daml interpreter on a `getTime :: Update Time` call. See the docs on
   *   [[SyncService.submitTransaction]] for how it relates to the notion of `recordTime`.
   *
@@ -24,6 +26,9 @@ import com.digitalasset.daml.lf.transaction.NodeId
   *
   * @param submissionSeed:
   *   the seed used to derive the transaction contract IDs.
+  *
+  * @param timeBoundaries:
+  *   the time boundaries associated with the transaction
   *
   * @param optUsedPackages:
   *   the set of package IDs the transaction is depending on. Undefined means 'not known'.
@@ -41,14 +46,17 @@ final case class TransactionMeta(
     workflowId: Option[Ref.WorkflowId],
     submissionTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
+    timeBoundaries: LedgerTimeBoundaries,
     optUsedPackages: Option[Set[Ref.PackageId]],
     optNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
     optByKeyNodes: Option[ImmArray[NodeId]],
 ) extends PrettyPrinting {
+
   override protected def pretty: Pretty[TransactionMeta.this.type] = prettyOfClass(
     param("ledgerEffectiveTime", _.ledgerEffectiveTime),
     paramIfDefined("workflowId", _.workflowId),
     param("submissionTime", _.submissionTime),
+    param("timeBoundaries", _.timeBoundaries),
     indicateOmittedFields,
   )
 }

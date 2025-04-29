@@ -21,7 +21,7 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var nextCommandSequencerNumber = 0
 
-  private val queue = mutable.PriorityQueue.empty[ScheduledCommand]
+  private var queue = mutable.PriorityQueue.empty[ScheduledCommand]
 
   // Since on each machine, messages from same source to same target are guaranteed to be in order we keep track of the
   // last messages timestamp so we can make sure next ones comes after.
@@ -34,10 +34,8 @@ class Agenda(clock: SimClock, loggerFactory: NamedLoggerFactory) {
 
   private def filterScheduledCommand(
       predicate: ScheduledCommand => Boolean
-  ): Unit = {
-    val currentElements = queue.dequeueAll
-    queue.enqueue(currentElements.filter(predicate)*)
-  }
+  ): Unit =
+    queue = queue.filter(predicate)
 
   private def filterCommand(predicate: Command => Boolean): Unit =
     filterScheduledCommand(predicate.compose(_.command))

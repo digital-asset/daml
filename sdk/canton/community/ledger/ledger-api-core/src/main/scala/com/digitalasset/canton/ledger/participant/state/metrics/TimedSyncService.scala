@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedSynchronizerResponse,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
@@ -100,12 +100,13 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
   override def allocateParty(
       hint: Ref.Party,
       submissionId: Ref.SubmissionId,
+      synchronizerIdO: Option[SynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.services.write.allocateParty,
-      delegate.allocateParty(hint, submissionId),
+      delegate.allocateParty(hint, submissionId, synchronizerIdO),
     )
 
   override def prune(
@@ -152,7 +153,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
     delegate.unregisterInternalStateService()
 
   override def getPackageMetadataSnapshot(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PackageMetadata =
     delegate.getPackageMetadataSnapshot
 

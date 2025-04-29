@@ -68,9 +68,9 @@ object LfTransactionUtil {
   def suffixContractInst(
       unicumOfDiscriminator: LfHash => Option[Unicum],
       cantonContractId: CantonContractIdVersion,
-  )(contractInst: LfContractInst): Either[String, LfContractInst] =
+  )(contractInst: LfThinContractInst): Either[String, LfThinContractInst] =
     contractInst.unversioned
-      .suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId))
+      .suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId), unsupportedContractIDV2)
       .map(unversionedContractInst => // traverse being added in daml-lf
         contractInst.map(_ => unversionedContractInst)
       )
@@ -79,7 +79,10 @@ object LfTransactionUtil {
       unicumOfDiscriminator: LfHash => Option[Unicum],
       cantonContractId: CantonContractIdVersion,
   )(node: LfActionNode): Either[String, LfActionNode] =
-    node.suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId))
+    node.suffixCid(suffixForDiscriminator(unicumOfDiscriminator, cantonContractId), unsupportedContractIDV2)
+
+  private def unsupportedContractIDV2(local: Bytes): Bytes =
+    throw new IllegalArgumentException(s"Unexpected contract ID V2: ${local.toHexString}")
 
   /** Monadic visit to all nodes of the transaction in execution order. Exercise nodes are visited
     * twice: when execution reaches them and when execution leaves their body. Crashes on malformed

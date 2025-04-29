@@ -3,6 +3,7 @@
 Standard-Change:
 - changed-files:
   - any-glob-to-any-file: 'ci/**'
+  - any-glob-to-any-file: 'sdk/LATEST'
   - any-glob-to-any-file: 'sdk/ci/**'
   - any-glob-to-any-file: 'sdk/release/**'
   - any-glob-to-any-file: 'sdk/build-scripts/**'

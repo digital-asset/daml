@@ -4,14 +4,13 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.{experimental_features, version_service}
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.google.protobuf
 import io.circe.Codec
-import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.AnyEndpoint
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
@@ -54,14 +53,17 @@ object JsVersionService extends DocumentationEndpoints {
 }
 
 object JsVersionServiceCodecs {
-  implicit val est: Codec[experimental_features.ExperimentalStaticTime] = deriveCodec
-  implicit val ecis: Codec[experimental_features.ExperimentalCommandInspectionService] = deriveCodec
-  implicit val epte: Codec[experimental_features.ExperimentalPartyTopologyEvents] = deriveCodec
-  implicit val ef: Codec[experimental_features.ExperimentalFeatures] = deriveCodec
-  implicit val umf: Codec[version_service.UserManagementFeature] = deriveCodec
-  implicit val pmf: Codec[version_service.PartyManagementFeature] = deriveCodec
-  implicit val durationRW: Codec[protobuf.duration.Duration] = deriveCodec
-  implicit val ocf: Codec[version_service.OffsetCheckpointFeature] = deriveCodec
-  implicit val fd: Codec[version_service.FeaturesDescriptor] = deriveCodec
-  implicit val glavr: Codec[version_service.GetLedgerApiVersionResponse] = deriveCodec
+  import JsSchema.config
+
+  implicit val est: Codec[experimental_features.ExperimentalStaticTime] = deriveRelaxedCodec
+  implicit val ecis: Codec[experimental_features.ExperimentalCommandInspectionService] =
+    deriveRelaxedCodec
+  implicit val epte: Codec[experimental_features.ExperimentalPartyTopologyEvents] =
+    deriveRelaxedCodec
+  implicit val ef: Codec[experimental_features.ExperimentalFeatures] = deriveRelaxedCodec
+  implicit val umf: Codec[version_service.UserManagementFeature] = deriveRelaxedCodec
+  implicit val pmf: Codec[version_service.PartyManagementFeature] = deriveRelaxedCodec
+  implicit val ocf: Codec[version_service.OffsetCheckpointFeature] = deriveRelaxedCodec
+  implicit val fd: Codec[version_service.FeaturesDescriptor] = deriveRelaxedCodec
+  implicit val glavr: Codec[version_service.GetLedgerApiVersionResponse] = deriveRelaxedCodec
 }

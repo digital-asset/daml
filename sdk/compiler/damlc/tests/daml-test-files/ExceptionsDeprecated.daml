@@ -1,0 +1,38 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
+
+module ExceptionsDeprecated where
+
+-- @ WARN range=9:1-9:20; DA.Exception; Exceptions are deprecated
+import DA.Exception
+
+-- @ WARN range=12:11-12:22; Exceptions are deprecated
+exception MyException with
+    m : Text
+  where
+    message m
+
+exprTest : Update ()
+exprTest = do
+  -- 3 Warnings here, two for the `try-catch` itself, one for the use of `GeneralError` matching.
+  -- @ WARN range=23:3-24:33; _tryCatch; Exceptions are deprecated
+  -- @ WARN range=24:9-24:33; fromAnyException; Exceptions are deprecated
+  -- @ WARN range=24:9-24:21; GeneralError; Exceptions are deprecated
+  try pure 1
+  catch GeneralError _ -> pure 2
+
+  -- @ WARN range=28:3-28:8; throw; Exceptions are deprecated
+  -- @ WARN range=28:11-28:23; GeneralError; Exceptions are deprecated
+  throw $ GeneralError "error"
+
+  -- @ WARN range=31:13-31:28; ArithmeticError; Exceptions are deprecated
+  let err = ArithmeticError "Can't add!"
+  -- @ WARN range=33:16-33:28; AnyException; Exceptions are deprecated
+      anyErr : AnyException
+      anyErr = error "only care about type"
+
+  pure ()
+
+-- Separate file, test the warnings go away, test other warnings still work

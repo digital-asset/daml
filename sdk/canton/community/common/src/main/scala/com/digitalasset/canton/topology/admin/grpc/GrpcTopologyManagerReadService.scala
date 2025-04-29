@@ -351,35 +351,6 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listIdentifierDelegation(
-      request: adminProto.ListIdentifierDelegationRequest
-  ): Future[adminProto.ListIdentifierDelegationResponse] = {
-    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
-    val ret = for {
-      res <- collectFromStoresByFilterString(
-        request.baseQuery,
-        IdentifierDelegation.code,
-        request.filterUid,
-      )
-    } yield {
-      val results = res
-        .collect {
-          case (result, x: IdentifierDelegation)
-              if request.filterTargetKeyFingerprint.isEmpty || x.target.fingerprint.unwrap == request.filterTargetKeyFingerprint =>
-            (result, x)
-        }
-        .map { case (context, elem) =>
-          new adminProto.ListIdentifierDelegationResponse.Result(
-            context = Some(createBaseResult(context)),
-            item = Some(elem.toProto),
-          )
-        }
-
-      adminProto.ListIdentifierDelegationResponse(results = results)
-    }
-    CantonGrpcUtil.mapErrNewEUS(ret)
-  }
-
   override def listOwnerToKeyMapping(
       request: adminProto.ListOwnerToKeyMappingRequest
   ): Future[adminProto.ListOwnerToKeyMappingResponse] = {

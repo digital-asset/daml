@@ -9,7 +9,6 @@ import com.digitalasset.canton.ledger.api.ParticipantId
 import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
@@ -481,6 +480,7 @@ private class JdbcLedgerDao(
                 workflowId = workflowId,
                 submissionTime = null, // not used for DbDto generation
                 submissionSeed = null, // not used for DbDto generation
+                timeBoundaries = null, // not used for DbDto generation
                 optUsedPackages = None, // not used for DbDto generation
                 optNodeSeeds = None, // not used for DbDto generation
                 optByKeyNodes = None, // not used for DbDto generation
@@ -508,15 +508,6 @@ private class JdbcLedgerDao(
       }
   }
 
-  /** Returns all TransactionMetering records matching given criteria */
-  override def meteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
-    dbDispatcher.executeSql(metrics.index.db.lookupConfiguration)(
-      readStorageBackend.meteringStorageBackend.reportData(from, to, userId)
-    )
 }
 
 private[platform] object JdbcLedgerDao {

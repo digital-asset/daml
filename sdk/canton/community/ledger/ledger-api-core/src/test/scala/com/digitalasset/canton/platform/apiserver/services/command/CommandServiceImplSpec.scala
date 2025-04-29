@@ -5,7 +5,12 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.grpc.RpcProtoExtractors
 import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.daml.ledger.api.v2.command_submission_service.{SubmitRequest, SubmitResponse}
+import com.daml.ledger.api.v2.command_submission_service.{
+  SubmitReassignmentRequest,
+  SubmitReassignmentResponse,
+  SubmitRequest,
+  SubmitResponse,
+}
 import com.daml.ledger.api.v2.commands.{Command, Commands, CreateCommand}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.value.{Identifier, Record, RecordField, Value}
@@ -17,7 +22,7 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, LoggingContextWithTrace}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, tracking}
@@ -60,8 +65,10 @@ class CommandServiceImplSpec
       openChannel(
         new CommandServiceImpl(
           UnimplementedTransactionServices,
-          submissionTracker,
+          transactionSubmissionTracker,
+          reassignmentSubmissionTracker,
           submit,
+          submitReassignment,
           config.NonNegativeFiniteDuration.ofSeconds(1000L),
           loggerFactory,
         )
@@ -69,12 +76,12 @@ class CommandServiceImplSpec
         val request =
           SubmitAndWaitRequest.of(Some(commands))
         stub.submitAndWait(request).map { response =>
-          verify(submissionTracker).track(
+          verify(transactionSubmissionTracker).track(
             eqTo(expectedSubmissionKey),
             eqTo(config.NonNegativeFiniteDuration.ofSeconds(1000L)),
             any[TraceContext => FutureUnlessShutdown[Any]],
-          )(any[ContextualizedErrorLogger], any[TraceContext])
-          response.updateId should be("transaction ID")
+          )(any[ErrorLoggingContext], any[TraceContext])
+          response.updateId should be("update ID")
           response.completionOffset shouldBe offset
         }
       }
@@ -92,8 +99,10 @@ class CommandServiceImplSpec
       openChannel(
         new CommandServiceImpl(
           UnimplementedTransactionServices,
-          submissionTracker,
+          transactionSubmissionTracker,
+          reassignmentSubmissionTracker,
           submit,
+          submitReassignment,
           config.NonNegativeFiniteDuration.ofSeconds(1L),
           loggerFactory,
         ),
@@ -104,12 +113,12 @@ class CommandServiceImplSpec
           .withDeadline(Deadline.after(3600L, TimeUnit.SECONDS, deadlineTicker))
           .submitAndWait(request)
           .map { response =>
-            verify(submissionTracker).track(
+            verify(transactionSubmissionTracker).track(
               eqTo(expectedSubmissionKey),
               eqTo(config.NonNegativeFiniteDuration.ofSeconds(3600L)),
               any[TraceContext => FutureUnlessShutdown[Any]],
-            )(any[ContextualizedErrorLogger], any[TraceContext])
-            response.updateId should be("transaction ID")
+            )(any[ErrorLoggingContext], any[TraceContext])
+            response.updateId should be("update ID")
             succeed
           }
       }
@@ -120,8 +129,10 @@ class CommandServiceImplSpec
 
       val service = new CommandServiceImpl(
         UnimplementedTransactionServices,
-        submissionTracker,
+        transactionSubmissionTracker,
+        reassignmentSubmissionTracker,
         submit,
+        submitReassignment,
         config.NonNegativeFiniteDuration.ofSeconds(1L),
         loggerFactory,
       )
@@ -140,11 +151,11 @@ class CommandServiceImplSpec
               LoggingContextWithTrace.ForTesting
             )
             .transform { response =>
-              verify(submissionTracker, never).track(
+              verify(transactionSubmissionTracker, never).track(
                 any[SubmissionTracker.SubmissionKey],
                 any[config.NonNegativeFiniteDuration],
                 any[TraceContext => FutureUnlessShutdown[Any]],
-              )(any[ContextualizedErrorLogger], any[TraceContext])
+              )(any[ErrorLoggingContext], any[TraceContext])
 
               response.failed.map(inside(_) { case RpcProtoExtractors.Exception(status) =>
                 status.getCode shouldBe Code.DEADLINE_EXCEEDED.getNumber
@@ -159,12 +170,12 @@ class CommandServiceImplSpec
       import testContext.*
 
       when(
-        submissionTracker.track(
+        transactionSubmissionTracker.track(
           eqTo(expectedSubmissionKey),
           any[config.NonNegativeFiniteDuration],
           any[TraceContext => FutureUnlessShutdown[Any]],
         )(
-          any[ContextualizedErrorLogger],
+          any[ErrorLoggingContext],
           any[TraceContext],
         )
       ).thenReturn(
@@ -173,8 +184,10 @@ class CommandServiceImplSpec
 
       val service = new CommandServiceImpl(
         UnimplementedTransactionServices,
-        submissionTracker,
+        transactionSubmissionTracker,
+        reassignmentSubmissionTracker,
         submit,
+        submitReassignment,
         config.NonNegativeFiniteDuration.ofSeconds(1337L),
         loggerFactory,
       )
@@ -196,16 +209,20 @@ class CommandServiceImplSpec
 
       val service = new CommandServiceImpl(
         UnimplementedTransactionServices,
-        submissionTracker,
+        transactionSubmissionTracker,
+        reassignmentSubmissionTracker,
         submit,
+        submitReassignment,
         config.NonNegativeFiniteDuration.ofSeconds(1337L),
         loggerFactory,
       )
 
-      verifyZeroInteractions(submissionTracker)
+      verifyZeroInteractions(transactionSubmissionTracker)
+      verifyZeroInteractions(reassignmentSubmissionTracker)
 
       service.close()
-      verify(submissionTracker).close()
+      verify(transactionSubmissionTracker).close()
+      verify(reassignmentSubmissionTracker).close()
       succeed
     }
   }
@@ -215,15 +232,18 @@ class CommandServiceImplSpec
       completion = completion
     )
     val commands = someCommands()
-    val submissionTracker = mock[SubmissionTracker]
+    val transactionSubmissionTracker = mock[SubmissionTracker]
+    val reassignmentSubmissionTracker = mock[SubmissionTracker]
     val submit = mock[Traced[SubmitRequest] => FutureUnlessShutdown[SubmitResponse]]
+    val submitReassignment =
+      mock[Traced[SubmitReassignmentRequest] => FutureUnlessShutdown[SubmitReassignmentResponse]]
     when(
-      submissionTracker.track(
+      transactionSubmissionTracker.track(
         eqTo(expectedSubmissionKey),
         any[config.NonNegativeFiniteDuration],
         any[TraceContext => FutureUnlessShutdown[Any]],
       )(
-        any[ContextualizedErrorLogger],
+        any[ErrorLoggingContext],
         any[TraceContext],
       )
     ).thenReturn(Future.successful(trackerCompletionResponse))
@@ -268,10 +288,10 @@ class CommandServiceImplSpec
 }
 
 object CommandServiceImplSpec {
-  private val UnimplementedTransactionServices = new CommandServiceImpl.TransactionServices(
+  private val UnimplementedTransactionServices = new CommandServiceImpl.UpdateServices(
     getTransactionTreeById = _ =>
       Future.failed(new RuntimeException("This should never be called.")),
-    getTransactionById = _ => Future.failed(new RuntimeException("This should never be called.")),
+    getUpdateById = _ => Future.failed(new RuntimeException("This should never be called.")),
   )
 
   private val OkStatus = StatusProto.of(Status.Code.OK.value, "", Seq.empty)
@@ -301,7 +321,7 @@ object CommandServiceImplSpec {
   val completion = Completion.defaultInstance.copy(
     commandId = "command ID",
     status = Some(OkStatus),
-    updateId = "transaction ID",
+    updateId = "update ID",
     offset = offset,
   )
 

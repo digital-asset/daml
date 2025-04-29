@@ -23,8 +23,8 @@ template Asset
 setup : Script AssetId
 setup = script do
 -- user_setup_begin
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  alice <- allocatePartyByHint (PartyIdHint "Alice")
+  bob <- allocatePartyByHint (PartyIdHint "Bob")
   aliceId <- validateUserId "alice"
   bobId <- validateUserId "bob"
   createUser (User aliceId (Some alice)) [CanActAs alice]

@@ -189,7 +189,7 @@ class SequencerNodeBootstrap(
         description = "wait-for-sequencer-to-synchronizer-init",
         bootstrapStageCallback,
         storage,
-        config.init.autoInit,
+        false, // has no auto-init
       )
       with GrpcSequencerInitializationService.Callback {
 
@@ -219,6 +219,15 @@ class SequencerNodeBootstrap(
     })
     addCloseable(sequencerPublicApiHealthService)
     addCloseable(sequencerHealth)
+    // TODO(#25118) clean up manual cache removal
+    addCloseable(new AutoCloseable {
+      override def close(): Unit = {
+        // This is a pretty ugly work around for the fact that cache metrics are left dangling and
+        // are not closed properly
+        arguments.metrics.trafficControl.purchaseCache.closeAcquired()
+        arguments.metrics.trafficControl.consumedCache.closeAcquired()
+      }
+    })
 
     private def mkFactory(
         protocolVersion: ProtocolVersion
@@ -498,11 +507,9 @@ class SequencerNodeBootstrap(
                 EitherT.rightT[FutureUnlessShutdown, String](Set.empty[Member])
               case Some((initialTopologyTransactions, sequencerSnapshot)) =>
                 val topologySnapshotValidator = new InitialTopologySnapshotValidator(
-                  synchronizerId,
                   staticSynchronizerParameters.protocolVersion,
                   new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
                   synchronizerTopologyStore,
-                  config.topology.insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
                   parameters.processingTimeouts,
                   loggerFactory,
                 )
@@ -755,6 +762,7 @@ class SequencerNodeBootstrap(
             staticSynchronizerParameters.protocolVersion,
             topologyStateForInitializationService,
             loggerFactory,
+            config.acknowledgementsConflateWindow,
           )
           _ = sequencerServiceCell.putIfAbsent(sequencerService)
 

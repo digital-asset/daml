@@ -1461,6 +1461,7 @@ Data Types
 **data** `AnyException <type-da-internal-lf-anyexception-7004_>`_
 
   A wrapper for all exception types\.
+  DEPRECATED\: Use ``failWithStatus`` and ``FailureStatus`` over Daml Exceptions
 
   **instance** :ref:`HasFromAnyException <class-da-internal-exception-hasfromanyexception-16788>` `AnyException <type-da-internal-lf-anyexception-7004_>`_
 

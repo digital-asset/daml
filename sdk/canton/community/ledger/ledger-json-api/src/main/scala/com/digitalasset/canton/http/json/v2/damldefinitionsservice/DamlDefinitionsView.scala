@@ -8,12 +8,12 @@ import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
   TemplateDefinition,
   TypeSig,
 }
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.daml.lf.data.Ref
 
 class DamlDefinitionsView(
-    getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata
+    getPackageMetadataSnapshot: ErrorLoggingContext => PackageMetadata
 ) {
 
   def packageSignature(pkgId: String): Option[TypeSig] = {
@@ -37,7 +37,7 @@ class DamlDefinitionsView(
 
   def allTemplates(): AllTemplatesResponse =
     AllTemplatesResponse(
-      // TODO(#21695): Extract and use a ContextualizedErrorLogger
+      // TODO(#21695): Extract and use a ErrorLoggingContext
       getPackageMetadataSnapshot(NoLogging).templates
     )
 }

@@ -105,6 +105,20 @@ object ScheduledCommand {
 
   val HighestPriority: Short = Short.MaxValue
 
-  implicit def ordering: Ordering[ScheduledCommand] =
-    Ordering.by(command => (-command.at.toMicros, command.priority, -command.sequenceNumber))
+  private def OrderingFromCompare[T](cmp: (T, T) => Int): Ordering[T] = { case (x, y) =>
+    cmp(x, y)
+  }
+
+  implicit val ordering: Ordering[ScheduledCommand] =
+    OrderingFromCompare[ScheduledCommand] { case (x, y) =>
+      java.lang.Long.compare(x.at.toMicros, y.at.toMicros)
+    }.reverse.orElse {
+      OrderingFromCompare[ScheduledCommand] { case (x, y) =>
+        java.lang.Short.compare(x.priority, y.priority)
+      }.orElse {
+        OrderingFromCompare[ScheduledCommand] { case (x, y) =>
+          java.lang.Integer.compare(x.sequenceNumber, y.sequenceNumber)
+        }.reverse
+      }
+    }
 }

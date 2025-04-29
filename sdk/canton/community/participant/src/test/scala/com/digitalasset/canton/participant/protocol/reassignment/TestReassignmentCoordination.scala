@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
   SynchronizerSnapshotSyncCryptoApi,
@@ -12,6 +13,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.protocol.ReassignmentSynchronizer
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ReassignmentProcessorError,
   UnknownSynchronizer,
@@ -34,9 +36,13 @@ import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
 import org.mockito.MockitoSugar.mock
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
+  val pendingUnassignments: TrieMap[Source[SynchronizerId], ReassignmentSynchronizer] =
+    TrieMap.empty[Source[SynchronizerId], ReassignmentSynchronizer]
+
   def apply(
       synchronizers: Set[Target[SynchronizerId]],
       timeProofTimestamp: CantonTimestamp,
@@ -67,34 +73,28 @@ private[reassignment] object TestReassignmentCoordination {
     val protocolVersionGetter = (_: Traced[SynchronizerId]) =>
       Some(BaseTest.testedStaticSynchronizerParameters)
 
+    val reassignmentSynchronizer = { (id: Source[SynchronizerId]) =>
+      pendingUnassignments.getOrElse(
+        id, {
+          val reassignmentSynchronizer =
+            new ReassignmentSynchronizer(id, loggerFactory, new ProcessingTimeout)
+          pendingUnassignments.put(id, reassignmentSynchronizer)
+          reassignmentSynchronizer
+        },
+      )
+    }
+
     new ReassignmentCoordination(
       reassignmentStoreFor = id =>
         reassignmentStores.get(id).toRight(UnknownSynchronizer(id.unwrap, "not found")),
       recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = assignmentBySubmission,
+      pendingUnassignments = reassignmentSynchronizer.map(Option(_)),
       staticSynchronizerParameterFor = protocolVersionGetter,
       syncCryptoApi =
         defaultSyncCryptoApi(synchronizers.toSeq.map(_.unwrap), packages, loggerFactory),
       loggerFactory,
     ) {
-
-      override def awaitUnassignmentTimestamp(
-          sourceSynchronizer: Source[SynchronizerId],
-          staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-          timestamp: CantonTimestamp,
-      )(implicit
-          traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, Unit] =
-        awaitTimestampOverride match {
-          case None =>
-            super.awaitUnassignmentTimestamp(
-              sourceSynchronizer,
-              staticSynchronizerParameters,
-              timestamp,
-            )
-          case Some(overridden) =>
-            EitherT.right(overridden.fold(FutureUnlessShutdown.unit)(FutureUnlessShutdown.outcomeF))
-        }
 
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
           synchronizerId: T[SynchronizerId],

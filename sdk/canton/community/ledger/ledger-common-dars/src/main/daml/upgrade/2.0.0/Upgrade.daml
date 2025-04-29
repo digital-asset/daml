@@ -3,7 +3,9 @@
 
 module Upgrade where
 
--- Upgraded template with new optional field
+import Iface
+
+-- Upgraded template with new optional field and an interface view
 template UA with
   issuer : Party
   owner : Party
@@ -12,6 +14,9 @@ template UA with
  where
   signatory issuer
   observer owner
+
+  interface instance Iface1 for UA where
+    view = Iface1View "Iface1-UAv2"
 
 -- New template
 template UB with

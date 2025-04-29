@@ -180,31 +180,57 @@ object ValueGenerators {
         crypto.Hash.underlyingHashLength,
         arbitrary[Byte],
       ) map crypto.Hash.assertFromByteArray
-  private val genSuffixes: Gen[Bytes] = for {
+  private val genSuffixesV1: Gen[Bytes] = for {
     sz <- Gen.chooseNum(0, ContractId.V1.MaxSuffixLength)
     ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
   } yield Bytes fromByteArray ab
 
+  private val genSuffixesV2: Gen[Bytes] = for {
+    sz <- Gen.chooseNum(0, ContractId.V2.MaxSuffixLength)
+    ab <- Gen.containerOfN[Array, Byte](sz, arbitrary[Byte])
+  } yield Bytes fromByteArray ab
+
   private val cidV1Gen: Gen[ContractId.V1] =
-    Gen.zip(genHash, genSuffixes) map { case (h, b) =>
+    Gen.zip(genHash, genSuffixesV1) map { case (h, b) =>
       ContractId.V1.assertBuild(h, b)
+    }
+
+  private val cidV2Gen: Gen[ContractId.V2] = Gen
+    .zip(
+      Gen
+        .containerOfN[Array, Byte](ContractId.V2.localSize, arbitrary[Byte])
+        .map(Bytes.fromByteArray),
+      genSuffixesV2,
+    )
+    .map { case (local, suffix) =>
+      ContractId.V2.assertBuild(local, suffix)
     }
 
   /** Universes of totally-ordered ContractIds. */
   def comparableCoidsGen: Seq[Gen[ContractId]] =
-    Seq(suffixedV1CidGen, nonSuffixedCidV1Gen)
+    Seq(suffixedCidGen, unsuffixedCidGen)
 
-  def suffixedV1CidGen: Gen[ContractId] = Gen.zip(cidV1Gen, arbitrary[Byte]) map { case (b1, b) =>
-    ContractId.V1
-      .assertBuild(
-        b1.discriminator,
-        if (b1.suffix.nonEmpty) b1.suffix else Bytes fromByteArray Array(b),
+  private def unsuffixCid(cid: ContractId): ContractId = cid match {
+    case cidV1: ContractId.V1 => ContractId.V1(cidV1.discriminator)
+    case cidV2: ContractId.V2 => ContractId.V2(cidV2.local, Bytes.Empty)
+  }
+  private def suffixCid(cid: ContractId, suffix: Bytes): ContractId = cid match {
+    case cidV1: ContractId.V1 =>
+      ContractId.V1.assertBuild(
+        cidV1.discriminator,
+        if (cidV1.suffix.isEmpty) suffix else cidV1.suffix,
       )
+    case cidV2: ContractId.V2 =>
+      ContractId.V2.assertBuild(cidV2.local, if (cidV2.suffix.isEmpty) suffix else cidV2.suffix)
   }
 
-  def nonSuffixedCidV1Gen: Gen[ContractId] = cidV1Gen map (cid => ContractId.V1(cid.discriminator))
+  def unsuffixedCidGen: Gen[ContractId] = coidGen.map(unsuffixCid)
+  def suffixedCidGen: Gen[ContractId] =
+    Gen.zip(coidGen, arbitrary[Byte]).map { case (cid, suffixByte) =>
+      suffixCid(cid, Bytes.fromByteArray(Array(suffixByte)))
+    }
 
-  def coidGen: Gen[ContractId] = cidV1Gen
+  def coidGen: Gen[ContractId] = Gen.oneOf(cidV1Gen, cidV2Gen)
 
   def coidValueGen: Gen[ValueContractId] =
     coidGen.map(ValueContractId(_))
@@ -271,12 +297,12 @@ object ValueGenerators {
 
   val genNonEmptyParties: Gen[Set[Party]] = ^(party, genMaybeEmptyParties)((hd, tl) => tl + hd)
 
-  val versionedContractInstanceGen: Gen[Value.VersionedContractInstance] =
+  val versionedContractInstanceGen: Gen[Value.VersionedThinContractInstance] =
     for {
       template <- idGen
       arg <- versionedValueGen
       pkgName <- pkgNameGen
-    } yield arg.map(Value.ContractInstance(pkgName, template, _))
+    } yield arg.map(Value.ThinContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
       templateId: TypeConName,
@@ -594,7 +620,6 @@ object ValueGenerators {
     for {
       tx <- noDanglingRefGenTransaction
       txVer <- transactionVersionGen()
-      nodeVersionGen = transactionVersionGen().filterNot(_ < txVer)
       nodes <- tx.fold(Gen.const(HashMap.empty[NodeId, Node])) { case (acc, (nodeId, node)) =>
         for {
           hashMap <- acc

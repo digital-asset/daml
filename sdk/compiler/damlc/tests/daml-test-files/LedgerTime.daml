@@ -1,0 +1,211 @@
+-- Copyright (c) 2020, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+module LedgerTime where
+
+import DA.Assert ((===), assertDeadlineExceeded, assertWithinDeadline)
+import DA.Text (isInfixOf)
+import DA.Time
+import Daml.Script
+
+template LabeledContract with
+    party : Party
+    label : Text
+  where
+    signatory party
+
+    nonconsuming choice CheckLT : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeLT dueBy
+
+    nonconsuming choice CheckLE : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeLE dueBy
+
+    nonconsuming choice CheckGT : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeGT dueBy
+
+    nonconsuming choice CheckGE : Bool
+      with
+        dueBy: Time
+      controller party
+      do
+        isLedgerTimeGE dueBy
+
+    nonconsuming choice CheckWithinDeadline : ()
+      with
+        deadline: Time
+      controller party
+      do
+        assertWithinDeadline "within-deadline" deadline
+        pure ()
+
+    nonconsuming choice CheckDeadlineExceeded : ()
+      with
+        deadline: Time
+      controller party
+      do
+        assertDeadlineExceeded "deadline-exceeded" deadline
+        pure ()
+
+main =
+  script do
+    alice <- allocateParty "alice"
+    cid <- submit alice $ createCmd (LabeledContract alice "test-action")
+    timePrev <- getTime
+    let
+      timeNow = addRelTime timePrev (microseconds 1)
+      timeNext = addRelTime timePrev (microseconds 2)
+      timeMin = minBound @Time
+      timeMax = maxBound @Time
+
+    -- isLedgerTimeLT
+    setTime timeNow
+    lt0 <- submit alice $ exerciseCmd cid (CheckLT timeNext)
+    lt0 === True
+    setTime timeNow
+    lt1 <- submit alice $ exerciseCmd cid (CheckLT timeNow)
+    lt1 === False
+    setTime timeNow
+    lt2 <- submit alice $ exerciseCmd cid (CheckLT timePrev)
+    lt2 === False
+    setTime timeNow
+    lt3 <- submit alice $ exerciseCmd cid (CheckLT timeMin)
+    lt3 === False
+    setTime timeNow
+    lt4 <- submit alice $ exerciseCmd cid (CheckLT timeMax)
+    lt4 === True
+
+    -- isLedgerTimeLE
+    setTime timeNow
+    le0 <- submit alice $ exerciseCmd cid (CheckLE timeNext)
+    le0 === True
+    setTime timeNow
+    le1 <- submit alice $ exerciseCmd cid (CheckLE timeNow)
+    le1 === True
+    setTime timeNow
+    le2 <- submit alice $ exerciseCmd cid (CheckLE timePrev)
+    le2 === False
+    setTime timeNow
+    le3 <- submit alice $ exerciseCmd cid (CheckLE timeMin)
+    le3 === False
+    setTime timeNow
+    resultLE0 <- trySubmit alice $ exerciseCmd cid (CheckLE timeMax)
+    case resultLE0 of
+      Left (FailureStatusError fsError) | "GeneralError" `isInfixOf` fsError.errorId ->
+        fsError.message === "Can not compare against the maximum time bound"
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+
+    -- isLedgerTimeGT
+    setTime timeNow
+    gt0 <- submit alice $ exerciseCmd cid (CheckGT timeNext)
+    gt0 === False
+    setTime timeNow
+    gt1 <- submit alice $ exerciseCmd cid (CheckGT timeNow)
+    gt1 === False
+    setTime timeNow
+    gt2 <- submit alice $ exerciseCmd cid (CheckGT timePrev)
+    gt2 === True
+    setTime timeNow
+    gt3 <- submit alice $ exerciseCmd cid (CheckGT timeMin)
+    gt3 === True
+    setTime timeNow
+    resultGT0 <- trySubmit alice $ exerciseCmd cid (CheckGT timeMax)
+    case resultGT0 of
+      Left (FailureStatusError fsError) | "GeneralError" `isInfixOf` fsError.errorId ->
+        fsError.message === "Can not compare against the maximum time bound"
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+
+    -- isLedgerTimeGE
+    setTime timeNow
+    ge0 <- submit alice $ exerciseCmd cid (CheckGE timeNext)
+    ge0 === False
+    setTime timeNow
+    ge1 <- submit alice $ exerciseCmd cid (CheckGE timeNow)
+    ge1 === True
+    setTime timeNow
+    ge2 <- submit alice $ exerciseCmd cid (CheckGE timePrev)
+    ge2 === True
+    setTime timeNow
+    ge3 <- submit alice $ exerciseCmd cid (CheckGE timeMin)
+    ge3 === True
+    setTime timeNow
+    ge4 <- submit alice $ exerciseCmd cid (CheckGE timeMax)
+    ge4 === False
+
+    -- assertWithinDeadline
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckWithinDeadline timeNext)
+    setTime timeNow
+    resultWD0 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timeNow)
+    case resultWD0 of
+      Left (FailureStatusError fsError) | fsError.errorId == "stdlib.daml.com/deadline-exceeded" ->
+        fsError.message === ("Ledger time is at or past deadline 'within-deadline' at " <> show timeNow)
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+    setTime timeNow
+    resultWD1 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timePrev)
+    case resultWD1 of
+      Left (FailureStatusError fsError) | fsError.errorId == "stdlib.daml.com/deadline-exceeded" ->
+        fsError.message === ("Ledger time is at or past deadline 'within-deadline' at " <> show timePrev)
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+    setTime timeNow
+    resultWD2 <- trySubmit alice $ exerciseCmd cid (CheckWithinDeadline timeMin)
+    case resultWD2 of
+      Left (FailureStatusError fsError) | fsError.errorId == "stdlib.daml.com/deadline-exceeded" ->
+        fsError.message === ("Ledger time is at or past deadline 'within-deadline' at " <> show timeMin)
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckWithinDeadline timeMax)
+
+    -- assertDeadlineExceeded
+    setTime timeNow
+    resultDE0 <- trySubmit alice $ exerciseCmd cid (CheckDeadlineExceeded timeNext)
+    case resultDE0 of
+      Left (FailureStatusError fsError) | fsError.errorId == "stdlib.daml.com/deadline-not-exceeded" ->
+        fsError.message === ("Ledger time is strictly before deadline 'deadline-exceeded' at " <> show timeNext)
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckDeadlineExceeded timeNow)
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckDeadlineExceeded timePrev)
+    setTime timeNow
+    _ <- submit alice $ exerciseCmd cid (CheckDeadlineExceeded timeMin)
+    setTime timeNow
+    resultDE1 <- trySubmit alice $ exerciseCmd cid (CheckDeadlineExceeded timeMax)
+    case resultDE1 of
+      Left (FailureStatusError fsError) | fsError.errorId == "stdlib.daml.com/deadline-not-exceeded" ->
+        fsError.message === ("Ledger time is strictly before deadline 'deadline-exceeded' at " <> show timeMax)
+      Left e ->
+        error $ "failureStatusError incorrect error: " <> show e
+      Right _ ->
+        error "failureStatusError incorrectly succeeded"
+
+    pure ()

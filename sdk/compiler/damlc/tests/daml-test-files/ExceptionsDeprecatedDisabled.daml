@@ -1,0 +1,39 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+-- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
+
+-- Disable the warning using the GHC flag, so we can do it per file.
+-- Normally you would use `-Wno-deprecated-exceptions` in your daml.yaml
+-- This file is a mirror of ExceptionsDeprecated.daml without the warning requirements, and an additional test
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
+module ExceptionsDeprecatedDisabled where
+
+import DA.Exception
+import DA.Maybe
+
+exception MyException with
+    m : Text
+  where
+    message m
+
+exprTest : Update ()
+exprTest = do
+  try pure 1
+  catch GeneralError _ -> pure 2
+
+  throw $ GeneralError "error"
+
+  let err = ArithmeticError "Can't add!"
+      anyErr : AnyException
+      anyErr = error "only care about type"
+
+  pure ()
+
+-- @ WARN range=38:12-38:20; fromJust; Deprecated
+-- @ WARN range=38:23-38:27; Just; Deprecated
+existingWarningsStillWork : Update ()
+existingWarningsStillWork = do
+  let _a = fromJust $ Just 1
+  pure ()

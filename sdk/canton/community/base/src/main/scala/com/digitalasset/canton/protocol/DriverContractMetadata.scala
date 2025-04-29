@@ -38,7 +38,7 @@ object DriverContractMetadata extends HasVersionedMessageCompanion[DriverContrac
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.DriverContractMetadata)(fromProtoV30),
       _.toProtoV30,
     )

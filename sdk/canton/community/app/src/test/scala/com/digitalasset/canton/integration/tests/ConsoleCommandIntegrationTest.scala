@@ -11,7 +11,6 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.*
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
@@ -19,8 +18,6 @@ import com.digitalasset.canton.integration.util.EntitySyntax
 import com.digitalasset.canton.topology.PartyId
 import org.scalatest.OptionValues
 
-import java.time.Instant
-import java.time.temporal.ChronoUnit
 import scala.jdk.CollectionConverters.*
 
 trait ConsoleCommandIntegrationTest
@@ -32,7 +29,6 @@ trait ConsoleCommandIntegrationTest
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P1_S1M1
-      .addConfigTransform(ConfigTransforms.meterInfrastructure)
       .withSetup(env => initializeParties(env))
 
   override val defaultParticipant: String = "participant1"
@@ -201,13 +197,6 @@ trait ConsoleCommandIntegrationTest
     }
   }
 
-  // please note the counterpart of this test is located in ConsoleCommandIntegrationTestWithSharedEnv, which tests the successful skipping of a ping if the infrastructure statistics are not allowed (default)
-  "the command ledger_api.metering.get_report" should {
-    "correctly account our ping" in { implicit env =>
-      ConsoleCommandIntegrationTest.meterEventsForAPing shouldBe 2.0
-    }
-  }
-
   "the service ledger_api.event_query" should {
 
     def createIou(
@@ -277,35 +266,3 @@ class ConsoleCommandIntegrationTestDefault extends ConsoleCommandIntegrationTest
 //  registerPlugin(new UsePostgres(loggerFactory))
 //  registerPlugin(new UseReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 //}
-
-object ConsoleCommandIntegrationTest {
-  def meterEventsForAPing(implicit env: TestConsoleEnvironment): Double = {
-    import env.*
-    import io.circe.parser.*
-
-    participant1.synchronizers.connect_local(sequencer1, alias = daName)
-    // ledger api metering get_report expect timestamp rounded to the hour
-    val started = CantonTimestamp.assertFromInstant(Instant.now().truncatedTo(ChronoUnit.HOURS))
-
-    val pre = participant1.ledger_api.metering.get_report(started)
-    participant1.health.ping(participant1)
-    val post = participant1.ledger_api.metering.get_report(started)
-
-    def eventCount(report: String): Double =
-      parse(report).toOption
-        .flatMap(_.asObject)
-        .flatMap(_.apply("applications"))
-        .flatMap(_.asArray)
-        .toList
-        .flatten
-        .flatMap(_.asObject)
-        .flatMap(_.apply("events"))
-        .flatMap(_.asNumber)
-        .map(_.toDouble)
-        .sum
-
-    val beforeEvents = eventCount(pre)
-    val afterEvents = eventCount(post)
-    (afterEvents - beforeEvents) // create & archive
-  }
-}

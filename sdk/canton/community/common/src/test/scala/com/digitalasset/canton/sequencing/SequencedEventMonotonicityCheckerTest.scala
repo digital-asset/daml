@@ -62,24 +62,6 @@ class SequencedEventMonotonicityCheckerTest
       handler.invocations.get.flatMap(_.value) shouldBe bobEvents
     }
 
-    "detect gaps in sequencer counters" in { env =>
-      import env.*
-
-      val checker = new SequencedEventMonotonicityChecker(
-        previousEventTimestamp = None,
-        loggerFactory,
-      )
-      val handler = mkHandler()
-      val checkedHandler = checker.handler(handler)
-      val (batch1, batch2) = bobEvents.splitAt(2)
-
-      checkedHandler(Traced(batch1)).futureValueUS.unwrap.futureValueUS
-      loggerFactory.assertThrowsAndLogs[MonotonicityFailureException](
-        checkedHandler(Traced(batch2.drop(1))).futureValueUS.unwrap.futureValueUS,
-        _.errorMessage should include(ErrorUtil.internalErrorMessage),
-      )
-    }
-
     "detect non-monotonic timestamps" in { env =>
       import env.*
 
@@ -126,28 +108,6 @@ class SequencedEventMonotonicityCheckerTest
       eventsF.futureValue.map(_.value) shouldBe bobEvents.map(Right(_))
     }
 
-    "kill the stream upon a gap in the counters" in { env =>
-      import env.*
-
-      val checker = new SequencedEventMonotonicityChecker(
-        previousEventTimestamp = None,
-        loggerFactory,
-      )
-      val (batch1, batch2) = bobEvents.splitAt(2)
-      val eventsF = loggerFactory.assertLogs(
-        Source(batch1 ++ batch2.drop(1))
-          .map(Right(_))
-          .withUniqueKillSwitchMat()(Keep.left)
-          .via(checker.flow)
-          .toMat(Sink.seq)(Keep.right)
-          .run(),
-        _.errorMessage should include(
-          "Timestamps do not increase monotonically or previous event timestamp does not match."
-        ),
-      )
-      eventsF.futureValue.map(_.value) shouldBe batch1.map(Right(_))
-    }
-
     "detect non-monotonic timestamps" in { env =>
       import env.*
 
@@ -184,9 +144,9 @@ class SequencedEventMonotonicityCheckerTest
 
 object SequencedEventMonotonicityCheckerTest {
   class CapturingApplicationHandler()
-      extends ApplicationHandler[OrdinaryEnvelopeBox, ClosedEnvelope] {
+      extends ApplicationHandler[SequencedEnvelopeBox, ClosedEnvelope] {
     val invocations =
-      new AtomicReference[Seq[BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]]](Seq.empty)
+      new AtomicReference[Seq[BoxedEnvelope[SequencedEnvelopeBox, ClosedEnvelope]]](Seq.empty)
 
     override def name: String = "capturing-application-handler"
     override def subscriptionStartsAt(
@@ -194,10 +154,12 @@ object SequencedEventMonotonicityCheckerTest {
         synchronizerTimeTracker: SynchronizerTimeTracker,
     )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
 
-    override def apply(boxed: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]): HandlerResult = {
+    override def apply(
+        boxed: BoxedEnvelope[SequencedEnvelopeBox, ClosedEnvelope]
+    ): HandlerResult = {
       invocations
         .getAndUpdate(_ :+ boxed)
-        .discard[Seq[BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]]]
+        .discard[Seq[BoxedEnvelope[SequencedEnvelopeBox, ClosedEnvelope]]]
       HandlerResult.done
     }
   }

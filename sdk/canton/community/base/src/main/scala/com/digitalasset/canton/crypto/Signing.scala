@@ -13,6 +13,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.manual.CantonConfigValidatorDerivation
 import com.digitalasset.canton.config.{CantonConfigValidator, UniformCantonConfigValidation}
 import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
+import com.digitalasset.canton.crypto.SigningKeyUsage.encodeUsageForHash
 import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -289,7 +290,7 @@ object Signature
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.Signature)(fromProtoV30),
       _.toProtoV30,
     )
@@ -438,7 +439,25 @@ final case class SignatureDelegation private[crypto] (
 
 object SignatureDelegation {
 
-  // TODO(#22362): https://github.com/DACH-NY/canton/pull/22185#discussion_r1846626744
+  /** Constructs a [[SignatureDelegation]] using a session key, validity period, and signature.
+    * These components are constructed in
+    * [[com.digitalasset.canton.crypto.signer.SyncCryptoSignerWithSessionKeys]] via the sign
+    * primitive.
+    *
+    * In summary, a new or existing session key (generated in software) is used to sign the original
+    * message contents. This key has a validity period, whose duration is configurable in Canton.
+    * The provided signature is generated with a long-term key and covers the session key
+    * fingerprint, the validity period, and the synchronizer ID, authorizing the session key to act
+    * on behalf of the long-term key during that period.
+    *
+    * @param sessionKey
+    *   The session key used to produce the signature.
+    * @param validityPeriod
+    *   The duration for which the session key is valid.
+    * @param signature
+    *   Signature authorizing the session key to act for a long-term key, over the hash of the
+    *   session key fingerprint, validity period, and synchronizer ID.
+    */
   def create(
       sessionKey: SigningPublicKey,
       validityPeriod: SignatureDelegationValidityPeriod,
@@ -471,13 +490,16 @@ object SignatureDelegation {
 
   def generateHash(
       synchronizerId: SynchronizerId,
-      id: Fingerprint,
+      sessionKey: SigningPublicKey,
       validityPeriod: SignatureDelegationValidityPeriod,
   ): Hash = {
     val hashBuilder =
       HashBuilderFromMessageDigest(HashAlgorithm.Sha256, HashPurpose.SessionKeyDelegation)
     hashBuilder
-      .add(id.unwrap)
+      .add(sessionKey.id.unwrap)
+      .add(sessionKey.keySpec.toProtoEnum.value)
+      .add(sessionKey.format.toProtoEnum.value)
+      .add(encodeUsageForHash(sessionKey.usage))
       .add(validityPeriod.getCryptographicEvidence)
       .add(synchronizerId.toProtoPrimitive)
       .finish()
@@ -641,16 +663,12 @@ object SigningKeyUsage {
     NonEmpty.mk(
       Set,
       Namespace,
-      IdentityDelegation,
       SequencerAuthentication,
       Protocol,
       ProofOfOwnership,
     )
 
   val NamespaceOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, Namespace)
-  val IdentityDelegationOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, IdentityDelegation)
-  val NamespaceOrIdentityDelegation: NonEmpty[Set[SigningKeyUsage]] =
-    NonEmpty.mk(Set, Namespace, IdentityDelegation)
   val NamespaceOrProofOfOwnership: NonEmpty[Set[SigningKeyUsage]] =
     NonEmpty.mk(Set, Namespace, ProofOfOwnership)
   val SequencerAuthenticationOnly: NonEmpty[Set[SigningKeyUsage]] =
@@ -664,28 +682,40 @@ object SigningKeyUsage {
     *   - `ProofOfOwnership` is an internal type and must always be associated with another usage.
     *     It identifies that a key can be used to prove ownership within the context of
     *     `OwnerToKeyMappings` and `PartyToKeyMappings` topology transactions.
-    *   - Keys associated with `Namespace` and `IdentityDelegation` are not part of
-    *     `OwnerToKeyMappings` or `PartyToKeyMappings`, and therefore are not used to prove
-    *     ownership.
+    *   - Keys associated with `Namespace` are not part of `OwnerToKeyMappings` or
+    *     `PartyToKeyMappings`, and therefore are not used to prove ownership.
     */
   private val invalidUsageCombinations: Set[NonEmpty[Set[SigningKeyUsage]]] =
     Set(
       ProofOfOwnershipOnly,
       NamespaceOnly ++ ProofOfOwnershipOnly,
-      IdentityDelegationOnly ++ ProofOfOwnershipOnly,
-      NamespaceOnly ++ IdentityDelegationOnly ++ ProofOfOwnershipOnly,
     )
 
   def isUsageValid(usage: NonEmpty[Set[SigningKeyUsage]]): Boolean =
     !SigningKeyUsage.invalidUsageCombinations.contains(usage)
 
-  def fromDbTypeToSigningKeyUsage(dbTypeInt: Int): SigningKeyUsage =
-    All
-      .find(sku => sku.dbType == dbTypeInt.toByte)
-      .getOrElse(throw new DbDeserializationException(s"Unknown key usage id: $dbTypeInt"))
+  /** Ignores the identity_delegation usage (dbTypeInt == 1) by returning None. We can do this
+    * because, up until now, identity_delegation has never been the sole usage of a key.
+    */
+  def fromDbTypeToSigningKeyUsage(dbTypeInt: Int): Option[SigningKeyUsage] =
+    // The identifier delegation was deprecated and has been removed, so we ignore it.
+    if (dbTypeInt == 1) None
+    else
+      Some(
+        All
+          .find(sku => sku.dbType == dbTypeInt.toByte)
+          .getOrElse(throw new DbDeserializationException(s"Unknown key usage id: $dbTypeInt"))
+      )
 
-  def fromIdentifier(identifier: String): Option[SigningKeyUsage] =
-    All.find(_.identifier == identifier)
+  /** Encodes a non-empty set of signing key usages into a ByteString for hashing. The usages are
+    * converted to their proto enum integer values and sorted to ensure determinism.
+    */
+  def encodeUsageForHash(usage: NonEmpty[Set[SigningKeyUsage]]): ByteString = {
+    val orderedUsages = usage.forgetNE.toSeq.map(_.toProtoEnum.value).sorted
+    DeterministicEncoding.encodeSeqWith(orderedUsages)(usageInt =>
+      DeterministicEncoding.encodeInt(usageInt)
+    )
+  }
 
   case object Namespace extends SigningKeyUsage {
     override val identifier: String = "namespace"
@@ -693,12 +723,7 @@ object SigningKeyUsage {
     override def toProtoEnum: v30.SigningKeyUsage = v30.SigningKeyUsage.SIGNING_KEY_USAGE_NAMESPACE
   }
 
-  case object IdentityDelegation extends SigningKeyUsage {
-    override val identifier: String = "identity-delegation"
-    override val dbType: Byte = 1
-    override def toProtoEnum: v30.SigningKeyUsage =
-      v30.SigningKeyUsage.SIGNING_KEY_USAGE_IDENTITY_DELEGATION
-  }
+  // IdentifyDelegation (dbType = 1) usage was deprecated and has now been removed.
 
   case object SequencerAuthentication extends SigningKeyUsage {
     override val identifier: String = "sequencer-auth"
@@ -728,22 +753,27 @@ object SigningKeyUsage {
 
   }
 
+  /** Ignores the identity_delegation usage by returning None. We can do this because, up until now,
+    * identity_delegation has never been the sole usage of a key.
+    */
+  @nowarn("msg=SIGNING_KEY_USAGE_IDENTITY_DELEGATION in object SigningKeyUsage is deprecated")
   def fromProtoEnum(
       field: String,
       usageP: v30.SigningKeyUsage,
-  ): ParsingResult[SigningKeyUsage] =
+  ): ParsingResult[Option[SigningKeyUsage]] =
     usageP match {
       case v30.SigningKeyUsage.SIGNING_KEY_USAGE_UNSPECIFIED =>
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.SigningKeyUsage.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_NAMESPACE => Right(Namespace)
+      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_NAMESPACE =>
+        Right(Some(Namespace))
       case v30.SigningKeyUsage.SIGNING_KEY_USAGE_IDENTITY_DELEGATION =>
-        Right(IdentityDelegation)
+        Right(None)
       case v30.SigningKeyUsage.SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION =>
-        Right(SequencerAuthentication)
-      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL => Right(Protocol)
-      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP => Right(ProofOfOwnership)
+        Right(Some(SequencerAuthentication))
+      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL => Right(Some(Protocol))
+      case v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROOF_OF_OWNERSHIP => Right(Some(ProofOfOwnership))
     }
 
   /** When deserializing the usages for a signing key, if the usages are empty, we default to
@@ -754,7 +784,7 @@ object SigningKeyUsage {
   ): ParsingResult[NonEmpty[Set[SigningKeyUsage]]] =
     usages
       .traverse(usageAux => SigningKeyUsage.fromProtoEnum("usage", usageAux))
-      .map(listUsages => NonEmpty.from(listUsages.toSet).getOrElse(SigningKeyUsage.All))
+      .map(listUsages => NonEmpty.from(listUsages.flatten.toSet).getOrElse(SigningKeyUsage.All))
 
   def fromProtoListWithoutDefault(
       usages: Seq[v30.SigningKeyUsage]
@@ -763,7 +793,9 @@ object SigningKeyUsage {
       .traverse(usageAux => SigningKeyUsage.fromProtoEnum("usage", usageAux))
       .flatMap(listUsages =>
         // for commands, we should not default to All; instead, the request should fail because usage is now a mandatory parameter.
-        NonEmpty.from(listUsages.toSet).toRight(ProtoDeserializationError.FieldNotSet("usage"))
+        NonEmpty
+          .from(listUsages.flatten.toSet)
+          .toRight(ProtoDeserializationError.FieldNotSet("usage"))
       )
 
   /** Ensures that the intersection of a `key's usages` and the `allowed usages` is not empty,
@@ -1258,7 +1290,7 @@ object SigningPublicKey
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.SigningPublicKey)(fromProtoV30),
       _.toProtoV30,
     )
@@ -1466,7 +1498,7 @@ final case class SigningPrivateKey private (
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
       supportedProtoVersion(v30.SigningPrivateKey)(fromProtoV30),
       _.toProtoV30,
     )

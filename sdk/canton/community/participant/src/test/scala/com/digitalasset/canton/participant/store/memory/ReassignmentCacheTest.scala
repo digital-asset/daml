@@ -17,7 +17,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.memory.ReassignmentCacheTest.HookReassignmentStore
 import com.digitalasset.canton.participant.store.{ReassignmentStore, ReassignmentStoreTest}
-import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
@@ -275,15 +274,10 @@ object ReassignmentCacheTest extends BaseTest {
     ): Unit =
       preCompleteHook.set(hook)
 
-    override def addUnassignmentData(reassignmentData: UnassignmentData)(implicit
+    override def addUnassignmentData(unassignmentData: UnassignmentData)(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] =
-      baseStore.addUnassignmentData(reassignmentData)
-
-    override def addUnassignmentResult(unassignmentResult: DeliveredUnassignmentResult)(implicit
-        traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] =
-      baseStore.addUnassignmentResult(unassignmentResult)
+      baseStore.addUnassignmentData(unassignmentData)
 
     override def addReassignmentsOffsets(
         offsets: Map[ReassignmentId, UnassignmentData.ReassignmentGlobalOffset]

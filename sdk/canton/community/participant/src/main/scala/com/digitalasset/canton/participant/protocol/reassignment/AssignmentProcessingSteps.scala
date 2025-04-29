@@ -36,6 +36,7 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
 }
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -144,12 +145,6 @@ private[reassignment] class AssignmentProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
 
-      unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
-        unassignmentData.unassignmentResult.toRight(
-          UnassignmentIncomplete(reassignmentId, participantId)
-        )
-      )
-
       targetSynchronizer = unassignmentData.targetSynchronizer
       _ = if (targetSynchronizer != synchronizerId)
         throw new IllegalStateException(
@@ -174,12 +169,12 @@ private[reassignment] class AssignmentProcessingSteps(
         makeFullAssignmentTree(
           pureCrypto,
           seed,
+          reassignmentId,
           submitterMetadata,
           unassignmentData.contract,
           unassignmentData.reassignmentCounter,
           targetSynchronizer,
           mediator,
-          unassignmentResult,
           assignmentUuid,
           targetProtocolVersion,
           unassignmentData.unassignmentRequest.reassigningParticipants,
@@ -322,14 +317,14 @@ private[reassignment] class AssignmentProcessingSteps(
         contracts = contractCheck,
         reassignmentIds =
           if (parsedRequest.fullViewTree.isReassigningParticipant(participantId))
-            Set(parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId)
+            Set(parsedRequest.fullViewTree.reassignmentId)
           else Set.empty,
       )
       Right(activenessSet)
     } else
       Left(
         UnexpectedSynchronizer(
-          parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId,
+          parsedRequest.fullViewTree.reassignmentId,
           targetSynchronizerId = parsedRequest.fullViewTree.synchronizerId,
           receivedOn = synchronizerId.unwrap,
         )
@@ -347,12 +342,16 @@ private[reassignment] class AssignmentProcessingSteps(
     ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val reassignmentId = parsedRequest.fullViewTree.unassignmentResultEvent.reassignmentId
+    val reassignmentId = parsedRequest.fullViewTree.reassignmentId
+    val isReassigningParticipant =
+      parsedRequest.fullViewTree.isReassigningParticipant(participantId)
+
     for {
-      reassignmentDataE <- EitherT
-        .right[ReassignmentProcessorError](
-          reassignmentLookup.lookup(reassignmentId).value
-        )
+      reassignmentDataE <- EitherT.right[ReassignmentProcessorError](
+        reassignmentCoordination
+          .waitForStartedUnassignmentToCompletePhase7(reassignmentId)
+          .flatMap(_ => reassignmentLookup.lookup(reassignmentId).value)
+      )
 
       assignmentValidationResult <- assignmentValidation
         .perform(
@@ -362,7 +361,7 @@ private[reassignment] class AssignmentProcessingSteps(
         )(parsedRequest)
 
     } yield {
-      val responseF = if (assignmentValidationResult.isReassigningParticipant) {
+      val responseF = if (isReassigningParticipant) {
         if (!assignmentValidationResult.validationResult.isUnassignmentDataNotFound)
           createConfirmationResponses(
             parsedRequest.requestId,
@@ -568,12 +567,12 @@ object AssignmentProcessingSteps {
   private[reassignment] def makeFullAssignmentTree(
       pureCrypto: CryptoPureApi,
       seed: SaltSeed,
+      reassignmentId: ReassignmentId,
       submitterMetadata: ReassignmentSubmitterMetadata,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
       targetSynchronizer: Target[SynchronizerId],
       targetMediator: MediatorGroupRecipient,
-      unassignmentResult: DeliveredUnassignmentResult,
       assignmentUuid: UUID,
       targetProtocolVersion: Target[ProtocolVersion],
       reassigningParticipants: Set[ParticipantId],
@@ -598,8 +597,8 @@ object AssignmentProcessingSteps {
       view <- AssignmentView
         .create(pureCrypto)(
           viewSalt,
+          reassignmentId,
           contract,
-          unassignmentResult,
           targetProtocolVersion,
           reassignmentCounter,
         )

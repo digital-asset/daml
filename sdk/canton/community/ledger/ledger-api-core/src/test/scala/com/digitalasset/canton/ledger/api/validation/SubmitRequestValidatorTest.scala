@@ -17,11 +17,10 @@ import com.daml.ledger.api.v2.value.{
 }
 import com.digitalasset.canton.data.{DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.api.ApiMocks.{commandId, submissionId, userId, workflowId}
-import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.api.{ApiMocks, Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.daml.lf.command.{
   ApiCommand as LfCommand,
@@ -51,7 +50,7 @@ class SubmitRequestValidatorTest
     with TableDrivenPropertyChecks
     with MockitoSugar
     with ArgumentMatchersSugar {
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
+  private implicit val errorLoggingContext: ErrorLoggingContext = NoLogging
 
   private object api {
     private val packageId = "package"
@@ -204,7 +203,7 @@ class SubmitRequestValidatorTest
   private val testedCommandValidator = {
     val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-    when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
+    when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
       .thenReturn(Right(internal.disclosedContracts))
 
     new CommandsValidator(
@@ -235,7 +234,7 @@ class SubmitRequestValidatorTest
           currentLedgerTime = internal.ledgerTime,
           currentUtcTime = internal.submittedAt,
           maxDeduplicationDuration = internal.maxDeduplicationDuration,
-        ) shouldEqual Right(SubmitRequest(internal.emptyCommands))
+        ) shouldEqual Right(())
       }
 
       "validate a request with empty by party and any party filters" in {
@@ -556,7 +555,7 @@ class SubmitRequestValidatorTest
       "fail when disclosed contracts validation fails" in {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-        when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
+        when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
           .thenReturn(
             Left(
               RequestValidationErrors.InvalidField
@@ -588,14 +587,14 @@ class SubmitRequestValidatorTest
       "when upgrading" should {
         val validateDisclosedContractsMock = mock[ValidateDisclosedContracts]
 
-        when(validateDisclosedContractsMock(any[Commands])(any[ContextualizedErrorLogger]))
+        when(validateDisclosedContractsMock(any[Commands])(any[ErrorLoggingContext]))
           .thenReturn(Right(internal.disclosedContracts))
 
         val packageMap =
           Map(packageId -> (packageName, Ref.PackageVersion.assertFromString("1.0.0")))
         val validateUpgradingPackageResolutions = new ValidateUpgradingPackageResolutions {
           override def apply(userPackageIdPreferences: Seq[String])(implicit
-              contextualizedErrorLogger: ContextualizedErrorLogger
+              errorLoggingContext: ErrorLoggingContext
           ): Either[
             StatusRuntimeException,
             ValidateUpgradingPackageResolutions.ValidatedCommandPackageResolutionsSnapshot,

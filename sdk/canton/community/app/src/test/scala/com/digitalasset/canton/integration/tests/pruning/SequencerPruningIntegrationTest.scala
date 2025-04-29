@@ -51,6 +51,12 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
       _.focus(_.acknowledgementInterval).replace(sequencerClientAcknowledgementInterval)
     )
 
+  // disable the acknowledgement conflate window to prevent conflating acknowledgements
+  protected val reduceSequencerAcknowledgementConflateWindow: ConfigTransform =
+    ConfigTransforms.updateAllSequencerConfigs_(
+      _.focus(_.acknowledgementsConflateWindow).replace(None)
+    )
+
   // participant 3 has higher acknowledgement interval so we can simulate a member falling behind in acknowledgements
   protected val increaseParticipant3AcknowledgementInterval: ConfigTransform =
     ConfigTransforms.updateParticipantConfig("participant3") { config =>
@@ -113,13 +119,13 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
   }
 
   protected val pruningRegexWithTrafficPurchase =
-    """Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints"""
+    """Removed at least ([1-9]\d*) events, at least (\d+) payloads"""
 
   protected val pruningRegex =
-    """Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints"""
+    """Removed at least ([1-9]\d*) events, at least (\d+) payloads"""
 
   protected val pruningNothing =
-    """Removed at least 0 events, at least 0 payloads, at least 0 counter checkpoints"""
+    """Removed at least 0 events, at least 0 payloads"""
 
   "prune only removes events up the point where all enabled clients have acknowledgements" in {
     implicit env =>
@@ -134,8 +140,9 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
       onboardParticipant(participant3)
       participant3Id = participant3.id
 
-      // Generate 2 traffic purchase. We need 2 because we will always keep the latest one even if it's in the pruning window
-      // such that we don't lose all traffic information for a member forever.
+      // Generate 2 traffic purchase.
+      //  We need 2 because we want to prune at least 1 and the latest one will always be kept,
+      //  even if it's in the pruning window (so that we don't lose all traffic information for a member forever),
       sequencer1.traffic_control.set_traffic_balance(
         participant1,
         PositiveInt.one,
@@ -155,6 +162,18 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
       // properly synchronize with everything so that the next time jump is after the party enablement events have become clean
       val startTime = environment.simClock.value.now
       sendMsgToAllMembers()
+
+      // Ensure both traffic updates are effective by asserting that the second extra traffic value is set.
+      //  However, traffic state gets effectively updated on the next sequenced event, so before checking
+      //  we must `sendMsgToAllMembers` to produce some sequencer activity, thus ensuring that the traffic
+      //  state is updated.
+      eventually(timeUntilSuccess = 60.seconds) {
+        sequencer1.traffic_control
+          .traffic_state_of_members(Seq(participant1.id))
+          .trafficStates
+          .get(participant1.id)
+          .map(_.extraTrafficPurchased.value) shouldBe Some(1000)
+      }
 
       // advance time to ensure that sequencer clients should eventually ack where they're at
       // including participant3 that has the longest acknowledgement time
@@ -308,6 +327,7 @@ trait SequencerNodePruningIntegrationTest extends SequencerPruningIntegrationTes
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3_S1M1
       .addConfigTransform(reduceSequencerClientAcknowledgementInterval)
+      .addConfigTransform(reduceSequencerAcknowledgementConflateWindow)
       .addConfigTransform(increaseParticipant3AcknowledgementInterval)
       .addConfigTransform(ConfigTransforms.useStaticTime)
       .addConfigTransform(setupSequencerConfig)

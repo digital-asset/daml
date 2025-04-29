@@ -71,7 +71,7 @@ object RepairContract {
           s"Unable to decode contract event payload: ${decodeError.errorMessage}"
         )
 
-      contractInstance = LfContractInst(
+      contractInstance = LfThinContractInst(
         fattyContract.packageName,
         fattyContract.templateId,
         transaction.Versioned(fattyContract.version, fattyContract.createArg),

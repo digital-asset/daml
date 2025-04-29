@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.{
 import scala.jdk.CollectionConverters.*
 
 final case class PartyReplicationProposalParams private (
-    partyReplicationId: Hash,
+    requestId: Hash,
     partyId: PartyId,
     synchronizerId: SynchronizerId,
     targetParticipantId: ParticipantId,
@@ -35,7 +35,7 @@ object PartyReplicationProposalParams {
   ): Either[String, PartyReplicationProposalParams] =
     for {
       _ <- Either.cond(c.partyReplicationId.nonEmpty, (), "Empty party replication id")
-      partyReplicationId <- Hash
+      requestId <- Hash
         .fromHexString(c.partyReplicationId)
         .leftMap(err => s"Invalid party replication id: $err")
       partyId <-
@@ -69,7 +69,7 @@ object PartyReplicationProposalParams {
       )
       serial <- serialIntO.traverse(PositiveInt.create).leftMap(_.message)
     } yield PartyReplicationProposalParams(
-      partyReplicationId,
+      requestId,
       partyId,
       synchronizerId,
       targetParticipantId,

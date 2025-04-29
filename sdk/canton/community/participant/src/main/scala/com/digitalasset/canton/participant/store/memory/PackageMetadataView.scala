@@ -9,7 +9,8 @@ import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTime
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.admin.PackageService
 import com.digitalasset.canton.participant.store.DamlPackageStore
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
@@ -29,7 +30,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * on the current participant.
   */
 trait PackageMetadataView extends AutoCloseable {
-  def getSnapshot(implicit contextualizedErrorLogger: ContextualizedErrorLogger): PackageMetadata
+  def getSnapshot(implicit errorLoggingContext: ErrorLoggingContext): PackageMetadata
 }
 
 /** Exposes mutable accessors to the [[PackageMetadataView]] to be used only during state
@@ -113,7 +114,7 @@ class MutablePackageMetadataViewImpl(
       )
     }
 
-  def getSnapshot(implicit contextualizedErrorLogger: ContextualizedErrorLogger): PackageMetadata =
+  def getSnapshot(implicit errorLoggingContext: ErrorLoggingContext): PackageMetadata =
     packageMetadataRef
       .get()
       .getOrElse(
@@ -127,7 +128,7 @@ class MutablePackageMetadataViewImpl(
   )(implicit tc: TraceContext): Future[PackageMetadata] =
     PackageService
       .catchUpstreamErrors(Decode.decodeArchive(archive))
-      .onShutdown(Left(CommonErrors.ServerIsShuttingDown.Reject()))
+      .onShutdown(Left(GrpcErrors.AbortedDueToShutdown.Error()))
       .leftSemiflatMap(err => Future.failed(err.asGrpcError))
       .merge
       .map { case (pkgId, pkg) => PackageMetadata.from(pkgId, pkg) }
@@ -150,7 +151,7 @@ object NoopPackageMetadataView extends MutablePackageMetadataView {
   override def refreshState(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
     FutureUnlessShutdown.unit
   override def getSnapshot(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PackageMetadata = PackageMetadata()
   override def update(other: PackageMetadata)(implicit tc: TraceContext): Unit = ()
   override def close(): Unit = ()

@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.indexer.parallel
 import com.daml.executors.executors.{NamedExecutor, QueueAwareExecutor}
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.RepairCounter
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.{
   RepairTransactionAccepted,
@@ -42,10 +42,9 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.data.{Ref, Time}
+import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -120,7 +119,6 @@ class ParallelIndexerSubscriptionSpec
     contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_name = "",
-    package_version = None,
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_argument = Array.empty,
@@ -178,7 +176,6 @@ class ParallelIndexerSubscriptionSpec
     contract_id = hashCid("1").toBytes.toByteArray,
     template_id = "",
     package_name = "",
-    package_version = None,
     flat_event_witnesses = Set.empty,
     create_argument = Array.empty,
     create_signatories = Set.empty,
@@ -258,7 +255,7 @@ class ParallelIndexerSubscriptionSpec
     val actual = ParallelIndexerSubscription.inputMapper(
       metrics = metrics,
       toDbDto = _ => _ => Iterator(someParty, someParty),
-      toMeteringDbDto = _ => Vector.empty,
+      eventMetricsUpdater = _ => (),
       logger,
     )(
       List(
@@ -287,75 +284,6 @@ class ParallelIndexerSubscriptionSpec
       offsetsUpdates = offsetsAndUpdates,
     )
     actual shouldBe expected
-  }
-
-  behavior of "inputMapper transaction metering"
-
-  it should "extract transaction metering" in {
-
-    val userId = Ref.UserId.assertFromString("a0")
-
-    val timestamp: Long = 12345
-    val offset = Offset.tryFromLong(2)
-    val someHash = Hash.hashPrivateKey("p0")
-
-    val someRecordTime =
-      Time.Timestamp.assertFromInstant(Instant.parse("2000-01-01T00:00:00.000000Z"))
-
-    val someCompletionInfo = state.CompletionInfo(
-      actAs = Nil,
-      userId = userId,
-      commandId = Ref.CommandId.assertFromString("c0"),
-      optDeduplicationPeriod = None,
-      submissionId = None,
-    )
-    val someTransactionMeta = state.TransactionMeta(
-      ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
-      workflowId = None,
-      submissionTime = Time.Timestamp.assertFromLong(3),
-      submissionSeed = someHash,
-      optUsedPackages = None,
-      optNodeSeeds = None,
-      optByKeyNodes = None,
-    )
-
-    val someTransactionAccepted = state.Update.SequencedTransactionAccepted(
-      completionInfoO = Some(someCompletionInfo),
-      transactionMeta = someTransactionMeta,
-      transaction = CommittedTransaction(
-        VersionedTransaction(LanguageVersion.v2_dev, Map.empty, ImmArray.empty)
-      ),
-      updateId = Ref.TransactionId.assertFromString("UpdateId"),
-      contractMetadata = Map.empty,
-      synchronizerId = SynchronizerId.tryFromString("da::default"),
-      recordTime = CantonTimestamp(someRecordTime),
-    )
-
-    val expected: Vector[DbDto.TransactionMetering] = Vector(
-      DbDto.TransactionMetering(
-        user_id = userId,
-        action_count = 0,
-        metering_timestamp = timestamp,
-        ledger_offset = offset.unwrap,
-      )
-    )
-
-    val actual: Vector[DbDto.TransactionMetering] = ParallelIndexerSubscription
-      .inputMapper(
-        metrics = metrics,
-        toDbDto = _ => _ => Iterator.empty,
-        toMeteringDbDto = _ => expected,
-        logger,
-      )(
-        List(
-          (offset, someTransactionAccepted)
-        )
-      )
-      .batch
-      .asInstanceOf[Vector[DbDto.TransactionMetering]]
-
-    actual shouldBe expected
-
   }
 
   behavior of "seqMapperZero"
@@ -1360,6 +1288,7 @@ class ParallelIndexerSubscriptionSpec
         submissionSeed = crypto.Hash.assertFromString(
           "01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086"
         ),
+        timeBoundaries = LedgerTimeBoundaries.unconstrained,
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,

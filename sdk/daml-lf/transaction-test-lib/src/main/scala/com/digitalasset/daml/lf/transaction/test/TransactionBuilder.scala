@@ -9,8 +9,8 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
-  ContractInstance,
-  VersionedContractInstance,
+  ThinContractInstance,
+  VersionedThinContractInstance,
 }
 
 import scala.Ordering.Implicits.infixOrderingOps
@@ -31,6 +31,13 @@ object TransactionBuilder {
     crypto.Hash.secureRandom(crypto.Hash.assertFromByteArray(bytes))
   }
 
+  private def newTimestamp(): Time.Timestamp = {
+    val randomMicrosSince0 = scala.util.Random.nextLong(
+      Time.Timestamp.MaxValue.micros - Time.Timestamp.MinValue.micros + 1
+    )
+    Time.Timestamp.assertFromLong(randomMicrosSince0 + Time.Timestamp.MinValue.micros)
+  }
+
   def record(fields: (String, String)*): Value =
     Value.ValueRecord(
       tycon = None,
@@ -42,6 +49,7 @@ object TransactionBuilder {
     )
 
   def newV1Cid: ContractId.V1 = ContractId.V1(newHash())
+  def newV2Cid: ContractId.V2 = ContractId.V2.unsuffixed(newTimestamp(), newHash())
 
   def newCid: ContractId = newV1Cid
 
@@ -126,16 +134,16 @@ object TransactionBuilder {
     data.assertRight(assignVersion(v0, supportedVersions))
 
   def asVersionedContract(
-      contract: ContractInstance,
+      contract: ThinContractInstance,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): Either[String, VersionedContractInstance] =
+  ): Either[String, VersionedThinContractInstance] =
     assignVersion(contract.arg, supportedVersions)
       .map(Versioned(_, contract))
 
   def assertAsVersionedContract(
-      contract: ContractInstance,
+      contract: ThinContractInstance,
       supportedVersions: VersionRange[TransactionVersion] = TransactionVersion.DevVersions,
-  ): VersionedContractInstance =
+  ): VersionedThinContractInstance =
     data.assertRight(asVersionedContract(contract, supportedVersions))
 
   object Implicits {

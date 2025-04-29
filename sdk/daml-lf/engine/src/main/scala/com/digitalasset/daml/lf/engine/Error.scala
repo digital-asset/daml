@@ -128,6 +128,12 @@ object Error {
 
         def apply(cid: Value.ContractId.V1): IllegalContractId = IllegalContractId(cid, this)
       }
+
+      case object NonSuffixV2ContractId extends Reason {
+        def details = "non-suffixed V2 Contract IDs are forbidden"
+
+        def apply(cid: Value.ContractId.V2): IllegalContractId = IllegalContractId(cid, this)
+      }
     }
 
     final case class RootNode(nodeId: NodeId, override val message: String) extends Error

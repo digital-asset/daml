@@ -26,18 +26,13 @@ abstract class InitialTopologySnapshotValidatorTest
   import Factory.*
 
   protected def mk(
-      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(Factory.synchronizerId1a),
-      synchronizerId: SynchronizerId = Factory.synchronizerId1a,
-      insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot: Boolean = false,
+      store: TopologyStore[TopologyStoreId.SynchronizerStore] = mkStore(Factory.synchronizerId1a)
   ): (InitialTopologySnapshotValidator, TopologyStore[TopologyStoreId.SynchronizerStore]) = {
 
     val validator = new InitialTopologySnapshotValidator(
-      synchronizerId,
       testedProtocolVersion,
       new SynchronizerCryptoPureApi(defaultStaticSynchronizerParameters, crypto),
       store,
-      insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot =
-        insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
@@ -107,12 +102,64 @@ abstract class InitialTopologySnapshotValidatorTest
           )
         )
       )
-      val (validator, store) = mk(insecureIgnoreMissingExtraKeySignaturesInInitialSnapshot = true)
+
+      val (validator, store) = mk()
 
       val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
       result shouldBe Right(())
+
       val stateAfterInitialization = fetch(store, timestampForInit.immediateSuccessor)
       validate(stateAfterInitialization, genesisState.result.map(_.transaction))
+    }
+
+    "reject missing signatures of signing keys if the transaction is not in the genesis topology state" in {
+
+      val timestampForInit = SignedTopologyTransaction.InitialTopologySequencingTime
+      val okmS1k7_without_k7_signature =
+        okmS1k7_k1.removeSignatures(Set(SigningKeys.key7.fingerprint)).value
+      val genesisState = StoredTopologyTransactions(
+        List(
+          ns1k1_k1,
+          dmp1_k1,
+          ns2k2_k2,
+          ns3k3_k3,
+          ns1k2_k1,
+          dtcp1_k1,
+          okm1bk5k1E_k1,
+        ).map(tx =>
+          StoredTopologyTransaction(
+            SequencedTime(timestampForInit),
+            EffectiveTime(timestampForInit),
+            validUntil = None,
+            tx,
+            None,
+          )
+        ) :+ StoredTopologyTransaction(
+          SequencedTime(ts(1)),
+          EffectiveTime(ts(1).plus((dmp1_k1.mapping.parameters.topologyChangeDelay.duration))),
+          validUntil = None,
+          okmS1k7_without_k7_signature,
+          None,
+        )
+      )
+
+      val (validator, store) = mk()
+
+      val result = validator.validateAndApplyInitialTopologySnapshot(genesisState).futureValueUS
+      result.left.value should include regex ("(?s)Store:.*rejectionReason = 'Not authorized'".r)
+
+      val stateAfterInitialization = fetch(store, ts(2))
+      // the OTK is rejected and therefore is not returned when looking up valid transactions
+      validate(stateAfterInitialization, genesisState.result.map(_.transaction).dropRight(1))
+
+      // verify that the OTK was rejected with the expected reason
+      store
+        .findStored(ts(2), okmS1k7_without_k7_signature, includeRejected = true)
+        .futureValueUS
+        .value
+        .rejectionReason
+        .value
+        .str shouldBe "Not authorized"
     }
 
     "detect inconsistencies between the snapshot and the result of processing the transactions" in {

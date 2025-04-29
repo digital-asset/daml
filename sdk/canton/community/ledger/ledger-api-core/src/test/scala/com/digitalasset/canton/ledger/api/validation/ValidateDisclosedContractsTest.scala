@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
   lf,
   validateDisclosedContracts,
 }
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfTransactionVersion}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
@@ -36,7 +36,7 @@ class ValidateDisclosedContractsTest
     with Matchers
     with EitherValues
     with ValidatorTestUtils {
-  private implicit val contextualizedErrorLogger: ContextualizedErrorLogger = NoLogging
+  private implicit val errorLoggingContext: ErrorLoggingContext = NoLogging
 
   behavior of classOf[ValidateDisclosedContracts].getSimpleName
 
@@ -311,7 +311,6 @@ object ValidateDisclosedContractsTest {
       templateId = lf.templateId,
       packageName = api.packageName,
       arg = lf.createArg,
-      agreementText = "",
       signatories = api.signatories,
       stakeholders = api.stakeholders,
       keyOpt = Some(lf.keyWithMaintainers),

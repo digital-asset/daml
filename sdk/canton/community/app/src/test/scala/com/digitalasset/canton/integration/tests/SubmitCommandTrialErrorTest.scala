@@ -7,7 +7,6 @@ import com.daml.ledger.javaapi.data.Command
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
-  NoSynchronizerForSubmission,
   UnknownInformees,
   UnknownSubmitters,
 }
@@ -21,6 +20,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.PackageSelectionFailed
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NotFound
 import com.digitalasset.canton.topology.PartyId
 
@@ -45,17 +45,20 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
     "not execute a command due to a missing package on the submitter" in { implicit env =>
       import env.*
 
-      Bank = PartyId.tryFromProtoPrimitive("Bank::foo")
+      val submitterForUnknownPackageTest =
+        participant1.parties.enable("SubmitterForUnknownPackageTest")
+      val observerForUnknownPackageTest =
+        participant1.parties.enable("ObserverForUnknownPackageTest")
 
       cmds = new Iou(
-        Bank.toProtoPrimitive,
-        "Alice::foo",
+        submitterForUnknownPackageTest.toProtoPrimitive,
+        observerForUnknownPackageTest.toProtoPrimitive,
         amount,
         List.empty.asJava,
       ).create.commands.asScala.toSeq
 
       assertThrowsAndLogsCommandFailures(
-        participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds),
+        participant1.ledger_api.javaapi.commands.submit(Seq(submitterForUnknownPackageTest), cmds),
         x => {
           x.shouldBeCommandFailure(NotFound.Package)
           x.message should include("Iou:Iou")
@@ -70,7 +73,8 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
       participant1.dars.upload(CantonExamplesPath)
 
       assertThrowsAndLogsCommandFailures(
-        participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds),
+        participant1.ledger_api.javaapi.commands
+          .submit(Seq(PartyId.tryFromProtoPrimitive("UnknownSubmitter::Foo")), cmds),
         _.commandFailureMessage should include(UnknownSubmitters.id),
       )
 
@@ -106,7 +110,9 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
       assertThrowsAndLogsCommandFailures(
         participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds),
         // TODO(#23334): Improve error assertion once the detailed rejection is propagated
-        _.commandFailureMessage should include(NoSynchronizerForSubmission.id),
+        _.commandFailureMessage should (include(PackageSelectionFailed.id) and include(
+          "No synchronizers satisfy the draft transaction topology requirements"
+        )),
         //        _.commandFailureMessage should (include(
         //          NoSynchronizerForSubmission.id
         //        ) and include regex "Participant PAR::participant2::.* has not vetted"),

@@ -556,7 +556,6 @@ private[archive] class DecodeV1(minor: LV.Minor) {
       }
     }
 
-    @scala.annotation.nowarn("cat=unused")
     private[this] def decodeTemplate(tpl: DottedName, lfTempl: PLF.DefTemplate): Work[Template] = {
       val lfImplements = lfTempl.getImplementsList.asScala
       if (versionIsOlderThan(Features.basicInterfaces))
@@ -574,32 +573,29 @@ private[archive] class DecodeV1(minor: LV.Minor) {
         else Ret(ETrue)
       ) { precond =>
         decodeExpr(lfTempl.getSignatories, s"$tpl.signatory") { signatories =>
-          decodeExpr(lfTempl.getAgreement, s"$tpl:agreement") { agreementText =>
-            Work.sequence(lfTempl.getChoicesList.asScala.view.map(decodeChoice(tpl, _))) {
-              choices =>
-                decodeExpr(lfTempl.getObservers, s"$tpl:observer") { observers =>
-                  Work.sequence(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
-                    Work.bind(
-                      if (lfTempl.hasKey) {
-                        Work.bind(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
-                          Ret(Some(tk))
-                        }
-                      } else Ret(None)
-                    ) { key =>
-                      Ret(
-                        Template.build(
-                          param = paramName,
-                          precond = precond,
-                          signatories = signatories,
-                          choices = choices,
-                          observers = observers,
-                          implements = implements,
-                          key = key,
-                        )
-                      )
+          Work.sequence(lfTempl.getChoicesList.asScala.view.map(decodeChoice(tpl, _))) { choices =>
+            decodeExpr(lfTempl.getObservers, s"$tpl:observer") { observers =>
+              Work.sequence(lfImplements.view.map(decodeTemplateImplements(_))) { implements =>
+                Work.bind(
+                  if (lfTempl.hasKey) {
+                    Work.bind(decodeTemplateKey(tpl, lfTempl.getKey, paramName)) { tk =>
+                      Ret(Some(tk))
                     }
-                  }
+                  } else Ret(None)
+                ) { key =>
+                  Ret(
+                    Template.build(
+                      param = paramName,
+                      precond = precond,
+                      signatories = signatories,
+                      choices = choices,
+                      observers = observers,
+                      implements = implements,
+                      key = key,
+                    )
+                  )
                 }
+              }
             }
           }
         }

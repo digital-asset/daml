@@ -15,6 +15,11 @@ module DA.Assert
 #endif
   ) where
 
+import DA.Action (when, unless)
+import DA.Fail
+import DA.TextMap qualified as TextMap
+import DA.Time (isLedgerTimeGE)
+
 infix 4 ===
 infix 4 =/=
 
@@ -59,3 +64,27 @@ assertBeforeMsg msg time = do
   if time < now
     then assertFail msg
     else return ()
+
+-- | Check whether the ledger time of the transaction is strictly before the given deadline.
+-- If it's not, abort with a message.
+assertWithinDeadline: Text -> Time -> Update ()
+assertWithinDeadline name deadline = do
+  deadlineExceeded <- isLedgerTimeGE deadline
+  when deadlineExceeded $ failWithStatus $
+    FailureStatus
+      "stdlib.daml.com/deadline-exceeded"
+      InvalidGivenCurrentSystemStateOther
+      ("Ledger time is at or past deadline '" <> name <> "' at " <> show deadline)
+      (TextMap.fromList [("deadline", show deadline)])
+
+-- | Check whether the ledger time of the transaction is at or after the given deadline.
+-- If it's not, abort with a message.
+assertDeadlineExceeded: Text -> Time -> Update ()
+assertDeadlineExceeded name deadline = do
+  deadlineExceeded <- isLedgerTimeGE deadline
+  unless deadlineExceeded $ failWithStatus $
+    FailureStatus
+      "stdlib.daml.com/deadline-not-exceeded"
+      InvalidGivenCurrentSystemStateOther
+      ("Ledger time is strictly before deadline '" <> name <> "' at " <> show deadline)
+      (TextMap.fromList [("deadline", show deadline)])

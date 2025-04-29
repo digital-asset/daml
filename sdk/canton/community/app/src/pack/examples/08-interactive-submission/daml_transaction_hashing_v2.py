@@ -23,6 +23,8 @@ def encode_bool(value):
 
 
 def encode_int32(value):
+    if not (-2**31 <= value < 2**31):
+        raise ValueError(f"Value {value} out of range for int32")
     return struct.pack(">i", value)
 
 
@@ -256,8 +258,14 @@ def encode_metadata(metadata):
         + encode_string(metadata.synchronizer_id)
         + encode_proto_optional(
             metadata,
-            "ledger_effective_time",
-            metadata.ledger_effective_time,
+            "min_ledger_effective_time",
+            metadata.min_ledger_effective_time,
+            encode_int64,
+        )
+        + encode_proto_optional(
+            metadata,
+            "max_ledger_effective_time",
+            metadata.max_ledger_effective_time,
             encode_int64,
         )
         + encode_int64(metadata.submission_time)

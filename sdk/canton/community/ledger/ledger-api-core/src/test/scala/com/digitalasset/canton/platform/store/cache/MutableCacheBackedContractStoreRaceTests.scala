@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStoreRaceTests.{
   IndexViewContractsReader,
   assert_sync_vs_async_race_contract,
@@ -22,10 +23,11 @@ import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion, Versioned}
+import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.transaction.{Node, Versioned}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.{ContractInstance, ValueInt64}
+import com.digitalasset.daml.lf.value.Value.ValueInt64
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
@@ -173,14 +175,14 @@ private object MutableCacheBackedContractStoreRaceTests {
     }
 
   private def assertContractIdAssignmentAfterAppliedEvent(
-      assignment: Option[Contract]
+      assignment: Option[FatContract]
   )(event: SimplifiedContractStateEvent): Unit =
     assignment match {
-      case Some(actualContract) if (event.contract != actualContract) || !event.created =>
+      case Some(actualContract) if (event.contract != toThin(actualContract)) || !event.created =>
         fail(message =
           s"Contract state corruption for ${event.contractId}: " +
             s"expected ${if (event.created) s"active contract (${event.contract})"
-              else "non-active contract"}, but got assignment to $actualContract"
+              else "non-active contract"}, but got assignment to ${toThin(actualContract)}"
         )
       case None if event.created =>
         fail(message =
@@ -209,8 +211,8 @@ private object MutableCacheBackedContractStoreRaceTests {
       _ <- indexViewContractsReader
         .lookupContractState(event.contractId, event.offset)
         .map {
-          case Some(ActiveContract(actualContract, _, _, _, _, _, _))
-              if event.created && event.contract == actualContract =>
+          case Some(ActiveContract(actualContract))
+              if event.created && event.contract == toThin(actualContract) =>
           case Some(ArchivedContract(_)) if !event.created =>
           case actual =>
             fail(
@@ -225,7 +227,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       contractsCount: Long,
   ): Seq[Offset => SimplifiedContractStateEvent] = {
     val keys = (0L until keysCount).map { keyIdx =>
-      keyIdx -> GlobalKey.assertBuild(
+      keyIdx -> Key.assertBuild(
         Identifier.assertFromString("pkgId:module:entity"),
         ValueInt64(keyIdx),
         Ref.PackageName.assertFromString("pkg-name"),
@@ -241,7 +243,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           val contractRef = contract(globalContractIdx)
           (contractId, contractRef)
         }
-        .foldLeft(VectorMap.empty[ContractId, Contract]) { case (r, (k, v)) =>
+        .foldLeft(VectorMap.empty[ContractId, ThinContract]) { case (r, (k, v)) =>
           r.updated(k, v)
         }
     }
@@ -296,18 +298,20 @@ private object MutableCacheBackedContractStoreRaceTests {
   final case class SimplifiedContractStateEvent(
       offset: Offset,
       contractId: ContractId,
-      contract: Contract,
+      contract: ThinContract,
       created: Boolean,
-      key: GlobalKey,
+      key: Key,
   )
 
-  private def contract(idx: Long): Contract = {
+  private def contract(idx: Long): ThinContract = {
     val templateId = Identifier.assertFromString(s"somePackage:someModule:someEntity")
     val packageName = Ref.PackageName.assertFromString("pkg-name")
     val contractArgument = Value.ValueInt64(idx)
-    val contractInstance =
-      ContractInstance(packageName = packageName, template = templateId, arg = contractArgument)
-    Versioned(TransactionVersion.StableVersions.max, contractInstance)
+    ThinContract(
+      packageName = packageName,
+      template = templateId,
+      arg = Versioned(LanguageMajorVersion.V2.maxStableVersion, contractArgument),
+    )
   }
 
   private def buildContractStore(
@@ -333,15 +337,21 @@ private object MutableCacheBackedContractStoreRaceTests {
     case SimplifiedContractStateEvent(offset, contractId, contract, created, key) =>
       if (created)
         ContractStateEvent.Created(
-          contractId = contractId,
-          contract = contract,
-          globalKey = Some(key),
-          ledgerEffectiveTime = Time.Timestamp.MinValue, // Not used
-          stakeholders = stakeholders, // Not used
-          eventOffset = offset,
-          signatories = stakeholders,
-          keyMaintainers = None,
-          driverMetadata = Array.empty,
+          FatContract.fromCreateNode(
+            create = Node.Create(
+              coid = contractId,
+              packageName = contract.unversioned.packageName,
+              templateId = contract.unversioned.template,
+              arg = contract.unversioned.arg,
+              signatories = stakeholders,
+              stakeholders = stakeholders, // Not used
+              keyOpt = Some(KeyWithMaintainers(key, Set.empty)),
+              version = contract.version,
+            ),
+            createTime = Time.Timestamp.MinValue, // Not used,
+            cantonData = Bytes.Empty,
+          ),
+          offset,
         )
       else
         ContractStateEvent.Archived(
@@ -354,7 +364,7 @@ private object MutableCacheBackedContractStoreRaceTests {
 
   final case class ContractLifecycle(
       contractId: ContractId,
-      contract: Contract,
+      contract: ThinContract,
       createdAt: Offset,
       archivedAt: Option[Offset],
   )
@@ -431,13 +441,20 @@ private object MutableCacheBackedContractStoreRaceTests {
             else if (maybeArchivedAt.forall(_ > validAt))
               Some(
                 ActiveContract(
-                  contract,
-                  stakeholders,
-                  Time.Timestamp.MinValue,
-                  Set.empty,
-                  None,
-                  None,
-                  Array.empty,
+                  FatContract.fromCreateNode(
+                    create = Node.Create(
+                      coid = contractId,
+                      packageName = contract.unversioned.packageName,
+                      templateId = contract.unversioned.template,
+                      arg = contract.unversioned.arg,
+                      signatories = stakeholders,
+                      stakeholders = stakeholders,
+                      keyOpt = None,
+                      version = contract.version,
+                    ),
+                    createTime = Time.Timestamp.MinValue,
+                    cantonData = Bytes.Empty,
+                  )
                 )
               )
             else Some(ArchivedContract(stakeholders))
@@ -472,4 +489,12 @@ private object MutableCacheBackedContractStoreRaceTests {
   }
 
   private def nextAfter(currentOffset: Offset) = currentOffset.increment
+
+  def toThin(contract: FatContract): ThinContract =
+    ThinContract(
+      packageName = contract.packageName,
+      template = contract.templateId,
+      arg = Versioned(LanguageMajorVersion.V2.maxStableVersion, contract.createArg),
+    )
+
 }

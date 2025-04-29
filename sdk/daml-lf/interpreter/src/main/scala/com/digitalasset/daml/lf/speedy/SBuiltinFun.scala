@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.crypto.Hash.hashContractInstance
 import com.digitalasset.daml.lf.data.Numeric.Scale
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
+import com.digitalasset.daml.lf.data.support._
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.speedy.ArrayList.Implicits._
@@ -42,6 +43,8 @@ import java.security.{
   SignatureException,
 }
 import java.security.spec.{InvalidKeySpecException, X509EncodedKeySpec}
+import java.time.Duration
+import java.time.temporal.ChronoUnit
 import java.util
 import scala.annotation.nowarn
 import scala.collection.immutable.TreeSet
@@ -588,13 +591,13 @@ private[lf] object SBuiltinFun {
     ): Control[Q] = {
       try {
         Control.Value(
-          SText(cctp.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
+          SText(crypto.MessageDigest.digest(Ref.HexString.assertFromString(getSText(args, 0))))
         )
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.CCTP(
-              IE.CCTP.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(getSText(args, 0), "can not parse hex string")
             )
           )
       }
@@ -612,8 +615,8 @@ private[lf] object SBuiltinFun {
             .fromString(getSText(args, 0))
             .left
             .map(_ =>
-              IE.CCTP(
-                IE.CCTP.MalformedByteEncoding(
+              IE.Crypto(
+                IE.Crypto.MalformedByteEncoding(
                   getSText(args, 0),
                   cause = "can not parse signature hex string",
                 )
@@ -623,8 +626,8 @@ private[lf] object SBuiltinFun {
             .fromString(getSText(args, 1))
             .left
             .map(_ =>
-              IE.CCTP(
-                IE.CCTP.MalformedByteEncoding(
+              IE.Crypto(
+                IE.Crypto.MalformedByteEncoding(
                   getSText(args, 1),
                   cause = "can not parse message hex string",
                 )
@@ -634,8 +637,8 @@ private[lf] object SBuiltinFun {
             .fromString(getSText(args, 2))
             .left
             .map(_ =>
-              IE.CCTP(
-                IE.CCTP.MalformedByteEncoding(
+              IE.Crypto(
+                IE.Crypto.MalformedByteEncoding(
                   getSText(args, 2),
                   cause = "can not parse DER encoded public key hex string",
                 )
@@ -643,7 +646,7 @@ private[lf] object SBuiltinFun {
             )
           publicKey = extractPublicKey(derEncodedPublicKey)
         } yield {
-          SBool(cctp.MessageSignature.verify(signature, message, publicKey))
+          SBool(crypto.MessageSignature.verify(signature, message, publicKey))
         }
 
         result.fold(Control.Error, Control.Value)
@@ -654,20 +657,20 @@ private[lf] object SBuiltinFun {
           crash("BouncyCastle provider fails to support SECP256K1")
         case exn: InvalidKeyException =>
           Control.Error(
-            IE.CCTP(
-              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
+            IE.Crypto(
+              IE.Crypto.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: InvalidKeySpecException =>
           Control.Error(
-            IE.CCTP(
-              IE.CCTP.MalformedKey(getSText(args, 2), exn.getMessage)
+            IE.Crypto(
+              IE.Crypto.MalformedKey(getSText(args, 2), exn.getMessage)
             )
           )
         case exn: SignatureException =>
           Control.Error(
-            IE.CCTP(
-              IE.CCTP.MalformedSignature(getSText(args, 0), exn.getMessage)
+            IE.Crypto(
+              IE.Crypto.MalformedSignature(getSText(args, 0), exn.getMessage)
             )
           )
       }
@@ -695,8 +698,8 @@ private[lf] object SBuiltinFun {
       } catch {
         case _: IllegalArgumentException =>
           Control.Error(
-            IE.CCTP(
-              IE.CCTP.MalformedByteEncoding(
+            IE.Crypto(
+              IE.Crypto.MalformedByteEncoding(
                 getSText(args, 0),
                 cause = "can not parse hex string argument",
               )
@@ -1847,7 +1850,11 @@ private[lf] object SBuiltinFun {
         machine: UpdateMachine,
     ): Control[Question.Update] = {
       checkToken(args, 0)
-      machine.needTime(time => Control.Value(STimestamp(time)))
+      machine.needTime(time => {
+        machine.setTimeBoundaries(Time.Range(time, time))
+
+        Control.Value(STimestamp(time))
+      })
     }
   }
 
@@ -1861,7 +1868,21 @@ private[lf] object SBuiltinFun {
 
       val time = getSTimestamp(args, 0)
 
-      machine.needTime(now => Control.Value(SBool(now < time)))
+      machine.needTime(now => {
+        val Time.Range(lb, ub) = machine.getTimeBoundaries
+
+        if (now < time) {
+          machine.setTimeBoundaries(
+            Time.Range(lb, ub.min(time.subtract(Duration.of(1, ChronoUnit.MICROS))))
+          )
+
+          Control.Value(SBool(true))
+        } else {
+          machine.setTimeBoundaries(Time.Range(lb.max(time), ub))
+
+          Control.Value(SBool(false))
+        }
+      })
     }
   }
 

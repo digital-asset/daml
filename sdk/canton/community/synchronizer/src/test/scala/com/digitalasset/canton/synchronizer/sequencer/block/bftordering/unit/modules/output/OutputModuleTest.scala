@@ -11,6 +11,7 @@ import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
@@ -76,7 +77,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext}
+import com.digitalasset.canton.{HasActorSystem, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink
 import org.mockito.Mockito.clearInvocations
@@ -93,7 +94,7 @@ import BftTime.MinimumBlockTimeGranularity
 
 class OutputModuleTest
     extends AsyncWordSpecLike
-    with BaseTest
+    with BftSequencerBaseTest
     with HasActorSystem
     with HasExecutionContext {
 
@@ -591,38 +592,24 @@ class OutputModuleTest
           val topologyActivationTime = TopologyActivationTime(anotherTimestamp.immediateSuccessor)
 
           Table(
-            ("Pending Canton topology changes", "first block mode", "last block mode"),
+            ("Pending Canton topology changes", "block mode"),
             (
               false,
-              OrderedBlockForOutput.Mode.FromConsensus,
               OrderedBlockForOutput.Mode.FromConsensus,
             ),
             (
               true,
               OrderedBlockForOutput.Mode.FromConsensus,
-              OrderedBlockForOutput.Mode.FromConsensus,
             ),
             (
               false,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
+              OrderedBlockForOutput.Mode.FromStateTransfer,
             ),
             (
               true,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
+              OrderedBlockForOutput.Mode.FromStateTransfer,
             ),
-            (
-              false,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-            ),
-            (
-              true,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-              OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
-            ),
-          ).forEvery { case (pendingChanges, firstBlockMode, lastBlockMode) =>
+          ).forEvery { case (pendingChanges, blockMode) =>
             val store = spy(createOutputMetadataStore[ProgrammableUnitTestEnv])
             val topologyProviderMock = mock[OrderingTopologyProvider[ProgrammableUnitTestEnv]]
             val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
@@ -651,14 +638,14 @@ class OutputModuleTest
               completeBlockData(
                 BlockNumber.First,
                 commitTimestamp = aTimestamp,
-                mode = firstBlockMode,
+                mode = blockMode,
               )
             val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfSynchronizer = false
               completeBlockData(
                 BlockNumber(BlockNumber.First + 1L),
                 commitTimestamp = anotherTimestamp,
                 lastInEpoch = true,
-                mode = lastBlockMode,
+                mode = blockMode,
               )
 
             output.receive(Output.Start)
@@ -693,12 +680,12 @@ class OutputModuleTest
             )
 
             val piped3 = context.runPipedMessages()
-            piped3 should contain only Output.TopologyFetched(
-              lastBlockMode,
-              EpochNumber(1L), // Epoch number
-              newOrderingTopology,
-              newCryptoProvider,
-            )
+            piped3 should contain only
+              Output.TopologyFetched(
+                EpochNumber(1L), // Epoch number
+                newOrderingTopology,
+                newCryptoProvider,
+              )
 
             // All blocks have now been output to the subscription
             subscriptionBlocks should have size 2
@@ -719,7 +706,6 @@ class OutputModuleTest
               piped4 should matchPattern {
                 case Seq(
                       Output.MetadataStoredForNewEpoch(
-                        `lastBlockMode`,
                         1L, // Epoch number
                         `newOrderingTopology`,
                         _, // A fake crypto provider instance
@@ -743,7 +729,6 @@ class OutputModuleTest
                 secondEpochNumber,
                 Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
-                lastBlockMode,
               )
             )
 
@@ -766,7 +751,6 @@ class OutputModuleTest
         )
 
         // the behavior will always be the same across block modes, so the chosen one is irrelevant
-        val aBlockMode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock
         val aTopologyActivationTime = TopologyActivationTime(CantonTimestamp.MinValue)
         val anOrderingTopology =
           OrderingTopology.forTesting(
@@ -779,7 +763,6 @@ class OutputModuleTest
         val aCryptoProvider = failingCryptoProvider[ProgrammableUnitTestEnv]
         output.receive(
           TopologyFetched(
-            aBlockMode,
             secondEpochNumber,
             anOrderingTopology,
             aCryptoProvider,
@@ -791,13 +774,11 @@ class OutputModuleTest
             secondEpochNumber,
             aNewMembership,
             aCryptoProvider,
-            aBlockMode,
           )
         )
 
         output.receive(
           TopologyFetched(
-            aBlockMode,
             EpochNumber.First,
             anOrderingTopology,
             aCryptoProvider,
@@ -812,7 +793,6 @@ class OutputModuleTest
               EpochNumber.First,
               aNewMembership,
               aCryptoProvider,
-              aBlockMode,
             )
           )
         order
@@ -822,7 +802,6 @@ class OutputModuleTest
               secondEpochNumber,
               aNewMembership,
               aCryptoProvider,
-              aBlockMode,
             )
           )
 
@@ -833,11 +812,17 @@ class OutputModuleTest
     "not process a block from a future epoch" when {
       "when receiving multiple state-transferred blocks" in {
         val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
-        val output = createOutputModule[ProgrammableUnitTestEnv](requestInspector =
-          (_, _, _, _) => true // All requests are topology transactions
-        )(
-          blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks)
-        )
+        val output =
+          createOutputModule[ProgrammableUnitTestEnv](requestInspector = new RequestInspector {
+            override def isRequestToAllMembersOfSynchronizer(
+                request: OrderingRequest,
+                logger: TracedLogger,
+                traceContext: TraceContext,
+            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
+              true // All requests are topology transactions
+          })(
+            blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks)
+          )
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
 
@@ -847,7 +832,7 @@ class OutputModuleTest
             aTimestamp,
             lastInEpoch = false, // Do not complete the epoch!
             EpochNumber.First,
-            mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+            mode = OrderedBlockForOutput.Mode.FromStateTransfer,
           )
         val blockNumber2 = BlockNumber(BlockNumber.First + 1L)
         val blockData2 =
@@ -855,7 +840,7 @@ class OutputModuleTest
             blockNumber2,
             anotherTimestamp,
             epochNumber = EpochNumber(EpochNumber.First + 1L),
-            mode = OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+            mode = OrderedBlockForOutput.Mode.FromStateTransfer,
           )
 
         output.receive(Output.Start)
@@ -896,7 +881,14 @@ class OutputModuleTest
           initialOrderingTopology = OrderingTopology.forTesting(Set(BftNodeId("node1"))),
           orderingTopologyProvider = topologyProviderSpy,
           consensusRef = consensusRef,
-          requestInspector = (_, _, _, _) => false, // No request is for all members of synchronizer
+          requestInspector = new RequestInspector {
+            override def isRequestToAllMembersOfSynchronizer(
+                request: OrderingRequest,
+                logger: TracedLogger,
+                traceContext: TraceContext,
+            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
+              false // No request is for all members of synchronizer
+          },
         )()
 
         val blockData =
@@ -916,7 +908,6 @@ class OutputModuleTest
             secondEpochNumber,
             Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
-            OrderedBlockForOutput.Mode.FromConsensus,
           )
         )
         succeed
@@ -1149,6 +1140,7 @@ class OutputModuleTest
         areTherePendingTopologyChangesInOnboardingEpoch,
         failingCryptoProvider,
         initialOrderingTopology,
+        None,
       )
     new OutputModule(
       startupState,
@@ -1157,13 +1149,12 @@ class OutputModuleTest
       epochStoreReader,
       blockSubscription,
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
-      testedProtocolVersion,
       availabilityRef,
       consensusRef,
       loggerFactory,
       timeouts,
       requestInspector,
-    )(MetricsContext.Empty)
+    )(synchronizerProtocolVersion, MetricsContext.Empty)
   }
 
   private class TestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
@@ -1201,10 +1192,9 @@ object OutputModuleTest {
 
     override def isRequestToAllMembersOfSynchronizer(
         _request: OrderingRequest,
-        _protocolVersion: ProtocolVersion,
         _logger: TracedLogger,
         _traceContext: TraceContext,
-    ): Boolean = {
+    )(implicit _synchronizerProtocolVersion: ProtocolVersion): Boolean = {
       val result = outcome
       outcome = !outcome
       result
@@ -1252,7 +1242,7 @@ object OutputModuleTest {
       commitTimestamp: CantonTimestamp = aTimestamp,
       lastInEpoch: Boolean = false,
       mode: OrderedBlockForOutput.Mode = OrderedBlockForOutput.Mode.FromConsensus,
-  ) =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) =
     OrderedBlockForOutput(
       OrderedBlock(
         BlockMetadata(EpochNumber(epochNumber), BlockNumber(blockNumber)),

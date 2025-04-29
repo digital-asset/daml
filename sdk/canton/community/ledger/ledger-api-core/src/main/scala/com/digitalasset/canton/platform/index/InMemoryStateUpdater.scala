@@ -27,7 +27,7 @@ import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent.ReassignmentAccepted
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
+import com.digitalasset.canton.platform.{FatContract, InMemoryState, Key, KeyWithMaintainers, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
@@ -283,7 +283,8 @@ private[platform] object InMemoryStateUpdater {
     }
     // must be after LedgerEnd update because this could trigger API actions relating to this LedgerEnd
     // it is expected to be okay to run these in repair mode, as repair operations are not related to tracking
-    trackSubmissions(inMemoryState.submissionTracker, result.updates)
+    trackTransactionSubmissions(inMemoryState.transactionSubmissionTracker, result.updates)
+    trackReassignmentSubmissions(inMemoryState.reassignmentSubmissionTracker, result.updates)
     // can be done at any point in the pipeline, it is for debugging only
     trackCommandProgress(inMemoryState.commandProgressTracker, result.updates)
 
@@ -294,7 +295,7 @@ private[platform] object InMemoryStateUpdater {
     )
   }
 
-  private def trackSubmissions(
+  private def trackTransactionSubmissions(
       submissionTracker: SubmissionTracker,
       updates: Vector[TransactionLogUpdate],
   ): Unit =
@@ -305,6 +306,21 @@ private[platform] object InMemoryStateUpdater {
 
         case txRejected: TransactionLogUpdate.TransactionRejected =>
           Some(txRejected.completionStreamResponse)
+      }
+      .flatten
+      .foreach(submissionTracker.onCompletion)
+
+  private def trackReassignmentSubmissions(
+      submissionTracker: SubmissionTracker,
+      updates: Vector[TransactionLogUpdate],
+  ): Unit =
+    updates.view
+      .collect {
+        case txRejected: TransactionLogUpdate.TransactionRejected =>
+          Some(txRejected.completionStreamResponse)
+
+        case reassignmentAccepted: TransactionLogUpdate.ReassignmentAccepted =>
+          reassignmentAccepted.completionStreamResponse
       }
       .flatten
       .foreach(submissionTracker.onCompletion)
@@ -367,21 +383,29 @@ private[platform] object InMemoryStateUpdater {
       : PartialFunction[TransactionLogUpdate.Event, ContractStateEvent] = {
     case createdEvent: TransactionLogUpdate.CreatedEvent =>
       ContractStateEvent.Created(
-        contractId = createdEvent.contractId,
-        contract = Contract(
-          packageName = createdEvent.packageName,
-          template = createdEvent.templateId,
-          arg = createdEvent.createArgument,
+        contract = FatContract.fromCreateNode(
+          Create(
+            coid = createdEvent.contractId,
+            packageName = createdEvent.packageName,
+            templateId = createdEvent.templateId,
+            arg = createdEvent.createArgument.unversioned,
+            signatories = createdEvent.createSignatories,
+            stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
+            keyOpt = (createdEvent.contractKey zip createdEvent.createKeyMaintainers).map {
+              case (k, maintainers) =>
+                KeyWithMaintainers.assertBuild(
+                  templateId = createdEvent.templateId,
+                  value = k.unversioned,
+                  maintainers = maintainers,
+                  packageName = createdEvent.packageName,
+                )
+            },
+            version = createdEvent.createArgument.version,
+          ),
+          createTime = createdEvent.ledgerEffectiveTime,
+          cantonData = createdEvent.driverMetadata,
         ),
-        globalKey = createdEvent.contractKey.map(k =>
-          Key.assertBuild(createdEvent.templateId, k.unversioned, createdEvent.packageName)
-        ),
-        ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
-        stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
         eventOffset = createdEvent.eventOffset,
-        signatories = createdEvent.createSignatories,
-        keyMaintainers = createdEvent.createKeyMaintainers,
-        driverMetadata = createdEvent.driverMetadata.toByteArray,
       )
     case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
       ContractStateEvent.Archived(

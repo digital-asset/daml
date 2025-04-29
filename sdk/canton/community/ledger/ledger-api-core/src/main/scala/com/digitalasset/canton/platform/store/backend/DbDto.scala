@@ -24,7 +24,6 @@ object DbDto {
       contract_id: Array[Byte],
       template_id: String,
       package_name: String,
-      package_version: Option[String],
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_argument: Array[Byte],
@@ -84,7 +83,6 @@ object DbDto {
       contract_id: Array[Byte],
       template_id: String,
       package_name: String,
-      package_version: Option[String],
       flat_event_witnesses: Set[String],
       create_argument: Array[Byte],
       create_signatories: Set[String],
@@ -230,13 +228,6 @@ object DbDto {
       synchronizer_id: String,
       event_sequential_id_first: Long,
       event_sequential_id_last: Long,
-  ) extends DbDto
-
-  final case class TransactionMetering(
-      user_id: String,
-      action_count: Int,
-      metering_timestamp: Long,
-      ledger_offset: Long,
   ) extends DbDto
 
   final case class SequencerIndexMoved(synchronizerId: String) extends DbDto

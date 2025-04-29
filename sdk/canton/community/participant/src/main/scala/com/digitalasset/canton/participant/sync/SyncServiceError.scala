@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LedgerSubmissionId, SynchronizerAlias}
+import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId, SynchronizerAlias}
 import com.google.rpc.status.Status
 import io.grpc.Status.Code
 import org.slf4j.event.Level
@@ -56,11 +56,9 @@ object SyncServiceInjectionError extends InjectionErrorGroup {
   }
 
   @Explanation(
-    "This errors results if a command is submitted to a participant that is not connected to any synchronizer."
+    "This error results when specific requests are submitted to a participant that is not connected to any synchronizer."
   )
-  @Resolution(
-    "Connect your participant to the synchronizer where the given parties are hosted."
-  )
+  @Resolution("Connect your participant to a synchronizer.")
   object NotConnectedToAnySynchronizer
       extends ErrorCode(
         id = "NOT_CONNECTED_TO_ANY_SYNCHRONIZER",
@@ -442,6 +440,25 @@ object SyncServiceError extends SyncServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = show"Cannot allocate a party without being connected to a synchronizer"
+        )
+  }
+  @Explanation(
+    """The participant is connected to more than one synchronizer and can therefore not automatically
+       detect on which synchronizer the party should be allocated."""
+  )
+  @Resolution(
+    "Explicitly specify the synchronizer on which to allocate the party or disconnect from all but one synchronizer."
+  )
+  object PartyAllocationCannotDetermineSynchronizer
+      extends ErrorCode(
+        "PARTY_ALLOCATION_CANNOT_DETERMINE_SYNCHRONIZER",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Error(partyId: LfPartyId)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            show"Cannot determine the synchronizer on which to allocate party $partyId, because the participant is connected to multiple synchronizers and no synchronizer was specified."
         )
   }
 

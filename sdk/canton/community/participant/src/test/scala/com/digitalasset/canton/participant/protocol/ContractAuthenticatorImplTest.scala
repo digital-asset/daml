@@ -60,7 +60,7 @@ class ContractAuthenticatorImplTest extends AnyWordSpec with BaseTest {
             "authenticate" in new WithContractAuthenticator(
               authContractIdVersion
             ) {
-              lazy override val contractInstance: LfContractInst =
+              lazy override val contractInstance: LfThinContractInst =
                 baseInstance.map(_.copy(arg = normalizedArg))
               contractAuthenticator.authenticateSerializable(contract) shouldBe Either.unit
 
@@ -303,7 +303,8 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     unicumGenerator
   )
 
-  protected lazy val contractInstance: LfContractInst = ExampleTransactionFactory.contractInstance()
+  protected lazy val contractInstance: LfThinContractInst =
+    ExampleTransactionFactory.contractInstance()
   protected lazy val ledgerTime: CantonTimestamp = CantonTimestamp.MinValue
   protected lazy val alice: IdString.Party = LfPartyId.assertFromString("alice")
   protected lazy val signatories: Set[IdString.Party] =

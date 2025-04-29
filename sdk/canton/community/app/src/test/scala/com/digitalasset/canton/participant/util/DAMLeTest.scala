@@ -166,7 +166,7 @@ class DAMLeTestDefault extends DAMLeTest {
   override def enableLfDev: Boolean = false
   override def enableLfBeta: Boolean = false
 
-  private def mkContractInst(): FutureUnlessShutdown[Value.VersionedContractInstance] =
+  private def mkContractInst(): FutureUnlessShutdown[LfThinContractInst] =
     for {
       entry <- resolveTemplateIdPackageName(
         "FailedTransactionsDoNotDivulge",
@@ -181,7 +181,7 @@ class DAMLeTestDefault extends DAMLeTest {
           (None /* obs */ -> Value.ValueParty(bob)),
         ),
       )
-      LfContractInst(
+      LfThinContractInst(
         packageName = packageName,
         template = templateId,
         arg = Versioned(protocol.DummyTransactionVersion, arg),
@@ -192,7 +192,7 @@ class DAMLeTestDefault extends DAMLeTest {
     LfHash.assertFromByteArray(new Array[Byte](LfHash.underlyingHashLength))
 
   private def reinterpretCreateCmd(
-      contractInst: Value.VersionedContractInstance,
+      contractInst: LfThinContractInst,
       getEngineAbortStatus: GetEngineAbortStatus,
   ): EitherT[
     FutureUnlessShutdown,

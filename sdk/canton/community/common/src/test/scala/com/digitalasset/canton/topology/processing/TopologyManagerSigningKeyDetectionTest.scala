@@ -48,50 +48,6 @@ class TopologyManagerSigningKeyDetectionTest
       testedProtocolVersion,
     )
 
-    val dtc_uid1b = TopologyTransaction(
-      Replace,
-      PositiveInt.one,
-      SynchronizerTrustCertificate(ParticipantId(uid1b), synchronizerId1),
-      testedProtocolVersion,
-    )
-
-    "prefer an IDD over NSD" in {
-
-      val detector = mk()
-
-      detector.store
-        .update(
-          SequencedTime(ts(0)),
-          EffectiveTime(ts(0)),
-          removeMapping = Map.empty,
-          removeTxs = Set.empty,
-          additions = Seq(ns1k1_k1, id1ak4_k1).map(ValidatedTopologyTransaction(_)),
-        )
-        .futureValueUS
-
-      // uid1a has an identifier delegation, therefore it should be used
-      detector
-        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = false)
-        .map(_._2)
-        .futureValueUS shouldBe Right(Seq(SigningKeys.key4.fingerprint))
-
-      // uid1b has NO identifier delegation, therefore the root certificate should be used
-      detector
-        .getValidSigningKeysForTransaction(ts(1), dtc_uid1b, None, returnAllValidKeys = false)
-        .map(_._2)
-        .futureValueUS shouldBe Right(Seq(SigningKeys.key1.fingerprint))
-
-      // test geting all valid keys
-      detector
-        .getValidSigningKeysForTransaction(ts(1), dtc_uid1a, None, returnAllValidKeys = true)
-        .futureValueUS
-        .value
-        ._2 should contain theSameElementsAs Seq(
-        SigningKeys.key1,
-        SigningKeys.key4,
-      ).map(_.fingerprint)
-    }
-
     "prefer keys furthest from the root certificate" in {
       val detector = mk()
 

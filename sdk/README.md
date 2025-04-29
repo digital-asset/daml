@@ -39,7 +39,13 @@ cd daml
 
 ### 2. Set up the development dependencies
 
-Our builds require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
+Our builds are defined in the `sdk` folder.
+
+```
+cd sdk
+```
+
+They require various development dependencies (e.g. Java, Bazel, Python), provided by a tool called `dev-env`.
 
 #### Linux
 
@@ -162,7 +168,15 @@ Note that the Windows build is not yet fully functional.
 Sharable documentation (used outside of this repository) is maintained using two folders:
 
 - `/sdk/docs/manually-written` contains everything that is not auto-generated (tutorials, user guides, etc.)
-- `/sdk/docs/sharable` contains both manual and auto-generated docs. Docs from `/sdk/docs/manually-written` are duplicated here. The entire folder is used by the [docs-website repo](https://github.com/DACH-NY/docs-website).
+- `/sdk/docs/sharable` contains both manual and auto-generated docs, including
+  the hoogle database. Docs from `/sdk/docs/manually-written` are duplicated
+  here. The entire folder is used by the [docs-website repo](https://github.com/DACH-NY/docs-website).
+  
+  It is worth noting that once a new hoogle database has been published to the docs site alongside the rest
+  of the documentation, it is eventually picked up by some
+  [script](https://github.com/DACH-NY/daml-ci/blob/589c2eae52362598439e370e3a74037b1d3dacde/hoogle_server.tf#L130) running
+  [periodically](https://github.com/DACH-NY/daml-ci/blob/589c2eae52362598439e370e3a74037b1d3dacde/hoogle_server.tf#L151) on
+  the GCP machines that host the hoogle server.
 
 To keep the docs in sync, run the following command in the `/sdk` folder:
 

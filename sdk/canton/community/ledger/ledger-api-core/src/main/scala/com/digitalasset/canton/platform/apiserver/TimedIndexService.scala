@@ -18,13 +18,12 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{EventFormat, TransactionFormat, UpdateFormat, UpdateId}
 import com.digitalasset.canton.ledger.participant.state.index.*
-import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{Party, UserId}
-import com.digitalasset.daml.lf.data.Time.Timestamp
+import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -128,7 +127,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
       contractId: Value.ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[Value.VersionedContractInstance]] =
+  ): Future[Option[FatContract]] =
     Timed.future(
       metrics.services.index.lookupActiveContract,
       delegate.lookupActiveContract(readers, contractId),
@@ -182,16 +181,6 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def currentHealth(): HealthStatus =
     delegate.currentHealth()
-
-  override def getMeteringReportData(
-      from: Timestamp,
-      to: Option[Timestamp],
-      userId: Option[UserId],
-  )(implicit loggingContext: LoggingContextWithTrace): Future[ReportData] =
-    Timed.future(
-      metrics.services.index.getTransactionMetering,
-      delegate.getMeteringReportData(from, to, userId),
-    )
 
   override def lookupContractState(contractId: Value.ContractId)(implicit
       loggingContext: LoggingContextWithTrace

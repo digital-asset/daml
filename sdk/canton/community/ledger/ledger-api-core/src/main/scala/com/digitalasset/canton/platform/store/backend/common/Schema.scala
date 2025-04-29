@@ -109,9 +109,6 @@ private[backend] object AppendOnlySchema {
         "package_name" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.packageName.unsafe.internalize(dbDto.package_name)
         ),
-        "package_version" -> fieldStrategy.intOptional(stringInterning =>
-          _.package_version.map(stringInterning.packageVersion.unsafe.internalize)
-        ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
@@ -258,9 +255,6 @@ private[backend] object AppendOnlySchema {
         ),
         "package_name" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.packageName.unsafe.internalize(dbDto.package_name)
-        ),
-        "package_version" -> fieldStrategy.intOptional(stringInterning =>
-          _.package_version.map(stringInterning.packageVersion.unsafe.internalize)
         ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
@@ -460,14 +454,6 @@ private[backend] object AppendOnlySchema {
         "event_sequential_id_last" -> fieldStrategy.bigint(_ => _.event_sequential_id_last),
       )
 
-    val transactionMetering: Table[DbDto.TransactionMetering] =
-      fieldStrategy.insert("lapi_transaction_metering")(
-        fields = "user_id" -> fieldStrategy.string(_ => _.user_id),
-        "action_count" -> fieldStrategy.int(_ => _.action_count),
-        "metering_timestamp" -> fieldStrategy.bigint(_ => _.metering_timestamp),
-        "ledger_offset" -> fieldStrategy.bigint(_ => _.ledger_offset),
-      )
-
     val executes: Seq[Array[Array[_]] => Connection => Unit] = List(
       eventsCreate.executeUpdate,
       eventsConsumingExercise.executeUpdate,
@@ -486,7 +472,6 @@ private[backend] object AppendOnlySchema {
       idFilterUnassignStakeholderTable.executeUpdate,
       idFilterAssignStakeholderTable.executeUpdate,
       transactionMeta.executeUpdate,
-      transactionMetering.executeUpdate,
     )
 
     new Schema[DbDto] {
@@ -525,7 +510,6 @@ private[backend] object AppendOnlySchema {
           idFilterAssignStakeholderTable
             .prepareData(collect[IdFilterAssignStakeholder], stringInterning),
           transactionMeta.prepareData(collect[TransactionMeta], stringInterning),
-          transactionMetering.prepareData(collect[TransactionMetering], stringInterning),
         )
       }
 

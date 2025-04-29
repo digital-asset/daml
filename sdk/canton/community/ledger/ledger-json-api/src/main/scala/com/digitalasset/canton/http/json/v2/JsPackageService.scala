@@ -5,15 +5,19 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.package_management_service
 import com.daml.ledger.api.v2.package_service
+import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
-import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsCantonError,
+  stringDecoderForEnum,
+  stringEncoderForEnum,
+}
 import com.digitalasset.canton.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
-import io.circe.Codec
-import io.circe.generic.semiauto.deriveCodec
+import io.circe.{Codec, Decoder, Encoder}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
 import org.apache.pekko.util
@@ -140,18 +144,24 @@ object JsPackageService extends DocumentationEndpoints {
 }
 
 object JsPackageCodecs {
-  implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] = deriveCodec
+  import JsSchema.config
+
+  implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] =
+    deriveRelaxedCodec
   implicit val getPackageStatusResponse: Codec[package_service.GetPackageStatusResponse] =
-    deriveCodec
+    deriveRelaxedCodec
 
   implicit val uploadDarFileResponseRW: Codec[package_management_service.UploadDarFileResponse] =
-    deriveCodec
-  implicit val packageStatus: Codec[package_service.PackageStatus] = deriveCodec
+    deriveRelaxedCodec
+  implicit val packageStatusEncoder: Encoder[package_service.PackageStatus] =
+    stringEncoderForEnum()
+  implicit val packageStatusDecoder: Decoder[package_service.PackageStatus] =
+    stringDecoderForEnum()
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
   implicit val packageStatusRecognizedSchema: Schema[package_service.PackageStatus.Recognized] =
     Schema.oneOfWrapped
 
-  implicit val packageStatusSchema: Schema[package_service.PackageStatus] = Schema.oneOfWrapped
+  implicit val packageStatusSchema: Schema[package_service.PackageStatus] = Schema.string
 
 }

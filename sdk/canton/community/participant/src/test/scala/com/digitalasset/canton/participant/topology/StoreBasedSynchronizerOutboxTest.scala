@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.GenericTopologyTransaction
@@ -63,14 +64,21 @@ class StoreBasedSynchronizerOutboxTest
     crypto.generateSymbolicSigningKey(usage = SigningKeyUsage.NamespaceOnly)
   private lazy val namespace = Namespace(publicKey.id)
   private lazy val synchronizer = SynchronizerAlias.tryCreate("target")
+  private def mkPTP(name: String) = PartyToParticipant.tryCreate(
+    PartyId(UniqueIdentifier.tryCreate(name, namespace)),
+    PositiveInt.one,
+    Seq.empty,
+  )
+  private val rootCert = txAddFromMapping(
+    NamespaceDelegation.tryCreate(namespace, publicKey, CanSignAllMappings)
+  )
   private lazy val transactions =
-    Seq[TopologyMapping](
-      NamespaceDelegation.tryCreate(namespace, publicKey, isRootDelegation = true),
-      IdentifierDelegation(UniqueIdentifier.tryCreate("alpha", namespace), publicKey),
-      IdentifierDelegation(UniqueIdentifier.tryCreate("beta", namespace), publicKey),
-      IdentifierDelegation(UniqueIdentifier.tryCreate("gamma", namespace), publicKey),
-      IdentifierDelegation(UniqueIdentifier.tryCreate("delta", namespace), publicKey),
-    ).map(txAddFromMapping)
+    rootCert +: Seq(
+      "alpha",
+      "beta",
+      "gamma",
+      "delta",
+    ).map(mkPTP).map(txAddFromMapping)
   private lazy val slice1 = transactions.slice(0, 2)
   private lazy val slice2 = transactions.slice(slice1.length, transactions.length)
 
@@ -364,13 +372,7 @@ class StoreBasedSynchronizerOutboxTest
         mk(transactions.length)
 
       val midRevert = transactions(2).reverse
-      val another =
-        txAddFromMapping(
-          IdentifierDelegation(
-            UniqueIdentifier.tryCreate("eta", namespace),
-            publicKey,
-          )
-        )
+      val another = txAddFromMapping(mkPTP("eta"))
 
       for {
         _ <- outboxConnected(manager, handle, client, source, target)

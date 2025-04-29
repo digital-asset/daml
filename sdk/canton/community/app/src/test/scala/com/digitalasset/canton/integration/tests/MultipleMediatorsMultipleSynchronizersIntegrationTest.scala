@@ -140,7 +140,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
         a[CommandFailure] shouldBe thrownBy {
           participant1.ledger_api.commands.submit_unassign(
             participant1.adminParty,
-            contract.id.toLf,
+            Seq(contract.id.toLf),
             synchronizer1Id,
             synchronizer2Id,
           )
@@ -161,7 +161,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
       ) { () =>
         val unassigned = participant1.ledger_api.commands.submit_unassign(
           participant1.adminParty,
-          contract.id.toLf,
+          Seq(contract.id.toLf),
           synchronizer1Id,
           synchronizer2Id,
         )
@@ -169,7 +169,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
         a[CommandFailure] shouldBe thrownBy {
           participant1.ledger_api.commands.submit_assign(
             participant1.adminParty,
-            unassigned.unassignedEvent.unassignId,
+            unassigned.unassignId,
             synchronizer1Id,
             synchronizer2Id,
           )

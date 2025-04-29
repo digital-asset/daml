@@ -81,7 +81,7 @@ class IdeLedgerClient(
   private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      requireContractIdSuffix = false,
     )
 
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
@@ -197,7 +197,7 @@ class IdeLedgerClient(
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      requireContractIdSuffix = false,
     )
 
     valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
@@ -264,8 +264,18 @@ class IdeLedgerClient(
     lookupContractInstance(parties, cid) match {
       case None => Future.successful(None)
       case Some(contract) =>
-        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
-        Future.successful(viewOpt)
+        val reversePackageIdMap = getPackageIdReverseMap()
+        val packageMap = calculatePackageMap(List(), reversePackageIdMap)
+        Future.successful(
+          for {
+            preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
+            view <- computeView(
+              contract.templateId.copy(packageId = preferredPkgId),
+              interfaceId,
+              contract.createArg,
+            )
+          } yield view
+        )
     }
   }
 
@@ -377,17 +387,17 @@ class IdeLedgerClient(
           innerError.expectedType.pretty,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ CCTP(innerError: CCTP.MalformedByteEncoding) =>
+      case e @ Crypto(innerError: Crypto.MalformedByteEncoding) =>
         SubmitError.CryptoError.MalformedByteEncoding(
           innerError.value,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ CCTP(innerError: CCTP.MalformedKey) =>
+      case e @ Crypto(innerError: Crypto.MalformedKey) =>
         SubmitError.CryptoError.MalformedKey(
           innerError.key,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
-      case e @ CCTP(innerError: CCTP.MalformedSignature) =>
+      case e @ Crypto(innerError: Crypto.MalformedSignature) =>
         SubmitError.CryptoError.MalformedSignature(
           innerError.signature,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
@@ -995,6 +1005,12 @@ class IdeLedgerClient(
     updateCompiledPackages()
   }
 
+  override def waitUntilVettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] =
+    Future.successful(())
+
   override def unvetPackages(packages: List[ScriptLedgerClient.ReadablePackageId])(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -1009,6 +1025,12 @@ class IdeLedgerClient(
     updateCompiledPackages()
   }
 
+  override def waitUntilUnvettingVisible(
+      packages: Iterable[ScriptLedgerClient.ReadablePackageId],
+      onParticipantUid: String,
+  ): Future[Unit] =
+    Future.successful(())
+
   override def listVettedPackages()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
@@ -1022,4 +1044,12 @@ class IdeLedgerClient(
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
     Future.successful(getPackageIdMap().keys.toList)
+
+  override def proposePartyReplication(party: Ref.Party, toParticipantId: String): Future[Unit] =
+    Future.successful(())
+
+  override def waitUntilHostingVisible(party: Ref.Party, onParticipantUid: String): Future[Unit] =
+    Future.successful(())
+
+  override def getParticipantUid: String = ""
 }

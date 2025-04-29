@@ -17,7 +17,6 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ParticipantOffsetValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
-import com.digitalasset.canton.ledger.error.CommonErrors.ServerIsShuttingDown
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SyncService
@@ -31,13 +30,13 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.{
 }
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
-  LedgerErrorLoggingContext,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.platform.apiserver.ApiException
 import com.digitalasset.canton.platform.apiserver.services.logging
 import com.digitalasset.canton.tracing.TraceContext
@@ -75,7 +74,7 @@ final class ApiParticipantPruningService private (
       .left
       .map(err =>
         invalidArgument(s"submission_id $err")(
-          contextualizedErrorLogger(request.submissionId)
+          errorLoggingContext(request.submissionId)
         )
       )
 
@@ -91,7 +90,7 @@ final class ApiParticipantPruningService private (
 
             pruneUpTo <- validateRequest(request)(
               loggingContext,
-              contextualizedErrorLogger(submissionId)(loggingContext),
+              errorLoggingContext(submissionId)(loggingContext),
             )
 
             // If write service pruning succeeds but ledger api server index pruning fails, the user can bring the
@@ -111,7 +110,7 @@ final class ApiParticipantPruningService private (
                 validAt = pruneUpTo,
                 stakeholders = Set.empty, // getting all incomplete reassignments
               )
-              .failOnShutdownTo(ServerIsShuttingDown.Reject().asGrpcError)
+              .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
 
             _ = logger.debug("Pruning Ledger API Server")
             pruneResponse <- Tracked.future(
@@ -134,7 +133,7 @@ final class ApiParticipantPruningService private (
       request: PruneRequest
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[Offset] =
     (for {
       _ <- checkOffsetIsSpecified(request.pruneUpTo)
@@ -182,7 +181,7 @@ final class ApiParticipantPruningService private (
 
   private def checkOffsetIsSpecified(
       offset: Long
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
+  )(implicit errorLogger: ErrorLoggingContext): Either[StatusRuntimeException, Unit] =
     Either.cond(
       offset != 0,
       (),
@@ -192,7 +191,7 @@ final class ApiParticipantPruningService private (
   private def checkOffsetIsBeforeLedgerEnd(
       pruneUpTo: Offset
   )(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
@@ -208,10 +207,10 @@ final class ApiParticipantPruningService private (
           )
     } yield pruneUpTo
 
-  private def contextualizedErrorLogger(submissionId: String)(implicit
+  private def errorLoggingContext(submissionId: String)(implicit
       loggingContext: LoggingContextWithTrace
-  ): ContextualizedErrorLogger =
-    LedgerErrorLoggingContext(
+  ): ErrorLoggingContext =
+    ErrorLoggingContext.withExplicitCorrelationId(
       logger,
       loggingContext.toPropertiesMap,
       loggingContext.traceContext,

@@ -4,13 +4,12 @@
 package com.digitalasset.canton.integration.tests.repair
 
 import cats.syntax.either.*
-import com.daml.ledger.api.v2.reassignment.UnassignedEvent
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
 import com.daml.test.evidence.tag.EvidenceTag
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.console.commands.SynchronizerChoice
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{CommandFailure, FeatureFlag}
 import com.digitalasset.canton.crypto.TestSalt
 import com.digitalasset.canton.data.ViewPosition
@@ -22,7 +21,7 @@ import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
-import com.digitalasset.canton.integration.util.EntitySyntax
+import com.digitalasset.canton.integration.util.{EntitySyntax, PartiesAllocator}
 import com.digitalasset.canton.participant.admin.data.RepairContract
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.*
@@ -30,7 +29,7 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfVersioned,
@@ -106,23 +105,21 @@ sealed trait RepairServiceIntegrationTest
         assert(participant2.synchronizers.is_connected(acmeId))
       )
 
-      val alicePartyId = participant1.parties.enable(
-        aliceS,
-        synchronizeParticipants = Seq(participant2),
-      )
-      Seq(participant1, participant2).foreach(node =>
-        node.topology.party_to_participant_mappings.propose(
-          alicePartyId,
-          newParticipants = Seq(
-            participant1.id -> ParticipantPermission.Submission,
-            participant2.id -> ParticipantPermission.Submission,
+      PartiesAllocator(Set(participant1, participant2))(
+        newParties = Seq(aliceS -> participant1, bobS -> participant1),
+        targetTopology = Map(
+          aliceS -> Map(
+            daId -> (PositiveInt.one, Set(participant1.id -> Submission)),
+            acmeId -> (PositiveInt.one, Set(
+              participant1.id -> Submission,
+              participant2.id -> Submission,
+            )),
           ),
-          store = acmeId,
-        )
-      )
-      participant1.parties.enable(
-        bobS,
-        synchronizeParticipants = Seq(participant2),
+          bobS -> Map(
+            daId -> (PositiveInt.one, Set(participant1.id -> Submission)),
+            acmeId -> (PositiveInt.one, Set(participant1.id -> Submission)),
+          ),
+        ),
       )
 
       // ensure all participants have observed a point after the topology changes before disconnecting them
@@ -289,12 +286,11 @@ sealed trait RepairServiceIntegrationTestStableLf
               participant1.ledger_api.commands
                 .submit_unassign(
                   bob,
-                  created.toLf,
+                  Seq(created.toLf),
                   daId,
                   acmeId,
                 )
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+            }.discard
 
             eventually() {
               val res =
@@ -420,9 +416,8 @@ sealed trait RepairServiceIntegrationTestStableLf
             val cid = createContract(participant1, alice, bob)
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
-                .submit_unassign(bob, cid.toLf, daId, acmeId)
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+                .submit_unassign(bob, Seq(cid.toLf), daId, acmeId)
+            }.discard
             cid
           }
 
@@ -691,9 +686,8 @@ sealed trait RepairServiceIntegrationTestStableLf
             val contract = readContractInstance(participant1, daName, daId, created)
             withSynchronizerConnected(acmeName) {
               participant1.ledger_api.commands
-                .submit_unassign(bob, created.toLf, daId, acmeId)
-                .unassignedEvent
-            }.discard[UnassignedEvent]
+                .submit_unassign(bob, Seq(created.toLf), daId, acmeId)
+            }.discard
             contract
           }
           val contractId = contractInstance.contract.contractId
@@ -715,8 +709,8 @@ sealed trait RepairServiceIntegrationTestStableLf
             val charlie =
               participant1.parties.enable(
                 "Charlie",
-                waitForSynchronizer = SynchronizerChoice.Only(Seq(daName)),
                 synchronizeParticipants = Nil,
+                synchronizer = daName,
               )
 
             val created = createContract(participant1, charlie, charlie)
@@ -763,7 +757,7 @@ sealed trait RepairServiceIntegrationTestDevLf extends RepairServiceIntegrationT
             val lfPackageName = Ref.PackageName.assertFromString("pkg-name")
             val key = Value.ValueUnit
 
-            val contractInst = LfContractInst(
+            val contractInst = LfThinContractInst(
               template = lfNoMaintainerTemplateId,
               packageName = lfPackageName,
               arg = LfVersioned(

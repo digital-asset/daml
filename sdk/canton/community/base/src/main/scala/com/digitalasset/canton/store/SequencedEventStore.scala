@@ -38,12 +38,7 @@ import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequence
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.tracing.{
-  HasTraceContext,
-  SerializableTraceContext,
-  TraceContext,
-  Traced,
-}
+import com.digitalasset.canton.tracing.{HasTraceContext, SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.{ErrorUtil, Thereafter}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -153,21 +148,7 @@ trait SequencedEventStore
     * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s. If an event with the same
     * timestamp already exist, the event may remain unchanged or overwritten.
     */
-  def store(signedEvents: Seq[OrdinarySerializedEvent])(implicit
-      traceContext: TraceContext,
-      externalCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] =
-    storeSequenced(signedEvents.map(_.asSequencedSerializedEvent))(
-      traceContext,
-      externalCloseContext,
-    )
-      .map(_ => ())
-
-  /** Assigns counters & stores the given
-    * [[com.digitalasset.canton.sequencing.protocol.SequencedEvent]]s. If an event with the same
-    * timestamp already exist, the event may remain unchanged or overwritten.
-    */
-  def storeSequenced(signedEvents: Seq[SequencedSerializedEvent])(implicit
+  def store(signedEvents: Seq[SequencedSerializedEvent])(implicit
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
   ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
@@ -179,7 +160,7 @@ trait SequencedEventStore
             withLowerBoundUpdate { lowerBound =>
               val CounterAndTimestamp(lastCounter, lastTimestamp) = lowerBound
               val (skippedEvents, eventsToStore) = signedEvents.partition(
-                _.value.content.timestamp <= lastTimestamp
+                _.timestamp <= lastTimestamp
               )
               if (skippedEvents.nonEmpty) {
                 logger.warn(
@@ -192,7 +173,7 @@ trait SequencedEventStore
                 val eventsWithCounters =
                   eventsToStoreNE.zipWithIndex.map { case (signedEvent, idx) =>
                     val counter = lastCounter + 1 + idx
-                    OrdinarySequencedEvent(counter, signedEvent.value)(
+                    OrdinarySequencedEvent(counter, signedEvent.signedEvent)(
                       signedEvent.traceContext
                     )
                   }
@@ -390,16 +371,44 @@ object SequencedEventStore {
     )
   }
 
-  type SequencedEventWithTraceContext[+Env <: Envelope[_]] =
-    Traced[SignedContent[SequencedEvent[Env]]]
-
-  /** Encapsulates an event stored in the SequencedEventStore.
+  /** Base type for wrapping all not yet stored (no counter) and stored events (have counter)
     */
-  sealed trait PossiblyIgnoredSequencedEvent[+Env <: Envelope[_]]
+  sealed trait ProcessingSequencedEvent[+Env <: Envelope[_]]
       extends HasTraceContext
       with PrettyPrinting
       with Product
       with Serializable {
+    def previousTimestamp: Option[CantonTimestamp]
+
+    def timestamp: CantonTimestamp
+
+    def underlying: Option[SignedContent[SequencedEvent[Env]]]
+  }
+
+  /** A wrapper for not yet stored events (no counter) with an additional trace context.
+    */
+  final case class SequencedEventWithTraceContext[+Env <: Envelope[_]](
+      signedEvent: SignedContent[SequencedEvent[Env]]
+  )(
+      override val traceContext: TraceContext
+  ) extends ProcessingSequencedEvent[Env] {
+    override def previousTimestamp: Option[CantonTimestamp] = signedEvent.content.previousTimestamp
+    override def timestamp: CantonTimestamp = signedEvent.content.timestamp
+    override def underlying: Option[SignedContent[SequencedEvent[Env]]] = Some(signedEvent)
+    override protected def pretty: Pretty[SequencedEventWithTraceContext.this.type] = prettyOfClass(
+      param("sequencedEvent", _.signedEvent),
+      param("traceContext", _.traceContext),
+    )
+
+    def asOrdinaryEvent(counter: SequencerCounter): OrdinarySequencedEvent[Env] =
+      OrdinarySequencedEvent(counter, signedEvent)(traceContext)
+  }
+
+  /** Encapsulates an event stored in the SequencedEventStore (has a counter assigned), and the
+    * event could have been marked as "ignored".
+    */
+  sealed trait PossiblyIgnoredSequencedEvent[+Env <: Envelope[_]]
+      extends ProcessingSequencedEvent[Env] {
 
     def previousTimestamp: Option[CantonTimestamp]
 
@@ -419,6 +428,19 @@ object SequencedEventStore {
 
     def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env]
 
+    def asSequencedSerializedEvent: SequencedEventWithTraceContext[Env] =
+      SequencedEventWithTraceContext[Env](
+        underlying.getOrElse(
+          // TODO(#25162): "Future" ignored events have no underlying event and are no longer supported,
+          //  need to refactor this to only allow ignoring past events, that always have the underlying event
+          throw new IllegalStateException(
+            s"Future No underlying event found for ignored event: $this"
+          )
+        )
+      )(
+        traceContext
+      )
+
     def toProtoV30: v30.PossiblyIgnoredSequencedEvent =
       v30.PossiblyIgnoredSequencedEvent(
         counter = counter.toProtoPrimitive,
@@ -429,19 +451,21 @@ object SequencedEventStore {
       )
   }
 
-  /** Encapsulates an ignored event, i.e., an event that should not be processed.
+  /** Encapsulates an ignored event, i.e., an event that should not be processed. Holds a counter
+    * and timestamp in the event stream, to be used for repairs of event history.
     *
     * If an ordinary sequenced event `oe` is later converted to an ignored event `ie`, the actual
     * event `oe.signedEvent` is retained as `ie.underlying` so that no information gets discarded by
-    * ignoring events. If an ignored event `ie` is inserted as a placeholder for an event that has
-    * not been received, the underlying event `ie.underlying` is left empty.
+    * ignoring events.
+    *
+    * TODO(#25162): Consider returning the support for "future" ignored events: an ignored event
+    * `ie` is inserted as a placeholder for an event that has not been received, the underlying
+    * event `ie.underlying` is left empty.
     */
   final case class IgnoredSequencedEvent[+Env <: Envelope[?]](
       override val timestamp: CantonTimestamp,
       override val counter: SequencerCounter,
       override val underlying: Option[SignedContent[SequencedEvent[Env]]],
-      // TODO(#11834): Hardcoded to previousTimestamp=None, need to make sure that previousTimestamp
-      //   works with ignored events and repair service
       override val previousTimestamp: Option[CantonTimestamp] = None,
   )(override val traceContext: TraceContext)
       extends PossiblyIgnoredSequencedEvent[Env] {
@@ -458,7 +482,7 @@ object SequencedEventStore {
     override def asIgnoredEvent: IgnoredSequencedEvent[Env] = this
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = underlying match {
-      case Some(event) => OrdinarySequencedEvent(event)(traceContext)
+      case Some(event) => OrdinarySequencedEvent(counter, event)(traceContext)
       case None => this
     }
 
@@ -488,8 +512,8 @@ object SequencedEventStore {
       }
   }
 
-  /** Encapsulates an event received by the sequencer. It has been signed by the sequencer and
-    * contains a trace context.
+  /** Encapsulates an event received by the sequencer client that has been validated and stored. Has
+    * a counter assigned by this store and contains a trace context.
     */
   final case class OrdinarySequencedEvent[+Env <: Envelope[_]](
       override val counter: SequencerCounter,
@@ -497,10 +521,6 @@ object SequencedEventStore {
   )(
       override val traceContext: TraceContext
   ) extends PossiblyIgnoredSequencedEvent[Env] {
-    require(
-      counter == signedEvent.content.counter,
-      s"For event at timestamp $timestamp, counter $counter doesn't match the underlying SequencedEvent's counter ${signedEvent.content.counter}",
-    )
 
     override def previousTimestamp: Option[CantonTimestamp] = signedEvent.content.previousTimestamp
 
@@ -512,8 +532,6 @@ object SequencedEventStore {
 
     override def isIgnored: Boolean = false
 
-    def isTombstone: Boolean = signedEvent.content.isTombstone
-
     override def underlying: Some[SignedContent[SequencedEvent[Env]]] = Some(signedEvent)
 
     override def asIgnoredEvent: IgnoredSequencedEvent[Env] =
@@ -521,23 +539,12 @@ object SequencedEventStore {
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = this
 
-    def asSequencedSerializedEvent: SequencedEventWithTraceContext[Env] =
-      Traced(signedEvent)(traceContext)
-
     override protected def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
       param("signedEvent", _.signedEvent)
     )
   }
 
   object OrdinarySequencedEvent {
-
-    // #TODO(#11834): This is an old constructor when we used counter from the SequencedEvent,
-    //   to be removed once the counter is gone from the SequencedEvent
-    def apply[Env <: Envelope[_]](signedEvent: SignedContent[SequencedEvent[Env]])(
-        traceContext: TraceContext
-    ): OrdinarySequencedEvent[Env] =
-      OrdinarySequencedEvent(signedEvent.content.counter, signedEvent)(traceContext)
-
     def openEnvelopes(event: OrdinarySequencedEvent[ClosedEnvelope])(
         protocolVersion: ProtocolVersion,
         hashOps: HashOps,
@@ -591,7 +598,7 @@ object SequencedEventStore {
             ProtoConverter
               .required("underlying", underlyingO)
               .map(
-                OrdinarySequencedEvent(_)(
+                OrdinarySequencedEvent(sequencerCounter, _)(
                   traceContext.unwrap
                 )
               )

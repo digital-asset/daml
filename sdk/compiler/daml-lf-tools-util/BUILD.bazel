@@ -1,0 +1,40 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test")
+
+da_haskell_library(
+    name = "daml-lf-tools-util",
+    srcs = glob(["src/**/*.hs"]),
+    hackage_deps = [
+        "ansi-wl-pprint",
+        "base",
+        "containers",
+        "deepseq",
+        "either",
+        "extra",
+        "ghcide",
+        "ghc-lib-parser",
+        "hashable",
+        "lens",
+        "mtl",
+        "optparse-applicative",
+        "recursion-schemes",
+        "safe",
+        "shake",
+        "split",
+        "text",
+        "transformers",
+        "uniplate",
+        "unordered-containers",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/damlc/daml-lf-util",
+        "//compiler/damlc/daml-package-config",
+        "//daml-assistant:daml-project-config",
+        "//libs-haskell/da-hs-base",
+    ],
+)

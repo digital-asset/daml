@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.data.ImmArray
@@ -28,12 +28,12 @@ import scala.collection.mutable
 class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFatContractInstance) {
 
   def apply(commands: ProtoCommands)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
     fromDisclosedContracts(commands.disclosedContracts)
 
   def fromDisclosedContracts(disclosedContracts: Seq[ProtoDisclosedContract])(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
     for {
       validatedDisclosedContracts <- validateDisclosedContracts(disclosedContracts)
@@ -42,7 +42,7 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
   private def validateDisclosedContracts(
       disclosedContracts: Seq[ProtoDisclosedContract]
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
     type ZeroType =
       Either[
@@ -63,7 +63,7 @@ class ValidateDisclosedContracts(authenticateFatContractInstance: AuthenticateFa
   private def validateDisclosedContract(
       disclosedContract: ProtoDisclosedContract
   )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, DisclosedContract] =
     if (disclosedContract.createdEventBlob.isEmpty)
       Left(ValidationErrors.missingField("DisclosedContract.createdEventBlob"))

@@ -7,6 +7,7 @@ import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.UseOriginalViewPackageId
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.daml.lf.data.Ref
@@ -31,7 +32,14 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.updateReader
-        .lookupTransactionTreeById(updateId = "WRONG", tx.actAs.toSet)
+        .lookupTransactionTreeById(
+          updateId = "WRONG",
+          tx.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(tx.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       result shouldBe None
     }
@@ -41,7 +49,14 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (_, tx) <- store(singleCreate)
       result <- ledgerDao.updateReader
-        .lookupTransactionTreeByOffset(offset = Offset.tryFromLong(12345678L), tx.actAs.toSet)
+        .lookupTransactionTreeByOffset(
+          offset = Offset.tryFromLong(12345678L),
+          tx.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(tx.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       result shouldBe None
     }
@@ -51,9 +66,23 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(singleCreate)
       resultById <- ledgerDao.updateReader
-        .lookupTransactionTreeById(tx.updateId, Set("WRONG"))
+        .lookupTransactionTreeById(
+          tx.updateId,
+          Set("WRONG"),
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(Set("WRONG")),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
       resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionTreeByOffset(offset, Set("WRONG"))
+        .lookupTransactionTreeByOffset(
+          offset,
+          Set("WRONG"),
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(Set("WRONG")),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       resultById shouldBe None
       resultByOffset shouldBe resultById
@@ -64,9 +93,23 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(singleCreate)
       resultById <- ledgerDao.updateReader
-        .lookupTransactionTreeById(tx.updateId, tx.actAs.toSet)
+        .lookupTransactionTreeById(
+          tx.updateId,
+          tx.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(tx.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
       resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionTreeByOffset(offset, tx.actAs.toSet)
+        .lookupTransactionTreeByOffset(
+          offset,
+          tx.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(tx.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
@@ -100,9 +143,23 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, create) <- store(singleCreate)
       (offset, exercise) <- store(singleExercise(nonTransient(create).loneElement))
       resultById <- ledgerDao.updateReader
-        .lookupTransactionTreeById(exercise.updateId, exercise.actAs.toSet)
+        .lookupTransactionTreeById(
+          exercise.updateId,
+          exercise.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(exercise.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
       resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionTreeByOffset(offset, exercise.actAs.toSet)
+        .lookupTransactionTreeByOffset(
+          offset,
+          exercise.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(exercise.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         inside(exercise.transaction.nodes.headOption) {
@@ -137,9 +194,23 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     for {
       (offset, tx) <- store(fullyTransient())
       resultById <- ledgerDao.updateReader
-        .lookupTransactionTreeById(tx.updateId, tx.actAs.toSet)
+        .lookupTransactionTreeById(
+          tx.updateId,
+          tx.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(tx.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
       resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionTreeByOffset(offset, tx.actAs.toSet)
+        .lookupTransactionTreeByOffset(
+          offset,
+          tx.actAs.toSet,
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(tx.actAs.toSet),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         val (createNodeId, createNode) =
@@ -201,9 +272,20 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         .lookupTransactionTreeById(
           tx.updateId,
           Set(alice),
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(Set(alice)),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
         ) // only two children are visible to Alice
       resultByOffset <- ledgerDao.updateReader
-        .lookupTransactionTreeByOffset(offset, Set(alice))
+        .lookupTransactionTreeByOffset(
+          offset,
+          Set(alice),
+          EventProjectionProperties(
+            verbose = true,
+            templateWildcardWitnesses = Some(Set(alice)),
+          )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+        )
     } yield {
       inside(resultById.value.transaction) { case Some(transaction) =>
         transaction.eventsById should have size 2
@@ -227,7 +309,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -247,7 +329,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultPartyWildcard <- transactionsOf(
@@ -259,7 +341,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = None,
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -292,7 +374,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(alice)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultForBob <- transactionsOf(
@@ -304,7 +386,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(bob)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
       resultForCharlie <- transactionsOf(
@@ -316,7 +398,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
               templateWildcardWitnesses = Some(Set(charlie)),
-            ),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           )
       )
     } yield {
@@ -348,7 +430,14 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       .sequence(
         transactions.map(tx =>
           ledgerDao.updateReader
-            .lookupTransactionTreeById(tx.updateId, as)
+            .lookupTransactionTreeById(
+              tx.updateId,
+              as,
+              EventProjectionProperties(
+                verbose = true,
+                templateWildcardWitnesses = Some(as.map(_.toString)),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
+            )
         )
       )
       .map(_.flatMap(_.toList.flatMap(_.transaction.toList)))
@@ -370,5 +459,4 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
     txs.map(tx =>
       tx.copy(eventsById = tx.eventsById.view.mapValues(_.modifyWitnessParties(_.sorted)).toMap)
     )
-
 }

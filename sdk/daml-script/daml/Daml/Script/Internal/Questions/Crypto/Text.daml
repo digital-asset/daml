@@ -2,8 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 {-# LANGUAGE CPP #-}
+{-# OPTIONS_GHC -Wno-x-crypto #-}
 
-#ifndef DAML_CCTP
+#ifndef DAML_CRYPTO
 
 -- | HIDE
 module Daml.Script.Internal.Questions.Crypto.Text where

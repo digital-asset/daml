@@ -82,7 +82,7 @@ class SynchronizerTopologyManager(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[SynchronizerStore, SynchronizerCryptoPureApi](
+    extends TopologyManager[SynchronizerStore](
       nodeId,
       clock,
       crypto,
@@ -95,12 +95,11 @@ class SynchronizerTopologyManager(
     ) {
   def synchronizerId: SynchronizerId = store.storeId.synchronizerId
 
-  override protected val processor: TopologyStateProcessor[SynchronizerCryptoPureApi] =
-    new TopologyStateProcessor[SynchronizerCryptoPureApi](
+  override protected val processor: TopologyStateProcessor =
+    TopologyStateProcessor.forTopologyManager(
       store,
       Some(outboxQueue),
       new ValidatingTopologyMappingChecks(store, loggerFactory),
-      insecureIgnoreMissingExtraKeySignatures = false,
       new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
       loggerFactory,
     )
@@ -124,7 +123,10 @@ class SynchronizerTopologyManager(
         SequencedTime(ts),
         EffectiveTime(ts),
         transactions,
-        expectFullAuthorization,
+        expectFullAuthorization = expectFullAuthorization,
+        // the synchronizer topology manager does not permit missing signing key signatures,
+        // because these transactions would be rejected during the validating after sequencing.
+        transactionMayHaveMissingSigningKeySignatures = false,
       )
       .map { case (txs, asyncResult) => (Seq(txs -> ts), asyncResult) }
   }
@@ -181,7 +183,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[StoreId, CryptoPureApi](
+    extends TopologyManager[StoreId](
       nodeId,
       clock,
       crypto,
@@ -192,12 +194,11 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
       futureSupervisor,
       loggerFactory,
     ) {
-  override protected val processor: TopologyStateProcessor[CryptoPureApi] =
-    new TopologyStateProcessor[CryptoPureApi](
+  override protected val processor: TopologyStateProcessor =
+    TopologyStateProcessor.forTopologyManager(
       store,
       None,
       NoopTopologyMappingChecks,
-      insecureIgnoreMissingExtraKeySignatures = false,
       crypto.pureCrypto,
       loggerFactory,
     )
@@ -224,7 +225,10 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
             SequencedTime(ts),
             EffectiveTime(ts),
             Seq(transaction),
-            expectFullAuthorization,
+            expectFullAuthorization = expectFullAuthorization,
+            // we allow importing OwnerToKeyMappings with missing signing key signatures into a temporary topology store,
+            // so that we can import legacy OTKs for debugging/investigation purposes
+            transactionMayHaveMissingSigningKeySignatures = store.storeId.isTemporaryStore,
           )
           .map { case (txs, asyncResult) => ((txs, ts), asyncResult) }
       }
@@ -234,7 +238,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
       }
 }
 
-abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: CryptoPureApi](
+abstract class TopologyManager[+StoreID <: TopologyStoreId](
     val nodeId: UniqueIdentifier,
     val clock: Clock,
     val crypto: Crypto,
@@ -260,7 +264,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
     crashOnFailure = exitOnFatalFailures,
   )
 
-  protected val processor: TopologyStateProcessor[PureCrypto]
+  protected val processor: TopologyStateProcessor
 
   override def queueSize: Int = sequentialQueue.queueSize
 
@@ -1006,13 +1010,12 @@ object TopologyManager {
 
   /** Assigns the appropriate key usage for a given set of keys based on the current topology
     * request and necessary authorizations. In most cases, the request is expected to be signed with
-    * Namespace or IdentityDelegation keys. However, for requests like OwnerToKeyMapping or
-    * PartyToKeyMapping, keys must be able to prove their ownership. For these requests we also
-    * accept namespace as a valid usage when verifying a signature, as this ensures backwards
-    * compatibility (e.g. older topology states might have mistakenly added a namespace key to this
-    * mapping). By enforcing only ProofOfOwnership on the sign path, we ensure that this new
-    * restriction applies to any newly added key, preventing the addition of namespace-only keys to
-    * these requests.
+    * Namespace keys. However, for requests like OwnerToKeyMapping or PartyToKeyMapping, keys must
+    * be able to prove their ownership. For these requests we also accept namespace as a valid usage
+    * when verifying a signature, as this ensures backwards compatibility (e.g. older topology
+    * states might have mistakenly added a namespace key to this mapping). By enforcing only
+    * ProofOfOwnership on the sign path, we ensure that this new restriction applies to any newly
+    * added key, preventing the addition of namespace-only keys to these requests.
     *
     * @param mapping
     *   The current topology request
@@ -1030,12 +1033,11 @@ object TopologyManager {
   ): NonEmpty[Map[Fingerprint, NonEmpty[Set[SigningKeyUsage]]]] = {
 
     def onlyNamespaceAuth(auth: RequiredAuth): Boolean = auth match {
-      case _: RequiredAuth.RequiredNamespaces => true
-      case _: RequiredAuth.RequiredUids => false
+      case RequiredAuth.RequiredNamespaces(_, extraKeys) => extraKeys.isEmpty
       case RequiredAuth.Or(first, second) => onlyNamespaceAuth(first) && onlyNamespaceAuth(second)
     }
 
-    // True if the mapping must be signed only by a namespace key but not by an identity delegation
+    // True if the mapping must be signed only by a namespace key but not extra keys
     val strictNamespaceAuth = onlyNamespaceAuth(mapping.requiredAuth(None))
 
     mapping match {
@@ -1053,17 +1055,13 @@ object TopologyManager {
               // also allow keys with NamespaceOnly to have proven ownership in historical topology states.
               keyId -> SigningKeyUsage.NamespaceOrProofOfOwnership
           case keyId =>
-            // all other keys must be namespace or identifier delegation keys
-            keyId -> SigningKeyUsage.NamespaceOrIdentityDelegation
+            // all other keys must be namespace delegation keys
+            keyId -> SigningKeyUsage.NamespaceOnly
         }.toMap
-
-      case _ if strictNamespaceAuth =>
-        // For namespace authorization, only a namespace key can sign
-        signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
       case _ =>
         // If strict namespace authorization is not true, either a namespace key or an identity delegation can sign
-        signingKeys.map(_ -> SigningKeyUsage.NamespaceOrIdentityDelegation).toMap
+        signingKeys.map(_ -> SigningKeyUsage.NamespaceOnly).toMap
 
     }
   }

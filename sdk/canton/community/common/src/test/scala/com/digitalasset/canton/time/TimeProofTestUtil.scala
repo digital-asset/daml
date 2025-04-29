@@ -24,7 +24,6 @@ object TimeProofTestUtil {
       protocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   ): TimeProof = {
     val deliver = Deliver.create(
-      SequencerCounter(counter),
       previousEventTimestamp,
       timestamp,
       targetSynchronizer.unwrap,
@@ -36,7 +35,7 @@ object TimeProofTestUtil {
     )
     val signedContent =
       SignedContent(deliver, SymbolicCrypto.emptySignature, None, protocolVersion)
-    val event = OrdinarySequencedEvent(signedContent)(TraceContext.empty)
+    val event = OrdinarySequencedEvent(SequencerCounter(counter), signedContent)(TraceContext.empty)
     TimeProof
       .fromEvent(event)
       .fold(err => sys.error(s"Failed to create time proof: $err"), identity)

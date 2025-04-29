@@ -37,6 +37,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
 }
 import com.digitalasset.canton.ledger.localstore.api.{
+  ObjectMetaUpdate,
   PartyDetailsUpdate,
   PartyRecord,
   PartyRecordStore,
@@ -118,7 +119,7 @@ private[apiserver] final class ApiPartyManagementService private (
       logging.partyStrings(request.parties)
     ) { implicit loggingContext =>
       implicit val errorLoggingContext: ErrorLoggingContext =
-        new ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+        ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
       logger.info(s"Getting parties, ${loggingContext.serializeFiltered("parties")}.")
       withValidation {
         for {
@@ -195,7 +196,7 @@ private[apiserver] final class ApiPartyManagementService private (
     import com.digitalasset.canton.ledger.error.CommonErrors
 
     def timedOut(key: PartyAllocation.TrackerKey)(implicit
-        errorLogger: ContextualizedErrorLogger
+        errorLogger: ErrorLoggingContext
     ): StatusRuntimeException =
       CommonErrors.RequestTimeOut
         .Reject(
@@ -206,7 +207,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
     def duplicated(
         key: PartyAllocation.TrackerKey
-    )(implicit errorLogger: ContextualizedErrorLogger): StatusRuntimeException =
+    )(implicit errorLogger: ErrorLoggingContext): StatusRuntimeException =
       CommonErrors.RequestAlreadyInFlight
         .Reject(requestId = key.submissionId)
         .asGrpcError
@@ -225,7 +226,7 @@ private[apiserver] final class ApiPartyManagementService private (
         s"Allocating party, ${loggingContext.serializeFiltered("submissionId", "parties")}."
       )
       implicit val errorLoggingContext: ErrorLoggingContext =
-        new ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
+        ErrorLoggingContext(logger, loggingContext.toPropertiesMap, loggingContext.traceContext)
       import com.digitalasset.canton.config.NonNegativeFiniteDuration
 
       withValidation {
@@ -252,8 +253,10 @@ private[apiserver] final class ApiPartyManagementService private (
             request.identityProviderId,
             "identity_provider_id",
           )
-        } yield (partyIdHintO, annotations, identityProviderId)
-      } { case (partyIdHintO, annotations, identityProviderId) =>
+          synchronizerIdO <- optionalSynchronizerId(request.synchronizerId, "synchronzier_id")
+
+        } yield (partyIdHintO, annotations, identityProviderId, synchronizerIdO)
+      } { case (partyIdHintO, annotations, identityProviderId, synchronizerIdO) =>
         val partyName = partyIdHintO.getOrElse(generatePartyName)
         val trackerKey = submissionIdGenerator(partyName)
         withEnrichedLoggingContext(telemetry)(logging.submissionId(trackerKey.submissionId)) {
@@ -269,7 +272,7 @@ private[apiserver] final class ApiPartyManagementService private (
                   FutureUnlessShutdown {
                     for {
                       result <- syncService
-                        .allocateParty(partyName, trackerKey.submissionId)
+                        .allocateParty(partyName, trackerKey.submissionId, synchronizerIdO)
                         .toScalaUnwrapped
                       _ <- checkSubmissionResult(result)
                     } yield UnlessShutdown.unit
@@ -280,15 +283,33 @@ private[apiserver] final class ApiPartyManagementService private (
                 identityProviderId,
                 allocated.partyDetails.party,
               )
-              partyRecord <- partyRecordStore
-                .createPartyRecord(
-                  PartyRecord(
-                    party = allocated.partyDetails.party,
-                    metadata = ObjectMeta(resourceVersionO = None, annotations = annotations),
-                    identityProviderId = identityProviderId,
-                  )
-                )
-                .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
+              existingPartyRecord <- partyRecordStore.getPartyRecordO(allocated.partyDetails.party)
+              partyRecord <-
+                if (existingPartyRecord.exists(_.nonEmpty)) {
+                  partyRecordStore
+                    .updatePartyRecord(
+                      PartyRecordUpdate(
+                        party = allocated.partyDetails.party,
+                        identityProviderId = identityProviderId,
+                        metadataUpdate = ObjectMetaUpdate(
+                          resourceVersionO = None,
+                          annotationsUpdateO = Some(annotations),
+                        ),
+                      ),
+                      ledgerPartyIsLocal = true,
+                    )
+                    .flatMap(handlePartyRecordStoreResult("updating a party record")(_))
+                } else {
+                  partyRecordStore
+                    .createPartyRecord(
+                      PartyRecord(
+                        party = allocated.partyDetails.party,
+                        metadata = ObjectMeta(resourceVersionO = None, annotations = annotations),
+                        identityProviderId = identityProviderId,
+                      )
+                    )
+                    .flatMap(handlePartyRecordStoreResult("creating a party record")(_))
+                }
             } yield {
               val details = toProtoPartyDetails(
                 partyDetails = allocated.partyDetails,
@@ -315,7 +336,7 @@ private[apiserver] final class ApiPartyManagementService private (
     case Failure(e: StatusRuntimeException) if e.getStatus.getCode == ALREADY_EXISTS =>
       Failure(
         ValidationErrors.invalidArgument(e.getStatus.getDescription)(
-          LedgerErrorLoggingContext(
+          ErrorLoggingContext.withExplicitCorrelationId(
             logger,
             loggingContext.toPropertiesMap,
             loggingContext.traceContext,
@@ -510,7 +531,7 @@ private[apiserver] final class ApiPartyManagementService private (
       party: Ref.Party,
   )(implicit
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[Unit] =
     partyRecordStore.getPartyRecordO(party).flatMap {
       case Right(Some(party)) if party.identityProviderId != identityProviderId =>
@@ -547,7 +568,7 @@ private[apiserver] final class ApiPartyManagementService private (
     validatedResult.fold(Future.failed, Future.successful).flatMap(f)
 
   private def handleUpdatePathResult[T](party: Ref.Party, result: update.Result[T])(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): Future[T] =
     result match {
       case Left(e: update.UpdatePathError) =>
@@ -562,7 +583,7 @@ private[apiserver] final class ApiPartyManagementService private (
 
   private def handlePartyRecordStoreResult[T](operation: String)(
       result: PartyRecordStore.Result[T]
-  )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
+  )(implicit errorLogger: ErrorLoggingContext): Future[T] =
     result match {
       case Left(PartyRecordStore.PartyNotFound(party)) =>
         Future.failed(
@@ -688,7 +709,7 @@ private[apiserver] object ApiPartyManagementService {
     )
 
   def decodePartyFromPageToken(pageToken: String)(implicit
-      loggingContext: ContextualizedErrorLogger
+      loggingContext: ErrorLoggingContext
   ): Either[StatusRuntimeException, Option[Ref.Party]] =
     if (pageToken.isEmpty) {
       Right(None)
@@ -712,7 +733,7 @@ private[apiserver] object ApiPartyManagementService {
     }
 
   private def invalidPageToken(details: String)(implicit
-      errorLogger: ContextualizedErrorLogger
+      errorLogger: ErrorLoggingContext
   ): StatusRuntimeException = {
     errorLogger.info(s"Invalid page token: $details")
     RequestValidationErrors.InvalidArgument

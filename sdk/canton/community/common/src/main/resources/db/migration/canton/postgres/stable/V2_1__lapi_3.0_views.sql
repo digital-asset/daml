@@ -1,4 +1,4 @@
--- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
 -- -------------------
@@ -98,29 +98,6 @@ $$
 -- -------------------
 
 
-create or replace view debug.lapi_metering_parameters as
-  select
-    ledger_metering_end,
-    ledger_metering_timestamp
-  from lapi_metering_parameters;
-
-create or replace view debug.lapi_participant_metering as
-  select
-    user_id,
-    debug.canton_timestamp(from_timestamp) as from_timestamp,
-    debug.canton_timestamp(to_timestamp) as to_timestamp,
-    action_count,
-    ledger_offset
-  from lapi_participant_metering;
-
-create or replace view debug.lapi_transaction_metering as
-  select
-    user_id,
-    action_count,
-    debug.canton_timestamp(metering_timestamp) as metering_timestamp,
-    ledger_offset
-  from lapi_transaction_metering;
-
 create or replace view debug.lapi_parameters as
   select
     ledger_end,
@@ -166,7 +143,6 @@ create or replace view debug.lapi_events_assign as
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(package_name) as package_name,
-    debug.resolve_lapi_interned_string(package_version) as package_version,
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_string(source_synchronizer_id) as source_synchronizer_id,
     debug.resolve_lapi_interned_string(target_synchronizer_id) as target_synchronizer_id,
@@ -231,7 +207,6 @@ create or replace view debug.lapi_events_create as
     lower(encode(contract_id, 'hex')) as contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(package_name) as package_name,
-    debug.resolve_lapi_interned_string(package_version) as package_version,
     debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_strings(tree_event_witnesses) as tree_event_witnesses,
     create_argument,

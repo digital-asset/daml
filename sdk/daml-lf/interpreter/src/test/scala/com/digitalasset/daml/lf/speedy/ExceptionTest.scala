@@ -79,7 +79,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       expr: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
@@ -97,7 +97,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages: PureCompiledPackages,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
       disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
@@ -1326,7 +1326,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               )
               val globalContract = Versioned(
                 version = TransactionVersion.StableVersions.max,
-                Value.ContractInstance(
+                Value.ThinContractInstance(
                   packageName = templateDefsV1Pkg.pkgName,
                   template = templateId,
                   arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),

@@ -11,6 +11,9 @@ import com.digitalasset.canton.sequencing.{
   OrdinaryApplicationHandler,
   OrdinaryEnvelopeBox,
   OrdinarySerializedEvent,
+  SequencedApplicationHandler,
+  SequencedEnvelopeBox,
+  SequencedSerializedEvent,
 }
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.topology.SynchronizerId
@@ -35,36 +38,39 @@ class StoreSequencedEvent(
     extends NamedLogging {
 
   def flow[F[_]](implicit F: SingletonTraverse[F]): Flow[
-    F[Traced[Seq[OrdinarySerializedEvent]]],
+    F[Traced[Seq[SequencedSerializedEvent]]],
     F[Traced[Seq[OrdinarySerializedEvent]]],
     NotUsed,
-  ] = Flow[F[Traced[Seq[OrdinarySerializedEvent]]]]
+  ] = Flow[F[Traced[Seq[SequencedSerializedEvent]]]]
     // Store the events as part of the flow
     .mapAsync(parallelism = 1)(_.traverseSingleton {
       // TODO(#13789) Properly deal with exceptions
       (_, tracedEvents) =>
         storeBatch(tracedEvents)
           .failOnShutdownToAbortException("StoreSequencedEvent store batch")
-          .map((_: Unit) => tracedEvents)
     })
 
   def apply(
       handler: OrdinaryApplicationHandler[ClosedEnvelope]
-  ): OrdinaryApplicationHandler[ClosedEnvelope] =
-    handler.replace(tracedEvents => storeBatch(tracedEvents).flatMap(_ => handler(tracedEvents)))
+  ): SequencedApplicationHandler[ClosedEnvelope] =
+    handler.replace(tracedEvents =>
+      storeBatch(tracedEvents).flatMap(storedEventsWithCounters =>
+        handler(storedEventsWithCounters)
+      )
+    )
 
   private def storeBatch(
-      tracedEvents: BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]
-  ): FutureUnlessShutdown[Unit] =
-    tracedEvents.withTraceContext { implicit batchTraceContext => events =>
+      tracedEvents: BoxedEnvelope[SequencedEnvelopeBox, ClosedEnvelope]
+  ): FutureUnlessShutdown[BoxedEnvelope[OrdinaryEnvelopeBox, ClosedEnvelope]] =
+    tracedEvents.traverseWithTraceContext { implicit batchTraceContext => events =>
       val wrongSynchronizerEvents =
         events.filter(_.signedEvent.content.synchronizerId != synchronizerId)
       ErrorUtil.requireArgument(
         wrongSynchronizerEvents.isEmpty, {
           val wrongSynchronizerIds =
             wrongSynchronizerEvents.map(_.signedEvent.content.synchronizerId).distinct
-          val wrongSynchronizerCounters = wrongSynchronizerEvents.map(_.signedEvent.content.counter)
-          show"Cannot store sequenced events from synchronizers $wrongSynchronizerIds in store for synchronizer $synchronizerId\nSequencer counters: $wrongSynchronizerCounters"
+          val wrongSynchronizerTimestamps = wrongSynchronizerEvents.map(_.timestamp)
+          show"Cannot store sequenced events from synchronizers $wrongSynchronizerIds in store for synchronizer $synchronizerId\nSequencing timestamps: $wrongSynchronizerTimestamps"
         },
       )
       // The events must be stored before we call the handler

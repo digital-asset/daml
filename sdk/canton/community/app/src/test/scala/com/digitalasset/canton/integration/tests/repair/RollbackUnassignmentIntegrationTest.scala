@@ -45,14 +45,18 @@ sealed trait RollbackUnassignmentIntegrationTest
           p.dars.upload(CantonExamplesPath)
         }
 
-        participant1.parties.enable(
-          aliceS,
-          synchronizeParticipants = Seq(participant2),
-        )
-        participant2.parties.enable(
-          bobS,
-          synchronizeParticipants = Seq(participant1),
-        )
+        Seq(daName, acmeName).foreach { alias =>
+          participant1.parties.enable(
+            aliceS,
+            synchronizeParticipants = Seq(participant2),
+            synchronizer = alias,
+          )
+          participant2.parties.enable(
+            bobS,
+            synchronizeParticipants = Seq(participant1),
+            synchronizer = alias,
+          )
+        }
       }
 
   "Can rollback an unassignment" in { implicit env =>
@@ -68,7 +72,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val unassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
-        cid.toLf,
+        Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )
@@ -81,8 +85,8 @@ sealed trait RollbackUnassignmentIntegrationTest
         resultFilter = _.isUnassignment,
       )
       .loneElement match {
-      case UnassignedWrapper(_, unassignedEvent) =>
-        unassignedEvent.unassignId shouldBe unassignmentId
+      case unassigned: UnassignedWrapper =>
+        unassigned.unassignId shouldBe unassignmentId
       case _ => fail("should not happen")
     }
 
@@ -123,22 +127,22 @@ sealed trait RollbackUnassignmentIntegrationTest
       case other => fail(s"Expected 2 unassigned events, but got: $other")
     }
 
-    assigned1.assignedEvent.target shouldBe daId.toProtoPrimitive
-    assigned1.assignedEvent.source shouldBe acmeId.toProtoPrimitive
-    assigned1.assignedEvent.target shouldBe assigned2.assignedEvent.source
-    unassigned1.unassignedEvent.target shouldBe unassigned2.unassignedEvent.source
-    unassigned1.unassignedEvent.source shouldBe unassigned2.unassignedEvent.target
+    assigned1.target shouldBe daId.toProtoPrimitive
+    assigned1.source shouldBe acmeId.toProtoPrimitive
+    assigned1.target shouldBe assigned2.source
+    unassigned1.target shouldBe unassigned2.source
+    unassigned1.source shouldBe unassigned2.target
 
     // check that we have the correct unassignmentId when we publish the event.
-    assigned1.assignedEvent.unassignId shouldBe unassignmentId
+    assigned1.unassignId shouldBe unassignmentId
 
     val (unassigned, _) = participant1.ledger_api.commands.submit_reassign(
       alice,
-      cid.toLf,
+      Seq(cid.toLf),
       source = acmeId,
       target = daId,
     )
-    unassigned.unassignedEvent.reassignmentCounter shouldBe 3
+    unassigned.events.loneElement.reassignmentCounter shouldBe 3
 
     val reassignmentId =
       ReassignmentId(Source(acmeId), CantonTimestamp.assertFromLong(unassignmentId.toLong))
@@ -176,7 +180,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val unassignmentId = participant1.ledger_api.commands
       .submit_reassign(
         alice,
-        cid.toLf,
+        Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )
@@ -202,7 +206,7 @@ sealed trait RollbackUnassignmentIntegrationTest
     val unassignmentId = participant1.ledger_api.commands
       .submit_unassign(
         alice,
-        cid.toLf,
+        Seq(cid.toLf),
         source = acmeId,
         target = daId,
       )

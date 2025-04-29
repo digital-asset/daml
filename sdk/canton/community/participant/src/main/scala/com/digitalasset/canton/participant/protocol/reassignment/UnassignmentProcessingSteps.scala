@@ -49,6 +49,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Purged,
   ReassignedAway,
 }
+import com.digitalasset.canton.participant.sync.{SyncEphemeralState, SyncEphemeralStateLookup}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
@@ -397,13 +398,18 @@ class UnassignmentProcessingSteps(
     ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val fullTree = parsedRequest.fullViewTree
+    val fullTree: FullUnassignmentTree = parsedRequest.fullViewTree
     val requestCounter = parsedRequest.rc
     val requestTimestamp = parsedRequest.requestTimestamp
     val sourceSnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
 
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
     val unassignmentValidation = new UnassignmentValidation(participantId, contractAuthenticator)
+    val reassignmentId = ReassignmentId(synchronizerId, requestTimestamp)
+
+    if (isReassigningParticipant) {
+      reassignmentCoordination.addPendingUnassignment(reassignmentId)
+    }
 
     for {
       targetTopologyO <-
@@ -420,19 +426,6 @@ class UnassignmentProcessingSteps(
         activenessF,
       )(parsedRequest)
 
-      unassignmentDecisionTime <- ProcessingSteps
-        .getDecisionTime(sourceSnapshot.unwrap, requestTimestamp)
-        .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
-
-      reassignmentData = UnassignmentData(
-        reassignmentId = ReassignmentId(synchronizerId, requestTimestamp),
-        unassignmentRequest = fullTree,
-        unassignmentDecisionTime = unassignmentDecisionTime,
-        unassignmentResult = None,
-      )
-      _ <- ifThenET(isReassigningParticipant) {
-        reassignmentCoordination.addUnassignmentRequest(reassignmentData)
-      }
     } yield {
       val responseF =
         createConfirmationResponses(
@@ -506,7 +499,6 @@ class UnassignmentProcessingSteps(
 
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
     val pendingSubmissionData = pendingSubmissionMap.get(unassignmentValidationResult.rootHash)
-    val targetSynchronizer = unassignmentValidationResult.targetSynchronizer
     def rejected(
         reason: TransactionRejection
     ): EitherT[
@@ -514,11 +506,13 @@ class UnassignmentProcessingSteps(
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
     ] = for {
-      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetSynchronizer, requestId))
-
       eventO <- EitherT.fromEither[FutureUnlessShutdown](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
       )
+      _ = if (isReassigningParticipant)
+        reassignmentCoordination.completeUnassignment(
+          unassignmentValidationResult.reassignmentId
+        )
     } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
 
     for {
@@ -527,6 +521,8 @@ class UnassignmentProcessingSteps(
         // TODO(i22887): Right now we fail at phase 7 if any validation has failed.
         // We should fail only for some specific errors e.g ModelConformance check.
         case _: Verdict.Approve if !isSuccessful =>
+          reassignmentCoordination
+            .completeUnassignment(unassignmentValidationResult.reassignmentId)
           throw new RuntimeException(
             s"Unassignment validation failed for $requestId because: ${unassignmentValidationResult.validationResult}"
           )
@@ -534,17 +530,18 @@ class UnassignmentProcessingSteps(
         case _: Verdict.Approve =>
           val commitSet = unassignmentValidationResult.commitSet
           val commitSetFO = Some(FutureUnlessShutdown.pure(commitSet))
+          val unassignmentData = UnassignmentData(
+            reassignmentId = unassignmentValidationResult.reassignmentId,
+            unassignmentRequest = unassignmentValidationResult.fullTree,
+          )
           for {
             _ <- ifThenET(isReassigningParticipant) {
-              EitherT
-                .fromEither[FutureUnlessShutdown](DeliveredUnassignmentResult.create(event))
-                .leftMap(err =>
-                  UnassignmentProcessorError
-                    .InvalidResult(unassignmentValidationResult.reassignmentId, err)
-                )
-                .flatMap { deliveredResult =>
-                  reassignmentCoordination
-                    .addUnassignmentResult(targetSynchronizer, deliveredResult)
+              reassignmentCoordination
+                .addUnassignmentRequest(unassignmentData)
+                .map { _ =>
+                  reassignmentCoordination.completeUnassignment(
+                    unassignmentValidationResult.reassignmentId
+                  )
                 }
             }
 
@@ -574,7 +571,11 @@ class UnassignmentProcessingSteps(
   override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    deleteReassignment(parsedRequest.fullViewTree.targetSynchronizer, parsedRequest.requestId)
+    EitherT.rightT(
+      reassignmentCoordination.completeUnassignment(
+        ReassignmentId(synchronizerId, parsedRequest.requestTimestamp)
+      )
+    )
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData
@@ -639,17 +640,6 @@ class UnassignmentProcessingSteps(
       )
 
   }
-
-  private[this] def deleteReassignment(
-      targetSynchronizer: Target[SynchronizerId],
-      unassignmentRequestId: RequestId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
-    val reassignmentId = ReassignmentId(synchronizerId, unassignmentRequestId.unwrap)
-    reassignmentCoordination.deleteReassignment(targetSynchronizer, reassignmentId)
-  }
-
 }
 
 object UnassignmentProcessingSteps {

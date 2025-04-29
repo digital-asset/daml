@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -210,11 +212,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
               StateTransferMessage.BlockTransferResponse
-                .create(
-                  commitCertificate = None,
-                  latestCompletedEpochLocally.info.number,
-                  from = myId,
-                )
+                .create(commitCertificate = None, from = myId)
                 .fakeSign
             ),
             to = otherId,
@@ -271,11 +269,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           P2PNetworkOut.send(
             P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
               StateTransferMessage.BlockTransferResponse
-                .create(
-                  Some(commitCert),
-                  latestCompletedEpochLocally.info.number,
-                  from = myId,
-                )
+                .create(Some(commitCert), from = myId)
                 .fakeSign
             ),
             to = otherId,
@@ -307,18 +301,10 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
     val blockMetadata = aBlockMetadata
     val commitCert = aCommitCert(blockMetadata)
-    val latestCompletedEpochRemotely =
-      EpochStore.Epoch(
-        EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
-        lastBlockCommits = Seq.empty, // not used
-      )
 
     // Handle a block transfer response with a single commit certificate.
-    val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
-      Some(commitCert),
-      latestCompletedEpochRemotely.info.number,
-      from = otherId,
-    )
+    val blockTransferResponse =
+      StateTransferMessage.BlockTransferResponse.create(Some(commitCert), from = otherId)
     val topologyInfo = OrderingTopologyInfo(
       myId,
       aMembershipBeforeOnboarding.orderingTopology,
@@ -336,11 +322,8 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
     // Verify the block.
     val blockVerifiedMessage = context.runPipedMessages()
-    blockVerifiedMessage should contain only StateTransferMessage.BlockVerified(
-      commitCert,
-      latestCompletedEpochRemotely.info.number,
-      from = otherId,
-    )
+    blockVerifiedMessage should contain only
+      StateTransferMessage.BlockVerified(commitCert, from = otherId)
     stateTransferManager.handleStateTransferMessage(
       blockVerifiedMessage.headOption
         .getOrElse(fail("There should be just a single block verified message"))
@@ -353,7 +336,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     val blockStoredMessage = context.runPipedMessages()
     blockStoredMessage should contain only StateTransferMessage.BlockStored(
       commitCert,
-      latestCompletedEpochRemotely.info.number,
       from = otherId,
     )
 
@@ -380,7 +362,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
           prePrepare.viewNumber,
           from = commitCert.prePrepare.from,
           isLastInEpoch = true,
-          mode = OrderedBlockForOutput.Mode.StateTransfer.LastBlock,
+          mode = OrderedBlockForOutput.Mode.FromStateTransfer,
         )
       )
     )
@@ -404,38 +386,30 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       startEpoch = EpochNumber.First,
     )(abort = fail(_))
 
-    val latestCompletedEpochRemotely =
-      EpochStore.Epoch(
-        Genesis.GenesisEpochInfo, // the serving node is still at genesis
-        lastBlockCommits = Seq.empty,
-      )
-
     // Handle an empty block transfer response.
-    val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
-      commitCertificate = None,
-      latestCompletedEpochRemotely.info.number,
-      from = otherId,
-    )
+    val blockTransferResponse =
+      StateTransferMessage.BlockTransferResponse.create(commitCertificate = None, from = otherId)
     context.runPipedMessages() shouldBe List()
-    stateTransferManager.handleStateTransferMessage(
-      VerifiedStateTransferMessage(blockTransferResponse),
-      aTopologyInfo,
-      latestCompletedEpochLocally,
-    )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer(from = otherId)
+    stateTransferManager
+      .handleStateTransferMessage(
+        VerifiedStateTransferMessage(blockTransferResponse),
+        aTopologyInfo,
+        latestCompletedEpochLocally,
+      )(abort = fail(_)) shouldBe StateTransferMessageResult.NothingToStateTransfer(from = otherId)
   }
 
   "cancel a timeout" when {
     "an epoch is transferred" in {
+      val timeoutManager = mock[
+        TimeoutManager[ProgrammableUnitTestEnv, Consensus.Message[ProgrammableUnitTestEnv], String]
+      ]
       val stateTransferManager =
-        createStateTransferManager[ProgrammableUnitTestEnv](p2pNetworkOutModuleRef =
-          fakeIgnoringModule
+        createStateTransferManager[ProgrammableUnitTestEnv](
+          p2pNetworkOutModuleRef = fakeIgnoringModule,
+          maybeCustomTimeoutManager = Some(timeoutManager),
         )
-      val timeoutManager = mock[TimeoutManager[ProgrammableUnitTestEnv, Consensus.Message[
-        ProgrammableUnitTestEnv
-      ], EpochNumber]]
-      stateTransferManager.maybeBlockTransferResponseTimeoutManager.putIfAbsent(timeoutManager)
 
-      stateTransferManager.epochTransferred(EpochNumber.First)(fail(_))
+      stateTransferManager.cancelTimeoutForEpoch(EpochNumber.First)
 
       verify(timeoutManager, times(1)).cancelTimeout()
       succeed
@@ -453,26 +427,14 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
 
     val latestCompletedEpochLocally = Genesis.GenesisEpoch
-    val latestCompletedEpochRemotely =
-      EpochStore.Epoch(
-        EpochInfo.mk(EpochNumber.First, startBlockNumber = BlockNumber.First, length = 1),
-        lastBlockCommits = Seq.empty,
-      )
 
-    val aBlockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
-      commitCertificate = None,
-      latestCompletedEpochRemotely.info.number,
-      from = otherId,
-    )
+    val aBlockTransferResponse =
+      StateTransferMessage.BlockTransferResponse.create(commitCertificate = None, from = otherId)
 
     forAll(
       List[StateTransferMessage](
         VerifiedStateTransferMessage(aBlockTransferResponse),
-        StateTransferMessage.BlockStored(
-          aCommitCert(),
-          latestCompletedEpochRemotely.info.number,
-          from = otherId,
-        ),
+        StateTransferMessage.BlockStored(aCommitCert(), from = otherId),
       )
     ) { message =>
       stateTransferManager.handleStateTransferMessage(
@@ -490,12 +452,17 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       p2pNetworkOutModuleRef: ModuleRef[P2PNetworkOut.Message],
       epochLength: Long = 1L,
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E],
+      maybeCustomTimeoutManager: Option[TimeoutManager[E, Consensus.Message[E], String]] = None,
   ): StateTransferManager[E] = {
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
     val dependencies = ConsensusModuleDependencies[E](
       availability = fakeIgnoringModule,
       outputModuleRef,
       p2pNetworkOutModuleRef,
     )
+
+    val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
 
     new StateTransferManager(
       myId,
@@ -503,8 +470,9 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       EpochLength(epochLength),
       epochStore,
       new Random(4),
+      metrics,
       loggerFactory,
-    )
+    )(maybeCustomTimeoutManager)
   }
 
   private def assertBlockTransferRequestHasBeenSent(

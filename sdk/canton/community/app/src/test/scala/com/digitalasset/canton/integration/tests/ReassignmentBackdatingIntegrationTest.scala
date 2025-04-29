@@ -15,6 +15,7 @@ import com.digitalasset.canton.integration.plugins.{
 import com.digitalasset.canton.synchronizer.sequencer.SendDecision
 import com.digitalasset.canton.synchronizer.sequencer.SendPolicy.processTimeProofs_
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 
 import scala.concurrent.{Future, Promise}
 
@@ -51,7 +52,7 @@ abstract class ReassignmentBackdatingIntegrationTest
         P4.topology.namespace_delegations.propose_delegation(
           P4.namespace,
           synchronizerOwnerSigningKey,
-          isRootDelegation = false,
+          CanSignAllButNamespaceDelegations,
         )
 
         // Create PaintOffer on PaintSynchronizer
@@ -92,11 +93,10 @@ abstract class ReassignmentBackdatingIntegrationTest
           P5.ledger_api.commands
             .submit_unassign(
               alice,
-              paintOfferId,
+              Seq(paintOfferId),
               paintSynchronizerId,
               iouSynchronizerId,
             )
-            .unassignedEvent
         }
 
         val disableF = unassignmentP.future.map { _ =>

@@ -27,7 +27,6 @@ module DA.Daml.Helper.Ledger (
     runLedgerGetDalfs,
     runLedgerListPackages,
     runLedgerListPackages0,
-    runLedgerMeteringReport,
     -- exported for testing
     downloadAllReachablePackages,
     ) where
@@ -37,11 +36,10 @@ import Control.Applicative ((<|>))
 import Control.Lens (toListOf)
 import Control.Monad.Extra hiding (fromMaybeM)
 -- import Control.Monad.IO.Class (liftIO)
-import Data.Aeson ((.=), encode)
+import Data.Aeson ((.=))
 import qualified Data.Aeson as A
 import Data.Aeson.Text
 import qualified Data.ByteString as BS
-import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import Data.List.Extra
 import Data.Map.Strict (Map)
@@ -71,10 +69,6 @@ import DA.Daml.Project.Util (fromMaybeM)
 import qualified DA.Ledger as L
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger
-import DA.Ledger.Types (UserId(..))
-import Data.Aeson.Encode.Pretty (encodePretty)
-import Data.Time.Calendar (Day(..))
-import qualified Data.Aeson as Aeson
 
 import SdkVersion.Class (SdkVersioned, unresolvedBuiltinSdkVersion)
 
@@ -519,19 +513,3 @@ runWithLedgerArgs LedgerArgs{host,port,tokM,timeout, sslConfigM, grpcArgs} ls = 
                 grpcArgs
                 sslConfigM
     L.runLedgerService ls' timeout ledgerClientConfig
-
--- | Report on Ledger Use.
-runLedgerMeteringReport :: LedgerFlags -> Day -> Maybe Day -> Maybe UserId -> Bool -> IO ()
-runLedgerMeteringReport flags fromIso toIso application compactOutput = do
-    args <- getDefaultArgs flags
-    report <- meteringReport args fromIso toIso application
-    let encodeFn = if compactOutput then encode else encodePretty
-    let encoded = encodeFn report
-    let bsc = BSL.toStrict encoded
-    let output = BSC.unpack bsc
-    putStrLn output
-
-meteringReport :: LedgerArgs -> Day -> Maybe Day -> Maybe UserId -> IO Aeson.Value
-meteringReport args from to application =
-    runWithLedgerArgs args $
-        do L.getMeteringReport (L.utcDayToTimestamp from) (fmap L.utcDayToTimestamp to) application

@@ -3,7 +3,10 @@
 
 package com.digitalasset.canton.integration.tests.multisynchronizer
 
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.ReassignmentWrapper
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
+  AssignedWrapper,
+  UnassignedWrapper,
+}
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.LocalSequencerReference
@@ -68,8 +71,10 @@ abstract class RepairServiceIntegrationTest
 
         participant1.dars.upload(CantonExamplesPath)
 
-        payer = participant1.parties.enable(payerName)
-        owner = participant1.parties.enable(ownerName)
+        payer = participant1.parties.enable(payerName, synchronizer = daName)
+        participant1.parties.enable(payerName, synchronizer = acmeName)
+        owner = participant1.parties.enable(ownerName, synchronizer = daName)
+        participant1.parties.enable(ownerName, synchronizer = acmeName)
       }
 
   "repair.change_assignation" when {
@@ -102,7 +107,8 @@ abstract class RepairServiceIntegrationTest
           )
 
           val (assignedEventsO, unassignedEventsO) = updates.collect {
-            case t: ReassignmentWrapper => t.event.assigned -> t.event.unassigned
+            case t: AssignedWrapper => (t.events, Nil)
+            case t: UnassignedWrapper => (Nil, t.events)
           }.unzip
 
           val unassignedEvents = unassignedEventsO.flatten
@@ -139,10 +145,10 @@ abstract class RepairServiceIntegrationTest
 
         val cid = IouSyntax.createIou(participant1)(payer, payer).id.toLf
 
-        participant1.ledger_api.commands.submit_reassign(payer, cid, daId, acmeId)
-        participant1.ledger_api.commands.submit_reassign(payer, cid, acmeId, daId)
-        participant1.ledger_api.commands.submit_reassign(payer, cid, daId, acmeId)
-        participant1.ledger_api.commands.submit_reassign(payer, cid, acmeId, daId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), daId, acmeId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), acmeId, daId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), daId, acmeId)
+        participant1.ledger_api.commands.submit_reassign(payer, Seq(cid), acmeId, daId)
 
         val beforeAssignation = participant1.ledger_api.state.acs
           .active_contracts_of_party(payer)

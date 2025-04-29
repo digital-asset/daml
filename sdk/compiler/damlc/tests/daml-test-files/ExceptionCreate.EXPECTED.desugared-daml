@@ -179,5 +179,5 @@ _choice$_Test$Call
                m === "Template precondition violated: MyTemplate {p = 'Alice'}")
 test
   = script
-      do p <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+      do p <- allocatePartyByHint (PartyIdHint "Alice")
          p `submit` createAndExerciseCmd (Test p) Call

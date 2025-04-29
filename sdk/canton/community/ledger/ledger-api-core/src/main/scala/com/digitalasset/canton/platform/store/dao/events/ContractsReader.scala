@@ -8,6 +8,7 @@ import com.daml.metrics.api.MetricHandle.Timer
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
   RawArchivedContract,
@@ -18,9 +19,9 @@ import com.digitalasset.canton.platform.store.dao.events.ContractsReader.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader.*
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
-import com.digitalasset.canton.platform.{Contract, ContractId, *}
+import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.PackageName
-import com.digitalasset.daml.lf.transaction.GlobalKey
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 
 import java.io.{ByteArrayInputStream, InputStream}
@@ -89,40 +90,59 @@ private[dao] sealed class ContractsReader(
             val deserializationTimer =
               metrics.index.db.lookupCreatedContractsDbMetrics.translationTimer
 
-            val contract = toContract(
-              contractId = contractId,
-              templateId = raw.templateId,
-              packageName = raw.packageName,
-              createArgument = raw.createArgument,
-              createArgumentCompression =
-                Compression.Algorithm.assertLookup(raw.createArgumentCompression),
-              decompressionTimer = decompressionTimer,
-              deserializationTimer = deserializationTimer,
-            )
-
-            val globalKey = raw.createKey.map { key =>
-              val keyCompression = Compression.Algorithm.assertLookup(raw.createKeyCompression)
-              val decompressed = decompress(key, keyCompression, decompressionTimer)
-              val value = deserializeValue(
+            val packageName = PackageName.assertFromString(raw.packageName)
+            val templateId = Identifier.assertFromString(raw.templateId)
+            val createArg = {
+              val argCompression = Compression.Algorithm.assertLookup(raw.createArgumentCompression)
+              val decompressed = decompress(raw.createArgument, argCompression, decompressionTimer)
+              deserializeValue(
                 decompressed,
                 deserializationTimer,
-                s"Failed to deserialize create key for contract ${contractId.coid}",
-              )
-              GlobalKey.assertBuild(
-                contract.unversioned.template,
-                value.unversioned,
-                contract.unversioned.packageName,
+                s"Failed to deserialize create argument for contract ${contractId.coid}",
               )
             }
 
+            val keyOpt: Option[KeyWithMaintainers] = (raw.createKey, raw.keyMaintainers) match {
+              case (None, None) =>
+                None
+              case (Some(key), Some(maintainers)) =>
+                val keyCompression = Compression.Algorithm.assertLookup(raw.createKeyCompression)
+                val decompressed = decompress(key, keyCompression, decompressionTimer)
+                val value = deserializeValue(
+                  decompressed,
+                  deserializationTimer,
+                  s"Failed to deserialize create key for contract ${contractId.coid}",
+                )
+                Some(
+                  GlobalKeyWithMaintainers.assertBuild(
+                    templateId = templateId,
+                    value = value.unversioned,
+                    maintainers = maintainers,
+                    packageName = packageName,
+                  )
+                )
+              case (keyOpt, _) =>
+                val msg =
+                  s"contract ${contractId.coid} has " +
+                    (if (keyOpt.isDefined) "a key but no maintainers" else "maintainers but no key")
+                logger.error(msg)(loggingContext.traceContext)
+                sys.error(msg)
+            }
             ActiveContract(
-              contract = contract,
-              stakeholders = raw.flatEventWitnesses,
-              ledgerEffectiveTime = raw.ledgerEffectiveTime,
-              signatories = raw.signatories,
-              globalKey = globalKey,
-              keyMaintainers = raw.keyMaintainers,
-              driverMetadata = raw.driverMetadata,
+              FatContract.fromCreateNode(
+                Node.Create(
+                  coid = contractId,
+                  packageName = packageName,
+                  templateId = templateId,
+                  arg = createArg.unversioned,
+                  signatories = raw.signatories,
+                  stakeholders = raw.flatEventWitnesses,
+                  keyOpt = keyOpt,
+                  version = createArg.version,
+                ),
+                createTime = raw.ledgerEffectiveTime,
+                cantonData = Bytes.fromByteArray(raw.driverMetadata),
+              )
             )
           case raw: RawArchivedContract => ArchivedContract(raw.flatEventWitnesses)
         }),
@@ -166,28 +186,4 @@ private[dao] object ContractsReader {
       value = ValueSerializer.deserializeValue(decompressed, errorContext),
     )
 
-  // The contracts table _does not_ store agreement texts as they are
-  // unnecessary for interpretation and validation. The contracts returned
-  // from this table will _always_ have an empty agreement text.
-  private def toContract(
-      contractId: ContractId,
-      templateId: String,
-      packageName: String,
-      createArgument: Array[Byte],
-      createArgumentCompression: Compression.Algorithm,
-      decompressionTimer: Timer,
-      deserializationTimer: Timer,
-  ): Contract = {
-    val decompressed = decompress(createArgument, createArgumentCompression, decompressionTimer)
-    val deserialized = deserializeValue(
-      decompressed,
-      deserializationTimer,
-      s"Failed to deserialize create argument for contract ${contractId.coid}",
-    )
-    Contract(
-      packageName = PackageName.assertFromString(packageName),
-      template = Identifier.assertFromString(templateId),
-      arg = deserialized,
-    )
-  }
 }

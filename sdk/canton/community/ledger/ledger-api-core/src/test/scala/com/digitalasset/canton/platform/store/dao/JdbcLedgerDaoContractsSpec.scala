@@ -12,6 +12,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
   KeyUnassigned,
 }
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueText}
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -41,8 +42,24 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
     } yield {
       result.collect { case active: LedgerDaoContractsReader.ActiveContract =>
-        (active.contract, active.stakeholders, active.signatories)
-      } shouldEqual Some((someVersionedContractInstance, Set(alice, bob), Set(alice, bob)))
+        (
+          active.contract.version,
+          active.contract.packageName,
+          active.contract.templateId,
+          active.contract.createArg,
+          active.stakeholders,
+          active.contract.signatories,
+        )
+      } shouldEqual Some(
+        (
+          LanguageMajorVersion.V2.maxStableVersion,
+          somePackageName,
+          someTemplateId,
+          someContractArgument,
+          Set(alice, bob),
+          Set(alice, bob),
+        )
+      )
     }
   }
 
@@ -68,9 +85,12 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       )
     } yield {
       queryAfterCreate.value match {
-        case LedgerDaoContractsReader.ActiveContract(contract, stakeholders, _, _, _, _, _) =>
-          contract shouldBe someVersionedContractInstance
-          stakeholders should contain theSameElementsAs Set(alice)
+        case LedgerDaoContractsReader.ActiveContract(contract) =>
+          contract.version shouldBe LanguageMajorVersion.V2.maxStableVersion
+          contract.packageName shouldBe somePackageName
+          contract.templateId shouldBe someTemplateId
+          contract.createArg shouldBe someContractArgument
+          contract.stakeholders should contain theSameElementsAs Set(alice)
         case LedgerDaoContractsReader.ArchivedContract(_) =>
           fail("Contract should appear as active")
       }

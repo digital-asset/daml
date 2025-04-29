@@ -51,7 +51,7 @@ package object commands {
       instant: java.time.Instant
   )(implicit loggingContext: ErrorLoggingContext): CantonTimestamp =
     CantonTimestamp.fromInstant(instant).valueOr { err =>
-      loggingContext.logger.error(err)(loggingContext.traceContext)
+      loggingContext.error(err)
       throw new CommandFailure()
     }
 

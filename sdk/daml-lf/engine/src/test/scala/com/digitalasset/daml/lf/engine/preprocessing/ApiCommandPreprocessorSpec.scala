@@ -123,7 +123,7 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     val defaultPreprocessor =
       new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = false,
+        requireContractIdSuffix = false,
       )
 
     "reject improperly typed ApiCommands" in {
@@ -274,18 +274,22 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = false,
+        requireContractIdSuffix = false,
       )
 
-      val cids = List(
-        ContractId.V1
-          .assertBuild(
-            crypto.Hash.hashPrivateKey("a suffixed V1 Contract ID"),
-            Bytes.assertFromString("00"),
-          ),
-        ContractId.V1
-          .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty),
+      val unsuffixedCidV1 = ContractId.V1
+        .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty)
+      val suffixedCidV1 = ContractId.V1.assertBuild(
+        crypto.Hash.hashPrivateKey("a suffixed V1 Contract ID"),
+        Bytes.assertFromString("00"),
       )
+      val unsuffixedCidV2 = ContractId.V2.unsuffixed(
+        Time.Timestamp.Epoch,
+        crypto.Hash.hashPrivateKey("an unsuffixed V2 Contract ID"),
+      )
+      val suffixedCidV2 =
+        ContractId.V2.assertBuild(unsuffixedCidV2.local, Bytes.assertFromString("00"))
+      val cids = List(suffixedCidV1, unsuffixedCidV1, suffixedCidV2, unsuffixedCidV2)
 
       cids.foreach(cid =>
         forEvery(contractIdTestCases(cids.head, cid))(cmd =>
@@ -295,25 +299,43 @@ class ApiCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     }
 
-    "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
+    "reject non suffixed Contract IDs when requireContractIdSuffix is true" in {
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = true,
+        requireContractIdSuffix = true,
       )
-      val List(aLegalCid, anotherLegalCid) =
+      val List(aLegalCidV1, anotherLegalCidV1) =
         List("a legal Contract ID", "another legal Contract ID").map(s =>
           ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), Bytes.assertFromString("00"))
         )
-      val illegalCid =
+      val aLegalCidV2 = ContractId.V2.assertBuild(
+        Bytes.fromByteArray(Array.fill[Byte](ContractId.V2.localSize)(0x12.toByte)),
+        Bytes.assertFromString("00"),
+      )
+      val illegalCidV1 =
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
-      val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
+      val illegalCidV2 =
+        ContractId.V2.unsuffixed(
+          Time.Timestamp.Epoch,
+          crypto.Hash.hashPrivateKey("an illegal Contract ID"),
+        )
+      val failureV1 =
+        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCidV1))
+      val failureV2 =
+        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(illegalCidV2))
 
-      forEvery(contractIdTestCases(aLegalCid, anotherLegalCid)) { cmd =>
+      forEvery(contractIdTestCases(aLegalCidV1, anotherLegalCidV1)) { cmd =>
         Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe a[Success[_]]
       }
-      forEvery(contractIdTestCases(illegalCid, aLegalCid)) { cmd =>
-        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe failure
+      forEvery(contractIdTestCases(aLegalCidV1, aLegalCidV2)) { cmd =>
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe a[Success[_]]
+      }
+      forEvery(contractIdTestCases(illegalCidV1, aLegalCidV1)) { cmd =>
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe failureV1
+      }
+      forEvery(contractIdTestCases(illegalCidV2, aLegalCidV2)) { cmd =>
+        Try(cmdPreprocessor.unsafePreprocessApiCommand(Map.empty, cmd)) shouldBe failureV2
       }
     }
 

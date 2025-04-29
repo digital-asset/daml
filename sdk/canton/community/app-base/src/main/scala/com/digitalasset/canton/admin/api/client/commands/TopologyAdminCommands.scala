@@ -123,37 +123,6 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class ListIdentifierDelegation(
-        query: BaseQuery,
-        filterUid: String,
-        filterTargetKey: Option[Fingerprint],
-    ) extends BaseCommand[
-          v30.ListIdentifierDelegationRequest,
-          v30.ListIdentifierDelegationResponse,
-          Seq[ListIdentifierDelegationResult],
-        ] {
-
-      override protected def createRequest(): Either[String, v30.ListIdentifierDelegationRequest] =
-        Right(
-          new v30.ListIdentifierDelegationRequest(
-            baseQuery = Some(query.toProtoV1),
-            filterUid = filterUid,
-            filterTargetKeyFingerprint = filterTargetKey.map(_.toProtoPrimitive).getOrElse(""),
-          )
-        )
-
-      override protected def submitRequest(
-          service: TopologyManagerReadServiceStub,
-          request: v30.ListIdentifierDelegationRequest,
-      ): Future[v30.ListIdentifierDelegationResponse] =
-        service.listIdentifierDelegation(request)
-
-      override protected def handleResponse(
-          response: v30.ListIdentifierDelegationResponse
-      ): Either[String, Seq[ListIdentifierDelegationResult]] =
-        response.results.traverse(ListIdentifierDelegationResult.fromProtoV30).leftMap(_.toString)
-    }
-
     final case class ListOwnerToKeyMapping(
         query: BaseQuery,
         filterKeyOwnerType: Option[MemberCode],
@@ -1050,11 +1019,14 @@ object TopologyAdminCommands {
         v30.IdentityInitializationServiceGrpc.stub(channel)
     }
 
-    final case class InitId(identifier: String)
-        extends BaseInitializationService[v30.InitIdRequest, v30.InitIdResponse, Unit] {
+    final case class InitId(
+        identifier: String,
+        namespace: String,
+        delegations: Seq[GenericSignedTopologyTransaction],
+    ) extends BaseInitializationService[v30.InitIdRequest, v30.InitIdResponse, Unit] {
 
       override protected def createRequest(): Either[String, v30.InitIdRequest] =
-        Right(v30.InitIdRequest(identifier))
+        Right(v30.InitIdRequest(identifier, namespace, delegations.map(_.toProtoV30)))
 
       override protected def submitRequest(
           service: IdentityInitializationServiceStub,

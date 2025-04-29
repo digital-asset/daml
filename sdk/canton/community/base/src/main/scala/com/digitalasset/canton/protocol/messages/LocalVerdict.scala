@@ -4,7 +4,7 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.ProtoDeserializationError.{FieldNotSet, OtherError}
-import com.digitalasset.canton.logging.ContextualizedErrorLogger
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.LocalVerdict.VerdictCode.{
@@ -45,7 +45,7 @@ object LocalVerdict extends VersioningCompanion[LocalVerdict] {
   override def name: String = getClass.getSimpleName
 
   override def versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.LocalVerdict)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.LocalVerdict)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )
@@ -107,11 +107,11 @@ final case class LocalReject(reason: com.google.rpc.status.Status, isMalformed: 
 
   override def logRejection(
       extra: Map[String, String]
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Unit =
+  )(implicit errorLoggingContext: ErrorLoggingContext): Unit =
     // Log with level INFO, leave it to LocalRejectError to log the details.
-    contextualizedErrorLogger.withContext(extra) {
+    errorLoggingContext.withContext(extra) {
       lazy val action = if (isMalformed) "malformed" else "rejected"
-      contextualizedErrorLogger.info(show"Request is $action. $reason")
+      errorLoggingContext.info(show"Request is $action. $reason")
     }
 
   override private[messages] def toProtoV30: v30.LocalVerdict = {

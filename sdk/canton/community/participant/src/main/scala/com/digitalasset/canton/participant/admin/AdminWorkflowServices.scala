@@ -22,8 +22,11 @@ import com.digitalasset.canton.ledger.client.{LedgerClient, ResilientLedgerSubsc
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow
-import com.digitalasset.canton.participant.config.LocalParticipantConfig
+import com.digitalasset.canton.participant.admin.party.{
+  PartyReplicationAdminWorkflow,
+  PartyReplicator,
+}
+import com.digitalasset.canton.participant.config.ParticipantNodeConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
@@ -52,7 +55,7 @@ import scala.concurrent.{ExecutionContextExecutor, Future}
   * individual application with their own ledger connection and acting independently.
   */
 class AdminWorkflowServices(
-    config: LocalParticipantConfig,
+    config: ParticipantNodeConfig,
     parameters: ParticipantNodeParameters,
     packageService: PackageService,
     syncService: CantonSyncService,
@@ -110,7 +113,7 @@ class AdminWorkflowServices(
 
   val partyManagementO
       : Option[(Future[ResilientLedgerSubscription[?, ?]], PartyReplicationAdminWorkflow)] =
-    syncService.partyReplicatorO.map(partyReplicator =>
+    parameters.unsafeOnlinePartyReplication.map(_ =>
       createService(
         "party-management",
         // TODO(#20637): Don't resubscribe if the ledger api has been pruned as that would mean missing updates that
@@ -120,7 +123,15 @@ class AdminWorkflowServices(
         new PartyReplicationAdminWorkflow(
           connection,
           participantId,
-          partyReplicator,
+          // See the note in the PartyReplicator pertaining to lifetime.
+          new PartyReplicator(
+            participantId,
+            syncService,
+            futureSupervisor,
+            parameters.exitOnFatalFailures,
+            parameters.processingTimeouts,
+            loggerFactory,
+          ),
           syncService,
           clock,
           futureSupervisor,

@@ -97,7 +97,6 @@ allowedToImportInternal :: Map.Map LF.PackageName (Set.Set GHC.ModuleName)
 allowedToImportInternal = Map.fromList $ fmap (bimap LF.PackageName $ Set.fromList . map GHC.mkModuleName)
   [ ( "daml-script"
     , [ "Daml.Script.Internal.LowLevel"
-      , "Daml.Script.Internal.Questions.Testing"
       , "Daml.Script.Internal.Questions.UserManagement"
       ]
     )

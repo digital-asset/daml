@@ -45,7 +45,7 @@ version_specific = {
 # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
 # need to be updated with careful consideration.
 
-apispec_version = "0.7.1"
+apispec_version = "0.11.7"
 netty_tcnative_version = "2.0.65.Final"
 netty_version = "4.1.110.Final"
 grpc_version = "1.67.1"
@@ -93,14 +93,14 @@ def install_java_deps():
             "com.google.protobuf:protobuf-java-util:{}".format(protobuf_version),
             "com.google.protobuf:protobuf-java:{}".format(protobuf_version),
             "com.h2database:h2:2.1.210",
-            "com.lihaoyi:ammonite-compiler_{}:3.0.0".format(scala_version),
-            "com.lihaoyi:ammonite-compiler-interface_{}:3.0.0".format(scala_version),
-            "com.lihaoyi:ammonite-interp-api_{}:3.0.0".format(scala_version),
-            "com.lihaoyi:ammonite-interp_{}:3.0.0".format(scala_version),
-            "com.lihaoyi:ammonite-repl_{}:3.0.0".format(scala_version),
-            "com.lihaoyi:ammonite-runtime_{}:3.0.0".format(scala_version),
-            "com.lihaoyi:ammonite-util_{}:3.0.0".format(scala_major_version),
-            "com.lihaoyi:ammonite_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-compiler_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:ammonite-compiler-interface_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:ammonite-interp-api_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:ammonite-interp_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:ammonite-repl_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:ammonite-runtime_{}:3.0.2".format(scala_version),
+            "com.lihaoyi:ammonite-util_{}:3.0.2".format(scala_major_version),
+            "com.lihaoyi:ammonite_{}:3.0.2".format(scala_version),
             "com.lihaoyi:fansi_{}:0.4.0".format(scala_major_version),
             "com.lihaoyi:geny_{}:1.1.1".format(scala_major_version),
             "com.lihaoyi:os-lib_{}:0.10.7".format(scala_major_version),
@@ -127,7 +127,7 @@ def install_java_deps():
             "com.thesamet.scalapb:lenses_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:protoc-bridge_{}:{}".format(scala_major_version, scalapb_protoc_version),
             "com.thesamet.scalapb:protoc-gen_{}:{}".format(scala_major_version, scalapb_protoc_version),
-            "com.thesamet.scalapb:scalapb-json4s_{}:0.11.1".format(scala_major_version, scalapb_version),
+            "com.thesamet.scalapb:scalapb-json4s_{}:0.11.1".format(scala_major_version),
             "com.thesamet.scalapb:scalapb-runtime-grpc_{}:{}".format(scala_major_version, scalapb_version),
             "com.thesamet.scalapb:scalapb-runtime_{}:{}".format(scala_major_version, scalapb_version),
             "org.apache.pekko:pekko-actor-testkit-typed_{}:{}".format(scala_major_version, pekko_version),
@@ -229,8 +229,8 @@ def install_java_deps():
             "org.codehaus.janino:janino:3.1.4",
             "org.flywaydb:flyway-core:8.4.1",
             "org.freemarker:freemarker-gae:2.3.32",
-            "org.jline:jline-reader:3.22.0",
-            "org.jline:jline:3.22.0",
+            "org.jline:jline-reader:3.27.1",
+            "org.jline:jline:3.27.1",
             "org.junit.jupiter:junit-jupiter-api:5.9.2",
             "org.junit.jupiter:junit-jupiter-engine:5.9.2",
             "org.junit.platform:junit-platform-engine:1.9.2",
@@ -273,9 +273,9 @@ def install_java_deps():
             "org.typelevel:cats-free_{}:2.9.0".format(scala_major_version),
             "org.typelevel:cats-kernel_{}:2.9.0".format(scala_major_version),
             "org.typelevel:cats-laws_{}:2.9.0".format(scala_major_version),
-            "org.typelevel:kind-projector_{}:0.13.2".format(scala_version),
+            "org.typelevel:kind-projector_{}:0.13.3".format(scala_version),
             "org.typelevel:paiges-core_{}:0.4.2".format(scala_major_version),
-            "org.wartremover:wartremover_{}:2.4.21".format(scala_version),
+            "org.wartremover:wartremover_{}:3.2.5".format(scala_version),
             "dev.optics:monocle-macro_{}:3.2.0".format(scala_major_version),
             "org.xerial:sqlite-jdbc:3.36.0.1",
             maven.artifact("com.github.pureconfig", "pureconfig-macros_2.12", "0.14.0", neverlink = True),

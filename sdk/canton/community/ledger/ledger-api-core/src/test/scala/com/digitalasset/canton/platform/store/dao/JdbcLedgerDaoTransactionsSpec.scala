@@ -13,6 +13,7 @@ import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversi
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.platform.store.backend.common.UpdatePointwiseQueries.LookupKey
 import com.digitalasset.canton.platform.store.dao.*
+import com.digitalasset.canton.platform.store.dao.EventProjectionProperties.UseOriginalViewPackageId
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.EventOps
 import com.digitalasset.canton.platform.{
@@ -500,7 +501,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               eventProjectionProperties = EventProjectionProperties(
                 verbose = true,
                 templateWildcardWitnesses = Some(Set(alice, bob, charlie)),
-              ),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -535,7 +536,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               eventProjectionProperties = EventProjectionProperties(
                 verbose = true,
                 templateWildcardWitnesses = Some(Set(alice)),
-              ),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -549,7 +550,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               eventProjectionProperties = EventProjectionProperties(
                 verbose = true,
                 templateWildcardWitnesses = Some(Set(bob)),
-              ),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -563,7 +564,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               eventProjectionProperties = EventProjectionProperties(
                 verbose = true,
                 templateWildcardWitnesses = Some(Set(charlie)),
-              ),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -596,7 +597,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             internalUpdateFormat = updateFormat(
               filter =
                 TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(alice))), Some(Set.empty)),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -634,7 +638,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 ),
                 templateWildcardParties = Some(Set.empty),
               ),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -648,7 +655,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 relation = Map(otherTemplateId -> None),
                 templateWildcardParties = Some(Set.empty),
               ),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -696,7 +706,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 ),
                 templateWildcardParties = Some(Set.empty),
               ),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -713,7 +726,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 ),
                 templateWildcardParties = Some(Set.empty),
               ),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -759,7 +775,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 ),
                 Some(Set(bob)),
               ),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -775,7 +794,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
                 ),
                 Some(Set(bob)),
               ),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
       )
@@ -807,7 +829,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endInclusive = offset,
           internalUpdateFormat = updateFormat(
             filter = TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              Some(Set.empty),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           ),
         )
         .runWith(Sink.seq)
@@ -841,7 +866,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endInclusive = offset2,
           internalUpdateFormat = updateFormat(
             TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              Some(Set.empty),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           ),
         )
         .runWith(Sink.seq)
@@ -873,7 +901,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endInclusive = endOffsetFromTheFuture,
           internalUpdateFormat = updateFormat(
             TemplatePartiesFilter(Map.empty, Some(Set(alice))),
-            eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+            eventProjectionProperties = EventProjectionProperties(
+              verbose = true,
+              Some(Set.empty),
+            )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
           ),
         )
         .runWith(Sink.seq)
@@ -931,7 +962,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = endOffset,
             internalUpdateFormat = updateFormat(
               TemplatePartiesFilter(Map.empty, Some(Set(alice))),
-              eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
+              eventProjectionProperties = EventProjectionProperties(
+                verbose = true,
+                Some(Set.empty),
+              )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
             ),
           )
           .runWith(Sink.seq)
@@ -982,7 +1016,10 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               endInclusive = to.value.lastOffset,
               internalUpdateFormat = updateFormat(
                 cp.filter,
-                EventProjectionProperties(verbose = true, Some(Set.empty)),
+                EventProjectionProperties(
+                  verbose = true,
+                  Some(Set.empty),
+                )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
               ),
             )
             .runWith(Sink.seq)
@@ -1196,7 +1233,7 @@ private[dao] object JdbcLedgerDaoTransactionsSpec {
         eventProjectionProperties = EventProjectionProperties(
           verbose = true,
           templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
-        ),
+        )(interfaceViewPackageUpgrade = UseOriginalViewPackageId),
       ),
       transactionShape = AcsDelta,
     )

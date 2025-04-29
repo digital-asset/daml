@@ -67,7 +67,7 @@ object FullInformeeTree extends VersioningCompanionContextPVValidation2[FullInfo
   override val name: String = "FullInformeeTree"
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(v30.FullInformeeTree)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(v30.FullInformeeTree)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30,
     )

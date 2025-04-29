@@ -115,10 +115,12 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       alice = participant1.parties.enable(
         "alice",
         synchronizeParticipants = Seq(participant2),
+        synchronizer = synchronizer1,
       )
       bob = participant2.parties.enable(
         "bob",
         synchronizeParticipants = Seq(participant1),
+        synchronizer = synchronizer1,
       )
     }
 
@@ -161,6 +163,17 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       clue(s"connect $participant2 to $synchronizer2") {
         participant2.synchronizers.connect_local(sequencer4, alias = synchronizer2)
       }
+      participant1.parties.enable(
+        "alice",
+        synchronizeParticipants = Seq(participant2),
+        synchronizer = synchronizer2,
+      )
+      participant2.parties.enable(
+        "bob",
+        synchronizeParticipants = Seq(participant1),
+        synchronizer = synchronizer2,
+      )
+
     }
 
     // We can add the new mediator group only after the participants have connected because they govern the synchronizer.
@@ -217,7 +230,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       val unassigned = clue(s"unassign from $synchronizer1 to $synchronizer2") {
         participant1.ledger_api.commands.submit_unassign(
           payer,
-          contractId.toLf,
+          Seq(contractId.toLf),
           synchronizerId1,
           synchronizerId2,
           submissionId = "unassignment-synchronizer2-synchronizer1",
@@ -236,7 +249,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       clue(s"assignment on $synchronizer1") {
         participant2.ledger_api.commands.submit_assign(
           owner,
-          unassigned.unassignedEvent.unassignId,
+          unassigned.unassignId,
           synchronizerId1,
           synchronizerId2,
           submissionId = "assignment-synchronizer2-synchronizer1",

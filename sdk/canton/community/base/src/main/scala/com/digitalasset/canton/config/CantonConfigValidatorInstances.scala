@@ -41,7 +41,7 @@ object CantonConfigValidatorInstances {
   implicit def bytesUnitCantonConfigValidator: CantonConfigValidator[BytesUnit] =
     CantonConfigValidator.validateAll
 
-  // util-logging
+  // util-observability
   implicit def tracingConfigCantonConfigValidator: CantonConfigValidator[TracingConfig] =
     CantonConfigValidator.validateAll
 

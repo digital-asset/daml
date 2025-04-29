@@ -7,7 +7,7 @@ import cats.data.NonEmptyVector
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.Added
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
@@ -197,11 +197,15 @@ class InMemoryStateUpdaterSpec
       .set(Some(lastLedgerEnd))
     inOrder.verify(dispatcher).signalNewHead(lastOffset)
     inOrder
-      .verify(submissionTracker)
+      .verify(transactionSubmissionTracker)
       .onCompletion(tx_accepted_completionStreamResponse)
 
     inOrder
-      .verify(submissionTracker)
+      .verify(transactionSubmissionTracker)
+      .onCompletion(tx_rejected_completionStreamResponse)
+
+    inOrder
+      .verify(reassignmentSubmissionTracker)
       .onCompletion(tx_rejected_completionStreamResponse)
 
     inOrder.verifyNoMoreInteractions()
@@ -244,11 +248,15 @@ class InMemoryStateUpdaterSpec
     inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
 
     inOrder
-      .verify(submissionTracker)
+      .verify(transactionSubmissionTracker)
       .onCompletion(tx_accepted_completionStreamResponse)
 
     inOrder
-      .verify(submissionTracker)
+      .verify(transactionSubmissionTracker)
+      .onCompletion(tx_rejected_completionStreamResponse)
+
+    inOrder
+      .verify(reassignmentSubmissionTracker)
       .onCompletion(tx_rejected_completionStreamResponse)
 
     inOrder.verifyNoMoreInteractions()
@@ -513,7 +521,8 @@ object InMemoryStateUpdaterSpec {
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer = mock[InMemoryFanoutBuffer]
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
-    val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
+    val transactionSubmissionTracker: SubmissionTracker = mock[SubmissionTracker]
+    val reassignmentSubmissionTracker: SubmissionTracker = mock[SubmissionTracker]
     val partyAllocationTracker: PartyAllocation.Tracker = mock[PartyAllocation.Tracker]
     val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
@@ -524,7 +533,8 @@ object InMemoryStateUpdaterSpec {
       inMemoryFanoutBuffer,
       stringInterningView,
       dispatcherState,
-      submissionTracker,
+      transactionSubmissionTracker,
+      reassignmentSubmissionTracker,
       dispatcher,
     )
 
@@ -538,7 +548,8 @@ object InMemoryStateUpdaterSpec {
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
-      submissionTracker = submissionTracker,
+      transactionSubmissionTracker = transactionSubmissionTracker,
+      reassignmentSubmissionTracker = reassignmentSubmissionTracker,
       partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
@@ -744,6 +755,7 @@ object InMemoryStateUpdaterSpec {
     workflowId = Some(workflowId),
     submissionTime = Timestamp.Epoch,
     submissionSeed = crypto.Hash.hashPrivateKey("SomeTxMeta"),
+    timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,

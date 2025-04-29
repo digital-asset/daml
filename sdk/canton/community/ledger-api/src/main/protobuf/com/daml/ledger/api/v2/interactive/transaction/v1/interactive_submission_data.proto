@@ -21,6 +21,7 @@ message Fetch {
   string lf_version = 1;
   string contract_id = 2;
   string package_name = 3;
+  // The identifier uses the package-id reference format.
   Identifier template_id = 4;
   repeated string signatories = 5;
   repeated string stakeholders = 6;
@@ -35,10 +36,12 @@ message Exercise {
   string lf_version = 1;
   string contract_id = 2;
   string package_name = 3;
+  // The identifier uses the package-id reference format.
   Identifier template_id = 4;
   repeated string signatories = 5;
   repeated string stakeholders = 6;
   repeated string acting_parties = 7;
+  // The identifier uses the package-id reference format.
   Identifier interface_id = 8;
   string choice_id = 9;
   Value chosen_value = 10;
@@ -54,6 +57,7 @@ message Create {
   string lf_version = 1;
   string contract_id = 2;
   string package_name = 3;
+  // The identifier uses the package-id reference format.
   Identifier template_id = 4;
   Value argument = 5;
   repeated string signatories = 6;

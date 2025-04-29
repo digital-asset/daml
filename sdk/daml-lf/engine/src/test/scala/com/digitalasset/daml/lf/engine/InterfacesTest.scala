@@ -15,8 +15,7 @@ import Value._
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.transaction.SubmittedTransaction
-import com.digitalasset.daml.lf.transaction.Transaction
-import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.assertAsVersionedContract
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Transaction}
 import com.daml.logging.LoggingContext
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.EitherValues
@@ -75,20 +74,20 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
     val cid1 = toContractId("1")
     val cid2 = toContractId("2")
     val contracts = Map(
-      cid1 -> assertAsVersionedContract(
-        ContractInstance(
-          interfacesPkg.pkgName,
-          idT1,
-          ValueRecord(None, ImmArray((None, ValueParty(party)))),
-        )
-      ),
-      cid2 -> assertAsVersionedContract(
-        ContractInstance(
+      cid1 ->
+        FatContractInstance.fromThinInstance(
+          version = LanguageMajorVersion.V2.minStableVersion,
+          packageName = interfacesPkg.pkgName,
+          template = idT1,
+          arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
+        ),
+      cid2 ->
+        FatContractInstance.fromThinInstance(
+          version = LanguageMajorVersion.V2.minStableVersion,
           interfacesPkg.pkgName,
           idT2,
           ValueRecord(None, ImmArray((None, ValueParty(party)))),
-        )
-      ),
+        ),
     )
     def consume[X](x: Result[X]) = x.consume(contracts, allInterfacesPkgs)
 

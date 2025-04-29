@@ -14,6 +14,7 @@ object ReleaseVersionToProtocolVersions {
   private val v30 = ProtocolVersion(30)
   private val v31 = ProtocolVersion(31)
   private val v32 = ProtocolVersion(32)
+  private val v33 = ProtocolVersion(33)
 
   import ProtocolVersion.*
 
@@ -35,6 +36,7 @@ object ReleaseVersionToProtocolVersions {
       ReleaseVersions.v3_1_0 -> List(v31),
       ReleaseVersions.v3_2_0 -> List(v32),
       ReleaseVersions.v3_3_0 -> List(v33),
+      ReleaseVersions.v3_4_0_snapshot -> List(v34),
     ).map { case (release, pvs) => (release.majorMinor, NonEmptyUtil.fromUnsafe(pvs)) }
 
   val majorMinorToBetaProtocolVersions: Map[(Int, Int), NonEmpty[List[ProtocolVersion]]] = Map(

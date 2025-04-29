@@ -18,6 +18,7 @@ import com.digitalasset.canton.sequencing.{
   HandlerResult,
   TracedProtocolEvent,
   UnsignedEnvelopeBox,
+  WithCounter,
 }
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.SynchronizerId
@@ -77,19 +78,21 @@ class MediatorEventProcessorTest
       ts: CantonTimestamp,
       envelopes: DefaultOpenEnvelope*
   ): (TracedProtocolEvent) =
-    Traced(
-      Deliver.create(
-        SequencerCounter.One, // not relevant
-        previousTimestamp = None, // not relevant
-        timestamp = ts,
-        synchronizerId = synchronizerId,
-        messageIdO = None, // not relevant
-        batch = Batch(envelopes.toList, testedProtocolVersion),
-        topologyTimestampO = None, // not relevant
-        trafficReceipt = None, // not relevant
-        protocolVersion = testedProtocolVersion,
-      )
-    )(TraceContext.createNew())
+    WithCounter(
+      SequencerCounter.One, // not relevant
+      Traced(
+        Deliver.create(
+          previousTimestamp = None, // not relevant
+          timestamp = ts,
+          synchronizerId = synchronizerId,
+          messageIdO = None, // not relevant
+          batch = Batch(envelopes.toList, testedProtocolVersion),
+          topologyTimestampO = None, // not relevant
+          trafficReceipt = None, // not relevant
+          protocolVersion = testedProtocolVersion,
+        )
+      )(TraceContext.createNew()),
+    )
 
   private def mkMediatorRequest(
       uuid: UUID,

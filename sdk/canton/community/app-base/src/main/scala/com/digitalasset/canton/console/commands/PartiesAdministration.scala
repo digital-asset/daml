@@ -4,11 +4,10 @@
 package com.digitalasset.canton.console.commands
 
 import better.files.File
+import cats.Applicative
 import cats.syntax.either.*
 import cats.syntax.foldable.*
-import cats.syntax.traverse.*
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
-import com.digitalasset.canton.LedgerParticipantId
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.{
   TopologyTransactionWrapper,
   UpdateWrapper,
@@ -18,18 +17,19 @@ import com.digitalasset.canton.admin.api.client.commands.{
   TopologyAdminCommands,
 }
 import com.digitalasset.canton.admin.api.client.data.{
-  ListConnectedSynchronizersResult,
+  AddPartyStatus,
   ListPartiesResult,
   PartyDetails,
 }
-import com.digitalasset.canton.admin.participant.v30.ExportAcsResponse
+import com.digitalasset.canton.admin.participant.v30.{
+  ExportAcsAtTimestampResponse,
+  ExportAcsResponse,
+}
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.commands.TopologyTxFiltering.{AddedFilter, RevokedFilter}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
-  CantonInternalError,
-  CommandFailure,
   ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
@@ -48,10 +48,10 @@ import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.{LedgerParticipantId, SynchronizerAlias}
 import io.grpc.Context
 
 import java.time.Instant
-import scala.util.Try
 
 class PartiesAdministrationGroup(
     runner: AdminCommandRunner,
@@ -151,12 +151,12 @@ class ParticipantPartiesAdministrationGroup(
     }
 
   @Help.Summary("Enable/add party to participant")
-  @Help.Description("""This function registers a new party with the current participant within the participants
-      |namespace. The function fails if the participant does not have appropriate signing keys
-      |to issue the corresponding PartyToParticipant topology transaction.
-      |Specifying a set of synchronizers via the `waitForSynchronizer` parameter ensures that the synchronizers have
-      |enabled/added a party by the time the call returns, but other participants connected to the same synchronizers may not
-      |yet be aware of the party.
+  @Help.Description("""This function registers a new party on a synchronizer with the current participant within the
+      |participants namespace. The function fails if the participant does not have appropriate signing keys
+      |to issue the corresponding PartyToParticipant topology transaction, or if the participant is not connected to any
+      |synchronizers.
+      |The synchronizer parameter does not have to be specified if the participant is connected only to one synchronizer.
+      |If the participant is connected to multiple synchronizers, the party needs to be enabled on each synchronizer explicitly.
       |Additionally, a sequence of additional participants can be added to be synchronized to
       |ensure that the party is known to these participants as well before the function terminates.
       |""")
@@ -165,141 +165,112 @@ class ParticipantPartiesAdministrationGroup(
       namespace: Namespace = participantId.namespace,
       participants: Seq[ParticipantId] = Seq(participantId),
       threshold: PositiveInt = PositiveInt.one,
-      // TODO(i10809) replace wait for synchronizer for a clean topology synchronisation using the dispatcher info
-      waitForSynchronizer: SynchronizerChoice = SynchronizerChoice.All,
+      synchronizer: Option[SynchronizerAlias] = None,
       synchronizeParticipants: Seq[ParticipantReference] = consoleEnvironment.participants.all,
       mustFullyAuthorize: Boolean = true,
       synchronize: Option[NonNegativeDuration] = Some(
         consoleEnvironment.commandTimeouts.unbounded
       ),
   ): PartyId = {
-
-    def registered(lst: => Seq[ListPartiesResult]): Set[SynchronizerId] =
-      lst
+    def synchronizersPartyIsRegisteredOn(participant: ParticipantReference, partyId: PartyId) =
+      participant.parties
+        .list(filterParty = partyId.filterString, filterParticipant = participantId.filterString)
         .flatMap(_.participants.flatMap(_.synchronizers))
         .map(_.synchronizerId)
         .toSet
-    def primaryRegistered(partyId: PartyId) =
-      registered(
-        list(filterParty = partyId.filterString, filterParticipant = participantId.filterString)
-      )
 
-    def primaryConnected: Either[String, Seq[ListConnectedSynchronizersResult]] =
-      reference
-        .adminCommand(
-          ParticipantAdminCommands.SynchronizerConnectivity.ListConnectedSynchronizers()
-        )
-        .toEither
-
-    def findSynchronizerIds(
-        name: String,
-        connected: Either[String, Seq[ListConnectedSynchronizersResult]],
-    ): Either[String, Set[SynchronizerId]] =
-      for {
-        synchronizerIds <- waitForSynchronizer match {
-          case SynchronizerChoice.All =>
-            connected.map(_.map(_.synchronizerId))
-          case SynchronizerChoice.Only(Seq()) =>
-            Right(Seq())
-          case SynchronizerChoice.Only(aliases) =>
-            connected.flatMap { res =>
-              val connectedM = res.map(x => (x.synchronizerAlias, x.synchronizerId)).toMap
-              aliases.traverse(alias => connectedM.get(alias).toRight(s"Unknown: $alias for $name"))
-            }
-        }
-      } yield synchronizerIds.toSet
     def retryE(condition: => Boolean, message: => String): Either[String, Unit] =
       AdminCommandRunner
         .retryUntilTrue(consoleEnvironment.commandTimeouts.ledgerCommand)(condition)
         .toEither
         .leftMap(_ => message)
+
     def waitForParty(
         partyId: PartyId,
-        synchronizerIds: Set[SynchronizerId],
-        registered: => Set[SynchronizerId],
-        queriedParticipant: ParticipantId = participantId,
+        synchronizerId: SynchronizerId,
+        queriedParticipant: ParticipantReference,
     ): Either[String, Unit] =
-      if (synchronizerIds.nonEmpty) {
-        retryE(
-          synchronizerIds subsetOf registered,
-          show"Party $partyId did not appear for $queriedParticipant on synchronizer ${synchronizerIds
-              .diff(registered)}",
+      retryE(
+        synchronizersPartyIsRegisteredOn(queriedParticipant, partyId).contains(synchronizerId),
+        show"Party $partyId did not appear for $queriedParticipant on synchronizer $synchronizerId}",
+      )
+
+    def waitForPartyAndSyncWithParticipants(partyId: PartyId, synchronizerId: SynchronizerId) =
+      for {
+        _ <- waitForParty(partyId, synchronizerId, reference)
+        _ <- retryE(
+          reference.ledger_api.parties.list().map(_.party).contains(partyId),
+          show"The party $partyId never appeared on the ledger API server",
         )
-      } else Either.unit
-    val syncLedgerApi = waitForSynchronizer match {
-      case SynchronizerChoice.All => true
-      case SynchronizerChoice.Only(aliases) => aliases.nonEmpty
-    }
+        // find the additional participants that are connected to the same synchronizer
+        additionalSync = synchronizeParticipants.filter(
+          _.synchronizers.is_connected(synchronizerId)
+        )
+        _ <- additionalSync.traverse_ { p =>
+          waitForParty(
+            partyId,
+            synchronizerId,
+            p,
+          )
+        }
+      } yield ()
+
     consoleEnvironment.run {
       ConsoleCommandResult.fromEither {
         for {
           // assert that name is valid ParticipantId
-          _ <- Either
-            .catchOnly[IllegalArgumentException](LedgerParticipantId.assertFromString(name))
-            .leftMap(_.getMessage)
+          _ <- LedgerParticipantId.fromString(name)
           partyId <- UniqueIdentifier.create(name, namespace).map(PartyId(_))
-          // find the synchronizer ids
-          synchronizerIds <- findSynchronizerIds(
-            this.participantId.identifier.unwrap,
-            primaryConnected,
-          )
-          // find the synchronizer ids the additional participants are connected to
-          additionalSync <- synchronizeParticipants.traverse { p =>
-            findSynchronizerIds(
-              p.name,
-              Try(p.synchronizers.list_connected()).toEither.leftMap {
-                case exception @ (_: CommandFailure | _: CantonInternalError) =>
-                  exception.getMessage
-                case exception => throw exception
-              },
-            )
-              .map(synchronizers => (p, synchronizers.intersect(synchronizerIds)))
-          }
+          // find the synchronizer id
+          synchronizerId <- lookupOrDetectSynchronizerId(synchronizer)
           _ <- runPartyCommand(
             partyId,
             participants,
             threshold,
+            synchronizerId,
             mustFullyAuthorize,
             synchronize,
           ).toEither
-          _ <- waitForParty(partyId, synchronizerIds, primaryRegistered(partyId))
-          _ <-
-            // sync with ledger-api server if this node is connected to at least one synchronizer
-            if (syncLedgerApi && primaryConnected.exists(_.nonEmpty))
-              retryE(
-                reference.ledger_api.parties.list().map(_.party).contains(partyId),
-                show"The party $partyId never appeared on the ledger API server",
-              )
-            else Either.unit
-          _ <- additionalSync.traverse_ { case (p, synchronizers) =>
-            waitForParty(
-              partyId,
-              synchronizers,
-              registered(
-                p.parties.list(
-                  filterParty = partyId.filterString,
-                  filterParticipant = participantId.filterString,
-                )
-              ),
-              p.id,
-            )
-          }
+
+          _ <- Applicative[Either[String, *]].whenA(synchronize.nonEmpty)(
+            waitForPartyAndSyncWithParticipants(partyId, synchronizerId)
+          )
         } yield partyId
       }
     }
+  }
 
+  /** @return
+    *   if SynchronizerAlias is set, the SynchronizerId that corresponds to the alias. if
+    *   SynchronizerAlias is not set, the synchronizer id of the only connected synchronizer. if the
+    *   participant is connected to multiple synchronizers, it returns an error.
+    */
+  private def lookupOrDetectSynchronizerId(
+      alias: Option[SynchronizerAlias]
+  ): Either[String, SynchronizerId] = {
+    lazy val singleConnectedSynchronizer = reference.synchronizers.list_connected() match {
+      case Seq() =>
+        Left("not connected to any synchronizer")
+      case Seq(onlyOneSynchronizer) => Right(onlyOneSynchronizer.synchronizerId)
+      case _multiple =>
+        Left(
+          "cannot automatically determine synchronizer, because participant is connected to more than 1 synchronizer"
+        )
+    }
+    alias.map(a => Right(reference.synchronizers.id_of(a))).getOrElse(singleConnectedSynchronizer)
   }
 
   private def runPartyCommand(
       partyId: PartyId,
       participants: Seq[ParticipantId],
       threshold: PositiveInt,
+      synchronizerId: SynchronizerId,
       mustFullyAuthorize: Boolean,
       synchronize: Option[NonNegativeDuration],
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
     // determine the next serial
     val nextSerial = reference.topology.party_to_participant_mappings
-      .list_from_authorized(filterParty = partyId.filterString)
+      .list(synchronizerId, filterParty = partyId.filterString)
       .maxByOption(_.context.serial)
       .map(_.context.serial.increment)
 
@@ -320,7 +291,7 @@ class ParticipantPartiesAdministrationGroup(
           // let the topology service determine the appropriate keys to use
           signedBy = Seq.empty,
           serial = nextSerial,
-          store = TopologyStoreId.Authorized,
+          store = TopologyStoreId.Synchronizer(synchronizerId),
           mustFullyAuthorize = mustFullyAuthorize,
           change = TopologyChangeOp.Replace,
           forceChanges = ForceFlags.none,
@@ -330,14 +301,21 @@ class ParticipantPartiesAdministrationGroup(
   }
 
   @Help.Summary("Disable party on participant")
-  def disable(party: PartyId, forceFlags: ForceFlags = ForceFlags.none): Unit =
+  def disable(
+      party: PartyId,
+      forceFlags: ForceFlags = ForceFlags.none,
+      synchronizer: Option[SynchronizerAlias] = None,
+  ): Unit = {
+    val synchronizerId = consoleEnvironment.runE(lookupOrDetectSynchronizerId(synchronizer))
     reference.topology.party_to_participant_mappings
       .propose_delta(
         party,
         removes = List(this.participantId),
         forceFlags = forceFlags,
+        store = TopologyStoreId.Synchronizer(synchronizerId),
       )
       .discard
+  }
 
   @Help.Summary("Update participant-local party details")
   @Help.Description(
@@ -358,7 +336,7 @@ class ParticipantPartiesAdministrationGroup(
   @Help.Summary("Add a previously existing party to the local participant", FeatureFlag.Preview)
   @Help.Description(
     """Initiate adding a previously existing party to this participant on the specified synchronizer.
-      |Performs some checks synchronously and then initiates party replication asynchronously. The returned `id`
+      |Performs some checks synchronously and then initiates party replication asynchronously. The returned `addPartyRequestId`
       |parameter allows identifying asynchronous progress and errors."""
   )
   def add_party_async(
@@ -379,6 +357,19 @@ class ParticipantPartiesAdministrationGroup(
     }
   }
 
+  @Help.Summary("Obtain status on a pending `add_party_async` call", FeatureFlag.Preview)
+  @Help.Description(
+    """Retrieve status information on a party previously added via the `add_party_async` endpoint
+      |by specifying the previously returned `addPartyRequestId` parameter."""
+  )
+  def get_add_party_status(addPartyRequestId: String): AddPartyStatus = check(FeatureFlag.Preview) {
+    consoleEnvironment.run {
+      reference.adminCommand(
+        ParticipantAdminCommands.PartyManagement.GetAddPartyStatus(addPartyRequestId)
+      )
+    }
+  }
+
   @Help.Summary("Waits for any topology changes to be observed", FeatureFlag.Preview)
   @Help.Description(
     "Will throw an exception if the given topology has not been observed within the given timeout."
@@ -392,7 +383,6 @@ class ParticipantPartiesAdministrationGroup(
       TopologySynchronisation.awaitTopologyObserved(reference, partyAssignment, timeout)
     }
 
-  // TODO(#24827) - Revise filtering such that only transactions are used where a party is really added to a participant
   @Help.Summary("Finds a party's highest activation offset.")
   @Help.Description(
     """This command locates the highest ledger offset where a party's activation matches
@@ -562,24 +552,20 @@ class ParticipantPartiesAdministrationGroup(
       |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
       |into a participant's ACS again.
       |
-      |Note that the `export_acs` command execution may take a long time to complete and may
-      |require significant memory (RAM) depending on the size of the ACS.
-      |
       |The arguments are:
       |- parties: Identifying contracts having at least one stakeholder from the given set.
+      |- synchronizerId: When defined, restricts the export to the given synchronizer.
       |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
-      |- filterSynchronizerId: When defined, restricts the export to the given synchronizer.
       |- ledgerOffset: The offset at which the ACS snapshot is exported.
       |- contractSynchronizerRenames: Changes the associated synchronizer id of contracts from
       |                               one synchronizer to another based on the mapping.
       |- timeout: A timeout for this operation to complete.
-      |- templateFilter: Template IDs for the contracts to be exported.
       """
   )
   def export_acs(
       parties: Set[PartyId],
+      synchronizerId: Option[SynchronizerId] = None,
       exportFilePath: String = "canton-acs-export.gz",
-      filterSynchronizerId: Option[SynchronizerId] = None,
       ledgerOffset: NonNegativeLong,
       contractSynchronizerRenames: Map[SynchronizerId, SynchronizerId] = Map.empty,
       timeout: NonNegativeDuration = timeouts.unbounded,
@@ -592,7 +578,7 @@ class ParticipantPartiesAdministrationGroup(
         reference.adminCommand(
           ParticipantAdminCommands.PartyManagement.ExportAcs(
             parties,
-            filterSynchronizerId,
+            synchronizerId,
             ledgerOffset.unwrap,
             responseObserver,
             contractSynchronizerRenames,
@@ -604,6 +590,58 @@ class ParticipantPartiesAdministrationGroup(
         responseObserver.result,
         timeout,
         request = "exporting acs",
+        cleanupOnError = () => file.delete(),
+      )
+    }
+
+  @Help.Summary("Export active contracts for the given set of parties to a file.")
+  @Help.Description(
+    """This command exports the current Active Contract Set (ACS) of a given set of parties to a
+      |GZIP compressed ACS snapshot file. Afterwards, the `import_acs` repair command imports it
+      |into a participant's ACS again.
+      |
+      |This command attempts to resolve the given instant (`topologyTransactionEffectiveTime`)
+      |to a ledger offset internally. Such offset exists only after the corresponding topology
+      |transaction has been recorded on the ledger.
+      |This command returns an error when no offset has been found. Possible causes:
+      |1. No topology transaction. Solution: Issue a topology transaction.
+      |2. Topology transaction exists. Solution: Retry the command.
+      |
+      |The arguments are:
+      |- parties: Identifying contracts having at least one stakeholder from the given set.
+      |- synchronizerId: Restricts the export to the given synchronizer.
+      |- topologyTransactionEffectiveTime: The effective time of a topology transaction at which
+      |                                    the ACS snapshot is exported.
+      |- exportFilePath: The path denoting the file where the ACS snapshot will be stored.
+      |- timeout: A timeout for this operation to complete.
+      """
+  )
+  def export_acs_at_timestamp(
+      parties: Set[PartyId],
+      synchronizerId: SynchronizerId,
+      topologyTransactionEffectiveTime: Instant,
+      exportFilePath: String = "canton-acs-export.gz",
+      timeout: NonNegativeDuration = timeouts.unbounded,
+  ): Unit =
+    consoleEnvironment.run {
+      val file = File(exportFilePath)
+      val responseObserver = new FileStreamObserver[ExportAcsAtTimestampResponse](file, _.chunk)
+
+      def call: ConsoleCommandResult[Context.CancellableContext] =
+        reference.adminCommand(
+          ParticipantAdminCommands.PartyManagement.ExportAcsAtTimestamp(
+            parties,
+            synchronizerId,
+            topologyTransactionEffectiveTime,
+            responseObserver,
+          )
+        )
+
+      processResult(
+        call,
+        responseObserver.result,
+        timeout,
+        request = "exporting acs at timestamp",
         cleanupOnError = () => file.delete(),
       )
     }

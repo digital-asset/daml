@@ -22,7 +22,6 @@ import com.digitalasset.canton.participant.ledger.api.*
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.*
-import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.indexer.ha.HaConfig
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.tracing.{TraceContext, TracerProvider}
@@ -34,11 +33,10 @@ class CantonLedgerApiServerFactory(
     clock: Clock,
     testingTimeService: TestingTimeService,
     allocateIndexerLockIds: DbConfig => Either[String, Option[IndexerLockIds]],
-    meteringReportKey: MeteringReportKey,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
-  def createHaConfig(config: LocalParticipantConfig)(implicit
+  def createHaConfig(config: ParticipantNodeConfig)(implicit
       traceContext: TraceContext
   ): HaConfig =
     config.storage match {
@@ -66,7 +64,7 @@ class CantonLedgerApiServerFactory(
       sync: CantonSyncService,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       ledgerApiIndexer: Eval[LedgerApiIndexer],
-      config: LocalParticipantConfig,
+      config: ParticipantNodeConfig,
       parameters: ParticipantNodeParameters,
       metrics: LedgerApiServerMetrics,
       httpApiMetrics: HttpApiMetrics,
@@ -104,7 +102,6 @@ class CantonLedgerApiServerFactory(
             tracerProvider = tracerProvider,
             metrics = metrics,
             jsonApiMetrics = httpApiMetrics,
-            meteringReportKey = meteringReportKey,
             maxDeduplicationDuration = participantNodePersistentState
               .map(_.settingsStore.settings.maxDeduplicationDuration)
               .value

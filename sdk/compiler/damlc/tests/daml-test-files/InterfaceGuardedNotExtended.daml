@@ -4,6 +4,8 @@
 -- @DOES-NOT-SUPPORT-LF-FEATURE DAML_INTERFACE_EXTENDED
 -- @ERROR Guarded exercises are only available with --target=1.dev
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 module InterfaceGuardedNotExtended where
 import Daml.Script
 import DA.Exception (GeneralError (..), throwPure)

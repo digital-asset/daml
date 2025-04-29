@@ -198,7 +198,7 @@ object SubmissionRequest
 
   val versioningTable: VersioningTable = VersioningTable(
     ProtoVersion(30) -> VersionedProtoCodec.withDependency(
-      ProtocolVersion.v33
+      ProtocolVersion.v34
     )(v30.SubmissionRequest)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30, // Serialization of SubmissionRequest

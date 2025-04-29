@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{CantonTimestamp, LedgerTimeBoundaries, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationEvent.{
   Added,
@@ -230,7 +230,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = None,
         flat_event_witnesses =
           Set("signatory1", "signatory2", "signatory3", "observer"), // stakeholders
         tree_event_witnesses =
@@ -991,7 +990,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = None,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1201,7 +1199,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = None,
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer"),
         create_argument = emptyArray,
@@ -1335,7 +1332,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             contract_id = createNode.coid.toBytes.toByteArray,
             template_id = createNode.templateId.toString,
             package_name = createNode.packageName.toString,
-            package_version = None,
             flat_event_witnesses = Set("signatory", "observer"), // stakeholders
             tree_event_witnesses = Set("signatory", "observer"), // informees
             create_argument = emptyArray,
@@ -1434,7 +1430,6 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = createNode.coid.toBytes.toByteArray,
         template_id = createNode.templateId.toString,
         package_name = createNode.packageName.toString,
-        package_version = None,
         flat_event_witnesses = Set("signatory", "observer", "observer2"),
         create_argument = emptyArray,
         create_signatories = Set("signatory"),
@@ -1811,6 +1806,7 @@ object UpdateToDbDtoSpec {
     workflowId = Some(someWorkflowId),
     submissionTime = Time.Timestamp.assertFromLong(3),
     submissionSeed = someHash,
+    timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,
     optNodeSeeds = None,
     optByKeyNodes = None,

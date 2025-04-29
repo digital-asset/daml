@@ -13,6 +13,8 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.Assertions.fail
 import org.scalatest.concurrent.ScalaFutures.convertScalaFuture
@@ -38,7 +40,7 @@ class TopologyStoreTestData(
       op,
       serial,
       mapping,
-      ProtocolVersion.v33,
+      ProtocolVersion.v34,
     )
     val signingKeyIdsNE = NonEmptyUtil.fromUnsafe(signingKeys).map(_.id).toSet
     val keysWithUsage = TopologyManager
@@ -70,7 +72,7 @@ class TopologyStoreTestData(
     )(
       SignedTopologyTransaction.versioningTable
         .protocolVersionRepresentativeFor(
-          ProtocolVersion.v33
+          ProtocolVersion.v34
         )
     )
   }
@@ -135,12 +137,12 @@ class TopologyStoreTestData(
 
   val nsd_p1 = makeSignedTx(
     NamespaceDelegation
-      .tryCreate(p1Namespace, p1Key, isRootDelegation = true)
+      .tryCreate(p1Namespace, p1Key, CanSignAllMappings)
   )(p1Key)
 
   val nsd_p2 = makeSignedTx(
     NamespaceDelegation
-      .tryCreate(p2Namespace, p2Key, isRootDelegation = true)
+      .tryCreate(p2Namespace, p2Key, CanSignAllMappings)
   )(p2Key)
 
   val dnd_p1p2 = makeSignedTx(
@@ -176,12 +178,24 @@ class TopologyStoreTestData(
   val otk_p1 = makeSignedTx(
     OwnerToKeyMapping(p1Id, NonEmpty(Seq, p1Key, factory.EncryptionKeys.key1))
   )((p1Key))
-  val idd_daSynchronizer_key1 = makeSignedTx(
-    IdentifierDelegation(da_p1p2_synchronizerId.uid, factory.SigningKeys.key1),
+  val p1_permission_daSynchronizer = makeSignedTx(
+    ParticipantSynchronizerPermission(
+      synchronizer1_p1p2_synchronizerId,
+      p1Id,
+      Submission,
+      None,
+      None,
+    ),
     serial = PositiveInt.tryCreate(1),
   )(dnd_p1p2_keys*)
-  val idd_daSynchronizer_key1_removal = makeSignedTx(
-    IdentifierDelegation(da_p1p2_synchronizerId.uid, factory.SigningKeys.key1),
+  val p1_permission_daSynchronizer_removal = makeSignedTx(
+    ParticipantSynchronizerPermission(
+      synchronizer1_p1p2_synchronizerId,
+      p1Id,
+      Submission,
+      None,
+      None,
+    ),
     op = TopologyChangeOp.Remove,
     serial = PositiveInt.tryCreate(2),
   )(dnd_p1p2_keys*)
@@ -201,10 +215,10 @@ class TopologyStoreTestData(
     isProposal = true,
   )(p1Key)
   val nsd_seq = makeSignedTx(
-    NamespaceDelegation.tryCreate(seqNamespace, seqKey, isRootDelegation = true)
+    NamespaceDelegation.tryCreate(seqNamespace, seqKey, CanSignAllMappings)
   )(seqKey)
   val nsd_seq_invalid = makeSignedTx(
-    NamespaceDelegation.tryCreate(seqNamespace, seqKey, isRootDelegation = true)
+    NamespaceDelegation.tryCreate(seqNamespace, seqKey, CanSignAllMappings)
   )(p1Key) // explicitly signing with the wrong key
 
   val dnd_p1seq = makeSignedTx(

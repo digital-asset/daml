@@ -9,7 +9,7 @@ package com.digitalasset.canton.platform.config
   *   whether to enable topology-aware package selection in command interpretation
   */
 final case class TopologyAwarePackageSelectionConfig(
-    enabled: Boolean = false
+    enabled: Boolean = true
 )
 
 object TopologyAwarePackageSelectionConfig {

@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencedEvent,
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficStateController
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
@@ -149,7 +149,7 @@ class SendTracker(
     * sends stored to be retried.
     */
   def update(
-      events: Seq[OrdinarySequencedEvent[_]]
+      events: Seq[SequencedEventWithTraceContext[?]]
   ): FutureUnlessShutdown[Unit] = if (events.isEmpty) FutureUnlessShutdown.unit
   else {
     for {
@@ -309,11 +309,11 @@ class SendTracker(
       event: SequencedEvent[_]
   )(implicit traceContext: TraceContext): Option[(MessageId, SendResult)] =
     Option(event) collect {
-      case deliver @ Deliver(_, _, _, _, Some(messageId), _, _, _) =>
+      case deliver @ Deliver(_, _, _, Some(messageId), _, _, _) =>
         logger.trace(s"Send [$messageId] was successful")
         (messageId, SendResult.Success(deliver))
 
-      case error @ DeliverError(_, _, _, _, messageId, reason, _) =>
+      case error @ DeliverError(_, _, _, messageId, reason, _) =>
         logger.debug(s"Send [$messageId] failed: $reason")
         (messageId, SendResult.Error(error))
     }

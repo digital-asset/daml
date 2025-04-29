@@ -509,6 +509,7 @@ private[events] object TransactionLogUpdatesConversions {
     def toGetTransactionResponse(
         transactionLogUpdate: TransactionLogUpdate,
         requestingParties: Set[Party],
+        eventProjectionProperties: EventProjectionProperties,
         lfValueTranslation: LfValueTranslation,
     )(implicit
         loggingContext: LoggingContextWithTrace,
@@ -519,10 +520,7 @@ private[events] object TransactionLogUpdatesConversions {
           toTransactionTree(
             transactionAccepted = tx,
             Some(requestingParties),
-            eventProjectionProperties = EventProjectionProperties(
-              verbose = true,
-              templateWildcardWitnesses = Some(requestingParties.map(_.toString)),
-            ),
+            eventProjectionProperties = eventProjectionProperties,
             lfValueTranslation = lfValueTranslation,
             traceContext = tx.traceContext,
           )

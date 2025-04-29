@@ -105,7 +105,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     val valueTranslator = new ValueTranslator(
       compiledPackage.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      requireContractIdSuffix = false,
     )
     import valueTranslator.unsafeTranslateValue
 
@@ -584,17 +584,21 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = false,
+        requireContractIdSuffix = false,
       )
-      val cids = List(
-        ContractId.V1
-          .assertBuild(
-            crypto.Hash.hashPrivateKey("a suffixed V1 Contract ID"),
-            Bytes.assertFromString("00"),
-          ),
-        ContractId.V1
-          .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty),
+      val unsuffixedCidV1 = ContractId.V1
+        .assertBuild(crypto.Hash.hashPrivateKey("a non-suffixed V1 Contract ID"), Bytes.Empty)
+      val suffixedCidV1 = ContractId.V1.assertBuild(
+        crypto.Hash.hashPrivateKey("a suffixed V1 Contract ID"),
+        Bytes.assertFromString("00"),
       )
+      val unsuffixedCidV2 = ContractId.V2.unsuffixed(
+        Time.Timestamp.Epoch,
+        crypto.Hash.hashPrivateKey("an unsuffixed V2 Contract ID"),
+      )
+      val suffixedCidV2 =
+        ContractId.V2.assertBuild(unsuffixedCidV2.local, Bytes.assertFromString("00"))
+      val cids = List(suffixedCidV1, unsuffixedCidV1, suffixedCidV2, unsuffixedCidV2)
 
       cids.foreach(cid =>
         forEvery(testCasesForCid(cid))((typ, value) =>
@@ -607,22 +611,39 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = true,
+        requireContractIdSuffix = true,
       )
-      val legalCid =
+      val legalCidV1 =
         ContractId.V1.assertBuild(
           crypto.Hash.hashPrivateKey("a legal Contract ID"),
           Bytes.assertFromString("00"),
         )
-      val illegalCid =
+      val legalCidV2 = ContractId.V2.assertBuild(
+        Bytes.fromByteArray(Array.fill[Byte](ContractId.V2.localSize)(0x12.toByte)),
+        Bytes.assertFromString("00"),
+      )
+      val illegalCidV1 =
         ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey("an illegal Contract ID"), Bytes.Empty)
-      val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
+      val illegalCidV2 = ContractId.V2.unsuffixed(
+        Time.Timestamp.Epoch,
+        crypto.Hash.hashPrivateKey("an illegal Contract ID"),
+      )
+      val failureV1 =
+        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCidV1))
+      val failureV2 =
+        Failure(Error.Preprocessing.IllegalContractId.NonSuffixV2ContractId(illegalCidV2))
 
-      forEvery(testCasesForCid(legalCid))((typ, value) =>
+      forEvery(testCasesForCid(legalCidV1))((typ, value) =>
         Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
       )
-      forEvery(testCasesForCid(illegalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
+      forEvery(testCasesForCid(legalCidV2))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+      )
+      forEvery(testCasesForCid(illegalCidV1))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failureV1
+      )
+      forEvery(testCasesForCid(illegalCidV2))((typ, value) =>
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failureV2
       )
     }
 

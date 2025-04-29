@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
@@ -44,8 +45,11 @@ class SegmentState(
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
-    extends NamedLogging {
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    config: BftBlockOrdererConfig,
+    mc: MetricsContext,
+) extends NamedLogging {
 
   private val membership = epoch.currentMembership
   private val eligibleLeaders = membership.leaders
@@ -68,6 +72,10 @@ class SegmentState(
 
   private val futureViewMessagesQueue = mutable.Queue[SignedMessage[PbftNormalCaseMessage]]()
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
+  private var discardedStaleViewMessagesCount = 0
+  private var discardedRetransmittedCommitCertsCount = 0
+  private var retransmittedMessagesCount = 0
+  private var retransmittedCommitCertificatesCount = 0
 
   private val segmentBlocks: NonEmpty[Seq[SegmentBlockState]] =
     segment.slotNumbers.map { blockNumber =>
@@ -146,6 +154,15 @@ class SegmentState(
 
   def commitVotes: Map[BftNodeId, Long] = sumOverInProgressBlocks(_.commitVoters)
 
+  def discardedMessageCount: Int =
+    discardedStaleViewMessagesCount
+      + discardedRetransmittedCommitCertsCount
+      + segmentBlocks.forgetNE.map(_.discardedMessages).sum
+      + viewChangeState.values.map(_.discardedMessages).sum
+
+  private[iss] def retransmittedMessages = retransmittedMessagesCount
+  private[iss] def retransmittedCommitCertificates = retransmittedCommitCertificatesCount
+
   def leader: BftNodeId = currentLeader
 
   def status: ConsensusStatus.SegmentStatus =
@@ -170,8 +187,8 @@ class SegmentState(
       remoteStatus: ConsensusStatus.SegmentStatus.Incomplete,
   )(implicit
       traceContext: TraceContext
-  ): RetransmissionResult =
-    if (remoteStatus.viewNumber > currentViewNumber) {
+  ): RetransmissionResult = {
+    val result = if (remoteStatus.viewNumber > currentViewNumber) {
       logger.debug(
         s"Node $from is in view ${remoteStatus.viewNumber}, which is higher than our current view $currentViewNumber, so we can't help with retransmissions"
       )
@@ -257,6 +274,10 @@ class SegmentState(
             }
       }
     }
+    retransmittedMessagesCount += result.messages.size
+    retransmittedCommitCertificatesCount += result.commitCerts.size
+    result
+  }
 
   private def sumOverInProgressBlocks(
       getVoters: SegmentBlockState => Iterable[BftNodeId]
@@ -280,6 +301,7 @@ class SegmentState(
         s"Segment received PbftNormalCaseMessage with stale view ${msg.message.viewNumber}; " +
           s"current view = $currentViewNumber"
       )
+      discardedStaleViewMessagesCount += 1
     } else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
       futureViewMessagesQueue.enqueue(msg)
       logger.info(
@@ -306,11 +328,13 @@ class SegmentState(
         s"Segment received PbftViewChangeMessage with stale view $viewNumber; " +
           s"current view = $currentViewNumber"
       )
+      discardedStaleViewMessagesCount += 1
     } else if (viewNumber == currentViewNumber && !inViewChange) {
       logger.info(
         s"Segment received PbftViewChangeMessage with matching view $viewNumber, " +
           s"but View Change is already complete, current view = $currentViewNumber"
       )
+      discardedStaleViewMessagesCount += 1
     } else {
       val vcState = viewChangeState.getOrElseUpdate(
         viewNumber,
@@ -351,11 +375,12 @@ class SegmentState(
     val blockNumber = cc.blockMetadata.blockNumber
     var result = Seq.empty[ProcessResult]
 
-    if (isBlockComplete(blockNumber))
+    if (isBlockComplete(blockNumber)) {
+      discardedRetransmittedCommitCertsCount += 1
       logger.debug(
         s"Discarded retransmitted commit cert for block $blockNumber from $from because block is already complete"
       )
-    else
+    } else
       commitCertValidator.validateConsensusCertificate(cc) match {
         case Right(_) =>
           result = segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
@@ -471,8 +496,8 @@ class SegmentState(
       else {
         viewState.viewChangeFromSelf match {
           // if we rehydrated a view-change message from self, we don't need to create or store it again
-          case Some(rehydratedViewChangeMessage) =>
-            viewState.markViewChangeFromSelfasCommingFromRehydration()
+          case Some(_rehydratedViewChangeMessage) =>
+            viewState.markViewChangeFromSelfAsComingFromRehydration()
             Seq.empty
           case None =>
             val viewChangeMessage = createViewChangeMessage(viewNumber)
@@ -535,6 +560,7 @@ class SegmentState(
           viewChangeBlockMetadata,
           segmentIdx = originalLeaderIndex,
           prePrepares,
+          abort,
         )
       Seq(SignPbftMessage(newViewMessage))
   }

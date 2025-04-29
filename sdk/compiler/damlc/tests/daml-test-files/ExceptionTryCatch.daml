@@ -3,6 +3,8 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
 
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
 -- | Test the try-catch syntax.
 module ExceptionTryCatch where
 

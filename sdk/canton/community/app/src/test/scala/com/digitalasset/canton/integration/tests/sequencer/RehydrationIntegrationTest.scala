@@ -30,15 +30,12 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
-import com.digitalasset.canton.participant.config.{LocalParticipantConfig, ParticipantInitConfig}
+import com.digitalasset.canton.participant.config.{ParticipantInitConfig, ParticipantNodeConfig}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
 import com.digitalasset.canton.synchronizer.mediator.MediatorNodeConfig
-import com.digitalasset.canton.synchronizer.sequencer.config.{
-  SequencerNodeConfig,
-  SequencerNodeInitConfig,
-}
+import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
@@ -85,19 +82,28 @@ abstract class RehydrationIntegrationTest
         sequencers = Map(
           InstanceName.tryCreate(s"sequencer1") -> SequencerNodeConfig(),
           InstanceName.tryCreate(s"sequencer2") -> SequencerNodeConfig(init =
-            SequencerNodeInitConfig(identity = None)
+            InitConfig(
+              identity = IdentityConfig.Manual,
+              generateTopologyTransactionsAndKeys = false,
+            )
           ),
         ),
         mediators = Map(
           InstanceName.tryCreate(s"mediator1") -> MediatorNodeConfig(),
           InstanceName.tryCreate(s"mediator2") -> MediatorNodeConfig(init =
-            InitConfig(identity = None)
+            InitConfig(
+              identity = IdentityConfig.Manual,
+              generateTopologyTransactionsAndKeys = false,
+            )
           ),
         ),
         participants = Map(
-          InstanceName.tryCreate(s"participant1") -> LocalParticipantConfig(),
-          InstanceName.tryCreate(s"participant2") -> LocalParticipantConfig(init =
-            ParticipantInitConfig(identity = None)
+          InstanceName.tryCreate(s"participant1") -> ParticipantNodeConfig(),
+          InstanceName.tryCreate(s"participant2") -> ParticipantNodeConfig(init =
+            ParticipantInitConfig(
+              identity = IdentityConfig.Manual,
+              generateTopologyTransactionsAndKeys = false,
+            )
           ),
         ),
         monitoring = MonitoringConfig(

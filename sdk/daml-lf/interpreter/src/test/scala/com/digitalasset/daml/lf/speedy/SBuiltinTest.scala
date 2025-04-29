@@ -1657,7 +1657,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               contractId -> Versioned(
                 version = txVersion,
-                Value.ContractInstance(
+                Value.ThinContractInstance(
                   packageName = pkg.pkgName,
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
@@ -1710,7 +1710,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             getContract = Map(
               contractId -> Versioned(
                 version = txVersion,
-                Value.ContractInstance(
+                Value.ThinContractInstance(
                   template = templateId,
                   arg = disclosedContract.argument.toUnnormalizedValue,
                   packageName = pkg.pkgName,
@@ -1740,7 +1740,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           getContract = Map(
             cid -> Versioned(
               version = txVersion,
-              Value.ContractInstance(
+              Value.ThinContractInstance(
                 packageName = pkg.pkgName,
                 template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,
                 arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
@@ -1759,7 +1759,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
-  "CCTP" - {
+  "Crypto" - {
 
     "KECCAK256_TEXT" - {
       "correctly digest hex strings" in {
@@ -1800,8 +1800,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""KECCAK256_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1813,14 +1813,14 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "SECP256K1_BOOL" - {
-      val keyPair = cctp.MessageSignatureUtil.generateKeyPair
+      val keyPair = support.crypto.MessageSignatureUtil.generateKeyPair
 
       "valid secp256k1 signature and public key" - {
         "correctly verify signed message" in {
           val publicKey = Bytes.fromByteArray(keyPair.getPublic.getEncoded).toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$publicKey"""") shouldBe Right(
             SBool(true)
@@ -1832,7 +1832,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = Ref.HexString.assertFromString("deadbeefdeadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""") shouldBe Right(
             SBool(false)
@@ -1844,13 +1844,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
           val invalidMessage = "DeadBeef"
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1866,11 +1866,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         "fails with incorrect secp256k1 public key" in {
           val incorrectPublicKey =
             Bytes
-              .fromByteArray(cctp.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded)
+              .fromByteArray(
+                support.crypto.MessageSignatureUtil.generateKeyPair.getPublic.getEncoded
+              )
               .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           eval(e"""SECP256K1_BOOL "$signature" "$message" "$incorrectPublicKey"""") shouldBe Right(
             SBool(false)
@@ -1885,13 +1887,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             .toHexString
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedKey(`invalidPublicKey`, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedKey(`invalidPublicKey`, reason)
                     )
                   )
                 ) =>
@@ -1903,13 +1905,13 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidPublicKey = keyPair.getPublic
           val privateKey = keyPair.getPrivate
           val message = Ref.HexString.assertFromString("deadbeef")
-          val signature = cctp.MessageSignatureUtil.sign(message, privateKey)
+          val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -1937,8 +1939,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto
                         .MalformedSignature(`invalidSignature`, reason)
                     )
                   )
@@ -1955,8 +1957,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
               case Left(
                     SError.SErrorDamlException(
-                      interpretation.Error.CCTP(
-                        interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                      interpretation.Error.Crypto(
+                        interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                       )
                     )
                   ) =>
@@ -2016,8 +2018,8 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           inside(eval(e"""HEX_TO_TEXT "$input"""")) {
             case Left(
                   SError.SErrorDamlException(
-                    interpretation.Error.CCTP(
-                      interpretation.Error.CCTP.MalformedByteEncoding(value, reason)
+                    interpretation.Error.Crypto(
+                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
                     )
                   )
                 ) =>
@@ -2194,19 +2196,21 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def evalAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
 
   def evalOnLedger(
       e: Expr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
   ): Either[
     SError,
     (
@@ -2218,21 +2222,23 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def evalUpdateOnLedger(
       e: Expr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalUpdateAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
+        Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
       .map(_._1)
 
   def evalUpdateOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
   ): Either[
     SError,
     (

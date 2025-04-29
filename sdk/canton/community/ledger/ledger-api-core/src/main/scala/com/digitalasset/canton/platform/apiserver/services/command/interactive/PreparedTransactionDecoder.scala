@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.interactive.{
   interactive_submission_service as iss,
 }
 import com.daml.ledger.api.v2.value as lapiValue
+import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
   ExecuteRequest,
   TransactionData,
@@ -24,7 +25,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, Update}
 import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
+  ErrorLoggingContext,
   LoggingContextWithTrace,
   NamedLoggerFactory,
   NamedLogging,
@@ -82,7 +83,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
    * Decoders from LAPI values to LF values
    */
   private implicit def identifierTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[lapiValue.Identifier, lf.data.Ref.Identifier] =
     PartialTransformer { src =>
       StricterValueValidator
@@ -92,7 +93,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     }
 
   private implicit def valueTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[lapiValue.Value, lf.value.Value] =
     PartialTransformer { src =>
       StricterValueValidator
@@ -159,6 +160,10 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   private implicit val timestampTransformer: PartialTransformer[Long, lf.data.Time.Timestamp] =
     PartialTransformer(src => lf.data.Time.Timestamp.fromLong(src).toResult)
 
+  private implicit val optionalTimestampTransformer
+      : PartialTransformer[Option[Long], Option[lf.data.Time.Timestamp]] =
+    PartialTransformer.derive[Option[Long], Option[lf.data.Time.Timestamp]]
+
   private implicit val packageNameTransformer: PartialTransformer[String, lf.data.Ref.PackageName] =
     PartialTransformer(src => lf.data.Ref.PackageName.fromString(src).toResult)
 
@@ -183,7 +188,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
    * Global key decoders
    */
   private implicit def globalKeyTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[iscd.GlobalKey, lf.transaction.GlobalKey] = {
     // GlobalKey default constructor is private, so create a constructor function from the companion builder
     // and pass that to chimney so it can construct the instance
@@ -212,7 +217,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   object v1 {
     // Make the create transformer visible to the package because some objects require explicitly decoding to a create node
     private[interactive] implicit def createNodeTransformer(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
+        errorLoggingContext: ErrorLoggingContext
     ): PartialTransformer[isdv1.Create, lf.transaction.Node.Create] = Transformer
       .definePartial[isdv1.Create, lf.transaction.Node.Create]
       .withFieldRenamed(_.contractId, _.coid)
@@ -222,14 +227,13 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           .traverse(_.transformIntoPartial[lf.value.Value])
           .flatMap(_.toRight("Missing argument value").toResult),
       )
-      .withFieldConst(_.agreementText, "") // Agreement text will be removed
       .withFieldComputedPartial(_.version, _.lfVersion.transformIntoPartial[LanguageVersion])
       // Fields not supported in V1
       .withFieldConst(_.keyOpt, None)
       .buildTransformer
 
     private[interactive] implicit def fetchTransformer(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
+        errorLoggingContext: ErrorLoggingContext
     ): PartialTransformer[isdv1.Fetch, lf.transaction.Node.Fetch] = Transformer
       .definePartial[isdv1.Fetch, lf.transaction.Node.Fetch]
       .withFieldRenamed(_.contractId, _.coid)
@@ -240,7 +244,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       .buildTransformer
 
     private[interactive] implicit def exerciseTransformer(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
+        errorLoggingContext: ErrorLoggingContext
     ): PartialTransformer[isdv1.Exercise, lf.transaction.Node.Exercise] =
       Transformer
         .definePartial[isdv1.Exercise, lf.transaction.Node.Exercise]
@@ -261,7 +265,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       PartialTransformer.derive[isdv1.Rollback, lf.transaction.Node.Rollback]
 
     private[interactive] def nodeTransformer(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
+        errorLoggingContext: ErrorLoggingContext
     ): PartialTransformer[isdv1.Node, lf.transaction.Node] = PartialTransformer {
       case isdv1.Node(create: isdv1.Node.NodeType.Create) =>
         create.value.transformIntoPartial[lf.transaction.Node.Create]
@@ -278,7 +282,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   // Version agnostic decoder from proto node to LF node
   private implicit def nodeTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[iss.DamlTransaction.Node, (lf.transaction.NodeId, lf.transaction.Node)] =
     PartialTransformer { node =>
       val versionedNode = node.versionedNode
@@ -297,7 +301,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   // Transaction decoder
   @VisibleForTesting
   private[interactive] implicit def transactionTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[iss.DamlTransaction, lf.transaction.VersionedTransaction] =
     PartialTransformer { src =>
       def lfVersionedConstructor(
@@ -324,7 +328,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   // Global key mapping decoder
   private implicit def globalKeyMappingsTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[Seq[
     Metadata.GlobalKeyMappingEntry
   ], Map[lf.transaction.GlobalKey, Option[lf.value.Value.ContractId]]] =
@@ -350,7 +354,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   // Input contract decoder
   private implicit def inputContractTransformer(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): PartialTransformer[iss.Metadata.InputContract, FatContractInstance] =
     PartialTransformer { src =>
       val contract = src.contract
@@ -370,37 +374,45 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       )
     }
 
+  private implicit def timeBoundariesTransformer
+      : PartialTransformer[iss.Metadata, LedgerTimeBoundaries] =
+    PartialTransformer { src =>
+      for {
+        min <- src.minLedgerEffectiveTime.transformIntoPartial[Option[Time.Timestamp]]
+        max <- src.maxLedgerEffectiveTime.transformIntoPartial[Option[Time.Timestamp]]
+      } yield LedgerTimeBoundaries.fromConstraints(min, max)
+    }
+
   private def requireField[A](optA: Option[A], field: String)(implicit
-      errorLoggingContext: ContextualizedErrorLogger
+      errorLoggingContext: ErrorLoggingContext
   ): Future[A] =
     Future.fromTry(
       optA.toRight(RequestValidationErrors.MissingField.Reject(field).asGrpcError).toTry
     )
-  def extractLedgerEffectiveTime(executeRequest: ExecuteRequest)(implicit
-      executionContext: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[Option[Time.Timestamp]] = {
-    implicit val traceContext: TraceContext = loggingContext.traceContext
-    for {
-      metadataProto <- requireField(executeRequest.preparedTransaction.metadata, "metadata")
-      letE = metadataProto.ledgerEffectiveTime.traverse(Time.Timestamp.fromLong)
-      let <- letE.toResult.toFutureWithLoggedFailures(
-        "Failed to deserialize transaction meta",
-        logger,
-      )
-    } yield let
+
+  private def adjustLedgerTimeToBounds(
+      requested: Time.Timestamp,
+      timeRange: Time.Range,
+  )(implicit traceContext: TraceContext): Time.Timestamp = {
+    val adjusted = if (requested < timeRange.min) {
+      timeRange.min
+    } else if (requested <= timeRange.max) {
+      requested
+    } else {
+      timeRange.max
+    }
+
+    if (adjusted != requested) logger.debug(s"Ledger time adjusted from $requested to $adjusted")
+
+    adjusted
   }
 
   /** Decodes a prepared transaction back into a DeserializationResult that can be submitted.
     */
-  def deserialize(
-      executeRequest: ExecuteRequest,
-      ledgerEffectiveTime: Time.Timestamp,
-  )(implicit
+  def deserialize(executeRequest: ExecuteRequest)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
-      errorLoggingContext: ContextualizedErrorLogger,
+      errorLoggingContext: ErrorLoggingContext,
   ): Future[DeserializationResult] = {
     implicit val traceContext = loggingContext.traceContext
 
@@ -431,7 +443,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
               executeRequest.signatures,
               transactionUUID = transactionUUID,
               mediatorGroup = mediatorGroup,
-              usesLedgerEffectiveTime = metadataProto.ledgerEffectiveTime.isDefined,
             )
           ),
         )
@@ -448,6 +459,13 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         executeRequest.preparedTransaction.transaction,
         "transaction",
       )
+      timeBoundaries <- metadataProto
+        .transformIntoPartial[LedgerTimeBoundaries]
+        .toFutureWithLoggedFailures("Failed to deserialize time boundaries", logger)
+      ledgerEffectiveTime = adjustLedgerTimeToBounds(
+        executeRequest.tentativeLedgerEffectiveTime,
+        timeBoundaries.range,
+      )
       transactionMeta <-
         metadataProto
           .intoPartial[state.TransactionMeta]
@@ -461,6 +479,10 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
             transactionProto.nodeSeeds
               .transformIntoPartial[ImmArray[(NodeId, lf.crypto.Hash)]]
               .map(Some(_)),
+          )
+          .withFieldConst(
+            _.timeBoundaries,
+            timeBoundaries,
           )
           // Unused field
           .withFieldConst(_.optByKeyNodes, None)
@@ -512,7 +534,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         synchronizerId = synchronizerId,
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
-        dependsOnLedgerTime = metadataProto.ledgerEffectiveTime.isDefined,
         globalKeyMapping = globalKeyMapping,
         inputContracts = inputContracts,
       )

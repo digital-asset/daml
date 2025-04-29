@@ -54,6 +54,8 @@ message CreatedEvent {
   string contract_id = 3;
 
   // The template of the created contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 4;
 
@@ -138,6 +140,8 @@ message CreatedEvent {
 // View of a create event matched by an interface filter.
 message InterfaceView {
   // The interface implemented by the matched event.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier interface_id = 1;
 
@@ -174,6 +178,8 @@ message ArchivedEvent {
   string contract_id = 3;
 
   // The template of the archived contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 4;
 
@@ -194,6 +200,9 @@ message ArchivedEvent {
   // The interfaces implemented by the target template that have been
   // matched from the interface filter query.
   // Populated only in case interface filters with include_interface_view set.
+  //
+  // If defined, the identifier uses the package-id reference format.
+  //
   // Optional
   repeated Identifier implemented_interfaces = 7;
 }
@@ -218,10 +227,14 @@ message ExercisedEvent {
   string contract_id = 3;
 
   // The template of the target contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 4;
 
   // The interface where the choice is defined, if inherited.
+  // If defined, the identifier uses the package-id reference format.
+  //
   // Optional
   Identifier interface_id = 5;
 
@@ -275,6 +288,9 @@ message ExercisedEvent {
   // If the event is consuming, the interfaces implemented by the target template that have been
   // matched from the interface filter query.
   // Populated only in case interface filters with include_interface_view set.
+  //
+  // The identifier uses the package-id reference format.
+  //
   // Optional
   repeated Identifier implemented_interfaces = 14;
 }

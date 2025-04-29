@@ -4,10 +4,6 @@
 package com.digitalasset.canton.http
 
 import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2.admin.metering_report_service.{
-  GetMeteringReportRequest,
-  GetMeteringReportResponse,
-}
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
@@ -27,7 +23,6 @@ import com.digitalasset.canton.ledger.api.PartyDetails as apiPartyDetails
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
 import com.digitalasset.canton.ledger.client.services.admin.{
-  MeteringReportClient,
   PackageManagementClient,
   PartyManagementClient,
 }
@@ -209,12 +204,13 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       ec: EC,
       traceContext: TraceContext,
   ): AllocateParty =
-    (jwt, identifierHint) =>
+    (jwt, identifierHint, synchronizerIdO) =>
       implicit lc => {
         logFuture(AllocatePartyLog) {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
             token = bearer(jwt),
+            synchronizerId = synchronizerIdO,
           )
         }
       }
@@ -252,18 +248,6 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         logger.trace(s"sending upload dar request to ledger, ${lc.makeString}")
         logFuture(UploadDarFileLog) {
           client.packageManagementClient.uploadDarFile(darFile = byteString, token = bearer(jwt))
-        }
-      }
-
-  def getMeteringReport(client: DamlLedgerClient)(implicit
-      ec: EC,
-      traceContext: TraceContext,
-  ): GetMeteringReport =
-    (jwt, request) =>
-      implicit lc => {
-        logger.trace(s"sending metering report request to ledger, ${lc.makeString}")
-        logFuture(GetMeteringReportLog) {
-          client.meteringReportClient.getMeteringReport(request, bearer(jwt))
         }
       }
 
@@ -397,6 +381,7 @@ object LedgerClientJwt {
     (
         Jwt,
         Option[Ref.Party],
+        Option[String],
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[apiPartyDetails]
 
   type ListPackages =
@@ -417,11 +402,6 @@ object LedgerClientJwt {
         Jwt,
         protobuf.ByteString,
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[Unit]
-
-  type GetMeteringReport =
-    (Jwt, GetMeteringReportRequest) => LoggingContextOf[InstanceUUID with RequestID] => Future[
-      GetMeteringReportResponse
-    ]
 
   sealed abstract class Terminates extends Product with Serializable
 
@@ -489,8 +469,6 @@ object LedgerClientJwt {
     case object GetPackageLog extends RequestLog(classOf[PackageClient], "getPackages")
     case object UploadDarFileLog
         extends RequestLog(classOf[PackageManagementClient], "uploadDarFile")
-    case object GetMeteringReportLog
-        extends RequestLog(classOf[MeteringReportClient], "getMeteringReport")
     case object GetActiveContractsLog
         extends RequestLog(classOf[StateServiceClient], "getActiveContracts")
     case object GetLedgerEndLog extends RequestLog(classOf[StateServiceClient], "getLedgerEnd")

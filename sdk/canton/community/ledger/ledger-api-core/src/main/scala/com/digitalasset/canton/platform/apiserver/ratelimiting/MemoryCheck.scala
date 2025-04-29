@@ -4,11 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.ratelimiting
 
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.HeapMemoryOverLimit
-import com.digitalasset.canton.logging.{
-  ContextualizedErrorLogger,
-  ErrorLoggingContext,
-  NamedLoggerFactory,
-}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.{
   LimitResultCheck,
@@ -42,7 +38,7 @@ object MemoryCheck {
       tenuredMemoryPool: Option[MemoryPoolMXBean],
       memoryMxBean: GcThrottledMemoryBean,
       config: RateLimitingConfig,
-  )(implicit logger: ContextualizedErrorLogger): LimitResultCheck = (fullMethodName, _) => {
+  )(implicit logger: ErrorLoggingContext): LimitResultCheck = (fullMethodName, _) => {
 
     tenuredMemoryPool.fold[LimitResult](UnderLimit) { p =>
       if (p.isCollectionUsageThresholdExceeded) {
@@ -118,7 +114,7 @@ object MemoryCheck {
   private[ratelimiting] def findTenuredMemoryPool(
       config: RateLimitingConfig,
       memoryPoolMxBeans: List[MemoryPoolMXBean],
-      logger: ContextualizedErrorLogger,
+      logger: ErrorLoggingContext,
   ): Option[MemoryPoolMXBean] =
     candidates(memoryPoolMxBeans).sortBy(_.getCollectionUsage.getMax).lastOption match {
       case None =>

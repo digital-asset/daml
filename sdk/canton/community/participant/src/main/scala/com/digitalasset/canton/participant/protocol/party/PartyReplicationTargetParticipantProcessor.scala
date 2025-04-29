@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RepairCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{CryptoPureApi, HashPurpose}
+import com.digitalasset.canton.crypto.HashPurpose
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{Reassignment, ReassignmentInfo, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -52,15 +52,30 @@ trait PersistsContracts {
   *     [[PartyReplicationSourceMessage.SourceParticipantIsReady]],
   *   - requests contracts in a strictly increasing chunk id order,
   *   - and sends only deserializable payloads.
+  *
+  * @param synchronizerId
+  *   The synchronizer id of the synchronizer to replicate active contracts within.
+  * @param partyId
+  *   The party id of the party to replicate active contracts for.
+  * @param partyToParticipantEffectiveAt
+  *   The timestamp immediately on which the ACS snapshot is based.
+  * @param onProgress
+  *   Callback to update progress wrt the number of active contracts received.
+  * @param onComplete
+  *   Callback notification that the target participant has received the entire ACS.
+  * @param protocolVersion
+  *   The protocol version to use for now for the party replication protocol. Technically the online
+  *   party replication protocol is a different protocol from the canton protocol.
   */
 class PartyReplicationTargetParticipantProcessor(
     synchronizerId: SynchronizerId,
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
+    onProgress: NonNegativeInt => Unit,
+    onComplete: NonNegativeInt => Unit,
     persistContracts: PersistsContracts,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     connectedSynchronizer: ConnectedSynchronizer,
-    pureCrypto: CryptoPureApi,
     protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -70,6 +85,9 @@ class PartyReplicationTargetParticipantProcessor(
   private val chunksRequestedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val chunksConsumedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val numberOfChunksToRequestEachTime = PositiveInt.three
+
+  private val pureCrypto =
+    connectedSynchronizer.synchronizerHandle.syncPersistentState.pureCryptoApi
 
   // The base hash for all indexer UpdateIds to avoid repeating this for all ACS chunks.
   private lazy val indexerUpdateIdBaseHash = pureCrypto
@@ -98,7 +116,7 @@ class PartyReplicationTargetParticipantProcessor(
       _ <- acsChunkOrStatus.dataOrStatus match {
         case PartyReplicationSourceMessage.SourceParticipantIsReady =>
           logger.info("Target participant notified that source participant is ready")
-          requestNextSetOfChunks()
+          requestNextSetOfChunks().map(_ => onProgress(NonNegativeInt.zero))
         case PartyReplicationSourceMessage.AcsChunk(chunkId, contracts) =>
           logger.debug(
             s"Received chunk $chunkId with contracts ${contracts.map(_.contract.contractId).mkString(", ")}"
@@ -111,7 +129,7 @@ class PartyReplicationTargetParticipantProcessor(
             )
             repairCounter = RepairCounter(chunkId.unwrap)
             toc = TimeOfChange(partyToParticipantEffectiveAt, Some(repairCounter))
-            missingAssignments = contracts.map {
+            contractAssignments = contracts.map {
               case ActiveContractOld(synchronizerId, contract, reassignmentCounter) =>
                 (
                   contract.contractId,
@@ -121,10 +139,10 @@ class PartyReplicationTargetParticipantProcessor(
                 )
             }
             _ <- connectedSynchronizer.synchronizerHandle.syncPersistentState.activeContractStore
-              .assignContracts(missingAssignments)
+              .assignContracts(contractAssignments)
               .toEitherTWithNonaborts
               .leftMap(e =>
-                s"Failed to assign contracts $missingAssignments in ActiveContractStore: $e"
+                s"Failed to assign contracts $contractAssignments in ActiveContractStore: $e"
               )
             _ <- EitherT.rightT[FutureUnlessShutdown, String](
               recordOrderPublisher.schedulePublishAddContracts(
@@ -132,6 +150,7 @@ class PartyReplicationTargetParticipantProcessor(
               )
             )
             chunkConsumedUpToExclusive = chunksConsumedExclusive.updateAndGet(_.map(_ + 1))
+            _ = onProgress(chunkConsumedUpToExclusive)
             _ <-
               if (chunkConsumedUpToExclusive == chunksConsumedExclusive.get()) {
                 // Create a new trace context and log the old and new trace ids, so that we don't end up with
@@ -149,6 +168,7 @@ class PartyReplicationTargetParticipantProcessor(
           logger.info(
             s"Target participant has received end of data after ${chunksConsumedExclusive.get().unwrap} chunks"
           )
+          onComplete(chunksConsumedExclusive.get())
           EitherT(
             FutureUnlessShutdown
               .lift(
@@ -230,10 +250,11 @@ object PartyReplicationTargetParticipantProcessor {
       synchronizerId: SynchronizerId,
       partyId: PartyId,
       partyToParticipantEffectiveAt: CantonTimestamp,
+      onProgress: NonNegativeInt => Unit,
+      onComplete: NonNegativeInt => Unit,
       persistContracts: PersistsContracts,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       connectedSynchronizer: ConnectedSynchronizer,
-      pureCrypto: CryptoPureApi,
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -242,10 +263,11 @@ object PartyReplicationTargetParticipantProcessor {
       synchronizerId,
       partyId,
       partyToParticipantEffectiveAt,
+      onProgress,
+      onComplete,
       persistContracts,
       participantNodePersistentState,
       connectedSynchronizer,
-      pureCrypto,
       protocolVersion,
       timeouts,
       loggerFactory

@@ -78,7 +78,7 @@ object UnassignmentMediatorMessage
     ] {
 
   val versioningTable: VersioningTable = VersioningTable(
-    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v33)(
+    ProtoVersion(30) -> VersionedProtoCodec(ProtocolVersion.v34)(
       v30.UnassignmentMediatorMessage
     )(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),

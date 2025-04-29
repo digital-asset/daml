@@ -5,17 +5,19 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
-import com.digitalasset.canton.logging.{ContextualizedErrorLogger, NoLogging}
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
 import org.scalatest.wordspec.AnyWordSpec
 
+import java.time.Duration
+
 class CompletionServiceRequestValidatorTest
     extends AnyWordSpec
     with ValidatorTestUtils
     with MockitoSugar {
-  private implicit val noLogging: ContextualizedErrorLogger = NoLogging
+  private implicit val noLogging: ErrorLoggingContext = NoLogging
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
     expectedUserId,
     List(party),
@@ -128,7 +130,8 @@ class CompletionServiceRequestValidatorTest
           code = OUT_OF_RANGE,
           description =
             s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ledgerEnd.value.unwrap + 1}) is after ledger end (${ledgerEnd.value.unwrap})",
-          metadata = Map.empty,
+          metadata = Map("definite_answer" -> "false", "category" -> "12"),
+          retryDelay = Seq(Duration.ofSeconds(1L)),
         )
       }
 

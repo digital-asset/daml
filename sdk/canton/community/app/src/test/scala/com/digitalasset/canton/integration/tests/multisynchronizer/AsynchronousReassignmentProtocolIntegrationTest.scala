@@ -131,13 +131,18 @@ final class AsynchronousReassignmentProtocolIntegrationTest
     participant1.ledger_api.commands
       .submit_unassign_async(
         aliceId,
-        LfContractId.assertFromString(iou1.id.contractId),
+        Seq(LfContractId.assertFromString(iou1.id.contractId)),
         daId,
         acmeId,
       )
 
     participant1.ledger_api.commands
-      .submit_unassign_async(bobId, LfContractId.assertFromString(iou2.id.contractId), daId, acmeId)
+      .submit_unassign_async(
+        bobId,
+        Seq(LfContractId.assertFromString(iou2.id.contractId)),
+        daId,
+        acmeId,
+      )
 
     val reassignmentStore = participant1.underlying.value.sync.syncPersistentStateManager
       .get(acmeId)
@@ -149,19 +154,9 @@ final class AsynchronousReassignmentProtocolIntegrationTest
 
       val entries =
         reassignmentIds.map(id => reassignmentStore.findReassignmentEntry(id).futureValueUS.value)
-
-      val (entryBob, entryAlice) = entries match {
-        case Seq(e1, e2) if e1.unassignmentRequest.exists(_.submitter == bobId.toLf) => (e1, e2)
-        case Seq(e1, e2) if e2.unassignmentRequest.exists(_.submitter == bobId.toLf) => (e2, e1)
-        case _ =>
-          fail(
-            s"Expected two in-flight entries in the reassignment store but found ${entries.size}"
-          )
-      }
-
       // make sure that Bob's unassignment completed before Alice's one
-      entryBob.unassignmentResult should not be empty
-      entryAlice.unassignmentResult shouldBe empty
+      entries.loneElement.unassignmentRequest.map(_.submitter) should contain(bobId.toLf)
+
     }
     until.trySuccess(())
 
@@ -185,14 +180,14 @@ final class AsynchronousReassignmentProtocolIntegrationTest
     val unassign1 = participant1.ledger_api.commands
       .submit_unassign(
         aliceId,
-        LfContractId.assertFromString(iou1.id.contractId),
+        Seq(LfContractId.assertFromString(iou1.id.contractId)),
         daId,
         acmeId,
       )
       .unassignId
 
     val unassign2 = participant1.ledger_api.commands
-      .submit_unassign(bobId, LfContractId.assertFromString(iou2.id.contractId), daId, acmeId)
+      .submit_unassign(bobId, Seq(LfContractId.assertFromString(iou2.id.contractId)), daId, acmeId)
       .unassignId
 
     val until: Promise[Unit] = Promise[Unit]()

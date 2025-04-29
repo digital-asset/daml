@@ -86,10 +86,23 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
         signatory = participant1.parties.enable(
           "signatory",
           synchronizeParticipants = Seq(participant2),
+          synchronizer = daName,
         )
+        participant1.parties.enable(
+          "signatory",
+          synchronizeParticipants = Seq(participant2),
+          synchronizer = acmeName,
+        )
+
         observer = participant2.parties.enable(
           "observer",
           synchronizeParticipants = Seq(participant1),
+          synchronizer = daName,
+        )
+        participant2.parties.enable(
+          "observer",
+          synchronizeParticipants = Seq(participant1),
+          synchronizer = acmeName,
         )
 
         programmableSequencers.put(
@@ -116,7 +129,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
       )
 
       val unassignId = participant2.ledger_api.commands
-        .submit_unassign(observer, iou.id.toLf, daId, acmeId)
+        .submit_unassign(observer, Seq(iou.id.toLf), daId, acmeId)
         .unassignId
 
       // The observer doesn't confirm the unassignment, but the admin party of participant2 will confirm. Therefor the counter will increase
@@ -142,7 +155,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
           participant2.ledger_api.commands
             .submit_unassign_async(
               observer,
-              iou.id.toLf,
+              Seq(iou.id.toLf),
               daId,
               acmeId,
               commandId = commandId,
@@ -152,7 +165,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
       )
 
       val unassignId = participant2.ledger_api.commands
-        .submit_unassign(observer, iou.id.toLf, daId, acmeId)
+        .submit_unassign(observer, Seq(iou.id.toLf), daId, acmeId)
         .unassignId
 
       programmableSequencers(acmeName).setPolicy_("drop confirmation response")(

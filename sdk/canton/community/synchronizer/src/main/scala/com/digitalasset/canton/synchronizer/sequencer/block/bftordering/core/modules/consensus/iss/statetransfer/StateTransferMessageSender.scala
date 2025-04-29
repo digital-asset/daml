@@ -28,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PNetworkOut,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.util.{Failure, Success}
 
@@ -38,7 +39,8 @@ final class StateTransferMessageSender[E <: Env[E]](
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit synchronizerProtocolVersion: ProtocolVersion)
+    extends NamedLogging {
 
   import StateTransferMessageSender.*
 
@@ -68,8 +70,8 @@ final class StateTransferMessageSender[E <: Env[E]](
         s"State transfer: nothing to transfer to '$to' for epoch $forEpoch, " +
           s"latest locally completed epoch is $latestCompletedEpochNumber"
       )
-      val response = StateTransferMessage.BlockTransferResponse
-        .create(commitCertificate = None, latestCompletedEpochNumber, from = thisNode)
+      val response =
+        StateTransferMessage.BlockTransferResponse.create(commitCertificate = None, from = thisNode)
       sendResponse(response, activeCryptoProvider, to)
     } else {
       logger.info(s"State transfer: loading blocks from epoch $forEpoch (length=$epochLength)")
@@ -92,8 +94,8 @@ final class StateTransferMessageSender[E <: Env[E]](
           )
           commitCerts.foreach { commitCert =>
             // We send only one block at a time to avoid exceeding the max gRPC message size.
-            val response = StateTransferMessage.BlockTransferResponse
-              .create(Some(commitCert), latestCompletedEpochNumber, from = thisNode)
+            val response =
+              StateTransferMessage.BlockTransferResponse.create(Some(commitCert), from = thisNode)
             sendResponse(response, activeCryptoProvider, to)
           }
           None // do not send anything back
@@ -102,13 +104,8 @@ final class StateTransferMessageSender[E <: Env[E]](
     }
   }
 
-  def sendBlockToOutput(
-      prePrepare: PrePrepare,
-      lastInEpoch: Boolean,
-      endEpoch: EpochNumber,
-  ): Unit = {
+  def sendBlockToOutput(prePrepare: PrePrepare, lastInEpoch: Boolean): Unit = {
     val blockMetadata = prePrepare.blockMetadata
-    val lastStateTransferred = lastInEpoch && blockMetadata.epochNumber == endEpoch
 
     consensusDependencies.output.asyncSend(
       Output.BlockOrdered(
@@ -121,9 +118,7 @@ final class StateTransferMessageSender[E <: Env[E]](
           prePrepare.viewNumber,
           prePrepare.from,
           lastInEpoch,
-          mode =
-            if (lastStateTransferred) OrderedBlockForOutput.Mode.StateTransfer.LastBlock
-            else OrderedBlockForOutput.Mode.StateTransfer.MiddleBlock,
+          mode = OrderedBlockForOutput.Mode.FromStateTransfer,
         )
       )
     )

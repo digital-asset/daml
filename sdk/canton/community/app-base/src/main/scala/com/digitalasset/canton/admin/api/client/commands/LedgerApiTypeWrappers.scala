@@ -5,6 +5,7 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.option.*
 import com.daml.ledger.api.v2.event.CreatedEvent
+import com.daml.ledger.api.v2.event.CreatedEvent.toJavaProto
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
 import com.daml.ledger.api.v2.state_service.{
@@ -13,6 +14,7 @@ import com.daml.ledger.api.v2.state_service.{
   IncompleteUnassigned,
 }
 import com.daml.ledger.api.v2.value.{RecordField, Value}
+import com.daml.ledger.javaapi.data
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.google.protobuf.timestamp.Timestamp
@@ -129,6 +131,9 @@ object LedgerApiTypeWrappers {
 
     def arguments: Map[String, Any] =
       event.createArguments.toList.flatMap(_.fields).flatMap(flatten(Seq(), _)).toMap
+
+    def toJava: data.CreatedEvent =
+      data.CreatedEvent.fromProto(toJavaProto(event))
   }
 
   private def flatten(prefix: Seq[String], field: RecordField): Seq[(String, Any)] = {

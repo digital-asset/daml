@@ -64,7 +64,7 @@ class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    contractSerializer: LfContractInst => SerializableRawContractInstance,
+    contractSerializer: LfThinContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
@@ -159,21 +159,26 @@ class TransactionTreeFactoryImpl(
         )
       }
 
+      rootViews <- createRootViews(rootViewDecompositions, state, contractOfId).mapK(
+        FutureUnlessShutdown.outcomeK
+      )
+
       _ <-
-        if (validatePackageVettings)
+        if (validatePackageVettings) {
+          val commandExecutionPackages = requiredPackagesByParty(rootViewDecompositions)
+          val inputContractPackages = inputContractPackagesByParty(rootViews)
+          val packagesByParty =
+            MapsUtil.mergeMapsOfSets(commandExecutionPackages, inputContractPackages)
           UsableSynchronizers
             .checkPackagesVetted(
               synchronizerId = synchronizerId,
               snapshot = topologySnapshot,
-              requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),
+              requiredPackagesByParty = packagesByParty,
               metadata.ledgerTime,
             )
-            .leftMap(_.transformInto[UnknownPackageError])
-        else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
+            .leftMap[TransactionTreeConversionError](_.transformInto[UnknownPackageError])
+        } else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
 
-      rootViews <- createRootViews(rootViewDecompositions, state, contractOfId).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
     } yield {
       GenTransactionTree.tryCreate(cryptoOps)(
         submitterMetadata,
@@ -197,7 +202,7 @@ class TransactionTreeFactoryImpl(
     new State(mediator, transactionUUID, ledgerTime, salts.iterator, keyResolver)
   }
 
-  /** compute set of required packages for each party */
+  /** @return set of packages required for command execution, by party */
   private def requiredPackagesByParty(
       rootViewDecompositions: Seq[TransactionViewDecomposition.NewView]
   ): Map[LfPartyId, Set[PackageId]] = {
@@ -228,6 +233,30 @@ class TransactionTreeFactoryImpl(
     rootViewDecompositions.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) { case (acc, view) =>
       MapsUtil.mergeMapsOfSets(acc, requiredPackagesByParty(view, Set.empty))
     }
+  }
+
+  /** @return set of packages required for input contract consistency checking, by party */
+  private def inputContractPackagesByParty(
+      rootViews: Seq[TransactionView]
+  ): Map[LfPartyId, Set[PackageId]] = {
+
+    def viewPartyPackages(view: TransactionView): Map[LfPartyId, Set[PackageId]] = {
+      val inputPackages = checked(view.viewParticipantData.tryUnwrap).coreInputs.values
+        .map(_.contract.contractInstance.unversioned.template.packageId)
+        .toSet
+      val informees = checked(view.viewCommonData.tryUnwrap).viewConfirmationParameters.informees
+      val viewMap = informees.map(_ -> inputPackages).toMap
+      val subviewMap = viewsPartyPackages(view.subviews.unblindedElements)
+      MapsUtil.mergeMapsOfSets(subviewMap, viewMap)
+    }
+
+    def viewsPartyPackages(views: Seq[TransactionView]): Map[LfPartyId, Set[PackageId]] =
+      views.foldLeft(Map.empty[LfPartyId, Set[PackageId]]) { case (acc, view) =>
+        MapsUtil.mergeMapsOfSets(acc, viewPartyPackages(view))
+      }
+
+    viewsPartyPackages(rootViews)
+
   }
 
   private def createRootViews(
@@ -923,7 +952,7 @@ object TransactionTreeFactoryImpl {
     )
 
   private[submission] def contractSerializer(
-      contractInst: LfContractInst
+      contractInst: LfThinContractInst
   ): SerializableRawContractInstance =
     SerializableRawContractInstance
       .create(contractInst)

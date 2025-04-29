@@ -240,7 +240,7 @@ abstract class BootstrapStageWithStorage[
   /** if the stage didn't complete yet, the node is active and auto-init is set to true, perform the
     * steps necessary. note, this invocation will be thread safe and only run once however, any
     * implementation needs to be crash resilient, if it didn't complete fully, it might be called
-    * again. if this stage does not support auto-init, you must return None the method may throw
+    * again. if this stage does not support auto-init, you must return None. The method may throw
     * "PassiveInstanceException" if it becomes passive
     */
   protected def autoCompleteStage(): EitherT[FutureUnlessShutdown, String, Option[M]]

@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageValidator
@@ -27,7 +29,10 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
 
   import StateTransferMessageValidatorTest.*
 
-  private val validator = new StateTransferMessageValidator(loggerFactory)
+  implicit private val metricsContext: MetricsContext = MetricsContext.Empty
+
+  private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+  private val validator = new StateTransferMessageValidator(metrics, loggerFactory)
 
   "validate block transfer request" in {
     Table[BlockTransferRequest, Membership, Either[String, Unit]](
@@ -70,7 +75,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
       ),
       // negative: inactive node
       (
-        BlockTransferResponse.create(None, EpochNumber.First, otherId),
+        BlockTransferResponse.create(None, otherId),
         EpochNumber.First,
         aMembershipWithOnlySelf,
         Left(
@@ -85,7 +90,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
               aPrePrepare(BlockMetadata(GenesisEpochNumber, BlockNumber.First))
             )
           ),
-          EpochNumber.First,
           otherId,
         ),
         EpochNumber.First,
@@ -102,7 +106,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
             aCommitCert(BlockMetadata(EpochNumber.First, BlockNumber.First))
               .copy(prePrepare = aPrePrepare(BlockMetadata(EpochNumber(1L), BlockNumber.First)))
           ),
-          EpochNumber.First,
           otherId,
         ),
         EpochNumber.First,
@@ -115,7 +118,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
       (
         BlockTransferResponse.create(
           Some(aCommitCert().copy(commits = Seq(aCommit(), aCommit()))),
-          EpochNumber.First,
           otherId,
         ),
         GenesisEpochNumber,
@@ -128,7 +130,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
       (
         BlockTransferResponse.create(
           Some(aCommitCert().copy(commits = Seq(aCommit()))),
-          EpochNumber.First,
           otherId,
         ),
         GenesisEpochNumber,
@@ -138,18 +139,9 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
             "the minimal number is 2 (strong quorum)"
         ),
       ),
-      // negative: invalid latest completed epoch
-      (
-        BlockTransferResponse.create(None, EpochNumber(-1500), otherId),
-        GenesisEpochNumber,
-        aMembershipWithOnlyOtherNode,
-        Left(
-          "received a block transfer response from 'other' with invalid latest completed epoch -1500"
-        ),
-      ),
       // positive
       (
-        BlockTransferResponse.create(Some(aCommitCert()), EpochNumber.First, otherId),
+        BlockTransferResponse.create(Some(aCommitCert()), otherId),
         GenesisEpochNumber,
         aMembershipWithOnlyOtherNode,
         Right(()),

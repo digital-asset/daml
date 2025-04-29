@@ -37,6 +37,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   BftP2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+  DelegationCryptoProvider,
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
@@ -79,7 +80,6 @@ import scala.util.Random
 /** A module system initializer for the concrete Canton BFT ordering system.
   */
 private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
-    protocolVersion: ProtocolVersion,
     node: BftNodeId,
     config: BftBlockOrdererConfig,
     sequencerSubscriptionInitialBlockNumber: BlockNumber,
@@ -95,9 +95,8 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     timeouts: ProcessingTimeout,
     requestInspector: RequestInspector =
       OutputModule.DefaultRequestInspector, // Only set by simulation tests
-)(implicit
-    mc: MetricsContext
-) extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message]
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
+    extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message]
     with NamedLogging {
 
   override def initialize(
@@ -111,6 +110,14 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
       sequencerSnapshotAdditionalInfo.flatMap(_.nodeActiveAt.get(bootstrapTopologyInfo.thisNode))
     val firstBlockNumberInOnboardingEpoch = thisNodeFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
     val previousBftTimeForOnboarding = thisNodeFirstKnownAt.flatMap(_.previousBftTime)
+
+    val initialLowerBound = thisNodeFirstKnownAt.flatMap { data =>
+      for {
+        epoch <- data.epochNumber
+        blockNumber <- data.firstBlockNumberInEpoch
+      } yield (epoch, blockNumber)
+    }
+
     val onboardingEpochCouldAlterOrderingTopology =
       thisNodeFirstKnownAt
         .flatMap(_.epochCouldAlterOrderingTopology)
@@ -124,6 +131,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
         onboardingEpochCouldAlterOrderingTopology,
         bootstrapTopologyInfo.currentCryptoProvider,
         bootstrapTopologyInfo.currentTopology,
+        initialLowerBound,
       )
     new OrderingModuleSystemInitializer[E](
       ModuleFactories(
@@ -241,7 +249,6 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             stores.epochStoreReader,
             blockSubscription,
             metrics,
-            protocolVersion,
             availabilityRef,
             consensusRef,
             loggerFactory,
@@ -289,9 +296,15 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
         // Use the previous topology (not containing this node) as current topology when onboarding.
         //  This prevents relying on newly onboarded nodes for state transfer.
         currentTopology = if (onboarding) previousTopology else initialTopology,
-        // Note that, when onboarding, the crypto provider corresponds to the onboarding node activation timestamp
-        //  (so that its signing key is present), and, as a consequence, it might be more recent than the current topology.
-        initialCryptoProvider,
+        currentCryptoProvider =
+          if (onboarding)
+            DelegationCryptoProvider(
+              // Note that, when onboarding, the signing crypto provider corresponds to the onboarding node activation timestamp
+              //  (so that its signing key is present), the verification will use the one at the start of epoch
+              signer = initialCryptoProvider,
+              verifier = previousCryptoProvider,
+            )
+          else initialCryptoProvider,
         currentLeaders = if (onboarding) previousLeaders else initialLeaders,
         previousTopology,
         previousCryptoProvider,

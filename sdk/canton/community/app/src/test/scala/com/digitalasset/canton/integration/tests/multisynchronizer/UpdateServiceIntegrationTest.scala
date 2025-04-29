@@ -14,7 +14,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   UpdateFormat,
 }
 import com.daml.ledger.javaapi.data.Identifier
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.ReassignmentWrapper
 import com.digitalasset.canton.admin.api.client.data.TemplateId
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
@@ -64,7 +64,8 @@ abstract class UpdateServiceIntegrationTest
       participant1.dars.upload(CantonExamplesPath)
 
       // Allocate parties
-      otherParty = participant1.parties.enable(otherPartyName)
+      otherParty = participant1.parties.enable(otherPartyName, synchronizer = daName)
+      participant1.parties.enable(otherPartyName, synchronizer = acmeName)
 
     }
 
@@ -171,7 +172,7 @@ abstract class UpdateServiceIntegrationTest
       )
 
       val assignedEvent = assign(
-        unassignId = unassignedEvent.event.unassignId,
+        unassignId = unassignedEvent.unassignId,
         source = daId,
         target = acmeId,
         submittingParty = submittingParty.toLf,
@@ -338,7 +339,6 @@ abstract class UpdateServiceIntegrationTest
 
     receivedReassignments should have size expectedReassignmentsSize
     receivedReassignments.filter(_.isUnassignment) should have size expectedReassignmentsSize / 2
-
   }
 
   private def checkReassignmentsPointwise(
@@ -357,9 +357,7 @@ abstract class UpdateServiceIntegrationTest
       reassignments flatMap { reassignment =>
         participant1.ledger_api.updates
           .update_by_id(reassignment.updateId, updateFormat)
-          .collect { case reassignmentWrapper: UpdateService.ReassignmentWrapper =>
-            reassignmentWrapper
-          }
+          .collect { case reassignmentWrapper: ReassignmentWrapper => reassignmentWrapper }
       }
 
     reassignmentsById should have size expectedReassignmentsSize
@@ -369,9 +367,7 @@ abstract class UpdateServiceIntegrationTest
       reassignments flatMap { reassignment =>
         participant1.ledger_api.updates
           .update_by_offset(reassignment.offset, updateFormat)
-          .collect { case reassignmentWrapper: UpdateService.ReassignmentWrapper =>
-            reassignmentWrapper
-          }
+          .collect { case reassignmentWrapper: ReassignmentWrapper => reassignmentWrapper }
       }
 
     reassignmentsByOffset should have size expectedReassignmentsSize

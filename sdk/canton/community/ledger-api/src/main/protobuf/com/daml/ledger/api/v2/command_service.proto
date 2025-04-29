@@ -6,6 +6,8 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/commands.proto";
+import "com/daml/ledger/api/v2/reassignment.proto";
+import "com/daml/ledger/api/v2/reassignment_commands.proto";
 import "com/daml/ledger/api/v2/transaction.proto";
 import "com/daml/ledger/api/v2/transaction_filter.proto";
 
@@ -27,10 +29,14 @@ service CommandService {
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWaitForTransaction(SubmitAndWaitForTransactionRequest) returns (SubmitAndWaitForTransactionResponse);
 
-  // TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+  // Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
   // Submits a single composite command, waits for its result, and returns the transaction tree.
   // Propagates the gRPC error of failed submissions including Daml interpretation errors.
   rpc SubmitAndWaitForTransactionTree(SubmitAndWaitRequest) returns (SubmitAndWaitForTransactionTreeResponse);
+
+  // Submits a single composite reassignment command, waits for its result, and returns the reassignment.
+  // Propagates the gRPC error of failed submission.
+  rpc SubmitAndWaitForReassignment(SubmitAndWaitForReassignmentRequest) returns (SubmitAndWaitForReassignmentResponse);
 }
 
 // These commands are executed as a single atomic transaction.
@@ -46,7 +52,10 @@ message SubmitAndWaitForTransactionRequest {
   // Required
   Commands commands = 1;
 
-  // Required
+  // If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+  // TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+  // filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+  // Optional
   TransactionFormat transaction_format = 2;
 }
 
@@ -68,10 +77,29 @@ message SubmitAndWaitForTransactionResponse {
   Transaction transaction = 1;
 }
 
-// TODO(i23504) Provided for backwards compatibility, it will be removed in the final version.
+// Provided for backwards compatibility, it will be removed in the Canton version 3.4.0.
 message SubmitAndWaitForTransactionTreeResponse {
   // The transaction tree that resulted from the submitted command.
   // The transaction might contain no events (request conditions result in filtering out all of them).
   // Required
   TransactionTree transaction = 1;
+}
+
+// This reassignment is executed as a single atomic update.
+message SubmitAndWaitForReassignmentRequest {
+  // The reassignment commands to be submitted.
+  // Required
+  ReassignmentCommands reassignment_commands = 1;
+
+  // Optional
+  // If no event_format provided, the result will contain no events.
+  // The events in the result, will take shape TRANSACTION_SHAPE_ACS_DELTA.
+  EventFormat event_format = 2;
+}
+
+message SubmitAndWaitForReassignmentResponse {
+  // The reassignment that resulted from the submitted reassignment command.
+  // The reassignment might contain no events (request conditions result in filtering out all of them).
+  // Required
+  Reassignment reassignment = 1;
 }

@@ -46,7 +46,7 @@ trait ContractLookup {
     */
   def lookupLfInstance(lfId: LfContractId)(implicit
       traceContext: TraceContext
-  ): OptionT[FutureUnlessShutdown, LfContractInst] =
+  ): OptionT[FutureUnlessShutdown, LfThinContractInst] =
     lookup(lfId).map(_.contractInstance)
 
   def lookupContract(id: LfContractId)(implicit

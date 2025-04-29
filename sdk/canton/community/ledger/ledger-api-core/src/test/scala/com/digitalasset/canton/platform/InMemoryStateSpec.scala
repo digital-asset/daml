@@ -33,7 +33,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
   private val className = classOf[InMemoryState].getSimpleName
 
   s"$className.initialized" should "return false if not initialized" in withTestFixture {
-    case (inMemoryState, _, _, _, _, _, _, _, _) =>
+    case (inMemoryState, _, _, _, _, _, _, _, _, _) =>
       inMemoryState.initialized shouldBe false
   }
 
@@ -46,7 +46,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           stringInterningView,
           dispatcherState,
           updateStringInterningView,
-          submissionTracker,
+          transactionSubmissionTracker,
+          reassignmentSubmissionTracker,
           inOrder,
         ) =>
       val initOffset = Offset.tryFromLong(12345678L)
@@ -82,7 +83,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           inOrder
             .verify(mutableLedgerEndCache)
             .set(Some(initLedgerEnd))
-          inOrder.verify(submissionTracker).close()
+          inOrder.verify(transactionSubmissionTracker).close()
+          inOrder.verify(reassignmentSubmissionTracker).close()
           inOrder
             .verify(dispatcherState)
             .startDispatcher(Some(initLedgerEnd.lastOffset))
@@ -163,6 +165,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           DispatcherState,
           (UpdatingStringInterningView, LedgerEnd) => Future[Unit],
           SubmissionTracker,
+          SubmissionTracker,
           InOrder,
       ) => Future[Assertion]
   ): Future[Assertion] = {
@@ -173,7 +176,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
     val stringInterningView = mock[StringInterningView]
     val dispatcherState = mock[DispatcherState]
     val updateStringInterningView = mock[(UpdatingStringInterningView, LedgerEnd) => Future[Unit]]
-    val submissionTracker = mock[SubmissionTracker]
+    val transactionSubmissionTracker = mock[SubmissionTracker]
+    val reassignmentSubmissionTracker = mock[SubmissionTracker]
     val partyAllocationTracker = mock[PartyAllocation.Tracker]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
@@ -185,7 +189,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       stringInterningView,
       dispatcherState,
       updateStringInterningView,
-      submissionTracker,
+      transactionSubmissionTracker,
+      reassignmentSubmissionTracker,
     )
 
     val inMemoryState = new InMemoryState(
@@ -196,7 +201,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       inMemoryFanoutBuffer = inMemoryFanoutBuffer,
       stringInterningView = stringInterningView,
       dispatcherState = dispatcherState,
-      submissionTracker = submissionTracker,
+      transactionSubmissionTracker = transactionSubmissionTracker,
+      reassignmentSubmissionTracker = reassignmentSubmissionTracker,
       partyAllocationTracker = partyAllocationTracker,
       commandProgressTracker = commandProgressTracker,
       loggerFactory = loggerFactory,
@@ -210,7 +216,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       stringInterningView,
       dispatcherState,
       updateStringInterningView,
-      submissionTracker,
+      transactionSubmissionTracker,
+      reassignmentSubmissionTracker,
       inOrderMockCalls,
     )
   }

@@ -7,7 +7,7 @@ import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import com.daml.metrics.Timed
-import com.digitalasset.canton.http.endpoints.{MeteringReportEndpoint, RouteSetup}
+import com.digitalasset.canton.http.endpoints.RouteSetup
 import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
@@ -47,7 +47,6 @@ class Endpoints(
     contractsService: ContractsService,
     partiesService: PartiesService,
     packageManagementService: PackageManagementService,
-    meteringReportService: MeteringReportService,
     healthService: HealthService,
     v2Routes: V2Routes,
     encoder: ApiJsonEncoder,
@@ -83,9 +82,6 @@ class Endpoints(
   private[this] val packagesDars: endpoints.PackagesAndDars =
     new endpoints.PackagesAndDars(routeSetup, packageManagementService)
   import packagesDars.*
-
-  private[this] val meteringReportEndpoint =
-    new MeteringReportEndpoint(meteringReportService)
 
   private[this] val contractList: endpoints.ContractList =
     new endpoints.ContractList(routeSetup, decoder, contractsService, loggerFactory)
@@ -327,7 +323,6 @@ class Endpoints(
             allocateParty,
           ),
           path("packages") apply toRoute(uploadDarFile(req)),
-          path("metering-report") apply toPostRoute(req, meteringReportEndpoint.generateReport),
         ),
         get apply concat(
           path("query") apply toRoute(retrieveAll(req)),
