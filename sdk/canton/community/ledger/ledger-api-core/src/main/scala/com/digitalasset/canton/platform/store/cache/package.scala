@@ -8,9 +8,9 @@ package object cache {
   private[cache] type ContractId = lfval.ContractId
   private[cache] val ContractId = com.digitalasset.daml.lf.value.Value.ContractId
   private[cache] type Value = lfval.VersionedValue
-  private[cache] type ThinContract = lfval.VersionedThinContractInstance
 
   import com.digitalasset.daml.lf.transaction as lftx
+  private[cache] type FatContract = lftx.FatContractInstance
   private[cache] type Key = lftx.GlobalKey
 
   import com.digitalasset.daml.lf.data as lfdata

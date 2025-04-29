@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.util.Random
@@ -45,8 +46,11 @@ final class PreIssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
-    extends Consensus[E]
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    config: BftBlockOrdererConfig,
+    mc: MetricsContext,
+) extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
 
   override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =

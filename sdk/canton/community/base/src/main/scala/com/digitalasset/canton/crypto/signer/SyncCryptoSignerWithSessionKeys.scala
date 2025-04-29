@@ -143,7 +143,7 @@ class SyncCryptoSignerWithSessionKeys(
 
       hash = SignatureDelegation.generateHash(
         synchronizerId,
-        sessionKey.id,
+        sessionKey,
         validityPeriod,
       )
 

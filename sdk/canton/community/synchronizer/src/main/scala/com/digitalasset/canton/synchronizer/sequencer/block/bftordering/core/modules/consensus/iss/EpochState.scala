@@ -34,6 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.immutable.ListMap
@@ -52,8 +53,11 @@ class EpochState[E <: Env[E]](
     completedBlocks: Seq[Block] = Seq.empty,
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-)(implicit mc: MetricsContext, config: BftBlockOrdererConfig)
-    extends NamedLogging
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    config: BftBlockOrdererConfig,
+    mc: MetricsContext,
+) extends NamedLogging
     with FlagCloseable {
 
   private val metricsAccumulator = new EpochMetricsAccumulator()

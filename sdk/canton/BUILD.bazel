@@ -33,7 +33,7 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 ### build-info ###
 
-canton_scalacopts = ["-Xsource:3"]
+canton_scalacopts = ["-Xsource:3-cross"]
 
 genrule(
     name = "community_buildinfo_src",
@@ -220,7 +220,7 @@ da_scala_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
-        "@maven//:org_wartremover_wartremover_2_13_11",
+        "@maven//:org_wartremover_wartremover_2_13_16",
     ],
 )
 
@@ -1334,6 +1334,7 @@ scala_library(
 scala_library(
     name = "community_app-base",
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
+    plugins = [kind_projector_plugin],
     resource_strip_prefix = "/canton/community/app-base/src/main/resources",
     resources = glob(["community/app-base/src/main/resources/**"]),
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
@@ -1385,10 +1386,10 @@ scala_library(
         "@maven//:com_google_api_grpc_proto_google_common_protos",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_lihaoyi_ammonite_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_compiler_interface_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_repl_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_runtime_2_13_11",
+        "@maven//:com_lihaoyi_ammonite_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_compiler_interface_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_repl_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_runtime_2_13_16",
         "@maven//:com_lihaoyi_ammonite_util_2_13",
         "@maven//:com_lihaoyi_os_lib_2_13",
         "@maven//:com_lihaoyi_pprint_2_13",
@@ -1463,13 +1464,13 @@ scala_library(
         "@maven//:com_github_pureconfig_pureconfig_core_2_13",
         "@maven//:com_github_scopt_scopt_2_13",
         "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:com_lihaoyi_ammonite_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_compiler_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_compiler_interface_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_interp_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_interp_api_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_repl_2_13_11",
-        "@maven//:com_lihaoyi_ammonite_runtime_2_13_11",
+        "@maven//:com_lihaoyi_ammonite_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_compiler_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_compiler_interface_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_interp_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_interp_api_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_repl_2_13_16",
+        "@maven//:com_lihaoyi_ammonite_runtime_2_13_16",
         "@maven//:com_lihaoyi_ammonite_util_2_13",
         "@maven//:com_lihaoyi_os_lib_2_13",
         "@maven//:com_typesafe_config",

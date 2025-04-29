@@ -4,16 +4,9 @@
 package com.digitalasset.canton.ledger.participant.state.index
 
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.daml.lf.data.Ref.Party
-import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  Node,
-}
-import com.digitalasset.daml.lf.value.Value.{ContractId, VersionedThinContractInstance}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey}
+import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.Future
 
@@ -28,9 +21,9 @@ trait ContractStore {
       contractId: ContractId,
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[Option[VersionedThinContractInstance]]
+  ): Future[Option[FatContractInstance]]
 
-  def lookupContractKey(readers: Set[Party], key: GlobalKey)(implicit
+  def lookupContractKey(readers: Set[Ref.Party], key: GlobalKey)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[ContractId]]
 
@@ -48,36 +41,5 @@ sealed trait ContractState
 object ContractState {
   case object NotFound extends ContractState
   case object Archived extends ContractState
-  final case class Active(
-      contractInstance: VersionedThinContractInstance,
-      ledgerEffectiveTime: Timestamp,
-      stakeholders: Set[Party],
-      signatories: Set[Party],
-      globalKey: Option[GlobalKey],
-      maintainers: Option[Set[Party]],
-      driverMetadata: Array[Byte],
-  ) extends ContractState {
-    def toFatContractInstance(coid: ContractId): FatContractInstance = {
-      val ci = contractInstance.unversioned
-      val globalKeyWithMaintainers = for {
-        gk <- globalKey
-        m <- maintainers
-      } yield GlobalKeyWithMaintainers(gk, m)
-
-      FatContractInstance.fromCreateNode(
-        Node.Create(
-          coid = coid,
-          packageName = ci.packageName,
-          templateId = ci.template,
-          arg = ci.arg,
-          signatories = signatories,
-          stakeholders = stakeholders,
-          keyOpt = globalKeyWithMaintainers,
-          version = contractInstance.version,
-        ),
-        createTime = ledgerEffectiveTime,
-        cantonData = Bytes.fromByteArray(driverMetadata),
-      )
-    }
-  }
+  final case class Active(contractInstance: FatContractInstance) extends ContractState
 }

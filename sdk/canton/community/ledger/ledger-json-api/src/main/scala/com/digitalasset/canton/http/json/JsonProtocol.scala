@@ -199,7 +199,7 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat1(http.DeleteUserRequest.apply)
 
   implicit val AllocatePartyRequest: JsonFormat[http.AllocatePartyRequest] =
-    jsonFormat1(http.AllocatePartyRequest.apply)
+    jsonFormat2(http.AllocatePartyRequest.apply)
 
   object LfValueCodec
       extends ApiCodecCompressed(

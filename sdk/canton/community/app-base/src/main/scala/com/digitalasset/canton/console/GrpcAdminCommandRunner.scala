@@ -80,6 +80,7 @@ class GrpcAdminCommandRunner(
       case _ => awaitTimeout
     }
 
+    logger.debug(s"Running command $command on $instanceName against $clientConfig")
     val resultET = for {
       _ <- {
         channels.get((instanceName, clientConfig.address, clientConfig.port)) match {
@@ -104,7 +105,6 @@ class GrpcAdminCommandRunner(
         }
       }
       channel = getOrCreateChannel(instanceName, clientConfig)
-      _ = logger.debug(s"Running command $command on $instanceName against $clientConfig")
       result <- grpcRunner.run(
         instanceName,
         command,

@@ -154,19 +154,9 @@ final class AsynchronousReassignmentProtocolIntegrationTest
 
       val entries =
         reassignmentIds.map(id => reassignmentStore.findReassignmentEntry(id).futureValueUS.value)
-
-      val (entryBob, entryAlice) = entries match {
-        case Seq(e1, e2) if e1.unassignmentRequest.exists(_.submitter == bobId.toLf) => (e1, e2)
-        case Seq(e1, e2) if e2.unassignmentRequest.exists(_.submitter == bobId.toLf) => (e2, e1)
-        case _ =>
-          fail(
-            s"Expected two in-flight entries in the reassignment store but found ${entries.size}"
-          )
-      }
-
       // make sure that Bob's unassignment completed before Alice's one
-      entryBob.unassignmentResult should not be empty
-      entryAlice.unassignmentResult shouldBe empty
+      entries.loneElement.unassignmentRequest.map(_.submitter) should contain(bobId.toLf)
+
     }
     until.trySuccess(())
 

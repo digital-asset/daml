@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -452,11 +454,15 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       epochStore: EpochStore[E] = new InMemoryUnitTestEpochStore[E],
       maybeCustomTimeoutManager: Option[TimeoutManager[E, Consensus.Message[E], String]] = None,
   ): StateTransferManager[E] = {
+    implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
     val dependencies = ConsensusModuleDependencies[E](
       availability = fakeIgnoringModule,
       outputModuleRef,
       p2pNetworkOutModuleRef,
     )
+
+    val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
 
     new StateTransferManager(
       myId,
@@ -464,6 +470,7 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       EpochLength(epochLength),
       epochStore,
       new Random(4),
+      metrics,
       loggerFactory,
     )(maybeCustomTimeoutManager)
   }

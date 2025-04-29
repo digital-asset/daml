@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   OrderingRequestBatch,
 }
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import scala.util.Random
@@ -53,11 +54,14 @@ class Generator(random: Random, inMemoryStore: InMemoryAvailabilityStore) {
 
   def genEpochNumber: Gen[EpochNumber] = _ => EpochNumber(random.nextLong())
 
+  def genSynchronizerProtocolVersion: Gen[ProtocolVersion] =
+    _ => ProtocolVersion.supported(Math.abs(random.nextInt()) % ProtocolVersion.supported.length)
+
   def genBatch: Gen[OrderingRequestBatch] = _ => {
     OrderingRequestBatch.create(
       genSeq(genTraced(genOrderingRequest)).apply(()),
       genEpochNumber.apply(()),
-    )
+    )(genSynchronizerProtocolVersion.apply(()))
   }
 
   def generateCommand: Gen[Command] = _ => {

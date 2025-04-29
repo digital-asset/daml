@@ -9,19 +9,20 @@ module Daml.Script.Internal
   , ErrorMessage (..)
   , tryCommands
   , FailedCmd (..)
-  , liftFailedCommandToException
+  , liftFailedCommandToFailureStatus
 
   , -- Packages
     PackageName (..)
   , listVettedPackages
   , listAllPackages
-  , unsafeVetPackages
   , vetPackages
   , vetPackagesOnParticipant
-  , unsafeUnvetPackages
   , unvetPackages
   , unvetPackagesOnParticipant
 
+  , -- Party Management
+    allocateReplicatedPartyOn
+  , allocateReplicatedPartyWithHintOn
 
   , -- Concurrent submit
     concurrently

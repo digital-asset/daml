@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewChange,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.mutable
 
@@ -44,7 +45,7 @@ class PbftViewChangeState(
     blockNumbers: Seq[BlockNumber],
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit mc: MetricsContext)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends NamedLogging {
   private val messageValidator = new ViewChangeMessageValidator(membership, blockNumbers)
   private val viewChangeMap = mutable.HashMap[BftNodeId, SignedMessage[ViewChange]]()
@@ -216,9 +217,9 @@ class PbftViewChangeState(
           case Left(error) =>
             emitNonCompliance(metrics)(
               vc.from,
-              epoch,
-              view,
-              vc.message.blockMetadata.blockNumber,
+              Some(epoch),
+              Some(view),
+              Some(vc.message.blockMetadata.blockNumber),
               metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
             )
             logger.warn(
@@ -236,9 +237,9 @@ class PbftViewChangeState(
     if (nv.from != leader) { // Ensure the message is from the current primary (leader) of the new view
       emitNonCompliance(metrics)(
         nv.from,
-        epoch,
-        view,
-        nv.message.blockMetadata.blockNumber,
+        Some(epoch),
+        Some(view),
+        Some(nv.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(s"New View message from ${nv.from}, but the leader of view $view is $leader")
@@ -254,9 +255,9 @@ class PbftViewChangeState(
         case Left(error) =>
           emitNonCompliance(metrics)(
             nv.from,
-            epoch,
-            view,
-            nv.message.blockMetadata.blockNumber,
+            Some(epoch),
+            Some(view),
+            Some(nv.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
           )
           logger.warn(

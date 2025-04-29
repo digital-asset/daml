@@ -398,7 +398,7 @@ class UnassignmentProcessingSteps(
     ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val fullTree = parsedRequest.fullViewTree
+    val fullTree: FullUnassignmentTree = parsedRequest.fullViewTree
     val requestCounter = parsedRequest.rc
     val requestTimestamp = parsedRequest.requestTimestamp
     val sourceSnapshot = Source(parsedRequest.snapshot.ipsSnapshot)
@@ -426,19 +426,6 @@ class UnassignmentProcessingSteps(
         activenessF,
       )(parsedRequest)
 
-      unassignmentDecisionTime <- ProcessingSteps
-        .getDecisionTime(sourceSnapshot.unwrap, requestTimestamp)
-        .leftMap(ReassignmentParametersError(synchronizerId.unwrap, _))
-
-      reassignmentData = UnassignmentData(
-        reassignmentId = ReassignmentId(synchronizerId, requestTimestamp),
-        unassignmentRequest = fullTree,
-        unassignmentDecisionTime = unassignmentDecisionTime,
-        unassignmentResult = None,
-      )
-      _ <- ifThenET(isReassigningParticipant) {
-        reassignmentCoordination.addUnassignmentRequest(reassignmentData)
-      }
     } yield {
       val responseF =
         createConfirmationResponses(
@@ -512,7 +499,6 @@ class UnassignmentProcessingSteps(
 
     val isReassigningParticipant = unassignmentValidationResult.assignmentExclusivity.isDefined
     val pendingSubmissionData = pendingSubmissionMap.get(unassignmentValidationResult.rootHash)
-    val targetSynchronizer = unassignmentValidationResult.targetSynchronizer
     def rejected(
         reason: TransactionRejection
     ): EitherT[
@@ -520,18 +506,13 @@ class UnassignmentProcessingSteps(
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
     ] = for {
-      _ <- ifThenET(isReassigningParticipant)(
-        deleteReassignment(targetSynchronizer, requestId)
-          .map(_ =>
-            reassignmentCoordination.completeUnassignment(
-              unassignmentValidationResult.reassignmentId
-            )
-          )
-      )
-
       eventO <- EitherT.fromEither[FutureUnlessShutdown](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
       )
+      _ = if (isReassigningParticipant)
+        reassignmentCoordination.completeUnassignment(
+          unassignmentValidationResult.reassignmentId
+        )
     } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
 
     for {
@@ -549,22 +530,18 @@ class UnassignmentProcessingSteps(
         case _: Verdict.Approve =>
           val commitSet = unassignmentValidationResult.commitSet
           val commitSetFO = Some(FutureUnlessShutdown.pure(commitSet))
+          val unassignmentData = UnassignmentData(
+            reassignmentId = unassignmentValidationResult.reassignmentId,
+            unassignmentRequest = unassignmentValidationResult.fullTree,
+          )
           for {
             _ <- ifThenET(isReassigningParticipant) {
-              EitherT
-                .fromEither[FutureUnlessShutdown](DeliveredUnassignmentResult.create(event))
-                .leftMap(err =>
-                  UnassignmentProcessorError
-                    .InvalidResult(unassignmentValidationResult.reassignmentId, err)
-                )
-                .flatMap { deliveredResult =>
-                  reassignmentCoordination
-                    .addUnassignmentResult(targetSynchronizer, deliveredResult)
-                    .map { _ =>
-                      reassignmentCoordination.completeUnassignment(
-                        unassignmentValidationResult.reassignmentId
-                      )
-                    }
+              reassignmentCoordination
+                .addUnassignmentRequest(unassignmentData)
+                .map { _ =>
+                  reassignmentCoordination.completeUnassignment(
+                    unassignmentValidationResult.reassignmentId
+                  )
                 }
             }
 
@@ -594,11 +571,10 @@ class UnassignmentProcessingSteps(
   override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    deleteReassignment(parsedRequest.fullViewTree.targetSynchronizer, parsedRequest.requestId).map(
-      _ =>
-        reassignmentCoordination.completeUnassignment(
-          ReassignmentId(synchronizerId, parsedRequest.requestTimestamp)
-        )
+    EitherT.rightT(
+      reassignmentCoordination.completeUnassignment(
+        ReassignmentId(synchronizerId, parsedRequest.requestTimestamp)
+      )
     )
 
   private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(
@@ -664,17 +640,6 @@ class UnassignmentProcessingSteps(
       )
 
   }
-
-  private[this] def deleteReassignment(
-      targetSynchronizer: Target[SynchronizerId],
-      unassignmentRequestId: RequestId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
-    val reassignmentId = ReassignmentId(synchronizerId, unassignmentRequestId.unwrap)
-    reassignmentCoordination.deleteReassignment(targetSynchronizer, reassignmentId)
-  }
-
 }
 
 object UnassignmentProcessingSteps {

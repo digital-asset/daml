@@ -291,16 +291,13 @@ class ParticipantNodeBootstrap(
 
     override protected def attempt()(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNode]]] = {
-
-      val partyOps = new PartyOps(topologyManager, loggerFactory)
+    ): EitherT[FutureUnlessShutdown, String, Option[RunningNode[ParticipantNode]]] =
       createParticipantServices(
         participantId,
         crypto,
         adminServerRegistry,
         storage,
         engine,
-        partyOps,
         topologyManager,
         tryGetPackageDependencyResolver(),
       ).map { participantServices =>
@@ -327,7 +324,6 @@ class ParticipantNodeBootstrap(
         setInitialized(participantServices)
         Some(new RunningNode(bootstrapStageCallback, node))
       }
-    }
 
     private def createPackageOps(
         manager: SyncPersistentStateManager
@@ -360,7 +356,6 @@ class ParticipantNodeBootstrap(
         adminServerRegistry: CantonMutableHandlerRegistry,
         storage: Storage,
         engine: Engine,
-        partyOps: PartyOps,
         authorizedTopologyManager: AuthorizedTopologyManager,
         packageDependencyResolver: PackageDependencyResolver,
     )(implicit executionSequencerFactory: ExecutionSequencerFactory): EitherT[
@@ -688,7 +683,7 @@ class ParticipantNodeBootstrap(
           ephemeralState,
           syncPersistentStateManager,
           packageServiceContainer.asEval,
-          partyOps,
+          new PartyOps(syncPersistentStateManager.get(_).map(_.topologyManager), loggerFactory),
           topologyDispatcher,
           partyNotifier,
           syncCryptoSignerWithSessionKeys,

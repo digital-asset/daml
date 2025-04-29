@@ -45,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Commit,
   PrePrepare,
 }
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -543,7 +544,7 @@ object PbftMessageValidatorImplTest {
       blockMetadata: BlockMetadata = aPreviousBlockInSegmentMetadata,
       from: BftNodeId = myId,
       localTimestamp: CantonTimestamp = CantonTimestamp.Epoch,
-  ) =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) =
     Commit
       .create(
         blockMetadata,
@@ -562,7 +563,7 @@ object PbftMessageValidatorImplTest {
       orderingBlock: OrderingBlock,
       canonicalCommitSet: CanonicalCommitSet,
       blockMetadata: BlockMetadata = aBlockMetadata,
-  ) =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) =
     PrePrepare.create(
       blockMetadata,
       ViewNumber.First,

@@ -60,8 +60,8 @@ final class PartyToParticipantDeclarativeIntegrationTest
 
       // We consider only one synchronizer in this case since changes are per synchronizer
 
-      val chopper =
-        participant1.parties.enable("chopper")
+      val chopper = participant1.parties.enable("chopper", synchronizer = daName)
+      participant1.parties.enable("chopper", synchronizer = acmeName)
 
       def changeTopology(
           newThreshold: PositiveInt,
@@ -99,7 +99,8 @@ final class PartyToParticipantDeclarativeIntegrationTest
     "allow party offboarding" in { implicit env =>
       import env.*
 
-      val bob = participant1.parties.enable("bob")
+      val bob = participant1.parties.enable("bob", synchronizer = daName)
+      participant1.parties.enable("bob", synchronizer = acmeName)
 
       Seq(daId, acmeId).foreach { synchronizerId =>
         PartyToParticipantDeclarative.forParty(Set(participant1), synchronizerId)(

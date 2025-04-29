@@ -1420,7 +1420,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           submissionId = obj.submissionId,
           userId = obj.userId,
           hashingSchemeVersion = obj.hashingSchemeVersion,
-          minLedgerTime = None,
+          minLedgerTime = obj.minLedgerTime,
         )
       }
   }

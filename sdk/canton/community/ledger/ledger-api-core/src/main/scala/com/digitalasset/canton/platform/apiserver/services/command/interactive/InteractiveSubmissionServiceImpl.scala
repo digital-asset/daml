@@ -197,7 +197,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
                   .lookupContractState(inputCoid)
                   .flatMap {
                     case active: ContractState.Active =>
-                      enrich(active.toFatContractInstance(inputCoid)).map(Right(_))
+                      enrich(active.contractInstance).map(Right(_))
                     // Engine interpretation likely would have failed if that was the case
                     // However it's possible that the contract was archived or pruned in the meantime
                     // That's not an issue however because if that was the case the transaction would have failed later

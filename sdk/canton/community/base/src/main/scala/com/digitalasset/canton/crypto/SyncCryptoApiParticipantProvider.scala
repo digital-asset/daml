@@ -584,34 +584,6 @@ class SynchronizerSnapshotSyncCryptoApi(
       )
     } yield ()
 
-  override def unsafePartialVerifySequencerSignatures(
-      hash: Hash,
-      signatures: NonEmpty[Seq[Signature]],
-      usage: NonEmpty[Set[SigningKeyUsage]],
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SignatureCheckError, Unit] =
-    for {
-      sequencerGroup <- EitherT(
-        ipsSnapshot
-          .sequencerGroup()
-          .map(
-            _.toRight(
-              SignatureCheckError.MemberGroupDoesNotExist(
-                "Sequencer group not found"
-              )
-            )
-          )
-      )
-      _ <- syncCryptoVerifier.verifyGroupSignatures(
-        ipsSnapshot,
-        hash,
-        sequencerGroup.active,
-        threshold = PositiveInt.one,
-        sequencerGroup.toString,
-        signatures,
-        usage,
-      )
-    } yield ()
-
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncCryptoError, M] =

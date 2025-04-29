@@ -4,7 +4,7 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.{GeneratorsCrypto, Salt, SigningKeyUsage, TestHash}
+import com.digitalasset.canton.crypto.{Salt, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{
   CreateActionDescription,
   ExerciseActionDescription,
@@ -15,13 +15,7 @@ import com.digitalasset.canton.data.MerkleTree.VersionedMerkleTree
 import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIndex}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.{
-  ConfirmationResultMessage,
-  DeliveredUnassignmentResult,
-  SignedProtocolMessage,
-  Verdict,
-}
-import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipient, SignedContent}
+import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SeqUtil
@@ -563,64 +557,11 @@ final class GeneratorsData(
       )
   )
 
-  private def deliveryUnassignmentResultGen(
-      sourceProtocolVersion: Source[ProtocolVersion]
-  ): Gen[DeliveredUnassignmentResult] =
-    for {
-      sourceSynchronizerId <- Arbitrary.arbitrary[Source[SynchronizerId]]
-      requestId <- Arbitrary.arbitrary[RequestId]
-      rootHash <- Arbitrary.arbitrary[RootHash]
-      protocolVersion = sourceProtocolVersion.unwrap
-      verdict = Verdict.Approve(protocolVersion)
-
-      result = ConfirmationResultMessage.create(
-        sourceSynchronizerId.unwrap,
-        ViewType.UnassignmentViewType,
-        requestId,
-        rootHash,
-        verdict,
-        protocolVersion,
-      )
-
-      signedResult =
-        SignedProtocolMessage.from(
-          result,
-          protocolVersion,
-          GeneratorsCrypto.sign(
-            GeneratorsCrypto.testSigningKey.fingerprint,
-            "UnassignmentResult-mediator",
-            TestHash.testHashPurpose,
-            SigningKeyUsage.ProtocolOnly,
-          ),
-        )
-
-      recipients <- recipientsArb.arbitrary
-
-      batch = Batch.of(protocolVersion, signedResult -> recipients)
-      deliver <- deliverGen(sourceSynchronizerId.unwrap, batch, protocolVersion)
-
-      unassignmentTs <- Arbitrary.arbitrary[CantonTimestamp]
-    } yield DeliveredUnassignmentResult
-      .create(
-        SignedContent(
-          deliver,
-          sign(
-            GeneratorsCrypto.testSigningKey.fingerprint,
-            "UnassignmentResult-sequencer",
-            TestHash.testHashPurpose,
-            SigningKeyUsage.ProtocolOnly,
-          ),
-          Some(unassignmentTs),
-          protocolVersion,
-        )
-      )
-      .value
-
   implicit val assignmentViewArb: Arbitrary[AssignmentView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-      unassignmentResultEvent <- deliveryUnassignmentResultGen(sourceProtocolVersion)
+      reassignmentId <- Arbitrary.arbitrary[ReassignmentId]
       reassignmentCounter <- reassignmentCounterGen
 
       hashOps = TestHash // Not used for serialization
@@ -628,8 +569,8 @@ final class GeneratorsData(
     } yield AssignmentView
       .create(hashOps)(
         salt,
+        reassignmentId,
         contract,
-        unassignmentResultEvent,
         targetProtocolVersion,
         reassignmentCounter,
       )

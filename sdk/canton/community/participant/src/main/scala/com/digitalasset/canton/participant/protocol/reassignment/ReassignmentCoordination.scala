@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.instances.future.catsStdInstancesForFuture
 import cats.syntax.functor.*
-import cats.syntax.traverse.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
@@ -25,7 +24,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.SynchronizerTimeTracker
 import com.digitalasset.canton.topology.SynchronizerId
@@ -89,32 +87,6 @@ class ReassignmentCoordination(
           )
         )
     }
-
-  /** Returns a future that completes when a snapshot can be taken on the given synchronizer for the
-    * given timestamp.
-    *
-    * This is used when an assignment blocks for the identity state at the unassignment. For more
-    * general uses, `awaitTimestamp` should be preferred as it triggers the progression of time on
-    * `synchronizerId` by requesting a tick.
-    */
-  private[reassignment] def awaitUnassignmentTimestamp(
-      synchronizerId: Source[SynchronizerId],
-      staticSynchronizerParameters: Source[StaticSynchronizerParameters],
-      timestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, UnknownSynchronizer, Unit] =
-    EitherT(
-      syncCryptoApi
-        .forSynchronizer(synchronizerId.unwrap, staticSynchronizerParameters.unwrap)
-        .toRight(
-          UnknownSynchronizer(
-            synchronizerId.unwrap,
-            "When assignment waits for unassignment timestamp",
-          )
-        )
-        .traverse(_.awaitTimestamp(timestamp).getOrElse(FutureUnlessShutdown.unit))
-    )
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given
     * `timestamp` on the given `synchronizerId`. [[scala.None$]] indicates that this point has
@@ -311,42 +283,6 @@ class ReassignmentCoordination(
         .leftMap[ReassignmentProcessorError](
           ReassignmentStoreFailed(reassignmentId, _)
         )
-    } yield ()
-
-  /** Adds the unassignment result to the reassignment stored on the given synchronizer. */
-  private[reassignment] def addUnassignmentResult(
-      targetSynchronizerId: Target[SynchronizerId],
-      unassignmentResult: DeliveredUnassignmentResult,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    for {
-      reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(targetSynchronizerId)
-      )
-      _ <- reassignmentStore
-        .addUnassignmentResult(unassignmentResult)
-        .leftMap[ReassignmentProcessorError](
-          ReassignmentStoreFailed(unassignmentResult.reassignmentId, _)
-        )
-    } yield ()
-
-  /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given
-    * [[com.digitalasset.canton.topology.SynchronizerId]]'s [[store.ReassignmentStore]].
-    */
-  private[reassignment] def deleteReassignment(
-      targetSynchronizer: Target[SynchronizerId],
-      reassignmentId: ReassignmentId,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    for {
-      reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(targetSynchronizer)
-      )
-      _ <- EitherT.right[ReassignmentProcessorError](
-        reassignmentStore.deleteReassignment(reassignmentId)
-      )
     } yield ()
 
 }

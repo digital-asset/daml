@@ -361,10 +361,20 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         Left(s"Expected SList but got $v")
     }
 
-  def toParticipantName(v: SValue): Either[String, Option[Participant]] = v match {
+  def toParticipantNames(v: SValue): Either[String, List[Participant]] = v match {
+    case SList(vs) => vs.toList.traverse(toParticipantName)
+    case _ => Left(s"Expected a list of participants but got $v")
+  }
+
+  def toOptionalParticipantName(v: SValue): Either[String, Option[Participant]] = v match {
     case SOptional(Some(SText(t))) => Right(Some(Participant(t)))
     case SOptional(None) => Right(None)
     case _ => Left(s"Expected optional participant name but got $v")
+  }
+
+  def toParticipantName(v: SValue): Either[String, Participant] = v match {
+    case SText(t) => Right(Participant(t))
+    case _ => Left(s"Expected participant name but got $v")
   }
 
   private def randomHex(rand: Random, length: Int) =

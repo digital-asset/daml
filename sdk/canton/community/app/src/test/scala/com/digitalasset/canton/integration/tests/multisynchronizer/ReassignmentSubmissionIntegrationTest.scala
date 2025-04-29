@@ -73,17 +73,8 @@ sealed trait ReassignmentSubmissionIntegrationTest
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
         participants.all.dars.upload(BaseTest.CantonExamplesPath)
 
-        signatory = participant1.parties.enable(
-          "signatory",
-          synchronizeParticipants = Seq(participant2),
-        )
-        observer1 = participant2.parties.enable(
-          "observer1",
-          synchronizeParticipants = Seq(participant1),
-        )
-
         PartiesAllocator(participants.all.toSet)(
-          Seq("dso" -> participant1),
+          Seq("dso" -> participant1, "signatory" -> participant1, "observer1" -> participant2),
           Map(
             "dso" -> Map(
               daId -> (PositiveInt.one, Set(
@@ -94,12 +85,21 @@ sealed trait ReassignmentSubmissionIntegrationTest
                 (participant1, Submission),
                 (participant2, Submission),
               )),
-            )
+            ),
+            "signatory" -> Map(
+              daId -> (PositiveInt.one, Set((participant1, Submission))),
+              acmeId -> (PositiveInt.one, Set((participant1, Submission))),
+            ),
+            "observer1" -> Map(
+              daId -> (PositiveInt.one, Set((participant2, Submission))),
+              acmeId -> (PositiveInt.one, Set((participant2, Submission))),
+            ),
           ),
         )
 
+        signatory = "signatory".toPartyId(participant1)
+        observer1 = "observer1".toPartyId(participant2)
         decentralizedParty = "dso".toPartyId(participant1)
-
       }
 
   "check that a decentralized party can submit a reassignment" in { implicit env =>

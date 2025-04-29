@@ -16,7 +16,7 @@ final case class BlockMetadata(
     blockNumber: BlockNumber,
 ) {
   def toProto: ProtoBlockMetadata =
-    ProtoBlockMetadata.of(
+    ProtoBlockMetadata(
       epochNumber,
       blockNumber,
     )

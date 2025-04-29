@@ -7,13 +7,15 @@ import com.digitalasset.canton.crypto.HashBuilder
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  SupportedVersions,
+  data,
+}
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
-  ProtoVersion,
   ProtocolVersion,
   RepresentativeProtocolVersion,
   VersionedProtoCodec,
@@ -69,18 +71,17 @@ final case class OrderingRequestBatch private (
   private def orderingRequestToProtoV30(
       orderingRequest: OrderingRequest,
       traceContext: Option[String],
-  ): v30.OrderingRequest = v30.OrderingRequest.of(
+  ): v30.OrderingRequest = v30.OrderingRequest(
     traceContext = traceContext.getOrElse(""),
     orderingRequest.tag,
     orderingRequest.payload,
     orderingRequest.orderingStartInstant.map(i =>
-      com.google.protobuf.timestamp.Timestamp
-        .of(i.getEpochSecond, i.getNano)
+      com.google.protobuf.timestamp.Timestamp(i.getEpochSecond, i.getNano)
     ),
   )
 
   def toProtoV30: v30.Batch =
-    v30.Batch.of(
+    v30.Batch(
       requests.map { orderingRequest =>
         orderingRequestToProtoV30(
           orderingRequest.value,
@@ -103,45 +104,42 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
   def create(
       requests: Seq[Traced[OrderingRequest]],
       epochNumber: EpochNumber,
-  ): OrderingRequestBatch = OrderingRequestBatch(
-    requests,
-    epochNumber,
-  )(
-    protocolVersionRepresentativeFor(ProtocolVersion.minimum) // TODO(#23248)
-  )
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): OrderingRequestBatch =
+    OrderingRequestBatch(
+      requests,
+      epochNumber,
+    )(
+      protocolVersionRepresentativeFor(synchronizerProtocolVersion)
+    )
 
   def fromProtoV30(
       batch: v30.Batch
   ): ParsingResult[OrderingRequestBatch] =
-    Right(
-      OrderingRequestBatch(
-        batch.orderingRequests.map { protoOrderingRequest =>
-          Traced.fromPair[OrderingRequest](
-            (
-              OrderingRequest(
-                protoOrderingRequest.tag,
-                protoOrderingRequest.payload,
-                protoOrderingRequest.orderingStartInstant.map(i =>
-                  Instant.ofEpochSecond(i.seconds, i.nanos.toLong)
-                ),
+    for {
+      rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
+    } yield OrderingRequestBatch(
+      batch.orderingRequests.map { protoOrderingRequest =>
+        Traced.fromPair[OrderingRequest](
+          (
+            OrderingRequest(
+              protoOrderingRequest.tag,
+              protoOrderingRequest.payload,
+              protoOrderingRequest.orderingStartInstant.map(i =>
+                Instant.ofEpochSecond(i.seconds, i.nanos.toLong)
               ),
-              TraceContext.fromW3CTraceParent(protoOrderingRequest.traceContext),
-            )
+            ),
+            TraceContext.fromW3CTraceParent(protoOrderingRequest.traceContext),
           )
-        },
-        EpochNumber(batch.epochNumber),
-      )(protocolVersionRepresentativeFor(ProtocolVersion.minimum)) // TODO(#23248)
-    )
+        )
+      },
+      EpochNumber(batch.epochNumber),
+    )(rpv)
 
   override def versioningTable: framework.data.OrderingRequestBatch.VersioningTable =
     VersioningTable(
-      ProtoVersion(30) ->
-        VersionedProtoCodec(
-          ProtocolVersion.v34
-        )(v30.Batch)(
-          supportedProtoVersion(_)(
-            fromProtoV30
-          ),
+      SupportedVersions.ProtoData ->
+        VersionedProtoCodec(SupportedVersions.CantonProtocol)(v30.Batch)(
+          supportedProtoVersion(_)(fromProtoV30),
           _.toProtoV30,
         )
     )

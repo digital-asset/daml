@@ -3,8 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.TimeoutManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -26,6 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.utils.BftNodeShuffler
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.SingleUseCell
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.util.{Failure, Random, Success}
 
@@ -42,16 +46,20 @@ class StateTransferManager[E <: Env[E]](
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
     random: Random,
+    metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
 )(
     private val maybeCustomTimeoutManager: Option[TimeoutManager[E, Consensus.Message[E], String]] =
       None
-)(implicit config: BftBlockOrdererConfig)
-    extends NamedLogging {
+)(implicit
+    synchronizerProtocolVersion: ProtocolVersion,
+    config: BftBlockOrdererConfig,
+    mc: MetricsContext,
+) extends NamedLogging {
 
   private val stateTransferStartEpoch = new SingleUseCell[EpochNumber]
 
-  private val validator = new StateTransferMessageValidator[E](loggerFactory)
+  private val validator = new StateTransferMessageValidator[E](metrics, loggerFactory)
 
   private val messageSender = new StateTransferMessageSender[E](
     thisNode,
@@ -189,8 +197,16 @@ class StateTransferManager[E <: Env[E]](
         validator
           .validateBlockTransferRequest(request, orderingTopologyInfo.currentMembership)
           .fold(
-            // TODO(#23313) emit metrics
-            validationError => logger.warn(s"State transfer: $validationError, dropping..."),
+            { validationError =>
+              logger.warn(s"State transfer: $validationError, dropping...")
+              emitNonCompliance(metrics)(
+                from,
+                Some(epoch),
+                view = None,
+                block = None,
+                metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
+              )
+            },
             { _ =>
               logger.info(s"State transfer: '$from' is requesting block transfer for epoch $epoch")
 
@@ -271,7 +287,14 @@ class StateTransferManager[E <: Env[E]](
       .fold(
         { validationError =>
           logger.warn(s"State transfer: $validationError, dropping...")
-          // TODO(#23313) emit metrics
+          val blockMetadata = response.commitCertificate.map(_.prePrepare.message.blockMetadata)
+          emitNonCompliance(metrics)(
+            response.from,
+            blockMetadata.map(_.epochNumber),
+            view = None,
+            blockMetadata.map(_.blockNumber),
+            metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
+          )
           StateTransferMessageResult.Continue
         },
         { _ =>

@@ -3793,6 +3793,12 @@ components:
         hashingSchemeVersion:
           description: The hashing scheme version used when building the hash
           type: string
+        minLedgerTime:
+          $ref: '#/components/schemas/MinLedgerTime'
+          description: |-
+            If set will influence the chosen ledger effective time but will not result in a submission delay so any override
+            should be scheduled to executed within the window allowed by synchronizer.
+            Optional
     JsGetActiveContractsResponse:
       title: JsGetActiveContractsResponse
       type: object
@@ -4147,7 +4153,11 @@ components:
             Required
         transactionFormat:
           $ref: '#/components/schemas/TransactionFormat'
-          description: Required
+          description: |-
+            If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+            TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+            filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+            Optional
     JsSubmitAndWaitForTransactionResponse:
       title: JsSubmitAndWaitForTransactionResponse
       type: object

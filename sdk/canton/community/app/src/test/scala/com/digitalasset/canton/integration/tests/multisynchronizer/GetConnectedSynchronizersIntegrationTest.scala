@@ -55,17 +55,30 @@ abstract class GetConnectedSynchronizerIntegrationTest
         participant1.synchronizers.connect_local(sequencer3, alias = acmeName)
         participant2.synchronizers.connect_local(sequencer4, alias = acmeName)
 
-        participant2.synchronizers.disconnect(acmeName)
-
         // Allocate parties
         party1 = participant1.parties.enable(
           party1Name,
           synchronizeParticipants = Seq(participant2),
+          synchronizer = daName,
         )
+        participant1.parties.enable(
+          party1Name,
+          synchronizeParticipants = Seq(participant2),
+          synchronizer = acmeName,
+        )
+
         party2 = participant2.parties.enable(
           party2Name,
           synchronizeParticipants = Seq(participant1),
+          synchronizer = daName,
         )
+        participant2.parties.enable(
+          party2Name,
+          synchronizeParticipants = Seq(participant1),
+          synchronizer = acmeName,
+        )
+
+        participant2.synchronizers.disconnect(acmeName)
       }
 
   protected def getConnectedSynchronizers(

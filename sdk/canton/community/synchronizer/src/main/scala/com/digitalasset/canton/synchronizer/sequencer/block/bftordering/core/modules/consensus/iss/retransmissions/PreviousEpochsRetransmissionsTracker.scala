@@ -10,7 +10,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.SegmentStatus
-import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
 
@@ -28,18 +27,13 @@ class PreviousEpochsRetransmissionsTracker(
 
   def processRetransmissionsRequest(
       epochStatus: ConsensusStatus.EpochStatus
-  )(implicit traceContext: TraceContext): Seq[CommitCertificate] =
+  ): Either[String, Seq[CommitCertificate]] =
     previousEpochs.get(epochStatus.epochNumber) match {
       case None =>
-        logger.info(
-          s"Got a retransmission request for too old or future epoch ${epochStatus.epochNumber}, ignoring"
+        Left(
+          s"Got a retransmission request from ${epochStatus.from} for too old or future epoch ${epochStatus.epochNumber}, ignoring"
         )
-        Seq.empty
       case Some(previousEpochCommitCertificates) =>
-        logger.info(
-          s"Got a retransmission request from ${epochStatus.from} for a previous epoch ${epochStatus.epochNumber}"
-        )
-
         val segments: Seq[SegmentStatus] = epochStatus.segments
 
         val segmentIndexToCommitCerts: Map[Int, Seq[CommitCertificate]] = {
@@ -50,7 +44,7 @@ class PreviousEpochsRetransmissionsTracker(
             .fmap(_.map(_._1))
         }
 
-        segments.zipWithIndex
+        val commitCertificatesToRetransmit = segments.zipWithIndex
           .flatMap {
             case (SegmentStatus.Complete, _) => Seq.empty
             case (status: SegmentStatus.Incomplete, segmentIndex) =>
@@ -61,6 +55,12 @@ class PreviousEpochsRetransmissionsTracker(
               }
           }
           .sortBy(_.prePrepare.message.blockMetadata.blockNumber)
+
+        if (commitCertificatesToRetransmit.isEmpty)
+          Left(
+            s"Got a retransmission request from ${epochStatus.from} where all segments are complete so no need to process request, ignoring"
+          )
+        else Right(commitCertificatesToRetransmit)
     }
 
 }

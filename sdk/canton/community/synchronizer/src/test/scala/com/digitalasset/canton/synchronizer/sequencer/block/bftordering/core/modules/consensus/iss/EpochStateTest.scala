@@ -4,10 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
@@ -35,12 +35,13 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.SelfEnv
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.annotation.unused
 
-class EpochStateTest extends AsyncWordSpec with BaseTest {
+class EpochStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   import EpochStateTest.*
 
@@ -141,7 +142,7 @@ object EpochStateTest {
     BftNodeId(s"node$index")
   }.toSet
 
-  private val pp =
+  private def pp(implicit synchronizerProtocolVersion: ProtocolVersion) =
     PrePrepare
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
@@ -152,7 +153,7 @@ object EpochStateTest {
       )
       .fakeSign
 
-  private val commit =
+  private def commit(implicit synchronizerProtocolVersion: ProtocolVersion) =
     Commit
       .create(
         BlockMetadata(EpochNumber.First, BlockNumber(6L)),

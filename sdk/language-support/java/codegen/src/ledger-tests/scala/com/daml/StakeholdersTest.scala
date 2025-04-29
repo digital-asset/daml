@@ -31,7 +31,7 @@ trait StakeholdersTest
       ) => Assertion
   ): Future[Assertion] = {
     for {
-      List(alice, bob, charlie) <- Future.sequence(List.fill(3)(allocateParty))
+      List(alice, bob) <- Future.sequence(List.fill(2)(allocateParty))
       onlySignatories = new OnlySignatories(alice)
       explicitObservers = new ExplicitObservers(alice, bob)
       result <- withClient(
