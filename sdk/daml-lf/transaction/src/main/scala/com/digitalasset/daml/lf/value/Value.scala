@@ -253,7 +253,7 @@ object Value {
     }
 
     object V2 {
-      private[lf] def MaxSuffixLength: Int = V1.MaxSuffixLength
+      private[lf] def MaxSuffixLength: Int = 33
 
       val prefix: Bytes = Bytes.assertFromString("01")
 
@@ -288,9 +288,12 @@ object Value {
       private[lf] val resolution: Long = 286981L
 
       private[lf] def timePrefix(time: Time.Timestamp): Bytes = {
+        // Even if this overflows, it will not matter as we're using unsigned division below.
         val microsRebased = time.micros - Time.Timestamp.MinValue.micros
         val scaled = java.lang.Long.divideUnsigned(microsRebased, resolution)
         val byteBuffer = ByteBuffer.allocate(timePrefixSize).order(ByteOrder.BIG_ENDIAN)
+        // This implementation hard-codes the time prefix size of 5 bytes.
+        // It does not seem worth to find an implementation that is generic in the size of the time prefix here.
         discard(byteBuffer.put((scaled >> 32).toByte).putInt(scaled.toInt))
         Bytes.fromByteBuffer(byteBuffer.position(0))
       }
