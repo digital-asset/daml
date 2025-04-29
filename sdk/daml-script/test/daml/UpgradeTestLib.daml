@@ -8,6 +8,9 @@ module UpgradeTestLib (
   TestState (..),
   participant0,
   participant1,
+  participant2,
+  participant3,
+  participant4,
   test,
   tests,
   subtree,
@@ -25,7 +28,6 @@ import Daml.Script
 import Daml.Script.Internal
 import DA.Assert
 import DA.Foldable
-import DA.Time
 
 import DA.Text qualified as T
 
@@ -34,6 +36,15 @@ participant0 = ParticipantName "participant0"
 
 participant1 : ParticipantName
 participant1 = ParticipantName "participant1"
+
+participant2 : ParticipantName
+participant2 = ParticipantName "participant2"
+
+participant3 : ParticipantName
+participant3 = ParticipantName "participant3"
+
+participant4 : ParticipantName
+participant4 = ParticipantName "participant4"
 
 data RunMode
   = IdeLedger
@@ -85,13 +96,11 @@ withUnvettedPackageOnParticipant packageName packageVersion participant act = do
 withUnvettedPackage : Text -> Text -> Script a -> Script a
 withUnvettedPackage packageName packageVersion act = do
   let pkg = PackageName packageName packageVersion
-  unsafeUnvetPackages [pkg] (Some participant0)
-  unsafeUnvetPackages [pkg] (Some participant1)
-  sleep $ seconds 1
+  unvetPackagesOnParticipant [pkg] participant0
+  unvetPackagesOnParticipant [pkg] participant1
   res <- tryToEither (\() -> liftFailedCommandToException act)
-  unsafeVetPackages [pkg] (Some participant0)
-  unsafeVetPackages [pkg] (Some participant1)
-  sleep $ seconds 1
+  vetPackagesOnParticipant [pkg] participant0
+  vetPackagesOnParticipant [pkg] participant1
   case res of
     Left e -> throwAnyException e
     Right r -> pure r

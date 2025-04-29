@@ -75,27 +75,27 @@ listPackagesIsCorrect = script do
   assertAllPackages
 
   -- Check we can disable A
-  unsafeUnvetPackages [packageA] None
+  unvetPackages [packageA]
   assertVettedPackages [packageB] [packageA]
   assertAllPackages
 
   -- Check we can disable B on top of A
-  unsafeUnvetPackages [packageB] None
+  unvetPackages [packageB]
   assertVettedPackages [] [packageA, packageB]
   assertAllPackages
 
   -- Check we can bring back in A
-  unsafeVetPackages [packageA] None
+  vetPackages [packageA]
   assertVettedPackages [packageA] [packageB]
   assertAllPackages
 
   -- Check we can bring in packages that are already enabled
-  unsafeVetPackages [packageA, packageB] None
+  vetPackages [packageA, packageB]
   assertVettedPackages [packageA, packageB] []
   assertAllPackages
 
   -- Check we can disable multiple at a time
-  unsafeUnvetPackages [packageA, packageB] None
+  unvetPackages [packageA, packageB]
   assertVettedPackages [] [packageA, packageB]
   assertAllPackages
 

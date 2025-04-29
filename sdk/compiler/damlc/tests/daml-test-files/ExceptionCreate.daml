@@ -35,5 +35,5 @@ template Test
                 m === "Template precondition violated: MyTemplate {p = 'Alice'}"
 
 test = script do
-    p <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+    p <- allocatePartyByHint (PartyIdHint "Alice")
     p `submit` createAndExerciseCmd (Test p) Call
