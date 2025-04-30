@@ -9,14 +9,14 @@ set -euo pipefail
 
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
-DIR_TO_CHECK=$DIR/../docs/sharable
-TEMP_DIR=$(mktemp -d)
+TMP_DIR=$(mktemp -d)
+cp -r $DIR/../docs/sharable $TMP_DIR
 
-cp -r $DIR_TO_CHECK $TEMP_DIR
+NEW_SHARABLE=$(mktemp -d)
 
-$DIR/synchronize-docs.sh
+$DIR/synchronize-docs.sh $NEW_SHARABLE
 
 echo "Comparing the docs, expecting no diff:"
-diff -r $DIR_TO_CHECK $TEMP_DIR/sharable # If there's any diff, the diff will return 1 and fail the script
+diff -r $NEW_SHARABLE $TMP_DIR/sharable # If there's any diff, the diff will return 1 and fail the script
 
 echo "SUCCESS"
