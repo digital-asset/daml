@@ -102,7 +102,7 @@ final class Adapter(
 
   private[this] def lookup(id: Ref.Identifier): Either[String, Ref.Identifier] = {
     val pkgIds = packages.keysIterator.flatMap { pkgId =>
-      val renamed = id.copy(packageId = pkgId)
+      val renamed = id.copy(pkg = pkgId)
       if (interface.lookupDefinition(renamed).isRight)
         List(renamed)
       else

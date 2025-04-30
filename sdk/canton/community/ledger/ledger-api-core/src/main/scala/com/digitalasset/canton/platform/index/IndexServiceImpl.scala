@@ -727,7 +727,7 @@ private[index] class IndexServiceImpl(
             )
             .map(result =>
               result.map(upgradedViewPackageId =>
-                originalCreateTemplate.copy(packageId = upgradedViewPackageId)
+                originalCreateTemplate.copy(pkg = upgradedViewPackageId)
               )
             )
         }

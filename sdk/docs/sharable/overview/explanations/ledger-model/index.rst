@@ -3,8 +3,22 @@
 
 .. _da-ledgers:
 
-Daml Ledger Model Concepts
-##########################
+Ledger Model
+############
+
+.. note::
+
+   * Update examples and notation in the style of the Canton polyglott whitepaper
+     https://www.canton.network/hubfs/Canton%20Network%20Files/whitepapers/Polyglot_Canton_Whitepaper_11_02_25.pdf
+
+     Interleave definitions and diagrams with concrete examples from Daml; link to Daml source files that are checked by CI.
+
+   * Remove exceptions
+
+   * Extend with time, upgrading (via packages), requester of a commit, explicit disclosure
+
+   
+
 
 Daml Ledgers enable multi-party workflows by providing
 parties with a virtual *shared ledger*, which encodes the current

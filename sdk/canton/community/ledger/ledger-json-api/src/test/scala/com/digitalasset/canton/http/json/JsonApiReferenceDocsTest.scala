@@ -12,58 +12,83 @@ import com.digitalasset.canton.proto.ProtoParser
 import org.scalatest.Checkpoints
 import org.scalatest.wordspec.AnyWordSpecLike
 
+/** We test if the openapi and asyncapi definitions are not changed. If so files should be updated
+  * (by calling GenerateJSONApiDocs.regenerateAll())
+  *
+  * Notice: changes to .proto files do not cause this test to fail, as we use store extracted
+  * information (in proto-data.yml).
+  *
+  * This is a deliberate design choice to avoid noise / too many accidental build fails on minor
+  * changes in proto comments.
+  */
 class JsonApiReferenceDocsTest extends AnyWordSpecLike with BaseTest with Checkpoints {
-  private val RootTestResources =
-    "community/ledger/ledger-json-api/src/test/resources/json-api-docs"
 
-  private val ProtoExtractedData =
-    s"community/ledger/ledger-json-api/src/main/resources/${ProtoInfo.LedgerApiDescriptionResourceLocation}"
-
-  private val OpenApiYaml = s"$RootTestResources/openapi.yaml"
-  private val AsyncApiYaml = s"$RootTestResources/asyncapi.yaml"
   private val apiDocsGenerator = new ApiDocsGenerator(NamedLoggerFactory.root)
-
-  "ProtoParser" should {
-    // TODO(#21695): Test only used to generate golden files.
-    //               Ignore once stable
-    "output proto extracted data" in {
-      // Unignore to regenerate proto descriptions
-      val protoData = ProtoParser.readProto()
-      File(ProtoExtractedData)
-        .createFileIfNotExists()
-        .overwrite(protoData.toYaml())
-        .discard
-    }
-  }
+  private val existingOpenApi = File(JsonApiReferenceDocsTest.OpenApiYaml).contentAsString
+  private val existingAsyncApi = File(JsonApiReferenceDocsTest.AsyncApiYaml).contentAsString
 
   "Canton JSON API v2" should {
-    // TODO(#21695): Test only used to generate golden files.
-    //               Ignore once stable
-    "output the definitions of the golden DAR" in {
-      val apiDocs = apiDocsGenerator.createStaticDocs()
-      File(OpenApiYaml)
-        .createFileIfNotExists()
-        .overwrite(apiDocs.openApi)
-        .discard
-
-      File(AsyncApiYaml)
-        .createFileIfNotExists()
-        .overwrite(apiDocs.asyncApi)
-        .discard
+    "output golden openapi definitions " ignore {
+      GenerateJSONApiDocs.regenerateAll()
     }
 
-    "validate the definitions in the golden DAR against the golden files" in {
+    "validate the definitions against the golden files" in {
       def failureClue(docsType: String): String =
         s"""Current $docsType definitions do not match the golden file.
           | Overwrite the golden file with the current definitions if the API changed.
-          | Definitions can be updated by unignoring both tests above.""".stripMargin
+          | Definitions can be updated by running GenerateJSONApiDocs class.""".stripMargin
+      val protoInfo = apiDocsGenerator.loadProtoData()
+      val apiDocs = apiDocsGenerator.createStaticDocs(protoInfo)
 
-      val apiDocs = apiDocsGenerator.createStaticDocs()
-      val openApi = File(OpenApiYaml).contentAsString
-      val asyncApi = File(AsyncApiYaml).contentAsString
-
-      apiDocs.openApi shouldBe openApi withClue failureClue("OpenAPI")
-      apiDocs.asyncApi shouldBe asyncApi withClue failureClue("AsyncAPI")
+      apiDocs.openApi shouldBe existingOpenApi withClue failureClue("OpenAPI")
+      apiDocs.asyncApi shouldBe existingAsyncApi withClue failureClue("AsyncAPI")
     }
+  }
+}
+
+object JsonApiReferenceDocsTest {
+  private val RootTestResources =
+    "community/ledger/ledger-json-api/src/test/resources/json-api-docs"
+
+  val ProtoExtractedData =
+    s"community/ledger/ledger-json-api/src/main/resources/${ProtoInfo.LedgerApiDescriptionResourceLocation}"
+
+  val OpenApiYaml = s"$RootTestResources/openapi.yaml"
+  val AsyncApiYaml = s"$RootTestResources/asyncapi.yaml"
+
+}
+
+/**   1. extract proto-data.yml from proto files 2. using proto-data.yml regenerate openapi and
+  *      asyncapi files
+  */
+object GenerateJSONApiDocs extends App {
+  private lazy val apiDocsGenerator = new ApiDocsGenerator(NamedLoggerFactory.root)
+
+  regenerateAll()
+
+  def regenerateAll() = {
+    val protoInfo = regenerateProtoData()
+    regenerateJsonApi(protoInfo)
+  }
+
+  def regenerateProtoData() = {
+    val protoData = ProtoParser.readProto()
+    File(JsonApiReferenceDocsTest.ProtoExtractedData)
+      .createFileIfNotExists()
+      .overwrite(protoData.toYaml())
+      .discard
+    ProtoInfo(protoData)
+  }
+  def regenerateJsonApi(protoData: ProtoInfo) = {
+    val apiDocs = apiDocsGenerator.createStaticDocs(protoData)
+    File(JsonApiReferenceDocsTest.OpenApiYaml)
+      .createFileIfNotExists()
+      .overwrite(apiDocs.openApi)
+      .discard
+
+    File(JsonApiReferenceDocsTest.AsyncApiYaml)
+      .createFileIfNotExists()
+      .overwrite(apiDocs.asyncApi)
+      .discard
   }
 }

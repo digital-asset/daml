@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
-import cats.syntax.functor.*
+import cats.syntax.foldable.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -150,8 +150,10 @@ trait ReassignmentProcessingSteps[
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Unit] =
     EitherT.fromEither(
-      contractAuthenticator
-        .authenticateSerializable(parsedRequest.fullViewTree.contract)
+      parsedRequest.fullViewTree.contracts.contracts
+        .map(_.contract)
+        .forgetNE
+        .traverse_(contractAuthenticator.authenticateSerializable(_))
         .leftMap[ReassignmentProcessorError](ContractError.apply)
     )
 
@@ -548,19 +550,19 @@ object ReassignmentProcessingSteps {
     override def message: String = show"Unable to sign reassignment request. $cause"
   }
 
-  final case class NoStakeholders private (contractId: LfContractId)
+  final case class NoStakeholders private (contractIds: Seq[LfContractId])
       extends ReassignmentProcessorError {
-    override def message: String = s"Contract $contractId does not have any stakeholder"
+    override def message: String = s"Contracts $contractIds do not have any stakeholder"
   }
 
   object NoStakeholders {
-    def logAndCreate(contract: LfContractId, logger: TracedLogger)(implicit
+    def logAndCreate(contracts: Seq[LfContractId], logger: TracedLogger)(implicit
         tc: TraceContext
     ): NoStakeholders = {
       logger.error(
-        s"Attempting reassignment for contract $contract without stakeholders. All contracts should have stakeholders."
+        s"Attempting reassignment for contracts $contracts without stakeholders. All contracts should have stakeholders."
       )
-      NoStakeholders(contract)
+      NoStakeholders(contracts)
     }
   }
 
@@ -573,10 +575,10 @@ object ReassignmentProcessingSteps {
   }
 
   final case class EncryptionError(
-      contractId: LfContractId,
+      contractIds: Seq[LfContractId],
       error: EncryptedViewMessageCreationError,
   ) extends ReassignmentProcessorError {
-    override def message: String = s"Cannot reassign contract `$contractId`: encryption error"
+    override def message: String = s"Cannot reassign contracts `$contractIds`: encryption error"
   }
 
   final case class DuplicateReassignmentTreeHash(

@@ -11,19 +11,19 @@ sealed trait UnassignmentValidationError extends ReassignmentValidationError
 
 object UnassignmentValidationError {
   final case class PackageIdUnknownOrUnvetted(
-      contractId: LfContractId,
+      contractIds: Set[LfContractId],
       unknownTo: List[PackageUnknownTo],
   ) extends UnassignmentValidationError {
     override def message: String =
-      s"Cannot unassign contract `$contractId`: ${unknownTo.mkString(", ")}"
+      s"Cannot unassign contracts `$contractIds`: ${unknownTo.mkString(", ")}"
   }
 
   final case class RecipientsMismatch(
-      contractId: LfContractId,
+      contractIds: Set[LfContractId],
       expected: Option[Recipients],
       declared: Recipients,
   ) extends UnassignmentValidationError {
     override def message: String =
-      s"Cannot unassign contract `$contractId`: recipients mismatch"
+      s"Cannot unassign contracts `$contractIds`: recipients mismatch"
   }
 }

@@ -48,14 +48,14 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
           .value
       }.toSeq
     val activeAtBlockFutures = relevantNodesTopologyInfo.map { case (_, nodeTopologyInfo) =>
-      // TODO(#23143) Get the first block with a timestamp greater or equal to `timestamp` instead.
+      // TODO(#25220) Get the first block with a timestamp greater or equal to `timestamp` instead.
       // The latest block up to `timestamp` is taken for easier simulation testing and simpler error handling.
       //  It can result however in transferring more data than needed (in particular, from before the onboarding) if:
       //  1) `timestamp` is around an epoch boundary
       //  2) `timestamp` hasn't been processed by the node that a snapshot is taken from (can happen only in simulation
       //      tests)
       //  Last but not least, if snapshots from different nodes are compared for byte-for-byte equality,
-      //  the comparison might fail it there are nodes that are not caught up.
+      //  the comparison might fail if there are nodes that are not caught up.
       outputMetadataStore.getLatestBlockAtOrBefore(nodeTopologyInfo.activationTime.value)
     }
     val activeAtBlocksF = actorContext.sequenceFuture(activeAtBlockFutures)
@@ -84,9 +84,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
     val epochInfoFutures = epochNumbers.map(maybeEpochNumber =>
       maybeEpochNumber
         .map(epochNumber => epochStoreReader.loadEpochInfo(epochNumber))
-        .getOrElse(
-          actorContext.pureFuture(None: Option[EpochInfo])
-        )
+        .getOrElse(actorContext.pureFuture(None: Option[EpochInfo]))
     )
     val epochInfoF = actorContext.sequenceFuture(epochInfoFutures)
 
@@ -108,14 +106,27 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
     )
     val firstBlocksF = actorContext.sequenceFuture(firstBlockFutures)
 
-    val lastBlockInPreviousEpochFutures = epochNumbers.map(maybeEpochNumber =>
-      maybeEpochNumber
-        .map(epochNumber => outputMetadataStore.getLastBlockInEpoch(EpochNumber(epochNumber - 1L)))
-        .getOrElse(
-          actorContext.pureFuture(None: Option[OutputMetadataStore.OutputBlockMetadata])
-        )
-    )
+    val previousEpochNumbers =
+      epochNumbers.map(maybeEpochNumber =>
+        maybeEpochNumber.map(epochNumber => EpochNumber(epochNumber - 1L))
+      )
+
+    val lastBlockInPreviousEpochFutures =
+      previousEpochNumbers.map(maybePreviousEpochNumber =>
+        maybePreviousEpochNumber
+          .map(previousEpochNumber => outputMetadataStore.getLastBlockInEpoch(previousEpochNumber))
+          .getOrElse(
+            actorContext.pureFuture(None: Option[OutputMetadataStore.OutputBlockMetadata])
+          )
+      )
     val lastBlocksInPreviousEpochsF = actorContext.sequenceFuture(lastBlockInPreviousEpochFutures)
+
+    val previousEpochInfoFutures = previousEpochNumbers.map(maybePreviousEpochNumber =>
+      maybePreviousEpochNumber
+        .map(epochNumber => epochStoreReader.loadEpochInfo(epochNumber))
+        .getOrElse(actorContext.pureFuture(None: Option[EpochInfo]))
+    )
+    val previousEpochInfoF = actorContext.sequenceFuture(previousEpochInfoFutures)
 
     // Zip as if there's no tomorrow
     val zippedFuture =
@@ -123,7 +134,10 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
         epochInfoF,
         actorContext.zipFuture(
           epochMetadataF,
-          actorContext.zipFuture(firstBlocksF, lastBlocksInPreviousEpochsF),
+          actorContext.zipFuture(
+            firstBlocksF,
+            actorContext.zipFuture(lastBlocksInPreviousEpochsF, previousEpochInfoF),
+          ),
         ),
       )
 
@@ -135,7 +149,10 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       case Success(
             (
               epochInfoObjects,
-              (epochMetadataObjects, (firstBlocksInEpochs, lastBlocksInPreviousEpochs)),
+              (
+                epochMetadataObjects,
+                (firstBlocksInEpochs, (lastBlocksInPreviousEpochs, previousEpochInfoObjects)),
+              ),
             )
           ) =>
         val nodeIdsToActiveAt =
@@ -144,12 +161,14 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             .lazyZip(epochMetadataObjects)
             .lazyZip(firstBlocksInEpochs)
             .lazyZip(lastBlocksInPreviousEpochs)
+            .lazyZip(previousEpochInfoObjects)
             .toList
             .map {
               case (
-                    ((node, nodeTopologyInfo), epochInfo, epochMetadata, firstBlockMetadata),
                     // Too many zips result in more nesting
+                    ((node, nodeTopologyInfo), epochInfo, epochMetadata, firstBlockMetadata),
                     previousEpochLastBlockMetadata,
+                    previousEpochInfo,
                   ) =>
                 node -> NodeActiveAt(
                   nodeTopologyInfo.activationTime,
@@ -158,6 +177,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
                   epochInfo.map(_.topologyActivationTime),
                   epochMetadata.map(_.couldAlterOrderingTopology),
                   previousEpochLastBlockMetadata.map(_.blockBftTime),
+                  previousEpochInfo.map(_.topologyActivationTime),
                 )
             }
             .toMap

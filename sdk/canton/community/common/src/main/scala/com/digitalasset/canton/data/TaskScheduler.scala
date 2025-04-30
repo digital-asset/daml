@@ -288,14 +288,14 @@ class TaskScheduler[Task <: TimedTask](
         val barrier = TaskScheduler.TimeBarrierTask(
           timestamp,
           () =>
-            performUnlessClosingF(functionFullName)(
-              Future.successful(
+            FutureUnlessShutdown.lift {
+              performUnlessClosing(functionFullName)(
                 barrierPromise.outcome(())
+              ).tapOnShutdown(
+                // the barrierPromise will close anyway eventually, this is just to prevent races
+                barrierPromise.shutdown()
               )
-            ).tapOnShutdown(
-              // the barrierPromise will close anyway eventually, this is just to prevent races
-              barrierPromise.shutdown()
-            ),
+            },
         )
         taskQueue.enqueue(Left(barrier))
         Some(barrierPromise.futureUS)

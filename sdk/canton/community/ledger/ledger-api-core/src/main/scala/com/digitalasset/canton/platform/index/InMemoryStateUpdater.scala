@@ -12,7 +12,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.TopologyEvent.PartyToParticipantAuthorization
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
-import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
+import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -142,22 +142,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                   case tx: Update.TransactionAccepted =>
                     Some((tx.synchronizerId, update.recordTime))
                   case reassignment: Update.ReassignmentAccepted =>
-                    reassignment.reassignment match {
-                      case _: Reassignment.Unassign =>
-                        Some(
-                          (
-                            reassignment.reassignmentInfo.sourceSynchronizer.unwrap,
-                            update.recordTime,
-                          )
-                        )
-                      case _: Reassignment.Assign =>
-                        Some(
-                          (
-                            reassignment.reassignmentInfo.targetSynchronizer.unwrap,
-                            update.recordTime,
-                          )
-                        )
-                    }
+                    Some((reassignment.synchronizerId, update.recordTime))
                   case commandRejected: Update.CommandRejected =>
                     Some((commandRejected.synchronizerId, commandRejected.recordTime))
                   case tt: Update.TopologyTransactionEffective =>
@@ -588,12 +573,7 @@ private[platform] object InMemoryStateUpdater {
           optDeduplicationOffset = deduplicationOffset,
           optDeduplicationDurationSeconds = deduplicationDurationSeconds,
           optDeduplicationDurationNanos = deduplicationDurationNanos,
-          synchronizerId = u.reassignment match {
-            case _: Reassignment.Assign =>
-              u.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive
-            case _: Reassignment.Unassign =>
-              u.reassignmentInfo.sourceSynchronizer.unwrap.toProtoPrimitive
-          },
+          synchronizerId = u.synchronizerId.toProtoPrimitive,
           traceContext = u.traceContext,
         )
       }
@@ -606,43 +586,7 @@ private[platform] object InMemoryStateUpdater {
       recordTime = u.recordTime.toLf,
       completionStreamResponse = completionStreamResponse,
       reassignmentInfo = u.reassignmentInfo,
-      reassignment = u.reassignment match {
-        case assign: Reassignment.Assign =>
-          val create = assign.createNode
-          TransactionLogUpdate.ReassignmentAccepted.Assigned(
-            TransactionLogUpdate.CreatedEvent(
-              eventOffset = offset,
-              updateId = u.updateId,
-              nodeId = 0, // set 0 for assign-created
-              eventSequentialId = 0L,
-              contractId = create.coid,
-              ledgerEffectiveTime = assign.ledgerEffectiveTime,
-              templateId = create.templateId,
-              packageName = create.packageName,
-              packageVersion = None,
-              commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-              workflowId = u.workflowId.getOrElse(""),
-              contractKey = create.keyOpt.map(k =>
-                com.digitalasset.daml.lf.transaction.Versioned(create.version, k.value)
-              ),
-              treeEventWitnesses = Set.empty,
-              flatEventWitnesses = create.stakeholders,
-              submitters = u.optCompletionInfo
-                .map(_.actAs.toSet)
-                .getOrElse(Set.empty),
-              createArgument =
-                com.digitalasset.daml.lf.transaction.Versioned(create.version, create.arg),
-              createSignatories = create.signatories,
-              createObservers = create.stakeholders.diff(create.signatories),
-              createKeyHash = create.keyOpt.map(_.globalKey.hash),
-              createKey = create.keyOpt.map(_.globalKey),
-              createKeyMaintainers = create.keyOpt.map(_.maintainers),
-              driverMetadata = assign.contractMetadata,
-            )
-          )
-        case unassign: Reassignment.Unassign =>
-          TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign)
-      },
+      reassignment = u.reassignment,
     )(u.traceContext)
   }
 

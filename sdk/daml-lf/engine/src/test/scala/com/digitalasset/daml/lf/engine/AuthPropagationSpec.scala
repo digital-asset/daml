@@ -138,7 +138,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   "Create(T1)" - {
     val command: ApiCommand =
       ApiCommand.Create(
-        "T1",
+        "T1".toRef,
         ValueRecord(
           Some("T1"),
           ImmArray(
@@ -175,7 +175,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
   "Create(T2)" - {
     val command: ApiCommand =
       ApiCommand.Create(
-        "T2",
+        "T2".toRef,
         ValueRecord(
           Some("T2"),
           ImmArray(
@@ -220,7 +220,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     "ok (Alice signed contract; Bob exercised Choice)" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          "T1",
+          "T1".toRef,
           toContractId("t1a"),
           "Choice1",
           ValueRecord(
@@ -242,7 +242,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     "fail: ExerciseMissingAuthorization" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          "T1",
+          "T1".toRef,
           toContractId("t1a"),
           "Choice1",
           ValueRecord(
@@ -274,7 +274,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     "fail: CreateMissingAuthorization" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          "T1",
+          "T1".toRef,
           toContractId("t1a"),
           "Choice1",
           ValueRecord(
@@ -305,7 +305,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     "ok (Bob signed contract; Alice exercised Choice)" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          "T1",
+          "T1".toRef,
           toContractId("t1b"),
           "Choice1",
           ValueRecord(
@@ -333,7 +333,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     "fail (no implicit authority from outer exercise's contract's signatories)" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          "X1",
+          "X1".toRef,
           toContractId("x1b"),
           "ChoiceA",
           ValueRecord(
@@ -376,7 +376,7 @@ class AuthPropagationSpec(majorLanguageVersion: LanguageMajorVersion)
     "ok" in {
       val command: ApiCommand =
         ApiCommand.Exercise(
-          "X1",
+          "X1".toRef,
           toContractId("x1b"),
           "ChoiceA",
           ValueRecord(

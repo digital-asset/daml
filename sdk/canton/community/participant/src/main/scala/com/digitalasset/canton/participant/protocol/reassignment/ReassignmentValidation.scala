@@ -9,11 +9,10 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.ContractAuthenticator
-import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
+import com.digitalasset.canton.util.{EitherTUtil, MonadUtil, ReassignmentTag}
 
 import scala.concurrent.ExecutionContext
 
@@ -21,9 +20,8 @@ private[reassignment] class ReassignmentValidation(contractAuthenticator: Contra
   def checkMetadata(reassignmentRequest: FullReassignmentViewTree)(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] = {
-
     val declaredViewStakeholders = reassignmentRequest.stakeholders
-    val declaredContractStakeholders = Stakeholders(reassignmentRequest.contract.metadata)
+    val declaredContractStakeholders = reassignmentRequest.contracts.stakeholders
 
     EitherT.fromEither(for {
       _ <- Either.cond(
@@ -35,15 +33,17 @@ private[reassignment] class ReassignmentValidation(contractAuthenticator: Contra
           expectedStakeholders = declaredContractStakeholders,
         ),
       )
-      _ <- contractAuthenticator
-        .authenticateSerializable(reassignmentRequest.contract)
-        .leftMap(error =>
-          ReassignmentValidationError.ContractIdAuthenticationFailure(
-            reassignmentRequest.reassignmentRef,
-            error,
-            reassignmentRequest.contractId,
+      _ <- MonadUtil.sequentialTraverse(reassignmentRequest.contracts.contracts) { reassign =>
+        contractAuthenticator
+          .authenticateSerializable(reassign.contract)
+          .leftMap(error =>
+            ReassignmentValidationError.ContractIdAuthenticationFailure(
+              reassignmentRequest.reassignmentRef,
+              error,
+              reassign.contract.contractId,
+            )
           )
-        )
+      }
     } yield ())
   }
 }

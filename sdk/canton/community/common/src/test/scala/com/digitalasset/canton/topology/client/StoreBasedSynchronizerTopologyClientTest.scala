@@ -73,6 +73,7 @@ trait StoreBasedTopologySnapshotTest
           synchronizerId,
           store,
           StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
+          new IdentityProvidingServiceClient(),
           DefaultProcessingTimeouts.testing,
           FutureSupervisor.Noop,
           loggerFactory,

@@ -368,7 +368,7 @@ object Update {
       */
     def reassignmentInfo: ReassignmentInfo
 
-    def reassignment: Reassignment
+    def reassignment: Reassignment.Batch
 
     override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
@@ -377,14 +377,8 @@ object Update {
         paramIfDefined("completion", _.optCompletionInfo),
         param("source", _.reassignmentInfo.sourceSynchronizer),
         param("target", _.reassignmentInfo.targetSynchronizer),
-        unnamedParam(_.reassignment.kind.unquoted),
         indicateOmittedFields,
       )
-
-    final override def synchronizerId: SynchronizerId = reassignment match {
-      case _: Reassignment.Assign => reassignmentInfo.targetSynchronizer.unwrap
-      case _: Reassignment.Unassign => reassignmentInfo.sourceSynchronizer.unwrap
-    }
   }
 
   final case class SequencedReassignmentAccepted(
@@ -392,8 +386,9 @@ object Update {
       workflowId: Option[Ref.WorkflowId],
       updateId: data.UpdateId,
       reassignmentInfo: ReassignmentInfo,
-      reassignment: Reassignment,
+      reassignment: Reassignment.Batch,
       recordTime: CantonTimestamp,
+      override val synchronizerId: SynchronizerId,
       commitSetO: Option[LapiCommitSet] = None,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
@@ -407,9 +402,10 @@ object Update {
       workflowId: Option[Ref.WorkflowId],
       updateId: data.UpdateId,
       reassignmentInfo: ReassignmentInfo,
-      reassignment: Reassignment,
+      reassignment: Reassignment.Batch,
       repairCounter: RepairCounter,
       recordTime: CantonTimestamp,
+      override val synchronizerId: SynchronizerId,
   )(implicit override val traceContext: TraceContext)
       extends ReassignmentAccepted
       with RepairUpdate {

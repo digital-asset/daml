@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.data
 
-import cats.syntax.traverse.*
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import cats.syntax.either.*
+import cats.syntax.traverse.toTraverseOps
+import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
@@ -293,11 +294,10 @@ object UnassignmentCommonData
   */
 final case class UnassignmentView private (
     override val salt: Salt,
-    contract: SerializableContract,
+    contracts: ContractsReassignmentBatch,
     targetSynchronizerId: Target[SynchronizerId],
     targetTimeProof: TimeProof,
     targetProtocolVersion: Target[ProtocolVersion],
-    reassignmentCounter: ReassignmentCounter,
 )(
     hashOps: HashOps,
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -321,19 +321,22 @@ final case class UnassignmentView private (
       targetSynchronizerId = targetSynchronizerId.unwrap.toProtoPrimitive,
       targetTimeProof = Some(targetTimeProof.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.unwrap.toProtoPrimitive,
-      reassignmentCounter = reassignmentCounter.toProtoPrimitive,
-      contract = Some(contract.toProtoV30),
+      contracts = contracts.contracts.map { case reassign =>
+        v30.ActiveContract(
+          Some(reassign.contract.toProtoV30),
+          reassign.counter.toProtoPrimitive,
+        )
+      },
     )
 
   override protected def pretty: Pretty[UnassignmentView] = prettyOfClass(
-    param("template id", _.templateId),
+    param("template ids", _.contracts.contracts.map(_.templateId).toSet),
     param("target synchronizer id", _.targetSynchronizerId),
     param("target time proof", _.targetTimeProof),
     param("target protocol version", _.targetProtocolVersion),
-    param("reassignment counter", _.reassignmentCounter),
     param(
-      "contract id",
-      _.contract.contractId,
+      "contracts",
+      _.contracts.contractIds,
     ), // do not log contract details because it contains confidential data
     param("salt", _.salt),
   )
@@ -351,20 +354,18 @@ object UnassignmentView extends VersioningCompanionContextMemoization[Unassignme
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      contract: SerializableContract,
+      contracts: ContractsReassignmentBatch,
       targetSynchronizer: Target[SynchronizerId],
       targetTimeProof: TimeProof,
       sourceProtocolVersion: Source[ProtocolVersion],
       targetProtocolVersion: Target[ProtocolVersion],
-      reassignmentCounter: ReassignmentCounter,
   ): UnassignmentView =
     UnassignmentView(
       salt,
-      contract,
+      contracts,
       targetSynchronizer,
       targetTimeProof,
       targetProtocolVersion,
-      reassignmentCounter,
     )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.unwrap), None)
 
   private[this] def fromProtoV30(hashOps: HashOps, unassignmentViewP: v30.UnassignmentView)(
@@ -375,8 +376,7 @@ object UnassignmentView extends VersioningCompanionContextMemoization[Unassignme
       targetSynchronizerIdP,
       targetTimeProofP,
       targetProtocolVersionP,
-      reassignmentCounterP,
-      contractPO,
+      contractsP,
     ) = unassignmentViewP
 
     for {
@@ -389,17 +389,25 @@ object UnassignmentView extends VersioningCompanionContextMemoization[Unassignme
       targetTimeProof <- ProtoConverter
         .required("targetTimeProof", targetTimeProofP)
         .flatMap(TimeProof.fromProtoV30(targetProtocolVersion, hashOps))
-      contract <- ProtoConverter
-        .required("UnassignmentViewTree.contract", contractPO)
-        .flatMap(SerializableContract.fromProtoV30)
+      contracts <- contractsP
+        .traverse { case v30.ActiveContract(contractP, reassignmentCounterP) =>
+          ProtoConverter
+            .required("contract", contractP)
+            .flatMap(SerializableContract.fromProtoV30)
+            .map(_ -> ReassignmentCounter(reassignmentCounterP))
+        }
+        .flatMap(
+          ContractsReassignmentBatch
+            .create(_)
+            .leftMap(err => InvariantViolation(Some("contracts"), err.toString))
+        )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield UnassignmentView(
       salt,
-      contract,
+      contracts,
       Target(targetSynchronizerId),
       targetTimeProof,
       Target(targetProtocolVersion),
-      ReassignmentCounter(reassignmentCounterP),
     )(
       hashOps,
       rpv,
@@ -423,7 +431,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
   protected[this] val view: UnassignmentView = tree.view.tryUnwrap
 
-  override def reassignmentRef: ContractIdRef = ContractIdRef(contractId)
+  override def reassignmentRef: ContractIdRef = ContractIdRef(contracts.contractIds.toSet)
 
   // Synchronizers
   override def synchronizerId: SynchronizerId = sourceSynchronizer.unwrap

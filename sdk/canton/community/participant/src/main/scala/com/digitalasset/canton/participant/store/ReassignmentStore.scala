@@ -153,15 +153,13 @@ object ReassignmentStore {
               .fromEither[FutureUnlessShutdown](
                 reassignmentStoreFor(syncPersistentStateLookup)(targetSynchronizer)
               )
-            offsets = eventsForSynchronizer.map { case (reassignmentEvent, globalOffset) =>
-              val reassignmentGlobal = reassignmentEvent.reassignment match {
-                case _: Reassignment.Assign => AssignmentGlobalOffset(globalOffset)
-                case _: Reassignment.Unassign => UnassignmentGlobalOffset(globalOffset)
+            offsets = eventsForSynchronizer.flatMap { case (reassignmentEvent, globalOffset) =>
+              reassignmentGlobalOffset(reassignmentEvent.reassignment, globalOffset).map {
+                ReassignmentId(
+                  reassignmentEvent.reassignmentInfo.sourceSynchronizer,
+                  reassignmentEvent.reassignmentInfo.unassignId,
+                ) -> _
               }
-              ReassignmentId(
-                reassignmentEvent.reassignmentInfo.sourceSynchronizer,
-                reassignmentEvent.reassignmentInfo.unassignId,
-              ) -> reassignmentGlobal
             }
             _ = tracedLogger.debug(s"Updated global offsets for reassignments: $updates")
             _ <- reassignmentStore.addReassignmentsOffsets(offsets).leftMap(_.message)
@@ -182,6 +180,15 @@ object ReassignmentStore {
             )
         }
   }
+
+  def reassignmentGlobalOffset(
+      reassignment: Reassignment.Batch,
+      offset: Offset,
+  ): Option[ReassignmentGlobalOffset] =
+    reassignment.headOption.map { // The batch will all have the same kind
+      case _: Reassignment.Assign => AssignmentGlobalOffset(offset)
+      case _: Reassignment.Unassign => UnassignmentGlobalOffset(offset)
+    }
 
   /** Merge the offsets corresponding to the same reassignment id. Returns an error in case of
     * inconsistent offsets.
@@ -259,7 +266,7 @@ object ReassignmentStore {
   /** The data for a reassignment and possible when the reassignment was completed. */
   final case class ReassignmentEntry(
       reassignmentId: ReassignmentId,
-      contract: SerializableContract,
+      contracts: NonEmpty[Seq[SerializableContract]],
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       assignmentTs: Option[CantonTimestamp],
@@ -282,7 +289,7 @@ object ReassignmentStore {
     ): ReassignmentEntry =
       ReassignmentEntry(
         reassignmentData.reassignmentId,
-        reassignmentData.contract,
+        reassignmentData.contracts.contracts.map(_.contract),
         Some(reassignmentData.unassignmentRequest),
         reassignmentGlobalOffset,
         tsCompletion,
@@ -295,7 +302,7 @@ object ReassignmentStore {
     ): ReassignmentEntry =
       ReassignmentEntry(
         assignmentData.reassignmentId,
-        assignmentData.contract,
+        assignmentData.contracts.contracts.map(_.contract),
         None,
         reassignmentGlobalOffset,
         tsCompletion,
