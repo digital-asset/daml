@@ -35,7 +35,10 @@ object ScriptLedgerClient {
   type ActiveContract = Created
   val ActiveContract: Created.type = Created
 
-  final case class TransactionTree(rootEvents: List[TreeEvent])
+  final case class TransactionTree(
+      rootEvents: List[TreeEvent],
+      timeBoundaries: Option[Time.Range] = None,
+  )
   sealed trait TreeEvent
   final case class Exercised(
       templateId: Identifier,
