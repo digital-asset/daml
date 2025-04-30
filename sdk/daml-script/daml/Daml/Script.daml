@@ -17,6 +17,7 @@ module Daml.Script
   , trySubmit
   , trySubmitResultAndTree
   , trySubmitTree
+  , extSubmit
   -- Error types
   , SubmitError (..)
   , DevErrorType (..)
@@ -121,6 +122,8 @@ module Daml.Script
   , secp256k1generatekeypair
   , secp256k1sign
 #endif
+
+  , TimeBoundedResult (..)
 
   , -- Upgrades features
     PackageId (..)  
