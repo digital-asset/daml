@@ -1,10 +1,23 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
+
+.. note::
+   Integrate into the ledger model to the extent sensible
+
    
 .. _interoperable-ledgers:
 
-Daml Ledger Interoperability
-############################
+Synchronizer-aware projection
+#############################
+
+.. note::
+
+   * Disentangle abuse of ledger term: the VSL from what is coordinated over a synchronizer
+
+   * Define synchronizer-aware projections (assign and unassign events)
+
+   * 
+
 
 Certain Daml ledgers can interoperate with other Daml ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
