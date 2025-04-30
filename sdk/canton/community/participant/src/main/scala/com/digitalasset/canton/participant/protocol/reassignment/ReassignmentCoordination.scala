@@ -11,7 +11,11 @@ import com.digitalasset.canton.crypto.{
   SyncCryptoApiParticipantProvider,
   SynchronizerSnapshotSyncCryptoApi,
 }
-import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ContractsReassignmentBatch,
+  ReassignmentSubmitterMetadata,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ReassignmentSynchronizer
@@ -150,7 +154,7 @@ class ReassignmentCoordination(
         )
       )
       submissionResult <- inSubmission
-        .submitAssignment(
+        .submitAssignments(
           submitterMetadata,
           reassignmentId,
         )
@@ -265,7 +269,7 @@ class ReassignmentCoordination(
   /** Stores the given assignment data on the target synchronizer. */
   private[reassignment] def addAssignmentData(
       reassignmentId: ReassignmentId,
-      contract: SerializableContract,
+      contracts: ContractsReassignmentBatch,
       target: Target[SynchronizerId],
   )(implicit
       traceContext: TraceContext
@@ -278,7 +282,10 @@ class ReassignmentCoordination(
 
       _ <- reassignmentStore
         .addAssignmentDataIfAbsent(
-          AssignmentData(reassignmentId = reassignmentId, contract = contract)
+          AssignmentData(
+            reassignmentId = reassignmentId,
+            contracts = contracts,
+          )
         )
         .leftMap[ReassignmentProcessorError](
           ReassignmentStoreFailed(reassignmentId, _)
@@ -331,9 +338,9 @@ object ReassignmentCoordination {
 trait ReassignmentSubmissionHandle {
   def timeTracker: SynchronizerTimeTracker
 
-  def submitUnassignment(
+  def submitUnassignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
-      contractId: LfContractId,
+      contractIds: Seq[LfContractId],
       targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
@@ -342,7 +349,7 @@ trait ReassignmentSubmissionHandle {
     UnassignmentProcessingSteps.SubmissionResult
   ]]
 
-  def submitAssignment(
+  def submitAssignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit

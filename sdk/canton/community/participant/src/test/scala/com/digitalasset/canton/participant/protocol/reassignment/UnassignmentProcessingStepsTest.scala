@@ -195,14 +195,13 @@ final class UnassignmentProcessingStepsTest
   private lazy val unassignmentRequest = UnassignmentRequest(
     submitterMetadata = submitterMetadata(party1),
     reassigningParticipants = Set(submittingParticipant),
-    contract,
+    ContractsReassignmentBatch(contract, initialReassignmentCounter),
     sourceSynchronizer,
     Source(testedProtocolVersion),
     sourceMediator,
     targetSynchronizer,
     Target(testedProtocolVersion),
     timeProof,
-    reassignmentCounter = initialReassignmentCounter,
   )
 
   private def createTestingIdentityFactory(
@@ -359,7 +358,7 @@ final class UnassignmentProcessingStepsTest
         .validated(
           submittingParticipant,
           timeProof,
-          updatedContract,
+          ContractsReassignmentBatch(updatedContract, initialReassignmentCounter),
           submitterMetadata(submitter),
           sourceSynchronizer,
           Source(testedProtocolVersion),
@@ -368,7 +367,6 @@ final class UnassignmentProcessingStepsTest
           Target(testedProtocolVersion),
           Source(sourceTopologySnapshot),
           Target(targetTopologySnapshot),
-          initialReassignmentCounter,
         )
         .value
         .failOnShutdown
@@ -481,7 +479,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       val expectedError = PackageIdUnknownOrUnvetted(
-        contractId,
+        Set(contractId),
         unknownTo = List(
           PackageUnknownTo(ExampleTransactionFactory.packageId, submittingParticipant),
           PackageUnknownTo(ExampleTransactionFactory.packageId, participant1),
@@ -527,7 +525,7 @@ final class UnassignmentProcessingStepsTest
         )
 
       val expectedError = PackageIdUnknownOrUnvetted(
-        contractId,
+        Set(contractId),
         unknownTo = List(
           PackageUnknownTo(ExampleTransactionFactory.packageId, participant1)
         ),
@@ -551,14 +549,13 @@ final class UnassignmentProcessingStepsTest
           UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),
             reassigningParticipants = Set(submittingParticipant, participant1),
-            contract = contract,
+            contracts = ContractsReassignmentBatch(contract, initialReassignmentCounter),
             sourceSynchronizer = sourceSynchronizer,
             sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
             targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeProof,
-            reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1, participant2),
         )
@@ -591,14 +588,13 @@ final class UnassignmentProcessingStepsTest
             submitterMetadata = submitterMetadata(submitter),
             reassigningParticipants =
               Set(submittingParticipant, participant1, participant3, participant4),
-            contract = contract,
+            contracts = ContractsReassignmentBatch(contract, initialReassignmentCounter),
             sourceSynchronizer = sourceSynchronizer,
             sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
             targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeProof,
-            reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1, participant2, participant3, participant4),
         )
@@ -625,14 +621,13 @@ final class UnassignmentProcessingStepsTest
           submitterMetadata = submitterMetadata(submitter),
           // Because admin1 is a stakeholder, participant1 is reassigning
           reassigningParticipants = Set(submittingParticipant, participant1),
-          contract = updatedContract,
+          contracts = ContractsReassignmentBatch(updatedContract, initialReassignmentCounter),
           sourceSynchronizer = sourceSynchronizer,
           sourceProtocolVersion = Source(testedProtocolVersion),
           sourceMediator = sourceMediator,
           targetSynchronizer = targetSynchronizer,
           targetProtocolVersion = Target(testedProtocolVersion),
           targetTimeProof = timeProof,
-          reassignmentCounter = initialReassignmentCounter,
         ),
         Set(submittingParticipant, participant1),
       )
@@ -647,7 +642,7 @@ final class UnassignmentProcessingStepsTest
       val submissionParam =
         UnassignmentProcessingSteps.SubmissionParam(
           submitterMetadata = submitterMetadata(party1),
-          contractId,
+          Seq(contractId),
           targetSynchronizer,
           Target(testedProtocolVersion),
         )
@@ -680,7 +675,7 @@ final class UnassignmentProcessingStepsTest
       )
       val submissionParam = UnassignmentProcessingSteps.SubmissionParam(
         submitterMetadata = submitterMetadata(party1),
-        contractId,
+        Seq(contractId),
         Target(sourceSynchronizer.unwrap),
         Target(testedProtocolVersion),
       )
@@ -745,14 +740,13 @@ final class UnassignmentProcessingStepsTest
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
         reassigningParticipants = Set(submittingParticipant),
-        contract,
+        ContractsReassignmentBatch(contract, initialReassignmentCounter),
         sourceSynchronizer,
         Source(testedProtocolVersion),
         sourceMediator,
         targetSynchronizer,
         Target(testedProtocolVersion),
         timeProof,
-        reassignmentCounter = initialReassignmentCounter,
       )
       val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 

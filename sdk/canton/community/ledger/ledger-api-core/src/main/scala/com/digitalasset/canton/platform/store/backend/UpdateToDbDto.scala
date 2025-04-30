@@ -480,7 +480,7 @@ object UpdateToDbDto {
       )
     }
 
-    val events = reassignmentAccepted.reassignment match {
+    val events: Iterator[DbDto] = reassignmentAccepted.reassignment.iterator.flatMap {
       case unassign: Reassignment.Unassign =>
         unassignToDbDto(
           offset = offset,
@@ -500,7 +500,7 @@ object UpdateToDbDto {
         )
     }
 
-    val completions =
+    val completions: Option[DbDto] =
       for {
         completionInfo <- reassignmentAccepted.optCompletionInfo
       } yield commandCompletion(
@@ -528,7 +528,7 @@ object UpdateToDbDto {
     // because in a later stage the preceding events
     // will be assigned consecutive event sequential ids
     // and transaction meta is assigned sequential ids of its first and last event
-    events ++ completions ++ Seq(transactionMeta)
+    events ++ completions.iterator ++ Iterator(transactionMeta)
   }
 
   private def unassignToDbDto(
@@ -538,7 +538,6 @@ object UpdateToDbDto {
       unassign: Reassignment.Unassign,
   ): Iterator[DbDto] = {
     val flatEventWitnesses = unassign.stakeholders.map(_.toString)
-    val templateId = unassign.templateId.toString
     Iterator(
       DbDto.EventUnassign(
         event_offset = offset.unwrap,
@@ -546,9 +545,9 @@ object UpdateToDbDto {
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
         submitter = reassignmentAccepted.reassignmentInfo.submitter,
-        node_id = 0,
+        node_id = unassign.nodeId,
         contract_id = unassign.contractId.toBytes.toByteArray,
-        template_id = templateId,
+        template_id = unassign.templateId.toString,
         package_name = unassign.packageName,
         flat_event_witnesses = flatEventWitnesses.toSet,
         event_sequential_id = 0L, // this is filled later
@@ -557,16 +556,16 @@ object UpdateToDbDto {
         target_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
-        reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
+        reassignment_counter = unassign.reassignmentCounter,
         assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
       )
-    ) ++ flatEventWitnesses.map(
+    ) ++ flatEventWitnesses.map(party =>
       DbDto.IdFilterUnassignStakeholder(
         0L, // this is filled later
-        templateId,
-        _,
+        unassign.templateId.toString,
+        party,
       )
     )
   }
@@ -579,10 +578,9 @@ object UpdateToDbDto {
       reassignmentAccepted: ReassignmentAccepted,
       assign: Reassignment.Assign,
   ): Iterator[DbDto] = {
-    val templateId = assign.createNode.templateId.toString
-    val flatEventWitnesses =
-      assign.createNode.stakeholders.map(_.toString)
     val (createArgument, createKeyValue) = translation.serialize(assign.createNode)
+    val templateId = assign.createNode.templateId.toString
+    val flatEventWitnesses = assign.createNode.stakeholders.map(_.toString)
     Iterator(
       DbDto.EventAssign(
         event_offset = offset.unwrap,
@@ -590,7 +588,7 @@ object UpdateToDbDto {
         command_id = reassignmentAccepted.optCompletionInfo.map(_.commandId),
         workflow_id = reassignmentAccepted.workflowId,
         submitter = reassignmentAccepted.reassignmentInfo.submitter,
-        node_id = 0,
+        node_id = assign.nodeId,
         contract_id = assign.createNode.coid.toBytes.toByteArray,
         template_id = templateId,
         package_name = assign.createNode.packageName,
@@ -615,7 +613,7 @@ object UpdateToDbDto {
         target_synchronizer_id =
           reassignmentAccepted.reassignmentInfo.targetSynchronizer.unwrap.toProtoPrimitive,
         unassign_id = reassignmentAccepted.reassignmentInfo.unassignId.toMicros.toString,
-        reassignment_counter = reassignmentAccepted.reassignmentInfo.reassignmentCounter,
+        reassignment_counter = assign.reassignmentCounter,
         trace_context = serializedTraceContext,
         record_time = reassignmentAccepted.recordTime.toMicros,
       )

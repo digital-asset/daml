@@ -73,11 +73,6 @@ class SyncCryptoApiParticipantProvider(
   private val synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient] =
     TrieMap.empty
 
-  // The cache should be invalidated whenever a change is detected in the associated topology client
-  // in ips.synchronizers.
-  def invalidateCacheForSynchronizer(synchronizerId: SynchronizerId): Unit =
-    synchronizerCryptoClientCache.remove(synchronizerId).discard
-
   private def createSynchronizerCryptoClient(
       synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
@@ -95,6 +90,7 @@ class SyncCryptoApiParticipantProvider(
       timeouts,
       futureSupervisor,
       loggerFactory.append("synchronizerId", synchronizerId.toString),
+      synchronizerCryptoClientCache,
     )
 
   private def createOrUpdateCache(
@@ -308,6 +304,7 @@ object SyncCryptoClient {
 class SynchronizerCryptoClient private (
     val member: Member,
     val synchronizerId: SynchronizerId,
+    val synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient],
     val ips: SynchronizerTopologyClient,
     val crypto: Crypto,
     val syncCryptoSigner: SyncCryptoSigner,
@@ -387,8 +384,10 @@ class SynchronizerCryptoClient private (
 
   override def approximateTimestamp: CantonTimestamp = ips.approximateTimestamp
 
-  override def onClosed(): Unit =
+  override def onClosed(): Unit = {
+    synchronizerCryptoClientCache.remove(synchronizerId).discard
     LifeCycle.close(ips)(logger)
+  }
 
   override def awaitMaxTimestamp(sequencedTime: SequencedTime)(implicit
       traceContext: TraceContext
@@ -421,6 +420,7 @@ object SynchronizerCryptoClient {
     new SynchronizerCryptoClient(
       member,
       synchronizerId,
+      TrieMap.empty,
       ips,
       crypto,
       syncCryptoSignerWithLongTermKeys,
@@ -453,6 +453,8 @@ object SynchronizerCryptoClient {
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       loggerFactory: NamedLoggerFactory,
+      synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient] =
+        TrieMap.empty,
   )(implicit
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
@@ -468,6 +470,7 @@ object SynchronizerCryptoClient {
     new SynchronizerCryptoClient(
       member,
       synchronizerId,
+      synchronizerCryptoClientCache,
       ips,
       crypto,
       syncCryptoSignerWithSessionKeys,

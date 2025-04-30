@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{
   CantonTimestamp,
+  ContractsReassignmentBatch,
   FullAssignmentTree,
   ReassignmentRef,
   ReassignmentSubmitterMetadata,
@@ -16,7 +17,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetectionHelpers.mkActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidationError.{
   ContractDataMismatch,
-  InconsistentReassignmentCounter,
+  InconsistentReassignmentCounters,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ParsedReassignmentRequest
@@ -212,10 +213,12 @@ class AssignmentValidationTest
     }
 
     "complain about inconsistent reassignment counters" in {
+      val rightCounters = unassignmentData.contracts.contractIdCounters.toMap
+      val wrongCounters = rightCounters.view.mapValues(_ + 1).toMap
       val assignmentTreeWrongCounter = makeFullAssignmentTree(
         unassignmentData.reassignmentId,
         contract,
-        reassignmentCounter = unassignmentData.reassignmentCounter + 1,
+        reassignmentCounter = wrongCounters(contract.contractId),
       )
 
       val result = assignmentValidation()
@@ -229,11 +232,11 @@ class AssignmentValidationTest
         .value
 
       result.isSuccessfulF.futureValueUS shouldBe false
-      result.validationErrors shouldBe Seq(
-        InconsistentReassignmentCounter(
+      result.validationErrors should contain(
+        InconsistentReassignmentCounters(
           reassignmentId,
-          assignmentTreeWrongCounter.reassignmentCounter,
-          unassignmentData.reassignmentCounter,
+          wrongCounters,
+          rightCounters,
         )
       )
     }
@@ -400,8 +403,7 @@ class AssignmentValidationTest
         seed,
         reassignmentId,
         submitterInfo(submitter),
-        contract,
-        reassignmentCounter,
+        ContractsReassignmentBatch(contract, reassignmentCounter),
         targetSynchronizer,
         targetMediator,
         uuid,

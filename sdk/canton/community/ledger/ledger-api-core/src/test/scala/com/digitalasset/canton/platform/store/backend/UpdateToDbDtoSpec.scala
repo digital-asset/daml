@@ -1398,24 +1398,29 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           observers = Set("observer", "observer2"),
         )
 
+      val targetSynchronizerId = Target(SynchronizerId.tryFromString("x::synchronizer2"))
       val update = state.Update.SequencedReassignmentAccepted(
         optCompletionInfo = Some(completionInfo),
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
           sourceSynchronizer = Source(SynchronizerId.tryFromString("x::synchronizer1")),
-          targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
+          targetSynchronizer = targetSynchronizerId,
           submitter = Option(someParty),
-          reassignmentCounter = 1500L,
           unassignId = CantonTimestamp.assertFromLong(1000000000),
           isReassigningParticipant = true,
         ),
-        reassignment = Reassignment.Assign(
-          ledgerEffectiveTime = Time.Timestamp.assertFromLong(17000000),
-          createNode = createNode,
-          contractMetadata = someContractDriverMetadata,
+        reassignment = Reassignment.Batch(
+          Reassignment.Assign(
+            ledgerEffectiveTime = Time.Timestamp.assertFromLong(17000000),
+            createNode = createNode,
+            contractMetadata = someContractDriverMetadata,
+            reassignmentCounter = 1500L,
+            nodeId = 0,
+          )
         ),
         recordTime = someRecordTime,
+        synchronizerId = targetSynchronizerId.unwrap,
       )
 
       val dtos = updateToDtos(update)
@@ -1499,27 +1504,32 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           observers = Set("observer"),
         )
 
+      val sourceSynchronizerId = Source(SynchronizerId.tryFromString("x::synchronizer1"))
       val update = state.Update.SequencedReassignmentAccepted(
         optCompletionInfo = Some(completionInfo),
         workflowId = Some(someWorkflowId),
         updateId = updateId,
         reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = Source(SynchronizerId.tryFromString("x::synchronizer1")),
+          sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = Target(SynchronizerId.tryFromString("x::synchronizer2")),
           submitter = Option(someParty),
-          reassignmentCounter = 1500L,
           unassignId = CantonTimestamp.assertFromLong(1000000000),
           isReassigningParticipant = true,
         ),
-        reassignment = Reassignment.Unassign(
-          contractId = contractId,
-          templateId = createNode.templateId,
-          packageName = createNode.packageName,
-          stakeholders =
-            List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
-          assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
+        reassignment = Reassignment.Batch(
+          Reassignment.Unassign(
+            contractId = contractId,
+            templateId = createNode.templateId,
+            packageName = createNode.packageName,
+            stakeholders =
+              List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
+            assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
+            reassignmentCounter = 1500L,
+            nodeId = 0,
+          )
         ),
         recordTime = CantonTimestamp.ofEpochMicro(120),
+        synchronizerId = sourceSynchronizerId.unwrap,
       )
 
       val dtos = updateToDtos(update)

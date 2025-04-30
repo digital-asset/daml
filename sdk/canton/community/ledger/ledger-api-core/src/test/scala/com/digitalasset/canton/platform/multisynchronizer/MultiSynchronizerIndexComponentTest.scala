@@ -40,17 +40,21 @@ class MultiSynchronizerIndexComponentTest extends AnyFlatSpec with IndexComponen
           sourceSynchronizer = Source(synchronizer1),
           targetSynchronizer = Target(synchronizer2),
           submitter = Option(party),
-          reassignmentCounter = 15L,
           unassignId = CantonTimestamp.now(),
           isReassigningParticipant = true,
         ),
-        reassignment = Reassignment.Assign(
-          ledgerEffectiveTime = Time.Timestamp.now(),
-          createNode = createNode,
-          contractMetadata = Bytes.Empty,
+        reassignment = Reassignment.Batch(
+          Reassignment.Assign(
+            ledgerEffectiveTime = Time.Timestamp.now(),
+            createNode = createNode,
+            contractMetadata = Bytes.Empty,
+            reassignmentCounter = 15L,
+            nodeId = 0,
+          )
         ),
         repairCounter = RepairCounter.Genesis,
         recordTime = CantonTimestamp(recordTime),
+        synchronizerId = synchronizer2,
       )
     )
 

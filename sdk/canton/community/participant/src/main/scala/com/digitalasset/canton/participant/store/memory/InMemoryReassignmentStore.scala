@@ -241,7 +241,7 @@ class InMemoryReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val newEntry = ReassignmentEntry(
       assignmentData.reassignmentId,
-      assignmentData.contract,
+      assignmentData.contracts.contracts.map(_.contract),
       None,
       None,
       None,
@@ -312,8 +312,10 @@ class InMemoryReassignmentStore(
 
     def filter(entry: ReassignmentEntry): Boolean =
       sourceSynchronizer.forall(_ == entry.sourceSynchronizer) &&
-        incompleteReassignment(entry) &&
-        stakeholders.forall(_.exists(entry.contract.metadata.stakeholders))
+        incompleteReassignment(entry) && {
+          val entryStakeholders = entry.contracts.forgetNE.flatMap(_.metadata.stakeholders)
+          stakeholders.forall(_.exists(entryStakeholders.contains(_)))
+        }
 
     val values = reassignmentEntryMap.values
       .to(LazyList)
@@ -390,7 +392,7 @@ class InMemoryReassignmentStore(
         reassignmentEntryMap
           .filter { case (_reassignmentId, entry) =>
             entry.unassignmentRequest
-              .map(_.contract.contractId)
+              .map(_.contracts.contractIds)
               .exists(contractIds.contains) &&
             sourceSynchronizer.forall(source =>
               entry.unassignmentDataO.exists(_.sourceSynchronizer == source)
@@ -401,10 +403,11 @@ class InMemoryReassignmentStore(
             completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
           }
           .collect { case (reassignmentId, ReassignmentEntry(_, _, Some(request), _, _)) =>
-            (request.contract.contractId, reassignmentId)
+            request.contracts.contractIds.map(_ -> reassignmentId)
           }
+          .flatten
           .groupBy(_._1)
-          .map { case (cid, value) => (cid, value.values.toSeq) }
+          .map { case (cid, values) => (cid, values.map(_._2).toSeq) }
       )
     )
 

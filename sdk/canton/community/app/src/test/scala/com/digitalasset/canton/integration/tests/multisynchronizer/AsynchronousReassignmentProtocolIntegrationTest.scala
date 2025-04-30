@@ -107,10 +107,7 @@ final class AsynchronousReassignmentProtocolIntegrationTest
           ),
         ).run()
 
-        programmableSequencers.put(
-          daName,
-          getProgrammableSequencer(sequencer1.name),
-        )
+        programmableSequencers.put(daName, getProgrammableSequencer(sequencer1.name))
         programmableSequencers.put(acmeName, getProgrammableSequencer(sequencer2.name))
       }
 

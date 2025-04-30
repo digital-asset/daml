@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -12,10 +13,26 @@ import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.value.Value
 
 sealed trait Reassignment {
-  def kind: String
+  def templateId: Ref.Identifier
+  def stakeholders: Set[Ref.Party]
+  def nodeId: Int
 }
 
 object Reassignment {
+
+  final case class Batch private (
+      reassignments: NonEmpty[Seq[Reassignment]]
+  ) extends Iterable[Reassignment] {
+    def iterator = reassignments.iterator
+  }
+
+  object Batch {
+    def apply(first: Reassignment, rest: Reassignment*): Batch =
+      new Batch(NonEmpty(Seq, first, rest*))
+
+    def apply(reassignments: NonEmpty[Seq[Reassignment]]): Batch =
+      apply(reassignments.head1, reassignments.tail1*)
+  }
 
   /** Represent the update of unassigning a contract from a synchronizer.
     *
@@ -30,16 +47,18 @@ object Reassignment {
     * @param assignmentExclusivity
     *   Before this time (measured on the target synchronizer), only the submitter of the
     *   unassignment can initiate the assignment. Defined for reassigning participants.
+    * @param reassignmentCounter
+    *   The reassignment counter of the underlying contract.
     */
   final case class Unassign(
       contractId: Value.ContractId,
       templateId: Ref.Identifier,
       packageName: Ref.PackageName,
-      stakeholders: List[Ref.Party],
+      stakeholders: Set[Ref.Party],
       assignmentExclusivity: Option[Timestamp],
-  ) extends Reassignment {
-    override def kind: String = "unassignment"
-  }
+      reassignmentCounter: Long,
+      nodeId: Int,
+  ) extends Reassignment {}
 
   /** Represents the update of assigning a contract to a synchronizer.
     *
@@ -49,13 +68,18 @@ object Reassignment {
     *   The details of the creation of the underlying contract.
     * @param contractMetadata
     *   The metadata provided at creation of the underlying contract.
+    * @param reassignmentCounter
+    *   The reassignment counter of the underlying contract.
     */
   final case class Assign(
       ledgerEffectiveTime: Timestamp,
       createNode: Node.Create,
       contractMetadata: Bytes,
+      reassignmentCounter: Long,
+      nodeId: Int,
   ) extends Reassignment {
-    override def kind: String = "assignment"
+    def templateId: Ref.Identifier = createNode.templateId
+    def stakeholders: Set[Ref.Party] = createNode.stakeholders
   }
 }
 
@@ -69,8 +93,6 @@ object Reassignment {
   *   The synchronizer ID to which the contract is assigned.
   * @param submitter
   *   Submitter of the command, unless the operation is performed offline.
-  * @param reassignmentCounter
-  *   This counter is strictly increasing with each reassignment for one contract.
   * @param unassignId
   *   The ID of the unassign event. This should be used for the assign command.
   */
@@ -78,7 +100,6 @@ final case class ReassignmentInfo(
     sourceSynchronizer: Source[SynchronizerId],
     targetSynchronizer: Target[SynchronizerId],
     submitter: Option[Ref.Party],
-    reassignmentCounter: Long,
     unassignId: CantonTimestamp,
     isReassigningParticipant: Boolean,
 )

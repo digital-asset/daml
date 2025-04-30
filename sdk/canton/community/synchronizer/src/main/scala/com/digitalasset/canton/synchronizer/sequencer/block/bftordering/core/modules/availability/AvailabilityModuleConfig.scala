@@ -9,9 +9,11 @@ final case class AvailabilityModuleConfig(
     maxRequestsInBatch: Short,
     maxBatchesPerProposal: Short,
     outputFetchTimeout: FiniteDuration,
+    maxNonOrderedBatchesPerNode: Short = AvailabilityModuleConfig.MaxNonOrderedBatchesPerNode,
     emptyBlockCreationInterval: FiniteDuration = AvailabilityModuleConfig.EmptyBlockCreationInterval,
 )
 
 object AvailabilityModuleConfig {
   val EmptyBlockCreationInterval: FiniteDuration = 1000.milliseconds
+  val MaxNonOrderedBatchesPerNode: Short = 1000
 }

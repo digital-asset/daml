@@ -22,11 +22,12 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
         Map(
           BftNodeId("sequencer1") -> NodeActiveAt(
             aTopologyActivationTime,
-            epochNumber = None,
-            firstBlockNumberInEpoch = None,
-            epochTopologyQueryTimestamp = None,
-            epochCouldAlterOrderingTopology = None,
+            startEpochNumber = None,
+            firstBlockNumberInStartEpoch = None,
+            startEpochTopologyQueryTimestamp = None,
+            startEpochCouldAlterOrderingTopology = None,
             previousBftTime = None,
+            previousEpochTopologyQueryTimestamp = None,
           ),
           BftNodeId("sequencer2") -> NodeActiveAt(
             aTopologyActivationTime,
@@ -35,6 +36,7 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
             Some(aTopologyActivationTime),
             Some(true),
             Some(CantonTimestamp.MinValue),
+            Some(TopologyActivationTime(aTopologyActivationTime.value.minusSeconds(1L))),
           ),
         )
       )

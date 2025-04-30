@@ -309,9 +309,6 @@ components:
           type: string
     DeduplicationPeriod:
       title: DeduplicationPeriod
-      description: |-
-        Specifies the deduplication period for the change ID.
-        If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
         required:
@@ -727,12 +724,6 @@ components:
           $ref: '#/components/schemas/JsContractEntry'
     JsContractEntry:
       title: JsContractEntry
-      description: |-
-        For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
-        the state of one contract in the snapshot.
-        A contract_entry is included in the result, if and only if there is at least one stakeholder party of the contract
-        that is hosted on the synchronizer at the time of the event and the party satisfies the
-        ``TransactionFilter`` in the query.
       oneOf:
       - type: object
         required:
@@ -1272,7 +1263,6 @@ components:
           $ref: '#/components/schemas/Update'
     Update:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -1885,7 +1875,6 @@ components:
           $ref: '#/components/schemas/Update1'
     Update1:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -1983,7 +1972,7 @@ components:
           type: integer
           format: int64
         eventsById:
-          $ref: '#/components/schemas/Map_K_V'
+          $ref: '#/components/schemas/Map_Int_TreeEvent'
           description: |-
             Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
             Each key must be a valid node ID (non-negative integer).
@@ -2012,6 +2001,11 @@ components:
             which synchronized the transaction.
             Required
           type: string
+    Map_Int_TreeEvent:
+      title: Map_Int_TreeEvent
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/TreeEvent'
     TreeEvent:
       title: TreeEvent
       description: |-

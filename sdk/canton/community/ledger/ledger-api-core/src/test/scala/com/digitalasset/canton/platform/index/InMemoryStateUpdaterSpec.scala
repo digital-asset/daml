@@ -440,35 +440,16 @@ object InMemoryStateUpdaterSpec {
           sourceSynchronizer = ReassignmentTag.Source(synchronizerId1),
           targetSynchronizer = ReassignmentTag.Target(synchronizerId2),
           submitter = Option(party1),
-          reassignmentCounter = 15L,
           unassignId = CantonTimestamp.assertFromLong(155555L),
           isReassigningParticipant = true,
         ),
-        reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
-          CreatedEvent(
-            eventOffset = offset(17L),
-            updateId = txId3,
-            nodeId = 0,
-            eventSequentialId = 0,
-            contractId = someCreateNode.coid,
+        reassignment = Reassignment.Batch(
+          Reassignment.Assign(
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
-            templateId = someCreateNode.templateId,
-            packageName = someCreateNode.packageName,
-            packageVersion = None,
-            commandId = "",
-            workflowId = workflowId,
-            contractKey = None,
-            treeEventWitnesses = Set.empty,
-            flatEventWitnesses = Set(party1, party2),
-            submitters = Set.empty,
-            createArgument = com.digitalasset.daml.lf.transaction
-              .Versioned(someCreateNode.version, someCreateNode.arg),
-            createSignatories = Set(party1),
-            createObservers = Set(party2),
-            createKeyHash = None,
-            createKey = None,
-            createKeyMaintainers = None,
-            driverMetadata = someContractMetadataBytes,
+            createNode = someCreateNode,
+            contractMetadata = someContractMetadataBytes,
+            reassignmentCounter = 15L,
+            nodeId = 0,
           )
         ),
       )(emptyTraceContext)
@@ -485,17 +466,18 @@ object InMemoryStateUpdaterSpec {
           sourceSynchronizer = ReassignmentTag.Source(synchronizerId2),
           targetSynchronizer = ReassignmentTag.Target(synchronizerId1),
           submitter = Option(party2),
-          reassignmentCounter = 15L,
           unassignId = CantonTimestamp.assertFromLong(1555551L),
           isReassigningParticipant = true,
         ),
-        reassignment = TransactionLogUpdate.ReassignmentAccepted.Unassigned(
+        reassignment = Reassignment.Batch(
           Reassignment.Unassign(
             contractId = someCreateNode.coid,
             templateId = templateId2,
             packageName = packageName,
-            stakeholders = List(party2),
+            stakeholders = Set(party2),
             assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
+            reassignmentCounter = 15L,
+            nodeId = 0,
           )
         ),
       )(emptyTraceContext)
@@ -946,16 +928,20 @@ object InMemoryStateUpdaterSpec {
         sourceSynchronizer = ReassignmentTag.Source(source),
         targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party1),
-        reassignmentCounter = 15L,
         unassignId = CantonTimestamp.assertFromLong(155555L),
         isReassigningParticipant = true,
       ),
-      reassignment = Reassignment.Assign(
-        ledgerEffectiveTime = Timestamp.assertFromLong(12222),
-        createNode = someCreateNode,
-        contractMetadata = someContractMetadataBytes,
+      reassignment = Reassignment.Batch(
+        Reassignment.Assign(
+          ledgerEffectiveTime = Timestamp.assertFromLong(12222),
+          createNode = someCreateNode,
+          contractMetadata = someContractMetadataBytes,
+          reassignmentCounter = 15L,
+          nodeId = 0,
+        )
       ),
       recordTime = CantonTimestamp(Timestamp(t)),
+      synchronizerId = target,
     )
 
   private def unassignmentAccepted(
@@ -971,18 +957,22 @@ object InMemoryStateUpdaterSpec {
         sourceSynchronizer = ReassignmentTag.Source(source),
         targetSynchronizer = ReassignmentTag.Target(target),
         submitter = Option(party2),
-        reassignmentCounter = 15L,
         unassignId = CantonTimestamp.assertFromLong(1555551L),
         isReassigningParticipant = true,
       ),
-      reassignment = Reassignment.Unassign(
-        contractId = someCreateNode.coid,
-        templateId = templateId2,
-        packageName = packageName,
-        stakeholders = List(party2),
-        assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
+      reassignment = Reassignment.Batch(
+        Reassignment.Unassign(
+          contractId = someCreateNode.coid,
+          templateId = templateId2,
+          packageName = packageName,
+          stakeholders = Set(party2),
+          assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
+          reassignmentCounter = 15L,
+          nodeId = 0,
+        )
       ),
       recordTime = CantonTimestamp(Timestamp(t)),
+      synchronizerId = source,
     )
 
   private def commandRejected(t: Long, synchronizerId: SynchronizerId): Update.CommandRejected =
