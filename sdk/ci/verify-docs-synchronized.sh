@@ -11,6 +11,7 @@ DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 OLD_SHARABLE=$DIR/../docs/sharable
 NEW_SHARABLE=$(mktemp -d)
+trap "rm -rf $NEW_SHARABLE" EXIT
 
 $DIR/synchronize-docs.sh $NEW_SHARABLE
 
