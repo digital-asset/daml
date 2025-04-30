@@ -5,7 +5,8 @@
 set -euo pipefail
 
 DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
-SHARABLE_DIR="$DIR/../docs/sharable"
+DEFAULT_SHARABLE_DIR="$DIR/../docs/sharable"
+SHARABLE_DIR="${1:-$DEFAULT_SHARABLE_DIR}"
 MANUAL_DIR="$DIR/../docs/manually-written"
 
 cd $DIR/..
