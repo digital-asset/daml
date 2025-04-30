@@ -266,7 +266,11 @@ message BlockTransferRequest {
   int64 epoch = 1;
 }
 
+// A thin wrapper for a commit certificate.
+// As long as it merely contains a commit certificate (that in turn includes signed and verified data), its signature
+//  verification can be safely skipped. As a result, any node can help with state transfer (even when sending responses
+//  signed with a new/rotated key).
 message BlockTransferResponse {
-  // Avoid adding more data that needs to be signed to allow skipping the outer signature.
+  // Avoid adding more data that would require signing to allow skipping the outer message's signature verification!
   optional CommitCertificate commit_certificate = 1;
 }

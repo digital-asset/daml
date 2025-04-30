@@ -332,7 +332,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         readAs = Set(),
       )
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
+      val expectedBase = UserRights(
         actAs = Set(david),
         readAs = Set(),
         readAsAnyParty = false,
@@ -340,27 +340,36 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         identityProviderAdmin = false,
       )
 
-      participant1.ledger_api.users.rights
-        .grant("admin1", actAs = Set(), readAs = Set(erwin), participantAdmin = true)
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedBase
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
+      val expectedWithReadAs = expectedBase.copy(
         readAs = Set(erwin),
-        readAsAnyParty = false,
         participantAdmin = true,
-        identityProviderAdmin = false,
       )
 
       participant1.ledger_api.users.rights
-        .grant("admin1", actAs = Set(), readAs = Set(), identityProviderAdmin = true)
+        .grant(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(erwin),
+          participantAdmin = true,
+        ) shouldBe expectedWithReadAs
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
-        readAs = Set(erwin),
-        readAsAnyParty = false,
-        participantAdmin = true,
-        identityProviderAdmin = true,
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithReadAs
+
+      val expectedWithIdp = expectedWithReadAs.copy(
+        identityProviderAdmin = true
       )
+
+      participant1.ledger_api.users.rights
+        .grant(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(),
+          identityProviderAdmin = true,
+        ) shouldBe expectedWithIdp
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithIdp
     }
 
     "support removing rights" in { implicit env =>
@@ -376,7 +385,7 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
       val erwin = findParty("erwin")
       val david = findParty("david")
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
+      val expectedBase = UserRights(
         actAs = Set(david),
         readAs = Set(erwin),
         readAsAnyParty = false,
@@ -384,27 +393,36 @@ trait UserManagementIntegrationTest extends CommunityIntegrationTest with Shared
         identityProviderAdmin = true,
       )
 
-      participant1.ledger_api.users.rights
-        .revoke("admin1", actAs = Set(), readAs = Set(erwin), participantAdmin = true)
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedBase
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
-        readAs = Set(),
-        readAsAnyParty = false,
+      val expectedWithoutReadAs = expectedBase.copy(
+        readAs = Set.empty,
         participantAdmin = false,
-        identityProviderAdmin = true,
       )
 
       participant1.ledger_api.users.rights
-        .revoke("admin1", actAs = Set(), readAs = Set(), identityProviderAdmin = true)
+        .revoke(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(erwin),
+          participantAdmin = true,
+        ) shouldBe expectedWithoutReadAs
 
-      participant1.ledger_api.users.rights.list("admin1") shouldBe UserRights(
-        actAs = Set(david),
-        readAs = Set(),
-        readAsAnyParty = false,
-        participantAdmin = false,
-        identityProviderAdmin = false,
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutReadAs
+
+      val expectedWithoutIdp = expectedWithoutReadAs.copy(
+        identityProviderAdmin = false
       )
+
+      participant1.ledger_api.users.rights
+        .revoke(
+          "admin1",
+          actAs = Set(),
+          readAs = Set(),
+          identityProviderAdmin = true,
+        ) shouldBe expectedWithoutIdp
+
+      participant1.ledger_api.users.rights.list("admin1") shouldBe expectedWithoutIdp
     }
   }
 }

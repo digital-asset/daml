@@ -1,5 +1,5 @@
 // start all local instances defined in the configuration file
-participant1.start()
+nodes.local.start()
 
 // Bootstrap the synchronizer
 val synchronizerId = bootstrap.synchronizer(
@@ -11,8 +11,7 @@ val synchronizerId = bootstrap.synchronizer(
   staticSynchronizerParameters = StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
 )
 
-// Connect participant1 to da using the connect macro.
-participant1.synchronizers.connect_local(sequencer1, alias = "da")
+// Connect all participants to da using the connect macro.
+participants.local.foreach(_.synchronizers.connect_local(sequencer1, alias = "da"))
 
-better.files.File("participant_id").write(participant1.uid.toProtoPrimitive)
 better.files.File("synchronizer_id").write(synchronizerId.toProtoPrimitive)

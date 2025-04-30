@@ -25,11 +25,12 @@ final case class SequencerSnapshotAdditionalInfo(
       (node: String) ->
         v30.BftSequencerSnapshotAdditionalInfo.SequencerActiveAt(
           activeAt.timestamp.value.toMicros,
-          activeAt.epochNumber,
-          activeAt.firstBlockNumberInEpoch,
-          activeAt.epochTopologyQueryTimestamp.map(_.value.toMicros),
-          activeAt.epochCouldAlterOrderingTopology,
+          activeAt.startEpochNumber,
+          activeAt.firstBlockNumberInStartEpoch,
+          activeAt.startEpochTopologyQueryTimestamp.map(_.value.toMicros),
+          activeAt.startEpochCouldAlterOrderingTopology,
           activeAt.previousBftTime.map(_.toMicros),
+          activeAt.previousEpochTopologyQueryTimestamp.map(_.value.toMicros),
         )
     }.toMap
     v30.BftSequencerSnapshotAdditionalInfo(nodeActiveAtEpochNumbersProto)
@@ -51,9 +52,11 @@ object SequencerSnapshotAdditionalInfo {
             timestamp <- CantonTimestamp
               .fromProtoPrimitive(firstKnownAtProto.timestamp)
               .map(TopologyActivationTime(_))
-            epochNumber = firstKnownAtProto.epochNumber.map(EpochNumber(_))
-            firstBlockNumberInEpoch = firstKnownAtProto.firstBlockNumberInEpoch.map(BlockNumber(_))
-            epochTopologyQueryTimestamp <- firstKnownAtProto.epochTopologyQueryTimestamp
+            epochNumber = firstKnownAtProto.startEpochNumber.map(EpochNumber(_))
+            firstBlockNumberInEpoch = firstKnownAtProto.firstBlockNumberInStartEpoch.map(
+              BlockNumber(_)
+            )
+            epochTopologyQueryTimestamp <- firstKnownAtProto.startEpochTopologyQueryTimestamp
               .map(time =>
                 CantonTimestamp.fromProtoPrimitive(time).map(TopologyActivationTime(_)).map(Some(_))
               )
@@ -61,13 +64,23 @@ object SequencerSnapshotAdditionalInfo {
             previousBftTime <- firstKnownAtProto.previousBftTime
               .map(time => CantonTimestamp.fromProtoPrimitive(time).map(Some(_)))
               .getOrElse(Right(None))
+            previousEpochTopologyQueryTimestamp <-
+              firstKnownAtProto.previousEpochTopologyQueryTimestamp
+                .map(time =>
+                  CantonTimestamp
+                    .fromProtoPrimitive(time)
+                    .map(TopologyActivationTime(_))
+                    .map(Some(_))
+                )
+                .getOrElse(Right(None))
           } yield BftNodeId(node) -> NodeActiveAt(
             timestamp,
             epochNumber,
             firstBlockNumberInEpoch,
             epochTopologyQueryTimestamp,
-            firstKnownAtProto.epochCouldAlterOrderingTopology,
+            firstKnownAtProto.startEpochCouldAlterOrderingTopology,
             previousBftTime,
+            previousEpochTopologyQueryTimestamp,
           )
         }
         .toSeq
@@ -77,9 +90,10 @@ object SequencerSnapshotAdditionalInfo {
 
 final case class NodeActiveAt(
     timestamp: TopologyActivationTime,
-    epochNumber: Option[EpochNumber],
-    firstBlockNumberInEpoch: Option[BlockNumber],
-    epochTopologyQueryTimestamp: Option[TopologyActivationTime],
-    epochCouldAlterOrderingTopology: Option[Boolean],
+    startEpochNumber: Option[EpochNumber],
+    firstBlockNumberInStartEpoch: Option[BlockNumber],
+    startEpochTopologyQueryTimestamp: Option[TopologyActivationTime],
+    startEpochCouldAlterOrderingTopology: Option[Boolean],
     previousBftTime: Option[CantonTimestamp],
+    previousEpochTopologyQueryTimestamp: Option[TopologyActivationTime],
 )

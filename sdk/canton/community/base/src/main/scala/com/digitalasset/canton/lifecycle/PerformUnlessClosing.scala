@@ -37,14 +37,10 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
 
   override protected[this] def nameInternal: String = this.getClass.getSimpleName
 
-  /** How often to poll to check that all tasks have completed. */
-  protected def maxSleepMillis: Long = 500
-
   /** Performs the task given by `f` unless a shutdown has been initiated. The shutdown will only
     * begin after `f` completes, but other tasks may execute concurrently with `f`, if started using
-    * this function, or one of the other variants ([[performUnlessClosingF]] and
-    * [[performUnlessClosingEitherT]]). The tasks are assumed to take less than [[closingTimeout]]
-    * to complete.
+    * this function, or one of the other variants such as [[performUnlessClosingF]]. The tasks are
+    * assumed to take less than [[closingTimeout]] to complete.
     *
     * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock.
     *
@@ -71,8 +67,8 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
   /** Performs the Future given by `f` unless a shutdown has been initiated. The future is lazy and
     * not evaluated during shutdown. The shutdown will only begin after `f` completes, but other
     * tasks may execute concurrently with `f`, if started using this function, or one of the other
-    * variants ([[performUnlessClosing]] and [[performUnlessClosingEitherT]]). The tasks are assumed
-    * to take less than [[closingTimeout]] to complete.
+    * variants such as [[performUnlessClosing]]. The tasks are assumed to take less than
+    * [[closingTimeout]] to complete.
     *
     * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock.
     *
@@ -131,32 +127,6 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
         FutureUnlessShutdown.abortedDueToShutdown
     }
 
-  /** Performs the EitherT[Future] given by `etf` unless a shutdown has been initiated, in which
-    * case the provided error is returned instead. Both `etf` and the error are lazy; `etf` is only
-    * evaluated if there is no shutdown, the error only if we're shutting down. The shutdown will
-    * only begin after `etf` completes, but other tasks may execute concurrently with `etf`, if
-    * started using this function, or one of the other variants ([[performUnlessClosing]] and
-    * [[performUnlessClosingF]]). The tasks are assumed to take less than [[closingTimeout]] to
-    * complete.
-    *
-    * DO NOT CALL `this.close` as part of `etf`, because it will result in a deadlock.
-    *
-    * @param etf
-    *   The task to perform
-    */
-  def performUnlessClosingEitherT[E, R](name: String, onClosing: => E)(
-      etf: => EitherT[Future, E, R]
-  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, E, R] =
-    EitherT(performUnlessClosingF(name)(etf.value).unwrap.map(_.onShutdown(Left(onClosing))))
-
-  def performUnlessClosingEitherU[E, R](name: String)(
-      etf: => EitherT[Future, E, R]
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, E, R] =
-    EitherT(performUnlessClosingF(name)(etf.value))
-
   def performUnlessClosingEitherUSF[E, R](name: String)(
       etf: => EitherT[FutureUnlessShutdown, E, R]
   )(implicit
@@ -188,14 +158,6 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
         _.map(asyncResultToWaitForF).getOrElse(FutureUnlessShutdown.unit)
       )
     )
-
-  def performUnlessClosingCheckedT[A, N, R](name: String, onClosing: => Checked[A, N, R])(
-      etf: => CheckedT[Future, A, N, R]
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): CheckedT[Future, A, N, R] =
-    CheckedT(performUnlessClosingF(name)(etf.value).unwrap.map(_.onShutdown(onClosing)))
 
   def performUnlessClosingCheckedUST[A, N, R](name: String, onClosing: => Checked[A, N, R])(
       etf: => CheckedT[FutureUnlessShutdown, A, N, R]

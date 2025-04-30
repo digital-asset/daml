@@ -4,7 +4,6 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -23,7 +22,7 @@ import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Success}
-import com.digitalasset.canton.util.{EitherTUtil, SimpleExecutionQueue, retry}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, SimpleExecutionQueue, retry}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.DurationInt
@@ -195,7 +194,7 @@ abstract class BootstrapStageWithStorage[
       // retry here as long as we don't get a result or we get a serious failure
       // so we retry here if the result is Right(None)
       val success = Success[Either[String, Option[StageResult]]](_ != Right(None))
-      EitherTUtil.doNotAwait(
+      EitherTUtil.doNotAwaitUS(
         EitherT(
           retry
             .Backoff(
@@ -213,17 +212,18 @@ abstract class BootstrapStageWithStorage[
               executionContext,
               traceContext,
             )
-        ).flatMap {
+        ).tapOnShutdown {
+          logger.debug(s"Initialization of $description aborted due to shutdown")
+        }.flatMap {
           case Some(result) =>
             logger.info(
               s"Initialization stage $description completed in the background, proceeding."
             )
-            performUnlessClosingEitherU(description)(result.start().onShutdown(Either.unit))
-          case None => // was aborted due to shutdown, so we just pass
-            EitherT.rightT[FutureUnlessShutdown, String](())
-        }.onShutdown {
-          logger.debug(s"Initialization of $description aborted due to shutdown")
-          Either.unit
+            performUnlessClosingEitherUSF(description)(result.start())
+          case None =>
+            ErrorUtil.invalidState(
+              s"Retry loop for initialization stage $description terminated with unsuccessful None"
+            )
         },
         s"Background startup failed at $description",
       )

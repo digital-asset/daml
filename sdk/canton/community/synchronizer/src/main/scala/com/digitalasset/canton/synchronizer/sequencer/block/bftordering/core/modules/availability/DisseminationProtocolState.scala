@@ -85,6 +85,8 @@ final class DisseminationProtocolState(
       mutable.LinkedHashMap(),
     val toBeProvidedToConsensus: mutable.Queue[ToBeProvidedToConsensus] = mutable.Queue(),
     var lastProposalTime: Option[CantonTimestamp] = None,
+    val disseminationQuotas: BatchDisseminationNodeQuotaTracker =
+      new BatchDisseminationNodeQuotaTracker,
 )
 
 final case class ToBeProvidedToConsensus(maxBatchesPerProposal: Short, forEpochNumber: EpochNumber)

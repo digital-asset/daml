@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.admin
 import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -19,8 +18,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.github.blemale.scaffeine.Scaffeine
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, Future}
 
 class PackageDependencyResolver(
     val damlPackageStore: DamlPackageStore,
@@ -69,29 +68,18 @@ class PackageDependencyResolver(
       for {
         directDependenciesByPackage <- packageIds.parTraverse { packageId =>
           for {
-            pckg <- OptionT(
-              performUnlessClosingUSF(functionFullName)(damlPackageStore.getPackage(packageId))
-            )
-              .toRight(packageId)
-            directDependencies <- EitherT(
-              performUnlessClosingF(functionFullName)(
-                Future(
-                  Either
-                    .catchOnly[Exception](
-                      com.digitalasset.daml.lf.archive.Decode
-                        .assertDecodeArchive(pckg)
-                        ._2
-                        .directDeps
-                    )
-                    .leftMap { e =>
-                      logger.error(
-                        s"Failed to decode package with id $packageId while trying to determine dependencies",
-                        e,
-                      )
-                      packageId
-                    }
-                )
-              )
+            pckg <- OptionT(damlPackageStore.getPackage(packageId)).toRight(packageId)
+            directDependencies <- EitherT.fromEither[FutureUnlessShutdown](
+              com.digitalasset.daml.lf.archive.Decode
+                .decodeArchive(pckg)
+                .map { case (_, packageAst) => packageAst.directDeps }
+                .leftMap { e =>
+                  logger.error(
+                    s"Failed to decode package with id $packageId while trying to determine dependencies",
+                    e,
+                  )
+                  packageId
+                }
             )
           } yield directDependencies
         }
@@ -103,7 +91,11 @@ class PackageDependencyResolver(
         packageIds: List[PackageId],
         knownDependencies: Set[PackageId],
     ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-      if (packageIds.isEmpty) EitherT.rightT(knownDependencies)
+      if (isClosing)
+        EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]](
+          FutureUnlessShutdown.abortedDueToShutdown
+        )
+      else if (packageIds.isEmpty) EitherT.rightT(knownDependencies)
       else {
         for {
           directDependencies <- computeDirectDependencies(packageIds)

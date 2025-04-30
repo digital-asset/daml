@@ -5,7 +5,11 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerCryptoPureApi}
-import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ContractsReassignmentBatch,
+  ReassignmentSubmitterMetadata,
+}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.*
@@ -61,14 +65,13 @@ final case class ReassignmentDataHelpers(
     UnassignmentRequest(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
       reassigningParticipants = reassigningParticipants,
-      contract = contract,
+      contracts = ContractsReassignmentBatch(contract, ReassignmentCounter(1)),
       sourceSynchronizer = sourceSynchronizer,
       sourceProtocolVersion = Source(sourceProtocolVersion),
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
       targetProtocolVersion = Target(protocolVersion),
       targetTimeProof = targetTimeProof,
-      reassignmentCounter = ReassignmentCounter(1),
     )
 
   def unassignmentData(

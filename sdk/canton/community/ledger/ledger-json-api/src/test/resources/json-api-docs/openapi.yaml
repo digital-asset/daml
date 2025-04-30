@@ -1676,6 +1676,7 @@ components:
       required:
       - partyIdHint
       - identityProviderId
+      - synchronizerId
       properties:
         partyIdHint:
           description: |-
@@ -1694,6 +1695,12 @@ components:
           description: |-
             The id of the ``Identity Provider``
             Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
+          type: string
+        synchronizerId:
+          description: |-
+            The synchronizer, on which the party should be allocated.
+            For backwards compatibility, this field may be omitted, if the participant is connected to only one synchronizer.
+            Otherwise a synchronizer must be specified.
           type: string
     AllocatePartyResponse:
       title: AllocatePartyResponse
@@ -2403,8 +2410,13 @@ components:
     DeduplicationPeriod1:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID.
-        If omitted, the participant will assume the configured maximum deduplication time.
+        The actual deduplication window used for the submission, which is derived from
+        ``Commands.deduplication_period``. The ledger may convert the deduplication period into other
+        descriptions and extend the period in implementation-specified ways.
+
+        Used to audit the deduplication guarantee described in ``commands.proto``.
+
+        Optional; the deduplication guarantee applies even if the completion omits this field.
       oneOf:
       - type: object
         required:
@@ -2427,7 +2439,7 @@ components:
     DeduplicationPeriod2:
       title: DeduplicationPeriod
       description: |-
-        Specifies the deduplication period for the change ID.
+        Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
         If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
@@ -2590,7 +2602,7 @@ components:
       - verbose
       properties:
         filtersByParty:
-          $ref: '#/components/schemas/Map_K_V'
+          $ref: '#/components/schemas/Map_Filters'
           description: |-
             Each key must be a valid PartyIdString (as described in ``value.proto``).
             The interpretation of the filter depends on the transaction-shape being filtered:
@@ -4357,7 +4369,7 @@ components:
           type: integer
           format: int64
         eventsById:
-          $ref: '#/components/schemas/Map_K_V'
+          $ref: '#/components/schemas/Map_Int_TreeEvent'
           description: |-
             Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
             Each key must be a valid node ID (non-negative integer).
@@ -4506,11 +4518,11 @@ components:
       type: object
       additionalProperties:
         $ref: '#/components/schemas/Filters'
-    Map_K_V:
-      title: Map_K_V
+    Map_Int_TreeEvent:
+      title: Map_Int_TreeEvent
       type: object
       additionalProperties:
-        $ref: '#/components/schemas/Filters'
+        $ref: '#/components/schemas/TreeEvent'
     Map_String:
       title: Map_String
       type: object
@@ -5389,7 +5401,6 @@ components:
           format: int32
     Update:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:

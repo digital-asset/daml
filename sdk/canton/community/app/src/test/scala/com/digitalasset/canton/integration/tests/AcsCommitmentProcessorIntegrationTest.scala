@@ -1011,6 +1011,8 @@ trait AcsCommitmentProcessorIntegrationTest
               s"active on da at the queried time"
           )
           val reassigned = inspectContracts.filter(c => c.cid == reassignedCid)
+          val reassignedCounter =
+            incompleteUnassignment.contracts.contractIdCounters.toMap.apply(reassignedCid)
           reassigned.size shouldBe 2
           reassigned.filter(states =>
             states.activeOnExpectedSynchronizer &&
@@ -1025,7 +1027,7 @@ trait AcsCommitmentProcessorIntegrationTest
                     .contains(incompleteUnassignment.reassignmentId) &&
                   s.contractState
                     .asInstanceOf[ContractUnassigned]
-                    .reassignmentCounterSrc == incompleteUnassignment.reassignmentCounter - 1
+                    .reassignmentCounterSrc == reassignedCounter - 1
               ) == 1 &&
               states.state.sizeIs == 2
           ) should have size 1
@@ -1044,7 +1046,7 @@ trait AcsCommitmentProcessorIntegrationTest
                     .contains(incompleteUnassignment.reassignmentId) &&
                   s.contractState
                     .asInstanceOf[ContractAssigned]
-                    .reassignmentCounterTarget == incompleteUnassignment.reassignmentCounter
+                    .reassignmentCounterTarget == reassignedCounter
               ) == 1 &&
               states.state.sizeIs == 1
           ) should have size 1

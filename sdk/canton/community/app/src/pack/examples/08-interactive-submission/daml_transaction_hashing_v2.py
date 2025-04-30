@@ -8,22 +8,27 @@ import hashlib
 import struct
 
 # Hash purpose reserved for prepared transaction
-PREPARED_TRANSACTION_HASH_PURPOSE=b"\x00\x00\x00\x30"
+PREPARED_TRANSACTION_HASH_PURPOSE = b"\x00\x00\x00\x30"
 # Version of the hashing scheme implemented in this file as a byte
 # Used in the encoding
-HASHING_SCHEME_VERSION_V2 = interactive_submission_service_pb2.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
+HASHING_SCHEME_VERSION_V2 = (
+    interactive_submission_service_pb2.HashingSchemeVersion.HASHING_SCHEME_VERSION_V2
+)
 # Byte version for the encoding (\x02)
-HASHING_SCHEME_VERSION = HASHING_SCHEME_VERSION_V2.to_bytes(length = 1, byteorder='big', signed=False)
+HASHING_SCHEME_VERSION = HASHING_SCHEME_VERSION_V2.to_bytes(
+    length=1, byteorder="big", signed=False
+)
 # Version of the protobuf encoding the transaction nodes
 # See DamlTransaction.Node.versioned_node in the interactive_submission_service.proto file
-NODE_ENCODING_VERSION=b"\x01"
+NODE_ENCODING_VERSION = b"\x01"
+
 
 def encode_bool(value):
     return b"\x01" if value else b"\x00"
 
 
 def encode_int32(value):
-    if not (-2**31 <= value < 2**31):
+    if not (-(2**31) <= value < 2**31):
         raise ValueError(f"Value {value} out of range for int32")
     return struct.pack(">i", value)
 
@@ -163,6 +168,7 @@ def encode_node_v1(
         return encode_rollback_node(node.rollback, node_id, nodes_dict, node_seeds)
     raise ValueError("Unsupported node type")
 
+
 def encode_create_node(
     create,
     node_id,
@@ -171,7 +177,7 @@ def encode_create_node(
     return (
         NODE_ENCODING_VERSION
         + encode_string(create.lf_version)
-        + b"\x00" # Create node tag
+        + b"\x00"  # Create node tag
         + encode_optional(find_seed(node_id, node_seeds), encode_hash)
         + encode_hex_string(create.contract_id)
         + encode_string(create.package_name)
@@ -191,7 +197,7 @@ def encode_exercise_node(
     return (
         NODE_ENCODING_VERSION
         + encode_string(exercise.lf_version)
-        + b"\x01" # Exercise node tag
+        + b"\x01"  # Exercise node tag
         + encode_hash(find_seed(node_id, node_seeds))
         + encode_hex_string(exercise.contract_id)
         + encode_string(exercise.package_name)
@@ -217,7 +223,7 @@ def encode_fetch_node(fetch, node_id):
     return (
         NODE_ENCODING_VERSION
         + encode_string(fetch.lf_version)
-        + b"\x02" # Fetch node tag
+        + b"\x02"  # Fetch node tag
         + encode_hex_string(fetch.contract_id)
         + encode_string(fetch.package_name)
         + encode_identifier(fetch.template_id)
@@ -238,7 +244,7 @@ def encode_rollback_node(
 ):
     return (
         NODE_ENCODING_VERSION
-        + b"\x03" # Rollback node tag
+        + b"\x03"  # Rollback node tag
         + encode_repeated(rollback.children, encode_node_id(nodes_dict, node_seeds))
     )
 
@@ -353,4 +359,3 @@ def create_nodes_dict(prepared_transaction):
     for node in prepared_transaction.transaction.nodes:
         nodes_dict[node.node_id] = node
     return nodes_dict
-

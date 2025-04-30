@@ -494,7 +494,6 @@ final class GrpcParticipantRepairService(
               sourceSynchronizer = sourceSynchronizerId,
               targetSynchronizer = targetSynchronizerId,
               skipInactive = request.skipInactive,
-              batchSize = batching.maxItemsInBatch,
             )
             .leftMap[RepairServiceError](RepairServiceError.ContractAssignationChangeError.Error(_))
       }

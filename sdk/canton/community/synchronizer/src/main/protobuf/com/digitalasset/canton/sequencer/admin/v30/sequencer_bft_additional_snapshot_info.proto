@@ -13,14 +13,17 @@ message BftSequencerSnapshotAdditionalInfo {
     // Onboarding topology activation timestamp (in microseconds of UTC time since Unix epoch)
     int64 timestamp = 1;
     // An epoch where the onboarding transaction became effective, used as state transfer start epoch
-    optional int64 epoch_number = 2;
+    optional int64 start_epoch_number = 2;
     // Needed to properly set the initial block in the Output module (due to transferring full epochs)
-    optional int64 first_block_number_in_epoch = 3;
+    optional int64 first_block_number_in_start_epoch = 3;
     // A topology query timestamp for the state transfer start epoch
-    optional int64 epoch_topology_query_timestamp = 4;
-    // Needed for emitting topology ticks consistently.
-    optional bool epoch_could_alter_ordering_topology = 5;
+    optional int64 start_epoch_topology_query_timestamp = 4;
+    // Needed for emitting topology ticks consistently
+    optional bool start_epoch_could_alter_ordering_topology = 5;
     // BFT time of the last block in the previous epoch (in microseconds of UTC time since Unix epoch)
     optional int64 previous_bft_time = 6;
+    // A topology query timestamp for an epoch previous to the state transfer start epoch
+    // Used for canonical commit set verification
+    optional int64 previous_epoch_topology_query_timestamp = 7;
   }
 }

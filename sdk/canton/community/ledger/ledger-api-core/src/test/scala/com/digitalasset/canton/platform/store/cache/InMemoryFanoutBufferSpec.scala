@@ -577,11 +577,10 @@ class InMemoryFanoutBufferSpec
         sourceSynchronizer = ReassignmentTag.Source(someSynchronizerId),
         targetSynchronizer = ReassignmentTag.Target(someSynchronizerId),
         submitter = None,
-        reassignmentCounter = 1,
         unassignId = CantonTimestamp.assertFromLong(1L),
         isReassigningParticipant = false,
       ),
-      reassignment = mock[TransactionLogUpdate.ReassignmentAccepted.Reassignment],
+      reassignment = null,
     )
 
   private def topologyTxAccepted(idx: Long, offset: Offset) =

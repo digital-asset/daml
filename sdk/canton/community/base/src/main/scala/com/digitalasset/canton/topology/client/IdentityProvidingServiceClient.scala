@@ -60,8 +60,13 @@ class IdentityProvidingServiceClient {
 
   private val synchronizers = TrieMap.empty[SynchronizerId, SynchronizerTopologyClient]
 
-  def add(synchronizerClient: SynchronizerTopologyClient): this.type = {
-    synchronizers += (synchronizerClient.synchronizerId -> synchronizerClient)
+  def add(synchronizerClient: SynchronizerTopologyClient): SynchronizerTopologyClient =
+    synchronizers
+      .putIfAbsent(synchronizerClient.synchronizerId, synchronizerClient)
+      .getOrElse(synchronizerClient)
+
+  def remove(synchronizerId: SynchronizerId): this.type = {
+    synchronizers.remove(synchronizerId).discard
     this
   }
 

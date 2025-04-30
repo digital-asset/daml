@@ -120,6 +120,7 @@ class StoreBasedSynchronizerTopologyClient(
     val synchronizerId: SynchronizerId,
     store: TopologyStore[TopologyStoreId],
     packageDependenciesResolver: PackageDependencyResolverUS,
+    ips: IdentityProvidingServiceClient,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
@@ -323,6 +324,7 @@ class StoreBasedSynchronizerTopologyClient(
     } yield maxTimestamp
 
   override protected def onClosed(): Unit = {
+    ips.remove(synchronizerId)
     LifeCycle.close(
       sequencedTimeAwaiter,
       effectiveTimeAwaiter,

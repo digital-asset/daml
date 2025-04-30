@@ -3,10 +3,13 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
+import com.digitalasset.canton.data.{CantonTimestamp, ContractsReassignmentBatch}
+import com.digitalasset.canton.protocol.ReassignmentId
 
 /** Stores the data for assignment in the special case where no reassignment data is present. */
 final case class AssignmentData(
     reassignmentId: ReassignmentId,
-    contract: SerializableContract,
-)
+    contracts: ContractsReassignmentBatch,
+) {
+  def unassignmentDecisionTime: CantonTimestamp = CantonTimestamp.Epoch
+}

@@ -12,14 +12,17 @@ if git rev-parse --is-inside-work-tree &>/dev/null || false; then
     ROOT_PATH=$(git rev-parse --show-toplevel)
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community/base/src/main/protobuf
     LEDGER_API_PROTO_PATH=$ROOT_PATH/community/ledger-api/src/main/protobuf
+    ADMIN_API_PROTO_PATH=$ROOT_PATH/community/admin-api/src/main/protobuf
 else
     # Otherwise assume we're running from the release artifact, in which case the protobuf folder is a few levels above
     ROOT_PATH=../../../protobuf
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community
     LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api
+    ADMIN_API_PROTO_PATH=$ROOT_PATH/admin-api
 fi
 
 COMMUNITY_CANTON_PROTO_PATH=$COMMUNITY_PROTO_PATH/com/digitalasset/canton
+ADMIN_API_CANTON_PROTO_PATH=$ADMIN_API_PROTO_PATH/com/digitalasset/canton
 PROTOCOL_PROTO_PATH=$COMMUNITY_CANTON_PROTO_PATH/protocol/v30
 CRYPTO_PROTO_PATH=$COMMUNITY_CANTON_PROTO_PATH/crypto/v30
 TOPOLOGY_ADMIN_PROTO_PATH=$COMMUNITY_CANTON_PROTO_PATH/topology/admin/v30
@@ -104,6 +107,7 @@ generate_grpc_code "$COMMUNITY_PROTO_PATH" "$COMMUNITY_CANTON_PROTO_PATH/version
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/traffic_control_parameters.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$PROTOCOL_PROTO_PATH/sequencing_parameters.proto"
 generate_grpc_code "$COMMUNITY_PROTO_PATH" "$CRYPTO_PROTO_PATH/crypto.proto"
+generate_grpc_service "$ADMIN_API_PROTO_PATH" "$ADMIN_API_CANTON_PROTO_PATH/admin/health/v30/status_service.proto"
 generate_grpc_code "." "scalapb/scalapb.proto"
 generate_grpc_code "." "google/rpc/status.proto"
 generate_grpc_code "." "google/protobuf/empty.proto"
@@ -118,5 +122,6 @@ generate_grpc_service "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/update_servi
 generate_grpc_service "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/command_completion_service.proto"
 generate_grpc_service "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/state_service.proto"
 generate_grpc_service "$LEDGER_API_PROTO_PATH" "$LEDGER_API_V2_PATH/event_query_service.proto"
+generate_grpc_service "$ADMIN_API_PROTO_PATH" "$ADMIN_API_CANTON_PROTO_PATH/admin/participant/v30/participant_status_service.proto"
 
 echo "Done"

@@ -83,7 +83,10 @@ import com.digitalasset.canton.synchronizer.sequencing.topology.{
 import com.digitalasset.canton.synchronizer.server.DynamicGrpcServer
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
+import com.digitalasset.canton.topology.client.{
+  SynchronizerTopologyClient,
+  SynchronizerTopologyClientWithInit,
+}
 import com.digitalasset.canton.topology.processing.{
   InitialTopologySnapshotValidator,
   TopologyTransactionProcessor,
@@ -591,6 +594,7 @@ class SequencerNodeBootstrap(
             .right(
               TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
                 synchronizerTopologyStore,
+                ips,
                 synchronizerId,
                 new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
                 parameters,
@@ -599,10 +603,13 @@ class SequencerNodeBootstrap(
                 synchronizerLoggerFactory,
               )(topologyHeadInitializer)
             )
-          (topologyProcessor, topologyClient) = processorAndClient
+          (topologyProcessor, newTopologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
-          _ = addCloseable(topologyClient)
-          _ = ips.add(topologyClient)
+          _ = addCloseable(newTopologyClient)
+          topologyClient = ips.add(newTopologyClient) match {
+            case client: SynchronizerTopologyClientWithInit => client
+            case _ => throw new IllegalStateException("Unknown type for topology client")
+          }
           _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
             "Unexpected state during initialization: topology client shouldn't have been set before",

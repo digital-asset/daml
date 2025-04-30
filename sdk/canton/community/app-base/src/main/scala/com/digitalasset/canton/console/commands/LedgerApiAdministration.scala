@@ -2076,6 +2076,13 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 identityProviderId = identityProviderId,
                 readAsAnyParty = readAsAnyParty,
               )
+            ).flatMap(_ =>
+              ledgerApiCommand(
+                LedgerApiCommands.Users.Rights.List(
+                  id = id,
+                  identityProviderId = identityProviderId,
+                )
+              )
             )
           })
 
@@ -2108,6 +2115,13 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
                 identityProviderAdmin = identityProviderAdmin,
                 identityProviderId = identityProviderId,
                 readAsAnyParty = readAsAnyParty,
+              )
+            ).flatMap(_ =>
+              ledgerApiCommand(
+                LedgerApiCommands.Users.Rights.List(
+                  id = id,
+                  identityProviderId = identityProviderId,
+                )
               )
             )
           })

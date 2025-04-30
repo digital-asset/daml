@@ -3,9 +3,13 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import com.digitalasset.canton.ReassignmentCounter
-import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree, Offset}
-import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ContractsReassignmentBatch,
+  FullUnassignmentTree,
+  Offset,
+}
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -17,12 +21,7 @@ final case class UnassignmentData(
     reassignmentId: ReassignmentId,
     unassignmentRequest: FullUnassignmentTree,
 ) {
-  def contract: SerializableContract = unassignmentRequest.contract
-
-  require(
-    contract.contractId == unassignmentRequest.contractId,
-    s"Supplied contract with ID ${contract.contractId} differs from the ID ${unassignmentRequest.contractId} of the unassignment request.",
-  )
+  def contracts: ContractsReassignmentBatch = unassignmentRequest.contracts
 
   def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
@@ -31,8 +30,6 @@ final case class UnassignmentData(
   def unassignmentTs: CantonTimestamp = reassignmentId.unassignmentTs
 
   def sourceMediator: MediatorGroupRecipient = unassignmentRequest.mediator
-
-  def reassignmentCounter: ReassignmentCounter = unassignmentRequest.reassignmentCounter
 }
 
 object UnassignmentData {
