@@ -250,7 +250,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
                   .map(err => s"Failed to validate create argument: $err")
             } yield ScriptLedgerClient.Created(
               oIntendedPackageId
-                .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
+                .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
               cid,
               arg,
               Bytes.fromByteString(created.createdEventBlob),
@@ -272,7 +272,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
               childEvents <- tree.childNodeIds(exercised).toList.traverse(convEvent(_, None))
             } yield ScriptLedgerClient.Exercised(
               oIntendedPackageId
-                .fold(tplId)(intendedPackageId => tplId.copy(packageId = intendedPackageId)),
+                .fold(tplId)(intendedPackageId => tplId.copy(pkg = intendedPackageId)),
               ifaceId,
               cid,
               choice,
@@ -347,7 +347,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         for {
           anyTemplate <- toAnyTemplate(anyTemplateSValue)
         } yield command.ApiCommand.Create(
-          templateId = anyTemplate.ty,
+          templateRef = anyTemplate.ty.toRef,
           argument = anyTemplate.arg.toUnnormalizedValue,
         )
       case SVariant(
@@ -361,7 +361,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           cid <- toContractId(cIdSValue)
           anyChoice <- toAnyChoice(anyChoiceSValue)
         } yield command.ApiCommand.Exercise(
-          typeId = typeId,
+          typeRef = typeId.toRef,
           contractId = cid,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,
@@ -377,7 +377,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           anyKey <- toAnyContractKey(anyKeySValue)
           anyChoice <- toAnyChoice(anyChoiceSValue)
         } yield command.ApiCommand.ExerciseByKey(
-          templateId = typeId,
+          templateRef = typeId.toRef,
           contractKey = anyKey.key.toUnnormalizedValue,
           choiceId = anyChoice.name,
           argument = anyChoice.arg.toUnnormalizedValue,
@@ -392,7 +392,7 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           anyTemplate <- toAnyTemplate(anyTemplateSValue)
           anyChoice <- toAnyChoice(anyChoiceSValue)
         } yield command.ApiCommand.CreateAndExercise(
-          templateId = anyTemplate.ty,
+          templateRef = anyTemplate.ty.toRef,
           createArgument = anyTemplate.arg.toUnnormalizedValue,
           choiceId = anyChoice.name,
           choiceArgument = anyChoice.arg.toUnnormalizedValue,

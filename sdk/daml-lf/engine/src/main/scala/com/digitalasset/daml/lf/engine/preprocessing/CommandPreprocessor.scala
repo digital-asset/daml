@@ -154,7 +154,7 @@ private[lf] final class CommandPreprocessor(
       tyConRef: Ref.TypeConRef,
       context: => language.Reference,
   ): Ref.TypeConName = {
-    val pkgId = tyConRef.pkgRef match {
+    val pkgId = tyConRef.pkg match {
       case PackageRef.Id(id) => id
       case PackageRef.Name(name) =>
         pkgResolution.getOrElse(
@@ -162,7 +162,7 @@ private[lf] final class CommandPreprocessor(
           throw Error.Preprocessing.UnresolvedPackageName(name, context),
         )
     }
-    Ref.TypeConName(pkgId, tyConRef.qName)
+    Ref.TypeConName(pkgId, tyConRef.qualifiedName)
   }
 
   // returns the speedy translation of an API command.

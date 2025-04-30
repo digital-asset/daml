@@ -327,7 +327,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
               argument = Value.ValueUnit,
             ),
             ApiCommand.ExerciseByKey(
-              templateId = withKeyTmplId,
+              templateRef = withKeyTmplId.toRef,
               contractKey = bobKey,
               choiceId = choiceId,
               argument = Value.ValueUnit,
