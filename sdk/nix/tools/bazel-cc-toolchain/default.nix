@@ -3,7 +3,8 @@
 , bintools
 , buildEnv
 , darwin
-, llvmPackages_12
+, libiconv
+, llvmPackages
 , makeWrapper
 , wrapCCWith
 , overrideCC
@@ -30,24 +31,26 @@ let
   darwinBinutils = darwin.binutils.override { inherit postLinkSignHook; };
   cc-darwin =
     wrapCCWith rec {
-      cc = llvmPackages_12.clang;
-      bintools = darwinBinutils;
-      extraBuildCommands = with darwin.apple_sdk.frameworks; ''
-        echo "-Wno-unused-command-line-argument" >> $out/nix-support/cc-cflags
-        echo "-Wno-elaborated-enum-base" >> $out/nix-support/cc-cflags
-        echo "-mmacosx-version-min=${cc.darwinMinVersion}" >> $out/nix-support/cc-cflags
-        echo "-isystem ${llvmPackages_12.libcxx.dev}/include/c++/v1" >> $out/nix-support/cc-cflags
-        echo "-isystem ${llvmPackages_12.clang-unwrapped.lib}/lib/clang/${cc.version}/include" >> $out/nix-support/cc-cflags
-        echo "-F${CoreFoundation}/Library/Frameworks" >> $out/nix-support/cc-cflags
-        echo "-F${CoreServices}/Library/Frameworks" >> $out/nix-support/cc-cflags
-        echo "-F${Security}/Library/Frameworks" >> $out/nix-support/cc-cflags
-        echo "-F${Foundation}/Library/Frameworks" >> $out/nix-support/cc-cflags
-        echo "-L${llvmPackages_12.libcxx}/lib" >> $out/nix-support/cc-cflags
-        echo "-L${darwin.libobjc}/lib" >> $out/nix-support/cc-cflags
-        echo "-D_DNS_SD_LIBDISPATCH" >> $out/nix-support/cc-cflags # Needed for DNSServiceSetDispatchQueue to be available for gRPC
-        echo "-std=c++14" >> $out/nix-support/libcxx-cxxflags
-      '';
-        #echo "-L${llvmPackages_12.libcxxabi}/lib" >> $out/nix-support/cc-cflags
+      cc = stdenv.cc.cc;
+      bintools = stdenv.cc.bintools.override { inherit postLinkSignHook; };
+      extraBuildCommands =
+        with darwin.apple_sdk.frameworks;
+        ''
+          echo "-Wno-unused-command-line-argument" >> $out/nix-support/cc-cflags
+          echo "-Wno-elaborated-enum-base" >> $out/nix-support/cc-cflags
+          echo "-isystem ${llvmPackages.libcxx.dev}/include/c++/v1" >> $out/nix-support/cc-cflags
+          echo "-isystem ${llvmPackages.clang-unwrapped.lib}/lib/clang/${cc.version}/include" >> $out/nix-support/cc-cflags
+          echo "-F${CoreFoundation}/Library/Frameworks" >> $out/nix-support/cc-cflags
+          echo "-F${CoreServices}/Library/Frameworks" >> $out/nix-support/cc-cflags
+          echo "-F${Security}/Library/Frameworks" >> $out/nix-support/cc-cflags
+          echo "-F${Foundation}/Library/Frameworks" >> $out/nix-support/cc-cflags
+          echo "-F${SystemConfiguration}/Library/Frameworks" >> $out/nix-support/cc-cflags
+          echo "-L${llvmPackages.libcxx}/lib" >> $out/nix-support/cc-cflags
+          echo "-L${libiconv}/lib" >> $out/nix-support/cc-cflags
+          echo "-L${darwin.libobjc}/lib" >> $out/nix-support/cc-cflags
+          echo "-resource-dir=${stdenv.cc}/resource-root" >> $out/nix-support/cc-cflags
+          echo "-D_DNS_SD_LIBDISPATCH" >> $out/nix-support/cc-cflags # Needed for DNSServiceSetDispatchQueue to be available for gRPC
+        '';
     };
 
   cc-linux =

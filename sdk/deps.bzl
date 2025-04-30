@@ -46,7 +46,8 @@ rules_haskell_patches = [
 ]
 rules_nixpkgs_version = "0.13.0"
 rules_nixpkgs_sha256 = "30271f7bd380e4e20e4d7132c324946c4fdbc31ebe0bbb6638a0f61a37e74397"
-rules_nixpkgs_patches = [
+
+rules_nixpkgs_core_patches = [
 ]
 
 rules_nixpkgs_toolchain_patches = {
@@ -123,55 +124,45 @@ def daml_deps():
         )
 
     if "io_tweag_rules_nixpkgs" not in native.existing_rules():
+        # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
+        #
+        # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
+        strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
+
         http_archive(
             name = "io_tweag_rules_nixpkgs",
-            strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version,
+            strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v{}/rules_nixpkgs-{}.tar.gz".format(rules_nixpkgs_version, rules_nixpkgs_version)],
             sha256 = rules_nixpkgs_sha256,
-            patches = rules_nixpkgs_patches,
+            patches = [],
             patch_args = ["-p1"],
         )
 
-        # # N.B. rules_nixpkgs was split into separate components, which need to be loaded separately
-        # #
-        # # See https://github.com/tweag/rules_nixpkgs/issues/182 for the rational
+        http_archive(
+            name = "rules_nixpkgs_core",
+            strip_prefix = strip_prefix + "/core",
+            urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v{}/rules_nixpkgs-{}.tar.gz".format(rules_nixpkgs_version, rules_nixpkgs_version)],
+            sha256 = rules_nixpkgs_sha256,
+            patches = rules_nixpkgs_core_patches,
+            patch_args = ["-p2"],
+        )
 
-        # strip_prefix = "rules_nixpkgs-%s" % rules_nixpkgs_version
+        http_archive(
+            name = "rules_nixpkgs_nodejs",
+            strip_prefix = strip_prefix + "/toolchains/nodejs",
+            urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v{}/rules_nixpkgs-{}.tar.gz".format(rules_nixpkgs_version, rules_nixpkgs_version)],
+            sha256 = rules_nixpkgs_sha256,
+        )
 
-        # http_archive(
-        #     name = "io_tweag_rules_nixpkgs",
-        #     strip_prefix = strip_prefix,
-        #     urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-        #     sha256 = rules_nixpkgs_sha256,
-        #     patches = rules_nixpkgs_patches,
-        #     patch_args = ["-p1"],
-        # )
-
-        # http_archive(
-        #     name = "rules_nixpkgs_core",
-        #     strip_prefix = strip_prefix + "/core",
-        #     urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-        #     sha256 = rules_nixpkgs_sha256,
-        #     patches = rules_nixpkgs_patches,
-        #     patch_args = ["-p2"],
-        # )
-
-        # http_archive(
-        #     name = "rules_nixpkgs_nodejs",
-        #     strip_prefix = strip_prefix + "/toolchains/nodejs",
-        #     urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-        #     sha256 = rules_nixpkgs_sha256,
-        # )
-
-        # for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
-        #     http_archive(
-        #         name = "rules_nixpkgs_" + toolchain,
-        #         strip_prefix = strip_prefix + "/toolchains/" + toolchain,
-        #         urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
-        #         sha256 = rules_nixpkgs_sha256,
-        #         patches = rules_nixpkgs_toolchain_patches[toolchain],
-        #         patch_args = ["-p3"],
-        #     )
+        for toolchain in ["cc", "java", "python", "go", "rust", "posix"]:
+            http_archive(
+                name = "rules_nixpkgs_" + toolchain,
+                strip_prefix = strip_prefix + "/toolchains/" + toolchain,
+                urls = ["https://github.com/tweag/rules_nixpkgs/releases/download/v{}/rules_nixpkgs-{}.tar.gz".format(rules_nixpkgs_version, rules_nixpkgs_version)],
+                sha256 = rules_nixpkgs_sha256,
+                patches = rules_nixpkgs_toolchain_patches[toolchain],
+                patch_args = ["-p3"],
+            )
 
     if "com_github_madler_zlib" not in native.existing_rules():
         http_archive(
