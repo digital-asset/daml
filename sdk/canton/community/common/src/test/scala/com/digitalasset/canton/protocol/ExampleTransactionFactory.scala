@@ -1258,7 +1258,7 @@ class ExampleTransactionFactory(
       consuming: Boolean = true,
   ) extends SingleNode(Some(seed)) {
     val upgradedTemplateId: canton.protocol.LfTemplateId =
-      templateId.copy(packageId = upgradePackageId)
+      templateId.copy(pkg = upgradePackageId)
     private def genNode(id: LfContractId): LfNodeExercises =
       exerciseNode(targetCoid = id, templateId = upgradedTemplateId, signatories = Set(submitter))
     override def node: LfNodeExercises = genNode(contractId)
