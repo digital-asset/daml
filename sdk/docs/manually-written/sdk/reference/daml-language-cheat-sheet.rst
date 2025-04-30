@@ -10,4 +10,4 @@ Click to open the |cheat_sheet_link|
 
 .. |cheat_sheet_link| raw:: html
 
-   <a href="/build/3.3/reference/cheat-sheet.html" target="_blank">Daml language cheat sheet</a>.
+   <a href="/build/3.4/reference/cheat-sheet.html" target="_blank">Daml language cheat sheet</a>.

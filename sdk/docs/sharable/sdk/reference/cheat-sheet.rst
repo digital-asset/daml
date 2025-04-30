@@ -1,5 +1,12 @@
 :orphan:
-:cheat_sheet_layout: True
+:show_main_header: True
+:hide_sidebars: True
+:layout: standalone
+
+.. raw:: html
+
+    <div class="cheat-sheet">
+
 
 Cheat Sheet
 ===========
@@ -46,4 +53,5 @@ Cheat Sheet
 
 .. raw:: html
 
+        </div>
     </div>
