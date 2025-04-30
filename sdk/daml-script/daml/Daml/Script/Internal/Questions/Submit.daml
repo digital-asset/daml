@@ -243,7 +243,7 @@ submitWithOptions = submit
 submitTree : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script TransactionTree
 submitTree opts cmds = snd <$> submitResultAndTree opts cmds
 
--- | Submit a transaction and recieve back either the result, or a `SubmitError`.
+-- | Submit a transaction and receive back either the result, or a `SubmitError`.
 -- In the majority of failures, this will not crash at runtime.
 trySubmit : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError a)
 trySubmit opts cmds = fmap fst <$> trySubmitResultAndTree opts cmds
@@ -263,6 +263,20 @@ submitMustFail opts cmds = void $ submitWithError opts cmds
 {-# DEPRECATED submitMustFailWithOptions "Daml 2.9 compatibility helper, use 'submitMustFail' instead " #-}
 submitMustFailWithOptions : (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 submitMustFailWithOptions = submitMustFail
+
+data TimeBoundedResult a = TimeBoundedResult
+  with
+    value: a
+    minLedgerTime: Optional Time
+    maxLedgerTime: Optional Time
+  deriving Show
+
+-- | An extended version of `submit` that also returns additional information about the result of the
+-- submission, which mirrors the information that would be available on the prepared transaction.
+extSubmit: (HasCallStack, ScriptSubmit script, IsSubmitOptions options, Action script) => options -> Commands a -> script (TimeBoundedResult a)
+extSubmit opts cmds = do
+  (value, (TransactionTree _ timeBound)) <- submitResultAndTree opts cmds
+  return (TimeBoundedResult value (fmap (\b -> b.min) timeBound) (fmap (\b -> b.max) timeBound))
 
 -- ##### Old compatibility conveniences #####
 
