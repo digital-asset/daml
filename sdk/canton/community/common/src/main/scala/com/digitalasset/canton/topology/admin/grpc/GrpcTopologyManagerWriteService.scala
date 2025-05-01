@@ -88,14 +88,6 @@ class GrpcTopologyManagerWriteService(
           ProtoDeserializationFailure.Wrap(FieldNotSet("AuthorizeRequest.type"))
         )
 
-      case Type.TransactionHashRaw(value) =>
-        for {
-          txHash <- EitherT
-            .fromEither[FutureUnlessShutdown](Hash.fromByteString(value).map(TxHash.apply))
-            .leftMap(err => ProtoDeserializationFailure.Wrap(err.toProtoDeserializationError))
-          signedTopoTx <- authorizeFromHash(txHash)
-        } yield signedTopoTx
-
       case Type.TransactionHash(value) =>
         for {
           txHash <- EitherT

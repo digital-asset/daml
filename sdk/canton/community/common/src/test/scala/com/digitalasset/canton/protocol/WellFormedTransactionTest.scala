@@ -144,7 +144,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
         "Create shadows previously referenced id",
         factory.versionedTransactionWithSeeds(Seq(0, 1), fetchNode(lfAbs), createNode(lfAbs)),
         WithSuffixes,
-        s"Contract id 0000000000000000000000000000000000000000000000000000000000000000000000 created in node ${nid(1)} is referenced before in ${nid(0)}",
+        s"Contract id ${lfAbs.coid} created in node ${nid(1)} is referenced before in ${nid(0)}",
       ),
       (
         "Unsuffixed discriminator appears with suffix in value",
@@ -177,7 +177,9 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           fetchNode(suffixedId(1, -1)),
         ),
         WithoutSuffixes,
-        s"Contract discriminator 0001000000000000000000000000000000000000000000000000000000000000 created in ${nid(0)} is not fresh due to contract Id 000001000000000000000000000000000000000000000000000000000000000000ffffffff in ${nid(2)}",
+        s"Contract discriminator 0001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
+            0
+          )} is not fresh due to contract Id ${suffixedId(1, -1).coid} in ${nid(2)}",
       ),
       (
         "Unsuffixed discriminator is referenced with suffix in later node",
@@ -193,7 +195,9 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
           ),
         ),
         WithoutSuffixes,
-        s"Contract discriminator 0001000000000000000000000000000000000000000000000000000000000000 created in ${nid(0)} is not fresh due to contract Id 000001000000000000000000000000000000000000000000000000000000000000ffffffff in ${nid(1)}",
+        s"Contract discriminator 0001000000000000000000000000000000000000000000000000000000000000 created in ${nid(
+            0
+          )} is not fresh due to contract Id ${suffixedId(1, -1).coid} in ${nid(1)}",
       ),
       (
         "Missing signatory",

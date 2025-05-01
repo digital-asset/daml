@@ -232,8 +232,8 @@ trait HasReassignmentCommandsHelpers {
       )
     )
 
-  protected def getReassignmentCommand(
-      cmd: proto.reassignment_commands.ReassignmentCommand.Command,
+  protected def getReassignmentCommands(
+      cmds: Seq[proto.reassignment_commands.ReassignmentCommand.Command],
       userId: LedgerUserId = HasCommandRunnersHelpers.userId,
       submissionId: Option[LedgerSubmissionId] = HasCommandRunnersHelpers.submissionId,
       commandId: LedgerCommandId = HasCommandRunnersHelpers.commandId,
@@ -245,9 +245,25 @@ trait HasReassignmentCommandsHelpers {
       userId = userId,
       commandId = commandId,
       submitter = submittingParty.toLf,
-      commands = Seq(proto.reassignment_commands.ReassignmentCommand(cmd)),
+      commands = cmds.map(proto.reassignment_commands.ReassignmentCommand(_)),
       submissionId = submissionId.getOrElse(""),
     )
+
+  protected def getReassignmentCommand(
+      cmd: proto.reassignment_commands.ReassignmentCommand.Command,
+      userId: LedgerUserId = HasCommandRunnersHelpers.userId,
+      submissionId: Option[LedgerSubmissionId] = HasCommandRunnersHelpers.submissionId,
+      commandId: LedgerCommandId = HasCommandRunnersHelpers.commandId,
+      workflowId: Option[LfWorkflowId] = None,
+      submittingParty: PartyId,
+  ): proto.reassignment_commands.ReassignmentCommands = getReassignmentCommands(
+    Seq(cmd),
+    userId,
+    submissionId,
+    commandId,
+    workflowId,
+    submittingParty,
+  )
 
   protected def getReassignmentId(out: UpdateService.UnassignedWrapper): ReassignmentId =
     ReassignmentId(

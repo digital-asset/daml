@@ -99,6 +99,16 @@ case class SerializableContract(
     version = rawContractInstance.contractInstance.version,
   )
 
+  // Will succeed providing the contract has been authenticated
+  def tryFatContractInstance: FatContractInstance =
+    FatContractInstance.fromCreateNode(
+      toLf,
+      ledgerCreateTime.toLf,
+      DriverContractMetadata(contractSalt).toLfBytes(
+        CantonContractIdVersion.tryCantonContractIdVersion(contractId)
+      ),
+    )
+
 }
 
 object SerializableContract
@@ -140,12 +150,11 @@ object SerializableContract
         SerializableContract(contractId, _, metadata, LedgerCreateTime(ledgerTime), contractSalt)
       )
 
-  def fromDisclosedContract(
+  def fromFatContract(
       fat: FatContractInstance
   ): Either[String, SerializableContract] = {
     val ledgerTime = CantonTimestamp(fat.createdAt)
     val driverContractMetadataBytes = fat.cantonData.toByteArray
-
     for {
       _disclosedContractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(fat.contractId)
@@ -157,7 +166,7 @@ object SerializableContract
           )
         else
           DriverContractMetadata
-            .fromTrustedByteArray(driverContractMetadataBytes)
+            .fromLfBytes(driverContractMetadataBytes)
             .leftMap(err => s"Failed parsing disclosed contract driver contract metadata: $err")
             .map(_.salt)
       }
@@ -253,4 +262,5 @@ object SerializableContract
       LedgerCreateTime(ledgerCreateTime),
       contractSalt,
     )
+
 }

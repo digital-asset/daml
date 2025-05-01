@@ -29,6 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   BftP2PNetworkOut,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   SystemInitializationResult,
@@ -330,7 +331,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       )
     val sequencerIds = config.initialNetwork.toList
       .flatMap(_.peerEndpoints.map(P2PEndpoint.fromEndpointConfig))
-      .map(Simulation.endpointToNode)
+      .map(endpointToTestBftNodeId)
     val membership = Membership(thisNode, orderingTopology, sequencerIds)
     val availabilityStore = store(simulationModel.availabilityStorage)
     val availabilityConfig = AvailabilityModuleConfig(
@@ -461,7 +462,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
         val endpointConfig = endpoints(n)
         val endpoint = PlainTextP2PEndpoint(endpointConfig.address, endpointConfig.port)
           .asInstanceOf[P2PEndpoint]
-        val node = Simulation.endpointToNode(endpoint)
+        val node = endpointToTestBftNodeId(endpoint)
 
         val orderingTopologyProvider =
           new SimulationOrderingTopologyProvider(

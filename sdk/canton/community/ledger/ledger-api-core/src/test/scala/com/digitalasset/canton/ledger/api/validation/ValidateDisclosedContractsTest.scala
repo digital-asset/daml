@@ -8,19 +8,25 @@ import com.daml.ledger.api.v2.commands.{
   DisclosedContract as ProtoDisclosedContract,
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
-import com.digitalasset.canton.BaseTest.testedProtocolVersion
-import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.crypto.{Salt, SaltSeed}
+import com.digitalasset.canton.crypto.{Salt, SaltSeed, TestHash}
 import com.digitalasset.canton.ledger.api.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   lf,
+  lfContractId,
   validateDisclosedContracts,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NoLogging}
 import com.digitalasset.canton.platform.apiserver.execution.ContractAuthenticators.AuthenticateFatContractInstance
-import com.digitalasset.canton.protocol.{DriverContractMetadata, LfTransactionVersion}
+import com.digitalasset.canton.protocol.{
+  AuthenticatedContractIdVersionV11,
+  CantonContractIdVersion,
+  DriverContractMetadata,
+  LfTransactionVersion,
+  Unicum,
+}
+import com.digitalasset.canton.{DefaultDamlValues, LfValue}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value as Lf
@@ -178,7 +184,7 @@ class ValidateDisclosedContractsTest
       ),
       code = Status.Code.INVALID_ARGUMENT,
       description =
-        s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Mismatch between DisclosedContract.contract_id ($otherContractId) and contract_id from decoded DisclosedContract.created_event_blob (${lf.lfContractId.coid})",
+        s"INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: Mismatch between DisclosedContract.contract_id ($otherContractId) and contract_id from decoded DisclosedContract.created_event_blob (${lfContractId.coid})",
       metadata = Map.empty,
     )
   }
@@ -246,11 +252,16 @@ object ValidateDisclosedContractsTest {
   private val validateDisclosedContracts =
     new ValidateDisclosedContracts(dummyContractIdAuthenticator)
 
+  val lfContractId: ContractId.V1 = AuthenticatedContractIdVersionV11.fromDiscriminator(
+    DefaultDamlValues.lfhash(3),
+    Unicum(TestHash.digest(4)),
+  )
+
   private object api {
     val templateId: ProtoIdentifier =
       ProtoIdentifier("package", moduleName = "module", entityName = "entity")
     val packageName: Ref.PackageName = Ref.PackageName.assertFromString("pkg-name")
-    val contractId: String = "00" + "00" * 31 + "ef"
+    val contractId: String = lfContractId.coid
     val alice: Ref.Party = Ref.Party.assertFromString("alice")
     private val bob: Ref.Party = Ref.Party.assertFromString("bob")
     private val charlie: Ref.Party = Ref.Party.assertFromString("charlie")
@@ -285,13 +296,14 @@ object ValidateDisclosedContractsTest {
     )
     private val createArg: ValueRecord =
       ValueRecord(tycon = None, fields = ImmArray(None -> Lf.ValueTrue))
-    val lfContractId: ContractId.V1 = Lf.ContractId.V1.assertFromString(api.contractId)
 
     private val seedSalt: SaltSeed = SaltSeed.generate()(new SymbolicPureCrypto())
     private val salt = Salt.tryDeriveSalt(seedSalt, 0, new SymbolicPureCrypto())
 
     private val driverMetadataBytes: Bytes =
-      DriverContractMetadata(salt).toLfBytes(testedProtocolVersion)
+      DriverContractMetadata(salt).toLfBytes(
+        CantonContractIdVersion.tryCantonContractIdVersion(lfContractId)
+      )
 
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(
       lf.templateId,
@@ -307,7 +319,7 @@ object ValidateDisclosedContractsTest {
     )
 
     private val createNode: Node.Create = Node.Create(
-      coid = lf.lfContractId,
+      coid = lfContractId,
       templateId = lf.templateId,
       packageName = api.packageName,
       arg = lf.createArg,

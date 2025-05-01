@@ -86,20 +86,20 @@ For example:
 
 ```
 @ participant1.synchronizers.list_registered().map(_._1.synchronizerAlias.unwrap)
-res0: Seq[String] = Vector("mysynchronizer")
+res0: Seq[String] = Vector("observabilityExample")
 
 @ sequencer1.bft.get_ordering_topology()
-res1: com.digitalasset.canton.synchronizer.sequencing.sequencer.block.bftordering.admin.SequencerBftAdminData.OrderingTopology = OrderingTopology(
-  currentEpoch = 30L,
-  sequencerIds = Vector(SEQ::sequencer1::122068109171..., SEQ::sequencer2::1220ec0faf93..., SEQ::sequencer3::122078a60382..., SEQ::sequencer4::12203fdba69e...)
+res1: com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.OrderingTopology = OrderingTopology(
+  currentEpoch = 44L,
+  sequencerIds = Vector(SEQ::sequencer1::1220e3f201ea..., SEQ::sequencer2::1220d2a694d0..., SEQ::sequencer3::1220c4427061..., SEQ::sequencer4::1220ba5cfe72...)
 )
 
 @ sequencer1.bft.get_peer_network_status(None)
 res2: com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus = PeerNetworkStatus(
-  endpointStatuses = Vector(
-    PeerEndpointStatus(endpointId = PeerEndpointId(address = "0.0.0.0", port = Port(n = 31032), transportSecurity = false), health = PeerEndpointHealth(status = Authenticated, description = None)),
-    PeerEndpointStatus(endpointId = PeerEndpointId(address = "0.0.0.0", port = Port(n = 31033), transportSecurity = false), health = PeerEndpointHealth(status = Authenticated, description = None)),
-    PeerEndpointStatus(endpointId = PeerEndpointId(address = "0.0.0.0", port = Port(n = 31031), transportSecurity = false), health = PeerEndpointHealth(status = Authenticated, description = None))
+  endpoint statuses = Seq(
+    PeerEndpointStatus(endpointId = Id(url = "http://0.0.0.0:31031", tls = false), health = PeerEndpointHealth(status = Authenticated(sequencerId = SEQ::sequencer2::1220d2a694d0...))),
+    PeerEndpointStatus(endpointId = Id(url = "http://0.0.0.0:31032", tls = false), health = PeerEndpointHealth(status = Authenticated(sequencerId = SEQ::sequencer3::1220c4427061...))),
+    PeerEndpointStatus(endpointId = Id(url = "http://0.0.0.0:31033", tls = false), health = PeerEndpointHealth(status = Authenticated(sequencerId = SEQ::sequencer4::1220ba5cfe72...)))
   )
 )
 ```

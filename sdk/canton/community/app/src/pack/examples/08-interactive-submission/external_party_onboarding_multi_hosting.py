@@ -99,7 +99,7 @@ def authorize_external_party_hosting(
     # Authorize the hosting
     topology_write_client.Authorize(
         topology_manager_write_service_pb2.AuthorizeRequest(
-            transaction_hash_bytes=party_to_participant_proposal.context.transaction_hash,
+            transaction_hash=party_to_participant_proposal.context.transaction_hash.hex(),
             must_fully_authorize=False,
             store=common_pb2.StoreId(
                 synchronizer=common_pb2.StoreId.Synchronizer(

@@ -809,7 +809,7 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected def rt(timestamp: Long, tieBreaker: Int): RecordTime =
     RecordTime(ts(timestamp).forgetRefinement, tieBreaker.toLong)
 
-  protected val coid = (txId, discriminator) =>
+  protected val coid: (Int, Int) => LfContractId = (txId, discriminator) =>
     ExampleTransactionFactory.suffixedId(txId, discriminator)
 }
 

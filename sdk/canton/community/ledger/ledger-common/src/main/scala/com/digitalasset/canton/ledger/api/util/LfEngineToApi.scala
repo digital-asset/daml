@@ -37,6 +37,9 @@ object LfEngineToApi {
       identifier.qualifiedName.name.toString(),
     )
 
+  def toApiIdentifier(typConRef: Ref.TypeConRef): api.Identifier =
+    toApiIdentifier(typConRef.assertToTypeConName)
+
   def toTimestamp(instant: Instant): Timestamp =
     Timestamp.apply(instant.getEpochSecond, instant.getNano)
 

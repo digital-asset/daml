@@ -39,6 +39,14 @@ object CantonContractIdVersion {
     } yield versionedContractId
   }
 
+  // Only use when the contract has been authenticated
+  def tryCantonContractIdVersion(contractId: LfContractId): CantonContractIdVersion =
+    extractCantonContractIdVersion(contractId).valueOr { err =>
+      throw new IllegalArgumentException(
+        s"Unable to unwrap object of type ${getClass.getSimpleName}: $err"
+      )
+    }
+
   def fromContractSuffix(contractSuffix: Bytes): Either[String, CantonContractIdVersion] =
     if (contractSuffix.startsWith(AuthenticatedContractIdVersionV11.versionPrefixBytes)) {
       Right(AuthenticatedContractIdVersionV11)
