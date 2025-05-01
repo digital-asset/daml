@@ -29,8 +29,7 @@ object UpgradeError {
     def message: String;
   }
 
-  final case class MissingPackageInPackageMap(missingPackages: List[Ref.PackageId])
-      extends Error {
+  final case class MissingPackageInPackageMap(missingPackages: List[Ref.PackageId]) extends Error {
     override def message: String =
       s"Packages have been deleted: $missingPackages"
   }
@@ -563,11 +562,17 @@ case class TypecheckUpgrades(
     } yield ()
   }
 
-  private def checkIdentifiers(past: Ref.Identifier, present: Ref.Identifier): Either[UpgradeError.Error, Boolean] = {
+  private def checkIdentifiers(
+      past: Ref.Identifier,
+      present: Ref.Identifier,
+  ): Either[UpgradeError.Error, Boolean] = {
     val compatibleNames = past.qualifiedName == present.qualifiedName
     val compatiblePackages =
       (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
-        case (Some((pastUpgradable, pastName, pastVersion)), Some((presentUpgradable, presentName, presentVersion))) =>
+        case (
+              Some((pastUpgradable, pastName, pastVersion)),
+              Some((presentUpgradable, presentName, presentVersion)),
+            ) =>
           Right {
             (pastUpgradable, presentUpgradable) match {
               // The two packages have LF versions >= 1.17.
@@ -596,7 +601,11 @@ case class TypecheckUpgrades(
   }
 
   @tailrec
-  private def checkTypeList(envPast: Env, envPresent: Env, trips: List[(Type, Type)]): Try[Boolean] =
+  private def checkTypeList(
+      envPast: Env,
+      envPresent: Env,
+      trips: List[(Type, Type)],
+  ): Try[Boolean] =
     trips match {
       case Nil => Try(true)
       case (t1, t2) :: trips =>
@@ -632,7 +641,10 @@ case class TypecheckUpgrades(
     checkTypeList(typ.past.env, typ.present.env, List((typ.past.value, typ.present.value)))
   }
 
-  private def failIfType(typ: Upgrading[Closure[Ast.Type]], err: => UpgradeError.Error): Try[Unit] = {
+  private def failIfType(
+      typ: Upgrading[Closure[Ast.Type]],
+      err: => UpgradeError.Error,
+  ): Try[Unit] = {
     for {
       isSameType <- checkType(typ)
       unit <- failIf(!isSameType, err)
@@ -663,7 +675,7 @@ case class TypecheckUpgrades(
         val keyPastPresent = Upgrading(pastKey.typ, presentKey.typ)
         failIfType(
           Upgrading(Closure(Env(), pastKey.typ), Closure(Env(), presentKey.typ)),
-          UpgradeError.TemplateChangedKeyType(templateName, keyPastPresent)
+          UpgradeError.TemplateChangedKeyType(templateName, keyPastPresent),
         )
       }
       case Upgrading(Some(pastKey @ _), None) =>
@@ -677,7 +689,7 @@ case class TypecheckUpgrades(
     val returnType = choice.map(_.returnType)
     failIfType(
       returnType.map(Closure(Env(), _)),
-      UpgradeError.ChoiceChangedReturnType(choice.present.name, returnType)
+      UpgradeError.ChoiceChangedReturnType(choice.present.name, returnType),
     )
   }
 
@@ -728,7 +740,7 @@ case class TypecheckUpgrades(
                     existing.view,
                     { case (_, typ) =>
                       checkType(env.zip(typ, Closure.apply _)).map(!_)
-                    }
+                    },
                   )
                   _ <-
                     if (changedTypes.nonEmpty)
@@ -801,7 +813,7 @@ case class TypecheckUpgrades(
         _existing.view,
         { case (_, typ) =>
           checkType(env.zip(typ, Closure.apply _)).map(!_)
-        }
+        },
       )
       _ <- failIf(
         changedTypes.nonEmpty,
