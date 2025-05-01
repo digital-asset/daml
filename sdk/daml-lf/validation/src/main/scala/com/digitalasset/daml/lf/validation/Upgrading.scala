@@ -29,6 +29,12 @@ object UpgradeError {
     def message: String;
   }
 
+  final case class MissingPackageInPackageMap(missingPackages: List[Ref.PackageId])
+      extends Error {
+    override def message: String =
+      s"Packages have been deleted: $missingPackages"
+  }
+
   final case class CouldNotResolveUpgradedPackageId(packageId: Upgrading[Ref.PackageId])
       extends Error {
     override def message: String =
@@ -368,8 +374,11 @@ object TypecheckUpgrades {
   private def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try(t.map(f(_).get).toSeq)
 
+  private def tryFilter[A](t: Iterable[A], f: A => Try[Boolean]): Try[Seq[A]] =
+    Try(t.filter(f(_).get).toSeq)
+
   def typecheckUpgrades(
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Boolean, Ref.PackageName, Ref.PackageVersion)],
       present: (
           Ref.PackageId,
           Ast.Package,
@@ -384,8 +393,8 @@ object TypecheckUpgrades {
         val (presentPackageId, presentPkg) = present
         val tc = TypecheckUpgrades(
           packageMap +
-            (presentPackageId -> (presentPkg.pkgName, presentPkg.metadata.version)) +
-            (pastPackageId -> (pastPkg.pkgName, pastPkg.metadata.version)),
+            (presentPackageId -> (true, presentPkg.pkgName, presentPkg.metadata.version)) +
+            (pastPackageId -> (true, pastPkg.pkgName, pastPkg.metadata.version)),
           Upgrading((pastPackageId, pastPkg), present),
         )
         tc.check()
@@ -394,7 +403,7 @@ object TypecheckUpgrades {
 }
 
 case class TypecheckUpgrades(
-    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+    packageMap: Map[Ref.PackageId, (Boolean, Ref.PackageName, Ref.PackageVersion)],
     packages: Upgrading[
       (Ref.PackageId, Ast.Package)
     ],
@@ -554,48 +563,80 @@ case class TypecheckUpgrades(
     } yield ()
   }
 
-  private def checkIdentifiers(past: Ref.Identifier, present: Ref.Identifier): Boolean = {
+  private def checkIdentifiers(past: Ref.Identifier, present: Ref.Identifier): Either[UpgradeError.Error, Boolean] = {
     val compatibleNames = past.qualifiedName == present.qualifiedName
     val compatiblePackages =
       (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
-        // The two packages have LF versions < 1.17.
-        // They must be the exact same package as LF < 1.17 don't support upgrades.
-        case (None, None) => past.packageId == present.packageId
-        // The two packages have LF versions >= 1.17.
-        // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
-        // topological order, the package version ordering is a proxy for the "upgrades" relationship.
-        case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
-          pastName == presentName && pastVersion <= presentVersion
-        // LF versions < 1.17 and >= 1.17 are not comparable.
-        case (_, _) => false
+        case (Some((pastUpgradable, pastName, pastVersion)), Some((presentUpgradable, presentName, presentVersion))) =>
+          Right {
+            (pastUpgradable, presentUpgradable) match {
+              // The two packages have LF versions >= 1.17.
+              // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
+              // topological order, the package version ordering is a proxy for the "upgrades" relationship.
+              case (true, true) =>
+                pastName == presentName && pastVersion <= presentVersion
+              // The two packages have LF versions < 1.17.
+              // They must be the exact same package as LF < 1.17 don't support upgrades.
+              case (false, false) =>
+                past.packageId == present.packageId
+              case _ =>
+                false
+            }
+          }
+        case (None, None) =>
+          Left(UpgradeError.MissingPackageInPackageMap(List(past.packageId, present.packageId)))
+        case (_, None) =>
+          Left(UpgradeError.MissingPackageInPackageMap(List(present.packageId)))
+        case (None, _) =>
+          Left(UpgradeError.MissingPackageInPackageMap(List(past.packageId)))
       }
-    compatibleNames && compatiblePackages
+    // TODO: Do we want to short circuit on compatibleNames or actually do the
+    // lookup and fail on missing lookup anyways?
+    if (compatibleNames) Right(false) else compatiblePackages
   }
 
   @tailrec
-  private def checkTypeList(envPast: Env, envPresent: Env, trips: List[(Type, Type)]): Boolean =
+  private def checkTypeList(envPast: Env, envPresent: Env, trips: List[(Type, Type)]): Try[Boolean] =
     trips match {
-      case Nil => true
+      case Nil => Try(true)
       case (t1, t2) :: trips =>
         (t1, t2) match {
           case (TVar(x1), TVar(x2)) =>
-            envPast.binderDepth(x1) == envPresent.binderDepth(x2) &&
-            checkTypeList(envPast, envPresent, trips)
+            if (envPast.binderDepth(x1) == envPresent.binderDepth(x2))
+              checkTypeList(envPast, envPresent, trips)
+            else
+              Try(false)
           case (TNat(n1), TNat(n2)) =>
-            n1 == n2 && checkTypeList(envPast, envPresent, trips)
+            if (n1 == n2)
+              checkTypeList(envPast, envPresent, trips)
+            else
+              Try(false)
           case (TTyCon(c1), TTyCon(c2)) =>
-            checkIdentifiers(c1, c2) && checkTypeList(envPast, envPresent, trips)
+            checkIdentifiers(c1, c2) match {
+              case Left(e) => fail(e)
+              case Right(b) => if (b) checkTypeList(envPast, envPresent, trips) else Try(false)
+            }
           case (TApp(f1, a1), TApp(f2, a2)) =>
             checkTypeList(envPast, envPresent, (f1, f2) :: (a1, a2) :: trips)
           case (TBuiltin(b1), TBuiltin(b2)) =>
-            b1 == b2 && checkTypeList(envPast, envPresent, trips)
+            if (b1 == b2)
+              checkTypeList(envPast, envPresent, trips)
+            else
+              Try(false)
           case _ =>
-            false
+            Try(false)
         }
     }
 
-  private def checkType(typ: Upgrading[Closure[Ast.Type]]): Boolean = {
+  private def checkType(typ: Upgrading[Closure[Ast.Type]]): Try[Boolean] = {
     checkTypeList(typ.past.env, typ.present.env, List((typ.past.value, typ.present.value)))
+  }
+
+  private def failIfType(typ: Upgrading[Closure[Ast.Type]], err: => UpgradeError.Error): Try[Unit] = {
+    for {
+      isSameType <- checkType(typ)
+      unit <- failIf(!isSameType, err)
+    } yield unit
   }
 
   private def unifyIdentifier(id: Ref.Identifier): Ref.Identifier =
@@ -620,10 +661,10 @@ case class TypecheckUpgrades(
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
         val keyPastPresent = Upgrading(pastKey.typ, presentKey.typ)
-        if (!checkType(Upgrading(Closure(Env(), pastKey.typ), Closure(Env(), presentKey.typ))))
-          fail(UpgradeError.TemplateChangedKeyType(templateName, keyPastPresent))
-        else
-          Success(())
+        failIfType(
+          Upgrading(Closure(Env(), pastKey.typ), Closure(Env(), presentKey.typ)),
+          UpgradeError.TemplateChangedKeyType(templateName, keyPastPresent)
+        )
       }
       case Upgrading(Some(pastKey @ _), None) =>
         fail(UpgradeError.TemplateRemovedKey(templateName, pastKey))
@@ -634,11 +675,10 @@ case class TypecheckUpgrades(
 
   private def checkChoice(choice: Upgrading[Ast.TemplateChoice]): Try[Unit] = {
     val returnType = choice.map(_.returnType)
-    if (checkType(returnType.map(Closure(Env(), _)))) {
-      Success(())
-    } else {
-      fail(UpgradeError.ChoiceChangedReturnType(choice.present.name, returnType))
-    }
+    failIfType(
+      returnType.map(Closure(Env(), _)),
+      UpgradeError.ChoiceChangedReturnType(choice.present.name, returnType)
+    )
   }
 
   private def checkDatatype(
@@ -684,9 +724,12 @@ case class TypecheckUpgrades(
                       UpgradeError.VariantRemovedVariant(origin.present),
                   )
 
-                  changedTypes = existing.filter { case (field @ _, typ) =>
-                    !checkType(env.zip(typ, Closure.apply _))
-                  }
+                  changedTypes <- tryFilter[(Ast.VariantConName, Upgrading[Ast.Type])](
+                    existing.view,
+                    { case (_, typ) =>
+                      checkType(env.zip(typ, Closure.apply _)).map(!_)
+                    }
+                  )
                   _ <-
                     if (changedTypes.nonEmpty)
                       fail(UpgradeError.VariantChangedVariantType(origin.present))
@@ -754,12 +797,15 @@ case class TypecheckUpgrades(
       _ <- failIf(_deleted.nonEmpty, UpgradeError.RecordFieldsMissing(origin, _deleted))
 
       // Then we check for changed types
-      changedTypes = _existing.filter { case (field @ _, typ) =>
-        !checkType(env.zip(typ, Closure.apply _))
-      }
+      changedTypes <- tryFilter[(Ast.FieldName, Upgrading[Ast.Type])](
+        _existing.view,
+        { case (_, typ) =>
+          checkType(env.zip(typ, Closure.apply _)).map(!_)
+        }
+      )
       _ <- failIf(
         changedTypes.nonEmpty,
-        UpgradeError.RecordFieldsExistingChanged(origin, changedTypes),
+        UpgradeError.RecordFieldsExistingChanged(origin, changedTypes.toMap),
       )
 
       // Then we check for new non-optional types, and vary the message if its a variant
