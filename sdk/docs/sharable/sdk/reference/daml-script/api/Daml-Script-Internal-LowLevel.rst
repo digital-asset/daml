@@ -38,6 +38,8 @@ Typeclasses
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`Throw <type-daml-script-internal-questions-exceptions-throw-53740>` t
 
+  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_ x)
+
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListAllPackages <type-daml-script-internal-questions-packages-listallpackages-28931>` \[:ref:`PackageName <type-daml-script-internal-questions-packages-packagename-68696>`\]
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListVettedPackages <type-daml-script-internal-questions-packages-listvettedpackages-5133>` \[:ref:`PackageName <type-daml-script-internal-questions-packages-packagename-68696>`\]
@@ -99,9 +101,13 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"act\" :ref:`Catch <type-daml-script-internal-questions-exceptions-catch-84605>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
 
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"act\" :ref:`TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
+
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"act\" :ref:`TryCommands <type-daml-script-internal-questions-testing-trycommands-91696>` `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" :ref:`Catch <type-daml-script-internal-questions-exceptions-catch-84605>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" :ref:`TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" :ref:`TryCommands <type-daml-script-internal-questions-testing-trycommands-91696>` `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_
 
