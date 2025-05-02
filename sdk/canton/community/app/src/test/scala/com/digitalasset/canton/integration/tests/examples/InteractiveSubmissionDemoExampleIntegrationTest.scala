@@ -162,7 +162,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
         mediatorGroup.value,
         synchronizerId,
         preparedTransactionData.transactionMeta.timeBoundaries,
-        preparedTransactionData.transactionMeta.preparationTime,
+        preparedTransactionData.transactionMeta.submissionTime,
         preparedTransactionData.inputContracts,
       ),
       preparedTransactionData.transactionMeta.optNodeSeeds

@@ -17,14 +17,14 @@ import scala.collection.immutable.{SortedMap, SortedSet}
 
 object TransactionMetadataHashBuilder {
   final case class MetadataV1(
-                               actAs: SortedSet[Ref.Party],
-                               commandId: Ref.CommandId,
-                               transactionUUID: UUID,
-                               mediatorGroup: Int,
-                               synchronizerId: String,
-                               timeBoundaries: LedgerTimeBoundaries,
-                               preparationTime: Time.Timestamp,
-                               disclosedContracts: SortedMap[ContractId, FatContractInstance],
+       actAs: SortedSet[Ref.Party],
+       commandId: Ref.CommandId,
+       transactionUUID: UUID,
+       mediatorGroup: Int,
+       synchronizerId: String,
+       timeBoundaries: LedgerTimeBoundaries,
+       submissionTime: Time.Timestamp,
+       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
   /** Hashes Transaction Metadata using the V1 Hashing Scheme
@@ -60,7 +60,7 @@ object TransactionMetadataHashBuilder {
           b => (v: Time.Timestamp) => b.add(v.micros),
         )
       )
-      .withContext("Submission Time")(_.add(metadata.preparationTime.micros))
+      .withContext("Submission Time")(_.add(metadata.submissionTime.micros))
       .withContext("Disclosed Contracts")(
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>

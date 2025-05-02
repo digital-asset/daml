@@ -435,17 +435,17 @@ class ExampleTransactionFactory(
     val cryptoOps: HashOps with HmacOps with RandomOps = new SymbolicPureCrypto,
     versionOverride: Option[ProtocolVersion] = None,
 )(
-                                 val transactionSalt: Salt = TestSalt.generateSalt(0),
-                                 val transactionSeed: SaltSeed = TestSalt.generateSeed(0),
-                                 val transactionUuid: UUID = UUID.fromString("11111111-2222-3333-4444-555555555555"),
-                                 val synchronizerId: SynchronizerId = SynchronizerId(
+    val transactionSalt: Salt = TestSalt.generateSalt(0),
+    val transactionSeed: SaltSeed = TestSalt.generateSeed(0),
+    val transactionUuid: UUID = UUID.fromString("11111111-2222-3333-4444-555555555555"),
+    val synchronizerId: SynchronizerId = SynchronizerId(
       UniqueIdentifier.tryFromProtoPrimitive("example::default")
     ),
-                                 val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
-                                 val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
-                                 val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
-                                 val preparationTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
-                                 val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
+    val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
+    val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
+    val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
+    val submissionTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
+    val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
 )(implicit ec: ExecutionContext, tc: TraceContext)
     extends EitherValues {
 
@@ -543,14 +543,14 @@ class ExampleTransactionFactory(
   val lfTransactionSeed: LfHash = LfHash.deriveTransactionSeed(
     ExampleTransactionFactory.submissionSeed,
     ExampleTransactionFactory.submittingParticipant.toLf,
-    preparationTime.toLf,
+    submissionTime.toLf,
   )
 
   def deriveNodeSeed(path: Int*): LfHash =
     path.foldLeft(lfTransactionSeed)((seed, i) => LfHash.deriveNodeSeed(seed, i))
 
   def discriminator(nodeSeed: LfHash, stakeholders: Set[LfPartyId]): LfHash =
-    LfHash.deriveContractDiscriminator(nodeSeed, preparationTime.toLf, stakeholders)
+    LfHash.deriveContractDiscriminator(nodeSeed, submissionTime.toLf, stakeholders)
 
   val unicumGenerator = new UnicumGenerator(cryptoOps)
 
@@ -774,7 +774,7 @@ class ExampleTransactionFactory(
   }
 
   def mkMetadata(seeds: Map[LfNodeId, LfHash] = Map.empty): TransactionMetadata =
-    TransactionMetadata(ledgerTime, preparationTime, seeds)
+    TransactionMetadata(ledgerTime, submissionTime, seeds)
 
   def versionedTransactionWithSeeds(
       rootIndices: Seq[Int],
@@ -812,7 +812,7 @@ class ExampleTransactionFactory(
   val participantMetadata: ParticipantMetadata =
     ParticipantMetadata(cryptoOps)(
       ledgerTime,
-      preparationTime,
+      submissionTime,
       Some(workflowId),
       Salt.tryDeriveSalt(transactionSeed, 2, cryptoOps),
       protocolVersion,

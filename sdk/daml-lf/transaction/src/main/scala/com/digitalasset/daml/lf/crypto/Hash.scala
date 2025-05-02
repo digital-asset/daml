@@ -1049,11 +1049,11 @@ object Hash {
 
   def deriveContractDiscriminator(
       nodeSeed: Hash,
-      submitTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       parties: Set[Ref.Party],
   ): Hash =
     hMacBuilder(nodeSeed)
-      .addLong(submitTime.micros)
+      .addLong(preparationTime.micros)
       .addStringSet(parties)
       .build
 

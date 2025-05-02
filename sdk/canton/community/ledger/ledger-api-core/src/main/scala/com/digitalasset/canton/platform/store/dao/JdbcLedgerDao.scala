@@ -478,7 +478,7 @@ private class JdbcLedgerDao(
               transactionMeta = state.TransactionMeta(
                 ledgerEffectiveTime = ledgerEffectiveTime,
                 workflowId = workflowId,
-                preparationTime = null, // not used for DbDto generation
+                submissionTime = null, // not used for DbDto generation
                 submissionSeed = null, // not used for DbDto generation
                 timeBoundaries = null, // not used for DbDto generation
                 optUsedPackages = None, // not used for DbDto generation
