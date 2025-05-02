@@ -19,11 +19,15 @@ import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
-import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
+import com.digitalasset.canton.protocol.{
+  AuthenticatedContractIdVersionV11,
+  DriverContractMetadata,
+  LfContractId,
+  LfTransactionVersion,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, LfValue}
 import com.digitalasset.daml.lf.command.{ApiCommands as LfCommands, ApiContractKey}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -53,7 +57,7 @@ class StoreBackedCommandInterpreterSpec
   val cryptoApi: CryptoPureApi = new SymbolicPureCrypto()
   val salt: Bytes = DriverContractMetadata(
     Salt.tryDeriveSalt(SaltSeed.generate()(cryptoApi), 0, cryptoApi)
-  ).toLfBytes(ProtocolVersion.dev)
+  ).toLfBytes(AuthenticatedContractIdVersionV11)
   val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
   val packageName: PackageName = PackageName.assertFromString("pkg-name")

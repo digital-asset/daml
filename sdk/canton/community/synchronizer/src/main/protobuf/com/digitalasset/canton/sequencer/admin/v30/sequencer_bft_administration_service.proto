@@ -56,11 +56,18 @@ message RemovePeerEndpointResponse {
   bool removed = 1;
 }
 
-enum PeerEndpointHealthStatus {
-  PEER_ENDPOINT_HEALTH_STATUS_UNSPECIFIED = 0; // Required by buf lint (default value)
-  PEER_ENDPOINT_HEALTH_STATUS_UNKNOWN_ENDPOINT = 1;
-  PEER_ENDPOINT_HEALTH_STATUS_UNAUTHENTICATED = 3;
-  PEER_ENDPOINT_HEALTH_STATUS_AUTHENTICATED = 4;
+message PeerEndpointHealthStatus {
+  oneof status {
+    UnknownEndpoint unknown_endpoint = 1;
+    Unauthenticated unauthenticated = 2;
+    Authenticated authenticated = 3;
+  }
+
+  message UnknownEndpoint {}
+  message Unauthenticated {}
+  message Authenticated {
+    string sequencer_id = 1;
+  }
 }
 
 message PeerEndpointHealth {

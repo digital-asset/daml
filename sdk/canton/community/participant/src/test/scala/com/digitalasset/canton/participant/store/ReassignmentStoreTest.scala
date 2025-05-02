@@ -577,7 +577,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
           )
         }
         incompletes.map(_.reassignmentId) shouldBe expectedReassignmentEntries.map(_.reassignmentId)
-        incompletes shouldBe expectedIncomplete
+        incompletes should contain theSameElementsAs expectedIncomplete
       }
 
       "list incomplete reassignments (unassignment done)" in {

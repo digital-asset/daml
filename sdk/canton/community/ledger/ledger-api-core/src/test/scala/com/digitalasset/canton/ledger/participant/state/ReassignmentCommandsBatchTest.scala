@@ -75,7 +75,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
           unassign.copy(sourceSynchronizer = Source(synchronizerId(42))),
         )
       ) shouldBe Left(
-        ReassignmentCommandsBatch.UnassignmentsWithDifferingSynchronizers
+        ReassignmentCommandsBatch.DifferingSynchronizers
       )
     }
 
@@ -85,7 +85,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
           unassign,
           unassign.copy(targetSynchronizer = Target(synchronizerId(42))),
         )
-      ) shouldBe Left(ReassignmentCommandsBatch.UnassignmentsWithDifferingSynchronizers)
+      ) shouldBe Left(ReassignmentCommandsBatch.DifferingSynchronizers)
     }
 
     "with multiple assigns should fail" in {
@@ -94,7 +94,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
           assign,
           assign.copy(unassignId = assign.unassignId.plusSeconds(1)),
         )
-      ) shouldBe Left(ReassignmentCommandsBatch.MixedAssignmentWithOtherCommands)
+      ) shouldBe Left(ReassignmentCommandsBatch.MixedAssignWithOtherCommands)
     }
 
     "with both assigns and unassign should fail" in {
@@ -103,7 +103,7 @@ class ReassignmentCommandsBatchTest extends AnyWordSpec with Matchers {
           unassign,
           assign,
         )
-      ) shouldBe Left(ReassignmentCommandsBatch.MixedAssignmentWithOtherCommands)
+      ) shouldBe Left(ReassignmentCommandsBatch.MixedAssignWithOtherCommands)
     }
   }
 }

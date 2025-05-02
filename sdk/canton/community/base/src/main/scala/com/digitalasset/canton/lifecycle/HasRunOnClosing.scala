@@ -6,12 +6,7 @@ package com.digitalasset.canton.lifecycle
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.tracing.TraceContext
 
-trait HasRunOnClosing {
-
-  /** Returns whether the component is closing or has already been closed. No new tasks can be added
-    * with [[runOnClose]] during closing.
-    */
-  def isClosing: Boolean
+trait HasRunOnClosing extends HasUnlessClosing {
 
   /** Schedules the given task to be run upon closing.
     *

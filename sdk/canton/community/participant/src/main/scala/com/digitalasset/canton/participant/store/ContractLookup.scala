@@ -22,6 +22,10 @@ trait ContractLookup {
       traceContext: TraceContext
   ): OptionT[FutureUnlessShutdown, SerializableContract]
 
+  def lookupFatContract(id: LfContractId)(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, LfFatContractInst] = lookup(id).map(_.tryFatContractInstance)
+
   def lookupManyExistingUncached(
       ids: Seq[LfContractId]
   )(implicit

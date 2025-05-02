@@ -26,6 +26,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 }
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationError
 import com.digitalasset.canton.protocol.{
+  CantonContractIdVersion,
   DriverContractMetadata,
   LfNodeCreate,
   ReassignmentId,
@@ -34,7 +35,6 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -81,7 +81,6 @@ final case class AssignmentValidationResult(
   private[reassignment] def createReassignmentAccepted(
       targetSynchronizer: Target[SynchronizerId],
       participantId: ParticipantId,
-      targetProtocolVersion: Target[ProtocolVersion],
       recordTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -100,8 +99,10 @@ final case class AssignmentValidationResult(
           keyOpt = contract.metadata.maybeKeyWithMaintainers,
           version = contract.contractInstance.version,
         )
+        val contractIdVersion =
+          CantonContractIdVersion.tryCantonContractIdVersion(contract.contractId)
         val driverContractMetadata =
-          DriverContractMetadata(contract.contractSalt).toLfBytes(targetProtocolVersion.unwrap)
+          DriverContractMetadata(contract.contractSalt).toLfBytes(contractIdVersion)
 
         Reassignment.Assign(
           ledgerEffectiveTime = contract.ledgerCreateTime.toLf,

@@ -20,10 +20,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.{BaseQuery, TopologyStoreId}
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.admin.v30.*
-import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{
-  Proposal,
-  TransactionHashRaw,
-}
+import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceGrpc.IdentityInitializationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerReadServiceGrpc.TopologyManagerReadServiceStub
@@ -915,7 +912,7 @@ object TopologyAdminCommands {
     }
 
     final case class Authorize[M <: TopologyMapping: ClassTag](
-        transactionHash: ByteString,
+        transactionHash: String,
         mustFullyAuthorize: Boolean,
         signedBy: Seq[Fingerprint],
         store: TopologyStoreId,
@@ -928,7 +925,7 @@ object TopologyAdminCommands {
 
       override protected def createRequest(): Either[String, AuthorizeRequest] = Right(
         AuthorizeRequest(
-          TransactionHashRaw(transactionHash),
+          TransactionHash(transactionHash),
           mustFullyAuthorize = mustFullyAuthorize,
           forceChanges = Seq.empty,
           signedBy = signedBy.map(_.toProtoPrimitive),

@@ -50,7 +50,6 @@ import com.digitalasset.canton.util.PekkoUtil.FutureQueue
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.google.common.annotations.VisibleForTesting
@@ -984,11 +983,10 @@ final class RepairService(
       contractsAdded: Seq[ContractToAdd],
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
-    val contractMetadata = contractsAdded.view
-      .map(c =>
-        c.contract.contractId -> c.driverMetadata(repair.synchronizer.parameters.protocolVersion)
-      )
-      .toMap
+    val contractMetadata = contractsAdded.view.map { c =>
+      val cId = c.contract.contractId
+      cId -> c.driverMetadata(CantonContractIdVersion.tryCantonContractIdVersion(cId))
+    }.toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
     Update.RepairTransactionAccepted(
@@ -1260,8 +1258,9 @@ object RepairService {
   ) {
     def cid: LfContractId = contract.contractId
 
-    def driverMetadata(protocolVersion: ProtocolVersion): Bytes =
-      DriverContractMetadata(contract.contractSalt).toLfBytes(protocolVersion)
+    def driverMetadata(contractIdVersion: CantonContractIdVersion): Bytes =
+      DriverContractMetadata(contract.contractSalt).toLfBytes(contractIdVersion)
+
   }
 
   trait SynchronizerLookup {

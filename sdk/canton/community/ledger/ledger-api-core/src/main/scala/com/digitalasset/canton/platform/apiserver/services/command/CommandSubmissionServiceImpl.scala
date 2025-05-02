@@ -102,13 +102,13 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       logger.debug(show"Submitted commands are: ${if (cmds.length > 1) "\n  " else ""}${cmds
           .map {
             case ApiCommand.Create(templateRef, _) =>
-              s"create ${templateRef.qualifiedName}"
+              s"create ${templateRef.qName}"
             case ApiCommand.Exercise(templateRef, _, choiceId, _) =>
-              s"exercise @${templateRef.qualifiedName} $choiceId"
+              s"exercise @${templateRef.qName} $choiceId"
             case ApiCommand.ExerciseByKey(templateRef, _, choiceId, _) =>
-              s"exerciseByKey @${templateRef.qualifiedName} $choiceId"
+              s"exerciseByKey @${templateRef.qName} $choiceId"
             case ApiCommand.CreateAndExercise(templateRef, _, choiceId, _) =>
-              s"createAndExercise ${templateRef.qualifiedName} ... $choiceId ..."
+              s"createAndExercise ${templateRef.qName} ... $choiceId ..."
           }
           .map(_.singleQuoted)
           .toSeq

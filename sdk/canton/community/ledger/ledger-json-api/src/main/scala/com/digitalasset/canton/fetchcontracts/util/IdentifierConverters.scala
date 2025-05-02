@@ -18,7 +18,7 @@ object IdentifierConverters {
 
   def lfIdentifier(a: com.daml.ledger.api.v2.value.Identifier): lf.data.Ref.Identifier =
     lf.data.Ref.Identifier(
-      pkg = PackageId.assertFromString(a.packageId),
+      packageId = PackageId.assertFromString(a.packageId),
       qualifiedName = QualifiedName(
         module = ModuleName.assertFromString(a.moduleName),
         name = DottedName.assertFromString(a.entityName),

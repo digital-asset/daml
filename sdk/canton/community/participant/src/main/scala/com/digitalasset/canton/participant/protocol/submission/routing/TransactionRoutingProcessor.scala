@@ -103,7 +103,7 @@ class TransactionRoutingProcessor(
           for {
             inputDisclosedContracts <-
               explicitlyDisclosedContracts.toList
-                .parTraverse(SerializableContract.fromDisclosedContract)
+                .parTraverse(SerializableContract.fromFatContract)
                 .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
             _ <- inputDisclosedContracts
               .traverse_(serializableContractAuthenticator.authenticateSerializable)

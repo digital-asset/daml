@@ -93,10 +93,6 @@ message AuthorizeRequest {
      * Hash is in hexadecimal format.
      */
     string transaction_hash = 2;
-    /**
-     * Same as `transaction_hash` except the hash is provided as bytes.
-     */
-    bytes transaction_hash_raw = 8;
   }
 
   /**

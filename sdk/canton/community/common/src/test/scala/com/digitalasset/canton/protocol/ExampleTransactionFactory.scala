@@ -323,8 +323,17 @@ object ExampleTransactionFactory {
       Bytes.assertFromString(f"$index%04x".padTo(LfHash.underlyingHashLength * 2, '0'))
     )
 
-  def suffixedId(discriminator: Int, suffix: Int): LfContractId =
-    LfContractId.V1(lfHash(discriminator), Bytes.assertFromString(f"$suffix%04x"))
+  def suffixedId(
+      discriminator: Int,
+      suffix: Int,
+      contractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+  ): LfContractId =
+    LfContractId.V1(
+      discriminator = lfHash(discriminator),
+      suffix = contractIdVersion.versionPrefixBytes ++ Bytes.fromByteString(
+        TestHash.digest(f"$suffix%04x").getCryptographicEvidence
+      ),
+    )
 
   def unsuffixedId(index: Int): LfContractId.V1 = LfContractId.V1(lfHash(index))
 
@@ -1249,7 +1258,7 @@ class ExampleTransactionFactory(
       consuming: Boolean = true,
   ) extends SingleNode(Some(seed)) {
     val upgradedTemplateId: canton.protocol.LfTemplateId =
-      templateId.copy(pkg = upgradePackageId)
+      templateId.copy(packageId = upgradePackageId)
     private def genNode(id: LfContractId): LfNodeExercises =
       exerciseNode(targetCoid = id, templateId = upgradedTemplateId, signatories = Set(submitter))
     override def node: LfNodeExercises = genNode(contractId)

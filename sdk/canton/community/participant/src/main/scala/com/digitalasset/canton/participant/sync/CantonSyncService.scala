@@ -1862,7 +1862,7 @@ class CantonSyncService(
         case Left(invalidBatch) =>
           Future.failed(
             RequestValidationErrors.InvalidArgument
-              .Reject(s"The batch of reassignment commands was invalid: $invalidBatch")
+              .Reject(s"The batch of reassignment commands was invalid: ${invalidBatch.error}")
               .asGrpcError
           )
       }
