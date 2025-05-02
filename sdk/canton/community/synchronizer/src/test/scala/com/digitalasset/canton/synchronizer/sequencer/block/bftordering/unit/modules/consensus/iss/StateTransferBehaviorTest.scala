@@ -45,6 +45,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.IssConsensusModuleTest.myId
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.collection.mutable
@@ -520,7 +521,7 @@ object StateTransferBehaviorTest {
     aMembership.leaders,
   )
 
-  private val aCommitCert =
+  private def aCommitCert(implicit synchronizerProtocolVersion: ProtocolVersion) =
     CommitCertificate(
       PrePrepare
         .create(

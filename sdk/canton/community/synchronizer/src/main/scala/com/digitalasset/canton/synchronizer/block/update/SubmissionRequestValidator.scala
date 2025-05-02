@@ -535,7 +535,7 @@ private[update] final class SubmissionRequestValidator(
   ] =
     for {
       _ <- EitherT.cond[FutureUnlessShutdown](
-        SequencerValidations.checkToAtMostOneMediator(submissionRequest),
+        SubmissionRequestValidations.checkToAtMostOneMediator(submissionRequest),
         (), {
           SequencerError.MultipleMediatorRecipients
             .Error(submissionRequest, sequencingTimestamp)
@@ -772,7 +772,7 @@ private[update] final class SubmissionRequestValidator(
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SubmissionOutcome, Unit] =
     EitherT.fromEither(
-      SequencerValidations
+      SubmissionRequestValidations
         .wellformedAggregationRule(submissionRequest.sender, rule)
         .leftMap { message =>
           val alarm = SequencerErrors.SubmissionRequestMalformed.Error(submissionRequest, message)

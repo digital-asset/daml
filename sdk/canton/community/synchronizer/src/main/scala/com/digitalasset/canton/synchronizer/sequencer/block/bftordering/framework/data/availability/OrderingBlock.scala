@@ -12,10 +12,10 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 final case class OrderingBlock(proofs: Seq[ProofOfAvailability]) {
   def toProto: ProtoOrderingBlock =
     ProtoOrderingBlock.of(proofs.map { proof =>
-      ProtoProofOfAvailability.of(
+      ProtoProofOfAvailability(
         proof.batchId.hash.getCryptographicEvidence,
         proof.acks.map { ack =>
-          ProtoAvailabilityAck.of(
+          ProtoAvailabilityAck(
             ack.from,
             Some(ack.signature.toProtoV30),
           )

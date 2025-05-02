@@ -7,7 +7,15 @@ import com.daml.ledger.api.v2.command_service.*
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService as CommandServiceGrpc
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.reassignment_commands.ReassignmentCommands
-import com.daml.ledger.api.v2.transaction_filter.{EventFormat, Filters}
+import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
+import com.daml.ledger.api.v2.transaction_filter.{
+  CumulativeFilter,
+  EventFormat,
+  Filters,
+  TransactionFormat,
+  WildcardFilter,
+}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.services.CommandService
@@ -99,19 +107,30 @@ class ApiCommandService(
     val traceContext = getAnnotatedCommandTraceContext(request.commands, telemetry)
     implicit val loggingContext: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(traceContext)
-    val requestWithSubmissionId =
-      request.update(_.optionalCommands.modify(generateSubmissionIdIfEmpty))
+    val requestWithSubmissionIdAndFormat =
+      request
+        .update(_.optionalCommands.modify(generateSubmissionIdIfEmpty))
+        .update(
+          _.optionalTransactionFormat
+            .modify(
+              generateTransactionFormatIfEmpty(
+                request.commands.toList.flatMap(cmds => cmds.actAs ++ cmds.readAs)
+              )
+            )
+        )
     validator
       .validate(
-        requestWithSubmissionId,
+        requestWithSubmissionIdAndFormat,
         currentLedgerTime(),
         currentUtcTime(),
         maxDeduplicationDuration,
-      )(errorLoggingContext(requestWithSubmissionId))
+      )(errorLoggingContext(requestWithSubmissionIdAndFormat))
       .fold(
         t =>
-          Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
-        _ => submit(requestWithSubmissionId)(loggingContext),
+          Future.failed(
+            ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionIdAndFormat, t)
+          ),
+        _ => submit(requestWithSubmissionIdAndFormat)(loggingContext),
       )
   }
 
@@ -164,6 +183,29 @@ class ApiCommandService(
     } else {
       commands
     }
+
+  private def generateTransactionFormatIfEmpty(
+      actAs: Seq[String]
+  )(transactionFormat: Option[TransactionFormat]): Option[TransactionFormat] = {
+    val wildcard = Filters(
+      cumulative = Seq(
+        CumulativeFilter(
+          IdentifierFilter.WildcardFilter(
+            WildcardFilter(false)
+          )
+        )
+      )
+    )
+    transactionFormat.orElse(
+      Some(
+        TransactionFormat(
+          eventFormat =
+            Some(EventFormat(actAs.map(party => party -> wildcard).toMap, None, verbose = true)),
+          transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+        )
+      )
+    )
+  }
 
   private def generateSubmissionIdIfEmptyReassignment(
       commands: Option[ReassignmentCommands]

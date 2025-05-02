@@ -317,7 +317,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
   private def messageToSend(
       message: BftOrderingMessageBody
   )(implicit traceContext: TraceContext): BftOrderingServiceReceiveRequest =
-    BftOrderingServiceReceiveRequest.of(
+    BftOrderingServiceReceiveRequest(
       traceContext.traceId.getOrElse(""),
       Some(message),
       thisNode,

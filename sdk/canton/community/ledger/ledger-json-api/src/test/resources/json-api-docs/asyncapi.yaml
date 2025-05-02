@@ -1229,35 +1229,10 @@ components:
           $ref: '#/components/schemas/EventFormat'
           description: Required
         transactionShape:
-          $ref: '#/components/schemas/TransactionShape'
           description: |-
             What transaction shape to use for interpreting the filters of the event format.
             Required
-    TransactionShape:
-      title: TransactionShape
-      oneOf:
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_ACS_DELTA'
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_LEDGER_EFFECTS'
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized'
-    TRANSACTION_SHAPE_ACS_DELTA:
-      title: TRANSACTION_SHAPE_ACS_DELTA
-      type: object
-    TRANSACTION_SHAPE_LEDGER_EFFECTS:
-      title: TRANSACTION_SHAPE_LEDGER_EFFECTS
-      type: object
-    TRANSACTION_SHAPE_UNSPECIFIED:
-      title: TRANSACTION_SHAPE_UNSPECIFIED
-      type: object
-    Unrecognized:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
+          type: string
     TopologyFormat:
       title: TopologyFormat
       description: A format specifying which topology transactions to include and

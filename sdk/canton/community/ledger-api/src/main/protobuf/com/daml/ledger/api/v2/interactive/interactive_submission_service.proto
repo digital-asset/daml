@@ -40,6 +40,8 @@ service InteractiveSubmissionService {
   // - which choices can be executed on a template or interface of a contract
   //
   // Can be accessed by any Ledger API client with a valid token when Ledger API authorization is enabled.
+  //
+  // Experimental API: this endpoint is not guaranteed to provide backwards compatibility in future releases
   rpc GetPreferredPackageVersion(GetPreferredPackageVersionRequest) returns (GetPreferredPackageVersionResponse);
 }
 
