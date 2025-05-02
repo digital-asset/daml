@@ -431,6 +431,7 @@ class ParticipantNodeBootstrap(
           storage,
           indexedStringStore,
           persistentState.map(_.acsCounterParticipantConfigStore).value,
+          ips,
           parameters,
           crypto,
           clock,

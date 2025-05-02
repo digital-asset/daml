@@ -17,7 +17,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   StateTransferType,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
+  CryptoProvider,
+  DelegationCryptoProvider,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   EpochLength,
   EpochNumber,
@@ -28,9 +31,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Membership,
   OrderingTopologyInfo,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
+  Availability,
+  Consensus,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Env,
   ModuleRef,
@@ -63,6 +69,7 @@ import scala.util.{Failure, Random, Success}
   *     better performance.
   *   - Once all blocks from the epoch are validated and stored, wait for a NewEpochTopology message
   *     from the Output module (indicating that all relevant batches have been fetched).
+  *   - Update the Availability topology.
   *   - Store both the completed epoch and the new (subsequent) epoch in the epoch store.
   *   - Repeat the process by requesting blocks from the next epoch.
   *   - Once there is nothing to transfer (and, if it's catch-up, a minimum end epoch has been
@@ -98,7 +105,7 @@ final class StateTransferBehavior[E <: Env[E]](
 
   private var cancelledSegments = 0
 
-  private val postponedQueue = new mutable.Queue[Consensus.Message[E]]()
+  private val postponedConsensusMessages = new mutable.Queue[Consensus.Message[E]]()
 
   private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(
     new StateTransferManager(
@@ -175,6 +182,11 @@ final class StateTransferBehavior[E <: Env[E]](
         if (newEpochNumber == currentEpochNumber + 1) {
           stateTransferManager.cancelTimeoutForEpoch(currentEpochNumber)
           maybeLastReceivedEpochTopology = Some(newEpochTopologyMessage)
+
+          // Update the active topology in Availability as well to use the most recently available topology
+          //  to fetch batches.
+          updateAvailabilityTopology(newEpochTopologyMessage)
+
           val newEpochInfo =
             currentEpochInfo.next(
               epochLength,
@@ -212,7 +224,7 @@ final class StateTransferBehavior[E <: Env[E]](
       case Consensus.ConsensusMessage.AsyncException(e) =>
         logger.error(s"$messageType: exception raised from async consensus message: ${e.toString}")
 
-      case _ => postponedQueue.enqueue(message)
+      case _ => postponedConsensusMessages.enqueue(message)
     }
   }
 
@@ -285,6 +297,19 @@ final class StateTransferBehavior[E <: Env[E]](
         }
     }
 
+  private def updateAvailabilityTopology(newEpochTopology: Consensus.NewEpochTopology[E]): Unit =
+    dependencies.availability.asyncSend(
+      Availability.Consensus.UpdateTopologyDuringStateTransfer(
+        newEpochTopology.membership.orderingTopology,
+        // TODO(#25220) If the onboarding/starting epoch (`e_start`) is always immediately before the one where
+        //  the node is active in the topology, the below distinction could go away.
+        DelegationCryptoProvider(
+          signer = initialState.topologyInfo.currentCryptoProvider,
+          verifier = newEpochTopology.cryptoProvider,
+        ),
+      )
+    )
+
   private def storeEpochs(
       currentEpochInfo: EpochInfo,
       newEpochInfo: EpochInfo,
@@ -351,7 +376,7 @@ final class StateTransferBehavior[E <: Env[E]](
       loggerFactory,
       timeouts,
       futurePbftMessageQueue = initialState.pbftMessageQueue,
-      queuedConsensusMessages = postponedQueue.toSeq,
+      postponedConsensusMessageQueue = postponedConsensusMessages,
     )()(catchupDetector)
 
     context.become(consensusBehavior)

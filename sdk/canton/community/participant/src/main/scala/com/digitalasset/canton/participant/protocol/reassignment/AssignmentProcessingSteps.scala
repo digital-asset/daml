@@ -48,13 +48,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  LfPartyId,
-  ReassignmentCounter,
-  RequestCounter,
-  SequencerCounter,
-  checked,
-}
+import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -171,8 +165,7 @@ private[reassignment] class AssignmentProcessingSteps(
           seed,
           reassignmentId,
           submitterMetadata,
-          unassignmentData.contract,
-          unassignmentData.reassignmentCounter,
+          unassignmentData.contracts,
           targetSynchronizer,
           mediator,
           assignmentUuid,
@@ -190,10 +183,11 @@ private[reassignment] class AssignmentProcessingSteps(
         staticSynchronizerParameters.map(_.protocolVersion),
       )
       recipientsSet <- activeParticipantsOfParty(stakeholders.all.toSeq)
+      contractIds = unassignmentData.contracts.contractIds.toSeq
       recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)
-          .toRight(NoStakeholders.logAndCreate(unassignmentData.contract.contractId, logger))
+          .toRight(NoStakeholders.logAndCreate(contractIds, logger))
       )
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
@@ -206,7 +200,7 @@ private[reassignment] class AssignmentProcessingSteps(
           ephemeralState.sessionKeyStoreLookup.convertStore,
         )
         .leftMap[ReassignmentProcessorError](
-          EncryptionError(unassignmentData.contract.contractId, _)
+          EncryptionError(contractIds, _)
         )
       ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(fullTree.viewHash)
       viewMessage <- EncryptedViewMessageFactory
@@ -217,7 +211,7 @@ private[reassignment] class AssignmentProcessingSteps(
           targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](
-          EncryptionError(unassignmentData.contract.contractId, _)
+          EncryptionError(contractIds, _)
         )
     } yield {
       val rootHashMessage =
@@ -305,12 +299,12 @@ private[reassignment] class AssignmentProcessingSteps(
   ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
     if (parsedRequest.fullViewTree.targetSynchronizer == synchronizerId) {
-      val contractId = parsedRequest.fullViewTree.contract.contractId
+      val contractIds = parsedRequest.fullViewTree.contracts.contractIds.toSet
       val contractCheck = ActivenessCheck.tryCreate(
         checkFresh = Set.empty,
-        checkFree = Set(contractId),
+        checkFree = contractIds,
         checkActive = Set.empty,
-        lock = Set(contractId),
+        lock = contractIds,
         needPriorState = Set.empty,
       )
       val activenessSet = ActivenessSet(
@@ -465,7 +459,7 @@ private[reassignment] class AssignmentProcessingSteps(
         case _: Verdict.Approve =>
           val commitSet = assignmentValidationResult.commitSet
           val commitSetO = Some(FutureUnlessShutdown.pure(commitSet))
-          val contractsToBeStored = Seq(assignmentValidationResult.contract)
+          val contractsToBeStored = assignmentValidationResult.contracts.contracts.map(_.contract)
 
           for {
             // By inserting assignment data, it allows us to process the assignment before the unassignment.
@@ -477,7 +471,7 @@ private[reassignment] class AssignmentProcessingSteps(
               ) {
                 reassignmentCoordination.addAssignmentData(
                   assignmentValidationResult.reassignmentId,
-                  contract = assignmentValidationResult.contract,
+                  contracts = assignmentValidationResult.contracts,
                   target = synchronizerId,
                 )
               } else EitherTUtil.unitUS
@@ -485,7 +479,6 @@ private[reassignment] class AssignmentProcessingSteps(
               assignmentValidationResult.createReassignmentAccepted(
                 synchronizerId,
                 participantId,
-                targetProtocolVersion,
                 requestId.unwrap,
               )
             )
@@ -514,7 +507,8 @@ private[reassignment] class AssignmentProcessingSteps(
       activenessResult: ActivenessResult,
       validationResult: ReassignmentValidationResult,
   ): Option[LocalRejectError] =
-    if (activenessResult.inactiveReassignments.nonEmpty)
+    if (validationResult.activenessResultIsSuccessful) None
+    else if (activenessResult.inactiveReassignments.contains(validationResult.reassignmentId))
       Some(
         LocalRejectError.AssignmentRejects.AlreadyCompleted
           .Reject("")
@@ -529,7 +523,6 @@ private[reassignment] class AssignmentProcessingSteps(
         LocalRejectError.ConsistencyRejections.LockedContracts
           .Reject(activenessResult.contracts.alreadyLocked.toSeq.map(_.coid))
       )
-    else if (activenessResult.isSuccessful) None
     else
       throw new RuntimeException(
         s"Assignment $requestId: Unexpected activeness result $activenessResult"
@@ -569,8 +562,7 @@ object AssignmentProcessingSteps {
       seed: SaltSeed,
       reassignmentId: ReassignmentId,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      contract: SerializableContract,
-      reassignmentCounter: ReassignmentCounter,
+      contracts: ContractsReassignmentBatch,
       targetSynchronizer: Target[SynchronizerId],
       targetMediator: MediatorGroupRecipient,
       assignmentUuid: UUID,
@@ -579,7 +571,7 @@ object AssignmentProcessingSteps {
   ): Either[ReassignmentProcessorError, FullAssignmentTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
-    val stakeholders = Stakeholders(contract.metadata)
+    val stakeholders = contracts.stakeholders
 
     val commonData = AssignmentCommonData
       .create(pureCrypto)(
@@ -598,9 +590,8 @@ object AssignmentProcessingSteps {
         .create(pureCrypto)(
           viewSalt,
           reassignmentId,
-          contract,
+          contracts,
           targetProtocolVersion,
-          reassignmentCounter,
         )
         .leftMap(reason => InvalidReassignmentView(reason))
       tree = AssignmentViewTree(commonData, view, targetProtocolVersion, pureCrypto)

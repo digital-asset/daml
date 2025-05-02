@@ -18,7 +18,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePrivateKey
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import hashes
-from daml_transaction_hashing_v2 import create_nodes_dict, encode_prepared_transaction, HASHING_SCHEME_VERSION_V2
+from daml_transaction_hashing_v2 import (
+    create_nodes_dict,
+    encode_prepared_transaction,
+    HASHING_SCHEME_VERSION_V2,
+)
 from com.daml.ledger.api.v2 import (
     command_completion_service_pb2,
     command_completion_service_pb2_grpc,
@@ -391,12 +395,12 @@ def demo_interactive_submissions(
     participant_id: str, synchronizer_id: str, auto_accept: bool
 ):
     alice_pk, alice_pub_fingerprint = onboard_external_party(
-        "alice", participant_id, synchronizer_id, admin_channel
+        "alice", [participant_id], 1, synchronizer_id, admin_channel
     )
     print("Alice onboarded successfully")
     alice = "alice::" + alice_pub_fingerprint
     bob_pk, bob_pub_fingerprint = onboard_external_party(
-        "bob", participant_id, synchronizer_id, admin_channel
+        "bob", [participant_id], 1, synchronizer_id, admin_channel
     )
     print("Bob onboarded successfully")
     bob = "bob::" + bob_pub_fingerprint
@@ -484,7 +488,7 @@ if __name__ == "__main__":
         )
     elif args.subcommand == "create-party":
         party_private_key, party_fingerprint = onboard_external_party(
-            args.name, args.participant_id, args.synchronizer_id, admin_channel
+            args.name, [args.participant_id], 1, args.synchronizer_id, admin_channel
         )
         private_key_file = (
             args.private_key_file or f"{args.name}::{party_fingerprint}-private-key.der"

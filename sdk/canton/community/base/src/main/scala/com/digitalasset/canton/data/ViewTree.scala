@@ -4,18 +4,11 @@
 package com.digitalasset.canton.data
 
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  LfTemplateId,
-  RootHash,
-  SerializableContract,
-  Stakeholders,
-  ViewHash,
-}
+import com.digitalasset.canton.protocol.{RootHash, Stakeholders, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
+import com.digitalasset.canton.{LfPartyId, LfWorkflowId}
 
 /** Common supertype of all view trees that are sent as
   * [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s
@@ -75,7 +68,7 @@ trait FullReassignmentViewTree extends ViewTree {
 
   // Parties and participants
   override def informees: Set[LfPartyId] =
-    view.contract.metadata.stakeholders + commonData.submitterMetadata.submittingAdminParty
+    view.contracts.stakeholders.all + commonData.submitterMetadata.submittingAdminParty
   def stakeholders: Stakeholders = commonData.stakeholders
   def confirmingParties: Set[LfPartyId] = commonData.confirmingParties
 
@@ -84,8 +77,5 @@ trait FullReassignmentViewTree extends ViewTree {
     reassigningParticipants.contains(participantId)
 
   // Contract
-  def contract: SerializableContract = view.contract
-  def contractId: LfContractId = view.contract.contractId
-  def templateId: LfTemplateId = view.templateId
-  def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
+  def contracts: ContractsReassignmentBatch = view.contracts
 }

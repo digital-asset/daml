@@ -11,13 +11,13 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   OrderingTopologyProvider,
   TopologyActivationTime,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   OrderingTopology,
   SequencingParameters,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.Simulation
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.tracing.TraceContext
@@ -40,7 +40,7 @@ class SimulationOrderingTopologyProvider(
             topologyData.onboardingTime.value <= activationTime.value
           }
           .map { case (endpoint, topologyData) =>
-            Simulation.endpointToNode(endpoint) -> topologyData
+            endpointToTestBftNodeId(endpoint) -> topologyData
           }
           .toMap
 

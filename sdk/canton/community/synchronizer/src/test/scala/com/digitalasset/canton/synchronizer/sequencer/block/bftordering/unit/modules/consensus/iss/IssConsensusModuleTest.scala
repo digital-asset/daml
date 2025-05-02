@@ -91,6 +91,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
+  PbftNetworkMessage,
   PrePrepare,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.EpochStatus
@@ -107,6 +108,7 @@ import org.slf4j.event.Level
 import org.slf4j.event.Level.ERROR
 
 import java.time.Instant
+import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Random, Try}
 
@@ -508,7 +510,7 @@ class IssConsensusModuleTest
     }
 
     "completing state transfer" should {
-      "process the new epoch topology message" in {
+      "complete init, dequeue all messages, and process the new epoch topology message" in {
         val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
         val latestTopologyActivationTime = TopologyActivationTime(aTimestamp)
         val latestCompletedEpochFromStore = EpochStore.Epoch(
@@ -526,10 +528,29 @@ class IssConsensusModuleTest
         )
         when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
 
+        val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
+          new mutable.Queue()
+        val aDummyMessage =
+          ConsensusSegment.ConsensusMessage.ViewChange
+            .create(
+              BlockMetadata(EpochNumber.First, BlockNumber.First),
+              segmentIndex = 1,
+              viewNumber = ViewNumber.First,
+              consensusCerts = Seq.empty,
+              from = myId,
+            )
+            .fakeSign
+        futurePbftMessageQueue.enqueue(aDummyMessage)
+        val postponedConsensusMessageQueue =
+          new mutable.Queue[Consensus.Message[ProgrammableUnitTestEnv]]()
+        postponedConsensusMessageQueue.enqueue(PbftVerifiedNetworkMessage(aDummyMessage))
+
         val (context, consensus) =
           createIssConsensusModule(
             epochStore = epochStore,
             preConfiguredInitialEpochState = Some(newEpochState(latestCompletedEpochFromStore, _)),
+            futurePbftMessageQueue = futurePbftMessageQueue,
+            postponedConsensusMessageQueue = postponedConsensusMessageQueue,
           )
         implicit val ctx: ContextType = context
 
@@ -554,6 +575,10 @@ class IssConsensusModuleTest
           )
         )
 
+        consensus.isInitComplete shouldBe true
+        futurePbftMessageQueue shouldBe empty
+        postponedConsensusMessageQueue shouldBe empty
+        context.extractSelfMessages() should contain only PbftVerifiedNetworkMessage(aDummyMessage)
         verify(epochStore, times(1)).startEpoch(
           latestCompletedEpochFromStore.info.next(epochLength, nextTopologyActivationTime)
         )
@@ -786,11 +811,12 @@ class IssConsensusModuleTest
                 Map(
                   myId -> NodeActiveAt(
                     timestamp = TopologyActivationTime(CantonTimestamp.Epoch),
-                    epochNumber = Some(aStartEpochNumber),
-                    firstBlockNumberInEpoch = Some(aStartEpoch.startBlockNumber),
-                    epochTopologyQueryTimestamp = Some(aStartEpoch.topologyActivationTime),
-                    epochCouldAlterOrderingTopology = None,
+                    startEpochNumber = Some(aStartEpochNumber),
+                    firstBlockNumberInStartEpoch = Some(aStartEpoch.startBlockNumber),
+                    startEpochTopologyQueryTimestamp = Some(aStartEpoch.topologyActivationTime),
+                    startEpochCouldAlterOrderingTopology = None,
                     previousBftTime = None,
+                    previousEpochTopologyQueryTimestamp = None,
                   )
                 )
               )
@@ -986,6 +1012,10 @@ class IssConsensusModuleTest
       completedBlocks: Seq[EpochStore.Block] = Seq.empty,
       resolveAwaits: Boolean = false,
       customMessageAuthorizer: Option[MessageAuthorizer] = None,
+      futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
+        new mutable.Queue(),
+      postponedConsensusMessageQueue: mutable.Queue[Consensus.Message[ProgrammableUnitTestEnv]] =
+        new mutable.Queue[Consensus.Message[ProgrammableUnitTestEnv]](),
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext(resolveAwaits)
 
@@ -1062,6 +1092,8 @@ class IssConsensusModuleTest
         dependencies,
         loggerFactory,
         timeouts,
+        futurePbftMessageQueue,
+        postponedConsensusMessageQueue,
       )(maybeOnboardingStateTransferManager)(
         catchupDetector = maybeCatchupDetector.getOrElse(
           new DefaultCatchupDetector(topologyInfo.currentMembership, loggerFactory)

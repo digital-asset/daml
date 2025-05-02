@@ -102,7 +102,8 @@ def build_serialized_transaction_and_hash(
 # Onboard a new external party
 def onboard_external_party(
     party_name: str,
-    confirming_participant_id: str,
+    confirming_participant_ids: [str],
+    confirming_threshold: int,
     synchronizer_id: str,
     channel: Channel,
 ) -> (EllipticCurvePrivateKey, str):
@@ -112,9 +113,10 @@ def onboard_external_party(
 
     Args:
         party_name (str): Name of the party.
-        confirming_participant_id (str): Participant ID on which the party will be hosted for transaction confirmation.
+        confirming_participant_ids (str): Participant IDs on which the party will be hosted for transaction confirmation.
+        confirming_threshold (int): Minimum number of confirmations that must be received from the confirming participants to authorize a transaction.
         synchronizer_id (str): ID of the synchronizer on which the party will be registered.
-        channel (grpc.Channel): gRPC channel to the confirming participant Admin API.
+        channel (grpc.Channel): gRPC channel to one of the confirming participants Admin API.
 
     Returns:
         tuple: A tuple containing:
@@ -194,19 +196,22 @@ def onboard_external_party(
         party_to_key_transaction
     )
 
-    # Party to participant: records the fact that the party wants to be hosted on the participant with confirmation rights
-    # This means this participant is not allowed to submit transactions on behalf of this party but will validate transactions
-    # on behalf of the party by confirming or rejecting them according to the ledger model. It also records transaction for that party on the ledger.
+    # Party to participant: records the fact that the party wants to be hosted on the participants with confirmation rights
+    # This means those participants are not allowed to submit transactions on behalf of this party but will validate transactions
+    # on behalf of the party by confirming or rejecting them according to the ledger model. They also records transaction for that party on the ledger.
+    confirming_participants_hosting = []
+    for confirming_participant_id in confirming_participant_ids:
+        confirming_participants_hosting.append(
+            topology_pb2.PartyToParticipant.HostingParticipant(
+                participant_uid=confirming_participant_id,
+                permission=topology_pb2.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
+            )
+        )
     party_to_participant_mapping = topology_pb2.TopologyMapping(
         party_to_participant=topology_pb2.PartyToParticipant(
             party=party_id,
-            threshold=1,
-            participants=[
-                topology_pb2.PartyToParticipant.HostingParticipant(
-                    participant_uid=confirming_participant_id,
-                    permission=topology_pb2.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION,
-                )
-            ],
+            threshold=confirming_threshold,
+            participants=confirming_participants_hosting,
         )
     )
     (party_to_participant_transaction, party_to_participant_transaction_hash) = (
@@ -250,35 +255,13 @@ def onboard_external_party(
     )
     # [Built signed topology transactions]
 
-    # Additionally, the party to participant transaction needs to be signed by the participant as well, thereby agreeing to host that party
-    # [Participant signs transaction]
-    # Extract the participant namespace from the participant id
-    confirming_participant_namespace = confirming_participant_id.split("::")[1]
-    sign_transaction_request = (
-        topology_manager_write_service_pb2.SignTransactionsRequest(
-            transactions=[signed_party_to_participant_transaction],
-            store=common_pb2.StoreId(
-                synchronizer=common_pb2.StoreId.Synchronizer(
-                    id=synchronizer_id,
-                )
-            ),
-            signed_by=[confirming_participant_namespace],
-        )
-    )
-    # This resulting signed transaction contains the signature of the party (performed above),
-    # and now in addition the signature of the participant node
-    fully_signed_party_to_participant_transaction: (
-        topology_manager_write_service_pb2.SignTransactionsResponse
-    ) = topology_write_client.SignTransactions(sign_transaction_request).transactions[0]
-    # [Participant signed transaction]
-
     # [Load all three transactions onto the participant node]
     add_transactions_request = (
         topology_manager_write_service_pb2.AddTransactionsRequest(
             transactions=[
                 signed_namespace_transaction,
                 signed_party_to_key_transaction,
-                fully_signed_party_to_participant_transaction,
+                signed_party_to_participant_transaction,
             ],
             store=common_pb2.StoreId(
                 synchronizer=common_pb2.StoreId.Synchronizer(
@@ -290,9 +273,46 @@ def onboard_external_party(
     topology_write_client.AddTransactions(add_transactions_request)
     # [Loaded all three transactions onto the participant node]
 
+
+    # [Authorize hosting from the confirming node]
+    topology_write_client.Authorize(
+        topology_manager_write_service_pb2.AuthorizeRequest(
+            proposal=topology_manager_write_service_pb2.AuthorizeRequest.Proposal(
+                change=topology_pb2.Enums.TopologyChangeOp.TOPOLOGY_CHANGE_OP_ADD_REPLACE,
+                serial=1,
+                mapping=party_to_participant_mapping,
+            ),
+            # False because the authorization from the participant is not enough:
+            # - it requires the signatures from the party (already submitted above)
+            # - as well as signatures from any other hosting participant
+            must_fully_authorize=False,
+            store=common_pb2.StoreId(
+                synchronizer=common_pb2.StoreId.Synchronizer(
+                    id=synchronizer_id,
+                ),
+            ),
+        )
+    )
+    # [Authorized hosting from the confirming node]
+
     # Finally wait for the party to appear in the topology, ensuring the onboarding succeeded
     print(f"Waiting for {party_name} to appear in topology")
     # [Waiting for party]
+    # If there's only one confirming participant, onboarding should be complete already
+    if len(confirming_participant_ids) == 1:
+        wait_to_observe_party_to_participant(
+            topology_read_client, synchronizer_id, party_id
+        )
+    # [Party found]
+
+    return private_key, public_key_fingerprint
+
+
+def wait_to_observe_party_to_participant(
+    topology_read_client: topology_manager_read_service_pb2_grpc,
+    synchronizer_id: str,
+    party_id,
+):
     party_in_topology = False
     while not party_in_topology:
         party_to_participant_response: (
@@ -308,7 +328,6 @@ def onboard_external_party(
                     head_state=google.protobuf.empty_pb2.Empty(),
                 ),
                 filter_party=party_id,
-                filter_participant=confirming_participant_id,
             )
         )
         if len(party_to_participant_response.results) > 0:
@@ -316,9 +335,6 @@ def onboard_external_party(
         else:
             time.sleep(0.5)
             continue
-    # [Party found]
-
-    return private_key, public_key_fingerprint
 
 
 def build_party_to_key_transaction(

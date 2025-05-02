@@ -78,23 +78,26 @@ trait HasSynchronizeWithReaders extends HasRunOnClosing {
     // Abort early if we are closing.
     // This prevents new readers from registering themselves so that eventually all permits become available
     // to grab in one go
-    if (isClosing) AbortedDueToShutdown
-    else if (readerSemaphore.tryAcquire()) {
-      val locationO = Option.when(keepTrackOfReaderCallStack)(new ReaderCallStack)
-      val handle = new ReaderHandle(reader, locationO)
-      readerUnderapproximation.put(handle, ()).discard
-      Outcome(handle)
-    } else if (isClosing) {
-      // We check again for closing because the closing may have been initiated concurrently since the previous check
-      AbortedDueToShutdown
-    } else {
-      logger.error(
-        s"All ${Int.MaxValue} reader locks for $nameInternal have been taken. Is there a memory/task leak somewhere?"
-      )
-      logger.debug(s"Currently registered readers: ${readerUnderapproximation.keys.mkString(",")}")
-      throw new IllegalStateException(
-        s"All ${Int.MaxValue} reader locks for '$nameInternal' have been taken."
-      )
+    unlessClosing {
+      if (readerSemaphore.tryAcquire()) {
+        val locationO = Option.when(keepTrackOfReaderCallStack)(new ReaderCallStack)
+        val handle = new ReaderHandle(reader, locationO)
+        readerUnderapproximation.put(handle, ()).discard
+        Outcome(handle)
+      } else if (isClosing) {
+        // We check again for closing because the closing may have been initiated concurrently since the previous check
+        AbortedDueToShutdown
+      } else {
+        logger.error(
+          s"All ${Int.MaxValue} reader locks for $nameInternal have been taken. Is there a memory/task leak somewhere?"
+        )
+        logger.debug(
+          s"Currently registered readers: ${readerUnderapproximation.keys.mkString(",")}"
+        )
+        throw new IllegalStateException(
+          s"All ${Int.MaxValue} reader locks for '$nameInternal' have been taken."
+        )
+      }
     }
 
   /** TODO(#16601) Make this method private once PerformUnlessClosing doesn't need it any more

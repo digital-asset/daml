@@ -108,11 +108,6 @@ object Reference {
     override def pretty: String = s"template $tyCon"
   }
 
-  object Template {
-    def apply(tyCon: TypeConName): Template =
-      Template(tyCon.toRef)
-  }
-
   final case class Interface(tyCon: TypeConName) extends Reference {
     override def pretty: String = s"interface $tyCon"
   }
@@ -147,11 +142,6 @@ object Reference {
 
   final case class TemplateOrInterface(tyCon: TypeConRef) extends Reference {
     override def pretty: String = s"template or interface $tyCon"
-  }
-
-  object TemplateOrInterface {
-    def apply(tyCon: TypeConName): TemplateOrInterface =
-      TemplateOrInterface(tyCon.toRef)
   }
 
   final case class Choice(tyCon: TypeConName, choiceName: ChoiceName) extends Reference {

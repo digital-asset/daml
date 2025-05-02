@@ -15,7 +15,6 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
   CloseableHealthComponent,
@@ -96,7 +95,7 @@ import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import scala.concurrent.{ExecutionContext, Future, Promise}
+import scala.concurrent.{ExecutionContext, Future}
 
 /** A connected synchronizer from the synchronization service.
   *
@@ -686,7 +685,7 @@ class ConnectedSynchronizer(
                   Target(synchronizerId),
                   Target(staticSynchronizerParameters),
                   reassignmentCoordination,
-                  data.contract.metadata.stakeholders,
+                  data.contracts.stakeholders.all,
                   data.unassignmentRequest.submitterMetadata,
                   participantId,
                   data.unassignmentRequest.targetTimeProof.timestamp,
@@ -759,26 +758,12 @@ class ConnectedSynchronizer(
       name: String,
       onClosing: => ERROR,
   )(
-      f: => EitherT[Future, ERROR, FutureUnlessShutdown[RESULT]]
+      f: => EitherT[FutureUnlessShutdown, ERROR, FutureUnlessShutdown[RESULT]]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ERROR, FutureUnlessShutdown[RESULT]] = {
-    val resultPromise = Promise[Either[ERROR, FutureUnlessShutdown[RESULT]]]()
-    performUnlessClosingF[Unit](name) {
-      val result = f.value
-      // try to complete the Promise with result of f (performUnlessClosingF on a non-closed ConnectedSynchronizer)
-      resultPromise.completeWith(result)
-      result.flatMap {
-        case Right(fusResult) =>
-          fusResult.unwrap.map(_ => ()) // tracking the completion of the inner FUS
-        case Left(_) => Future.unit
-      }
-    }.tapOnShutdown(
-      // try to complete the Promise with the onClosing error (performUnlessClosingF on a closed ConnectedSynchronizer)
-      resultPromise.trySuccess(Left(onClosing)).discard
-    ).discard // only needed to track the inner FUS too
-    EitherT(resultPromise.future)
-  }
+  ): EitherT[Future, ERROR, FutureUnlessShutdown[RESULT]] =
+    performUnlessClosingEitherUSFAsync[ERROR, FutureUnlessShutdown[RESULT]](name)(f)(x => x)
+      .onShutdown(Left(onClosing))
 
   /** @return
     *   The outer future completes after the submission has been registered as in-flight. The inner
@@ -810,12 +795,11 @@ class ConnectedSynchronizer(
           disclosedContracts,
           topologySnapshot,
         )
-        .onShutdown(Left(SubmissionDuringShutdown.Rejection()))
     }
 
-  override def submitUnassignment(
+  override def submitUnassignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
-      contractId: LfContractId,
+      contractIds: Seq[LfContractId],
       targetSynchronizer: Target[SynchronizerId],
       targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
@@ -831,26 +815,28 @@ class ConnectedSynchronizer(
       SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down."),
     ) {
       logger.debug(
-        s"Submitting unassignment of `$contractId` from `$synchronizerId` to `$targetSynchronizer`"
+        s"Submitting unassignment of `$contractIds` from `$synchronizerId` to `$targetSynchronizer`"
       )
 
       if (!ready)
-        SynchronizerNotReady(synchronizerId, "Cannot submit unassignment before recovery").discard
-      unassignmentProcessor
-        .submit(
-          UnassignmentProcessingSteps
-            .SubmissionParam(
-              submitterMetadata,
-              contractId,
-              targetSynchronizer,
-              targetProtocolVersion,
-            ),
-          synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
+        EitherT.leftT(
+          SynchronizerNotReady(synchronizerId, "Cannot submit unassignment before recovery")
         )
-        .onShutdown(Left(SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down")))
+      else
+        unassignmentProcessor
+          .submit(
+            UnassignmentProcessingSteps
+              .SubmissionParam(
+                submitterMetadata,
+                contractIds,
+                targetSynchronizer,
+                targetProtocolVersion,
+              ),
+            synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
+          )
     }
 
-  override def submitAssignment(
+  override def submitAssignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
@@ -868,15 +854,16 @@ class ConnectedSynchronizer(
       logger.debug(s"Submitting assignment of `$reassignmentId` to `$synchronizerId`")
 
       if (!ready)
-        SynchronizerNotReady(synchronizerId, "Cannot submit unassignment before recovery").discard
-
-      assignmentProcessor
-        .submit(
-          AssignmentProcessingSteps
-            .SubmissionParam(submitterMetadata, reassignmentId),
-          synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
+        EitherT.leftT(
+          SynchronizerNotReady(synchronizerId, "Cannot submit unassignment before recovery")
         )
-        .onShutdown(Left(SynchronizerNotReady(synchronizerId, "The synchronizer is shutting down")))
+      else
+        assignmentProcessor
+          .submit(
+            AssignmentProcessingSteps
+              .SubmissionParam(submitterMetadata, reassignmentId),
+            synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
+          )
     }
 
   def numberOfDirtyRequests(): Int = ephemeral.requestJournal.numberOfDirtyRequests

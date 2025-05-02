@@ -207,38 +207,53 @@ class PartyReplicationTargetParticipantProcessor(
   )(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): NonEmpty[Seq[Update.RepairReassignmentAccepted]] =
-    activeContracts.map { case ActiveContractOld(synchronizerId, contract, reassignmentCounter) =>
-      def uniqueUpdateId() = {
-        // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
-        val hash = pureCrypto
-          .build(HashPurpose.OnlinePartyReplicationId)
-          .add(indexerUpdateIdBaseHash.unwrap)
-          .add(repairCounter.unwrap)
-          .add(contract.contractId.coid)
-          .finish()
-        TransactionId(hash).tryAsLedgerTransactionId
+    activeContracts
+      .groupBy(_.synchronizerId)
+      .toSeq
+      .map { case (synchronizerId, contracts) =>
+        val uniqueUpdateId = {
+          // Add the repairCounter and contract-id to the hash to arrive at unique per-OPR updateIds.
+          val hash = contracts
+            .foldLeft {
+              pureCrypto
+                .build(HashPurpose.OnlinePartyReplicationId)
+                .add(indexerUpdateIdBaseHash.unwrap)
+            } { case (builder, ActiveContractOld(_, contract, reassignmentCounter)) =>
+              builder
+                .add(repairCounter.unwrap)
+                .add(contract.contractId.coid)
+            }
+            .finish()
+          TransactionId(hash).tryAsLedgerTransactionId
+        }
+        Update.RepairReassignmentAccepted(
+          workflowId = None,
+          updateId = uniqueUpdateId,
+          reassignmentInfo = ReassignmentInfo(
+            sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
+            targetSynchronizer = ReassignmentTag.Target(synchronizerId),
+            submitter = None,
+            unassignId = timestamp, // artificial unassign has same timestamp as assign
+            isReassigningParticipant = false,
+          ),
+          reassignment = Reassignment.Batch(
+            contracts.zipWithIndex.map {
+              case (ActiveContractOld(_, contract, reassignmentCounter), idx) =>
+                Reassignment.Assign(
+                  ledgerEffectiveTime = contract.ledgerCreateTime.toLf,
+                  createNode = contract.toLf,
+                  contractMetadata =
+                    LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),
+                  reassignmentCounter = reassignmentCounter.v,
+                  nodeId = idx,
+                )
+            }
+          ),
+          repairCounter = repairCounter,
+          recordTime = timestamp,
+          synchronizerId = synchronizerId,
+        )
       }
-
-      Update.RepairReassignmentAccepted(
-        workflowId = None,
-        updateId = uniqueUpdateId(),
-        reassignmentInfo = ReassignmentInfo(
-          sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
-          targetSynchronizer = ReassignmentTag.Target(synchronizerId),
-          submitter = None,
-          reassignmentCounter = reassignmentCounter.v,
-          unassignId = timestamp, // artificial unassign has same timestamp as assign
-          isReassigningParticipant = false,
-        ),
-        reassignment = Reassignment.Assign(
-          ledgerEffectiveTime = contract.ledgerCreateTime.toLf,
-          createNode = contract.toLf,
-          contractMetadata = LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),
-        ),
-        repairCounter = repairCounter,
-        recordTime = timestamp,
-      )
-    }
 
   override def onDisconnected(status: Either[String, Unit])(implicit
       traceContext: TraceContext

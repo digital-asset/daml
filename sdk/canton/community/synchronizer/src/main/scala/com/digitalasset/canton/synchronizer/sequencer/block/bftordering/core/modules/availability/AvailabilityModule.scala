@@ -59,6 +59,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 import scala.collection.mutable
@@ -104,6 +105,12 @@ final class AvailabilityModule[E <: Env[E]](
 
   private var activeMembership = initialMembership
   private var activeCryptoProvider = initialCryptoProvider
+  @VisibleForTesting
+  private[bftordering] def getActiveMembership = activeMembership
+  @VisibleForTesting
+  private[bftordering] def getActiveCryptoProvider = activeCryptoProvider
+  @VisibleForTesting
+  private[bftordering] def getMessageAuthorizer = messageAuthorizer
 
   disseminationProtocolState.lastProposalTime = Some(clock.now)
 
@@ -224,6 +231,7 @@ final class AvailabilityModule[E <: Env[E]](
 
       case Availability.LocalDissemination.RemoteBatchStored(batchId, epochNumber, from) =>
         logger.debug(s"$messageType: local store persisted $batchId from $from, signing")
+        disseminationProtocolState.disseminationQuotas.addBatch(from, batchId, epochNumber)
         signRemoteBatchAndContinue(batchId, epochNumber, from)
 
       case LocalDissemination.LocalBatchesStoredSigned(batches) =>
@@ -407,13 +415,15 @@ final class AvailabilityModule[E <: Env[E]](
       )
     } else if (lastKnownEpochNumber != currentEpoch) {
       lastKnownEpochNumber = currentEpoch
+      val expiredEpoch = EpochNumber(
+        lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs
+      )
 
       def deleteExpiredBatches[M](
           map: mutable.Map[BatchId, M],
           mapName: String,
       )(getEpochNumber: M => EpochNumber): Unit = {
-        def isBatchExpired(batchEpochNumber: EpochNumber) =
-          batchEpochNumber <= lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs
+        def isBatchExpired(batchEpochNumber: EpochNumber) = batchEpochNumber <= expiredEpoch
         val expiredBatchIds = map.collect {
           case (batchId, metadata) if isBatchExpired(getEpochNumber(metadata)) => batchId
         }
@@ -424,6 +434,8 @@ final class AvailabilityModule[E <: Env[E]](
           map --= expiredBatchIds
         }
       }
+
+      disseminationProtocolState.disseminationQuotas.expireEpoch(expiredEpoch)
 
       deleteExpiredBatches(
         disseminationProtocolState.batchesReadyForOrdering,
@@ -463,6 +475,12 @@ final class AvailabilityModule[E <: Env[E]](
           ordered,
         )
 
+      case Availability.Consensus.UpdateTopologyDuringStateTransfer(
+            orderingTopology,
+            cryptoProvider: CryptoProvider[E],
+          ) =>
+        updateActiveTopology(messageType, orderingTopology, cryptoProvider)
+
       case Availability.Consensus.LocalClockTick =>
         // If there are no batches to be ordered, but the consensus module is waiting for a proposal
         //  and more time has passed since the last one was created than `emptyBlockCreationInterval`,
@@ -501,16 +519,13 @@ final class AvailabilityModule[E <: Env[E]](
     removeOrderedBatchesAndPullFromMempool(actingOnMessageType, orderedBatchIds)
 
     logger.debug(
-      s"$actingOnMessageType: recording block request from local consensus, " +
-        s"updating active ordering topology to $orderingTopology and reviewing progress"
+      s"$actingOnMessageType: recording block request from local consensus and reviewing progress"
     )
     disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
       config.maxBatchesPerProposal,
       forEpochNumber,
     )
-    activeMembership = activeMembership.copy(orderingTopology = orderingTopology)
-    activeCryptoProvider = cryptoProvider
-    messageAuthorizer = orderingTopology
+    updateActiveTopology(actingOnMessageType, orderingTopology, cryptoProvider)
 
     // Review and complete both in-progress and ready disseminations regardless of whether the topology
     //  has changed, so that we also try and complete ones that might have become stuck;
@@ -521,6 +536,26 @@ final class AvailabilityModule[E <: Env[E]](
     advanceAllDisseminationProgress(actingOnMessageType)
 
     emitDisseminationStateStats(metrics, disseminationProtocolState)
+  }
+
+  private def updateActiveTopology(
+      actingOnMessageType: => String,
+      orderingTopology: OrderingTopology,
+      cryptoProvider: CryptoProvider[E],
+  )(implicit traceContext: TraceContext): Unit = {
+    val activeTopologyActivationTime = activeMembership.orderingTopology.activationTime.value
+    val newTopologyActivationTime = orderingTopology.activationTime.value
+    if (activeTopologyActivationTime > newTopologyActivationTime) {
+      logger.warn(
+        s"$actingOnMessageType: tried to overwrite topology with activation time $activeTopologyActivationTime " +
+          s"using outdated topology with activation time $newTopologyActivationTime, dropping"
+      )
+    } else {
+      logger.debug(s"$actingOnMessageType: updating active ordering topology to $orderingTopology")
+      activeMembership = activeMembership.copy(orderingTopology = orderingTopology)
+      activeCryptoProvider = cryptoProvider
+      messageAuthorizer = orderingTopology
+    }
   }
 
   private def removeOrderedBatchesAndPullFromMempool(
@@ -707,7 +742,10 @@ final class AvailabilityModule[E <: Env[E]](
     disseminationMessage match {
       case Availability.RemoteDissemination.RemoteBatch(batchId, batch, from) =>
         logger.debug(s"$messageType: received request from $from to store batch $batchId")
-        validateBatch(batchId, batch, from).fold(
+        (for {
+          _ <- validateBatch(batchId, batch, from)
+          _ <- validateDisseminationQuota(batchId, from)
+        } yield ()).fold(
           error => logger.warn(error),
           _ =>
             pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
@@ -779,6 +817,7 @@ final class AvailabilityModule[E <: Env[E]](
 
       case Availability.LocalOutputFetch.FetchBlockData(blockForOutput) =>
         val batchIdsToFind = blockForOutput.orderedBlock.batchRefs.map(_.batchId)
+        batchIdsToFind.foreach(disseminationProtocolState.disseminationQuotas.removeOrderedBatch)
         val request = new BatchesRequest(blockForOutput, mutable.SortedSet.from(batchIdsToFind))
         outputFetchProtocolState.pendingBatchesRequests.append(request)
         fetchBatchesForOutputRequest(request)
@@ -878,7 +917,7 @@ final class AvailabilityModule[E <: Env[E]](
             //  the nodes in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
             //  to state transfer incl. the batch payloads (when it is implemented).
             if (status.mode.isStateTransfer)
-              extractNodes(None, useCurrentTopology = true)
+              extractNodes(None, useActiveTopology = true)
             else
               extractNodes(Some(status.originalProof.acks))
 
@@ -987,7 +1026,7 @@ final class AvailabilityModule[E <: Env[E]](
     }
     val (node, remainingNodes) =
       if (mode.isStateTransfer)
-        extractNodes(acks = None, useCurrentTopology = true)
+        extractNodes(acks = None, useActiveTopology = true)
       else
         extractNodes(Some(proofOfAvailability.acks))
     logger.debug(
@@ -1062,13 +1101,13 @@ final class AvailabilityModule[E <: Env[E]](
 
   private def extractNodes(
       acks: Option[Seq[AvailabilityAck]],
-      useCurrentTopology: Boolean = false,
+      useActiveTopology: Boolean = false,
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
   ): (BftNodeId, Seq[BftNodeId]) = {
     val nodes =
-      if (useCurrentTopology) activeMembership.otherNodes.toSeq
+      if (useActiveTopology) activeMembership.otherNodes.toSeq
       else acks.getOrElse(abort("No availability acks provided for extracting nodes")).map(_.from)
     val shuffled = nodeShuffler.shuffle(nodes)
     val head = shuffled.headOption.getOrElse(abort("There should be at least one node to extract"))
@@ -1227,6 +1266,19 @@ final class AvailabilityModule[E <: Env[E]](
         },
       )
     } yield ()
+
+  private def validateDisseminationQuota(
+      batchId: BatchId,
+      from: BftNodeId,
+  ): Either[String, Unit] = Either.cond(
+    disseminationProtocolState.disseminationQuotas
+      .canAcceptForNode(from, batchId, config.maxNonOrderedBatchesPerNode.toInt),
+    (), {
+      emitInvalidMessage(metrics, from)
+      s"Batch $batchId from '$from' cannot be taken because we have reached the limit of ${config.maxNonOrderedBatchesPerNode} unordered and unexpired batches from " +
+        s"this node that we can hold on to, skipping"
+    },
+  )
 }
 
 object AvailabilityModule {

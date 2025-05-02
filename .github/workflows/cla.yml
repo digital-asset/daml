@@ -2,8 +2,13 @@ name: "CLA Assistant"
 on:
   issue_comment:
     types: [created]
-  pull_request_target:
-    types: [opened,closed,synchronize]
+  pull_request: # Adding pull_request event for specific branches
+    branches:
+      - main
+      - 'release/**'
+      - 'main-2x*'
+    types: [opened, reopened, closed, synchronize]
+
 
 # explicitly configure permissions, in case your GITHUB_TOKEN workflow permissions are set to read-only in repository settings
 permissions: 

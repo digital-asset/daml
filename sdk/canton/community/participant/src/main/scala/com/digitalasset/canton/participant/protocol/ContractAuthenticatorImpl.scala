@@ -62,7 +62,7 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
     for {
       metadata <- ContractMetadata.create(contract.signatories, contract.stakeholders, gk)
       driverMetadata <- DriverContractMetadata
-        .fromTrustedByteString(contract.cantonData.toByteString)
+        .fromLfBytes(contract.cantonData.toByteArray)
         .leftMap(_.toString)
       createTime <- CantonTimestamp.fromInstant(contract.createdAt.toInstant)
       contractInstance <- SerializableRawContractInstance

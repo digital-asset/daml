@@ -5,7 +5,7 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
+import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
@@ -284,8 +284,7 @@ object AssignmentCommonData
 final case class AssignmentView private (
     override val salt: Salt,
     reassignmentId: ReassignmentId,
-    contract: SerializableContract,
-    reassignmentCounter: ReassignmentCounter,
+    contracts: ContractsReassignmentBatch,
 )(
     hashOps: HashOps,
     override val representativeProtocolVersion: RepresentativeProtocolVersion[AssignmentView.type],
@@ -304,17 +303,20 @@ final case class AssignmentView private (
   protected def toProtoV30: v30.AssignmentView =
     v30.AssignmentView(
       salt = Some(salt.toProtoV30),
-      contract = Some(contract.toProtoV30),
-      reassignmentCounter = reassignmentCounter.toProtoPrimitive,
+      contracts = contracts.contracts.map { case reassign =>
+        v30.ActiveContract(
+          Some(reassign.contract.toProtoV30),
+          reassign.counter.toProtoPrimitive,
+        )
+      },
       reassignmentId = Some(reassignmentId.toProtoV30),
     )
 
   override protected def pretty: Pretty[AssignmentView] = prettyOfClass(
     param("reassignment id", _.reassignmentId),
-    param("reassignment counter", _.reassignmentCounter),
     param(
-      "contract id",
-      _.contract.contractId,
+      "contract ids and counters",
+      _.contracts.contractIdCounters,
     ), // do not log contract details because it contains confidential data
     param("salt", _.salt),
   )
@@ -333,16 +335,14 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
   def create(hashOps: HashOps)(
       salt: Salt,
       reassignmentId: ReassignmentId,
-      contract: SerializableContract,
+      contracts: ContractsReassignmentBatch,
       targetProtocolVersion: Target[ProtocolVersion],
-      reassignmentCounter: ReassignmentCounter,
   ): Either[String, AssignmentView] = Either
     .catchOnly[IllegalArgumentException](
       AssignmentView(
         salt,
         reassignmentId,
-        contract,
-        reassignmentCounter,
+        contracts,
       )(hashOps, protocolVersionRepresentativeFor(targetProtocolVersion.unwrap), None)
     )
     .leftMap(_.getMessage)
@@ -352,8 +352,7 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
   ): ParsingResult[AssignmentView] = {
     val v30.AssignmentView(
       saltP,
-      contractP,
-      reassignmentCounterP,
+      contractsP,
       reassignmentIdP,
     ) =
       assignmentViewP
@@ -361,15 +360,23 @@ object AssignmentView extends VersioningCompanionContextMemoization[AssignmentVi
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
       reassignmentId <- ProtoConverter
         .parseRequired(ReassignmentId.fromProtoV30, "reassignment_id", reassignmentIdP)
-      contract <- ProtoConverter
-        .required("contract", contractP)
-        .flatMap(SerializableContract.fromProtoV30)
+      contracts <- contractsP
+        .traverse { case v30.ActiveContract(contractP, reassignmentCounterP) =>
+          ProtoConverter
+            .required("contract", contractP)
+            .flatMap(SerializableContract.fromProtoV30)
+            .map(_ -> ReassignmentCounter(reassignmentCounterP))
+        }
+        .flatMap(
+          ContractsReassignmentBatch
+            .create(_)
+            .leftMap(err => InvariantViolation(Some("contracts"), err.toString))
+        )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield AssignmentView(
       salt,
       reassignmentId,
-      contract,
-      ReassignmentCounter(reassignmentCounterP),
+      contracts,
     )(hashOps, rpv, Some(bytes))
   }
 }

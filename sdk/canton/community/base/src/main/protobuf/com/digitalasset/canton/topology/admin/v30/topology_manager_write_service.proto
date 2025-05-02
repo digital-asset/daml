@@ -89,7 +89,8 @@ message AuthorizeRequest {
      */
     Proposal proposal = 1;
     /**
-     * Authorize a transaction, meaning the node needs to be able to fully sign it locally
+     * Authorize a transaction, meaning the node needs to be able to fully sign it locally.
+     * Hash is in hexadecimal format.
      */
     string transaction_hash = 2;
   }
@@ -190,7 +191,7 @@ message SignTransactionsRequest {
 }
 
 message SignTransactionsResponse {
-  /** The transaction with the additional signatures from this node */
+  /** The transactions with the additional signatures from this node. */
   repeated com.digitalasset.canton.protocol.v30.SignedTopologyTransaction transactions = 1;
 }
 

@@ -22,10 +22,10 @@ object ReassignmentCommandsBatch {
   final case class Assignments(target: Target[SynchronizerId], reassignmentId: ReassignmentId)
       extends ReassignmentCommandsBatch
 
-  sealed trait InvalidBatch
-  case object NoCommands extends InvalidBatch
-  case object MixedAssignmentWithOtherCommands extends InvalidBatch
-  case object UnassignmentsWithDifferingSynchronizers extends InvalidBatch
+  abstract class InvalidBatch(val error: String)
+  case object NoCommands extends InvalidBatch("no commands")
+  case object MixedAssignWithOtherCommands extends InvalidBatch("mixed assign with other commands")
+  case object DifferingSynchronizers extends InvalidBatch("differing synchronizers")
 
   def create(commands: Seq[ReassignmentCommand]): Either[InvalidBatch, ReassignmentCommandsBatch] =
     commands match {
@@ -46,7 +46,7 @@ object ReassignmentCommandsBatch {
           ),
           tail,
         )
-      case _ => Left(MixedAssignmentWithOtherCommands)
+      case _ => Left(MixedAssignWithOtherCommands)
     }
 
   private def validateUnassigns(
@@ -58,8 +58,8 @@ object ReassignmentCommandsBatch {
       if (head.sourceSynchronizer == soFar.source && head.targetSynchronizer == soFar.target)
         validateUnassigns(soFar.copy(contractIds = head.contractId +: soFar.contractIds), tail)
       else
-        Left(UnassignmentsWithDifferingSynchronizers)
-    case _ => Left(MixedAssignmentWithOtherCommands)
+        Left(DifferingSynchronizers)
+    case _ => Left(MixedAssignWithOtherCommands)
   }
 
   // Reversing a sequence does not change its cardinality, so is safe on a NonEmpty.

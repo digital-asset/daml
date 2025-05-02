@@ -149,7 +149,7 @@ class UpdateServiceRequestValidatorTest
 
   private val txReqLegacy = txReqBuilderLegacy(Seq(templateId))
   private val txReqLegacyWithPackageNameScoping = txReqBuilderLegacy(
-    Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
+    Seq(templateId.copy(pkg = Ref.PackageRef.Name(packageName).toString))
   )
 
   private val txReq = updatesReqBuilder(Some(Seq(templateId)))
@@ -158,7 +158,7 @@ class UpdateServiceRequestValidatorTest
     reassignmentsTemplateIdsO = Some(Seq(templateId)),
   )
   private val txReqWithPackageNameScoping = updatesReqBuilder(
-    Some(Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString)))
+    Some(Seq(templateId.copy(pkg = Ref.PackageRef.Name(packageName).toString)))
   )
 
   private val txByOffsetReqLegacy =

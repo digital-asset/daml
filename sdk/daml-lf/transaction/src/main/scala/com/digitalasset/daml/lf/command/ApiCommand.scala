@@ -24,11 +24,6 @@ object ApiCommand {
     override def typeRef: TypeConRef = templateRef
   }
 
-  object Create {
-    def apply(templateId: TypeConName, argument: Value): Create =
-      Create(templateId.toRef, argument)
-  }
-
   /** Command for exercising a choice on an existing contract
     *
     * @param typeRef    template or interface where the choice is defined
@@ -42,16 +37,6 @@ object ApiCommand {
       choiceId: ChoiceName,
       argument: Value,
   ) extends ApiCommand
-
-  object Exercise {
-    def apply(
-        typeId: TypeConName,
-        contractId: Value.ContractId,
-        choiceId: ChoiceName,
-        argument: Value,
-    ): Exercise =
-      Exercise(typeId.toRef, contractId, choiceId, argument)
-  }
 
   /** Command for exercising a choice on an existing contract specified by its key
     *
@@ -69,16 +54,6 @@ object ApiCommand {
     override def typeRef: TypeConRef = templateRef
   }
 
-  object ExerciseByKey {
-    def apply(
-        templateId: TypeConName,
-        contractKey: Value,
-        choiceId: ChoiceName,
-        argument: Value,
-    ): ExerciseByKey =
-      ExerciseByKey(templateId.toRef, contractKey, choiceId, argument)
-  }
-
   /** Command for creating a contract and exercising a choice
     * on that existing contract within the same transaction
     *
@@ -94,16 +69,6 @@ object ApiCommand {
       choiceArgument: Value,
   ) extends ApiCommand {
     override def typeRef: TypeConRef = templateRef
-  }
-
-  object CreateAndExercise {
-    def apply(
-        templateId: TypeConName,
-        createArgument: Value,
-        choiceId: ChoiceName,
-        choiceArgument: Value,
-    ): CreateAndExercise =
-      CreateAndExercise(templateId.toRef, createArgument, choiceId, choiceArgument)
   }
 }
 

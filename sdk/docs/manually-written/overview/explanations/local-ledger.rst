@@ -3,8 +3,14 @@
 
 .. _local-ledger:
 
-Causality and Local Daml Ledgers
-################################
+Causality
+#########
+
+.. note::
+
+   Update so that the DAG structure of ledgers are reflected directly.
+   This should greatly simplify the formalism here.
+
 
 Daml ledgers do not totally order all transactions.
 So different parties may observe two transactions on different Participant Nodes in different orders via the :ref:`Ledger API <ledger-api-services>`.

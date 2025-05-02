@@ -7,6 +7,7 @@ import com.digitalasset.canton.http.json.v2.ProtoInfo.{camelToSnake, normalizeNa
 import com.digitalasset.canton.http.json.v2.{ExtractedProtoComments, FieldData, MessageInfo}
 import io.protostuff.compiler.model.{FieldContainer, Proto}
 
+import scala.collection.immutable.SortedMap
 import scala.jdk.CollectionConverters.CollectionHasAsScala
 
 /** Extract comments from parsed proto files
@@ -17,14 +18,18 @@ object ProtoDescriptionExtractor {
     val messages = protos.flatMap(_.getMessages().asScala)
     val componentsMessages =
       messages.map(msg => (msg.getName(), MessageInfo(toFieldData(msg)))).toMap
-    val oneOfMessages = messages
-      .flatMap(_.getOneofs().asScala)
-      .map(msg => (msg.getName(), MessageInfo(toFieldData(msg))))
-      .map { case (name, msgInfo) =>
-        (camelToSnake(normalizeName(name)), msgInfo)
+    val oneOfMessages = messages.map { msg =>
+      msg.getName -> SortedMap.from {
+        msg.getOneofs().asScala.map { oneOf =>
+          camelToSnake(normalizeName(oneOf.getName)) -> MessageInfo(toFieldData(oneOf))
+        }
       }
-      .toMap
-    ExtractedProtoComments(componentsMessages, oneOfMessages)
+    }.toMap
+
+    ExtractedProtoComments(
+      SortedMap.from(componentsMessages),
+      SortedMap.from(oneOfMessages),
+    )
   }
 
   private def toFieldData(message: FieldContainer) =

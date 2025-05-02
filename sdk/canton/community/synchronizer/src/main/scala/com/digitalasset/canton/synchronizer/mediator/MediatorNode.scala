@@ -59,7 +59,10 @@ import com.digitalasset.canton.synchronizer.metrics.MediatorMetrics
 import com.digitalasset.canton.synchronizer.service.GrpcSequencerConnectionService
 import com.digitalasset.canton.time.{Clock, HasUptime, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
+import com.digitalasset.canton.topology.client.{
+  SynchronizerTopologyClient,
+  SynchronizerTopologyClientWithInit,
+}
 import com.digitalasset.canton.topology.processing.{
   InitialTopologySnapshotValidator,
   SequencedTime,
@@ -572,6 +575,7 @@ class MediatorNodeBootstrap(
           .right(
             TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
               synchronizerTopologyStore,
+              ips,
               synchronizerId,
               new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
               arguments.parameterConfig,
@@ -580,8 +584,11 @@ class MediatorNodeBootstrap(
               synchronizerLoggerFactory,
             )()
           )
-      (topologyProcessor, topologyClient) = topologyProcessorAndClient
-      _ = ips.add(topologyClient)
+      (topologyProcessor, newTopologyClient) = topologyProcessorAndClient
+      topologyClient = ips.add(newTopologyClient) match {
+        case client: SynchronizerTopologyClientWithInit => client
+        case _ => throw new IllegalStateException("Unknown type for topology client")
+      }
 
       // Session signing keys are used only if they are configured in Canton's configuration file.
       syncCryptoWithOptionalSessionKeys = SynchronizerCryptoClient.createWithOptionalSessionKeys(

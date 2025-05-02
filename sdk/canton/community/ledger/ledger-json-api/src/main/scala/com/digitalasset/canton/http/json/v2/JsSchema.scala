@@ -166,15 +166,6 @@ object JsSchema {
     implicit val transactionFormatRW: Codec[transaction_filter.TransactionFormat] =
       deriveRelaxedCodec
 
-    implicit val unrecognizedShape: Schema[transaction_filter.TransactionShape.Unrecognized] =
-      Schema.derived
-
-    implicit val transactionShapeSchema: Schema[transaction_filter.TransactionShape] = Schema.string
-
-    implicit val identifierFilterSchema
-        : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
-      Schema.oneOfWrapped
-
     implicit val jsReassignment: Codec[JsReassignment] = deriveConfiguredCodec
 
     implicit val jsReassignmentEventRW: Codec[JsReassignmentEvent.JsReassignmentEvent] =
@@ -187,6 +178,21 @@ object JsSchema {
     implicit val jsReassignmentEventJsAssignedEventRW
         : Codec[JsReassignmentEvent.JsAssignmentEvent] =
       deriveConfiguredCodec
+
+    implicit val unrecognizedShape: Schema[transaction_filter.TransactionShape.Unrecognized] =
+      Schema.derived
+
+    implicit val transactionShapeSchema: Schema[transaction_filter.TransactionShape] = Schema.string
+
+    implicit val identifierFilterSchema
+        : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
+      Schema.oneOfWrapped
+
+    implicit val filtersByPartyMapSchema: Schema[Map[String, transaction_filter.Filters]] =
+      Schema.schemaForMap[transaction_filter.Filters]
+
+    implicit val eventFormatSchema: Schema[transaction_filter.EventFormat] =
+      Schema.derived
 
   }
 
@@ -445,6 +451,12 @@ object JsSchema {
     @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
     implicit val jsTreeEventSchema: Schema[JsTreeEvent.TreeEvent] =
       Schema.oneOfWrapped
+
+    implicit val eventsByIdSchema: Schema[Map[Int, JsTreeEvent.TreeEvent]] =
+      Schema.schemaForMap[Int, JsTreeEvent.TreeEvent](_.toString)
+
+    implicit val jsTransactionTreeSchema: Schema[JsTransactionTree] =
+      Schema.derived
 
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =

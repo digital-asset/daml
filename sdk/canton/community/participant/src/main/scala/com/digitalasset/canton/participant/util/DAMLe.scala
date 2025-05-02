@@ -379,18 +379,9 @@ class DAMLe(
             .value
         case ResultNeedContract(acoid, resume) =>
           contracts
-            .lookupLfInstance(acoid)
+            .lookupFatContract(acoid)
             .value
-            .flatMap { optThinInst =>
-              val fatInstanceOpt: Option[LfFatContractInst] = optThinInst.map {
-                case Versioned(version, thinInst) =>
-                  LfFatContractInst.fromThinInstance(
-                    version = version,
-                    packageName = thinInst.packageName,
-                    template = thinInst.template,
-                    arg = thinInst.arg,
-                  )
-              }
+            .flatMap { fatInstanceOpt =>
               handleResultInternal(contracts, resume(fatInstanceOpt))
             }
         case ResultError(err) => FutureUnlessShutdown.pure(Left(EngineError(err)))

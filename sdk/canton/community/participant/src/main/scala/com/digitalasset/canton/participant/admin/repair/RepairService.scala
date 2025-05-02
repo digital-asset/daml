@@ -50,7 +50,6 @@ import com.digitalasset.canton.util.PekkoUtil.FutureQueue
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.google.common.annotations.VisibleForTesting
@@ -89,7 +88,6 @@ final class RepairService(
     ledgerApiIndexer: Eval[LedgerApiIndexer],
     aliasManager: SynchronizerAliasManager,
     parameters: ParticipantNodeParameters,
-    threadsAvailableForWriting: PositiveInt,
     val synchronizerLookup: SynchronizerLookup,
     @VisibleForTesting
     private[canton] val executionQueue: SimpleExecutionQueue,
@@ -524,7 +522,6 @@ final class RepairService(
       sourceSynchronizer: Source[SynchronizerId],
       targetSynchronizer: Target[SynchronizerId],
       skipInactive: Boolean,
-      batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val contractsCount = PositiveInt.tryCreate(contracts.size)
     for {
@@ -558,19 +555,13 @@ final class RepairService(
           loggerFactory,
         )
         (for {
-          changeAssignationData <- EitherT.fromEither[FutureUnlessShutdown](
+          changeAssignationData <- EitherT.rightT[FutureUnlessShutdown, String](
             ChangeAssignation.Data.from(contracts.forgetNE, changeAssignation)
           )
-
           // Note the following purposely fails if any contract fails which results in not all contracts being processed.
-          _ <- MonadUtil
-            .batchedSequentialTraverse(
-              parallelism = threadsAvailableForWriting * PositiveInt.two,
-              batchSize,
-            )(
-              changeAssignationData
-            )(changeAssignation.changeAssignation(_, skipInactive).map(_ => Seq[Unit]()))
-            .map(_ => ())
+          _ <- changeAssignation
+            .changeAssignation(changeAssignationData, skipInactive)
+            .map(_ => Seq[Unit]())
 
         } yield ()).mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("changeAssignation"))
       }
@@ -626,6 +617,7 @@ final class RepairService(
           contractStore.value,
           loggerFactory,
         )
+
         unassignmentData = ChangeAssignation.Data.from(reassignmentData, changeAssignation)
         _ <- changeAssignation.completeUnassigned(unassignmentData)
 
@@ -638,16 +630,16 @@ final class RepairService(
           contractStore.value,
           loggerFactory,
         )
-        contractIdData <- EitherT.fromEither[FutureUnlessShutdown](
+        contractIdsData <- EitherT.fromEither[FutureUnlessShutdown](
           ChangeAssignation.Data
-            .from(
-              reassignmentData.contract.contractId,
+            .from[Seq[(LfContractId, Option[ReassignmentCounter])]](
+              reassignmentData.contracts.contractIds.map(_ -> None).toSeq,
               changeAssignationBack,
             )
             .incrementRepairCounter
         )
         _ <- changeAssignationBack.changeAssignation(
-          Seq(contractIdData.map((_, None))),
+          contractIdsData,
           skipInactive = false,
         )
       } yield ()).mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("rollbackUnassignment"))
@@ -991,11 +983,10 @@ final class RepairService(
       contractsAdded: Seq[ContractToAdd],
       workflowIdProvider: () => Option[LfWorkflowId],
   )(implicit traceContext: TraceContext): RepairUpdate = {
-    val contractMetadata = contractsAdded.view
-      .map(c =>
-        c.contract.contractId -> c.driverMetadata(repair.synchronizer.parameters.protocolVersion)
-      )
-      .toMap
+    val contractMetadata = contractsAdded.view.map { c =>
+      val cId = c.contract.contractId
+      cId -> c.driverMetadata(CantonContractIdVersion.tryCantonContractIdVersion(cId))
+    }.toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
     Update.RepairTransactionAccepted(
@@ -1267,8 +1258,9 @@ object RepairService {
   ) {
     def cid: LfContractId = contract.contractId
 
-    def driverMetadata(protocolVersion: ProtocolVersion): Bytes =
-      DriverContractMetadata(contract.contractSalt).toLfBytes(protocolVersion)
+    def driverMetadata(contractIdVersion: CantonContractIdVersion): Bytes =
+      DriverContractMetadata(contract.contractSalt).toLfBytes(contractIdVersion)
+
   }
 
   trait SynchronizerLookup {

@@ -64,14 +64,6 @@ final case class TemplateWildcardFilter(
     includeCreatedEventBlob: Boolean
 )
 
-object TemplateFilter {
-  def apply(templateId: Ref.Identifier, includeCreatedEventBlob: Boolean): TemplateFilter =
-    TemplateFilter(
-      Ref.TypeConRef(Ref.PackageRef.Id(templateId.packageId), templateId.qualifiedName),
-      includeCreatedEventBlob,
-    )
-}
-
 final case class CumulativeFilter(
     templateFilters: immutable.Set[TemplateFilter],
     interfaceFilters: immutable.Set[InterfaceFilter],

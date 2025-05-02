@@ -22,10 +22,10 @@ object UnassignmentProcessorError {
 
   final case class TargetSynchronizerIsSourceSynchronizer(
       synchronizerId: SynchronizerId,
-      contractId: LfContractId,
+      contractIds: Seq[LfContractId],
   ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot unassign contract `$contractId`: source and target synchronizers are the same"
+      s"Cannot unassign contracts `$contractIds`: source and target synchronizers are the same"
   }
 
   final case class UnknownContract(contractId: LfContractId) extends UnassignmentProcessorError {

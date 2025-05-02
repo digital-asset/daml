@@ -24,6 +24,7 @@ import com.digitalasset.canton.crypto.store.memory.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
@@ -33,7 +34,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
-import com.digitalasset.canton.topology.{Namespace, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
@@ -50,10 +50,15 @@ class SimulationCryptoProvider(
 ) extends CryptoProvider[SimulationEnv] {
 
   private def fetchSigningKey(): Either[SyncCryptoError, Fingerprint] = {
-    val keyNotFound = Left(
+    lazy val keyNotFound = Left(
       SyncCryptoError.KeyNotAvailable(
-        SequencerId
-          .tryCreate(thisNode.replace("/", "_"), Namespace(Fingerprint.tryFromString("ns"))),
+        SequencerNodeId
+          .fromBftNodeId(thisNode)
+          .getOrElse(
+            throw new IllegalStateException(
+              s"Failed to convert BFT node ID $thisNode to SequencerId"
+            )
+          ),
         Signing,
         timestamp,
         Seq.empty,

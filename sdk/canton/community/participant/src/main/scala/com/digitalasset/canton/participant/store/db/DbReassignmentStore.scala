@@ -28,12 +28,13 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
+  DbContracts,
   DbReassignmentId,
   ReassignmentEntryRaw,
 }
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
 import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
-import com.digitalasset.canton.resource.{DbStorage, DbStore}
+import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.SynchronizerId
@@ -48,6 +49,7 @@ import slick.jdbc.GetResult.GetInt
 import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
+import scala.collection.immutable.ArraySeq
 import scala.concurrent.ExecutionContext
 
 class DbReassignmentStore(
@@ -137,15 +139,31 @@ class DbReassignmentStore(
       .valueOr(err => throw new DbDeserializationException(err))
   }
 
-  private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
-    SerializableContract.getVersionedSetParameter(targetSynchronizerProtocolVersion.unwrap)
+  private implicit val setParameterDbContracts: SetParameter[DbContracts] = { (value, pp) =>
+    DbParameterUtils.setArrayBytesParameterDb(
+      storageProfile = storage.profile,
+      items = value.contracts.toArray.sortBy(_.contractId.toString),
+      serialize = DbContracts.serializeOne(targetSynchronizerProtocolVersion.unwrap),
+      pp = pp,
+    )
+  }
+
+  private implicit val getDbContracts: GetResult[DbContracts] =
+    DbParameterUtils
+      .getDataBytesArrayResultsDb[SerializableContract](deserialize = DbContracts.tryDeserializeOne)
+      .andThen { arr =>
+        val contracts: NonEmpty[Seq[SerializableContract]] = NonEmpty
+          .from(ArraySeq.unsafeWrapArray(arr))
+          .getOrElse(throw new DbDeserializationException(s"Found empty contract array"))
+        DbContracts(contracts)
+      }
 
   private implicit val getResultReassignmentEntryRaw: GetResult[ReassignmentEntryRaw] = GetResult {
     r =>
       ReassignmentEntryRaw(
         sourceSynchronizerIndex = GetResult[Int].apply(r),
         unassignmentTs = GetResult[CantonTimestamp].apply(r),
-        contract = GetResult[SerializableContract].apply(r),
+        contracts = GetResult[DbContracts].apply(r).contracts,
         unassignmentRequest = getResultFullUnassignmentTreeO.apply(r),
         reassignmentGlobalOffset = ReassignmentGlobalOffset
           .create(
@@ -183,13 +201,13 @@ class DbReassignmentStore(
       // once we remove the computation of incomplete reassignments from the reassignmentStore
       storage.profile match {
         case _: Profile.Postgres =>
-          sqlu"""insert into par_reassignments as r(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, unassignment_request, contract)
+          sqlu"""insert into par_reassignments as r(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, unassignment_request, contracts)
         values (
           $indexedTargetSynchronizer,
           ${dbReassignmentId.indexedSourceSynchronizer},
           ${dbReassignmentId.unassignmentTs},
           ${unassignmentData.unassignmentRequest},
-          ${unassignmentData.contract}
+          ${DbContracts(unassignmentData.contracts.contracts.map(_.contract))}
         )
         on conflict (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp) do update set unassignment_request = ${unassignmentData.unassignmentRequest}
         where r.target_synchronizer_idx=$indexedTargetSynchronizer and r.source_synchronizer_idx=${dbReassignmentId.indexedSourceSynchronizer} and r.unassignment_timestamp=${dbReassignmentId.unassignmentTs} and r.unassignment_request IS NULL;
@@ -200,8 +218,10 @@ class DbReassignmentStore(
                  when matched and unassignment_request IS NULL then
                    update set unassignment_request = ${unassignmentData.unassignmentRequest}
                  when not matched then
-                   insert (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, unassignment_request, contract)
-                   values ($indexedTargetSynchronizer, ${dbReassignmentId.indexedSourceSynchronizer}, ${dbReassignmentId.unassignmentTs}, ${unassignmentData.unassignmentRequest}, ${unassignmentData.contract});
+                   insert (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp, unassignment_request, contracts)
+                   values ($indexedTargetSynchronizer, ${dbReassignmentId.indexedSourceSynchronizer}, ${dbReassignmentId.unassignmentTs}, ${unassignmentData.unassignmentRequest}, ${DbContracts(
+              unassignmentData.contracts.contracts.map(_.contract)
+            )});
   """
       }
 
@@ -232,7 +252,7 @@ class DbReassignmentStore(
     def insert(indexedSourceSynchronizer: Source[IndexedSynchronizer]) =
       sqlu"""
       insert into par_reassignments(target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp,
-        unassignment_request, unassignment_global_offset, assignment_global_offset, contract)
+        unassignment_request, unassignment_global_offset, assignment_global_offset, contracts)
         values (
           $indexedTargetSynchronizer,
           $indexedSourceSynchronizer,
@@ -240,7 +260,7 @@ class DbReassignmentStore(
           NULL, -- unassignmentRequest
           NULL, -- unassignment_global_offset
           NULL, -- assignment_global_offset
-          ${assignmentData.contract}
+          ${DbContracts(assignmentData.contracts.contracts.map(_.contract))}
         )
           ON conflict do nothing;
           """
@@ -285,7 +305,7 @@ class DbReassignmentStore(
 
   private def entryExists(id: DbReassignmentId): DbAction.ReadOnly[Option[ReassignmentEntryRaw]] =
     sql"""
-     select source_synchronizer_idx, unassignment_timestamp, contract, unassignment_request,
+     select source_synchronizer_idx, unassignment_timestamp, contracts, unassignment_request,
      unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
      where target_synchronizer_idx=$indexedTargetSynchronizer and source_synchronizer_idx=${id.indexedSourceSynchronizer}
@@ -493,7 +513,7 @@ class DbReassignmentStore(
       else sql" "
 
     val base: SQLActionBuilder = sql"""
-     select source_synchronizer_idx, unassignment_timestamp, contract, unassignment_request,
+     select source_synchronizer_idx, unassignment_timestamp, contracts, unassignment_request,
      unassignment_global_offset, assignment_global_offset, assignment_timestamp
      from par_reassignments
      where
@@ -572,7 +592,7 @@ class DbReassignmentStore(
               storage.limitSql(numberOfItems = DbReassignmentStore.dbQueryLimit, skipItems = start)
 
             val base: SQLActionBuilder =
-              sql"""select source_synchronizer_idx, unassignment_timestamp, unassignment_request, contract, unassignment_global_offset, assignment_global_offset
+              sql"""select source_synchronizer_idx, unassignment_timestamp, unassignment_request, contracts, unassignment_global_offset, assignment_global_offset
               from par_reassignments
               where target_synchronizer_idx=$indexedTargetSynchronizer"""
 
@@ -582,7 +602,7 @@ class DbReassignmentStore(
                     Int,
                     CantonTimestamp,
                     Option[FullUnassignmentTree],
-                    SerializableContract,
+                    DbContracts,
                     Option[ReassignmentGlobalOffset],
                 )
               ]
@@ -603,7 +623,7 @@ class DbReassignmentStore(
               ReassignmentId(Source(sourceSynchronizer), unassignmentTs),
               unassignmentRequest,
               reassignmentGlobalOffset,
-              contract,
+              contract.contracts,
             )
           )
       }
@@ -626,8 +646,10 @@ class DbReassignmentStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Vector[InternalIncompleteReassignmentData]] = {
 
-    def stakeholderFilter(data: InternalIncompleteReassignmentData): Boolean = stakeholders
-      .forall(_.exists(data.contract.metadata.stakeholders))
+    def stakeholderFilter(data: InternalIncompleteReassignmentData): Boolean = {
+      val dataStakeholders = data.contracts.flatMap(_.metadata.stakeholders).toSet
+      stakeholders.forall(_.exists(dataStakeholders.contains(_)))
+    }
 
     Monad[FutureUnlessShutdown].tailRecM(
       (Vector.empty[InternalIncompleteReassignmentData], 0, 0L)
@@ -791,16 +813,23 @@ class DbReassignmentStore(
           query.as[(Int, CantonTimestamp, FullUnassignmentTree)],
           functionFullName,
         )
-        .map(_.collect {
-          case (sourceForeachEntryIdx, unassignTs, unassignmentRequest)
-              if contractIds.contains(unassignmentRequest.contract.contractId) =>
-            synchronizerIdF(sourceForeachEntryIdx, "source_synchronizer_idx").map(synchronizerId =>
-              unassignmentRequest.contract.contractId -> ReassignmentId(
-                Source(synchronizerId),
-                unassignTs,
+        .map(
+          _.collect {
+            case (sourceForeachEntryIdx, unassignTs, unassignmentRequest)
+                if contractIds.exists(unassignmentRequest.contracts.contractIds.contains(_)) =>
+              synchronizerIdF(sourceForeachEntryIdx, "source_synchronizer_idx").map(
+                synchronizerId =>
+                  unassignmentRequest.contracts.contractIds.map(
+                    _ -> ReassignmentId(
+                      Source(synchronizerId),
+                      unassignTs,
+                    )
+                  )
               )
-            )
-        }.sequence.map(_.groupBy(_._1).map { case (id, value) => id -> value.map(_._2) }))
+          }.sequence
+            .map(_.flatten)
+            .map(_.groupBy(_._1).map { case (id, value) => id -> value.map(_._2) })
+        )
     } yield res
   }.flatten
 
@@ -857,7 +886,7 @@ object DbReassignmentStore {
   private final case class ReassignmentEntryRaw(
       sourceSynchronizerIndex: Int,
       unassignmentTs: CantonTimestamp,
-      contract: SerializableContract,
+      contracts: NonEmpty[Seq[SerializableContract]],
       unassignmentRequest: Option[FullUnassignmentTree],
       reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
       assignmentTs: Option[CantonTimestamp],
@@ -866,7 +895,7 @@ object DbReassignmentStore {
     def toReassignmentEntry(synchronizerId: SynchronizerId): ReassignmentEntry =
       ReassignmentEntry(
         ReassignmentId(Source(synchronizerId), unassignmentTs),
-        contract,
+        contracts,
         unassignmentRequest,
         reassignmentGlobalOffset,
         assignmentTs,
@@ -875,4 +904,21 @@ object DbReassignmentStore {
 
   // We tend to use 1000 to limit queries
   private val dbQueryLimit = 1000
+
+  // Used for encoding and decoding the par_reassignments.contracts column, which is an array type.
+  private[db] final case class DbContracts(contracts: NonEmpty[Seq[SerializableContract]])
+  private[db] object DbContracts {
+    def serializeOne(protocolVersion: ProtocolVersion)(
+        contract: SerializableContract
+    ): Array[Byte] =
+      contract.toByteArray(protocolVersion)
+
+    def tryDeserializeOne(bytes: Array[Byte]): SerializableContract =
+      SerializableContract
+        .fromTrustedByteArray(bytes)
+        .valueOr(err =>
+          throw new DbDeserializationException(s"Failed to deserialize contract: $err")
+        )
+  }
+
 }
