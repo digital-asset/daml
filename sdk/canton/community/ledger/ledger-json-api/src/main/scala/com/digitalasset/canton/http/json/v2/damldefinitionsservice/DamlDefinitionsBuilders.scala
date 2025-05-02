@@ -36,7 +36,7 @@ object DamlDefinitionsBuilders {
     globalTypeSig.templateDefs.get(templateId).map { templateSig =>
       val (choices, dependencyDefs) = choicesDefinitions(templateSig.choices, globalTypeSig)
 
-      val definitionsBuilder = Map.newBuilder[Ref.TypeConName, DataTypeSig]
+      val definitionsBuilder = Map.newBuilder[Ref.TypeConId, DataTypeSig]
       definitionsBuilder ++= dependencyDefs
       TemplateDefinition(
         arguments = {
@@ -252,8 +252,8 @@ object DamlDefinitionsBuilders {
   private def choicesDefinitions(
       choiceSigs: Map[Ref.Name, ChoiceSig],
       globalTypeSig: TypeSig,
-  ): (Map[Ref.Name, ChoiceDefinition], Map[Ref.TypeConName, DataTypeSig]) = {
-    val definitionsMapBuilder = Map.newBuilder[Ref.TypeConName, DataTypeSig]
+  ): (Map[Ref.Name, ChoiceDefinition], Map[Ref.TypeConId, DataTypeSig]) = {
+    val definitionsMapBuilder = Map.newBuilder[Ref.TypeConId, DataTypeSig]
     val choices = choiceSigs.map { case (choiceName, choiceSig) =>
       choiceName -> ChoiceDefinition(
         consuming = choiceSig.consuming,
@@ -286,7 +286,7 @@ object DamlDefinitionsBuilders {
 
   private def extractFirstLevelTypeCons(
       serializableType: SerializableType
-  ): Option[Ref.TypeConName] =
+  ): Option[Ref.TypeConId] =
     serializableType match {
       case SerializableType.Enum(tycon) => Some(tycon)
       case SerializableType.Record(tyCon, _) => Some(tyCon)
@@ -305,10 +305,10 @@ object DamlDefinitionsBuilders {
 
   @tailrec
   private def gatherTypeDefs(
-      typeCons: mutable.Queue[Ref.TypeConName],
-      acc: Map[Ref.TypeConName, DataTypeSig],
+      typeCons: mutable.Queue[Ref.TypeConId],
+      acc: Map[Ref.TypeConId, DataTypeSig],
       globalTypeSig: TypeSig,
-  ): Map[Ref.TypeConName, DataTypeSig] =
+  ): Map[Ref.TypeConId, DataTypeSig] =
     if (typeCons.isEmpty) acc
     else {
       val typeCon = typeCons.dequeue()
