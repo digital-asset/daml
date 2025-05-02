@@ -83,7 +83,7 @@ class TestSubmissionService(
     participantId: ParticipantId,
     maxDeduplicationDuration: NonNegativeFiniteDuration,
     damle: Engine,
-    contractResolver: LfContractId => TraceContext => Future[Option[LfThinContractInst]],
+    contractResolver: LfContractId => TraceContext => Future[Option[FatContractInstance]],
     keyResolver: TestKeyResolver,
     packageResolver: PackageResolver,
     syncService: SyncService,
@@ -337,16 +337,8 @@ class TestSubmissionService(
 
       case ResultNeedContract(acoid, resume) =>
         for {
-          thinContractO <- contractResolver(acoid)(traceContext)
-          fatContract0 = thinContractO.map { case thinContract =>
-            LfFatContractInst.fromThinInstance(
-              version = thinContract.version,
-              packageName = thinContract.unversioned.packageName,
-              template = thinContract.unversioned.template,
-              arg = thinContract.unversioned.arg,
-            )
-          }
-          r <- resolve(resume(fatContract0))
+          fatContractO <- contractResolver(acoid)(traceContext)
+          r <- resolve(resume(fatContractO))
         } yield r
 
       case ResultNeedPackage(packageId, resume) =>
@@ -420,9 +412,9 @@ object TestSubmissionService {
 
     def resolveContract(
         coid: LfContractId
-    )(traceContext: TraceContext): Future[Option[LfThinContractInst]] =
+    )(traceContext: TraceContext): Future[Option[FatContractInstance]] =
       participantNode.sync.participantNodePersistentState.value.contractStore
-        .lookupLfInstance(coid)(traceContext)
+        .lookupFatContract(coid)(traceContext)
         .value
         .failOnShutdownToAbortException("TestSubmissionService")
 
@@ -455,7 +447,7 @@ object TestSubmissionService {
       val id = Ref.PackageId.assertFromString(p.id)
       val name = Ref.PackageName.assertFromString(p.name)
       val version = Ref.PackageVersion.assertFromString(p.version.toString)
-      (id -> (name, version))
+      id -> (name, version)
     }.toMap
 
   /** Strategy to resolve a contract key for use by DAML engine.

@@ -323,8 +323,17 @@ object ExampleTransactionFactory {
       Bytes.assertFromString(f"$index%04x".padTo(LfHash.underlyingHashLength * 2, '0'))
     )
 
-  def suffixedId(discriminator: Int, suffix: Int): LfContractId =
-    LfContractId.V1(lfHash(discriminator), Bytes.assertFromString(f"$suffix%04x"))
+  def suffixedId(
+      discriminator: Int,
+      suffix: Int,
+      contractIdVersion: CantonContractIdVersion = AuthenticatedContractIdVersionV11,
+  ): LfContractId =
+    LfContractId.V1(
+      discriminator = lfHash(discriminator),
+      suffix = contractIdVersion.versionPrefixBytes ++ Bytes.fromByteString(
+        TestHash.digest(f"$suffix%04x").getCryptographicEvidence
+      ),
+    )
 
   def unsuffixedId(index: Int): LfContractId.V1 = LfContractId.V1(lfHash(index))
 

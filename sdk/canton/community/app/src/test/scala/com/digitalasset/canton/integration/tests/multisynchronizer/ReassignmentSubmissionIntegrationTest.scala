@@ -28,6 +28,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import com.digitalasset.canton.ledger.participant.state.ReassignmentCommandsBatch.NoCommands
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError.NotHostedOnParticipant
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.synchronizer.sequencer.HasProgrammableSequencer
@@ -195,6 +196,23 @@ sealed trait ReassignmentSubmissionIntegrationTest
 
     unassigned.events.size shouldBe 2
     assigned.events.size shouldBe 2
+  }
+
+  "check that we fail if unassignment contains no contract ids" in { implicit env =>
+    import env.*
+
+    loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
+      participant1.ledger_api.commands
+        .submit_unassign(
+          submitter = signatory,
+          contractIds = Seq.empty,
+          source = daId,
+          target = acmeId,
+        ),
+      forAll(_)(
+        _.message should include(NoCommands.error)
+      ),
+    )
   }
 }
 

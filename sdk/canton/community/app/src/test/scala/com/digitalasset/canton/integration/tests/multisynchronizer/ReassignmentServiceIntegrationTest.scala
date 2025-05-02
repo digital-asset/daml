@@ -42,6 +42,11 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.ledger.participant.state.ReassignmentCommandsBatch.{
+  DifferingSynchronizers,
+  MixedAssignWithOtherCommands,
+  NoCommands,
+}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentValidationError
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
   TargetSynchronizerIsSourceSynchronizer,
@@ -83,17 +88,17 @@ abstract class ReassignmentServiceIntegrationTest
   private var party2: PartyId = _
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S2M1_S2M1
+    EnvironmentDefinition.P3_S1M1_S1M1_S1M1
       .withSetup { implicit env =>
         import env.*
 
         participant1.synchronizers.connect_local(sequencer1, alias = daName)
-        participant2.synchronizers.connect_local(sequencer2, alias = daName)
-        participant3.synchronizers.connect_local(sequencer2, alias = daName)
+        participant2.synchronizers.connect_local(sequencer1, alias = daName)
+        participant3.synchronizers.connect_local(sequencer1, alias = daName)
 
-        participant1.synchronizers.connect_local(sequencer3, alias = acmeName)
-        participant2.synchronizers.connect_local(sequencer4, alias = acmeName)
-        participant3.synchronizers.connect_local(sequencer4, alias = acmeName)
+        participant1.synchronizers.connect_local(sequencer2, alias = acmeName)
+        participant2.synchronizers.connect_local(sequencer2, alias = acmeName)
+        participant3.synchronizers.connect_local(sequencer2, alias = acmeName)
 
         participants.all.dars.upload(CantonExamplesPath)
 
@@ -452,6 +457,159 @@ abstract class ReassignmentServiceIntegrationTest
       // Cleaning
       IouSyntax.archive(participant1)(contract, signatory)
     }
+
+    "fail when no commands are provided" in { implicit env =>
+      import env.*
+
+      val signatory = party1a
+
+      val noCommands = getReassignmentCommands(Seq.empty, submittingParty = signatory.toLf)
+
+      inside(submitReassignment(noCommands)) { case error: GenericCommandError =>
+        error.cause should include(NoCommands.error)
+      }
+    }
+
+    "fail when assignment and unassignment commands are mixed" in { implicit env =>
+      import env.*
+
+      val signatory = party1a
+      val observer = party2
+
+      val contract1 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+      val cid1 = contract1.id.toLf
+
+      val (unassignedEvent, _) =
+        unassign(cid = cid1, source = daId, target = acmeId, submittingParty = signatory.toLf)
+
+      val contract2 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+
+      // In the same request, assign contract 1 and unassign contract 2
+      val mixedReassignmentCmds = getReassignmentCommands(
+        Seq(
+          getAssignmentCmd(
+            source = daId,
+            target = acmeId,
+            unassignmentId = unassignedEvent.unassignId,
+          ),
+          getUnassignmentCmd(cid = contract2.id.toLf, source = daId, target = acmeId),
+        ),
+        submittingParty = signatory.toLf,
+      )
+
+      inside(submitReassignment(mixedReassignmentCmds)) { case error: GenericCommandError =>
+        error.cause should include(MixedAssignWithOtherCommands.error)
+      }
+
+      // Cleaning
+      assign(unassignedEvent.unassignId, daId, acmeId, signatory.toLf)
+      IouSyntax.archive(participant1)(contract1, signatory)
+      IouSyntax.archive(participant1)(contract2, signatory)
+    }
+
+    "fail when there are multiple assignment commands" in { implicit env =>
+      import env.*
+
+      val signatory = party1a
+      val observer = party2
+
+      val contract1 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+      val contract2 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+
+      val (unassignedEvent1, _) = unassign(
+        cid = contract1.id.toLf,
+        source = daId,
+        target = acmeId,
+        submittingParty = signatory.toLf,
+      )
+      val (unassignedEvent2, _) = unassign(
+        cid = contract2.id.toLf,
+        source = daId,
+        target = acmeId,
+        submittingParty = signatory.toLf,
+      )
+
+      // In the same request, assign contract 1 and contract 2
+      val multipleAssignmentCmds = getReassignmentCommands(
+        Seq(
+          getAssignmentCmd(
+            source = daId,
+            target = acmeId,
+            unassignmentId = unassignedEvent1.unassignId,
+          ),
+          getAssignmentCmd(
+            source = daId,
+            target = acmeId,
+            unassignmentId = unassignedEvent2.unassignId,
+          ),
+        ),
+        submittingParty = signatory.toLf,
+      )
+
+      inside(submitReassignment(multipleAssignmentCmds)) { case error: GenericCommandError =>
+        error.cause should include(MixedAssignWithOtherCommands.error)
+      }
+
+      // Cleaning
+      assign(unassignedEvent1.unassignId, daId, acmeId, signatory.toLf)
+      assign(unassignedEvent2.unassignId, daId, acmeId, signatory.toLf)
+      IouSyntax.archive(participant1)(contract1, signatory)
+      IouSyntax.archive(participant1)(contract2, signatory)
+    }
+
+    "fail when unassignment commands have different targets" in { implicit env =>
+      import env.*
+
+      val signatory = party1a
+      val observer = party2
+
+      val contract1 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+      val contract2 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+
+      // In the same request, unassign contracts 1 and 2, but to different targets.
+      val commandsWithDifferentTargets = getReassignmentCommands(
+        Seq(
+          getUnassignmentCmd(cid = contract1.id.toLf, source = daId, target = acmeId),
+          getUnassignmentCmd(cid = contract2.id.toLf, source = daId, target = synchronizer3Id),
+        ),
+        submittingParty = signatory.toLf,
+      )
+
+      inside(submitReassignment(commandsWithDifferentTargets)) { case error: GenericCommandError =>
+        error.cause should include(DifferingSynchronizers.error)
+      }
+
+      // Cleaning
+      IouSyntax.archive(participant1)(contract1, signatory)
+      IouSyntax.archive(participant1)(contract2, signatory)
+    }
+
+    "fail when unassignment commands have different sources" in { implicit env =>
+      import env.*
+
+      val signatory = party1a
+      val observer = party2
+
+      val contract1 = IouSyntax.createIou(participant1, Some(daId))(signatory, observer)
+      val contract2 = IouSyntax.createIou(participant1, Some(acmeId))(signatory, observer)
+
+      // In the same request, unassign contracts 1 and 2, but to different targets.
+      val commandsWithDifferentTargets = getReassignmentCommands(
+        Seq(
+          getUnassignmentCmd(cid = contract1.id.toLf, source = daId, target = synchronizer3Id),
+          getUnassignmentCmd(cid = contract2.id.toLf, source = acmeId, target = synchronizer3Id),
+        ),
+        submittingParty = signatory.toLf,
+      )
+
+      inside(submitReassignment(commandsWithDifferentTargets)) { case error: GenericCommandError =>
+        error.cause should include(DifferingSynchronizers.error)
+      }
+
+      // Cleaning
+      IouSyntax.archive(participant1)(contract1, signatory)
+      IouSyntax.archive(participant1)(contract2, signatory)
+    }
   }
 
   private def createAndReassignAContract(
@@ -641,8 +799,9 @@ class ReferenceReassignmentServiceIntegrationTest extends ReassignmentServiceInt
       loggerFactory,
       sequencerGroups = MultiSynchronizer(
         Seq(
-          Set(InstanceName.tryCreate("sequencer1"), InstanceName.tryCreate("sequencer2")),
-          Set(InstanceName.tryCreate("sequencer3"), InstanceName.tryCreate("sequencer4")),
+          Set(InstanceName.tryCreate("sequencer1")),
+          Set(InstanceName.tryCreate("sequencer2")),
+          Set(InstanceName.tryCreate("sequencer3")),
         )
       ),
     )

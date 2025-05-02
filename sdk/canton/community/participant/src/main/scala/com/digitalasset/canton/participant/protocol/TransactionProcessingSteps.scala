@@ -1243,7 +1243,9 @@ class TransactionProcessingSteps(
         // for divulged contracts since they are not visible on the Ledger API
         (createdContracts ++ witnessed).view.map {
           case (contractId, SerializableContract(_, _, _, _, salt)) =>
-            contractId -> DriverContractMetadata(salt).toLfBytes(protocolVersion)
+            contractId -> DriverContractMetadata(salt).toLfBytes(
+              CantonContractIdVersion.tryCantonContractIdVersion(contractId)
+            )
         }.toMap
 
       acceptedEvent =

@@ -479,7 +479,6 @@ private[reassignment] class AssignmentProcessingSteps(
               assignmentValidationResult.createReassignmentAccepted(
                 synchronizerId,
                 participantId,
-                targetProtocolVersion,
                 requestId.unwrap,
               )
             )

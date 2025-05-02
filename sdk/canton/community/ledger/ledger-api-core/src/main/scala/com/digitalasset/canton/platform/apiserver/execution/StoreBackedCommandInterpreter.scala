@@ -519,7 +519,7 @@ final class StoreBackedCommandInterpreter(
     private def recomputedSerializableContract: Either[String, SerializableContract] =
       for {
         salt <- DriverContractMetadata
-          .fromTrustedByteString(originalContract.cantonData.toByteString)
+          .fromLfBytes(originalContract.cantonData.toByteArray)
           .bimap(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
