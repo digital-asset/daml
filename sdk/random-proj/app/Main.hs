@@ -11,6 +11,7 @@ import Control.Monad (filterM)
 import System.Directory.Tree (AnchoredDirTree ((:/)), DirTree (Dir, File), writeDirectory)
 import System.Environment (getArgs)
 import System.Random (randomIO)
+import Data.List (intercalate)
 
 type Dag = [(Int, [Int])]
 
@@ -63,6 +64,7 @@ mkProject sdkVersion i deps = Dir (pkgName i) [damlYaml, Dir "daml" [mainDaml]]
                     -- ++ ["data T = T {" ++ intercalate ", " [fieldName d ++ " : " ++ moduleName d ++ ".T" | d <- deps] ++ "}"]
                     ++ ["data T = T {}"]
                     ++ ["data T" ++ show d ++ " = T" ++ show d ++ " " ++ moduleName d ++ ".T" | d <- deps]
+                    ++ ["data Useless" ++ show j ++ " = Useless" ++ show j ++ " {" ++ intercalate "," ["f" ++ show k ++ " : Int" | k <- [1..20]] ++ "}" | j <- [1..100]]
                 )
 dagToFileTree :: String -> Dag -> DirTree String
 dagToFileTree sdkVersion g =
