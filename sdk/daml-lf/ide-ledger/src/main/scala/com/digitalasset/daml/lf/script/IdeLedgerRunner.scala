@@ -285,7 +285,7 @@ private[lf] object IdeLedgerRunner {
     val ledgerMachine = Speedy.UpdateMachine(
       packageResolution = packageResolution,
       compiledPackages = compiledPackages,
-      submissionTime = Time.Timestamp.MinValue,
+      preparationTime = Time.Timestamp.MinValue,
       initialSeeding = InitialSeeding.TransactionSeed(seed),
       expr = SEApp(commands, Array(SValue.SToken)),
       committers = committers,

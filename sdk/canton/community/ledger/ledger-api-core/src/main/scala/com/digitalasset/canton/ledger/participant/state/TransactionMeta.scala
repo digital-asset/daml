@@ -21,8 +21,8 @@ import com.digitalasset.daml.lf.transaction.NodeId
   *   a submitter-provided identifier used for monitoring and to traffic-shape the work handled by
   *   Daml applications communicating over the ledger.
   *
-  * @param submissionTime:
-  *   the transaction submission time
+  * @param preparationTime:
+  *   the transaction preparation time
   *
   * @param submissionSeed:
   *   the seed used to derive the transaction contract IDs.
@@ -42,20 +42,20 @@ import com.digitalasset.daml.lf.transaction.NodeId
   *   lookup-by-key, or exercise-by-key command. Undefined is not known.
   */
 final case class TransactionMeta(
-    ledgerEffectiveTime: Time.Timestamp,
-    workflowId: Option[Ref.WorkflowId],
-    submissionTime: Time.Timestamp,
-    submissionSeed: crypto.Hash,
-    timeBoundaries: LedgerTimeBoundaries,
-    optUsedPackages: Option[Set[Ref.PackageId]],
-    optNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
-    optByKeyNodes: Option[ImmArray[NodeId]],
+                                  ledgerEffectiveTime: Time.Timestamp,
+                                  workflowId: Option[Ref.WorkflowId],
+                                  preparationTime: Time.Timestamp,
+                                  submissionSeed: crypto.Hash,
+                                  timeBoundaries: LedgerTimeBoundaries,
+                                  optUsedPackages: Option[Set[Ref.PackageId]],
+                                  optNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
+                                  optByKeyNodes: Option[ImmArray[NodeId]],
 ) extends PrettyPrinting {
 
   override protected def pretty: Pretty[TransactionMeta.this.type] = prettyOfClass(
     param("ledgerEffectiveTime", _.ledgerEffectiveTime),
     paramIfDefined("workflowId", _.workflowId),
-    param("submissionTime", _.submissionTime),
+    param("preparationTime", _.preparationTime),
     param("timeBoundaries", _.timeBoundaries),
     indicateOmittedFields,
   )

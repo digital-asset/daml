@@ -31,7 +31,7 @@ final case class TransactionSnapshot(
     participantId: Ref.ParticipantId,
     submitters: Set[Ref.Party],
     ledgerTime: Time.Timestamp,
-    submissionTime: Time.Timestamp,
+    preparationTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
     contracts: Map[ContractId, FatContractInstance],
     contractKeys: Map[GlobalKeyWithMaintainers, ContractId],
@@ -50,7 +50,7 @@ final case class TransactionSnapshot(
         transaction,
         ledgerTime,
         participantId,
-        submissionTime,
+        preparationTime,
         submissionSeed,
       )
       .consume(contracts, pkgs, contractKeys)
@@ -63,7 +63,7 @@ final case class TransactionSnapshot(
         transaction,
         ledgerTime,
         participantId,
-        submissionTime,
+        preparationTime,
         submissionSeed,
       )
       .consume(contracts, pkgs, contractKeys)
@@ -183,7 +183,7 @@ private[snapshot] object TransactionSnapshot {
           .map(Ref.Party.assertFromString)
           .toSet,
         ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime),
-        submissionTime = Time.Timestamp.assertFromLong(txEntry.getSubmissionTime),
+        preparationTime = Time.Timestamp.assertFromLong(txEntry.getPreparationTime),
         submissionSeed = crypto.Hash.assertFromBytes(
           Bytes.fromByteString(txEntry.getSubmissionSeed)
         ),

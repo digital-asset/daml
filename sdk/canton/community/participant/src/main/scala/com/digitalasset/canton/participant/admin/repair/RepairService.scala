@@ -953,7 +953,7 @@ final class RepairService(
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = repair.timestamp.toLf,
         workflowId = None,
-        submissionTime = repair.timestamp.toLf,
+        preparationTime = repair.timestamp.toLf,
         submissionSeed = Update.noOpSeed,
         timeBoundaries = LedgerTimeBoundaries.unconstrained,
         optUsedPackages = None,
@@ -993,7 +993,7 @@ final class RepairService(
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = ledgerCreateTime.toLf,
         workflowId = workflowIdProvider(),
-        submissionTime = repair.timestamp.toLf,
+        preparationTime = repair.timestamp.toLf,
         submissionSeed = Update.noOpSeed,
         timeBoundaries = LedgerTimeBoundaries.unconstrained,
         optUsedPackages = None,

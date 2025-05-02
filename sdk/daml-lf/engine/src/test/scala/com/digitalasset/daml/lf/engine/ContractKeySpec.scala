@@ -192,7 +192,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
         .consume(pkgs = allPackages, keys = lookupKey)
@@ -221,7 +221,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
         .consume(pkgs = allPackages, keys = lookupKey)
@@ -253,7 +253,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
         .consume(pkgs = allPackages, keys = lookupKey)
@@ -322,7 +322,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
             readAs = Set.empty,
             commands = cmds,
             ledgerTime = let,
-            submissionTime = let,
+            preparationTime = let,
             seeding = seeding,
           )
           .consume(contracts, pkgs = allMultiKeysPkgs, keys = lookupKey)

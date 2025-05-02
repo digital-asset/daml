@@ -668,7 +668,7 @@ object Transaction {
   /** Transaction meta data
     *
     * @param submissionSeed   Populated with the submission seed when returned from [[com.digitalasset.daml.lf.engine.Engine.submit]].
-    * @param submissionTime   The submission time
+    * @param preparationTime  The preparation time
     * @param usedPackages     The set of all packages that are needed for the interpretation of the command. This
     *                         is done by first by establishing all the packages directly associated with action nodes
     *                         in the transaction (by calling [[Node.Action.packageIds]]). The [[usedPackages]] will then
@@ -682,7 +682,7 @@ object Transaction {
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       usedPackages: Set[PackageId],
       timeBoundaries: Time.Range,
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],

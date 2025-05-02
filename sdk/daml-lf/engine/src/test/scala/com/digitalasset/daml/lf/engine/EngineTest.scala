@@ -134,7 +134,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val submitters = Set(submitter)
       val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
       val validated = suffixLenientEngine
-        .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
+        .validate(submitters, ntx, let, participant, meta.preparationTime, submissionSeed)
         .consume(lookupContract, lookupPackage, lookupKey)
       validated match {
         case Left(e) =>
@@ -355,7 +355,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         val Right((tx, meta)) = interpretResult(templateId, signatories, submitters)
         val ntx = SubmittedTransaction(Normalization.normalizeTx(tx))
         val validated = suffixLenientEngine
-          .validate(submitters, ntx, let, participant, meta.submissionTime, submissionSeed)
+          .validate(submitters, ntx, let, participant, meta.preparationTime, submissionSeed)
           .consume(lookupContract, lookupPackage, lookupKey)
         validated match {
           case Left(e) =>
@@ -376,7 +376,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
             tx = tx,
             ledgerEffectiveTime = let,
             participantId = participant,
-            submissionTime = let,
+            preparationTime = let,
             submissionSeed = submissionSeed,
           )
           .consume(grantUpgradeVerification = None)
@@ -395,7 +395,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           tx = tx,
           ledgerEffectiveTime = let,
           participantId = participant,
-          submissionTime = let,
+          preparationTime = let,
           submissionSeed = submissionSeed,
         )
 
@@ -435,7 +435,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               readAs = readAs,
               commands = cmds,
               ledgerTime = let,
-              submissionTime = let,
+              preparationTime = let,
               seeding = seeding,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
@@ -567,7 +567,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               readAs = readAs,
               commands = cmds,
               ledgerTime = let,
-              submissionTime = let,
+              preparationTime = let,
               seeding = seeding,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
@@ -657,7 +657,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
@@ -695,7 +695,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -839,7 +839,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
@@ -874,7 +874,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
@@ -922,7 +922,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
@@ -1029,7 +1029,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               readAs = Set.empty,
               commands = cmds,
               ledgerTime = let,
-              submissionTime = let,
+              preparationTime = let,
               seeding = InitialSeeding.TransactionSeed(txSeed),
             )
             .consume(lookupContract, lookupPackage, lookupKey)
@@ -1299,10 +1299,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       )
       .consume(lookupContract, lookupPackage, lookupKey)
 
-    val submissionTime = txMeta.submissionTime
+    val preparationTime = txMeta.preparationTime
 
     val txSeed =
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, preparationTime)
     val Right(cmds) = preprocessor
       .preprocessApiCommands(Map.empty, ImmArray(command))
       .consume(lookupContract, lookupPackage, lookupKey)
@@ -1313,7 +1313,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         readAs = Set.empty,
         commands = cmds,
         ledgerTime = let,
-        submissionTime = submissionTime,
+        preparationTime = preparationTime,
         seeding = InitialSeeding.TransactionSeed(txSeed),
       )
       .consume(lookupContract, lookupPackage, lookupKey)
@@ -1472,7 +1472,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               readAs = Set(readAs),
               commands = cmds,
               ledgerTime = let,
-              submissionTime = let,
+              preparationTime = let,
               seeding = seeding,
             )
             .consume(lookupContract, lookupPackage, lookupKey)
@@ -1540,7 +1540,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               n.requiredAuthorizers,
               ReplayCommand.Fetch(n.templateId, n.interfaceId, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
-              txMeta.submissionTime,
+              txMeta.preparationTime,
               let,
             )
             .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
@@ -1700,7 +1700,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
             submitters,
             ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
-            txMeta.submissionTime,
+            txMeta.preparationTime,
             now,
           )
           .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
@@ -1741,7 +1741,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
             submitters,
             ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
             nodeSeedMap.get(nid),
-            txMeta.submissionTime,
+            txMeta.preparationTime,
             now,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
@@ -1766,7 +1766,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(seed),
         )
         .consume(PartialFunction.empty, lookupPackage, lookupKey)
@@ -1933,7 +1933,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = ImmArray(cmd),
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
@@ -1997,7 +1997,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = now,
-          submissionTime = now,
+          preparationTime = now,
           seeding = InitialSeeding.TransactionSeed(txSeed),
         )
         .consume(lookupContractMap, lookupPackage, lookupKey)
@@ -2152,7 +2152,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
               ntx,
               let,
               participant,
-              metaData.submissionTime,
+              metaData.preparationTime,
               submissionSeed,
             )
             .consume(PartialFunction.empty, lookupPackage, PartialFunction.empty)
@@ -2238,7 +2238,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = let,
-          submissionTime = let,
+          preparationTime = let,
           seeding = seeding,
         )
         .consume(contracts, allExceptionsPkgs, lookupKey)
@@ -2388,7 +2388,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = let,
-          submissionTime = let,
+          preparationTime = let,
           seeding = seeding,
         )
         .consume(contracts, allExceptionsPkgs, lookupKey)
@@ -2473,7 +2473,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           readAs = Set.empty,
           commands = cmds,
           ledgerTime = let,
-          submissionTime = let,
+          preparationTime = let,
           seeding = seeding,
         )
         .consume(
@@ -2814,7 +2814,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
                 submitters,
                 cmd,
                 nodeSeedMap.get(nodeId),
-                txMeta.submissionTime,
+                txMeta.preparationTime,
                 ledgerEffectiveTime,
               )
               .consume(
@@ -2841,7 +2841,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         ),
         Tx.Metadata(
           submissionSeed = None,
-          submissionTime = txMeta.submissionTime,
+          preparationTime = txMeta.preparationTime,
           usedPackages = Set.empty,
           timeBoundaries = state.timeBoundaries,
           nodeSeeds = state.nodeSeeds.toImmArray,
@@ -2865,7 +2865,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           readAs = Set.empty,
           commands = ImmArray(cmd),
           ledgerTime = Time.Timestamp.now(),
-          submissionTime = Time.Timestamp.now(),
+          preparationTime = Time.Timestamp.now(),
           seeding = InitialSeeding.TransactionSeed(hash(s"$cmd")),
           disclosures = ImmArray(unusedDisclosedContract, usedDisclosedContract),
         )
@@ -2938,7 +2938,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           (
             contracts.updated(
               create.coid,
-              FatContractInstance.fromCreateNode(create, meta.submissionTime, Bytes.Empty),
+              FatContractInstance.fromCreateNode(create, meta.preparationTime, Bytes.Empty),
             ),
             create.keyOpt.fold(keys)(k => keys.updated(k, create.coid)),
           )
