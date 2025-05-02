@@ -130,7 +130,7 @@ object Error {
       }
 
       case object NonSuffixV2ContractId extends Reason {
-        def details = "non-suffixed and relative V2 Contract IDs are forbidden"
+        def details = "non-suffixed V2 Contract IDs are forbidden"
 
         def apply(cid: Value.ContractId.V2): IllegalContractId = IllegalContractId(cid, this)
       }

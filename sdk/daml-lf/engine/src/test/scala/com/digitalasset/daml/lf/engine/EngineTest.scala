@@ -60,8 +60,8 @@ import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
-class EngineTestV2V1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
-class EngineTestV2V2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
+class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
+class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
 
 @SuppressWarnings(
   Array(

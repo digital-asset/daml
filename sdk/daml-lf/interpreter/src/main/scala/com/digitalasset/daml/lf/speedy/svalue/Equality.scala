@@ -48,15 +48,15 @@ private[lf] object Equality {
     ): Boolean = {
       if (prefix1 != prefix2) {
         false
-      } else if (suffix1.isEmpty)
+      } else if (suffix1.isEmpty) {
         throw SError.SErrorDamlException(
           interpretation.Error.ContractIdComparability(cid2)
         )
-      else if (suffix2.isEmpty)
+      } else if (suffix2.isEmpty) {
         throw SError.SErrorDamlException(
           interpretation.Error.ContractIdComparability(cid1)
         )
-      else if (!allowDifferentNonemptySuffixes) {
+      } else if (!allowDifferentNonemptySuffixes) {
         throw SError.SErrorDamlException(
           interpretation.Error.ContractIdComparability(cid1)
         )
