@@ -28,7 +28,7 @@ object TransactionMetadata {
   def fromLf(ledgerTime: CantonTimestamp, metadata: Metadata): TransactionMetadata =
     TransactionMetadata(
       ledgerTime = ledgerTime,
-      submissionTime = CantonTimestamp(metadata.submissionTime),
+      submissionTime = CantonTimestamp(metadata.preparationTime),
       seeds = metadata.nodeSeeds.toSeq.toMap,
     )
 

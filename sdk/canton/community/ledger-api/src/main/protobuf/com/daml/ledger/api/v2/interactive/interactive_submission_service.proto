@@ -303,7 +303,7 @@ message Metadata {
   string synchronizer_id = 3;
   uint32 mediator_group = 4;
   string transaction_uuid = 5;
-  uint64 submission_time = 6;
+  uint64 preparation_time = 6;
   repeated InputContract input_contracts = 7;
 
   /*

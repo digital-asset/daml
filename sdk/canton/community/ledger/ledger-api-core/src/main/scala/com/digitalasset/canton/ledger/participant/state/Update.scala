@@ -308,7 +308,7 @@ object Update {
           Logging.updateId(txAccepted.updateId),
           Logging.ledgerTime(txAccepted.transactionMeta.ledgerEffectiveTime),
           Logging.workflowIdOpt(txAccepted.transactionMeta.workflowId),
-          Logging.submissionTime(txAccepted.transactionMeta.submissionTime),
+          Logging.submissionTime(txAccepted.transactionMeta.preparationTime),
           Logging.synchronizerId(txAccepted.synchronizerId),
         )
     }

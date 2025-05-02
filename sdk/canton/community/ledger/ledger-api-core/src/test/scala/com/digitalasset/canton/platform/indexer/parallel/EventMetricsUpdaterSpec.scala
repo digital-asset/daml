@@ -52,7 +52,7 @@ class EventMetricsUpdaterSpec extends AnyWordSpec with MetricValues {
     val someTransactionMeta = state.TransactionMeta(
       ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
       workflowId = None,
-      submissionTime = Time.Timestamp.assertFromLong(3),
+      preparationTime = Time.Timestamp.assertFromLong(3),
       submissionSeed = someHash,
       timeBoundaries = LedgerTimeBoundaries.unconstrained,
       optUsedPackages = None,

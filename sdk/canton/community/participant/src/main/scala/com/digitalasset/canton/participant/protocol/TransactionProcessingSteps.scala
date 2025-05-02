@@ -1252,7 +1252,7 @@ class TransactionProcessingSteps(
           transactionMeta = TransactionMeta(
             ledgerEffectiveTime = lfTx.metadata.ledgerTime.toLf,
             workflowId = workflowIdO.map(_.unwrap),
-            submissionTime = lfTx.metadata.submissionTime.toLf,
+            preparationTime = lfTx.metadata.submissionTime.toLf,
             // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
             // transactions and it leaks the structure of the omitted parts of the transaction.
             submissionSeed = Update.noOpSeed,

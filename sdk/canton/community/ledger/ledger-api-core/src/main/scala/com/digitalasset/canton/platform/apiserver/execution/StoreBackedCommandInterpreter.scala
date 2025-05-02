@@ -169,7 +169,7 @@ final class StoreBackedCommandInterpreter(
           transactionMeta = state.TransactionMeta(
             commands.commands.ledgerEffectiveTime,
             commands.workflowId.map(_.unwrap),
-            meta.submissionTime,
+            meta.preparationTime,
             submissionSeed,
             LedgerTimeBoundaries(meta.timeBoundaries),
             Some(meta.usedPackages),

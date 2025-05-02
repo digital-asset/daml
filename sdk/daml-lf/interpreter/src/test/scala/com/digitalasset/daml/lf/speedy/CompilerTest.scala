@@ -565,7 +565,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     val machine =
       Speedy.UpdateMachine(
         compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.MinValue,
+        preparationTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(crypto.Hash.hashPrivateKey("CompilerTest")),
         expr = sexpr,
         committers = committers,
