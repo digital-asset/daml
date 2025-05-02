@@ -88,7 +88,9 @@ object Error {
       err: language.LookupError,
       packageMeta: Option[PackageMetadata],
       packageId: PackageId,
-  ) extends Error
+  ) extends Error {
+    override def toString = s"LookupError: $err\n$packageMeta\n$packageId"
+  }
 
   final case class DisclosureDecoding(message: String) extends Error
 }

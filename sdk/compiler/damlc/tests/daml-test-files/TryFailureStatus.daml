@@ -1,0 +1,137 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# OPTIONS_GHC -Wno-x-exceptions #-}
+
+module TryFailureStatus where
+
+import Daml.Script
+import DA.Exception
+import DA.Fail
+import DA.TextMap
+
+-- Can catch failure status
+-- Can catch regular exception
+-- Can catch daml pseudo exception
+-- works in a tryToEither
+-- tryToEither works in it
+-- ^ above two for pseudo exception
+--
+
+exampleFailureStatus : FailureStatus
+exampleFailureStatus = FailureStatus "my-error-code" InvalidGivenCurrentSystemStateOther "Something went wrong!" $ fromList [("thing-that-went-wrong", "something")]
+
+exampleGeneralError : GeneralError
+exampleGeneralError = GeneralError "my-general-error"
+
+exampleGeneralErrorFailureStatus : FailureStatus
+exampleGeneralErrorFailureStatus = FailureStatus "UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError" InvalidGivenCurrentSystemStateOther "my-general-error" mempty
+
+exampleInvalidUserId : InvalidUserId
+exampleInvalidUserId = InvalidUserId "invalid-user-id"
+
+exampleInvalidUserIdFailureStatus : FailureStatus
+exampleInvalidUserIdFailureStatus = FailureStatus "UNHANDLED_EXCEPTION/Daml.Script.Internal.Questions.UserManagement:InvalidUserId" InvalidGivenCurrentSystemStateOther "invalid-user-id" mempty
+
+canCatchPureFailureStatus : Script ()
+canCatchPureFailureStatus = do
+  res <- tryFailureStatus $ pure $ failWithStatusPure @() exampleFailureStatus
+  case res of
+    Left fs | fs == exampleFailureStatus -> pure ()
+    _ -> fail $ "Expected exampleFailureStatus but got " <> show res
+
+canCatchPureException : Script ()
+canCatchPureException = do
+  res <- tryFailureStatus $ pure $ throwPure @_ @() exampleGeneralError
+  case res of
+    Left fs | fs == exampleGeneralErrorFailureStatus -> pure ()
+    _ -> fail $ "Expected exampleGeneralErrorFailureStatus but got " <> show res
+
+canCatchFailureStatus : Script ()
+canCatchFailureStatus = do
+  res <- tryFailureStatus $ failWithStatus @_ @() exampleFailureStatus
+  case res of
+    Left fs | fs == exampleFailureStatus -> pure ()
+    _ -> fail $ "Expected exampleFailureStatus but got " <> show res
+
+canCatchException : Script ()
+canCatchException = do
+  res <- tryFailureStatus $ (throw exampleGeneralError : Script ())
+  case res of
+    Left fs | fs == exampleGeneralErrorFailureStatus -> pure ()
+    _ -> fail $ "Expected exampleGeneralErrorFailureStatus but got " <> show res
+
+
+canCatchDamlScriptException : Script ()
+canCatchDamlScriptException = do
+  res <- tryFailureStatus $ (throw exampleInvalidUserId : Script ())
+  case res of
+    Left fs | fs == exampleInvalidUserIdFailureStatus -> pure ()
+    _ -> fail $ "Expected exampleInvalidUserIdFailureStatus but got " <> show res
+
+
+tryToEitherWorksWithin : Script ()
+tryToEitherWorksWithin = do
+  res <- tryFailureStatus $ do
+    try
+      throw exampleGeneralError
+    catch
+      GeneralError _ -> pure ()
+  case res of
+    Right _ -> pure ()
+    _ -> fail $ "Expected success but got " <> show res
+
+worksWithinTryToEither : Script ()
+worksWithinTryToEither = do
+  try do
+    res <- tryFailureStatus $ (throw exampleGeneralError : Script ())
+    case res of
+      Left fs | fs == exampleGeneralErrorFailureStatus -> pure ()
+      _ -> fail $ "Expected exampleGeneralErrorFailureStatus but got " <> show res
+  catch
+
+doubleTryToEitherWorksWithin : Script ()
+doubleTryToEitherWorksWithin = do
+  res <- tryFailureStatus $ do
+    try
+      try
+        throw exampleGeneralError
+      catch
+    catch
+      GeneralError _ -> pure ()
+  case res of
+    Right _ -> pure ()
+    _ -> fail $ "Expected success but got " <> show res
+
+tryToEitherWorksWithinDamlScriptException : Script ()
+tryToEitherWorksWithinDamlScriptException = do
+  res <- tryFailureStatus $ do
+    try
+      throw exampleInvalidUserId
+    catch
+      InvalidUserId _ -> pure ()
+  case res of
+    Right _ -> pure ()
+    _ -> fail $ "Expected success but got " <> show res
+
+worksWithinTryToEitherDamlScriptException : Script ()
+worksWithinTryToEitherDamlScriptException = do
+  try do
+    res <- tryFailureStatus $ (throw exampleInvalidUserId : Script ())
+    case res of
+      Left fs | fs == exampleInvalidUserIdFailureStatus -> pure ()
+      _ -> fail $ "Expected exampleInvalidUserIdFailureStatus but got " <> show res
+  catch
+
+doubleTryToEitherWorksWithinDamlScriptException : Script ()
+doubleTryToEitherWorksWithinDamlScriptException = do
+  res <- tryFailureStatus $ do
+    try
+      try
+        throw exampleInvalidUserId
+      catch
+    catch
+      InvalidUserId _ -> pure ()
+  case res of
+    Right _ -> pure ()
+    _ -> fail $ "Expected success but got " <> show res

@@ -350,9 +350,10 @@ object GrpcErrorParser {
             metadata = errorInfo.metadata.toMap.removedAll(cantonFields)
             trace = errorInfo.metadata.get("exercise_trace")
             // Drop prefix so we give back the exact message in the throwing daml code
-            messageWithoutPrefix <- "^.+?error category \\d+\\): (.*)$".r
-              .findFirstMatchIn(message)
-              .map(_.group(1))
+            messageWithoutPrefix <- message.indexOf(errorId) match {
+              case -1 => None
+              case i => Some(message.drop(i + errorId.length + 2))
+            }
           } yield SubmitError.FailureStatusError(
             IE.FailureStatus(errorId, category, messageWithoutPrefix, metadata),
             trace,

@@ -1223,7 +1223,8 @@ generateSrcPkgFromLf envConfig pkg = do
         , "{-# LANGUAGE AllowAmbiguousTypes #-}"
         , "{-# LANGUAGE MagicHash #-}"
         , "{-# LANGUAGE DatatypeContexts #-}"
-        , "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations #-}"
+        , -- TODO[SW] Fix -Wno-deprecations in GHC to disable warnings/deprecations with categories as well as those uncategorised
+          "{-# OPTIONS_GHC -Wno-unused-imports -Wno-missing-methods -Wno-deprecations -Wno-x-exceptions -Wno-x-ledger-time -Wno-x-crypto #-}"
         ]
 
 -- | A reference that can appear in a type or expression. We need to track

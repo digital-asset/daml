@@ -44,10 +44,10 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |ExceptionSemantics:tryContext FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
           |ExceptionSemantics:uncaughtArithmeticError SUCCESS
           |ExceptionSemantics:uncaughtUserException SUCCESS
-          |ExceptionSemantics:unhandledArithmeticError FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError (error category 9): ArithmeticError while evaluating (DIV_INT64 1 0).
+          |ExceptionSemantics:unhandledArithmeticError FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.ArithmeticError:ArithmeticError: ArithmeticError while evaluating (DIV_INT64 1 0).
           |    in choice XXXXXXXX:ExceptionSemantics:T:ThrowArithmeticError on contract XXXXXXXXXX (#1)
           |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:ThrowArithmeticError.
-          |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/ExceptionSemantics:E (error category 9): E
+          |ExceptionSemantics:unhandledUserException FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/ExceptionSemantics:E: E
           |    in choice XXXXXXXX:ExceptionSemantics:T:Throw on contract XXXXXXXXXX (#1)
           |    in create-and-exercise command XXXXXXXX:ExceptionSemantics:T:Throw.
           |ExceptionSemanticsWithKeys:duplicateKey FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: SErrorDamlException(UserError(Expected submit to fail but it succeeded)
@@ -55,7 +55,7 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |MoreChoiceObserverDivulgence:test FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: NOT_FOUND: CONTRACT_NOT_FOUND(11,XXXXXXXX): Contract could not be found with id XXXXXXXX
           |MultiTest:disclosuresByKeyTest SUCCESS
           |MultiTest:disclosuresTest SUCCESS
-          |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): Here
+          |MultiTest:inactiveDisclosureDoesNotFailDuringSubmission FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError: Here
           |    in choice XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX (#1)
           |    in exercise command XXXXXXXX:MultiTest:Helper:FailWith on contract XXXXXXXXXX.
           |MultiTest:listKnownPartiesTest SUCCESS
@@ -66,14 +66,14 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |ScriptExample:initializeUser SUCCESS
           |ScriptExample:test SUCCESS
           |ScriptTest:clearUsers SUCCESS
-          |ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed (error category 9): Assertion failed
+          |ScriptTest:failingTest FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed: Assertion failed
           |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX (#0)
           |    in exercise command XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX.
           |ScriptTest:listKnownPartiesTest SUCCESS
           |ScriptTest:multiPartySubmission SUCCESS
           |ScriptTest:partyIdHintTest SUCCESS
           |ScriptTest:sleepTest SUCCESS
-          |ScriptTest:stackTrace FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed (error category 9): Assertion failed
+          |ScriptTest:stackTrace FAILURE (com.digitalasset.daml.lf.engine.script.Script$FailedCmd: Command Submit failed: FAILED_PRECONDITION: DAML_FAILURE(9,XXXXXXXX): Interpretation error: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.AssertionFailed:AssertionFailed: Assertion failed
           |    in choice XXXXXXXX:ScriptTest:C:ShouldFail on contract XXXXXXXXXX (#1)
           |    in create-and-exercise command XXXXXXXX:ScriptTest:C:ShouldFail.
           |ScriptTest:test0 SUCCESS
@@ -98,9 +98,9 @@ class DamlScriptTestRunnerStable extends DamlScriptTestRunner {
           |TestContractId:testContractId SUCCESS
           |TestExceptions:test SUCCESS
           |TestExceptions:try_catch_recover SUCCESS
-          |TestExceptions:try_catch_then_abort FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): expected exception)
-          |TestExceptions:try_catch_then_error FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): expected exception)
-          |TestExceptions:try_catch_then_fail FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError (error category 9): expected exception)
+          |TestExceptions:try_catch_then_abort FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError: expected exception)
+          |TestExceptions:try_catch_then_error FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError: expected exception)
+          |TestExceptions:try_catch_then_fail FAILURE (com.digitalasset.daml.lf.engine.free.InterpretationError: Error: User failure: UNHANDLED_EXCEPTION/DA.Exception.GeneralError:GeneralError: expected exception)
           |TestFailWithStatus:attemptToOverwriteMetadata SUCCESS
           |TestFailWithStatus:cannotCatch SUCCESS
           |TestFailWithStatus:haltsExecution SUCCESS
