@@ -55,7 +55,7 @@ object P2PNetworkOut {
     final case class AvailabilityMessage(
         signedMessage: SignedMessage[Availability.RemoteProtocolMessage]
     ) extends BftOrderingNetworkMessage {
-      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody.of(
+      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody(
         v30.BftOrderingMessageBody.Message.AvailabilityMessage(signedMessage.toProtoV1)
       )
     }
@@ -63,7 +63,7 @@ object P2PNetworkOut {
     final case class ConsensusMessage(
         signedMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
     ) extends BftOrderingNetworkMessage {
-      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody.of(
+      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody(
         v30.BftOrderingMessageBody.Message.ConsensusMessage(signedMessage.toProtoV1)
       )
     }
@@ -71,7 +71,7 @@ object P2PNetworkOut {
     final case class RetransmissionMessage(
         signedMessage: SignedMessage[Consensus.RetransmissionsMessage.RetransmissionsNetworkMessage]
     ) extends BftOrderingNetworkMessage {
-      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody.of(
+      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody(
         v30.BftOrderingMessageBody.Message.RetransmissionMessage(signedMessage.toProtoV1)
       )
     }
@@ -79,7 +79,7 @@ object P2PNetworkOut {
     final case class StateTransferMessage(
         signedMessage: SignedMessage[Consensus.StateTransferMessage.StateTransferNetworkMessage]
     ) extends BftOrderingNetworkMessage {
-      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody.of(
+      override def toProto: v30.BftOrderingMessageBody = v30.BftOrderingMessageBody(
         v30.BftOrderingMessageBody.Message.StateTransferMessage(signedMessage.toProtoV1)
       )
     }

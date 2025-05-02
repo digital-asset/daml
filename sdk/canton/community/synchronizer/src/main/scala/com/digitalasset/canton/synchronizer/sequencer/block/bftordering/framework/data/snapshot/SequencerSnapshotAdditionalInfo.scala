@@ -23,7 +23,7 @@ final case class SequencerSnapshotAdditionalInfo(
   def toProto30: v30.BftSequencerSnapshotAdditionalInfo = {
     val nodeActiveAtEpochNumbersProto = nodeActiveAt.view.map { case (node, activeAt) =>
       (node: String) ->
-        v30.BftSequencerSnapshotAdditionalInfo.SequencerActiveAt.of(
+        v30.BftSequencerSnapshotAdditionalInfo.SequencerActiveAt(
           activeAt.timestamp.value.toMicros,
           activeAt.epochNumber,
           activeAt.firstBlockNumberInEpoch,
@@ -32,7 +32,7 @@ final case class SequencerSnapshotAdditionalInfo(
           activeAt.previousBftTime.map(_.toMicros),
         )
     }.toMap
-    v30.BftSequencerSnapshotAdditionalInfo.of(nodeActiveAtEpochNumbersProto)
+    v30.BftSequencerSnapshotAdditionalInfo(nodeActiveAtEpochNumbersProto)
   }
 }
 

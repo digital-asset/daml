@@ -4,9 +4,11 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.HasExecutionContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
@@ -65,14 +67,17 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.UnitTestContext.DelayCount
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable.ArrayBuffer
 
-class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecutionContext {
+class IssSegmentModuleTest
+    extends AsyncWordSpec
+    with BftSequencerBaseTest
+    with HasExecutionContext {
 
   import IssSegmentModuleTest.*
 
@@ -1790,7 +1795,7 @@ private object IssSegmentModuleTest {
   def prepareFromPrePrepare(prePrepare: PrePrepare)(
       viewNumber: ViewNumber = prePrepare.viewNumber,
       from: BftNodeId = BftNodeId("toBeReplaced"),
-  ): SignedMessage[Prepare] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Prepare] =
     Prepare
       .create(
         prePrepare.blockMetadata,
@@ -1803,7 +1808,7 @@ private object IssSegmentModuleTest {
   def commitFromPrePrepare(prePrepare: PrePrepare)(
       viewNumber: ViewNumber = prePrepare.viewNumber,
       from: BftNodeId = BftNodeId("toBeReplaced"),
-  ): SignedMessage[Commit] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Commit] =
     Commit
       .create(
         prePrepare.blockMetadata,
@@ -1825,7 +1830,7 @@ private object IssSegmentModuleTest {
       blockMetadata: BlockMetadata,
       view: ViewNumber,
       from: BftNodeId,
-  ): SignedMessage[PrePrepare] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
         blockMetadata,

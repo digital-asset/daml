@@ -34,6 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 import org.slf4j.event.Level.{INFO, WARN}
@@ -847,7 +848,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       leader: BftNodeId = myId,
       pbftMessageValidator: PbftMessageValidator = (_: PrePrepare) => Right(()),
       viewNumber: ViewNumber = ViewNumber.First,
-  ) =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion) =
     new PbftBlockState(
       Membership.forTesting(myId, otherIds),
       clock,
@@ -858,35 +859,30 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       abort = fail(_),
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       loggerFactory,
-    )(MetricsContext.Empty)
-}
+    )(synchronizerProtocolVersion, MetricsContext.Empty)
 
-object PbftBlockStateTest {
-
-  private val myId = BftNodeId("self")
-  private val otherIds = (1 to 3).map { index =>
-    BftNodeId(s"node$index")
-  }
-  private val otherId1 = otherIds.head
-  private val otherId2 = otherIds(1)
-  private val otherId3 = otherIds(2)
-  private val canonicalCommitSet = CanonicalCommitSet(
-    Set(
-      createCommit(
-        myId,
-        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+  private lazy val canonicalCommitSet =
+    CanonicalCommitSet(
+      Set(
+        createCommit(
+          myId,
+          Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+        )
       )
     )
-  )
-  private val prePrepare = createPrePrepare(myId)
-  private val ppHash = prePrepare.message.hash
-  private val wrongHash = Hash.digest(
+  private lazy val prePrepare =
+    createPrePrepare(myId)
+  private lazy val ppHash =
+    prePrepare.message.hash
+  private lazy val wrongHash = Hash.digest(
     HashPurpose.BftOrderingPbftBlock,
     ByteString.copyFromUtf8("bad data"),
     HashAlgorithm.Sha256,
   )
 
-  private def createPrePrepare(p: BftNodeId): SignedMessage[PrePrepare] =
+  private def createPrePrepare(
+      p: BftNodeId
+  ): SignedMessage[PrePrepare] =
     PrePrepare
       .create(
         BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
@@ -925,4 +921,15 @@ object PbftBlockStateTest {
         from = p,
       )
       .fakeSign
+}
+
+object PbftBlockStateTest {
+
+  private val myId = BftNodeId("self")
+  private val otherIds = (1 to 3).map { index =>
+    BftNodeId(s"node$index")
+  }
+  private val otherId1 = otherIds.head
+  private val otherId2 = otherIds(1)
+  private val otherId3 = otherIds(2)
 }

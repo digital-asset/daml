@@ -59,6 +59,7 @@ class ResilientSequencerSubscription[HandlerError](
     handler: SerializedEventHandler[HandlerError],
     subscriptionFactory: SequencerSubscriptionFactory[HandlerError],
     retryDelayRule: SubscriptionRetryDelayRule,
+    maybeExitOnFatalError: SubscriptionCloseReason[HandlerError] => Unit,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -241,6 +242,8 @@ class ResilientSequencerSubscription[HandlerError](
         fatalOccurred(ex.toString)
       case Success(error) =>
         logger.warn(s"Closing resilient sequencer subscription due to error: $error")
+        fatalOccurred(error.toString)
+        maybeExitOnFatalError(error)
       case Failure(exception) =>
         logger.error(s"Closing resilient sequencer subscription due to exception", exception)
         fatalOccurred(exception.toString)
@@ -314,6 +317,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
       getTransport: => UnlessShutdown[SequencerClientTransport],
       handler: SerializedEventHandler[E],
       startingTimestamp: Option[CantonTimestamp],
+      maybeExitOnFatalError: SubscriptionCloseReason[E] => Unit,
       initialDelay: FiniteDuration,
       warnDelay: FiniteDuration,
       maxRetryDelay: FiniteDuration,
@@ -330,6 +334,7 @@ object ResilientSequencerSubscription extends SequencerSubscriptionErrorGroup {
         warnDelay,
         maxRetryDelay,
       ),
+      maybeExitOnFatalError,
       timeouts,
       loggerFactory,
     )

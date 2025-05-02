@@ -100,7 +100,9 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
             inViewChangeSegmentStatus(Seq(false, false, true)),
           ),
         )
-      ) shouldBe empty
+      ) shouldBe Left(
+        "Got a retransmission request from another for too old or future epoch 0, ignoring"
+      )
     }
 
     "retransmit commit certificates for incomplete blocks in previous epoch" in {
@@ -111,24 +113,32 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
 
       tracker.endEpoch(epoch0, commitCertificates)
 
-      tracker.processRetransmissionsRequest(
-        ConsensusStatus.EpochStatus(
-          anotherId,
-          epoch0,
-          Seq(
-            inProgressSegmentStatus(Seq(false, true, false, false)), // blocks 0, 3, 6, 9
-            completeSegmentStatus, // blocks 1, 4, 7
-            SegmentStatus
-              .InViewChange(ViewNumber.First, Seq.empty, Seq(true, false, false)), // blocks 2, 5, 8,
-          ),
+      inside(
+        tracker.processRetransmissionsRequest(
+          ConsensusStatus.EpochStatus(
+            anotherId,
+            epoch0,
+            Seq(
+              inProgressSegmentStatus(Seq(false, true, false, false)), // blocks 0, 3, 6, 9
+              completeSegmentStatus, // blocks 1, 4, 7
+              SegmentStatus
+                .InViewChange(
+                  ViewNumber.First,
+                  Seq.empty,
+                  Seq(true, false, false),
+                ), // blocks 2, 5, 8,
+            ),
+          )
         )
-      ) shouldBe Seq(
-        commitCertificates(0),
-        commitCertificates(5),
-        commitCertificates(6),
-        commitCertificates(8),
-        commitCertificates(9),
-      )
+      ) { case Right(result) =>
+        result shouldBe Seq(
+          commitCertificates(0),
+          commitCertificates(5),
+          commitCertificates(6),
+          commitCertificates(8),
+          commitCertificates(9),
+        )
+      }
     }
 
     "purge epochs older than howManyEpochsToKeep" in {
@@ -141,16 +151,20 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
       tracker.endEpoch(epoch0, commitCertificates)
       tracker.endEpoch(epoch1, createCommitCertificates(epoch1, 10))
 
-      tracker.processRetransmissionsRequest(
-        ConsensusStatus.EpochStatus(
-          anotherId,
-          epoch0,
-          Seq(
-            inProgressSegmentStatus(Seq(false, true, false, false, true)),
-            inProgressSegmentStatus(Seq(false, true, false, false, false)),
-          ),
+      inside(
+        tracker.processRetransmissionsRequest(
+          ConsensusStatus.EpochStatus(
+            anotherId,
+            epoch0,
+            Seq(
+              inProgressSegmentStatus(Seq(false, true, false, false, true)),
+              inProgressSegmentStatus(Seq(false, true, false, false, false)),
+            ),
+          )
         )
-      ) should have size 7
+      ) { case Right(result) =>
+        result should have size 7
+      }
 
       val epochWhenFirstEpochGetsPurged = EpochNumber(epoch0 + howManyEpochsToKeep)
       tracker.endEpoch(
@@ -167,7 +181,9 @@ class PreviousEpochsRetransmissionsTrackerTest extends AnyWordSpec with BftSeque
             inProgressSegmentStatus(Seq(false, true, false, false, false)),
           ),
         )
-      ) shouldBe empty
+      ) shouldBe Left(
+        "Got a retransmission request from another for too old or future epoch 0, ignoring"
+      )
     }
   }
 }

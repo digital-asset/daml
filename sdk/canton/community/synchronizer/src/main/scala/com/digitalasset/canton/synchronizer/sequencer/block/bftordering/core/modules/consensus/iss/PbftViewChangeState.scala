@@ -30,6 +30,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ViewChange,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.mutable
 
@@ -44,11 +45,12 @@ class PbftViewChangeState(
     blockNumbers: Seq[BlockNumber],
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit mc: MetricsContext)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends NamedLogging {
   private val messageValidator = new ViewChangeMessageValidator(membership, blockNumbers)
   private val viewChangeMap = mutable.HashMap[BftNodeId, SignedMessage[ViewChange]]()
   private var viewChangeFromSelfWasFromRehydration = false
+  private var viewChangeMessageSetForNewView: Option[Seq[SignedMessage[ViewChange]]] = None
   private var signedPrePreparesForSegment: Option[Seq[SignedMessage[PrePrepare]]] = None
   private var newView: Option[SignedMessage[NewView]] = None
   private var discardedMessageCount: Int = 0
@@ -119,7 +121,7 @@ class PbftViewChangeState(
 
   def viewChangeFromSelf: Option[SignedMessage[ViewChange]] = viewChangeMap.get(membership.myId)
   def isViewChangeFromSelfRehydration: Boolean = viewChangeFromSelfWasFromRehydration
-  def markViewChangeFromSelfasCommingFromRehydration(): Unit =
+  def markViewChangeFromSelfAsComingFromRehydration(): Unit =
     viewChangeFromSelfWasFromRehydration = true
 
   def reachedStrongQuorum: Boolean = membership.orderingTopology.hasStrongQuorum(viewChangeMap.size)
@@ -142,6 +144,14 @@ class PbftViewChangeState(
 
     val viewChangeSet =
       viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
+
+    // We remember the set of ViewChange messages used to construct PrePrepare(s) for the
+    // NewView message because we can receive additional ViewChange messages while waiting for
+    // bottom-block PrePrepare(s) to be signed asynchronously. This ensures that the
+    // same ViewChange message set used to construct PrePrepares is also included in the
+    // NewView, and subsequent validation will succeed.
+    assert(viewChangeMessageSetForNewView.isEmpty)
+    viewChangeMessageSetForNewView = Some(viewChangeSet)
 
     // Highest View-numbered PrePrepare from the vcSet defined for each block number
     val definedPrePrepares =
@@ -172,11 +182,13 @@ class PbftViewChangeState(
       metadata: BlockMetadata,
       segmentIdx: Int,
       prePrepares: Seq[SignedMessage[PrePrepare]],
+      abort: String => Nothing,
   ): NewView = {
 
-    // (Strong) quorum of validated view change messages collected from nodes
-    val viewChangeSet =
-      viewChangeMap.values.toSeq.sortBy(_.from).take(membership.orderingTopology.strongQuorum)
+    // Reuse the saved strong quorum of validated view change messages collected from nodes
+    val viewChangeSet = viewChangeMessageSetForNewView.getOrElse(
+      abort("creating NewView message before constructing PrePrepares should not happen")
+    )
 
     NewView.create(
       metadata,
@@ -205,9 +217,9 @@ class PbftViewChangeState(
           case Left(error) =>
             emitNonCompliance(metrics)(
               vc.from,
-              epoch,
-              view,
-              vc.message.blockMetadata.blockNumber,
+              Some(epoch),
+              Some(view),
+              Some(vc.message.blockMetadata.blockNumber),
               metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
             )
             logger.warn(
@@ -225,9 +237,9 @@ class PbftViewChangeState(
     if (nv.from != leader) { // Ensure the message is from the current primary (leader) of the new view
       emitNonCompliance(metrics)(
         nv.from,
-        epoch,
-        view,
-        nv.message.blockMetadata.blockNumber,
+        Some(epoch),
+        Some(view),
+        Some(nv.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(s"New View message from ${nv.from}, but the leader of view $view is $leader")
@@ -243,9 +255,9 @@ class PbftViewChangeState(
         case Left(error) =>
           emitNonCompliance(metrics)(
             nv.from,
-            epoch,
-            view,
-            nv.message.blockMetadata.blockNumber,
+            Some(epoch),
+            Some(view),
+            Some(nv.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
           )
           logger.warn(

@@ -360,8 +360,8 @@ class AvailabilityModuleDisseminationTest
         ),
         log => {
           log.level shouldBe Level.WARN
-          log.message should include(
-            "Batch BatchId(SHA-256:f9fbd79100fb...) from 'node1' contains more requests (1) than allowed (0), skipping"
+          log.message should include regex (
+            """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains more requests \(1\) than allowed \(0\), skipping"""
           )
         },
       )
@@ -389,8 +389,8 @@ class AvailabilityModuleDisseminationTest
         ),
         log => {
           log.level shouldBe Level.WARN
-          log.message should include(
-            "Batch BatchId(SHA-256:f9fbd79100fb...) from 'node1' contains an expired batch at epoch number 0 which is 500 epochs or more older than last known epoch 501, skipping"
+          log.message should include regex (
+            """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains an expired batch at epoch number 0 which is 500 epochs or more older than last known epoch 501, skipping"""
           )
         },
       )
@@ -407,8 +407,8 @@ class AvailabilityModuleDisseminationTest
         ),
         log => {
           log.level shouldBe Level.WARN
-          log.message should include(
-            "Batch BatchId(SHA-256:c8c74ab985cb...) from 'node1' contains a batch whose epoch number 1501 is too far in the future compared to last known epoch 501, skipping"
+          log.message should include regex (
+            """Batch BatchId\(SHA-256:[^)]+\) from 'node1' contains a batch whose epoch number 1501 is too far in the future compared to last known epoch 501, skipping"""
           )
         },
       )

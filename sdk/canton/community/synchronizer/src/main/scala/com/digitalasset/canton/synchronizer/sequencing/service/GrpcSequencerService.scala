@@ -26,9 +26,9 @@ import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
+import com.digitalasset.canton.synchronizer.sequencer.Sequencer
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError
-import com.digitalasset.canton.synchronizer.sequencer.{Sequencer, SequencerValidations}
 import com.digitalasset.canton.synchronizer.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.synchronizer.sequencing.service.GrpcSequencerService.{
   SignedAcknowledgeRequest,
@@ -310,7 +310,7 @@ class GrpcSequencerService(
         "Batch contains envelope without content.",
       )
       _ <- refuseUnless(sender)(
-        SequencerValidations.checkToAtMostOneMediator(request),
+        SubmissionRequestValidations.checkToAtMostOneMediator(request),
         "Batch contains multiple mediators as recipients.",
       )
       _ <- request.aggregationRule.traverse_(validateAggregationRule(sender, messageId, _))
@@ -328,7 +328,7 @@ class GrpcSequencerService(
       messageId: MessageId,
       aggregationRule: AggregationRule,
   )(implicit traceContext: TraceContext): Either[SequencerDeliverError, Unit] =
-    SequencerValidations
+    SubmissionRequestValidations
       .wellformedAggregationRule(sender, aggregationRule)
       .leftMap(message => invalid(messageId.toProtoPrimitive, sender)(message))
 

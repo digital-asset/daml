@@ -19,7 +19,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 6,
+  "id": 4,
   "links": [],
   "liveNow": false,
   "panels": [
@@ -810,7 +810,7 @@
           "calcs": [],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "tooltip": {
           "mode": "single",
@@ -825,12 +825,12 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_output_block_delay_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.999, sum by(mode) (rate(daml_sequencer_bftordering_output_block_delay_duration_seconds{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
           "intervalFactor": 1,
-          "legendFormat": "__auto",
+          "legendFormat": "{{mode}} - Block Delay",
           "range": true,
           "refId": "A"
         }
@@ -1092,12 +1092,12 @@
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(0.999, sum(rate(daml_sequencer_bftordering_output_block_size_bytes{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
+          "expr": "histogram_quantile(0.999, sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_bytes{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "Block Size",
+          "legendFormat": "{{ mode }} - Block Size",
           "refId": "A"
         }
       ],
@@ -1302,7 +1302,7 @@
           ],
           "displayMode": "list",
           "placement": "bottom",
-          "showLegend": false
+          "showLegend": true
         },
         "tooltip": {
           "mode": "multi",
@@ -1316,12 +1316,12 @@
             "uid": "$DS"
           },
           "editorMode": "code",
-          "expr": "histogram_sum(sum(rate(daml_sequencer_bftordering_output_block_size_requests[$__rate_interval]))) / histogram_count(sum(rate(daml_sequencer_bftordering_output_block_size_requests[$__rate_interval])))",
+          "expr": "histogram_sum(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_requests{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval]))) / histogram_count(sum by(mode) (rate(daml_sequencer_bftordering_output_block_size_requests{reporting_sequencer=\"$reporting_sequencer\"}[$__rate_interval])))",
           "format": "time_series",
           "instant": false,
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "Requests",
+          "legendFormat": "{{mode}} - Requests",
           "refId": "A"
         }
       ],
@@ -1404,7 +1404,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -1508,7 +1509,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -1611,7 +1613,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -1715,7 +1718,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -1818,7 +1822,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -1921,7 +1926,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -2024,7 +2030,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -2127,7 +2134,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2223,7 +2231,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "#7eb26d"
+                "color": "#7eb26d",
+                "value": null
               },
               {
                 "color": "#ef843c",
@@ -2326,7 +2335,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -2460,6 +2470,6 @@
   "timezone": "",
   "title": "BFT ordering",
   "uid": "UJyurCTWz",
-  "version": 2,
+  "version": 4,
   "weekStart": ""
 }

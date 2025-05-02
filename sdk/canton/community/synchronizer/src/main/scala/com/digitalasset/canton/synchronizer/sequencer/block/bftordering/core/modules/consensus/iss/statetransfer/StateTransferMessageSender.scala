@@ -28,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   P2PNetworkOut,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.util.{Failure, Success}
 
@@ -38,7 +39,8 @@ final class StateTransferMessageSender[E <: Env[E]](
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit synchronizerProtocolVersion: ProtocolVersion)
+    extends NamedLogging {
 
   import StateTransferMessageSender.*
 

@@ -225,7 +225,6 @@ trait MemberAutoInitIntegrationTest
               node.id.member,
               NonEmpty(Seq, sequencerAuthKey, signingKey, encryptionKey),
             ),
-            serial = PositiveInt.one,
             signedBy =
               Seq(namespaceKey.fingerprint, sequencerAuthKey.fingerprint, signingKey.fingerprint),
           )

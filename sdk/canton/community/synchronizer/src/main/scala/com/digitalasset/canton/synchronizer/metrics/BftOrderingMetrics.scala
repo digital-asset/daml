@@ -366,6 +366,7 @@ class BftOrderingMetrics private[metrics] (
             case object ConsensusInvalidMessage extends ViolationTypeValue
             case object ConsensusDataEquivocation extends ViolationTypeValue
             case object ConsensusRoleEquivocation extends ViolationTypeValue
+            case object StateTransferInvalidMessage extends ViolationTypeValue
           }
         }
       }
@@ -408,6 +409,46 @@ class BftOrderingMetrics private[metrics] (
 
     val commitLatency: Timer =
       openTelemetryMetricsFactory.timer(histograms.consensus.consensusCommitLatency.info)
+
+    // Private constructor to avoid being instantiated multiple times by accident
+    final class RetransmissionsMetrics private[BftOrderingMetrics] {
+
+      val incomingRetransmissionsRequestsMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "incoming-retransmissions",
+          summary = "Incoming retransmissions",
+          description = "Retransmissions requests received during an epoch",
+          qualification = MetricQualification.Traffic,
+        )
+      )
+
+      val outgoingRetransmissionsRequestsMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "outgoing-retransmissions",
+          summary = "Outgoing retransmissions",
+          description = "Retransmissions sent during an epoch",
+          qualification = MetricQualification.Traffic,
+        )
+      )
+
+      val retransmittedMessagesMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "retransmitted-messages",
+          summary = "Retransmitted PBFT messages",
+          description = "Number of PBFT messages retransmitted during an epoch",
+          qualification = MetricQualification.Traffic,
+        )
+      )
+
+      val retransmittedCommitCertificatesMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "retransmitted-commit-certificates",
+          summary = "Retransmitted commit certificates",
+          description = "Number of commit certificates retransmitted during an epoch",
+          qualification = MetricQualification.Traffic,
+        )
+      )
+    }
 
     // Private constructor to avoid being instantiated multiple times by accident
     final class VotesMetrics private[BftOrderingMetrics] {
@@ -495,11 +536,25 @@ class BftOrderingMetrics private[metrics] (
         }
     }
     val votes = new VotesMetrics
+    val retransmissions = new RetransmissionsMetrics
   }
   val consensus = new ConsensusMetrics
 
   // Private constructor to avoid being instantiated multiple times by accident
   final class OutputMetrics private[BftOrderingMetrics] {
+
+    object labels {
+      object mode {
+        val Key: String = "mode"
+
+        object values {
+          sealed trait ModeValue extends PrettyNameOnlyCase with Product with Serializable
+          case object Consensus extends ModeValue
+          case object StateTransfer extends ModeValue
+        }
+      }
+    }
+
     val blockSizeBytes: Histogram =
       openTelemetryMetricsFactory.histogram(histograms.output.blockSizeBytes.info)
 

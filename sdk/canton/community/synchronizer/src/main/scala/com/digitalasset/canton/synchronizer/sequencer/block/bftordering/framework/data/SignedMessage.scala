@@ -21,7 +21,7 @@ final case class SignedMessage[+MessageT <: ProtocolVersionedMemoizedEvidence & 
     signature: Signature,
 ) {
   def toProtoV1: v30.SignedMessage =
-    v30.SignedMessage.of(
+    v30.SignedMessage(
       message.getCryptographicEvidence,
       message.from,
       signature = Some(signature.toProtoV30),

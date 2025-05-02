@@ -253,6 +253,7 @@ class ResilientSequencerSubscriptionTest
         _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
+        doNotExitOnFatalErrors,
         timeouts,
         loggerFactory,
       )
@@ -284,6 +285,7 @@ class ResilientSequencerSubscriptionTest
         _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
+        doNotExitOnFatalErrors,
         timeouts,
         loggerFactory,
       )
@@ -369,12 +371,15 @@ trait ResilientSequencerSubscriptionTestUtils {
       _ => FutureUnlessShutdown.pure(Either.unit[TestHandlerError]),
       subscriptionTestFactory,
       retryDelayRule,
+      doNotExitOnFatalErrors,
       DefaultProcessingTimeouts.testing,
       loggerFactory,
     )
 
     subscription
   }
+
+  protected def doNotExitOnFatalErrors: SubscriptionCloseReason[TestHandlerError] => Unit = _ => ()
 
   trait SubscriptionTestFactory extends SequencerSubscriptionFactory[TestHandlerError] {
     protected def createInternal(

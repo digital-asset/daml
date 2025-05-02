@@ -143,9 +143,10 @@ main = tests
   , fetchDowngradedSomeDynamicLocal
   , fetchDowngradedSomeDynamicDisclosed
 
-  , -- TODO(https://github.com/DACH-NY/canton/issues/24950): fix the IDE ledger
-    brokenOnIDELedger ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
-  , brokenOnIDELedger ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+  -- TODO(https://github.com/DACH-NY/canton/issues/24950): fix the IDE ledger
+  -- TODO(https://github.com/DACH-NY/canton/issues/25366): re-enable these tests
+--  ,  brokenOnIDELedger ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+--  , brokenOnIDELedger ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
   ]
 
 exerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script r

@@ -2086,7 +2086,7 @@ components:
         synchronizerId:
           type: string
         permission:
-          $ref: '#/components/schemas/ParticipantPermission'
+          type: string
     CreateAndExerciseCommand:
       title: CreateAndExerciseCommand
       description: Create a contract and exercise a choice on it in the same transaction.
@@ -3058,8 +3058,8 @@ components:
       - packageStatus
       properties:
         packageStatus:
-          $ref: '#/components/schemas/PackageStatus'
           description: The status of the package.
+          type: string
     GetParticipantIdResponse:
       title: GetParticipantIdResponse
       type: object
@@ -3296,39 +3296,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Right'
-    HASHING_SCHEME_VERSION_UNSPECIFIED:
-      title: HASHING_SCHEME_VERSION_UNSPECIFIED
-      type: object
-    HASHING_SCHEME_VERSION_V2:
-      title: HASHING_SCHEME_VERSION_V2
-      type: object
-    HashingSchemeVersion:
-      title: HashingSchemeVersion
-      oneOf:
-      - type: object
-        required:
-        - HASHING_SCHEME_VERSION_UNSPECIFIED
-        properties:
-          HASHING_SCHEME_VERSION_UNSPECIFIED:
-            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
-      - type: object
-        required:
-        - HASHING_SCHEME_VERSION_V2
-        properties:
-          HASHING_SCHEME_VERSION_V2:
-            $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V2'
-      - type: object
-        required:
-        - Recognized
-        properties:
-          Recognized:
-            $ref: '#/components/schemas/Recognized2'
-      - type: object
-        required:
-        - Unrecognized
-        properties:
-          Unrecognized:
-            $ref: '#/components/schemas/Unrecognized3'
     Identifier:
       title: Identifier
       type: object
@@ -3824,8 +3791,8 @@ components:
           description: See [PrepareSubmissionRequest.user_id]
           type: string
         hashingSchemeVersion:
-          $ref: '#/components/schemas/HashingSchemeVersion'
           description: The hashing scheme version used when building the hash
+          type: string
     JsGetActiveContractsResponse:
       title: JsGetActiveContractsResponse
       type: object
@@ -4067,8 +4034,8 @@ components:
             May be removed in future versions
           type: string
         hashingSchemeVersion:
-          $ref: '#/components/schemas/HashingSchemeVersion'
           description: The hashing scheme version used when building the hash
+          type: string
         hashingDetails:
           description: |-
             Optional additional details on how the transaction was encoded and hashed. Only set if verbose_hashing = true in the request
@@ -4172,7 +4139,6 @@ components:
       type: object
       required:
       - commands
-      - transactionFormat
       properties:
         commands:
           $ref: '#/components/schemas/JsCommands'
@@ -4181,7 +4147,11 @@ components:
             Required
         transactionFormat:
           $ref: '#/components/schemas/TransactionFormat'
-          description: Required
+          description: |-
+            If no ``transaction_format`` is provided, a default will be used where ``transaction_shape`` is set to
+            TRANSACTION_SHAPE_ACS_DELTA, ``event_format`` is defined with ``filters_by_party`` containing wildcard-template
+            filter for all original ``act_as`` and ``read_as`` parties and the ``verbose`` flag is set.
+            Optional
     JsSubmitAndWaitForTransactionResponse:
       title: JsSubmitAndWaitForTransactionResponse
       type: object
@@ -4422,6 +4392,7 @@ components:
           $ref: '#/components/schemas/UnassignedEvent'
     Kind:
       title: Kind
+      description: Required
       oneOf:
       - type: object
         required:
@@ -4684,24 +4655,6 @@ components:
         maxOffsetCheckpointEmissionDelay:
           $ref: '#/components/schemas/Duration'
           description: The maximum delay to emmit a new OffsetCheckpoint if it exists
-    PACKAGE_STATUS_REGISTERED:
-      title: PACKAGE_STATUS_REGISTERED
-      type: object
-    PACKAGE_STATUS_UNSPECIFIED:
-      title: PACKAGE_STATUS_UNSPECIFIED
-      type: object
-    PARTICIPANT_PERMISSION_CONFIRMATION:
-      title: PARTICIPANT_PERMISSION_CONFIRMATION
-      type: object
-    PARTICIPANT_PERMISSION_OBSERVATION:
-      title: PARTICIPANT_PERMISSION_OBSERVATION
-      type: object
-    PARTICIPANT_PERMISSION_SUBMISSION:
-      title: PARTICIPANT_PERMISSION_SUBMISSION
-      type: object
-    PARTICIPANT_PERMISSION_UNSPECIFIED:
-      title: PARTICIPANT_PERMISSION_UNSPECIFIED
-      type: object
     PackagePreference:
       title: PackagePreference
       type: object
@@ -4736,33 +4689,6 @@ components:
         packageVersion:
           description: Required
           type: string
-    PackageStatus:
-      title: PackageStatus
-      oneOf:
-      - type: object
-        required:
-        - PACKAGE_STATUS_REGISTERED
-        properties:
-          PACKAGE_STATUS_REGISTERED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_REGISTERED'
-      - type: object
-        required:
-        - PACKAGE_STATUS_UNSPECIFIED
-        properties:
-          PACKAGE_STATUS_UNSPECIFIED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_UNSPECIFIED'
-      - type: object
-        required:
-        - Recognized
-        properties:
-          Recognized:
-            $ref: '#/components/schemas/Recognized'
-      - type: object
-        required:
-        - Unrecognized
-        properties:
-          Unrecognized:
-            $ref: '#/components/schemas/Unrecognized1'
     ParticipantAdmin:
       title: ParticipantAdmin
       type: object
@@ -4836,45 +4762,6 @@ components:
           type: array
           items:
             type: string
-    ParticipantPermission:
-      title: ParticipantPermission
-      oneOf:
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_CONFIRMATION
-        properties:
-          PARTICIPANT_PERMISSION_CONFIRMATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_CONFIRMATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_OBSERVATION
-        properties:
-          PARTICIPANT_PERMISSION_OBSERVATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_OBSERVATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_SUBMISSION
-        properties:
-          PARTICIPANT_PERMISSION_SUBMISSION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_SUBMISSION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_UNSPECIFIED
-        properties:
-          PARTICIPANT_PERMISSION_UNSPECIFIED:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_UNSPECIFIED'
-      - type: object
-        required:
-        - Recognized
-        properties:
-          Recognized:
-            $ref: '#/components/schemas/Recognized1'
-      - type: object
-        required:
-        - Unrecognized
-        properties:
-          Unrecognized:
-            $ref: '#/components/schemas/Unrecognized2'
     PartyDetails:
       title: PartyDetails
       type: object
@@ -5010,53 +4897,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ReassignmentCommand'
-    Recognized:
-      title: Recognized
-      oneOf:
-      - type: object
-        required:
-        - PACKAGE_STATUS_REGISTERED
-        properties:
-          PACKAGE_STATUS_REGISTERED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_REGISTERED'
-      - type: object
-        required:
-        - PACKAGE_STATUS_UNSPECIFIED
-        properties:
-          PACKAGE_STATUS_UNSPECIFIED:
-            $ref: '#/components/schemas/PACKAGE_STATUS_UNSPECIFIED'
-    Recognized1:
-      title: Recognized
-      oneOf:
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_CONFIRMATION
-        properties:
-          PARTICIPANT_PERMISSION_CONFIRMATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_CONFIRMATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_OBSERVATION
-        properties:
-          PARTICIPANT_PERMISSION_OBSERVATION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_OBSERVATION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_SUBMISSION
-        properties:
-          PARTICIPANT_PERMISSION_SUBMISSION:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_SUBMISSION'
-      - type: object
-        required:
-        - PARTICIPANT_PERMISSION_UNSPECIFIED
-        properties:
-          PARTICIPANT_PERMISSION_UNSPECIFIED:
-            $ref: '#/components/schemas/PARTICIPANT_PERMISSION_UNSPECIFIED'
-    Recognized2:
-      title: Recognized
-      oneOf:
-      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_UNSPECIFIED'
-      - $ref: '#/components/schemas/HASHING_SCHEME_VERSION_V2'
     RevokeUserRightsRequest:
       title: RevokeUserRightsRequest
       description: |-
@@ -5103,33 +4943,6 @@ components:
       properties:
         kind:
           $ref: '#/components/schemas/Kind'
-    SIGNATURE_FORMAT_CONCAT:
-      title: SIGNATURE_FORMAT_CONCAT
-      type: object
-    SIGNATURE_FORMAT_DER:
-      title: SIGNATURE_FORMAT_DER
-      type: object
-    SIGNATURE_FORMAT_RAW:
-      title: SIGNATURE_FORMAT_RAW
-      type: object
-    SIGNATURE_FORMAT_SYMBOLIC:
-      title: SIGNATURE_FORMAT_SYMBOLIC
-      type: object
-    SIGNATURE_FORMAT_UNSPECIFIED:
-      title: SIGNATURE_FORMAT_UNSPECIFIED
-      type: object
-    SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256:
-      title: SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256
-      type: object
-    SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384:
-      title: SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384
-      type: object
-    SIGNING_ALGORITHM_SPEC_ED25519:
-      title: SIGNING_ALGORITHM_SPEC_ED25519
-      type: object
-    SIGNING_ALGORITHM_SPEC_UNSPECIFIED:
-      title: SIGNING_ALGORITHM_SPEC_UNSPECIFIED
-      type: object
     Signature:
       title: Signature
       type: object
@@ -5140,8 +4953,8 @@ components:
       - signingAlgorithmSpec
       properties:
         format:
-          $ref: '#/components/schemas/SignatureFormat'
           description: ''
+          type: string
         signature:
           description: ''
           type: string
@@ -5150,25 +4963,8 @@ components:
             and needed to verify.
           type: string
         signingAlgorithmSpec:
-          $ref: '#/components/schemas/SigningAlgorithmSpec'
           description: The signing algorithm specification used to produce this signature
-    SignatureFormat:
-      title: SignatureFormat
-      oneOf:
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_CONCAT'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_DER'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_RAW'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_SYMBOLIC'
-      - $ref: '#/components/schemas/SIGNATURE_FORMAT_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized4'
-    SigningAlgorithmSpec:
-      title: SigningAlgorithmSpec
-      oneOf:
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256'
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384'
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_ED25519'
-      - $ref: '#/components/schemas/SIGNING_ALGORITHM_SPEC_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized5'
+          type: string
     SinglePartySignatures:
       title: SinglePartySignatures
       description: Signatures provided by a single party
@@ -5269,15 +5065,6 @@ components:
             All commands with a maximum record time below this value MUST be considered lost if their completion has not arrived before this checkpoint.
             Required
           type: string
-    TRANSACTION_SHAPE_ACS_DELTA:
-      title: TRANSACTION_SHAPE_ACS_DELTA
-      type: object
-    TRANSACTION_SHAPE_LEDGER_EFFECTS:
-      title: TRANSACTION_SHAPE_LEDGER_EFFECTS
-      type: object
-    TRANSACTION_SHAPE_UNSPECIFIED:
-      title: TRANSACTION_SHAPE_UNSPECIFIED
-      type: object
     TemplateFilter:
       title: TemplateFilter
       description: This filter matches contracts of a specific template.
@@ -5414,17 +5201,10 @@ components:
           $ref: '#/components/schemas/EventFormat'
           description: Required
         transactionShape:
-          $ref: '#/components/schemas/TransactionShape'
           description: |-
             What transaction shape to use for interpreting the filters of the event format.
             Required
-    TransactionShape:
-      title: TransactionShape
-      oneOf:
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_ACS_DELTA'
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_LEDGER_EFFECTS'
-      - $ref: '#/components/schemas/TRANSACTION_SHAPE_UNSPECIFIED'
-      - $ref: '#/components/schemas/Unrecognized'
+          type: string
     TransactionTree:
       title: TransactionTree
       description: |-
@@ -5599,60 +5379,6 @@ components:
             Node IDs are not necessarily equal across participants,
             as these may see different projections/parts of reassignments.
             Required, must be valid node ID (non-negative integer)
-          type: integer
-          format: int32
-    Unrecognized:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized1:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized2:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized3:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized4:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
-          type: integer
-          format: int32
-    Unrecognized5:
-      title: Unrecognized
-      type: object
-      required:
-      - unrecognizedValue
-      properties:
-        unrecognizedValue:
           type: integer
           format: int32
     Update:
