@@ -439,7 +439,9 @@ Data Types
 
   `ContractIdComparability <constr-daml-script-internal-questions-submit-error-contractidcomparability-98492_>`_
 
-    Attempted to compare a local and global contract ID with the same discriminator\. You're doing something very wrong
+    Attempted to compare incomparable contract IDs\. You're doing something very wrong\.
+    Two contract IDs with the same prefix are incomparable if one of them is local and the other non\-local
+    or if one is relative and the other relative or absolute with a different suffix\.
 
     .. list-table::
        :widths: 15 10 30

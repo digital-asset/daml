@@ -386,6 +386,7 @@ class Engine(val config: EngineConfig) {
       validating = validating,
       traceLog = EngineLogger.toTraceLog(engineLogger),
       contractKeyUniqueness = config.contractKeyUniqueness,
+      contractIdVersion = config.createContractsWithContractIdVersion,
       packageResolution = packageResolution,
       limits = config.limits,
       iterationsBetweenInterruptions = config.iterationsBetweenInterruptions,

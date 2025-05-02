@@ -192,6 +192,7 @@ object Value {
   sealed abstract class ContractId extends Product with Serializable {
     def coid: String
     def toBytes: Bytes
+    def version: ContractIdVersion
   }
 
   object ContractId {
@@ -201,6 +202,7 @@ object Value {
       override lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"ContractId($coid)"
+      override def version: ContractIdVersion = ContractIdVersion.V1
     }
 
     object V1 {
@@ -250,6 +252,10 @@ object Value {
       override lazy val toBytes: Bytes = V2.prefix ++ local ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
       override def toString: String = s"ContractId($coid)"
+      override def version: ContractIdVersion = ContractIdVersion.V2
+
+      def isRelative: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) >= 0
+      def isAbsolute: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) < 0
     }
 
     object V2 {
@@ -366,4 +372,10 @@ object Value {
   val ValueFalse: ValueBool = ValueBool.False
   val ValueNil: ValueList = ValueList(FrontStack.empty)
   val ValueNone: ValueOptional = ValueOptional(None)
+}
+
+sealed trait ContractIdVersion extends Product with Serializable
+object ContractIdVersion {
+  case object V1 extends ContractIdVersion
+  case object V2 extends ContractIdVersion
 }

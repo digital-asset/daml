@@ -22,6 +22,7 @@ import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 import com.digitalasset.daml.lf.language.LanguageVersion
+import com.google.protobuf.ByteString
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
@@ -208,27 +209,36 @@ object ValueGenerators {
 
   /** Universes of totally-ordered ContractIds. */
   def comparableCoidsGen: Seq[Gen[ContractId]] =
-    Seq(suffixedCidGen, unsuffixedCidGen)
+    Seq(globalAbsoluteCidGen, unsuffixedCidGen, relativeCidGen)
 
   private def unsuffixCid(cid: ContractId): ContractId = cid match {
     case cidV1: ContractId.V1 => ContractId.V1(cidV1.discriminator)
     case cidV2: ContractId.V2 => ContractId.V2(cidV2.local, Bytes.Empty)
   }
-  private def suffixCid(cid: ContractId, suffix: Bytes): ContractId = cid match {
+  private def globalAbsoluteCid(cid: ContractId, suffix: Bytes): ContractId = cid match {
     case cidV1: ContractId.V1 =>
       ContractId.V1.assertBuild(
         cidV1.discriminator,
         if (cidV1.suffix.isEmpty) suffix else cidV1.suffix,
       )
     case cidV2: ContractId.V2 =>
-      ContractId.V2.assertBuild(cidV2.local, if (cidV2.suffix.isEmpty) suffix else cidV2.suffix)
+      val newSuffix = (if (cidV2.suffix.isEmpty) suffix else cidV2.suffix).toByteString
+      // Ensure that the first bit is set
+      val absoluteSuffix = ByteString
+        .copyFrom(Array[Byte]((newSuffix.byteAt(0) | 0x80).toByte))
+        .concat(newSuffix.substring(1))
+      ContractId.V2.assertBuild(cidV2.local, Bytes.fromByteString(absoluteSuffix))
   }
+  private def relativeCid(cid: ContractId.V2): ContractId.V2 =
+    // Always use the same suffix as each suffix defines its own universe of comparable prefixes.
+    ContractId.V2.assertBuild(cid.local, Bytes.assertFromString("00"))
 
   def unsuffixedCidGen: Gen[ContractId] = coidGen.map(unsuffixCid)
-  def suffixedCidGen: Gen[ContractId] =
+  def globalAbsoluteCidGen: Gen[ContractId] =
     Gen.zip(coidGen, arbitrary[Byte]).map { case (cid, suffixByte) =>
-      suffixCid(cid, Bytes.fromByteArray(Array(suffixByte)))
+      globalAbsoluteCid(cid, Bytes.fromByteArray(Array(suffixByte)))
     }
+  def relativeCidGen: Gen[ContractId] = cidV2Gen.map(relativeCid)
 
   def coidGen: Gen[ContractId] = Gen.oneOf(cidV1Gen, cidV2Gen)
 

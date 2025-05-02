@@ -138,7 +138,9 @@ data SubmitError
       -- TODO[SW]: Update the ContractIdInContractKey scala error to include a TemplateId (which it does have when thrown) in separate PR
       -- Then we can uncomment this and add the plumbing
       -- contractKey : AnyContractKey
-  | -- | Attempted to compare a local and global contract ID with the same discriminator. You're doing something very wrong
+  | -- | Attempted to compare incomparable contract IDs. You're doing something very wrong.
+    -- Two contract IDs with the same prefix are incomparable if one of them is local and the other non-local
+    -- or if one is relative and the other relative or absolute with a different suffix.
     ContractIdComparability with
       globalExistingContractId : Text
         -- ^ We do not know the template ID at time of comparison.

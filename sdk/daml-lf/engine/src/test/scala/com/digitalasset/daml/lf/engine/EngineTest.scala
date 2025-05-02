@@ -24,7 +24,7 @@ import com.digitalasset.daml.lf.transaction.{
   Transaction => Tx,
   TransactionVersion => TxVersions,
 }
-import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.{ContractIdVersion, Value}
 import Value._
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.digitalasset.daml.lf
@@ -60,7 +60,8 @@ import scala.language.implicitConversions
 import scala.math.Ordered.orderingToOrdered
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 
-class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
+class EngineTestCidV1 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V1)
+class EngineTestCidV2 extends EngineTest(LanguageMajorVersion.V2, ContractIdVersion.V2)
 
 @SuppressWarnings(
   Array(
@@ -69,14 +70,14 @@ class EngineTestV2 extends EngineTest(LanguageMajorVersion.V2)
     "org.wartremover.warts.Product",
   )
 )
-class EngineTest(majorLanguageVersion: LanguageMajorVersion)
+class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: ContractIdVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks
     with EitherValues
     with SecurityTestSuite {
 
-  val helpers = new EngineTestHelpers(majorLanguageVersion)
+  val helpers = new EngineTestHelpers(majorLanguageVersion, contractIdVersion)
   import helpers._
 
   "minimal create command" should {
@@ -2524,9 +2525,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
     val devVersion = majorLanguageVersion.dev
-    val (_, _, allPackagesDev) = new EngineTestHelpers(majorLanguageVersion).loadAndAddPackage(
-      s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
-    )
+    val (_, _, allPackagesDev) =
+      new EngineTestHelpers(majorLanguageVersion, contractIdVersion).loadAndAddPackage(
+        s"daml-lf/engine/BasicTests-v${majorLanguageVersion.pretty}dev.dar"
+      )
     val compatibleLanguageVersions = LanguageVersion.AllV2
     // Following stable packages are deps of other stable packages, so we sort such that these are preloaded first
     val stablePackagesToLoadFirst = List("daml-prim-DA-Types", "daml-stdlib-DA-NonEmpty-Types")
@@ -2604,7 +2606,10 @@ class EngineTestAllVersions extends AnyWordSpec with Matchers with TableDrivenPr
   }
 }
 
-class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
+class EngineTestHelpers(
+    majorLanguageVersion: LanguageMajorVersion,
+    contractIdVersion: ContractIdVersion,
+) {
 
   val defaultLangVersion = majorLanguageVersion.maxStableVersion
 
@@ -2653,7 +2658,8 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val bob: Ref.IdString.Party = Party.assertFromString("Bob")
   val clara: Ref.IdString.Party = Party.assertFromString("Clara")
 
-  val dummySuffix: Bytes = Bytes.assertFromString("00")
+  val dummySuffixV1: Bytes = Bytes.assertFromString("00")
+  val dummySuffixV2: Bytes = Bytes.assertFromString("80")
 
   val withKeyTemplate = "BasicTests:WithKey"
   val BasicTests_WithKey: lf.data.Ref.ValueRef = Identifier(basicTestsPkgId, withKeyTemplate)
@@ -2738,11 +2744,12 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       EngineConfig(
         allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
         requireSuffixedGlobalContractId = requireCidSuffixes,
+        createContractsWithContractIdVersion = contractIdVersion,
       )
     )
 
   def toContractId(s: String): ContractId =
-    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffix)
+    ContractId.V1.assertBuild(crypto.Hash.hashPrivateKey(s), dummySuffixV1)
 
   def findNodeByIdx[Cid](nodes: Map[NodeId, Node], idx: Int): Option[Node] =
     nodes.collectFirst { case (nodeId, node) if nodeId.index == idx => node }
@@ -2756,7 +2763,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   }
 
   def suffix(tx: VersionedTransaction): VersionedTransaction =
-    data.assertRight(tx.suffixCid(_ => dummySuffix, _ => dummySuffix))
+    data.assertRight(tx.suffixCid(_ => dummySuffixV1, _ => dummySuffixV2))
 
   // Mimics Canton reinterpretation
   // requires a suffixed transaction.

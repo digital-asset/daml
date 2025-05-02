@@ -1100,6 +1100,7 @@ private[lf] object SBuiltinFun {
                 submissionTime = machine.submissionTime,
                 contract = contract,
                 optLocation = machine.getLastLocation,
+                contractIdVersion = machine.contractIdVersion,
               ) match {
               case Right((coid, newPtx)) => {
                 machine.enforceLimitSignatoriesAndObservers(coid, contract)

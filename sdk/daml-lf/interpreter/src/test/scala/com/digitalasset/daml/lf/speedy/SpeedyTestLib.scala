@@ -235,6 +235,7 @@ private[speedy] object SpeedyTestLib {
           validating = machine.validating,
           submissionTime = machine.submissionTime,
           contractKeyUniqueness = machine.contractKeyUniqueness,
+          contractIdVersion = machine.contractIdVersion,
           ptx = machine.ptx,
           committers = machine.committers,
           readAs = machine.readAs,

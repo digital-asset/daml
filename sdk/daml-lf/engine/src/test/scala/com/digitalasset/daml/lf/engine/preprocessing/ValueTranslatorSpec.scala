@@ -607,7 +607,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
     }
 
-    "reject non suffixed V1 Contract IDs when requireV1ContractIdSuffix is true" in {
+    "reject non suffixed V1/V2 Contract IDs when requireContractIdSuffix is true" in {
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
