@@ -52,6 +52,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.time.SimClock
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -232,7 +233,7 @@ object PreIssConsensusModuleTest {
       ),
       lastBlockCommits = Seq.empty,
     )
-  private val someLastBlockCommits = Seq(
+  private def someLastBlockCommits(implicit synchronizerProtocolVersion: ProtocolVersion) = Seq(
     Commit
       .create(
         BlockMetadata(EpochNumber.First, BlockNumber.First),
@@ -257,7 +258,7 @@ object PreIssConsensusModuleTest {
   def createCompletedBlocks(
       epochNumber: EpochNumber,
       numberOfBlocks: Int,
-  ): Seq[EpochStore.Block] =
+  )(implicit synchronizerProtocolVersion: ProtocolVersion): Seq[EpochStore.Block] =
     LazyList
       .from(0)
       .map(blockNumber =>

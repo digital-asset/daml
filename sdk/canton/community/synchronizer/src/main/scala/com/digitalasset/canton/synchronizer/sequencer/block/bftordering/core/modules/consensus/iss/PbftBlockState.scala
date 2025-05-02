@@ -26,6 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.mutable
 
@@ -50,7 +51,7 @@ final class PbftBlockState(
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit mc: MetricsContext)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends NamedLogging {
 
   // Convenience val for various checks
@@ -255,9 +256,9 @@ final class PbftBlockState(
     if (pp.message.viewNumber == view && pp.from != leader) {
       emitNonCompliance(metrics)(
         pp.from,
-        epoch,
-        view,
-        pp.message.blockMetadata.blockNumber,
+        Some(epoch),
+        Some(view),
+        Some(pp.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(
@@ -296,9 +297,9 @@ final class PbftBlockState(
         if (prepare.message.hash != p.message.hash) {
           emitNonCompliance(metrics)(
             p.from,
-            epoch,
-            view,
-            p.message.blockMetadata.blockNumber,
+            Some(epoch),
+            Some(view),
+            Some(p.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(
@@ -321,9 +322,9 @@ final class PbftBlockState(
         if (commit.message.hash != c.message.hash) {
           emitNonCompliance(metrics)(
             c.from,
-            epoch,
-            view,
-            c.message.blockMetadata.blockNumber,
+            Some(epoch),
+            Some(view),
+            Some(c.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(

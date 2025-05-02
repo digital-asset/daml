@@ -58,6 +58,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import scala.collection.mutable
@@ -90,9 +91,8 @@ final class AvailabilityModule[E <: Env[E]](
 )(
     // Only passed in tests
     private var messageAuthorizer: MessageAuthorizer = initialMembership.orderingTopology
-)(implicit
-    mc: MetricsContext
-) extends Availability[E]
+)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
+    extends Availability[E]
     with HasDelayedInit[Availability.Message[E]] {
 
   import AvailabilityModule.*

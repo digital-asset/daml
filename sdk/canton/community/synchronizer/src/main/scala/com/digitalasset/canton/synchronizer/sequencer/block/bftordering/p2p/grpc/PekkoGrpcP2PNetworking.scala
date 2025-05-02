@@ -109,7 +109,7 @@ object PekkoGrpcP2PNetworking {
   ): StreamObserver[P2PMessageT] =
     Try(
       clientHandle.onNext(
-        BftOrderingServiceReceiveResponse.of(node)
+        BftOrderingServiceReceiveResponse(node)
       )
     ) match {
       case Failure(exception) =>

@@ -90,11 +90,12 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     PekkoUtil.createExecutionSequencerFactory("GrpcSequencerIntegrationTest", noTracingLogger)
   val sequencer = mock[Sequencer]
   private val participant = ParticipantId("testing")
+  val anotherParticipant = ParticipantId("another")
   private val synchronizerId = DefaultTestIdentities.synchronizerId
   private val sequencerId = DefaultTestIdentities.daSequencerId
   private val cryptoApi =
     TestingTopology()
-      .withSimpleParticipants(participant)
+      .withSimpleParticipants(participant, anotherParticipant)
       .build()
       .forOwnerAndSynchronizer(participant, synchronizerId)
   private val clock = new SimClock(loggerFactory = loggerFactory)
@@ -257,7 +258,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         _ => None,
         CommonMockMetrics.sequencerClient,
         LoggingConfig(),
-        exitOnTimeout = false,
+        exitOnFatalErrors = false,
         loggerFactory,
         ProtocolVersionCompatibility.supportedProtocols(
           includeAlphaVersions = BaseTest.testedProtocolVersion.isAlpha,
@@ -380,8 +381,6 @@ class GrpcSequencerIntegrationTest
     }
 
     "send from the client gets a message to the sequencer" in { env =>
-      val anotherParticipant = ParticipantId("another")
-
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
         .thenReturn(EitherTUtil.unitUS[SequencerDeliverError])
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
@@ -389,7 +388,10 @@ class GrpcSequencerIntegrationTest
         response <- env.client
           .sendAsync(
             Batch
-              .of(testedProtocolVersion, (MockProtocolMessage, Recipients.cc(anotherParticipant))),
+              .of(
+                testedProtocolVersion,
+                (MockProtocolMessage, Recipients.cc(env.anotherParticipant)),
+              ),
             None,
           )
           .value

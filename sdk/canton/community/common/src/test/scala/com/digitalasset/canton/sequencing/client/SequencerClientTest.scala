@@ -23,7 +23,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthComponent.AlwaysHealthyComponent
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.{CommonMockMetrics, TrafficConsumptionMetrics}
 import com.digitalasset.canton.protocol.messages.{
   DefaultOpenEnvelope,
@@ -38,7 +38,10 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
-import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.GapInSequencerCounter
+import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.{
+  DecreasingSequencerCounter,
+  GapInSequencerCounter,
+}
 import com.digitalasset.canton.sequencing.client.SequencerClient.CloseReason.{
   ClientShutdown,
   UnrecoverableError,
@@ -80,6 +83,7 @@ import com.digitalasset.canton.time.{MockTimeRequestSubmitter, SimClock, Synchro
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.DefaultTestIdentities.{
   daSequencerId,
+  mediatorId,
   participant1,
   synchronizerId,
 }
@@ -667,6 +671,47 @@ class SequencerClientTest
 
         closeReasonF.futureValueUS shouldBe ClientShutdown
       }
+
+      "invokes exit on fatal error handler due to a fatal error" in {
+        val error =
+          EventValidationError(
+            DecreasingSequencerCounter(
+              oldCounter = SequencerCounter(666),
+              newCounter = SequencerCounter(665),
+            )
+          )
+
+        var errorReport: String = "not reported"
+        def mockExitOnFatalError(message: String, logger: TracedLogger)(
+            traceContext: TraceContext
+        ): Unit = {
+          logger.info(s"Reporting mock fatal/exit error $message")(traceContext)
+          errorReport = message
+        }
+
+        val env = RichEnvFactory.create(mockExitOnFatalErrorO = Some(mockExitOnFatalError))
+        import env.*
+        val closeReasonF = for {
+          _ <- env.subscribeAfter(CantonTimestamp.MinValue, alwaysSuccessfulHandler)
+          subscription = transport.subscriber
+            // we know the resilient sequencer subscription is using this type
+            .map(_.subscription.asInstanceOf[MockSubscription[SequencerClientSubscriptionError]])
+            .value
+          closeReason <- loggerFactory.assertLogs(
+            {
+              subscription.closeSubscription(error)
+              client.completion
+            },
+            _.warningMessage should include("sequencer"),
+          )
+        } yield closeReason
+
+        closeReasonF.futureValueUS should matchPattern {
+          case e: UnrecoverableError if e.cause == s"handler returned error: $error" =>
+        }
+        env.client.close()
+        errorReport shouldBe "Decreasing sequencer counter detected from 666 to 665. Has there been a TransportChange?"
+      }
     }
 
     "subscribeTracking" should {
@@ -869,7 +914,7 @@ class SequencerClientTest
           _ <- env.client.flushClean()
         } yield {
           env.trafficStateController.getTrafficConsumed shouldBe TrafficConsumed(
-            participant1,
+            mediatorId,
             CantonTimestamp.MinValue.immediateSuccessor,
             trafficReceipt.extraTrafficConsumed,
             trafficReceipt.baseTrafficRemainder,
@@ -918,7 +963,7 @@ class SequencerClientTest
           _ <- env.client.flushClean()
         } yield {
           env.trafficStateController.getTrafficConsumed shouldBe TrafficConsumed(
-            participant1,
+            mediatorId,
             CantonTimestamp.MinValue.immediateSuccessor,
             trafficReceipt.extraTrafficConsumed,
             trafficReceipt.baseTrafficRemainder,
@@ -1373,6 +1418,7 @@ class SequencerClientTest
         options: SequencerClientConfig = SequencerClientConfig(),
         topologyO: Option[SynchronizerCryptoClient] = None,
         initializeCounterAllocatorTo: Option[SequencerCounter] = None,
+        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit] = None,
     )(implicit closeContext: CloseContext): Env[Client]
 
     protected def preloadStores(
@@ -1480,6 +1526,7 @@ class SequencerClientTest
         options: SequencerClientConfig,
         topologyO: Option[SynchronizerCryptoClient] = None,
         initializeCounterAllocatorTo: Option[SequencerCounter] = None,
+        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit] = None,
     )(implicit closeContext: CloseContext): Env[RichSequencerClient] = {
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing
@@ -1501,10 +1548,10 @@ class SequencerClientTest
         topologyO.getOrElse(
           TestingTopology(Set(DefaultTestIdentities.synchronizerId))
             .build(loggerFactory)
-            .forOwnerAndSynchronizer(participant1, synchronizerId)
+            .forOwnerAndSynchronizer(mediatorId, synchronizerId)
         )
       val trafficStateController = new TrafficStateController(
-        participant1,
+        mediatorId,
         loggerFactory,
         topologyClient,
         TrafficState.empty(CantonTimestamp.MinValue),
@@ -1525,7 +1572,7 @@ class SequencerClientTest
 
       val client = new RichSequencerClientImpl(
         DefaultTestIdentities.synchronizerId,
-        participant1,
+        mediatorId,
         SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,
         TestingConfigInternal(),
@@ -1543,10 +1590,19 @@ class SequencerClientTest
         topologyClient,
         LoggingConfig(),
         Some(trafficStateController),
-        exitOnTimeout = false,
+        exitOnFatalErrors = mockExitOnFatalErrorO.nonEmpty, // only "exit" when exit mock specified
         loggerFactory,
         futureSupervisor,
-      )(parallelExecutionContext, tracer)
+      )(parallelExecutionContext, tracer) {
+        override protected def exitOnFatalError(
+            message: String,
+            logger: TracedLogger,
+        )(implicit traceContext: TraceContext): Unit =
+          mockExitOnFatalErrorO match {
+            case None => super.exitOnFatalError(message, logger)(traceContext)
+            case Some(exitOnFatalError) => exitOnFatalError(message, logger)(traceContext)
+          }
+      }
 
       preloadStores(
         storedEvents,
@@ -1576,6 +1632,7 @@ class SequencerClientTest
         options: SequencerClientConfig,
         topologyO: Option[SynchronizerCryptoClient] = None,
         initializeCounterAllocatorTo: Option[SequencerCounter] = None,
+        mockExitOnFatalErrorO: Option[(String, TracedLogger) => TraceContext => Unit] = None,
     )(implicit closeContext: CloseContext): Env[SequencerClient] = {
       val clock = new SimClock(loggerFactory = loggerFactory)
       val timeouts = DefaultProcessingTimeouts.testing

@@ -43,6 +43,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ModuleRef,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
@@ -66,7 +67,8 @@ class IssSegmentModule[E <: Env[E]](
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-) extends Module[E, ConsensusSegment.Message]
+)(implicit synchronizerProtocolVersion: ProtocolVersion)
+    extends Module[E, ConsensusSegment.Message]
     with NamedLogging {
 
   private val viewChangeTimeoutManager =
@@ -160,6 +162,7 @@ class IssSegmentModule[E <: Env[E]](
             )
           } else {
             // Ask availability for batches to be ordered if we have slots available.
+            logger.debug(s"initiating pull following segment Start signal")
             initiatePull()
           }
         }
@@ -191,6 +194,7 @@ class IssSegmentModule[E <: Env[E]](
                 s"$logPrefix. Not using empty block because we are not blocking progress."
               )
               // Re-issue a pull from availability because we have discarded the previous one.
+              logger.debug(s"initiating pull after ignoring empty block")
               initiatePull()
             }
           } else {
@@ -260,6 +264,8 @@ class IssSegmentModule[E <: Env[E]](
             segmentState.commitVotes,
             segmentState.prepareVotes,
             segmentState.discardedMessageCount,
+            segmentState.retransmittedMessages,
+            segmentState.retransmittedCommitCertificates,
           )
           viewChangeTimeoutManager.cancelTimeout()
         }
@@ -267,9 +273,10 @@ class IssSegmentModule[E <: Env[E]](
         // If there are more slots to locally assign in this epoch, ask availability for more batches
         if (areWeOriginalLeaderOfBlock(blockNumber)) {
           val orderedBatchIds = orderedBlock.batchRefs.map(_.batchId)
-          if (leaderSegmentState.exists(_.moreSlotsToAssign))
+          if (leaderSegmentState.exists(_.moreSlotsToAssign)) {
+            logger.debug(s"initiating pull after OrderedBlockStored")
             initiatePull(orderedBatchIds)
-          else if (orderedBatchIds.nonEmpty)
+          } else if (orderedBatchIds.nonEmpty)
             availability.asyncSend(Availability.Consensus.Ordered(orderedBatchIds))
         }
 

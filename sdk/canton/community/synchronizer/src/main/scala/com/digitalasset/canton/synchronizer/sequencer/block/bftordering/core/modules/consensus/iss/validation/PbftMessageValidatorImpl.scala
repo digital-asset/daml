@@ -332,9 +332,9 @@ final class PbftMessageValidatorImpl(segment: Segment, epoch: Epoch, metrics: Bf
     val blockMetadata = prePrepare.blockMetadata
     emitNonCompliance(metrics)(
       prePrepare.from,
-      blockMetadata.epochNumber,
-      prePrepare.viewNumber,
-      blockMetadata.blockNumber,
+      Some(blockMetadata.epochNumber),
+      Some(prePrepare.viewNumber),
+      Some(blockMetadata.blockNumber),
       metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
     )
   }

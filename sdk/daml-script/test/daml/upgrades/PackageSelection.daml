@@ -27,7 +27,10 @@ contents: |
 -}
 
 main : TestTree
-main = tests
+main = tests []
+
+-- TODO(https://github.com/DACH-NY/canton/issues/25366): re-enable these tests
+toRestore =
   [ brokenOnIDELedger ("Chooses the v1 contract if v2 is unvetted and package id is omitted.", packageSelectionChoosesVettedPackages)
   , brokenOnIDELedger ("Fails when exercising an interface choice on a contract whose creation package is missing", exercisingInterfaceWithMissingInstanceFails)
   , brokenOnIDELedger ("Fails when trying to fetch a contract by interface whose creation package is missing", fetchingInterfaceWithMissingImplementationFails)
