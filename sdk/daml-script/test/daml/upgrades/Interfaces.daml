@@ -223,7 +223,8 @@ main = tests
   , ("fetchFromInterface works as intended in the presence of upgraded packages with new interface instances", fetchFromNewInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
   -- Can't unvet old version of package on 3x, even though v2 exists.
-  , brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
+  -- TODO(https://github.com/DACH-NY/canton/issues/25366): re-enable this test
+  --, brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
   ]
 
 setupAliceAndInterface : Script (Party, ContractId I)
