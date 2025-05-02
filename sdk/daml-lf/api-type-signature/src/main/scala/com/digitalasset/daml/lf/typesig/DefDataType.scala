@@ -192,7 +192,7 @@ final case class Enum(constructors: ImmArraySeq[Ref.Name]) extends DataType[Noth
 final case class DefTemplate[+Ty](
     tChoices: TemplateChoices[Ty],
     key: Option[Ty],
-    implementedInterfaces: Seq[Ref.TypeConName],
+    implementedInterfaces: Seq[Ref.TypeConId],
 ) {
   def map[B](f: Ty => B): DefTemplate[B] = Functor[DefTemplate].map(this)(f)
 
@@ -204,7 +204,7 @@ final case class DefTemplate[+Ty](
     * has any `unresolvedInheritedChoices` left, these choices were not found.
     */
   def resolveChoices[O >: Ty](
-      astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
+      astInterfaces: PartialFunction[Ref.TypeConId, DefInterface[O]]
   ): Either[TemplateChoices.ResolveError[DefTemplate[O]], DefTemplate[O]] = {
     import scalaz.std.either._
     import scalaz.syntax.bifunctor._
@@ -215,7 +215,7 @@ final case class DefTemplate[+Ty](
   def getKey: j.Optional[_ <: Ty] = key.toJava
 
   private[typesig] def extendWithInterface[OTy >: Ty](
-      ifaceName: Ref.TypeConName,
+      ifaceName: Ref.TypeConId,
       ifc: DefInterface[OTy],
   ): DefTemplate[OTy] = {
     import TemplateChoices.{Resolved, Unresolved}
@@ -268,8 +268,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
   /** Choices defined on the template, or on resolved implemented interfaces if
     * resolved
     */
-  def resolvedChoices
-      : Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], TemplateChoice[Ty]]]]
+  def resolvedChoices: Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConId], TemplateChoice[Ty]]]]
 
   /** A shim function to delay porting a component to overloaded choices.
     * Discards essential data, so not a substitute for a proper port.
@@ -304,18 +303,18 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
     directChoices.asJava
 
   final def getResolvedChoices
-      : j.Map[Ref.ChoiceName, _ <: j.Map[j.Optional[Ref.TypeConName], _ <: TemplateChoice[Ty]]] =
+      : j.Map[Ref.ChoiceName, _ <: j.Map[j.Optional[Ref.TypeConId], _ <: TemplateChoice[Ty]]] =
     resolvedChoices.transform((_, m) => m.forgetNE.mapKeys(_.toJava).asJava).asJava
 
   /** Coerce to [[Resolved]] based on the environment `astInterfaces`, or fail
     * with the choices that could not be resolved.
     */
   private[typesig] def resolveChoices[O >: Ty](
-      astInterfaces: PartialFunction[Ref.TypeConName, DefInterface[O]]
+      astInterfaces: PartialFunction[Ref.TypeConId, DefInterface[O]]
   ): Either[ResolveError[Resolved[O]], Resolved[O]] = this match {
     case Unresolved(direct, unresolved) =>
       val getAstInterface = astInterfaces.lift
-      type ResolutionResult[C] = (Set[Ref.TypeConName], Resolved.Choices[C])
+      type ResolutionResult[C] = (Set[Ref.TypeConId], Resolved.Choices[C])
       val (missing, resolved): ResolutionResult[TemplateChoice[O]] =
         FirstVal.unsubst[ResolutionResult, TemplateChoice[O]](
           unresolved.forgetNE
@@ -324,7 +323,7 @@ sealed abstract class TemplateChoices[+Ty] extends Product with Serializable {
                 { astIf =>
                   val tcnResolved = astIf choicesAsResolved tcn
                   FirstVal.subst[ResolutionResult, TemplateChoice[O]](
-                    Set.empty[Ref.TypeConName],
+                    Set.empty[Ref.TypeConId],
                     tcnResolved,
                   )
                 },
@@ -345,7 +344,7 @@ object TemplateChoices {
   private val logger = com.typesafe.scalalogging.Logger(getClass)
 
   final case class ResolveError[+Partial](
-      missingInterfaces: NonEmpty[Set[Ref.TypeConName]],
+      missingInterfaces: NonEmpty[Set[Ref.TypeConId]],
       partialResolution: Partial,
   ) {
     private[typesig] def describeError: String =
@@ -357,7 +356,7 @@ object TemplateChoices {
 
   private[typesig] final case class Unresolved[+Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-      unresolvedChoiceSources: NonEmpty[Set[Ref.TypeConName]],
+      unresolvedChoiceSources: NonEmpty[Set[Ref.TypeConId]],
   ) extends TemplateChoices[Ty] {
     override def resolvedChoices =
       directAsResolved(directChoices)
@@ -366,11 +365,11 @@ object TemplateChoices {
   private[TemplateChoices] def directAsResolved[Ty](
       directChoices: Map[Ref.ChoiceName, TemplateChoice[Ty]]
   ) =
-    directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConName], c)))
+    directChoices transform ((_, c) => NonEmpty(Map, (none[Ref.TypeConId], c)))
 
   private[typesig] final case class Resolved[+Ty](
       resolvedChoices: Map[Ref.ChoiceName, NonEmpty[
-        Map[Option[Ref.TypeConName], TemplateChoice[Ty]]
+        Map[Option[Ref.TypeConId], TemplateChoice[Ty]]
       ]]
   ) extends TemplateChoices[Ty] {
     override def directChoices = resolvedChoices collect (Function unlift { case (cn, m) =>
@@ -385,7 +384,7 @@ object TemplateChoices {
     // choice type abstracted over the TemplateChoice, for specifying
     // aggregation of choices (typically with tags, foldMap, semigroup)
     private[typesig] type Choices[C] =
-      Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConName], C]]]
+      Map[Ref.ChoiceName, NonEmpty[Map[Option[Ref.TypeConId], C]]]
   }
 
   implicit val `TemplateChoices traverse`: Traverse[TemplateChoices] = new Traverse[TemplateChoices]
@@ -429,9 +428,9 @@ object TemplateChoice {
   */
 final case class DefInterface[+Ty](
     choices: Map[Ref.ChoiceName, TemplateChoice[Ty]],
-    viewType: Option[Ref.TypeConName],
+    viewType: Option[Ref.TypeConId],
     // retroImplements are used only by LF 1.x
-    retroImplements: Set[Ref.TypeConName] = Set.empty,
+    retroImplements: Set[Ref.TypeConId] = Set.empty,
 ) {
   def getChoices: j.Map[Ref.ChoiceName, _ <: TemplateChoice[Ty]] =
     choices.asJava
@@ -443,8 +442,8 @@ final case class DefInterface[+Ty](
   ): Map[Ref.ChoiceName, NonEmpty[Map[Option[Name], TemplateChoice[Ty]]]] =
     choices transform ((_, tc) => NonEmpty(Map, some(selfName) -> tc))
 
-  private[typesig] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConName, s: S)(
-      setTemplate: SetterAt[Ref.TypeConName, S, DefTemplate[OTy]]
+  private[typesig] def resolveRetroImplements[S, OTy >: Ty](selfName: Ref.TypeConId, s: S)(
+      setTemplate: SetterAt[Ref.TypeConId, S, DefTemplate[OTy]]
   ): (S, DefInterface[OTy]) = {
     def addMySelf(dt: DefTemplate[OTy]) =
       dt.extendWithInterface(selfName, this)

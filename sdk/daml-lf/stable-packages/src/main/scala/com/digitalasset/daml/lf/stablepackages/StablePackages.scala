@@ -48,19 +48,19 @@ private[daml] sealed class StablePackagesImpl(
 
   override lazy val allPackages: Seq[StablePackage] = allPackagesByName.values.toSeq
 
-  override lazy val ArithmeticError: Ref.TypeConName =
+  override lazy val ArithmeticError: Ref.TypeConId =
     DA_Exception_ArithmeticError.assertIdentifier("ArithmeticError")
-  override lazy val AnyChoice: Ref.TypeConName = DA_Internal_Any.assertIdentifier("AnyChoice")
-  override lazy val AnyContractKey: Ref.TypeConName =
+  override lazy val AnyChoice: Ref.TypeConId = DA_Internal_Any.assertIdentifier("AnyChoice")
+  override lazy val AnyContractKey: Ref.TypeConId =
     DA_Internal_Any.assertIdentifier("AnyContractKey")
-  override lazy val AnyTemplate: Ref.TypeConName = DA_Internal_Any.assertIdentifier("AnyTemplate")
-  override lazy val TemplateTypeRep: Ref.TypeConName =
+  override lazy val AnyTemplate: Ref.TypeConId = DA_Internal_Any.assertIdentifier("AnyTemplate")
+  override lazy val TemplateTypeRep: Ref.TypeConId =
     DA_Internal_Any.assertIdentifier("TemplateTypeRep")
-  override lazy val NonEmpty: Ref.TypeConName = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
-  override lazy val Tuple2: Ref.TypeConName = DA_Types.assertIdentifier("Tuple2")
-  override lazy val Tuple3: Ref.TypeConName = DA_Types.assertIdentifier("Tuple3")
-  override lazy val Either: Ref.TypeConName = GHC_Tuple.assertIdentifier("Either")
-  override lazy val FailureStatus: Ref.TypeConName =
+  override lazy val NonEmpty: Ref.TypeConId = DA_NonEmpty_Types.assertIdentifier("NonEmpty")
+  override lazy val Tuple2: Ref.TypeConId = DA_Types.assertIdentifier("Tuple2")
+  override lazy val Tuple3: Ref.TypeConId = DA_Types.assertIdentifier("Tuple3")
+  override lazy val Either: Ref.TypeConId = GHC_Tuple.assertIdentifier("Either")
+  override lazy val FailureStatus: Ref.TypeConId =
     DA_Internal_Fail_Types.assertIdentifier("FailureStatus")
 
   private lazy val DA_Exception_ArithmeticError = allPackagesByName("DA.Exception.ArithmeticError")

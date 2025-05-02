@@ -294,7 +294,7 @@ private[inner] object FromJsonGenerator extends StrictLogging {
       CodeBlock.join(types.map(jsonDecoderForType).asJava, ", ")
 
     damlType match {
-      case TypeCon(TypeConName(ident), typeParams) =>
+      case TypeCon(TypeConId(ident), typeParams) =>
         val decoderAccessorClass = guessClass(ident).nestedClass(decoderAccessorClassName)
         CodeBlock.of("new $T().get($L)", decoderAccessorClass, typeReaders(typeParams))
       case TypePrim(PrimTypeBool, _) => CodeBlock.of("$T.bool", decodeClass)

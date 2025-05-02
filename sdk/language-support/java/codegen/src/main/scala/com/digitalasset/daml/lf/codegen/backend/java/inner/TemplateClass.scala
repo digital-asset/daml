@@ -196,7 +196,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateByKeyClass(
       markerName: ClassName,
-      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConId],
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {
@@ -364,7 +364,7 @@ private[inner] object TemplateClass extends StrictLogging {
 
   private[inner] def generateCreateAndClass(
       markerName: ClassName,
-      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConName],
+      implementedInterfaces: ContractIdClass.For.Interface.type \/ Seq[Ref.TypeConId],
   )(implicit
       packagePrefixes: PackagePrefixes
   ) = {

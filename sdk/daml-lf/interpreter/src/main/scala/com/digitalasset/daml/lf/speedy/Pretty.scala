@@ -53,15 +53,15 @@ private[lf] object Pretty {
         text(s"User abort: $message")
       case TemplatePreconditionViolated(templateId, loc @ _, arg) =>
         text("Update failed due to precondition violation when creating") &
-          prettyTypeConName(templateId) &
+          prettyTypeConId(templateId) &
           text("with") & prettyValue(true)(arg)
       case ContractNotActive(coid, tid, consumedBy) =>
         text("Update failed due to fetch of an inactive contract") & prettyContractId(coid) &
-          char('(') + (prettyTypeConName(tid)) + text(").") /
+          char('(') + (prettyTypeConId(tid)) + text(").") /
           text(s"The contract had been consumed in sub-transaction #$consumedBy:")
       case DisclosedContractKeyHashingError(coid, gkey, declaredHash) =>
         text("Mismatched disclosed contract key hash for contract") & prettyContractId(coid) &
-          char('(') + prettyTypeConName(gkey.templateId) + text(").") / text("declared hash:") &
+          char('(') + prettyTypeConId(gkey.templateId) + text(").") / text("declared hash:") &
           text(declaredHash.toHexString) & text("found hash:") & text(gkey.hash.toHexString)
       case ContractKeyNotFound(gk) =>
         text(
@@ -74,17 +74,17 @@ private[lf] object Pretty {
         text("Update failed due to an inconsistent contract key") & prettyValue(false)(key.key)
       case WronglyTypedContract(coid, expected, actual) =>
         text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
-          text("Expected contract of type") & prettyTypeConName(expected) & text(
+          text("Expected contract of type") & prettyTypeConId(expected) & text(
             "but got"
-          ) & prettyTypeConName(
+          ) & prettyTypeConId(
             actual
           )
       case ContractDoesNotImplementInterface(interfaceId, coid, templateId) =>
         text("Update failed due to contract") & prettyContractId(coid) & text(
           "not implementing an interface"
         ) /
-          text("Expected contract to implement interface") & prettyTypeConName(interfaceId) &
-          text("but contract has type") & prettyTypeConName(templateId)
+          text("Expected contract to implement interface") & prettyTypeConId(interfaceId) &
+          text("but contract has type") & prettyTypeConId(templateId)
       case ContractDoesNotImplementRequiringInterface(
             requiringIfaceId,
             requiredIfaceId,
@@ -94,18 +94,18 @@ private[lf] object Pretty {
         text("Update failed due to contract") & prettyContractId(coid) & text(
           "not implementing the requiring interface"
         ) /
-          text("Expected contract to implement interface") & prettyTypeConName(requiringIfaceId) &
-          text("requirring the interface") & prettyTypeConName(requiredIfaceId) &
-          text("but contract has type") & prettyTypeConName(templateId)
+          text("Expected contract to implement interface") & prettyTypeConId(requiringIfaceId) &
+          text("requirring the interface") & prettyTypeConId(requiredIfaceId) &
+          text("but contract has type") & prettyTypeConId(templateId)
       case CreateEmptyContractKeyMaintainers(tid, arg, key) =>
         text("Update failed due to a contract key with an empty set of maintainers when creating") &
-          prettyTypeConName(tid) & text("with") & prettyValue(true)(arg) /
+          prettyTypeConId(tid) & text("with") & prettyValue(true)(arg) /
           text("The computed key is") & prettyValue(true)(key)
       case FetchEmptyContractKeyMaintainers(tid, key, packageName) =>
         text(
           "Update failed due to a contract key with an empty set of maintainers when fetching or looking up by key"
         ) &
-          text(packageName) & text("/") & prettyTypeConName(tid) /
+          text(packageName) & text("/") & prettyTypeConId(tid) /
           text("The provided shared key is") & prettyValue(true)(key)
       case ContractNotFound(cid) =>
         text("Update failed due to a unknown contract") & prettyContractId(cid)
@@ -136,9 +136,9 @@ private[lf] object Pretty {
               ) =>
             text("Validation fails when trying to upgrade the contract") & prettyContractId(
               coid
-            ) & text("from") & prettyTypeConName(srcTemplateId) & text(
+            ) & text("from") & prettyTypeConId(srcTemplateId) & text(
               "to"
-            ) & prettyTypeConName(
+            ) & prettyTypeConId(
               dstTemplateId
             ) /
               text(
@@ -233,24 +233,24 @@ private[lf] object Pretty {
                 text(s"Transaction exceeds maximum input contract number of $limit")
             }
           case Dev.ChoiceGuardFailed(cid, templateId, choiceName, byInterface) =>
-            text(s"Choice guard failed for") & prettyTypeConName(templateId) &
+            text(s"Choice guard failed for") & prettyTypeConId(templateId) &
               text(s"contract") & prettyContractId(cid) &
               text(s"when exercising choice $choiceName") &
               (byInterface match {
                 case None => text("by template")
-                case Some(interfaceId) => text("by interface") & prettyTypeConName(interfaceId)
+                case Some(interfaceId) => text("by interface") & prettyTypeConId(interfaceId)
               })
           case Dev.WronglyTypedContractSoft(coid, expected, accepted, actual) =>
             text("Update failed due to wrongly typed contract id") & prettyContractId(coid) /
-              text("Expected contract of type") & prettyTypeConName(expected) & (
+              text("Expected contract of type") & prettyTypeConId(expected) & (
                 if (accepted.nonEmpty)
-                  intercalate(comma + lineOrSpace, accepted.map(prettyTypeConName))
+                  intercalate(comma + lineOrSpace, accepted.map(prettyTypeConId))
                     .tightBracketBy(text("or one of its ancestors: ("), char(')'))
                 else
                   Doc.empty
               ) & text(
                 "but got"
-              ) & prettyTypeConName(
+              ) & prettyTypeConId(
                 actual
               )
         }
@@ -466,7 +466,7 @@ private[lf] object Pretty {
     (prettyIdentifier(coinst.template) / text("with:") &
       prettyValue(false)(coinst.arg)).nested(4)
 
-  def prettyTypeConName(tycon: TypeConName): Doc =
+  def prettyTypeConId(tycon: TypeConId): Doc =
     text(tycon.qualifiedName.toString) + char('@') + prettyPackageId(tycon.packageId)
 
   def prettyContractId(coid: ContractId): Doc =

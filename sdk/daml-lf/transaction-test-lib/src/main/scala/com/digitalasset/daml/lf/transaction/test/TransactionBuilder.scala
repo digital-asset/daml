@@ -207,7 +207,7 @@ object TransactionBuilder {
 
     implicit def toTypeId(
         x: TemplateOrInterface[String, String]
-    ): TemplateOrInterface[Ref.TypeConName, Ref.TypeConName] =
+    ): TemplateOrInterface[Ref.TypeConId, Ref.TypeConId] =
       x match {
         case TemplateOrInterface.Template(value) => TemplateOrInterface.Template(value)
         case TemplateOrInterface.Interface(value) => TemplateOrInterface.Interface(value)

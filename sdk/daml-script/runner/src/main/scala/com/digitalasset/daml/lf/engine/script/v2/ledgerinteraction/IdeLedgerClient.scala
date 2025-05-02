@@ -190,8 +190,8 @@ class IdeLedgerClient(
   }
 
   private[this] def computeView(
-      templateId: TypeConName,
-      interfaceId: TypeConName,
+      templateId: TypeConId,
+      interfaceId: TypeConId,
       arg: Value,
   ): Option[Value] = {
 
@@ -221,7 +221,7 @@ class IdeLedgerClient(
     }
   }
 
-  private[this] def implements(templateId: TypeConName, interfaceId: TypeConName): Boolean = {
+  private[this] def implements(templateId: TypeConId, interfaceId: TypeConId): Boolean = {
     compiledPackages.pkgInterface.lookupInterfaceInstance(interfaceId, templateId).isRight
   }
 
@@ -807,9 +807,9 @@ class IdeLedgerClient(
   private def toCommandPackageIds(cmd: ScriptLedgerClient.CommandWithMeta): List[PackageId] =
     cmd.command match {
       case command.CreateAndExerciseCommand(tmplRef, _, _, _) =>
-        List(tmplRef.assertToTypeConName.packageId, tmplRef.assertToTypeConName.packageId)
+        List(tmplRef.assertToTypeConId.packageId, tmplRef.assertToTypeConId.packageId)
       case cmd =>
-        List(cmd.typeRef.assertToTypeConName.packageId)
+        List(cmd.typeRef.assertToTypeConId.packageId)
     }
 
   override def allocateParty(partyIdHint: String)(implicit

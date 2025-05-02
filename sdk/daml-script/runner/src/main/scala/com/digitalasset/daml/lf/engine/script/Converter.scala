@@ -68,7 +68,7 @@ final case class AnyChoice(name: ChoiceName, arg: SValue)
 final case class AnyContractKey(templateId: Identifier, ty: Type, key: SValue)
 // frames ordered from most-recent to least-recent
 
-final case class Disclosure(templatedId: TypeConName, contractId: ContractId, blob: Bytes)
+final case class Disclosure(templatedId: TypeConId, contractId: ContractId, blob: Bytes)
 
 object Converter {
   def apply(majorLanguageVersion: LanguageMajorVersion): ConverterMethods = {
@@ -90,7 +90,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   private def fromIdentifier(id: value.Identifier): SValue = {
     STypeRep(
       TTyCon(
-        TypeConName(
+        TypeConId(
           PackageId.assertFromString(id.packageId),
           QualifiedName(
             DottedName.assertFromString(id.moduleName),
@@ -191,7 +191,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     )
   }
 
-  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConName) = {
+  private[this] def choiceArgTypeToChoiceName(choiceCons: TypeConId) = {
     // This exploits the fact that in Daml, choice argument type names
     // and choice names match up.
     assert(choiceCons.qualifiedName.name.segments.length == 1)

@@ -228,7 +228,7 @@ object Ref {
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //   drop this method
-    def assertToTypeConName(implicit ev: X <:< PackageRef): TypeConName = ev(pkg) match {
+    def assertToTypeConId(implicit ev: X <:< PackageRef): TypeConId = ev(pkg) match {
       case PackageRef.Id(id) =>
         copy(pkg = id)
       case PackageRef.Name(_) =>
@@ -295,12 +295,12 @@ object Ref {
   val DefinitionRef = Identifier
 
   /** Reference to a type constructor. */
-  type TypeConName = Identifier
-  val TypeConName = Identifier
+  type TypeConId = Identifier
+  val TypeConId = Identifier
 
   /** Reference to a type synonym. */
-  type TypeSynName = Identifier
-  val TypeSynName = Identifier
+  type TypeSynId = Identifier
+  val TypeSynId = Identifier
 
   sealed abstract class PackageRef extends Product with Serializable
   object PackageRef {
@@ -330,15 +330,15 @@ object Ref {
   /*
      max size when converted to string: 3068 ASCII chars
    */
-  final case class QualifiedChoiceName(interfaceId: Option[Identifier], choiceName: ChoiceName) {
+  final case class QualifiedChoiceId(interfaceId: Option[Identifier], choiceName: ChoiceName) {
     override def toString: String = interfaceId match {
       case None => choiceName
       case Some(ifaceId) => "#" + ifaceId.toString + "#" + choiceName
     }
   }
 
-  object QualifiedChoiceName {
-    def fromString(s: String): Either[String, QualifiedChoiceName] =
+  object QualifiedChoiceId {
+    def fromString(s: String): Either[String, QualifiedChoiceId] =
       if (s.startsWith("#")) {
         val i = s.indexOf('#', 1)
         if (i < 0)
@@ -347,11 +347,11 @@ object Ref {
           for {
             ifaceId <- Identifier.fromString(s.substring(1, i))
             chName <- ChoiceName.fromString(s.substring(i + 1, s.length))
-          } yield QualifiedChoiceName(Some(ifaceId), chName)
+          } yield QualifiedChoiceId(Some(ifaceId), chName)
       } else
-        ChoiceName.fromString(s).map(QualifiedChoiceName(None, _))
+        ChoiceName.fromString(s).map(QualifiedChoiceId(None, _))
 
-    def assertFromString(s: String): QualifiedChoiceName =
+    def assertFromString(s: String): QualifiedChoiceId =
       assertRight(fromString(s))
   }
 

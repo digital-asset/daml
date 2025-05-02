@@ -257,7 +257,7 @@ private[lf] object SBuiltinFun {
   final protected def getSAnyContract(
       args: util.ArrayList[SValue],
       i: Int,
-  ): (TypeConName, SRecord) =
+  ): (TypeConId, SRecord) =
     args.get(i) match {
       case SAny(Ast.TTyCon(tyCon), record: SRecord) =>
         assert(tyCon == record.id)
@@ -1128,8 +1128,8 @@ private[lf] object SBuiltinFun {
     *    -> ()
     */
   final case class SBUBeginExercise(
-      templateId: TypeConName,
-      interfaceId: Option[TypeConName],
+      templateId: TypeConId,
+      interfaceId: Option[TypeConId],
       choiceId: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
@@ -1211,10 +1211,10 @@ private[lf] object SBuiltinFun {
 
   private[this] def getInterfaceInstance(
       machine: Machine[_],
-      interfaceId: TypeConName,
-      templateId: TypeConName,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
   ): Option[InterfaceInstanceDefRef] = {
-    def mkRef(parent: TypeConName) =
+    def mkRef(parent: TypeConId) =
       InterfaceInstanceDefRef(parent, interfaceId, templateId)
 
     List(mkRef(templateId), mkRef(interfaceId)) find { ref =>
@@ -1224,17 +1224,17 @@ private[lf] object SBuiltinFun {
 
   private[this] def interfaceInstanceExists(
       machine: Machine[_],
-      interfaceId: TypeConName,
-      templateId: TypeConName,
+      interfaceId: TypeConId,
+      templateId: TypeConId,
   ): Boolean =
     getInterfaceInstance(machine, interfaceId, templateId).nonEmpty
 
   // Precondition: the package of tplId is loaded in the machine
   private[this] def ensureTemplateImplementsInterface[Q](
       machine: Machine[_],
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       coid: V.ContractId,
-      tplId: TypeConName,
+      tplId: TypeConId,
   )(k: => Control[Q]): Control[Q] = {
     if (!interfaceInstanceExists(machine, ifaceId, tplId)) {
       Control.Error(IE.ContractDoesNotImplementInterface(ifaceId, coid, tplId))
@@ -1258,7 +1258,7 @@ private[lf] object SBuiltinFun {
     * package name, and compares its computed view to that of the old contract. If the two views agree then the upgraded
     * contract is cached and returned.
     */
-  final case class SBFetchInterface(interfaceId: TypeConName) extends UpdateBuiltin(1) {
+  final case class SBFetchInterface(interfaceId: TypeConId) extends UpdateBuiltin(1) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1275,7 +1275,7 @@ private[lf] object SBuiltinFun {
   private[this] def fetchInterface(
       machine: UpdateMachine,
       coid: V.ContractId,
-      interfaceId: TypeConName,
+      interfaceId: TypeConId,
   )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
     fetchSourceContractId(machine, coid)({ case (_, srcContract) =>
       ensureContractActive(machine, coid, srcContract.templateId) {
@@ -1329,7 +1329,7 @@ private[lf] object SBuiltinFun {
     *    -> a
     */
 
-  final case class SBFetchTemplate(templateId: TypeConName) extends UpdateBuiltin(1) {
+  final case class SBFetchTemplate(templateId: TypeConId) extends UpdateBuiltin(1) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1341,7 +1341,7 @@ private[lf] object SBuiltinFun {
 
   final case class SBApplyChoiceGuard(
       choiceName: ChoiceName,
-      byInterface: Option[TypeConName],
+      byInterface: Option[TypeConId],
   ) extends UpdateBuiltin(3) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
@@ -1367,8 +1367,8 @@ private[lf] object SBuiltinFun {
   }
 
   final case class SBGuardRequiredInterfaceId(
-      requiredIfaceId: TypeConName,
-      requiringIfaceId: TypeConName,
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
   ) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1392,7 +1392,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case class SBResolveSBUBeginExercise(
-      interfaceId: TypeConName,
+      interfaceId: TypeConId,
       choiceName: ChoiceName,
       consuming: Boolean,
       byKey: Boolean,
@@ -1417,7 +1417,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case class SBResolveSBUInsertFetchNode(
-      interfaceId: TypeConName
+      interfaceId: TypeConId
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1448,15 +1448,14 @@ private[lf] object SBuiltinFun {
 
   final case object SBResolveCreate extends SBResolveVirtual(CreateDefRef)
 
-  final case class SBSignatoryInterface(ifaceId: TypeConName)
+  final case class SBSignatoryInterface(ifaceId: TypeConId)
       extends SBResolveVirtual(SignatoriesDefRef)
 
-  final case class SBObserverInterface(ifaceId: TypeConName)
-      extends SBResolveVirtual(ObserversDefRef)
+  final case class SBObserverInterface(ifaceId: TypeConId) extends SBResolveVirtual(ObserversDefRef)
 
   // This wraps a contract record into an SAny where the type argument corresponds to
   // the record's templateId.
-  final case class SBToAnyContract(tplId: TypeConName) extends SBuiltinPure(1) {
+  final case class SBToAnyContract(tplId: TypeConId) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SAny = {
       SAnyContract(tplId, getSRecord(args, 0))
     }
@@ -1466,7 +1465,7 @@ private[lf] object SBuiltinFun {
   // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
   // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
-      dstTplId: TypeConName
+      dstTplId: TypeConId
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1481,9 +1480,9 @@ private[lf] object SBuiltinFun {
 
   private[this] def fromInterface[Q](
       machine: Machine[Q],
-      srcTplId: TypeConName,
+      srcTplId: TypeConId,
       srcArg: SRecord,
-      dstTplId: TypeConName,
+      dstTplId: TypeConId,
   )(k: Option[SValue] => Control[Q]): Control[Q] = {
     if (dstTplId == srcTplId) {
       k(Some(srcArg))
@@ -1509,7 +1508,7 @@ private[lf] object SBuiltinFun {
   // by an SAny wrapping the underlying template, we need to check that the SAny type constructor
   // matches the template type, and then return the SAny internal value.
   final case class SBUnsafeFromInterface(
-      tplId: TypeConName
+      tplId: TypeConId
   ) extends SBuiltinFun(2) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1528,7 +1527,7 @@ private[lf] object SBuiltinFun {
   // Convert an interface value to another interface `requiringIfaceId`, if
   // the underlying template implements `requiringIfaceId`. Else return `None`.
   final case class SBFromRequiredInterface(
-      requiringIfaceId: TypeConName
+      requiringIfaceId: TypeConId
   ) extends SBuiltinFun(1) {
 
     override private[speedy] def execute[Q](
@@ -1549,8 +1548,8 @@ private[lf] object SBuiltinFun {
   // the underlying template implements `requiringIfaceId`. Else throw a fatal
   // `ContractDoesNotImplementRequiringInterface` exception.
   final case class SBUnsafeFromRequiredInterface(
-      requiredIfaceId: TypeConName,
-      requiringIfaceId: TypeConName,
+      requiredIfaceId: TypeConId,
+      requiringIfaceId: TypeConId,
   ) extends SBuiltinFun(2) {
 
     override private[speedy] def execute[Q](
@@ -1575,7 +1574,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case class SBCallInterface(
-      ifaceId: TypeConName,
+      ifaceId: TypeConId,
       methodName: MethodName,
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
@@ -1595,7 +1594,7 @@ private[lf] object SBuiltinFun {
   }
 
   final case class SBViewInterface(
-      ifaceId: TypeConName
+      ifaceId: TypeConId
   ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1608,8 +1607,8 @@ private[lf] object SBuiltinFun {
 
   private[this] def viewInterface[Q](
       machine: Machine[_],
-      ifaceId: TypeConName,
-      templateId: TypeConName,
+      ifaceId: TypeConId,
+      templateId: TypeConId,
       record: SValue,
   )(k: SExpr => Control[Q]): Control[Q] = {
     val ref = getInterfaceInstance(machine, ifaceId, templateId).fold(
@@ -1627,9 +1626,9 @@ private[lf] object SBuiltinFun {
     *    -> a
     */
   final case class SBUInsertFetchNode(
-      templateId: TypeConName,
+      templateId: TypeConId,
       byKey: Boolean,
-      interfaceId: Option[TypeConName],
+      interfaceId: Option[TypeConId],
   ) extends UpdateBuiltin(1) {
 
     protected def executeUpdate(
@@ -1671,7 +1670,7 @@ private[lf] object SBuiltinFun {
     *    -> Maybe (ContractId T)
     *    -> ()
     */
-  final case class SBUInsertLookupNode(templateId: TypeConName) extends UpdateBuiltin(2) {
+  final case class SBUInsertLookupNode(templateId: TypeConId) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
@@ -1704,7 +1703,7 @@ private[lf] object SBuiltinFun {
   }
 
   private[this] abstract class KeyOperation {
-    val templateId: TypeConName
+    val templateId: TypeConId
 
     // Callback from the engine returned NotFound
     def handleKeyFound(cid: V.ContractId): Control.Value
@@ -1725,7 +1724,7 @@ private[lf] object SBuiltinFun {
   }
 
   private[this] object KeyOperation {
-    final class Fetch(override val templateId: TypeConName) extends KeyOperation {
+    final class Fetch(override val templateId: TypeConId) extends KeyOperation {
       override def handleKeyFound(cid: V.ContractId): Control.Value = {
         Control.Value(SContractId(cid))
       }
@@ -1734,7 +1733,7 @@ private[lf] object SBuiltinFun {
       }
     }
 
-    final class Lookup(override val templateId: TypeConName) extends KeyOperation {
+    final class Lookup(override val templateId: TypeConId) extends KeyOperation {
       override def handleKeyFound(cid: V.ContractId): Control.Value = {
         Control.Value(SOptional(Some(SContractId(cid))))
       }
@@ -1832,7 +1831,7 @@ private[lf] object SBuiltinFun {
     *   -> ContractId T
     */
   final case class SBUFetchKey(
-      templateId: TypeConName
+      templateId: TypeConId
   ) extends SBUKeyBuiltin(new KeyOperation.Fetch(templateId))
 
   /** $lookupKey[T]
@@ -1840,7 +1839,7 @@ private[lf] object SBuiltinFun {
     *   -> Maybe (ContractId T)
     */
   final case class SBULookupKey(
-      templateId: TypeConName
+      templateId: TypeConId
   ) extends SBUKeyBuiltin(new KeyOperation.Lookup(templateId))
 
   /** $getTime :: Token -> Timestamp */
@@ -2017,7 +2016,7 @@ private[lf] object SBuiltinFun {
     *    :: t
     *    -> TypeRep (where t = TTyCon(_))
     */
-  final case class SBInterfaceTemplateTypeRep(tycon: TypeConName) extends SBuiltinPure(1) {
+  final case class SBInterfaceTemplateTypeRep(tycon: TypeConId) extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): STypeRep = {
       val (tyCon, _) = getSAnyContract(args, 0)
       STypeRep(Ast.TTyCon(tyCon))
@@ -2165,7 +2164,7 @@ private[lf] object SBuiltinFun {
   /** $cacheInputContract[T] :: ContractId T -> ContractInfoStruct T -> Unit */
   private[speedy] final case class SBImportInputContract(
       contract: FatContractInstance,
-      targetTmplId: Ref.TypeConName,
+      targetTmplId: Ref.TypeConId,
   ) extends UpdateBuiltin(1) {
 
     override protected def executeUpdate(
@@ -2234,7 +2233,7 @@ private[lf] object SBuiltinFun {
 
   /** $dynamicExercise[T, C, R] :: HasDynamicExercise T C R => ContractId T ->  C -> Update R */
   final case class SBUDynamicExercise(
-      templateId: TypeConName,
+      templateId: TypeConId,
       choice: ChoiceName,
   ) extends UpdateBuiltin(2) {
     override protected def executeUpdate(
@@ -2291,7 +2290,7 @@ private[lf] object SBuiltinFun {
       location: String,
       packageTxVersion: TransactionVersion,
       pkgName: Ref.PackageName,
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       v: SValue,
   ): CachedKey =
     v match {
@@ -2331,8 +2330,8 @@ private[lf] object SBuiltinFun {
     SBuiltinFun.SBStructCon(contractInfoPositionStruct)
 
   private def extractContractInfo(
-      tmplId2TxVersion: TypeConName => TransactionVersion,
-      tmplId2PackageName: TypeConName => PackageName,
+      tmplId2TxVersion: TypeConId => TransactionVersion,
+      tmplId2PackageName: TypeConId => PackageName,
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
@@ -2380,7 +2379,7 @@ private[lf] object SBuiltinFun {
 
   private def fetchTemplate(
       machine: UpdateMachine,
-      dstTmplId: TypeConName,
+      dstTmplId: TypeConId,
       coid: V.ContractId,
   )(f: SValue => Control[Question.Update]): Control[Question.Update] = {
     fetchSourceContractId(machine, coid) { case (localTemplateArg, srcContract) =>
@@ -2418,11 +2417,11 @@ private[lf] object SBuiltinFun {
   private def fetchValidateDstContract(
       machine: UpdateMachine,
       coid: V.ContractId,
-      srcTmplId: TypeConName,
+      srcTmplId: TypeConId,
       srcContract: ContractInfo,
-      dstTmplId: TypeConName,
+      dstTmplId: TypeConId,
       dstTmplArg: SValue,
-  )(k: (TypeConName, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
+  )(k: (TypeConId, SValue, ContractInfo) => Control[Question.Update]): Control[Question.Update] =
     getContractInfo(
       machine,
       coid,
@@ -2523,7 +2522,7 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  private def importValue[Q](machine: Machine[Q], templateId: TypeConName, coinstArg: V)(
+  private def importValue[Q](machine: Machine[Q], templateId: TypeConId, coinstArg: V)(
       f: SValue => Control[Q]
   ): Control[Q] = {
     val e = SEImportValue(Ast.TTyCon(templateId), coinstArg)

@@ -55,7 +55,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         FatContractInstance.fromThinInstance(
           version = langVersion,
           miniTestsPkg.pkgName,
-          TypeConName(miniTestsPkgId, "ReinterpretTests:MySimple"),
+          TypeConId(miniTestsPkgId, "ReinterpretTests:MySimple"),
           ValueRecord(
             Some(Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")),
             ImmArray((Some[Name]("p"), ValueParty(party))),

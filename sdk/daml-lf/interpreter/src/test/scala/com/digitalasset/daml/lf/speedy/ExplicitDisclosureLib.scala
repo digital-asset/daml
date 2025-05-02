@@ -97,10 +97,10 @@ private[lf] class ExplicitDisclosureLib(majorLanguageVersion: LanguageMajorVersi
   val invalidTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Invalid")
   val somePackageName: Ref.PackageName = Ref.PackageName.assertFromString("package-name")
   val houseTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:House")
-  val houseTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:House")
+  val houseTemplateType: Ref.TypeConId = Ref.TypeConId.assertFromString("-pkgId-:TestMod:House")
   val caveTemplateId: Ref.Identifier = Ref.Identifier.assertFromString("-pkgId-:TestMod:Cave")
-  val caveTemplateType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Cave")
-  val keyType: Ref.TypeConName = Ref.TypeConName.assertFromString("-pkgId-:TestMod:Key")
+  val caveTemplateType: Ref.TypeConId = Ref.TypeConId.assertFromString("-pkgId-:TestMod:Cave")
+  val keyType: Ref.TypeConId = Ref.TypeConId.assertFromString("-pkgId-:TestMod:Key")
   val contractKey: GlobalKey = buildContractKey(maintainerParty, pkg.pkgName)
   val contractSStructKey: SValue =
     SValue.SStruct(

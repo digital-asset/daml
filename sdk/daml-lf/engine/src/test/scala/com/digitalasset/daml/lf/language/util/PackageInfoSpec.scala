@@ -6,7 +6,7 @@ package lf
 package language
 package util
 
-import com.digitalasset.daml.lf.data.Ref.{PackageId, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, TypeConId}
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import data.{Ref, Relation}
 import testing.parser
@@ -144,10 +144,10 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     "return the identifiers of the templates defined in the given packages" in {
 
       val testCases = List(
-        ("-pkg0-": Ref.PackageId) -> Set[Ref.TypeConName]("-pkg0-:Mod0:T0"),
-        ("-pkg1-": Ref.PackageId) -> Set[Ref.TypeConName]("-pkg1-:Mod11:T11", "-pkg1-:Mod12:T12"),
-        ("-pkg2-": Ref.PackageId) -> Set.empty[Ref.TypeConName],
-        ("-pkg3-": Ref.PackageId) -> Set[Ref.TypeConName]("-pkg3-:Mod31:T31", "-pkg3-:Mod32:T32"),
+        ("-pkg0-": Ref.PackageId) -> Set[Ref.TypeConId]("-pkg0-:Mod0:T0"),
+        ("-pkg1-": Ref.PackageId) -> Set[Ref.TypeConId]("-pkg1-:Mod11:T11", "-pkg1-:Mod12:T12"),
+        ("-pkg2-": Ref.PackageId) -> Set.empty[Ref.TypeConId],
+        ("-pkg3-": Ref.PackageId) -> Set[Ref.TypeConId]("-pkg3-:Mod31:T31", "-pkg3-:Mod32:T32"),
       )
 
       for (n <- 0 to testCases.size)
@@ -163,10 +163,10 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
     "return the identifiers of the interfaces defined in the given packages" in {
 
       val testCases = List(
-        ("-pkg0-": Ref.PackageId) -> Set.empty[Ref.TypeConName],
-        ("-pkg1-": Ref.PackageId) -> Set.empty[Ref.TypeConName],
-        ("-pkg2-": Ref.PackageId) -> Set[Ref.TypeConName]("-pkg2-:Mod21:I21", "-pkg2-:Mod22:I22"),
-        ("-pkg3-": Ref.PackageId) -> Set[Ref.TypeConName]("-pkg3-:Mod31:I31", "-pkg3-:Mod32:I32"),
+        ("-pkg0-": Ref.PackageId) -> Set.empty[Ref.TypeConId],
+        ("-pkg1-": Ref.PackageId) -> Set.empty[Ref.TypeConId],
+        ("-pkg2-": Ref.PackageId) -> Set[Ref.TypeConId]("-pkg2-:Mod21:I21", "-pkg2-:Mod22:I22"),
+        ("-pkg3-": Ref.PackageId) -> Set[Ref.TypeConId]("-pkg3-:Mod31:I31", "-pkg3-:Mod32:I32"),
       )
 
       for (n <- 0 to testCases.size)
@@ -182,28 +182,28 @@ class PackageInfoSpec(majorLanguageVersion: LanguageMajorVersion)
   "interfaceDirectInstances" should {
     "return the relation between interface and their direct instances" in {
 
-      val testCases: List[(PackageId, Relation[TypeConName, TypeConName])] = List(
+      val testCases: List[(PackageId, Relation[TypeConId, TypeConId])] = List(
         ("-pkg0-": Ref.PackageId) ->
-          Relation.empty[Ref.TypeConName, Ref.TypeConName],
+          Relation.empty[Ref.TypeConId, Ref.TypeConId],
         ("-pkg1-": Ref.PackageId) -> Map(
-          ("pkgA:ModA:IA": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg1-:Mod11:T11", "-pkg1-:Mod12:T12"),
-          ("pkgB:ModB:IB": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg1-:Mod11:T11"),
-          ("pkgC:ModC:IC": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg1-:Mod12:T12"),
+          ("pkgA:ModA:IA": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg1-:Mod11:T11", "-pkg1-:Mod12:T12"),
+          ("pkgB:ModB:IB": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg1-:Mod11:T11"),
+          ("pkgC:ModC:IC": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg1-:Mod12:T12"),
         ),
         ("-pkg2-": Ref.PackageId) ->
-          Relation.empty[Ref.TypeConName, Ref.TypeConName],
+          Relation.empty[Ref.TypeConId, Ref.TypeConId],
         ("-pkg3-": Ref.PackageId) -> Map(
-          ("-pkg1-:Mod11:I11": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg3-:Mod31:T31"),
-          ("-pkg3-:Mod32:I32": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg3-:Mod32:T32"),
-          ("pkgA:ModA:IA": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg3-:Mod32:T32"),
-          ("pkgB:ModB:IB": Ref.TypeConName) ->
-            Set[Ref.TypeConName]("-pkg3-:Mod31:T31"),
+          ("-pkg1-:Mod11:I11": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg3-:Mod31:T31"),
+          ("-pkg3-:Mod32:I32": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg3-:Mod32:T32"),
+          ("pkgA:ModA:IA": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg3-:Mod32:T32"),
+          ("pkgB:ModB:IB": Ref.TypeConId) ->
+            Set[Ref.TypeConId]("-pkg3-:Mod31:T31"),
         ),
       )
 

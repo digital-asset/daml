@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package interpretation
 
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, Party, TypeConId}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, Node, NodeId}
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.value.Value
@@ -34,7 +34,7 @@ object Error {
     * for code in LF >= 1.14 so this will never be thrown for newer versions.
     */
   final case class TemplatePreconditionViolated(
-      templateId: TypeConName,
+      templateId: TypeConId,
       optLocation: Option[Location],
       arg: Value,
   ) extends Error
@@ -44,7 +44,7 @@ object Error {
     */
   final case class ContractNotActive(
       coid: ContractId,
-      templateId: TypeConName,
+      templateId: TypeConId,
       consumedBy: NodeId,
   ) extends Error
 
@@ -79,14 +79,14 @@ object Error {
 
   /** A create with a contract key failed because the list of maintainers was empty */
   final case class CreateEmptyContractKeyMaintainers(
-      templateId: TypeConName,
+      templateId: TypeConId,
       arg: Value,
       key: Value,
   ) extends Error
 
   /** A fetch or lookup of a contract key without maintainers */
   final case class FetchEmptyContractKeyMaintainers(
-      templateId: TypeConName,
+      templateId: TypeConId,
       key: Value,
       packageName: Ref.PackageName,
   ) extends Error
@@ -96,27 +96,27 @@ object Error {
     */
   final case class WronglyTypedContract(
       coid: ContractId,
-      expected: TypeConName,
-      actual: TypeConName,
+      expected: TypeConId,
+      actual: TypeConId,
   ) extends Error
 
   /** We tried to fetch / exercise a contract by interface, but
     * the contract does not implement this interface.
     */
   final case class ContractDoesNotImplementInterface(
-      interfaceId: TypeConName,
+      interfaceId: TypeConId,
       coid: ContractId,
-      templateId: TypeConName,
+      templateId: TypeConId,
   ) extends Error
 
   /** We tried to exercise a contract by required interface, but
     * the contract does not implement the requiring interface.
     */
   final case class ContractDoesNotImplementRequiringInterface(
-      requiringInterfaceId: TypeConName,
-      requiredInterfaceId: TypeConName,
+      requiringInterfaceId: TypeConId,
+      requiredInterfaceId: TypeConId,
       coid: ContractId,
-      templateId: TypeConName,
+      templateId: TypeConId,
   ) extends Error
 
   /** There was an authorization failure during execution. */
@@ -164,8 +164,8 @@ object Error {
 
     final case class ValidationFailed(
         coid: ContractId,
-        srcTemplateId: TypeConName,
-        dstTemplateId: TypeConName,
+        srcTemplateId: TypeConId,
+        dstTemplateId: TypeConId,
         signatories: Set[Party],
         observers: Set[Party],
         keyOpt: Option[GlobalKeyWithMaintainers],
@@ -212,9 +212,9 @@ object Error {
     /** A choice guard returned false, invalidating some expectation. */
     final case class ChoiceGuardFailed(
         coid: ContractId,
-        templateId: TypeConName,
+        templateId: TypeConId,
         choiceName: ChoiceName,
-        byInterface: Option[TypeConName],
+        byInterface: Option[TypeConId],
     ) extends Error
 
     // TODO https://github.com/digital-asset/daml/issues/16151
@@ -224,9 +224,9 @@ object Error {
       */
     final case class WronglyTypedContractSoft(
         coid: ContractId,
-        expected: TypeConName,
-        accepted: List[TypeConName],
-        actual: TypeConName,
+        expected: TypeConId,
+        accepted: List[TypeConId],
+        actual: TypeConId,
     ) extends Error
 
     final case class Limit(error: Limit.Error) extends Error
@@ -237,7 +237,7 @@ object Error {
 
       final case class ContractSignatories(
           coid: Value.ContractId,
-          templateId: TypeConName,
+          templateId: TypeConId,
           arg: Value,
           signatories: Set[Party],
           limit: Int,
@@ -245,7 +245,7 @@ object Error {
 
       final case class ContractObservers(
           coid: Value.ContractId,
-          templateId: TypeConName,
+          templateId: TypeConId,
           arg: Value,
           observers: Set[Party],
           limit: Int,
@@ -253,7 +253,7 @@ object Error {
 
       final case class ChoiceControllers(
           cid: Value.ContractId,
-          templateId: TypeConName,
+          templateId: TypeConId,
           choiceName: ChoiceName,
           arg: Value,
           controllers: Set[Party],
@@ -262,7 +262,7 @@ object Error {
 
       final case class ChoiceObservers(
           cid: Value.ContractId,
-          templateId: TypeConName,
+          templateId: TypeConId,
           choiceName: ChoiceName,
           arg: Value,
           observers: Set[Party],
@@ -271,7 +271,7 @@ object Error {
 
       final case class ChoiceAuthorizers(
           cid: Value.ContractId,
-          templateId: TypeConName,
+          templateId: TypeConId,
           choiceName: ChoiceName,
           arg: Value,
           observers: Set[Party],

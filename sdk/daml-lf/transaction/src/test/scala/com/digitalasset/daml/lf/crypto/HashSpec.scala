@@ -422,8 +422,8 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
   val stabilityTestCases: List[Value] = {
     val pkgId = Ref.PackageId.assertFromString("pkgId")
 
-    implicit def toTypeConName(s: String): Ref.TypeConName =
-      Ref.TypeConName(pkgId, Ref.QualifiedName.assertFromString(s"Mod:$s"))
+    implicit def toTypeConId(s: String): Ref.TypeConId =
+      Ref.TypeConId(pkgId, Ref.QualifiedName.assertFromString(s"Mod:$s"))
 
     implicit def toName(s: String): Ref.Name =
       Ref.Name.assertFromString(s)

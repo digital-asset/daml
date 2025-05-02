@@ -45,11 +45,11 @@ final class DependencyGraphSpec extends AnyWordSpec with Matchers {
               choices = Map(
                 Ref.ChoiceName.assertFromString("SomeChoice") -> TemplateChoice[Type](
                   param = TypeCon(
-                    TypeConName(foo),
-                    ImmArray(TypeCon(TypeConName(bar), ImmArraySeq.empty)).toSeq,
+                    TypeConId(foo),
+                    ImmArray(TypeCon(TypeConId(bar), ImmArraySeq.empty)).toSeq,
                   ),
                   consuming = false,
-                  returnType = TypeCon(TypeConName(baz), ImmArraySeq.empty),
+                  returnType = TypeCon(TypeConId(baz), ImmArraySeq.empty),
                 )
               ),
               viewType = Some(vt),
@@ -78,7 +78,7 @@ object DependencyGraphSpec {
         fooRec,
         DefTemplate(
           TemplateChoices.Resolved(Map.empty),
-          Some(TypeCon(TypeConName(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
+          Some(TypeCon(TypeConId(Ref.Identifier assertFromString "a:b:It"), ImmArraySeq.empty)),
           Seq.empty,
         ),
       ),

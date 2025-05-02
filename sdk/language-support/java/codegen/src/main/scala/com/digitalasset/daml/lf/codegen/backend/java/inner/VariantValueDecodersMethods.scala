@@ -25,7 +25,7 @@ object VariantValueDecodersMethods {
       getFieldsWithTypes(variant.fields).partitionMap { fieldInfo =>
         val FieldInfo(damlName, damlType, _, _) = fieldInfo
         damlType match {
-          case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
+          case TypeCon(TypeConId(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
             // Variant records will be dealt with in a subsequent phase
             Left(damlName)
           case _ =>

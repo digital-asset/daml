@@ -40,7 +40,7 @@ private[validation] object Recursion {
     Graphs.topoSort(g).left.foreach(cycle => throw ETypeSynCycle(Context.None, cycle.vertices))
   }
 
-  private def synRefsOfType(acc: Set[TypeSynName], typ: Type): Set[TypeSynName] = typ match {
+  private def synRefsOfType(acc: Set[TypeSynId], typ: Type): Set[TypeSynId] = typ match {
     case TSynApp(typeSynName, _) =>
       (TypeIterable(typ) foldLeft (acc + typeSynName))(synRefsOfType)
     case otherwise =>

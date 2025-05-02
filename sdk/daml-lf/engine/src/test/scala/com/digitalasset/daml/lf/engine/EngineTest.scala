@@ -1119,7 +1119,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       }
       preprocessor
         .translateValue(
-          TTyConApp(TypeConName(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.Empty),
+          TTyConApp(TypeConId(basicTestsPkgId, "BasicTests:Nesting0"), ImmArray.Empty),
           nested,
         )
         .consume(lookupContract, lookupPackage, lookupKey)
@@ -1423,7 +1423,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
-        template = TypeConName(basicTestsPkgId, tid),
+        template = TypeConId(basicTestsPkgId, tid),
         arg = ValueRecord(Some(Identifier(basicTestsPkgId, tid)), targs),
       )
 
@@ -1565,7 +1565,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
-        template = TypeConName(basicTestsPkgId, fetchedStrTid),
+        template = TypeConId(basicTestsPkgId, fetchedStrTid),
         arg = ValueRecord(
           Some(Identifier(basicTestsPkgId, fetchedStrTid)),
           ImmArray(
@@ -1612,7 +1612,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
-        template = TypeConName(basicTestsPkgId, lookerUpTemplate),
+        template = TypeConId(basicTestsPkgId, lookerUpTemplate),
         arg = ValueRecord(Some(lookerUpTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
       )
 
@@ -1957,7 +1957,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val fetcherInst = FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = basicTestsPkg.pkgName,
-        template = TypeConName(basicTestsPkgId, fetcherTemplate),
+        template = TypeConId(basicTestsPkgId, fetcherTemplate),
         arg = ValueRecord(Some(fetcherTemplateId), ImmArray((Some[Name]("p"), ValueParty(alice)))),
       )
 
@@ -2204,7 +2204,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       cid -> FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
-        template = TypeConName(exceptionsPkgId, "Exceptions:K"),
+        template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
           None,
           ImmArray(
@@ -2354,7 +2354,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       cid -> FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
-        template = TypeConName(exceptionsPkgId, "Exceptions:K"),
+        template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
           None,
           ImmArray(
@@ -2432,7 +2432,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       cid -> FatContractInstance.fromThinInstance(
         version = defaultLangVersion,
         packageName = exceptionsPkg.pkgName,
-        template = TypeConName(exceptionsPkgId, "Exceptions:K"),
+        template = TypeConId(exceptionsPkgId, "Exceptions:K"),
         arg = ValueRecord(
           None,
           ImmArray(
@@ -2661,7 +2661,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     FatContractInstance.fromThinInstance(
       defaultLangVersion,
       packageName = basicTestsPkg.pkgName,
-      template = TypeConName(basicTestsPkgId, withKeyTemplate),
+      template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
         Some(BasicTests_WithKey),
         ImmArray(
@@ -2677,7 +2677,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         FatContractInstance.fromThinInstance(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
-          template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
+          template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
             ImmArray((Some[Name]("p"), ValueParty(party))),
@@ -2687,7 +2687,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         FatContractInstance.fromThinInstance(
           version = defaultLangVersion,
           packageName = basicTestsPkg.pkgName,
-          template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
+          template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
             ImmArray(
@@ -2703,7 +2703,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   val defaultKey = Map(
     GlobalKeyWithMaintainers(
       GlobalKey.assertBuild(
-        templateId = TypeConName(basicTestsPkgId, withKeyTemplate),
+        templateId = TypeConId(basicTestsPkgId, withKeyTemplate),
         key = ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
         packageName = basicTestsPkg.pkgName,
       ),
@@ -2960,7 +2960,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
   def buildDisclosedContract(
       pkg: Package,
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       coid: ContractId,
       signatory: Ref.Party,
       arg: SValue,

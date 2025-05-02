@@ -28,7 +28,7 @@ object ApiCommand {
     *
     * @param typeRef    template or interface where the choice is defined
     * @param contractId contract on which the choice is exercised
-    * @param choiceId   TypeConName choice
+    * @param choiceId   TypeConId choice
     * @param argument   value passed for the choice
     */
   final case class Exercise(
@@ -42,7 +42,7 @@ object ApiCommand {
     *
     * @param templateRef template where the choice is defined
     * @param contractKey key of the contract on which the choice is exercised
-    * @param choiceId    TypeConName choice
+    * @param choiceId    TypeConId choice
     * @param argument    value passed for the choice
     */
   final case class ExerciseByKey(
@@ -59,7 +59,7 @@ object ApiCommand {
     *
     * @param templateRef     template of the contract
     * @param createArgument value passed to the template
-    * @param choiceId       TypeConName choice
+    * @param choiceId       TypeConId choice
     * @param choiceArgument value passed for the choice
     */
   final case class CreateAndExercise(

@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf.codegen
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.typesig
-import typesig.TypeConName
+import typesig.TypeConId
 import typesig.PackageSignature.TypeDecl
 import scalaz.std.list._
 
@@ -15,7 +15,7 @@ object Util {
 
   private[codegen] def genTypeTopLevelDeclNames(genType: typesig.Type): List[Ref.Identifier] =
     genType foldMapConsPrims {
-      case TypeConName(nm) => List(nm)
+      case TypeConId(nm) => List(nm)
       case _: typesig.PrimType => Nil
     }
 

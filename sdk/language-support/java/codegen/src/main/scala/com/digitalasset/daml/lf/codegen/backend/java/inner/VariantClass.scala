@@ -212,7 +212,7 @@ private[inner] object VariantClass extends StrictLogging {
     for (fieldInfo <- getFieldsWithTypes(variant.fields)) {
       val FieldInfo(damlName, damlType, javaName, _) = fieldInfo
       damlType match {
-        case TypeCon(TypeConName(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
+        case TypeCon(TypeConId(id), _) if isVariantRecord(typeWithContext, damlName, id) =>
           // Variant records will be dealt with in a subsequent phase
           variantRecords.add(damlName)
         case _ =>

@@ -305,7 +305,7 @@ object ValueGenerators {
     } yield arg.map(Value.ThinContractInstance(pkgName, template, _))
 
   def keyWithMaintainersGen(
-      templateId: TypeConName,
+      templateId: TypeConId,
       packageName: PackageName,
   ): Gen[GlobalKeyWithMaintainers] = {
     for {

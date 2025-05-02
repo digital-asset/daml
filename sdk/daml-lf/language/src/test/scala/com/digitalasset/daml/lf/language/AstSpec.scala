@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, DottedName, Name, TypeConId}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -445,7 +445,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
   private val eParties = ENil(TBuiltin(BTParty))
   private val eText = EBuiltinLit(BLText("some text"))
   private val ifaceImpl1 = TemplateImplements(
-    interfaceId = TypeConName.assertFromString("pkgId:Mod:I1"),
+    interfaceId = TypeConId.assertFromString("pkgId:Mod:I1"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(
@@ -456,7 +456,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     ),
   )
   private val ifaceImpl2 = TemplateImplements(
-    interfaceId = TypeConName.assertFromString("pkgId:Mod:I2"),
+    interfaceId = TypeConId.assertFromString("pkgId:Mod:I2"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(
@@ -467,7 +467,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     ),
   )
   private val ifaceCoImpl1 = InterfaceCoImplements(
-    templateId = TypeConName.assertFromString("pkgId:Mod:T1"),
+    templateId = TypeConId.assertFromString("pkgId:Mod:T1"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(
@@ -478,7 +478,7 @@ class AstSpec extends AnyWordSpec with TableDrivenPropertyChecks with Matchers {
     ),
   )
   private val ifaceCoImpl2 = InterfaceCoImplements(
-    templateId = TypeConName.assertFromString("pkgId:Mod:T2"),
+    templateId = TypeConId.assertFromString("pkgId:Mod:T2"),
     InterfaceInstanceBody(
       methods = Map.empty,
       view = EAbs(

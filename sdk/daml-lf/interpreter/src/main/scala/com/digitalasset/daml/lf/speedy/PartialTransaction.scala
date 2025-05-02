@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConId}
 import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Time}
 import com.digitalasset.daml.lf.ledger.Authorize
 import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
@@ -143,8 +143,8 @@ private[lf] object PartialTransaction {
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       packageName: PackageName,
-      templateId: TypeConName,
-      interfaceId: Option[TypeConName],
+      templateId: TypeConId,
+      interfaceId: Option[TypeConId],
       contractKey: Option[GlobalKeyWithMaintainers],
       choiceId: ChoiceName,
       consuming: Boolean,
@@ -382,7 +382,7 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       byKey: Boolean,
       version: TxVersion,
-      interfaceId: Option[TypeConName],
+      interfaceId: Option[TypeConId],
   ): Either[TxErr.TransactionError, PartialTransaction] =
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(coid)) {
       val contextActors = context.info.authorizers
@@ -452,10 +452,10 @@ private[speedy] case class PartialTransaction(
     */
   def beginExercises(
       packageName: PackageName,
-      templateId: TypeConName,
+      templateId: TypeConId,
       targetId: Value.ContractId,
       contract: ContractInfo,
-      interfaceId: Option[TypeConName],
+      interfaceId: Option[TypeConId],
       choiceId: ChoiceName,
       optLocation: Option[Location],
       consuming: Boolean,

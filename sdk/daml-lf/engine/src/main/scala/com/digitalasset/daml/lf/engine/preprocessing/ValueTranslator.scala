@@ -90,7 +90,7 @@ private[lf] final class ValueTranslator(
               throw Error.Preprocessing.Lookup(err)
           }
 
-        def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
+        def checkUserTypeId(targetType: Ref.TypeConId, mbSourceType: Option[Ref.TypeConId]) =
           mbSourceType.foreach(sourceType =>
             // In case of upgrade we simply ignore the package ID.
             if (targetType.qualifiedName != sourceType.qualifiedName)

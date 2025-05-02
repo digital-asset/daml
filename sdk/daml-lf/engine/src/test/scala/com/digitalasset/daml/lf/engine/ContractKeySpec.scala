@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.data.Ref.{
   PackageId,
   Party,
   QualifiedName,
-  TypeConName,
+  TypeConId,
 }
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast.Package
@@ -93,7 +93,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
     FatContractInstance.fromThinInstance(
       version = langVersion,
       packageName = basicTestsPkg.pkgName,
-      template = TypeConName(basicTestsPkgId, withKeyTemplate),
+      template = TypeConId(basicTestsPkgId, withKeyTemplate),
       arg = ValueRecord(
         Some(BasicTests_WithKey),
         ImmArray(
@@ -109,7 +109,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         FatContractInstance.fromThinInstance(
           version = langVersion,
           packageName = basicTestsPkg.pkgName,
-          template = TypeConName(basicTestsPkgId, "BasicTests:Simple"),
+          template = TypeConId(basicTestsPkgId, "BasicTests:Simple"),
           arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:Simple")),
             ImmArray((Some[Name]("p"), ValueParty(party))),
@@ -119,7 +119,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
         FatContractInstance.fromThinInstance(
           version = langVersion,
           packageName = basicTestsPkg.pkgName,
-          template = TypeConName(basicTestsPkgId, "BasicTests:CallablePayout"),
+          template = TypeConId(basicTestsPkgId, "BasicTests:CallablePayout"),
           arg = ValueRecord(
             Some(Identifier(basicTestsPkgId, "BasicTests:CallablePayout")),
             ImmArray(
@@ -134,7 +134,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
 
   val defaultKey = Map(
     GlobalKey.assertBuild(
-      TypeConName(basicTestsPkgId, withKeyTemplate),
+      TypeConId(basicTestsPkgId, withKeyTemplate),
       ValueRecord(None, ImmArray((None, ValueParty(alice)), (None, ValueInt64(42)))),
       basicTestsPkg.pkgName,
     )
@@ -297,7 +297,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
       val keyedInst = FatContractInstance.fromThinInstance(
         version = langVersion,
         packageName = multiKeysPkg.pkgName,
-        template = TypeConName(multiKeysPkgId, "MultiKeys:Keyed"),
+        template = TypeConId(multiKeysPkgId, "MultiKeys:Keyed"),
         arg = ValueRecord(None, ImmArray((None, ValueParty(party)))),
       )
       val contracts = Map(cid1 -> keyedInst, cid2 -> keyedInst)

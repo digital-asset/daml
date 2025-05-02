@@ -15,7 +15,7 @@ import typesig.{
   Record,
   Type,
   TypeCon,
-  TypeConName,
+  TypeConId,
   TypeNumeric,
   TypePrim,
   Variant,
@@ -234,7 +234,7 @@ object TypedValueGenerators {
         new ValueAddend {
           private[this] val lfvFieldNames = spec.t map { case (n, _) => Some(n) }
           type Inj = rvs.HRec
-          override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+          override val t = TypeCon(TypeConId(name), ImmArraySeq.empty)
           override def inj(hl: Inj) =
             ValueRecord(
               Some(name),
@@ -261,7 +261,7 @@ object TypedValueGenerators {
         DefDataType(ImmArraySeq.empty, Variant(spec.t.to(ImmArraySeq))),
         new ValueAddend {
           type Inj = rvs.HVar
-          override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+          override val t = TypeCon(TypeConId(name), ImmArraySeq.empty)
           override def inj(cp: Inj) = {
             val (ctor, v) = spec.injVar(cp)
             ValueVariant(Some(name), ctor, v)
@@ -288,7 +288,7 @@ object TypedValueGenerators {
         new EnumAddend[members.type] {
           type Member = Ref.Name
           override val values = members
-          override val t = TypeCon(TypeConName(name), ImmArraySeq.empty)
+          override val t = TypeCon(TypeConId(name), ImmArraySeq.empty)
           override def inj(v: Inj) = ValueEnum(Some(name), v)
           override def prj = {
             case ValueEnum(_, dc) => get(dc)

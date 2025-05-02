@@ -17,7 +17,7 @@ import scalaz.Semigroup
 final case class EnvironmentSignature(
     metadata: Map[PackageId, PackageMetadata],
     typeDecls: Map[Identifier, PackageSignature.TypeDecl],
-    interfaces: Map[Ref.TypeConName, DefInterface.FWT],
+    interfaces: Map[Ref.TypeConId, DefInterface.FWT],
 ) {
   import PackageSignature.TypeDecl
 
@@ -62,7 +62,7 @@ final case class EnvironmentSignature(
     copy(typeDecls = newTypeDecls, interfaces = newInterfaces)
   }
 
-  def resolveInterfaceViewType(tcn: Ref.TypeConName): Option[DefInterface.ViewTypeFWT] =
+  def resolveInterfaceViewType(tcn: Ref.TypeConId): Option[DefInterface.ViewTypeFWT] =
     typeDecls get tcn flatMap (_.asInterfaceViewType)
 }
 

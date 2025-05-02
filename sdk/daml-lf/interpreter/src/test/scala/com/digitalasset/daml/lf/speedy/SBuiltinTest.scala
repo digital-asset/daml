@@ -1600,7 +1600,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "Interfaces" - {
-    val iouTypeRep = Ref.TypeConName.assertFromString("-pkgId-:Mod:Iou")
+    val iouTypeRep = Ref.TypeConId.assertFromString("-pkgId-:Mod:Iou")
     val alice = Ref.Party.assertFromString("alice")
     val bob = Ref.Party.assertFromString("bob")
 

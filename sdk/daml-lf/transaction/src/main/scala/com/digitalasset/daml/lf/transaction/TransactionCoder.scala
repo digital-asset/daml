@@ -292,7 +292,7 @@ object TransactionCoder {
 
   private[this] def decodeKeyWithMaintainers(
       version: TransactionVersion,
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       packageName: Ref.PackageName,
       msg: TransactionOuterClass.KeyWithMaintainers,
   ): Either[DecodeError, GlobalKeyWithMaintainers] = {
@@ -312,7 +312,7 @@ object TransactionCoder {
 
   private[transaction] def strictDecodeKeyWithMaintainers(
       version: TransactionVersion,
-      templateId: Ref.TypeConName,
+      templateId: Ref.TypeConId,
       packageName: Ref.PackageName,
       msg: TransactionOuterClass.KeyWithMaintainers,
   ): Either[DecodeError, GlobalKeyWithMaintainers] =

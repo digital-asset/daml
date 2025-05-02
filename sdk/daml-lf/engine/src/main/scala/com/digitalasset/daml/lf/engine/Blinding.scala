@@ -90,7 +90,7 @@ object Blinding {
       blindingInfo: BlindingInfo,
   ): Relation[Party, Ref.PackageId] = {
     val entries = blindingInfo.disclosure.view.flatMap { case (nodeId, parties) =>
-      def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
+      def toEntries(tyCon: Ref.TypeConId) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)

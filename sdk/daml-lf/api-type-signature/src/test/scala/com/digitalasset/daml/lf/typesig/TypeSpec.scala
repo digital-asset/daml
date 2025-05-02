@@ -91,7 +91,7 @@ class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec w
           case Pkg.BTAnyException =>
             sys.error("exception not supported")
         }
-      case Pkg.TTyCon(tycon) => TypeCon(TypeConName(tycon), args.toImmArray.toSeq)
+      case Pkg.TTyCon(tycon) => TypeCon(TypeConId(tycon), args.toImmArray.toSeq)
       case Pkg.TNat(_) => sys.error("cannot use nat type in interface type")
       case _: Pkg.TStruct => sys.error("cannot use structs in interface type")
       case _: Pkg.TForall => sys.error("cannot use forall in interface type")
@@ -103,7 +103,7 @@ class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec w
 
   "instantiate type arguments correctly" in {
     val tyCon = TypeCon(
-      TypeConName(Identifier("dummyPkg", "Mod:R")),
+      TypeConId(Identifier("dummyPkg", "Mod:R")),
       ImmArraySeq(t"Int64", t"Text"),
     )
     val inst = tyCon.instantiate(
@@ -130,8 +130,8 @@ class TypeSpec(majorLanguageVersion: LanguageMajorVersion) extends AnyWordSpec w
   }
 
   "instantiate should work for a nested record" in {
-    val id1 = TypeConName(Identifier("P", "M:T1"))
-    val id2 = TypeConName(Identifier("P", "M:T2"))
+    val id1 = TypeConId(Identifier("P", "M:T1"))
+    val id2 = TypeConId(Identifier("P", "M:T2"))
 
     val tc = TypeCon(id1, ImmArraySeq(t"Text"))
     val ddt = DefDataType(
