@@ -17,14 +17,14 @@ import scala.collection.immutable.{SortedMap, SortedSet}
 
 object TransactionMetadataHashBuilder {
   final case class MetadataV1(
-       actAs: SortedSet[Ref.Party],
-       commandId: Ref.CommandId,
-       transactionUUID: UUID,
-       mediatorGroup: Int,
-       synchronizerId: String,
-       timeBoundaries: LedgerTimeBoundaries,
-       submissionTime: Time.Timestamp,
-       disclosedContracts: SortedMap[ContractId, FatContractInstance],
+      actAs: SortedSet[Ref.Party],
+      commandId: Ref.CommandId,
+      transactionUUID: UUID,
+      mediatorGroup: Int,
+      synchronizerId: String,
+      timeBoundaries: LedgerTimeBoundaries,
+      submissionTime: Time.Timestamp,
+      disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
   /** Hashes Transaction Metadata using the V1 Hashing Scheme
