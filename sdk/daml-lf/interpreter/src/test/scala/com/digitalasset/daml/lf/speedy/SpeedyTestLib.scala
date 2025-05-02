@@ -233,7 +233,7 @@ private[speedy] object SpeedyTestLib {
           compiledPackages = machine.compiledPackages,
           profile = machine.profile,
           validating = machine.validating,
-          submissionTime = machine.submissionTime,
+          preparationTime = machine.preparationTime,
           contractKeyUniqueness = machine.contractKeyUniqueness,
           ptx = machine.ptx,
           committers = machine.committers,

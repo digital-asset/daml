@@ -1097,7 +1097,7 @@ private[lf] object SBuiltinFun {
           case _ => {
             machine.ptx
               .insertCreate(
-                submissionTime = machine.submissionTime,
+                preparationTime = machine.preparationTime,
                 contract = contract,
                 optLocation = machine.getLastLocation,
               ) match {

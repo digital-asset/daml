@@ -174,7 +174,7 @@ private[lf] object Speedy {
       override val iterationsBetweenInterruptions: Long,
       val packageResolution: Map[Ref.PackageName, Ref.PackageId],
       val validating: Boolean, // TODO: Better: Mode = SubmissionMode | ValidationMode
-      val submissionTime: Time.Timestamp,
+      val preparationTime: Time.Timestamp,
       val contractKeyUniqueness: ContractKeyUniquenessMode,
       /* The current partial transaction */
       private[speedy] var ptx: PartialTransaction,
@@ -749,7 +749,7 @@ private[lf] object Speedy {
     @throws[SErrorDamlException]
     def apply(
         compiledPackages: CompiledPackages,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         initialSeeding: InitialSeeding,
         expr: SExpr,
         committers: Set[Party],
@@ -768,7 +768,7 @@ private[lf] object Speedy {
         sexpr = expr,
         packageResolution = packageResolution,
         validating = validating,
-        submissionTime = submissionTime,
+        preparationTime = preparationTime,
         ptx = PartialTransaction
           .initial(
             contractKeyUniqueness,
@@ -1512,7 +1512,7 @@ private[lf] object Speedy {
     )(implicit loggingContext: LoggingContext): UpdateMachine = {
       UpdateMachine(
         compiledPackages = compiledPackages,
-        submissionTime = Time.Timestamp.MinValue,
+        preparationTime = Time.Timestamp.MinValue,
         initialSeeding = InitialSeeding.TransactionSeed(transactionSeed),
         expr = SEApp(updateSE, Array(SValue.SToken)),
         committers = committers,
@@ -2163,10 +2163,10 @@ private[lf] object Speedy {
   private[speedy] def deriveTransactionSeed(
       submissionSeed: crypto.Hash,
       participant: Ref.ParticipantId,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
   ): InitialSeeding =
     InitialSeeding.TransactionSeed(
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, preparationTime)
     )
 
 }
