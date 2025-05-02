@@ -585,7 +585,7 @@ class CantonSyncService(
           .fromEither[FutureUnlessShutdown](
             TransactionMetadata.fromTransactionMeta(
               metaLedgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
-              metaSubmissionTime = transactionMeta.preparationTime,
+              metaSubmissionTime = transactionMeta.submissionTime,
               metaOptNodeSeeds = transactionMeta.optNodeSeeds,
             )
           )

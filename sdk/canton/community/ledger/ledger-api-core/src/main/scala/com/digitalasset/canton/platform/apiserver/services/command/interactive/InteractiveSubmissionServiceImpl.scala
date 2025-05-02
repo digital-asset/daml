@@ -307,7 +307,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         mediatorGroup,
         synchronizerId,
         transactionData.transactionMeta.timeBoundaries,
-        transactionData.transactionMeta.preparationTime,
+        transactionData.transactionMeta.submissionTime,
         inputContracts,
       )
       hashTracer: HashTracer =

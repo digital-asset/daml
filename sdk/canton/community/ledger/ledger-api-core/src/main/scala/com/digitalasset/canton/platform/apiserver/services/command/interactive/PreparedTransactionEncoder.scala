@@ -314,7 +314,7 @@ final class PreparedTransactionEncoder(
   ): PartialTransformer[TransactionData, iss.Metadata] =
     Transformer
       .definePartial[TransactionData, iss.Metadata]
-      .withFieldComputed(_.preparationTime, _.transactionMeta.preparationTime.transformInto[Long])
+      .withFieldComputed(_.preparationTime, _.transactionMeta.submissionTime.transformInto[Long])
       .withFieldConstPartial(
         _.inputContracts,
         // The hashing algorithm expects disclosed contracts to be sorted by contract ID, so pre-sort them for the client
