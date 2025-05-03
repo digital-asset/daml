@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
@@ -37,7 +37,7 @@ import scala.concurrent.ExecutionContext
 class GrpcSequencerClientAuth(
     synchronizerId: SynchronizerId,
     member: Member,
-    crypto: Crypto,
+    crypto: SynchronizerCrypto,
     channelPerEndpoint: NonEmpty[Map[Endpoint, ManagedChannel]],
     supportedProtocolVersions: Seq[ProtocolVersion],
     tokenManagerConfig: AuthenticationTokenManagerConfig,

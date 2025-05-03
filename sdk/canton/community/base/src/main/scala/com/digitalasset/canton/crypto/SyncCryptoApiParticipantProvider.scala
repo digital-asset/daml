@@ -83,8 +83,7 @@ class SyncCryptoApiParticipantProvider(
       synchronizerId,
       synchronizerTopologyClient,
       staticSynchronizerParameters,
-      crypto,
-      new SynchronizerCryptoPureApi(staticSynchronizerParameters, pureCrypto),
+      SynchronizerCrypto(crypto, staticSynchronizerParameters),
       sessionSigningKeysConfig,
       verificationParallelismLimit,
       timeouts,
@@ -306,10 +305,9 @@ class SynchronizerCryptoClient private (
     val synchronizerId: SynchronizerId,
     val synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient],
     val ips: SynchronizerTopologyClient,
-    val crypto: Crypto,
+    val crypto: SynchronizerCrypto,
     val syncCryptoSigner: SyncCryptoSigner,
     val syncCryptoVerifier: SyncCryptoVerifier,
-    val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val timeouts: ProcessingTimeout,
     override protected val futureSupervisor: FutureSupervisor,
     override val loggerFactory: NamedLoggerFactory,
@@ -319,8 +317,7 @@ class SynchronizerCryptoClient private (
     with NamedLogging
     with FlagCloseable {
 
-  override val pureCrypto: SynchronizerCryptoPureApi =
-    new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto)
+  override val pureCrypto: SynchronizerCryptoPureApi = crypto.pureCrypto
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -345,7 +342,6 @@ class SynchronizerCryptoClient private (
   def create(snapshot: TopologySnapshot): SynchronizerSnapshotSyncCryptoApi =
     new SynchronizerSnapshotSyncCryptoApi(
       synchronizerId,
-      staticSynchronizerParameters,
       snapshot,
       crypto,
       syncCryptoSigner,
@@ -402,8 +398,7 @@ object SynchronizerCryptoClient {
       synchronizerId: SynchronizerId,
       ips: SynchronizerTopologyClient,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-      crypto: Crypto,
-      pureCrypto: SynchronizerCryptoPureApi,
+      synchronizerCrypto: SynchronizerCrypto,
       verificationParallelismLimit: PositiveInt,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
@@ -413,8 +408,7 @@ object SynchronizerCryptoClient {
   ): SynchronizerCryptoClient = {
     val syncCryptoSignerWithLongTermKeys = SyncCryptoSigner.createWithLongTermKeys(
       member,
-      crypto.privateCrypto,
-      crypto.cryptoPrivateStore,
+      synchronizerCrypto,
       loggerFactory,
     )
     new SynchronizerCryptoClient(
@@ -422,16 +416,15 @@ object SynchronizerCryptoClient {
       synchronizerId,
       TrieMap.empty,
       ips,
-      crypto,
+      synchronizerCrypto,
       syncCryptoSignerWithLongTermKeys,
       SyncCryptoVerifier.create(
         synchronizerId,
         staticSynchronizerParameters,
-        pureCrypto,
+        synchronizerCrypto.pureCrypto,
         verificationParallelismLimit,
         loggerFactory,
       ),
-      staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
       loggerFactory.append("synchronizerId", synchronizerId.toString),
@@ -446,8 +439,7 @@ object SynchronizerCryptoClient {
       synchronizerId: SynchronizerId,
       ips: SynchronizerTopologyClient,
       staticSynchronizerParameters: StaticSynchronizerParameters,
-      crypto: Crypto,
-      pureCrypto: SynchronizerCryptoPureApi,
+      synchronizerCrypto: SynchronizerCrypto,
       sessionSigningKeysConfig: SessionSigningKeysConfig,
       verificationParallelismLimit: PositiveInt,
       timeouts: ProcessingTimeout,
@@ -462,8 +454,7 @@ object SynchronizerCryptoClient {
       synchronizerId,
       staticSynchronizerParameters,
       member,
-      crypto.privateCrypto,
-      crypto.cryptoPrivateStore,
+      synchronizerCrypto,
       sessionSigningKeysConfig,
       loggerFactory,
     )
@@ -472,16 +463,15 @@ object SynchronizerCryptoClient {
       synchronizerId,
       synchronizerCryptoClientCache,
       ips,
-      crypto,
+      synchronizerCrypto,
       syncCryptoSignerWithSessionKeys,
       SyncCryptoVerifier.create(
         synchronizerId,
         staticSynchronizerParameters,
-        pureCrypto,
+        synchronizerCrypto.pureCrypto,
         verificationParallelismLimit,
         loggerFactory,
       ),
-      staticSynchronizerParameters,
       timeouts,
       futureSupervisor,
       loggerFactory,
@@ -493,9 +483,8 @@ object SynchronizerCryptoClient {
 /** crypto operations for a (synchronizer,timestamp) */
 class SynchronizerSnapshotSyncCryptoApi(
     val synchronizerId: SynchronizerId,
-    staticSynchronizerParameters: StaticSynchronizerParameters,
     override val ipsSnapshot: TopologySnapshot,
-    val crypto: Crypto,
+    val crypto: SynchronizerCrypto,
     val syncCryptoSigner: SyncCryptoSigner,
     val syncCryptoVerifier: SyncCryptoVerifier,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -503,8 +492,7 @@ class SynchronizerSnapshotSyncCryptoApi(
     extends SyncCryptoApi
     with NamedLogging {
 
-  override val pureCrypto: CryptoPureApi =
-    new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto)
+  override val pureCrypto: CryptoPureApi = crypto.pureCrypto
 
   override def sign(
       hash: Hash,

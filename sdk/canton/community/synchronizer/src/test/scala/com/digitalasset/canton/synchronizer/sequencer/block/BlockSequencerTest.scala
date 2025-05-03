@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   ProcessingTimeout,
 }
-import com.digitalasset.canton.crypto.{SynchronizerCryptoClient, SynchronizerCryptoPureApi}
+import com.digitalasset.canton.crypto.SynchronizerCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
@@ -139,11 +139,7 @@ class BlockSequencerTest
       synchronizerId,
       topologyClient,
       defaultStaticSynchronizerParameters,
-      topologyTransactionFactory.cryptoApi.crypto,
-      new SynchronizerCryptoPureApi(
-        defaultStaticSynchronizerParameters,
-        topologyTransactionFactory.cryptoApi.crypto.pureCrypto,
-      ),
+      topologyTransactionFactory.syncCryptoClient.crypto,
       BatchingConfig().parallelism,
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,

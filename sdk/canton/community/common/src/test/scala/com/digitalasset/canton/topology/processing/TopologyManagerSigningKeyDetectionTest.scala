@@ -36,8 +36,8 @@ class TopologyManagerSigningKeyDetectionTest
           loggerFactory,
           timeouts,
         ),
-        Factory.cryptoApi.crypto.pureCrypto,
-        Factory.cryptoApi.crypto.cryptoPrivateStore,
+        Factory.syncCryptoClient.crypto.pureCrypto,
+        Factory.syncCryptoClient.crypto.cryptoPrivateStore,
         loggerFactory,
       )
 
@@ -137,7 +137,7 @@ class TopologyManagerSigningKeyDetectionTest
         testedProtocolVersion,
       )
 
-      cryptoApi.crypto.cryptoPrivateStore
+      syncCryptoClient.crypto.cryptoPrivateStore
         .removePrivateKey(SigningKeys.key8.fingerprint)
         .futureValueUS
 

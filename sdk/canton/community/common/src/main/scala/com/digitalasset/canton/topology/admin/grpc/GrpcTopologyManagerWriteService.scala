@@ -38,8 +38,16 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 
+/** @param managers
+  *   A sequence of topology managers. The type [[com.digitalasset.canton.crypto.BaseCrypto]] is
+  *   used to accommodate various implementations of
+  *   [[com.digitalasset.canton.topology.TopologyManager]], including
+  *   [[com.digitalasset.canton.topology.LocalTopologyManager]] and
+  *   [[com.digitalasset.canton.topology.SynchronizerTopologyManager]], which depend on different
+  *   crypto types.
+  */
 class GrpcTopologyManagerWriteService(
-    managers: => Seq[TopologyManager[TopologyStoreId]],
+    managers: => Seq[TopologyManager[TopologyStoreId, BaseCrypto]],
     temporaryStoreRegistry: TemporaryStoreRegistry,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -301,11 +309,18 @@ class GrpcTopologyManagerWriteService(
       }
     } yield ()
 
+  /** @return
+    *   the appropriate [[com.digitalasset.canton.topology.TopologyManager]] corresponding to the
+    *   provided store ID. The manager uses [[com.digitalasset.canton.crypto.BaseCrypto]] to
+    *   abstract over different types of topology managers that rely on distinct crypto types, such
+    *   as [[com.digitalasset.canton.topology.LocalTopologyManager]] or
+    *   [[com.digitalasset.canton.topology.SynchronizerTopologyManager]].
+    */
   private def targetManagerET(
       store: Option[v30.StoreId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, RpcError, TopologyManager[TopologyStoreId]] =
+  ): EitherT[FutureUnlessShutdown, RpcError, TopologyManager[TopologyStoreId, BaseCrypto]] =
     for {
       targetStore <- EitherT.fromEither[FutureUnlessShutdown](
         ProtoConverter

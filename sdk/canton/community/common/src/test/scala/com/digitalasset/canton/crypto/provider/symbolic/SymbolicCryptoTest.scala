@@ -4,7 +4,6 @@
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import com.digitalasset.canton.crypto.{
-  Crypto,
   EncryptionTest,
   PasswordBasedEncryptionTest,
   PrivateKeySerializationTest,
@@ -24,7 +23,7 @@ class SymbolicCryptoTest
 
   "SymbolicCrypto" can {
 
-    def symbolicCrypto(): FutureUnlessShutdown[Crypto] =
+    def symbolicCrypto(): FutureUnlessShutdown[SymbolicCrypto] =
       FutureUnlessShutdown.pure(
         SymbolicCrypto.create(
           testedReleaseProtocolVersion,

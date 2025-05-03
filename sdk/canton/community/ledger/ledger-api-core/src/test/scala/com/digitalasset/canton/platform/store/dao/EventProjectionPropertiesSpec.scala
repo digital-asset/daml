@@ -83,7 +83,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
       filtersByParty = Map(
         party ->
           CumulativeFilter(
-            templateFilters = Set(TemplateFilter(template1, false)),
+            templateFilters = Set(TemplateFilter(template1.toRef, false)),
             interfaceFilters = Set.empty,
             templateWildcardFilter = None,
           ),
@@ -1277,7 +1277,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     it should "project created_event_blob in case of match by interface, template-id (but both without flag enabled) and " +
       "package-name-scoped template (flag enabled)" ++ details in new Scope {
         val template2Filter: TemplateFilter =
-          TemplateFilter(templateId = template2, includeCreatedEventBlob = false)
+          TemplateFilter(template2.toRef, includeCreatedEventBlob = false)
         private val filters =
           CumulativeFilter(
             templateFilters = Set(
@@ -1418,7 +1418,7 @@ class EventProjectionPropertiesSpec extends AnyFlatSpec with Matchers {
     it should "project created_event_blob for wildcard templates, if it is specified explicitly via template filter" ++ details in new Scope {
       private val filters =
         CumulativeFilter(
-          templateFilters = Set(TemplateFilter(template1, true)),
+          templateFilters = Set(TemplateFilter(template1.toRef, true)),
           interfaceFilters = Set.empty,
           templateWildcardFilter = None,
         )
@@ -1463,17 +1463,17 @@ object EventProjectionPropertiesSpec {
     val packageNameScopedTemplate: Ref.TypeConRef = Ref.TypeConRef(packageRefName, qualifiedName)
 
     val template1: Identifier = Identifier.assertFromString("PackageId2:ModuleName:template")
-    val template1Ref: Ref.TypeConRef = TypeConRef.fromIdentifier(template1)
+    val template1Ref: Ref.TypeConRef = template1.toRef
     val template1Filter: TemplateFilter =
-      TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
+      TemplateFilter(template1.toRef, includeCreatedEventBlob = false)
     val template2: Identifier = Identifier.assertFromString("PackageId1:ModuleName:template")
-    val template2Ref: Ref.TypeConRef = TypeConRef.fromIdentifier(template2)
+    val template2Ref: Ref.TypeConRef = template2.toRef
     val template3: Identifier = Identifier.assertFromString("PackageId3:ModuleName:template")
     val id: Identifier = Identifier.assertFromString("PackageId:ModuleName:id")
     val iface1: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface1")
-    val iface1Ref: TypeConRef = TypeConRef.fromIdentifier(iface1)
+    val iface1Ref: TypeConRef = iface1.toRef
     val iface2: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface2")
-    val iface2Ref: TypeConRef = TypeConRef.fromIdentifier(iface2)
+    val iface2Ref: TypeConRef = iface2.toRef
     val packageNameScopedIface1 = Ref.TypeConRef(packageRefName, iface1.qualifiedName)
 
     val noInterface: Identifier => Set[Identifier] = _ => Set.empty[Identifier]

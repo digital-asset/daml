@@ -115,7 +115,10 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       metadata: ContractMetadata,
       rawContractInstance: SerializableRawContractInstance,
   ): Either[String, Unit] = {
-    val ContractId.V1(_, cantonContractSuffix) = contractId
+    val ContractId.V1(_, cantonContractSuffix) = contractId match {
+      case cid: LfContractId.V1 => cid
+      case _ => sys.error("ContractId V2 are not supported")
+    }
     val optContractIdVersion = CantonContractIdVersion.fromContractSuffix(cantonContractSuffix)
     optContractIdVersion match {
       case Right(contractIdVersion) =>

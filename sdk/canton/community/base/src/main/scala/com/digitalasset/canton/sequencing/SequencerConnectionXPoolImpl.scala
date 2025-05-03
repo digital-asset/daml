@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.LifeCycle
@@ -43,7 +43,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
     clock: Clock,
     authConfig: AuthenticationTokenManagerConfig,
     member: Member,
-    crypto: Crypto,
+    crypto: SynchronizerCrypto,
     seedForRandomnessO: Option[Long],
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,

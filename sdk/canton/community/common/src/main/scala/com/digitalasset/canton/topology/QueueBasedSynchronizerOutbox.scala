@@ -10,7 +10,7 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.common.sequencer.RegisterTopologyTransactionHandle
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.*
@@ -41,7 +41,7 @@ class QueueBasedSynchronizerOutbox(
     val targetStore: TopologyStore[TopologyStoreId.SynchronizerStore],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
-    val crypto: Crypto,
+    val crypto: SynchronizerCrypto,
     broadcastBatchSize: PositiveInt,
     maybeObserverCloseable: Option[AutoCloseable] = None,
 )(implicit executionContext: ExecutionContext)

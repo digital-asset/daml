@@ -73,7 +73,7 @@ trait TopologyManagerObserver {
 class SynchronizerTopologyManager(
     nodeId: UniqueIdentifier,
     clock: Clock,
-    crypto: Crypto,
+    crypto: SynchronizerCrypto,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     override val store: TopologyStore[SynchronizerStore],
     val outboxQueue: SynchronizerOutboxQueue,
@@ -82,7 +82,7 @@ class SynchronizerTopologyManager(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[SynchronizerStore](
+    extends TopologyManager[SynchronizerStore, SynchronizerCrypto](
       nodeId,
       clock,
       crypto,
@@ -100,7 +100,7 @@ class SynchronizerTopologyManager(
       store,
       Some(outboxQueue),
       new ValidatingTopologyMappingChecks(store, loggerFactory),
-      new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+      crypto.pureCrypto,
       loggerFactory,
     )
 
@@ -183,7 +183,7 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[StoreId](
+    extends TopologyManager[StoreId, Crypto](
       nodeId,
       clock,
       crypto,
@@ -238,10 +238,16 @@ abstract class LocalTopologyManager[StoreId <: TopologyStoreId](
       }
 }
 
-abstract class TopologyManager[+StoreID <: TopologyStoreId](
+/** @param crypto
+  *   We use a type parameter [[com.digitalasset.canton.crypto.BaseCrypto]] because it can either be
+  *   extended from a [[LocalTopologyManager]], etc. which does not need to account for static
+  *   synchronizer parameters, or a [[SynchronizerTopologyManager]], which does need to account for
+  *   them.
+  */
+abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseCrypto](
     val nodeId: UniqueIdentifier,
     val clock: Clock,
-    val crypto: Crypto,
+    val crypto: CryptoType,
     val store: TopologyStore[StoreID],
     val managerVersion: TopologyManager.Version,
     exitOnFatalFailures: Boolean,

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.util
 
 import cats.data.{Chain, EitherT, NonEmptyChain}
-import cats.{Applicative, Eval, Functor, MonadError, Now}
+import cats.{Applicative, Eval, Functor, MonadError, Now, Traverse}
 
 import scala.annotation.tailrec
 
@@ -253,8 +253,9 @@ object Checked {
   def cond[A, R](test: Boolean, right: => R, left: => A): Checked[A, Nothing, R] =
     if (test) Checked.result(right) else Checked.abort(left)
 
-  implicit def cantonUtilMonadErrorForChecked[A, N]: MonadError[Checked[A, N, *], A] =
-    new MonadError[Checked[A, N, *], A] {
+  implicit def cantonUtilMonadErrorForChecked[A, N]
+      : MonadError[Checked[A, N, *], A] & Traverse[Checked[A, N, *]] =
+    new MonadError[Checked[A, N, *], A] with Traverse[Checked[A, N, *]] {
       override def map[R, RR](fa: Checked[A, N, R])(f: R => RR): Checked[A, N, RR] = fa.map(f)
 
       override def pure[R](a: R): Checked[A, N, R] = Checked.result(a)
@@ -294,5 +295,22 @@ object Checked {
           f: A => Checked[A, N, R]
       ): Checked[A, N, R] =
         fa.abortFlatMap(f)
+
+      override def traverse[G[_]: Applicative, X, Y](fa: Checked[A, N, X])(
+          f: X => G[Y]
+      ): G[Checked[A, N, Y]] =
+        fa.traverse(f)
+
+      override def foldLeft[X, Y](fa: Checked[A, N, X], b: Y)(f: (Y, X) => Y): Y = fa match {
+        case Result(_, a) => f(b, a)
+        case Abort(_, _) => b
+      }
+
+      override def foldRight[X, Y](fa: Checked[A, N, X], lb: Eval[Y])(
+          f: (X, Eval[Y]) => Eval[Y]
+      ): Eval[Y] = fa match {
+        case Result(_, a) => f(a, lb)
+        case Abort(_, _) => lb
+      }
     }
 }

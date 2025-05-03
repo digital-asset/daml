@@ -70,10 +70,7 @@ abstract class TopologyTransactionAuthorizationValidatorTest(multiTransactionHas
   ) = {
     val validator =
       new TopologyTransactionAuthorizationValidator(
-        new SynchronizerCryptoPureApi(
-          defaultStaticSynchronizerParameters,
-          Factory.cryptoApi.crypto.pureCrypto,
-        ),
+        Factory.syncCryptoClient.crypto.pureCrypto,
         store,
         validationIsFinal = validationIsFinal,
         loggerFactory,

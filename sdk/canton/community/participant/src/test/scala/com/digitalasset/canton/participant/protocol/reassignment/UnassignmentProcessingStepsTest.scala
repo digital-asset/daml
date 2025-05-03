@@ -14,6 +14,7 @@ import com.digitalasset.canton.crypto.{
   Signature,
   SigningKeyUsage,
   SyncCryptoError,
+  SynchronizerCrypto,
   SynchronizerSnapshotSyncCryptoApi,
   TestHash,
 }
@@ -157,7 +158,7 @@ final class UnassignmentProcessingStepsTest
     new InMemorySyncPersistentState(
       submittingParticipant,
       clock,
-      crypto,
+      SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
       IndexedSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
       defaultStaticSynchronizerParameters,
       enableAdditionalConsistencyChecks = true,

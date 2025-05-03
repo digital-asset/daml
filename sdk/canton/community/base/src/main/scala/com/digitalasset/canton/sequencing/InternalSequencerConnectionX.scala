@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.sequencing
 
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.health.HealthElement
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -68,7 +68,7 @@ trait InternalSequencerConnectionX extends FlagCloseable with NamedLogging {
   def buildUserConnection(
       authConfig: AuthenticationTokenManagerConfig,
       member: Member,
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
       clock: Clock,
   ): Either[SequencerConnectionXError, SequencerConnectionX]
 }

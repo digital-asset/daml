@@ -269,7 +269,10 @@ sealed trait ExportContractsIdRecomputationIntegrationTest
   ): List[LapiActiveContract] = transformActiveContracts(zeroOutSuffix, contracts)
 
   private def zeroOutSuffix(contractId: LfContractId): LfContractId = {
-    val LfContractId.V1(discriminator, suffix) = contractId
+    val LfContractId.V1(discriminator, suffix) = contractId match {
+      case cid: LfContractId.V1 => cid
+      case _ => sys.error("ContractId V2 are not supported")
+    }
     val brokenSuffix = Bytes.fromByteArray(Array.ofDim[Byte](suffix.length))
     LfContractId.V1.assertBuild(discriminator, brokenSuffix)
   }
@@ -462,7 +465,10 @@ class ExportContractsIdRecomputationDuplicateDiscriminatorIntegrationTest
     transformActiveContracts(zeroOutDiscriminators, contracts)
 
   private def zeroOutDiscriminators(contractId: LfContractId): LfContractId = {
-    val LfContractId.V1(discriminator, suffix) = contractId
+    val LfContractId.V1(discriminator, suffix) = contractId match {
+      case cid: LfContractId.V1 => cid
+      case _ => sys.error("ContractId V2 are not supported")
+    }
     val zeroes = Array.ofDim[Byte](discriminator.bytes.length)
     val brokenDiscriminator = LfHash.assertFromByteArray(zeroes)
     LfContractId.V1.assertBuild(brokenDiscriminator, suffix)

@@ -5,7 +5,7 @@ package com.digitalasset.canton.crypto.sync
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CryptoConfig, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.{CryptoConfig, CryptoProvider, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.kms.CommunityKmsFactory
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreFactory
@@ -13,10 +13,13 @@ import com.digitalasset.canton.crypto.verifier.SyncCryptoVerifier
 import com.digitalasset.canton.crypto.{
   Crypto,
   Hash,
+  RequiredEncryptionSpecs,
+  RequiredSigningSpecs,
   SigningKeyUsage,
   SynchronizerCryptoClient,
   TestHash,
 }
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{MemoryStorage, Storage}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, participant2}
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -28,13 +31,36 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.NoReportingTracerProvider
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AnyWordSpec
 
 trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   protected val sessionSigningKeysConfig: SessionSigningKeysConfig
 
-  protected lazy val otherSynchronizerId = SynchronizerId(
+  // Use JceCrypto for the configured crypto schemes
+  private lazy val jceStaticSynchronizerParameters: StaticSynchronizerParameters =
+    jceStaticSynchronizerParametersWith()
+
+  private def jceStaticSynchronizerParametersWith(
+      protocolVersion: ProtocolVersion = testedProtocolVersion
+  ): StaticSynchronizerParameters = StaticSynchronizerParameters(
+    requiredSigningSpecs = RequiredSigningSpecs(
+      CryptoProvider.Jce.signingAlgorithms.supported,
+      CryptoProvider.Jce.signingKeys.supported,
+    ),
+    requiredEncryptionSpecs = RequiredEncryptionSpecs(
+      CryptoProvider.Jce.encryptionAlgorithms.supported,
+      CryptoProvider.Jce.encryptionKeys.supported,
+    ),
+    requiredSymmetricKeySchemes = CryptoProvider.Jce.symmetric.supported,
+    requiredHashAlgorithms = CryptoProvider.Jce.hash.supported,
+    requiredCryptoKeyFormats = CryptoProvider.Jce.supportedCryptoKeyFormats,
+    requiredSignatureFormats = CryptoProvider.Jce.supportedSignatureFormats,
+    protocolVersion = protocolVersion,
+  )
+
+  protected lazy val otherSynchronizerId: SynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("other::default")
   )
 
@@ -42,6 +68,9 @@ trait SyncCryptoTest extends AnyWordSpec with BaseTest with HasExecutionContext 
     TestingTopology(sessionSigningKeysConfig = sessionSigningKeysConfig)
       .withSynchronizers(synchronizers = DefaultTestIdentities.synchronizerId, otherSynchronizerId)
       .withSimpleParticipants(participant1, participant2)
+      // We need to use JCE-enabled static synchronizer parameters because we're using a JCE crypto provider.
+      // Otherwise, validation checks will fail when attempting to sign or verify messages.
+      .withStaticSynchronizerParams(jceStaticSynchronizerParameters)
       .build(crypto, loggerFactory)
 
   protected lazy val defaultUsage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.ProtocolOnly

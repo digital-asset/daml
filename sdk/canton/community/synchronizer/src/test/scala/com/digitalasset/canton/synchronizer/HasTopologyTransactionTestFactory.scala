@@ -54,11 +54,11 @@ trait HasTopologyTransactionTestFactory {
         aggregationRule,
       )
       hash =
-        topologyTransactionFactory.cryptoApi.crypto.pureCrypto.digest(
+        topologyTransactionFactory.syncCryptoClient.crypto.pureCrypto.digest(
           HashPurpose.SubmissionRequestSignature,
           request.getCryptographicEvidence,
         )
-      signed <- topologyTransactionFactory.cryptoApi.crypto.privateCrypto
+      signed <- topologyTransactionFactory.syncCryptoClient.crypto.privateCrypto
         .sign(hash, signingKey, SigningKeyUsage.ProtocolOnly)
         .map(signature =>
           SignedContent(
@@ -121,9 +121,9 @@ trait HasTopologyTransactionTestFactory {
     } else {
       envelope.bytes
     }
-    val hash = topologyTransactionFactory.cryptoApi.crypto.pureCrypto
+    val hash = topologyTransactionFactory.syncCryptoClient.crypto.pureCrypto
       .digest(HashPurpose.SignedProtocolMessageSignature, bytes)
-    topologyTransactionFactory.cryptoApi.crypto.privateCrypto
+    topologyTransactionFactory.syncCryptoClient.crypto.privateCrypto
       .sign(hash, envelopeSigningKey, SigningKeyUsage.ProtocolOnly)
       .valueOrFailShutdown(s"Failed to sign $envelope")
       .map(sig => envelope.copy(signatures = Seq(sig)))

@@ -8,7 +8,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.environment.{
   StoreBasedSynchronizerTopologyInitializationCallback,
   SynchronizerTopologyInitializationCallback,
@@ -58,7 +58,7 @@ class SyncPersistentStateManager(
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
     ips: IdentityProvidingServiceClient,
     parameters: ParticipantNodeParameters,
-    crypto: Crypto,
+    synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
     packageDependencyResolver: PackageDependencyResolver,
     ledgerApiStore: Eval[LedgerApiStore],
@@ -230,7 +230,7 @@ class SyncPersistentStateManager(
         indexedSynchronizer,
         staticSynchronizerParameters,
         clock,
-        crypto,
+        synchronizerCryptoFactory(staticSynchronizerParameters),
         parameters,
         indexedStringStore,
         acsCounterParticipantConfigStore,
@@ -249,7 +249,7 @@ class SyncPersistentStateManager(
       new TopologyComponentFactory(
         synchronizerId,
         protocolVersion,
-        crypto,
+        synchronizerCryptoFactory(state.staticSynchronizerParameters),
         clock,
         ips,
         parameters.processingTimeouts,

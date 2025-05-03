@@ -69,8 +69,8 @@ package object canton {
   type LfPackageVersion = Ref.PackageVersion
   val LfPackageVersion: Ref.PackageVersion.type = Ref.PackageVersion
 
-  type LfInterfaceId = Ref.TypeConId
-  val LfInterfaceId: Ref.TypeConId.type = Ref.TypeConId
+  type LfInterfaceId = Ref.TypeConName
+  val LfInterfaceId: Ref.TypeConName.type = Ref.TypeConName
 
   // Timestamp used by lf and sync api
   type LfTimestamp = Time.Timestamp

@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, HasRunOnClosing}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -202,7 +202,7 @@ object SequencerConnectionXPoolFactory {
       clock: Clock,
       authConfig: AuthenticationTokenManagerConfig,
       member: Member,
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
       seedForRandomnessO: Option[Long],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -218,7 +218,7 @@ object SequencerConnectionXPoolFactory {
         clock,
         authConfig: AuthenticationTokenManagerConfig,
         member: Member,
-        crypto: Crypto,
+        crypto: SynchronizerCrypto,
         seedForRandomnessO,
         timeouts,
         loggerFactory,

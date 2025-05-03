@@ -25,7 +25,10 @@ object CantonContractIdVersion {
   def extractCantonContractIdVersion(
       contractId: LfContractId
   ): Either[MalformedContractId, CantonContractIdVersion] = {
-    val LfContractId.V1(_, suffix) = contractId
+    val LfContractId.V1(_, suffix) = contractId match {
+      case cid: LfContractId.V1 => cid
+      case _ => sys.error("ContractId V2 are not supported")
+    }
     for {
       versionedContractId <- CantonContractIdVersion
         .fromContractSuffix(suffix)

@@ -181,7 +181,7 @@ class AssignmentProcessingStepsTest
       new InMemorySyncPersistentState(
         participant,
         clock,
-        crypto,
+        SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
         IndexedSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
         defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,

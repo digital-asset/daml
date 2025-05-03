@@ -9,7 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{AtomicHealthElement, CompositeHealthElement, HealthListener}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, HasRunOnClosing, LifeCycle}
@@ -297,7 +297,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
   override def buildUserConnection(
       authConfig: AuthenticationTokenManagerConfig,
       member: Member,
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
       clock: Clock,
   ): Either[SequencerConnectionXError, GrpcSequencerConnectionX] =
     connection.channel

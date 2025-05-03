@@ -13,7 +13,7 @@ import com.digitalasset.canton.common.sequencer.SequencerConnectClient
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader.SequencerAggregatedInfo
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
+import com.digitalasset.canton.crypto.{SyncCryptoApiParticipantProvider, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -142,6 +142,11 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
           )
       )
 
+      synchronizerCrypto = SynchronizerCrypto(
+        cryptoApiProvider.crypto,
+        sequencerAggregatedInfo.staticSynchronizerParameters,
+      )
+
       (sequencerClientFactory, sequencerChannelClientFactoryO) = {
         // apply optional synchronizer specific overrides to the nodes general sequencer client config
         val sequencerClientConfig = participantNodeParameters.sequencerClient.copy(
@@ -170,7 +175,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
           SequencerClientFactory(
             synchronizerId,
             synchronizerCryptoApi,
-            cryptoApiProvider.crypto,
+            synchronizerCrypto,
             sequencerClientConfig,
             participantNodeParameters.tracing.propagation,
             testingConfig,
@@ -198,7 +203,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
               new SequencerChannelClientFactory(
                 synchronizerId,
                 synchronizerCryptoApi,
-                cryptoApiProvider.crypto,
+                synchronizerCrypto,
                 sequencerClientConfig,
                 participantNodeParameters.tracing.propagation,
                 sequencerAggregatedInfo.staticSynchronizerParameters,
@@ -266,9 +271,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
       _ <- downloadSynchronizerTopologyStateForInitializationIfNeeded(
         syncPersistentStateManager,
         synchronizerId,
-        topologyFactory.createInitialTopologySnapshotValidator(
-          sequencerAggregatedInfo.staticSynchronizerParameters
-        ),
+        topologyFactory.createInitialTopologySnapshotValidator,
         topologyClient,
         sequencerClient,
         partyNotifier,

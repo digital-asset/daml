@@ -347,6 +347,11 @@ trait LocalInstanceReference extends InstanceReference with NoTracing {
   protected def startInstance(): Either[StartupError, Unit] =
     nodes.startAndWait(name)
   protected def stopInstance(): Either[ShutdownError, Unit] = nodes.stopAndWait(name)
+
+  /** We use [[com.digitalasset.canton.crypto.Crypto]] because it supports key administration
+    * console commands that do not require the node to be connected to a synchronizer. It is
+    * intended to be used exclusively by the admin API with a trusted operator.
+    */
   protected[canton] def crypto: Crypto
 
   protected def runCommandIfRunning[Result](

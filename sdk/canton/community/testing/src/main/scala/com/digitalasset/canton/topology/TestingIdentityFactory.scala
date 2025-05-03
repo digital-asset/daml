@@ -28,6 +28,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParameters,
+  StaticSynchronizerParameters,
   SynchronizerParameters,
   TestSynchronizerParameters,
 }
@@ -121,10 +122,19 @@ final case class TestingTopology(
     synchronizerParameters: List[
       SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
     ] = defaultSynchronizerParams,
+    staticSynchronizerParameters: StaticSynchronizerParameters =
+      defaultStaticSynchronizerParameters,
     freshKeys: AtomicBoolean = new AtomicBoolean(false),
     sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
 ) {
   def mediators: Seq[MediatorId] = mediatorGroups.toSeq.flatMap(_.all)
+
+  /** Overwrites the `staticSynchronizerParameters` field.
+    */
+  def withStaticSynchronizerParams(
+      staticSynchronizerParameters: StaticSynchronizerParameters
+  ): TestingTopology =
+    this.copy(staticSynchronizerParameters = staticSynchronizerParameters)
 
   /** Define for which synchronizers the topology should apply.
     *
@@ -251,6 +261,7 @@ final case class TestingTopology(
       crypto,
       loggerFactory,
       synchronizerParameters,
+      staticSynchronizerParameters,
       sessionSigningKeysConfig,
     )
 }
@@ -312,11 +323,13 @@ object TestingTopology {
 
 class TestingIdentityFactory(
     topology: TestingTopology,
-    crypto: Crypto,
+    val crypto: Crypto,
     override protected val loggerFactory: NamedLoggerFactory,
     dynamicSynchronizerParameters: List[
       SynchronizerParameters.WithValidity[DynamicSynchronizerParameters]
     ],
+    staticSynchronizerParameters: StaticSynchronizerParameters =
+      defaultStaticSynchronizerParameters,
     sessionSigningKeysConfig: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
 ) extends NamedLogging
     with FutureHelpers {
@@ -351,7 +364,7 @@ class TestingIdentityFactory(
     forOwner(owner, availableUpToInclusive, currentSnapshotApproximationTimestamp)
       .tryForSynchronizer(
         synchronizerId,
-        defaultStaticSynchronizerParameters,
+        staticSynchronizerParameters,
       )
 
   private def ips(
@@ -764,7 +777,8 @@ class TestingOwnerWithKeys(
     multiHash: Boolean = false,
 ) extends NoTracing {
 
-  val cryptoApi = TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(keyOwner)
+  val crypto = TestingIdentityFactory(loggerFactory).crypto
+  val syncCryptoClient = TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(keyOwner)
 
   object SigningKeys {
 
@@ -924,7 +938,10 @@ class TestingOwnerWithKeys(
         // In practice the other hash should be an actual transaction hash
         // But it actually doesn't matter what the other hash is as long as the transaction hash is included
         // in the hash set
-        (NonEmpty.mk(Set, trans.hash, TxHash(TestHash.digest("test_hash"))), cryptoApi.pureCrypto)
+        (
+          NonEmpty.mk(Set, trans.hash, TxHash(TestHash.digest("test_hash"))),
+          syncCryptoClient.pureCrypto,
+        )
       )
     } else {
       None
@@ -936,7 +953,7 @@ class TestingOwnerWithKeys(
             trans,
             signingKeys.map(_.fingerprint),
             isProposal,
-            cryptoApi.crypto.privateCrypto,
+            syncCryptoClient.crypto.privateCrypto,
             BaseTest.testedProtocolVersion,
             multiHash = hash,
           )
@@ -1032,11 +1049,11 @@ class TestingOwnerWithKeys(
     Await
       .result(
         keySpecO.fold(
-          cryptoApi.crypto
+          syncCryptoClient.crypto
             .generateSigningKey(usage = usage, name = Some(KeyName.tryCreate(name)))
             .value
         )(keySpec =>
-          cryptoApi.crypto
+          syncCryptoClient.crypto
             .generateSigningKey(
               keySpec = keySpec,
               usage = usage,
@@ -1052,7 +1069,7 @@ class TestingOwnerWithKeys(
   def genEncKey(name: String): EncryptionPublicKey =
     Await
       .result(
-        cryptoApi.crypto
+        syncCryptoClient.crypto
           .generateEncryptionKey(name = Some(KeyName.tryCreate(name)))
           .value,
         30.seconds,
