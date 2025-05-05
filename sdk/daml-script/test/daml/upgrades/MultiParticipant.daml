@@ -32,8 +32,8 @@ main : TestTree
 main = tests
   [ ("Both participants have v2, upgraded create succeeds.", bothParticipantsV2)
   -- TODO(https://github.com/DACH-NY/canton/issues/25366): re-enable these tests
-  --, brokenOnIDELedger ("Submitting participant has v2, other has v1, expect v1 used.", submitV2OtherV1)
-  --, brokenOnIDELedger ("Submitting participant has v1, other has v2, expect v1 used.", submitV1OtherV2)
+  , brokenOnIDELedger ("Submitting participant has v2, other has v1, expect v1 used.", submitV2OtherV1)
+  , brokenOnIDELedger ("Submitting participant has v1, other has v2, expect v1 used.", submitV1OtherV2)
   ]
 
 bothParticipantsV2 : Test
