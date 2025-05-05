@@ -17,6 +17,7 @@ module UpgradeTestLib (
   broken,
   brokenOnCanton,
   brokenOnIDELedger,
+  waitForCid,
   withUnvettedPackage,
   withUnvettedPackageOnParticipant,
   module Daml.Script,
@@ -29,6 +30,7 @@ import Daml.Script.Internal
 import DA.Assert
 import DA.Fail
 import DA.Foldable
+import DA.Time
 
 import DA.Text qualified as T
 
@@ -124,3 +126,17 @@ brokenOnIDELedger (name, act) =
     IdeLedger -> brokenScript act testState
     _ -> act testState
   )
+
+waitForCid : (Template t, HasEnsure t) => Party -> ContractId t -> Script ()
+waitForCid = waitManyTimesForCid 20
+
+waitManyTimesForCid : (Template t, HasEnsure t) => Int -> Party -> ContractId t -> Script ()
+waitManyTimesForCid tries p cid
+  | tries <= 0 = abort $ "Cid " <> show cid <> " did not appear"
+  | otherwise = do
+    r <- queryContractId p cid
+    case r of
+      None -> do
+        sleep (milliseconds 200)
+        waitManyTimesForCid (tries - 1) p cid
+      Some _ -> pure ()

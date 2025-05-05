@@ -15,10 +15,7 @@ import DA.Time (seconds)
 
 -- These tests rely on unvetting, none of them will work on IDE
 main : TestTree
-main = tests $ []
-
--- TODO(https://github.com/DACH-NY/canton/issues/25366): re-enable these tests
-toRestore =
+main = tests $
   [ subtree "exercise"
     -- TODO(https://github.com/DACH-NY/canton/issues/25018): All thes transactions below are expected to fail but succeed.
     [ broken ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command (should change the expectation to fails)", v1UnvettedOnSubmitterCommand)
@@ -258,7 +255,9 @@ unvettedTest makeSubmission assertResult participant sigs obs = do
   -- and as such, cannot have their signatures included simply using `submitMulti`
   cidV1 <-
     foldlA
-      (\cid p -> p `submit` exerciseExactCmd cid V1.PromoteObserver with newSig = p)
+      (\cid p -> do
+        waitForCid p cid
+        p `submit` exerciseExactCmd cid V1.PromoteObserver with newSig = p)
       cidV1Prelim
       sigs
   let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
@@ -429,6 +428,7 @@ fetchDisclosedSubmitter participant makeChoice = test $ do
       disclosure <- fromSome <$> queryDisclosure alice cidV2
       -- Setup helper with alice as a signatory, so the disclosure can be fetched
       cidWithoutAlice <- bob `submit` createCmd ((testTemplateHelper bob) with obs = [alice])
+      waitForCid alice cidWithoutAlice
       cidWithAlice <- alice `submit` exerciseExactCmd cidWithoutAlice HelperPromoteObserver with newSig = alice
       (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidWithAlice (makeChoice cidV2 iid)
     )
