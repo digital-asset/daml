@@ -29,7 +29,7 @@ import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import scala.concurrent.ExecutionContext
 
 object PackageUpgradeValidator {
-  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+  type PackageMap = Map[Ref.PackageId, (Boolean, Ref.PackageName, Ref.PackageVersion)]
 }
 
 class PackageUpgradeValidator(
@@ -66,7 +66,7 @@ class PackageUpgradeValidator(
             // by a cache depending on the order in which the packages are uploaded.
             validatePackageUpgrade((pkgId, pkg), packageMap, upgradingPackagesMap)
           )
-          res <- go(packageMap + ((pkgId, (pkg.metadata.name, pkg.metadata.version))), rest)
+          res <- go(packageMap + ((pkgId, (supportsUpgrades, pkg.metadata.name, pkg.metadata.version))), rest)
         } yield res
     }
     go(packageMap, packagesInTopologicalOrder).map(_ => ())
@@ -74,15 +74,16 @@ class PackageUpgradeValidator(
 
   private def getUpgradablePackageIdVersionMap(
       packageMetadataSnapshot: PackageMetadata
-  ): Map[PackageId, (PackageName, Ref.PackageVersion)] =
-    packageMetadataSnapshot.packageIdVersionMap.view.filterKeys { packageId =>
-      packageMetadataSnapshot.packageUpgradabilityMap
-        .getOrElse(
-          packageId,
-          throw new IllegalStateException(
-            s"Inconsistent package metadata: package-id $packageId present in packageIdVersion map, missing from the package upgradability map $packageId"
-          ),
-        )
+  ): Map[PackageId, (Boolean, PackageName, Ref.PackageVersion)] =
+    packageMetadataSnapshot.packageIdVersionMap.view.map { case (pkgId, (pkgName, pkgVersion)) =>
+      val upgradable = packageMetadataSnapshot.packageUpgradabilityMap
+            .getOrElse(
+              pkgId,
+              throw new IllegalStateException(
+                s"Inconsistent package metadata: package-id $pkgId present in packageIdVersion map, missing from the package upgradability map $pkgId"
+              ),
+            )
+      (pkgId, (upgradable, pkgName, pkgVersion))
     }.toMap
 
   private def validatePackageUpgrade(
@@ -179,23 +180,24 @@ class PackageUpgradeValidator(
 
   private def existingVersionedPackageId(
       pkg: Ast.Package,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Boolean, Ref.PackageName, Ref.PackageVersion)],
   ): Option[Ref.PackageId] = {
     val pkgName = pkg.metadata.name
     val pkgVersion = pkg.metadata.version
-    packageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`)) => pkgId }
+    packageMap.collectFirst { case (pkgId, (_, `pkgName`, `pkgVersion`)) => pkgId }
   }
 
   private def minimalVersionedDar(
       pkg: Ast.Package,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Boolean, Ref.PackageName, Ref.PackageVersion)],
       upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Option[(Ref.PackageId, Ast.Package)]] = {
     val pkgName = pkg.metadata.name
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      .filter { case (_, (upgradable, _, _)) => upgradable }
+      .collect { case (pkgId, (_, `pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
       .filter { case (_, version) => pkg.metadata.version < version }
@@ -213,14 +215,15 @@ class PackageUpgradeValidator(
 
   private def maximalVersionedDar(
       pkg: Ast.Package,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Boolean, Ref.PackageName, Ref.PackageVersion)],
       upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): FutureUnlessShutdown[Option[(Ref.PackageId, Ast.Package)]] = {
     val pkgName = pkg.metadata.name
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      .filter { case (_, (upgradable, _, _)) => upgradable }
+      .collect { case (pkgId, (_, `pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
       .filter { case (_, version) => pkg.metadata.version > version }
