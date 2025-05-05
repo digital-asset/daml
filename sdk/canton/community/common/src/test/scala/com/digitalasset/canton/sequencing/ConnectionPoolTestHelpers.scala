@@ -9,7 +9,7 @@ import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
 import com.digitalasset.canton.connection.v30.GetApiInfoResponse
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
+import com.digitalasset.canton.crypto.{Fingerprint, SynchronizerCrypto}
 import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.sequencer.api.v30 as SequencerService
@@ -123,8 +123,13 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
 
   protected lazy val authConfig: AuthenticationTokenManagerConfig =
     AuthenticationTokenManagerConfig()
-  protected lazy val testCrypto: Crypto =
-    SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
+  protected lazy val testCrypto: SynchronizerCrypto =
+    SynchronizerCrypto(
+      SymbolicCrypto
+        .create(testedReleaseProtocolVersion, timeouts, loggerFactory),
+      defaultStaticSynchronizerParameters,
+    )
+
   protected lazy val testMember: Member = ParticipantId("test")
 
   protected def testSynchronizerId(index: Int): SynchronizerId =

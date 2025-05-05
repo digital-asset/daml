@@ -52,7 +52,7 @@ class TopologyStoreTestData(
     val signatures = NonEmpty
       .from(
         keysWithUsage.toSeq.map { case (keyId, usage) =>
-          factory.cryptoApi.crypto.privateCrypto
+          factory.syncCryptoClient.crypto.privateCrypto
             .sign(tx.hash.hash, keyId, usage)
             .value
             .onShutdown(fail("shutdown"))(

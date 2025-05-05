@@ -16,7 +16,7 @@ import com.digitalasset.canton.common.sequencer.{
 }
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{LocalNodeConfig, ProcessingTimeout, TopologyConfig}
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.{Crypto, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.*
@@ -220,7 +220,7 @@ class ParticipantTopologyDispatcher(
       executionContext: ExecutionContextExecutor,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
-    getState(synchronizerId).flatMap { _ =>
+    getState(synchronizerId).flatMap { state =>
       SynchronizerOnboardingOutbox
         .initiateOnboarding(
           alias,
@@ -233,7 +233,7 @@ class ParticipantTopologyDispatcher(
           loggerFactory
             .append("synchronizerId", synchronizerId.toString)
             .appendUnnamedKey("onboarding", "onboarding"),
-          crypto,
+          SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
         )
     }
 
@@ -275,7 +275,7 @@ class ParticipantTopologyDispatcher(
               targetStore = state.topologyStore,
               timeouts = timeouts,
               loggerFactory = synchronizerLoggerFactory,
-              crypto = crypto,
+              crypto = SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
               broadcastBatchSize = topologyConfig.broadcastBatchSize,
             )
 
@@ -290,7 +290,7 @@ class ParticipantTopologyDispatcher(
               targetStore = state.topologyStore,
               timeouts = timeouts,
               loggerFactory = loggerFactory,
-              crypto = crypto,
+              crypto = SynchronizerCrypto(crypto, state.staticSynchronizerParameters),
               broadcastBatchSize = topologyConfig.broadcastBatchSize,
               futureSupervisor = futureSupervisor,
             )
@@ -346,7 +346,7 @@ private class SynchronizerOnboardingOutbox(
     val authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
-    override protected val crypto: Crypto,
+    override protected val crypto: SynchronizerCrypto,
 ) extends StoreBasedSynchronizerOutboxDispatchHelper
     with FlagCloseable {
 
@@ -443,7 +443,7 @@ object SynchronizerOnboardingOutbox {
       authorizedStore: TopologyStore[TopologyStoreId.AuthorizedStore],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,

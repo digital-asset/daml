@@ -9,7 +9,7 @@ import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
+import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -44,7 +44,7 @@ import scala.concurrent.ExecutionContext
 class InMemorySyncPersistentState(
     participantId: ParticipantId,
     clock: Clock,
-    crypto: Crypto,
+    crypto: SynchronizerCrypto,
     override val indexedSynchronizer: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val enableAdditionalConsistencyChecks: Boolean,

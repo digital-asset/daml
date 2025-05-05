@@ -331,11 +331,12 @@ class LifeCycleScopeImplTest
 }
 
 object LifeCycleScopeImplTest {
-  private class TryUnlessShutdownFFixture[F[_], Content[_]](
-      val base: ThereafterTest.Fixture[F, Content]
+  private class TryUnlessShutdownFFixture[F[_], Content[_], Shape](
+      val base: ThereafterTest.Fixture[F, Content, Shape]
   ) extends ThereafterTest.Fixture[
         Lambda[a => Try[UnlessShutdown[F[a]]]],
         ThereafterTryUnlessShutdownFContent[Content, *],
+        Shape,
       ] {
     override type X = base.X
     type FF[A] = Try[UnlessShutdown[F[A]]]
@@ -358,5 +359,12 @@ object LifeCycleScopeImplTest {
       base.theContent(
         content.get.onShutdown(throw new NoSuchElementException(("AbortedDueToShutdown")))
       )
+
+    override def splitContent[A](
+        content: ThereafterTryUnlessShutdownFContent[Content, A]
+    ): Option[(Shape, A)] = content match {
+      case Success(UnlessShutdown.Outcome(x)) => base.splitContent(x)
+      case _ => None
+    }
   }
 }

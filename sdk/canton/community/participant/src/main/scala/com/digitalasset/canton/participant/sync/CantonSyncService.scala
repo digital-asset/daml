@@ -1450,7 +1450,6 @@ class CantonSyncService(
             identityPusher,
             synchronizerHandle.topologyFactory
               .createTopologyProcessorFactory(
-                synchronizerHandle.staticParameters,
                 partyNotifier,
                 missingKeysAlerter,
                 synchronizerHandle.topologyClient,

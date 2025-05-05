@@ -11,7 +11,7 @@ import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.crypto.{Crypto, SyncCryptoApi, SyncCryptoClient}
+import com.digitalasset.canton.crypto.{SyncCryptoApi, SyncCryptoClient, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NamedLoggingContext}
@@ -65,7 +65,7 @@ object SequencerClientFactory {
   def apply(
       synchronizerId: SynchronizerId,
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
       config: SequencerClientConfig,
       traceContextPropagation: TracingConfig.Propagation,
       testingConfig: TestingConfigInternal,

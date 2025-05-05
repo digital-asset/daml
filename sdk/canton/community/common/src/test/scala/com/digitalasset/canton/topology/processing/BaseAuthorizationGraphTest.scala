@@ -132,7 +132,7 @@ trait BaseAuthorizationGraphTest { self: BaseTest =>
       key: SigningPublicKey,
   ): AuthorizedTopologyTransaction[T] = {
     // in this test we only sign namespace delegations so we can limit the usage to NamespaceOnly
-    val signature = factory.cryptoApi.crypto.privateCrypto
+    val signature = factory.syncCryptoClient.crypto.privateCrypto
       .sign(
         authTx.hash.hash,
         key.fingerprint,

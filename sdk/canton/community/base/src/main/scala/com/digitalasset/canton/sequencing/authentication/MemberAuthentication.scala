@@ -33,7 +33,7 @@ trait MemberAuthentication {
       nonce: Nonce,
       synchronizerId: SynchronizerId,
       possibleSigningKeys: NonEmpty[Seq[Fingerprint]],
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
@@ -116,7 +116,7 @@ object MemberAuthentication extends MemberAuthentication {
       nonce: Nonce,
       synchronizerId: SynchronizerId,
       possibleSigningKeys: NonEmpty[Seq[Fingerprint]],
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,

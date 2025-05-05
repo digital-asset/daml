@@ -570,7 +570,7 @@ class IndexServiceImplSpec
         filtersByParty = Map(
           party ->
             CumulativeFilter(
-              templateFilters = Set(TemplateFilter(template3, false)),
+              templateFilters = Set(TemplateFilter(template3.toRef, false)),
               interfaceFilters = Set(
                 iface1Filter,
                 iface2Filter,
@@ -1410,7 +1410,7 @@ object IndexServiceImplSpec {
     val packageName1Ref: Ref.PackageRef = Ref.PackageRef.Name(packageName1)
     val template1: Identifier = Identifier.assertFromString("PackageId:ModuleName:template1")
     val template1Filter: TemplateFilter =
-      TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
+      TemplateFilter(templateTypeRef = template1.toRef, includeCreatedEventBlob = false)
 
     val packageNameScopedTemplateFilter: TemplateFilter =
       TemplateFilter(
@@ -1419,13 +1419,13 @@ object IndexServiceImplSpec {
       )
     val template2: Identifier = Identifier.assertFromString("PackageId:ModuleName:template2")
     val template2Filter: TemplateFilter =
-      TemplateFilter(templateId = template2, includeCreatedEventBlob = false)
+      TemplateFilter(templateTypeRef = template2.toRef, includeCreatedEventBlob = false)
     val template3: Identifier = Identifier.assertFromString("PackageId:ModuleName:template3")
     val template3Filter: TemplateFilter =
-      TemplateFilter(templateId = template3, includeCreatedEventBlob = false)
+      TemplateFilter(templateTypeRef = template3.toRef, includeCreatedEventBlob = false)
     val iface1: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface1")
     val iface1Filter: InterfaceFilter = InterfaceFilter(
-      TypeConRef.fromIdentifier(iface1),
+      iface1.toRef,
       includeView = true,
       includeCreatedEventBlob = false,
     )
@@ -1436,7 +1436,7 @@ object IndexServiceImplSpec {
     )
     val iface2: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface2")
     val iface2Filter: InterfaceFilter = InterfaceFilter(
-      TypeConRef.fromIdentifier(iface2),
+      iface2.toRef,
       includeView = true,
       includeCreatedEventBlob = false,
     )

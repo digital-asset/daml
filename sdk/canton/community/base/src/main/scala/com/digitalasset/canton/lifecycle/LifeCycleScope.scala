@@ -4,6 +4,7 @@
 package com.digitalasset.canton.lifecycle
 
 import cats.Eval
+import com.digitalasset.canton.Uninhabited
 import com.digitalasset.canton.discard.Implicits.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -281,34 +282,52 @@ private[lifecycle] object LifeCycleScopeImpl {
   private[lifecycle] type ThereafterTryUnlessShutdownFContent[C[_], A] = Try[UnlessShutdown[C[A]]]
 
   @VisibleForTesting
-  private[lifecycle] trait ThereafterTryUnlessShutdownF[F[_], C[_]]
+  private[lifecycle] trait ThereafterTryUnlessShutdownF[F[_], C[_], S]
       extends Thereafter[Lambda[a => Try[UnlessShutdown[F[a]]]]] {
-    def F: Thereafter.Aux[F, C]
+    def F: Thereafter.Aux[F, C, S]
     override type Content[A] = ThereafterTryUnlessShutdownFContent[C, A]
+    override def covariantContent[A, B](implicit ev: A <:< B): Content[A] <:< Content[B] =
+      F.covariantContent(ev).liftCo[Lambda[`+a` => Try[UnlessShutdown[a]]]]
+
+    override type Shape = S
+
+    override def withShape[A](shape: S, x: A): ThereafterTryUnlessShutdownFContent[C, A] =
+      Success(UnlessShutdown.Outcome(F.withShape(shape, x)))
 
     @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-    override def thereafter[A](
-        x: Try[UnlessShutdown[F[A]]]
-    )(body: Try[UnlessShutdown[C[A]]] => Unit): Try[UnlessShutdown[F[A]]] = x match {
+    override def transformChaining[A](f: Try[UnlessShutdown[F[A]]])(
+        empty: ThereafterTryUnlessShutdownFContent[C, Uninhabited] => Unit,
+        single: (Shape, A) => A,
+    ): Try[UnlessShutdown[F[A]]] = f match {
       case Success(Outcome(fa)) =>
-        Try(Outcome(F.thereafter(fa)(c => body(Success(Outcome(c))))))
-      case other =>
-        Thereafter[Try].thereafter(other.asInstanceOf[Try[UnlessShutdown[Nothing]]])(body)
+        Try(
+          Outcome(
+            F.transformChaining(fa)(
+              empty = fcontent => empty(Success(Outcome(fcontent))),
+              single = single,
+            )
+          )
+        )
+      case other @ (Success(AbortedDueToShutdown) | Failure(_)) =>
+        Thereafter[Try].transformChaining(
+          other.asInstanceOf[Try[UnlessShutdown[Nothing]]]
+        )(
+          empty = empty,
+          single = { (_, aborted) =>
+            empty(Success(aborted))
+            aborted
+          },
+        )
     }
-
-    override def maybeContent[A](content: Try[UnlessShutdown[C[A]]]): Option[A] =
-      content match {
-        case Success(Outcome(c)) => F.maybeContent(c)
-        case _ => None
-      }
   }
 
   object ThereafterTryUnlessShutdownF {
     def instance[F[_]](implicit FF: Thereafter[F]): Thereafter.Aux[
       Lambda[a => Try[UnlessShutdown[F[a]]]],
       ThereafterTryUnlessShutdownFContent[FF.Content, *],
-    ] = new ThereafterTryUnlessShutdownF[F, FF.Content] {
-      override def F: Thereafter.Aux[F, FF.Content] = FF
+      FF.Shape,
+    ] = new ThereafterTryUnlessShutdownF[F, FF.Content, FF.Shape] {
+      override def F: Thereafter.Aux[F, FF.Content, FF.Shape] = FF
     }
   }
 }

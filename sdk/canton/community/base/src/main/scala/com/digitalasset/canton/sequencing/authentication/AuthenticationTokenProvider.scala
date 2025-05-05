@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.{
   ProcessingTimeout,
   UniformCantonConfigValidation,
 }
-import com.digitalasset.canton.crypto.{Crypto, Fingerprint, Nonce}
+import com.digitalasset.canton.crypto.{Fingerprint, Nonce, SynchronizerCrypto}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -70,7 +70,7 @@ object AuthenticationTokenManagerConfig {
 class AuthenticationTokenProvider(
     synchronizerId: SynchronizerId,
     member: Member,
-    crypto: Crypto,
+    crypto: SynchronizerCrypto,
     supportedProtocolVersions: Seq[ProtocolVersion],
     config: AuthenticationTokenManagerConfig,
     override protected val timeouts: ProcessingTimeout,

@@ -252,7 +252,7 @@ class SequencerReader(
           nextReadTimestamp = timestampInclusive
             .map(_.immediatePredecessor)
             .getOrElse(
-              CantonTimestamp.MinValue
+              memberOnboardingTxSequencingTime
             ),
           nextPreviousEventTimestamp = previousEventTimestamp,
           latestTopologyClientRecipientTimestamp = latestTopologyClientRecipientTimestamp.some,

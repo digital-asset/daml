@@ -43,7 +43,7 @@ object LfGenerator {
         name.segments.relaxedSlice(0, 2).map(name => Ref.Name.assertFromString(name.take(10)))
       )
     id.copy(
-      packageId = Ref.PackageId.assertFromString(id.packageId.take(10)),
+      pkg = Ref.PackageId.assertFromString(id.packageId.take(10)),
       qualifiedName = Ref.QualifiedName.assertFromString(
         truncateDotted(id.qualifiedName.module).dottedName + ":" + truncateDotted(
           id.qualifiedName.name

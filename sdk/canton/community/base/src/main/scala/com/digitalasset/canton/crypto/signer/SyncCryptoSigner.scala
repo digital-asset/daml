@@ -6,13 +6,12 @@ package com.digitalasset.canton.crypto.signer
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.SessionSigningKeysConfig
-import com.digitalasset.canton.crypto.store.CryptoPrivateStore
 import com.digitalasset.canton.crypto.{
-  CryptoPrivateApi,
   Hash,
   Signature,
   SigningKeyUsage,
   SyncCryptoError,
+  SynchronizerCrypto,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -44,14 +43,13 @@ object SyncCryptoSigner {
 
   def createWithLongTermKeys(
       member: Member,
-      privateCrypto: CryptoPrivateApi,
-      cryptoPrivateStore: CryptoPrivateStore,
+      crypto: SynchronizerCrypto,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext) =
     new SyncCryptoSignerWithLongTermKeys(
       member,
-      privateCrypto,
-      cryptoPrivateStore,
+      crypto.privateCrypto,
+      crypto.cryptoPrivateStore,
       loggerFactory,
     )
 
@@ -59,8 +57,7 @@ object SyncCryptoSigner {
       synchronizerId: SynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       member: Member,
-      privateCrypto: CryptoPrivateApi,
-      cryptoPrivateStore: CryptoPrivateStore,
+      crypto: SynchronizerCrypto,
       sessionSigningKeysConfig: SessionSigningKeysConfig,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
@@ -69,15 +66,14 @@ object SyncCryptoSigner {
         synchronizerId,
         staticSynchronizerParameters,
         member,
-        privateCrypto,
+        crypto.privateCrypto,
         sessionSigningKeysConfig,
         loggerFactory,
       )
     } else
       SyncCryptoSigner.createWithLongTermKeys(
         member,
-        privateCrypto,
-        cryptoPrivateStore,
+        crypto,
         loggerFactory,
       )
 

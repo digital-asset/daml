@@ -16,7 +16,12 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi, SyncCryptoApiParticipantProvider}
+import com.digitalasset.canton.crypto.{
+  Crypto,
+  CryptoPureApi,
+  SyncCryptoApiParticipantProvider,
+  SynchronizerCrypto,
+}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.*
@@ -55,6 +60,7 @@ import com.digitalasset.canton.participant.synchronizer.grpc.GrpcSynchronizerReg
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
@@ -433,7 +439,8 @@ class ParticipantNodeBootstrap(
           persistentState.map(_.acsCounterParticipantConfigStore).value,
           ips,
           parameters,
-          crypto,
+          (staticSynchronizerParameters: StaticSynchronizerParameters) =>
+            SynchronizerCrypto(crypto, staticSynchronizerParameters),
           clock,
           tryGetPackageDependencyResolver(),
           persistentState.map(_.ledgerApiStore),

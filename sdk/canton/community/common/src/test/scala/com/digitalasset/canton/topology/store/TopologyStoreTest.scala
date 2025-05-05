@@ -8,7 +8,6 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -436,10 +435,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               protocolVersion = testedProtocolVersion,
-              pureCrypto = new SynchronizerCryptoPureApi(
-                defaultStaticSynchronizerParameters,
-                testData.factory.cryptoApi.crypto.pureCrypto,
-              ),
+              pureCrypto = testData.factory.syncCryptoClient.crypto.pureCrypto,
               store = store,
               timeouts = timeouts,
               loggerFactory = loggerFactory,
@@ -580,10 +576,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               testedProtocolVersion,
-              new SynchronizerCryptoPureApi(
-                defaultStaticSynchronizerParameters,
-                factory.cryptoApi.crypto.pureCrypto,
-              ),
+              factory.syncCryptoClient.crypto.pureCrypto,
               store,
               timeouts,
               loggerFactory,
@@ -628,10 +621,7 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
           for {
             _ <- new InitialTopologySnapshotValidator(
               testedProtocolVersion,
-              new SynchronizerCryptoPureApi(
-                defaultStaticSynchronizerParameters,
-                factory.cryptoApi.crypto.pureCrypto,
-              ),
+              factory.syncCryptoClient.crypto.pureCrypto,
               store,
               timeouts,
               loggerFactory,

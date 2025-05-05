@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.Eval
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.crypto.{Crypto, CryptoPureApi}
+import com.digitalasset.canton.crypto.{CryptoPureApi, SynchronizerCrypto}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -62,7 +62,7 @@ object SyncPersistentState {
       synchronizerIdx: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       clock: Clock,
-      crypto: Crypto,
+      crypto: SynchronizerCrypto,
       parameters: ParticipantNodeParameters,
       indexedStringStore: IndexedStringStore,
       acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,

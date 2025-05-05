@@ -9,6 +9,7 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasToByteString
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 /** Wraps the CryptoPureApi to include static synchronizer parameters, ensuring that during
@@ -18,11 +19,12 @@ import com.google.protobuf.ByteString
   * encryption by this (honest) participant, we rely on the synchronizer handshake to ensure that
   * only supported schemes within the synchronizer are used.
   *
-  * TODO(#20714): decryption checks come in a separate PR
+  * TODO(#25260): Refactor SynchronizerCryptoPureApi
   */
 final class SynchronizerCryptoPureApi(
     staticSynchronizerParameters: StaticSynchronizerParameters,
-    pureCrypto: CryptoPureApi,
+    @VisibleForTesting
+    val pureCrypto: CryptoPureApi,
 ) extends CryptoPureApi {
 
   private def checkAgainstStaticSynchronizerParams(

@@ -285,7 +285,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
               )
             )
 
-        val LfContractId.V1(discriminator, _) = contract.contractId
+        val LfContractId.V1(discriminator, _) = contract.contractId match {
+          case cid: LfContractId.V1 => cid
+          case _ => sys.error("ContractId V2 are not supported")
+        }
         val pureCrypto = participant.underlying
           .map(_.cryptoPureApi)
           .getOrElse(sys.error("where is my crypto?"))

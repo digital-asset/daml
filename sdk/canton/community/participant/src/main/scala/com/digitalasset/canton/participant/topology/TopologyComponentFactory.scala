@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.crypto.{Crypto, SynchronizerCryptoPureApi}
+import com.digitalasset.canton.crypto.SynchronizerCrypto
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -14,7 +14,6 @@ import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessing
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
-import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.client.*
@@ -34,7 +33,7 @@ import scala.concurrent.ExecutionContext
 class TopologyComponentFactory(
     synchronizerId: SynchronizerId,
     protocolVersion: ProtocolVersion,
-    crypto: Crypto,
+    crypto: SynchronizerCrypto,
     clock: Clock,
     ips: IdentityProvidingServiceClient,
     timeouts: ProcessingTimeout,
@@ -49,7 +48,6 @@ class TopologyComponentFactory(
 ) {
 
   def createTopologyProcessorFactory(
-      staticSynchronizerParameters: StaticSynchronizerParameters,
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
       topologyClient: SynchronizerTopologyClientWithInit,
@@ -93,7 +91,7 @@ class TopologyComponentFactory(
       terminateTopologyProcessingFUS.map { terminateTopologyProcessing =>
         val processor = new TopologyTransactionProcessor(
           synchronizerId,
-          new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+          crypto.pureCrypto,
           topologyStore,
           acsCommitmentScheduleEffectiveTime,
           terminateTopologyProcessing,
@@ -111,14 +109,12 @@ class TopologyComponentFactory(
     }
   }
 
-  def createInitialTopologySnapshotValidator(
-      staticSynchronizerParameters: StaticSynchronizerParameters
-  )(implicit
+  def createInitialTopologySnapshotValidator(implicit
       executionContext: ExecutionContext
   ): InitialTopologySnapshotValidator =
     new InitialTopologySnapshotValidator(
       protocolVersion,
-      new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto),
+      crypto.pureCrypto,
       topologyStore,
       timeouts,
       loggerFactory,

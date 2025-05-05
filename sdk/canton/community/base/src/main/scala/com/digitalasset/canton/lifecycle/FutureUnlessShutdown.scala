@@ -8,14 +8,15 @@ import cats.data.EitherT
 import cats.{Applicative, FlatMap, Functor, Id, Monad, MonadThrow, Monoid, Parallel, ~>}
 import com.daml.metrics.api.MetricHandle.{Counter, Timer}
 import com.daml.metrics.{Timed, Tracked}
+import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{LoggerUtil, Thereafter, ThereafterAsync}
 import com.digitalasset.canton.{
   DoNotDiscardLikeFuture,
   DoNotReturnFromSynchronizedLikeFuture,
   DoNotTraverseLikeFuture,
+  Uninhabited,
 }
 
 import scala.collection.BuildFrom
@@ -425,22 +426,46 @@ object FutureUnlessShutdownImpl {
 
   class FutureUnlessShutdownThereafter(implicit ec: ExecutionContext)
       extends ThereafterAsync[FutureUnlessShutdown] {
+    override def executionContext: ExecutionContext = ec
+
     override type Content[A] = FutureUnlessShutdownThereafterContent[A]
-    override def thereafter[A](f: FutureUnlessShutdown[A])(
-        body: Try[UnlessShutdown[A]] => Unit
-    ): FutureUnlessShutdown[A] =
-      FutureUnlessShutdown(f.unwrap.thereafter(body))
 
-    override def thereafterF[A](f: FutureUnlessShutdown[A])(
-        body: Try[UnlessShutdown[A]] => Future[Unit]
-    ): FutureUnlessShutdown[A] =
-      FutureUnlessShutdown(ThereafterAsync[Future].thereafterF(f.unwrap)(body))
+    override def covariantContent[A, B](implicit ev: A <:< B): Content[A] <:< Content[B] =
+      ev.liftCo[Lambda[`+a` => Try[UnlessShutdown[a]]]]
 
-    override def maybeContent[A](content: FutureUnlessShutdownThereafterContent[A]): Option[A] =
-      content match {
-        case Success(UnlessShutdown.Outcome(x)) => Some(x)
-        case _ => None
-      }
+    override type Shape = Unit
+    override def withShape[A](shape: Unit, x: A): FutureUnlessShutdownThereafterContent[A] =
+      Success(UnlessShutdown.Outcome(x))
+
+    override def transformChaining[A](f: FutureUnlessShutdown[A])(
+        empty: FutureUnlessShutdownThereafterContent[Uninhabited] => Unit,
+        single: (Shape, A) => A,
+    ): FutureUnlessShutdown[A] = FutureUnlessShutdown(
+      Thereafter[Future].transformChaining(f.unwrap)(
+        empty = empty,
+        single = {
+          case (_, UnlessShutdown.AbortedDueToShutdown) =>
+            empty(Success(UnlessShutdown.AbortedDueToShutdown))
+            AbortedDueToShutdown
+          case (shape, UnlessShutdown.Outcome(x)) => UnlessShutdown.Outcome(single(shape, x))
+        },
+      )
+    )
+
+    override def transformChainingF[A](f: FutureUnlessShutdown[A])(
+        empty: FutureUnlessShutdownThereafterContent[Uninhabited] => Future[Unit],
+        single: (Unit, A) => Future[A],
+    ): FutureUnlessShutdown[A] = FutureUnlessShutdown(
+      ThereafterAsync[Future].transformChainingF(f.unwrap)(
+        empty = empty,
+        single = {
+          case (_, UnlessShutdown.AbortedDueToShutdown) =>
+            empty(Success(UnlessShutdown.AbortedDueToShutdown))
+              .map(_ => UnlessShutdown.AbortedDueToShutdown)
+          case (shape, UnlessShutdown.Outcome(x)) => single(shape, x).map(UnlessShutdown.Outcome(_))
+        },
+      )
+    )
   }
 
   /** Use a type synonym instead of a type lambda so that the Scala compiler does not get confused
@@ -449,7 +474,7 @@ object FutureUnlessShutdownImpl {
   type FutureUnlessShutdownThereafterContent[A] = Try[UnlessShutdown[A]]
   implicit def thereafterFutureUnlessShutdown(implicit
       ec: ExecutionContext
-  ): ThereafterAsync.Aux[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent] =
+  ): ThereafterAsync.Aux[FutureUnlessShutdown, FutureUnlessShutdownThereafterContent, Unit] =
     new FutureUnlessShutdownThereafter
 
   /** Enable `onShutdown` syntax on [[cats.data.EitherT]]`[`[[FutureUnlessShutdown]]`...]`. */

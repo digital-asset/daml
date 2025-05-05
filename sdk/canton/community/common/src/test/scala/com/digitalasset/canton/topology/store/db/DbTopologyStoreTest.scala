@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.store.db
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.topology.PartyId
@@ -69,10 +68,7 @@ trait DbTopologyStoreTest extends TopologyStoreTest with DbTopologyStoreHelper {
       for {
         _ <- new InitialTopologySnapshotValidator(
           testedProtocolVersion,
-          new SynchronizerCryptoPureApi(
-            defaultStaticSynchronizerParameters,
-            testData.factory.cryptoApi.crypto.pureCrypto,
-          ),
+          testData.factory.syncCryptoClient.crypto.pureCrypto,
           store,
           timeouts,
           loggerFactory,
