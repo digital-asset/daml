@@ -586,14 +586,21 @@ private[lf] object SBuiltinFun {
     ): Control[Nothing] = {
       val value = getSText(args, 0)
       V.ContractId.V1.fromString(value) match {
+        case Right(cid) if !cid.isLocal => Control.Value(SContractId(cid))
+        case Right(_) =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.MalformedContractId(value, "unexpected local contract ID"),
+            )
+          )
         case Left(error) =>
           Control.Error(
             IE.Dev(
               NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.MalformedContractId(value, error)
+              IE.Dev.MalformedContractId(value, error),
             )
           )
-        case Right(cid) => Control.Value(SContractId(cid))
       }
     }
   }
