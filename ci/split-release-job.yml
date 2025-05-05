@@ -117,6 +117,17 @@ jobs:
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
+        eval "$(cd sdk; ./dev-env/bin/dade-assist)"
+        source $(bash-lib)
+        wrap_gcloud "$GCRED" "./ci/get-unifi.sh"
+        ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) $REGISTRY
+      name: publish_to_oci
+      env:
+        GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
+        REGISTRY: "europe-docker.pkg.dev/da-images-dev/oci-private"
+    - bash: |
+        set -euo pipefail
+        # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
         source $(bash-lib)
         sha=$(release_sha)
