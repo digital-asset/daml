@@ -742,16 +742,42 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "ContractId operations" - {
+    val suffix = Bytes.fromByteArray(Array.iterate(0.toByte, 4)(b => (b + 1).toByte))
+    val cid1 = Value.ContractId.V1(Hash.hashPrivateKey("#contract1"))
+    val cid2 = Value.ContractId.V1(Hash.hashPrivateKey("#contract2"), suffix)
 
     "EQUAL @ContractId" - {
       "works as expected" in {
-        val cid1 = SContractId(Value.ContractId.V1(Hash.hashPrivateKey("#contract1")))
-        val cid2 = SContractId(Value.ContractId.V1(Hash.hashPrivateKey("#contract2")))
-        evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid1)) shouldBe Right(SBool(true))
-        evalApp(e"EQUAL @(ContractId Mod:T)", Array(cid1, cid2)) shouldBe Right(SBool(false))
+        evalApp(
+          e"EQUAL @(ContractId Mod:T)",
+          Array(SContractId(cid1), SContractId(cid1)),
+        ) shouldBe Right(SBool(true))
+        evalApp(
+          e"EQUAL @(ContractId Mod:T)",
+          Array(SContractId(cid1), SContractId(cid2)),
+        ) shouldBe Right(SBool(false))
       }
     }
 
+    "TEXT_TO_CONTRACT-ID" - {
+      "should convert string to ContractId" in {
+        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(cid1.toBytes.toHexString))) shouldBe Right(
+          SContractId(cid1)
+        )
+        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(cid2.toBytes.toHexString))) shouldBe Right(
+          SContractId(cid2)
+        )
+      }
+
+      "should fail on malformed contract id" in {
+        inside {
+          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText("invalid")))
+         } {
+          case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
+            error shouldBe IE.Dev.MalformedContractId("invalid", "cannot parse HexString invalid")
+         }
+      }
+    }
   }
 
   "List operations" - {
@@ -969,10 +995,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) 0 ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) 1 ($nonEmptyMapV)"""
         eval(expr1) shouldBe Left(
-          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          SError.SErrorDamlException(IE.NonComparableValues)
         )
         eval(expr2) shouldBe Left(
-          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          SError.SErrorDamlException(IE.NonComparableValues)
         )
       }
     }
@@ -995,10 +1021,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
         eval(expr1) shouldBe Left(
-          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          SError.SErrorDamlException(IE.NonComparableValues)
         )
         eval(expr2) shouldBe Left(
-          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          SError.SErrorDamlException(IE.NonComparableValues)
         )
       }
     }
@@ -1033,10 +1059,10 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         val expr1 = e"""$builtin @($eitherT) @Int64 ($leftV) ($emptyMapV)"""
         val expr2 = e"""$builtin @($eitherT) @Int64 ($leftV) ($nonEmptyMapV)"""
         eval(expr1) shouldBe Left(
-          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          SError.SErrorDamlException(IE.NonComparableValues)
         )
         eval(expr2) shouldBe Left(
-          SError.SErrorDamlException(interpretation.Error.NonComparableValues)
+          SError.SErrorDamlException(IE.NonComparableValues)
         )
       }
     }
@@ -1798,13 +1824,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         )
         forEvery(testCases) { input =>
           inside(eval(e"""KECCAK256_TEXT "$input"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Crypto(
-                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
-                    )
-                  )
-                ) =>
+            case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason)))) =>
               value should be(input)
               reason should be("can not parse hex string")
           }
@@ -1847,13 +1867,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$invalidMessage" "$publicKey"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Crypto(
-                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
-                    )
-                  )
-                ) =>
+            case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason)))) =>
               value should be(invalidMessage)
               reason should startWith(
                 "can not parse message hex string"
@@ -1890,13 +1904,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Crypto(
-                      interpretation.Error.Crypto.MalformedKey(`invalidPublicKey`, reason)
-                    )
-                  )
-                ) =>
+            case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedKey(`invalidPublicKey`, reason)))) =>
               reason should startWith("java.security.InvalidKeyException")
           }
         }
@@ -1908,13 +1916,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val signature = support.crypto.MessageSignatureUtil.sign(message, privateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$signature" "$message" "$invalidPublicKey"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Crypto(
-                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
-                    )
-                  )
-                ) =>
+            case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason)))) =>
               value should be(s"$invalidPublicKey")
               reason should be("can not parse DER encoded public key hex string")
           }
@@ -1937,14 +1939,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
           val invalidSignature = rsaSign(message, invalidPrivateKey)
 
           inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Crypto(
-                      interpretation.Error.Crypto
-                        .MalformedSignature(`invalidSignature`, reason)
-                    )
-                  )
-                ) =>
+            case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedSignature(`invalidSignature`, reason)))) =>
               reason should be("error decoding signature bytes.")
           }
         }
@@ -1955,13 +1950,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
             val message = Ref.HexString.assertFromString("deadbeef")
 
             inside(eval(e"""SECP256K1_BOOL "$invalidSignature" "$message" "$publicKey"""")) {
-              case Left(
-                    SError.SErrorDamlException(
-                      interpretation.Error.Crypto(
-                        interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
-                      )
-                    )
-                  ) =>
+              case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason)))) =>
                 value should be(invalidSignature)
                 reason should be("can not parse signature hex string")
             }
@@ -2016,13 +2005,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         )
         forEvery(testCases) { input =>
           inside(eval(e"""HEX_TO_TEXT "$input"""")) {
-            case Left(
-                  SError.SErrorDamlException(
-                    interpretation.Error.Crypto(
-                      interpretation.Error.Crypto.MalformedByteEncoding(value, reason)
-                    )
-                  )
-                ) =>
+            case Left(SError.SErrorDamlException(IE.Crypto(IE.Crypto.MalformedByteEncoding(value, reason)))) =>
               value should be(input)
               reason should be("can not parse hex string argument")
           }

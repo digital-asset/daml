@@ -541,6 +541,12 @@ prettyScriptErrorError lvl (Just err) =  do
         ]
     ScriptErrorErrorUpgradeError ScriptError_UpgradeError {..} -> do
        pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
+    ScriptErrorErrorMalformedContractId ScriptError_MalformedContractId {..} -> do
+      pure $ vcat
+        [ "Malformed contract id:" <-> ltext scriptError_MalformedContractIdMessage
+        , label_ "Contract id:" $ ltext scriptError_MalformedContractIdValue
+        ]
+
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
   fcommasep $ map prettyParty $ S.toList $

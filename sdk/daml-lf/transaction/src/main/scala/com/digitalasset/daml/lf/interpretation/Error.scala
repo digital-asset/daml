@@ -281,6 +281,7 @@ object Error {
       final case class TransactionInputContracts(limit: Int) extends Error
     }
 
+    final case class MalformedContractId(value: String, cause: String) extends Error
   }
 
 }

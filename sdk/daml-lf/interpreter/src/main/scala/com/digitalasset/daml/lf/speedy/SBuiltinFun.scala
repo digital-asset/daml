@@ -579,6 +579,25 @@ private[lf] object SBuiltinFun {
     }
   }
 
+  final case object SBTextToContractId extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Nothing] = {
+      val value = getSText(args, 0)
+      V.ContractId.V1.fromString(value) match {
+        case Left(error) =>
+          Control.Error(
+            IE.Dev(
+              NameOf.qualifiedNameOfCurrentFunc,
+              IE.Dev.MalformedContractId(value, error)
+            )
+          )
+        case Right(cid) => Control.Value(SContractId(cid))
+      }
+    }
+  }
+
   final case object SBSHA256Text extends SBuiltinPure(1) {
     override private[speedy] def executePure(args: util.ArrayList[SValue]): SText =
       SText(Utf8.sha256(getSText(args, 0)))
