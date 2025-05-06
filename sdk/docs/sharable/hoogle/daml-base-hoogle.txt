@@ -1074,6 +1074,9 @@ partyFromText :: Text -> Optional Party
 @url https://docs.daml.com/daml/stdlib/Prelude.html#function-da-internal-lf-coercecontractid-14371
 coerceContractId :: ContractId a -> ContractId b
 
+@url https://docs.daml.com/daml/stdlib/Prelude.html#function-da-internal-lf-texttocontractid-62250
+textToContractId :: Text -> ContractId a
+
 -- | Turn a function that takes a pair into a function that takes two arguments.
 @url https://docs.daml.com/daml/stdlib/Prelude.html#function-da-internal-prelude-curry-6393
 curry :: ((a, b) -> c) -> a -> b -> c

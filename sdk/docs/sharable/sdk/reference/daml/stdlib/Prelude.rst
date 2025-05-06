@@ -1476,6 +1476,8 @@ Data Types
   The ``ContractId a`` type represents an ID for a contract created from a template ``a``\.
   You can use the ID to fetch the contract, among other things\.
 
+  **instance** `Template <type-da-internal-template-functions-template-31804_>`_ a \=\> :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
+
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
@@ -2096,6 +2098,11 @@ Functions
   Used to convert the type index of a ``ContractId``, since they are just
   pointers\. Note that subsequent fetches and exercises might fail if the
   template of the contract on the ledger doesn't match\.
+
+.. _function-da-internal-lf-texttocontractid-62250:
+
+`textToContractId <function-da-internal-lf-texttocontractid-62250_>`_
+  \: `Text <type-ghc-types-text-51952_>`_ \-\> `ContractId <type-da-internal-lf-contractid-95282_>`_ a
 
 .. _function-da-internal-prelude-curry-6393:
 
