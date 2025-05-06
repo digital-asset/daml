@@ -180,6 +180,11 @@ instance HasFromHex (Optional Int) where
 instance HasFromHex (Optional Party) where
   fromHex hex = fromHex hex >>= partyFromText
 
+instance Template a => HasFromHex (ContractId a) where
+  fromHex text
+    | isHex text = textToContractId (Text.asciiToLower text)
+    | otherwise = error $ "Expected a hex-encoded string but argument was: " <> text
+
 -- Numerics can be thought of as a decimal string with a scale. As usage sites need to know the scale, we can
 -- simply hex encode the string representation of the underlying numeric's decimal string. This allows `parseNumeric`
 -- to be used to define `HasFromHex` instances.

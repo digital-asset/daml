@@ -14,6 +14,7 @@ module DA.Internal.LF
 
   , ContractId
   , coerceContractId
+  , textToContractId
 
   , Date
 
@@ -145,6 +146,9 @@ instance Show (ContractId a) where
 -- template of the contract on the ledger doesn't match.
 coerceContractId : ContractId a -> ContractId b
 coerceContractId = primitive @"BECoerceContractId"
+
+textToContractId: Text -> ContractId a
+textToContractId = primitive @"BETextToContractId"
 
 -- | The `Update a` type represents an `Action` to update or query the ledger,
 --   before returning a value of type `a`. Examples include `create` and `fetch`.

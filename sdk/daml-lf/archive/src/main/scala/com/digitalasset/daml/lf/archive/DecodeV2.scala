@@ -1611,6 +1611,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(TEXT_TO_INT64, BTextToInt64),
       BuiltinFunctionInfo(TEXT_TO_NUMERIC, BTextToNumeric),
       BuiltinFunctionInfo(TEXT_TO_CODE_POINTS, BTextToCodePoints),
+      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId),
       BuiltinFunctionInfo(SHA256_TEXT, BSHA256Text),
       BuiltinFunctionInfo(KECCAK256_TEXT, BKECCAK256Text, minVersion = LV.Features.crypto),
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.crypto),

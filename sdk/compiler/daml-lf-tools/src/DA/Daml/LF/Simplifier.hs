@@ -158,6 +158,7 @@ safetyStep = \case
       BETextToParty -> Safe 1
       BETextToInt64 -> Safe 1
       BETextToCodePoints -> Safe 1
+      BETextToContractId -> Safe 1
       BECoerceContractId -> Safe 1
       BETypeRepTyConName -> Safe 1
       BEFailWithStatus -> Safe 3 -- expects 4, 3-safe

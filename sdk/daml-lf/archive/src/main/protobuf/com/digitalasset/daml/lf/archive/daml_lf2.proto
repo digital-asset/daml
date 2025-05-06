@@ -319,6 +319,7 @@ enum BuiltinFunction {
   TEXT_TO_PARTY = 28;
   TEXT_TO_INT64 = 29;
   TEXT_TO_NUMERIC = 30;
+  TEXT_TO_CONTRACT_ID = 71;
   CONTRACT_ID_TO_TEXT = 31;
   SHA256_TEXT = 32;
   EXPLODE_TEXT = 33;
@@ -362,7 +363,7 @@ enum BuiltinFunction {
   HEX_TO_TEXT = 69;
   TEXT_TO_HEX = 70;
 
-  // Next id is 71.
+  // Next id is 72.
 
   /* Dev Builtins */
   // We use fields above 1000 for dev features
