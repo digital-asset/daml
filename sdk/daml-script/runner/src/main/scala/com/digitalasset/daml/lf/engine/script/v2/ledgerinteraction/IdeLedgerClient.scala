@@ -81,7 +81,7 @@ class IdeLedgerClient(
   private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
-      requireContractIdSuffix = false,
+      requireContractIdSuffix = true,
     )
 
   // Given a set of disabled packages, filter out all definitions from those packages from the original compiled packages
