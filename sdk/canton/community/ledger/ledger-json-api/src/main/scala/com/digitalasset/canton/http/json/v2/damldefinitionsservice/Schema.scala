@@ -17,26 +17,26 @@ object Schema {
   val Empty: TypeSig = TypeSig(Map.empty, Map.empty, Map.empty, Map.empty, Map.empty)
 
   final case class TypeSig(
-      enumDefs: Map[Ref.TypeConName, EnumSig],
-      variantDefs: Map[Ref.TypeConName, VariantSig],
-      recordDefs: Map[Ref.TypeConName, RecordSig],
-      templateDefs: Map[Ref.TypeConName, TemplateSig],
-      interfaceDefs: Map[Ref.TypeConName, InterfaceSig],
+      enumDefs: Map[Ref.TypeConId, EnumSig],
+      variantDefs: Map[Ref.TypeConId, VariantSig],
+      recordDefs: Map[Ref.TypeConId, RecordSig],
+      templateDefs: Map[Ref.TypeConId, TemplateSig],
+      interfaceDefs: Map[Ref.TypeConId, InterfaceSig],
   ) {
 
-    val addEnumDefs: (Ref.TypeConName, EnumSig) => TypeSig =
+    val addEnumDefs: (Ref.TypeConId, EnumSig) => TypeSig =
       (id, defn) => copy(enumDefs = enumDefs.updated(id, defn))
 
-    val addVariantDefs: (Ref.TypeConName, VariantSig) => TypeSig =
+    val addVariantDefs: (Ref.TypeConId, VariantSig) => TypeSig =
       (id, defn) => copy(variantDefs = variantDefs.updated(id, defn))
 
-    val addRecordDefs: (Ref.TypeConName, RecordSig) => TypeSig =
+    val addRecordDefs: (Ref.TypeConId, RecordSig) => TypeSig =
       (id, defn) => copy(recordDefs = recordDefs.updated(id, defn))
 
-    val addTemplateDefs: (Ref.TypeConName, TemplateSig) => TypeSig =
+    val addTemplateDefs: (Ref.TypeConId, TemplateSig) => TypeSig =
       (id, defn) => copy(templateDefs = templateDefs.updated(id, defn))
 
-    val addInterfaceDefs: (Ref.TypeConName, InterfaceSig) => TypeSig =
+    val addInterfaceDefs: (Ref.TypeConId, InterfaceSig) => TypeSig =
       (id, defn) => copy(interfaceDefs = interfaceDefs.updated(id, defn))
 
     def merge(other: TypeSig): TypeSig = TypeSig(
@@ -48,7 +48,7 @@ object Schema {
     )
   }
 
-  final case class AllTemplatesResponse(templates: Set[Ref.TypeConName])
+  final case class AllTemplatesResponse(templates: Set[Ref.TypeConId])
 
   final case class ChoiceDefinition(
       consuming: Boolean,
@@ -65,8 +65,8 @@ object Schema {
       arguments: RecordSig,
       key: Option[SerializableType],
       choices: Map[Ref.Name, ChoiceDefinition],
-      implements: Map[Ref.TypeConName, InterfaceDefinition],
-      definitions: Map[Ref.TypeConName, DataTypeSig],
+      implements: Map[Ref.TypeConId, InterfaceDefinition],
+      definitions: Map[Ref.TypeConId, DataTypeSig],
   )
 
   // See https://github.com/typelevel/doobie/issues/1513
@@ -84,15 +84,15 @@ object Schema {
         Encoder.encodeString.contramap[Ref.Name](_.toString),
       )
 
-    lazy implicit val typeConNameKeyDecoder: KeyDecoder[Ref.TypeConName] =
-      KeyDecoder.instance(Ref.TypeConName.fromString(_).toOption)
+    lazy implicit val typeConNameKeyDecoder: KeyDecoder[Ref.TypeConId] =
+      KeyDecoder.instance(Ref.TypeConId.fromString(_).toOption)
 
-    lazy implicit val typeConNameKeyEncoder: KeyEncoder[Ref.TypeConName] =
+    lazy implicit val typeConNameKeyEncoder: KeyEncoder[Ref.TypeConId] =
       KeyEncoder.instance(_.toString())
 
-    lazy implicit val typeConNameCodec: Codec[Ref.TypeConName] = Codec.from(
-      Decoder.decodeString.emap(Ref.TypeConName.fromString),
-      Encoder.encodeString.contramap[Ref.TypeConName](_.toString()),
+    lazy implicit val typeConNameCodec: Codec[Ref.TypeConId] = Codec.from(
+      Decoder.decodeString.emap(Ref.TypeConId.fromString),
+      Encoder.encodeString.contramap[Ref.TypeConId](_.toString()),
     )
 
     lazy implicit val scaleCodec: Codec[data.Numeric.Scale.Scale] =
@@ -146,9 +146,9 @@ object Schema {
     lazy implicit val nameTapirCodec: sttp.tapir.Schema[Ref.Name] =
       sttp.tapir.Schema.schemaForString
         .map(str => Ref.Name.fromString(str).toOption)(_.toString)
-    lazy implicit val typeConNameTapirCodec: sttp.tapir.Schema[Ref.TypeConName] =
+    lazy implicit val typeConNameTapirCodec: sttp.tapir.Schema[Ref.TypeConId] =
       sttp.tapir.Schema.schemaForString
-        .map(str => Some(Ref.TypeConName.assertFromString(str)))(_.toString())
+        .map(str => Some(Ref.TypeConId.assertFromString(str)))(_.toString())
         .format("<package-id>:<module-name>:<entity-name>")
 
     lazy implicit val scaleTapirSchema: TapirSchema[Scale] =
