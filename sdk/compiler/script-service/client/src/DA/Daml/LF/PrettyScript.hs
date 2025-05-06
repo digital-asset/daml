@@ -543,7 +543,7 @@ prettyScriptErrorError lvl (Just err) =  do
        pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
     ScriptErrorErrorMalformedContractId ScriptError_MalformedContractId {..} -> do
       pure $ vcat
-        [ "Malformed contract id:" <-> ltext scriptError_MalformedContractIdMessage
+        [ "Malformed contract id:"
         , label_ "Contract id:" $ ltext scriptError_MalformedContractIdValue
         ]
 

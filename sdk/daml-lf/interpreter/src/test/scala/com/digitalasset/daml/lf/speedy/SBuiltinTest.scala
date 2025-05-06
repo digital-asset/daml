@@ -771,7 +771,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
         inside {
           evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(cid2AsHexString)))
         } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-          error shouldBe IE.Dev.MalformedContractId(cid2AsHexString, "unexpected local contract ID")
+          error shouldBe IE.Dev.MalformedContractId(cid2AsHexString)
         }
       }
 
@@ -782,24 +782,15 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
         inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(invalidHexString)))) {
           case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-            error shouldBe IE.Dev.MalformedContractId(
-              invalidHexString,
-              s"cannot parse HexString $invalidHexString",
-            )
+            error shouldBe IE.Dev.MalformedContractId(invalidHexString)
         }
         inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(tooShortHexString)))) {
           case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-            error shouldBe IE.Dev.MalformedContractId(
-              tooShortHexString,
-              s"cannot parse V1 ContractId \"$tooShortHexString\"",
-            )
+            error shouldBe IE.Dev.MalformedContractId(tooShortHexString)
         }
         inside(evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(tooLongHexString)))) {
           case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-            error shouldBe IE.Dev.MalformedContractId(
-              tooLongHexString,
-              "the suffix is too long, expected at most 94 bytes, but got 95",
-            )
+            error shouldBe IE.Dev.MalformedContractId(tooLongHexString)
         }
       }
     }

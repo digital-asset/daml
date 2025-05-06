@@ -253,9 +253,7 @@ private[lf] object Pretty {
               ) & prettyTypeConId(
                 actual
               )
-          case Dev.MalformedContractId(value, cause) =>
-            text("Malformed contract id") & text(value) & text(":") /
-              text(cause)
+          case Dev.MalformedContractId(value) => text(s"Malformed contract id \"$value\"")
         }
     }
   }

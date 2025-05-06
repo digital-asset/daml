@@ -307,7 +307,6 @@ message ScriptError {
 
   message MalformedContractId {
     string value = 1;
-    string message = 2;
   }
 
   // The state of the ledger at the time of the error
