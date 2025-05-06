@@ -32,8 +32,8 @@ trait NavigatorModelAliases[Cid] {
   val DamlLfTypePrim = typesig.TypePrim
   type DamlLfTypeVar = typesig.TypeVar
   val DamlLfTypeVar = typesig.TypeVar
-  type DamlLfTypeConName = typesig.TypeConName
-  val DamlLfTypeConName = typesig.TypeConName
+  type DamlLfTypeConId = typesig.TypeConName
+  val DamlLfTypeConId = typesig.TypeConName
   type DamlLfTypeNumeric = typesig.TypeNumeric
   val DamlLfTypeNumeric = typesig.TypeNumeric
 

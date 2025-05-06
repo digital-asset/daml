@@ -297,7 +297,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       case prim: Model.DamlLfTypePrim =>
         jsValueToApiPrimitive(value, prim, defs)
       case typeCon: Model.DamlLfTypeCon =>
-        val id = typeCon.name.identifier
+        val id = typeCon.tycon.identifier
         val dt =
           typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
         jsValueToApiDataType(value, id, dt, defs)
@@ -321,7 +321,7 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
       id: Model.DamlLfIdentifier,
       defs: Model.DamlLfTypeLookup,
   ): V = {
-    val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConName(id), ImmArraySeq())
+    val typeCon = Model.DamlLfTypeCon(Model.DamlLfTypeConId(id), ImmArraySeq())
     val dt = typeCon.instantiate(defs(id).getOrElse(deserializationError(s"Type $id not found")))
     jsValueToApiDataType(value, id, dt, defs)
   }
