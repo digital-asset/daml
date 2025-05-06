@@ -253,6 +253,7 @@ private[lf] object Pretty {
               ) & prettyTypeConId(
                 actual
               )
+          case Dev.MalformedContractId(value) => text(s"Malformed contract id \"$value\"")
         }
     }
   }

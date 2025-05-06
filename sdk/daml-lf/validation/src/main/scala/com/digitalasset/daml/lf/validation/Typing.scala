@@ -258,6 +258,7 @@ private[validation] object Typing {
         TNumeric(alpha) ->: TText ->: TOptional(TNumeric(alpha)),
       ),
       BTextToCodePoints -> (TText ->: TList(TInt64)),
+      BTextToContractId -> TForall(alpha.name -> KStar, TText ->: TContractId(alpha)),
       BError -> TForall(alpha.name -> KStar, TText ->: alpha),
       // ComparisonsA
       BLessNumeric -> tNumComparison,

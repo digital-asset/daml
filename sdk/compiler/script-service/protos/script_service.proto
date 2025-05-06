@@ -305,6 +305,10 @@ message ScriptError {
     repeated MetadataEntry metadata = 4;
   }
 
+  message MalformedContractId {
+    string value = 1;
+  }
+
   // The state of the ledger at the time of the error
   repeated ScriptStep script_steps = 1;
   repeated Node nodes = 2;
@@ -383,7 +387,8 @@ message ScriptError {
     LookupError lookup_error = 43;
     UpgradeError upgrade_error = 44;
     FailureStatusError failure_status_error = 45;
-    // next is 47;
+    MalformedContractId malformed_contract_id = 47;
+    // next is 48;
   }
 }
 
