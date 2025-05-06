@@ -160,11 +160,7 @@ private[lf] object IdeLedgerRunner {
 
       ledger.ledgerData.activeKeys.get(gk) match {
         case None =>
-          missingWith(
-            Error.RunnerException(
-              SError.SErrorDamlException(interpretation.Error.ContractKeyNotFound(gk))
-            )
-          )
+          discard(callback(None))
         case Some(acoid) =>
           ledger.lookupGlobalContract(
             actAs,
