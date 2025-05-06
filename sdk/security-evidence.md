@@ -57,9 +57,9 @@
 
 ## Semantics:
 - /v1/query GET succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L153)
-- /v1/query POST succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L195)
-- /v1/query POST succeeds after reconnect to DB: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L260)
-- /v1/stream/query can reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L333)
+- /v1/query POST succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L194)
+- /v1/query POST succeeds after reconnect to DB: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L258)
+- /v1/stream/query can reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L330)
 - Command submission succeeds after reconnect: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L50)
 - Evaluation order of create with authorization failure: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L594)
 - Evaluation order of create with contract ID in contract key: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L617)
@@ -187,7 +187,7 @@
 - contract keys should be evaluated after ensure clause: [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L188)
 - contract keys should be evaluated only when executing create: [ContractKeySpec.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/ContractKeySpec.scala#L149)
 - exercise_interface with a contract instance that does not implement the interface fails.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L1673)
-- fromStartupMode should not succeed for any input when the db connection is broken: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L436)
+- fromStartupMode should not succeed for any input when the db connection is broken: [FailureTests.scala](ledger-service/http-json/src/failurelib/scala/http/FailureTests.scala#L433)
 - redirect to the configured callback URI after login: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L641)
 - restart trigger on initialization failure due to failed connection: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L457)
 - restart trigger on run-time failure due to dropped connection: [TriggerServiceTest.scala](triggers/service/src/test/scala/com/digitalasset/daml/lf/engine/trigger/TriggerServiceTest.scala#L477)
