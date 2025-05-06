@@ -55,18 +55,17 @@ object DisseminationProgress {
   def reviewReadyForOrdering(
       batchMetadata: DisseminatedBatchMetadata,
       orderingTopology: OrderingTopology,
-  ): DisseminationProgress = {
-    val inProgressMetadata =
-      InProgressBatchMetadata(
-        batchMetadata.proofOfAvailability.batchId,
-        batchMetadata.epochNumber,
-        batchMetadata.stats,
-      )
+  ): Option[DisseminationProgress] = {
     val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.acks, orderingTopology)
-    DisseminationProgress(
-      orderingTopology,
-      inProgressMetadata,
-      reviewedAcks,
+    // No need to update the acks in DisseminatedBatchMetadata, if the PoA is still valid
+    Option.when(
+      !AvailabilityModule.hasQuorum(orderingTopology, reviewedAcks.size)
+    )(
+      DisseminationProgress(
+        orderingTopology,
+        batchMetadata.regress(),
+        reviewedAcks,
+      )
     )
   }
 

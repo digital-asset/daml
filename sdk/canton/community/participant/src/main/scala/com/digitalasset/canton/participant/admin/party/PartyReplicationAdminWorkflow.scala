@@ -64,17 +64,16 @@ class PartyReplicationAdminWorkflow(
       synchronizerId: SynchronizerId,
       sourceParticipantId: ParticipantId,
       sequencerCandidates: NonEmpty[Seq[SequencerId]],
-      serial: Option[PositiveInt],
+      serial: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val partyReplicationIdS = partyReplicationId.toHexString
-    val serialOrZero: Int = serial.map(_.value).getOrElse(0)
     val proposal = new M.partyreplication.PartyReplicationProposal(
       partyReplicationIdS,
       partyId.toProtoPrimitive,
       sourceParticipantId.adminParty.toProtoPrimitive,
       participantId.adminParty.toProtoPrimitive,
       sequencerCandidates.forgetNE.map(_.uid.toProtoPrimitive).asJava,
-      serialOrZero,
+      serial.unwrap,
     )
     EitherT(
       retrySubmitter
@@ -305,8 +304,8 @@ object PartyReplicationAdminWorkflow {
   final case class PartyReplicationArguments(
       partyId: PartyId,
       synchronizerId: SynchronizerId,
-      sourceParticipantIdO: Option[ParticipantId],
-      serialO: Option[PositiveInt],
+      sourceParticipantId: ParticipantId,
+      serial: PositiveInt,
   )
   private def userId = "PartyReplicationAdminWorkflow"
 

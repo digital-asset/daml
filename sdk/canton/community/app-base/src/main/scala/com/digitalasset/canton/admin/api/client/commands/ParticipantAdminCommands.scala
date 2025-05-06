@@ -469,8 +469,8 @@ object ParticipantAdminCommands {
     final case class AddPartyAsync(
         party: PartyId,
         synchronizerId: SynchronizerId,
-        sourceParticipant: Option[ParticipantId],
-        serial: Option[PositiveInt],
+        sourceParticipant: ParticipantId,
+        serial: PositiveInt,
     ) extends GrpcAdminCommand[
           v30.AddPartyAsyncRequest,
           v30.AddPartyAsyncResponse,
@@ -486,8 +486,8 @@ object ParticipantAdminCommands {
           v30.AddPartyAsyncRequest(
             partyId = party.toProtoPrimitive,
             synchronizerId = synchronizerId.toProtoPrimitive,
-            sourceParticipantUid = sourceParticipant.fold("")(_.uid.toProtoPrimitive),
-            serial = serial.fold(0)(_.value),
+            sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
+            topologySerial = serial.value,
           )
         )
 

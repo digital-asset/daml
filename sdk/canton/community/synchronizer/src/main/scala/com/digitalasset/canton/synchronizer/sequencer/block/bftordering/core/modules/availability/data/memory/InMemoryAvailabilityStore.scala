@@ -31,7 +31,7 @@ abstract class GenericInMemoryAvailabilityStore[E <: Env[E]](
   ): E#FutureUnlessShutdownT[Unit] =
     createFuture(addBatchActionName(batchId)) { () =>
       Try {
-        val _ = allKnownBatchesById.putIfAbsent(batchId, batch)
+        allKnownBatchesById.putIfAbsent(batchId, batch).discard
       }
     }
 

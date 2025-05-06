@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
 import com.digitalasset.canton.console.{
   CommandFailure,
   InstanceReference,
+  LocalInstanceReference,
   LocalParticipantReference,
 }
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
@@ -48,6 +49,7 @@ import com.digitalasset.canton.sequencing.{
   SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.synchronizer.sequencer.config.SequencerNodeConfig
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, config}
@@ -55,6 +57,7 @@ import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
 import scala.jdk.CollectionConverters.*
+import scala.util.chaining.scalaUtilChainingOps
 
 /** Objective: Test the negotiation of party replication via the PartyReplication.daml workflow.
   *
@@ -102,7 +105,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
     .finish()
     .toHexString
 
-  private val unspecifiedTopologySerial = 0L
+  private val dummyTopologySerial = 1L
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition
@@ -114,7 +117,13 @@ sealed trait OnlinePartyReplicationNegotiationTest
       .addConfigTransforms(
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.parameters.unsafeOnlinePartyReplication)
-            .replace(Some(UnsafeOnlinePartyReplicationConfig()))
+            .replace(
+              Some(
+                UnsafeOnlinePartyReplicationConfig(pauseSynchronizerIndexingDuringPartyReplication =
+                  true
+                )
+              )
+            )
         ),
         ConfigTransforms.updateAllSequencerConfigs(selectivelyEnablePartyReplicationOnSequencers),
       )
@@ -168,17 +177,42 @@ sealed trait OnlinePartyReplicationNegotiationTest
       import env.*
       val (sourceParticipant, targetParticipant) = (participant1, participant2)
 
-      loggerFactory.assertLogs(
-        {
-          val addPartyRequestId = clue("Initiate add party async")(
-            targetParticipant.parties.add_party_async(
-              party = alice,
-              synchronizerId = daId,
-              sourceParticipant = Some(sourceParticipant),
-              serial = None,
-            )
-          )
+      val serial = PositiveInt.two
 
+      val partyOwners = Seq[LocalInstanceReference](sourceParticipant)
+      partyOwners.foreach(
+        _.topology.party_to_participant_mappings
+          .propose(
+            party = alice,
+            newParticipants = Seq(
+              (sourceParticipant, ParticipantPermission.Submission),
+              (targetParticipant, ParticipantPermission.Observation),
+            ),
+            threshold = PositiveInt.one,
+            store = daId,
+            serial = Some(serial),
+          )
+      )
+      eventually() {
+        partyOwners.foreach(
+          _.topology.party_to_participant_mappings
+            .list(daId, filterParty = alice.filterString, proposals = true)
+            .flatMap(_.item.participants.map(_.participantId)) shouldBe Seq(
+            sourceParticipant.id,
+            targetParticipant.id,
+          )
+        )
+      }
+
+      val addPartyRequestId = loggerFactory.assertLogs(
+        clue("Initiate add party async")(
+          targetParticipant.parties.add_party_async(
+            party = alice,
+            synchronizerId = daId,
+            sourceParticipant = sourceParticipant,
+            serial = serial,
+          )
+        ).tap { _ =>
           def partyToReplicate(create: CreatedEvent) = create.createArguments
             .getOrElse(fail("missing arguments record"))
             .fields
@@ -269,25 +303,6 @@ sealed trait OnlinePartyReplicationNegotiationTest
               synchronizerId = Some(daId),
             )
             .discard
-
-          // Wait until both SP and TP report that party replication has completed.
-          eventually() {
-            val tpStatus = targetParticipant.parties.get_add_party_status(
-              addPartyRequestId = addPartyRequestId
-            )
-            val spStatus = sourceParticipant.parties.get_add_party_status(
-              addPartyRequestId = addPartyRequestId
-            )
-            logger.info(s"TP status: $tpStatus SP status: $spStatus")
-            assert(
-              tpStatus.status.isInstanceOf[AddPartyStatus.Completed],
-              "Target participant must complete",
-            )
-            assert(
-              spStatus.status.isInstanceOf[AddPartyStatus.Completed],
-              "Source participant must complete",
-            )
-          }
         },
         _.warningMessage should include regex channelServiceNotImplementedWarning,
       )
@@ -304,6 +319,26 @@ sealed trait OnlinePartyReplicationNegotiationTest
           targetParticipant.id,
         )
       })
+
+      // Wait until both SP and TP report that party replication has completed.
+      eventually() {
+        val tpStatus = targetParticipant.parties.get_add_party_status(
+          addPartyRequestId = addPartyRequestId
+        )
+        val spStatus = sourceParticipant.parties.get_add_party_status(
+          addPartyRequestId = addPartyRequestId
+        )
+        logger.info(s"TP status: $tpStatus")
+        logger.info(s"SP status: $spStatus")
+        assert(
+          tpStatus.status.isInstanceOf[AddPartyStatus.Completed],
+          "Target participant must complete",
+        )
+        assert(
+          spStatus.status.isInstanceOf[AddPartyStatus.Completed],
+          "Source participant must complete",
+        )
+      }
   }
 
   "Prevent malformed party replication proposals" onlyRunWith ProtocolVersion.dev in {
@@ -317,17 +352,17 @@ sealed trait OnlinePartyReplicationNegotiationTest
           log: String,
           errorRegex: String,
           targetParticipant: LocalParticipantReference = participantWithoutParty,
-          sourceParticipantO: Option[LocalParticipantReference] = Some(participantWithParty2),
+          sourceParticipant: LocalParticipantReference = participantWithParty2,
           synchronizerId: SynchronizerId = daId,
-          serialO: Option[PositiveInt] = None,
+          serial: PositiveInt = PositiveInt.one,
       ): Unit =
         clue(log)(
           loggerFactory.assertThrowsAndLogsUnorderedOptional[CommandFailure](
             targetParticipant.parties.add_party_async(
               party = alice,
               synchronizerId = synchronizerId,
-              sourceParticipant = sourceParticipantO.map(_.id),
-              serial = serialO,
+              sourceParticipant = sourceParticipant.id,
+              serial = serial,
             ),
             LogEntryOptionality.Required -> (_.errorMessage should include regex errorRegex),
             LogEntryOptionality.Optional -> (_.warningMessage should include regex channelServiceNotImplementedWarning),
@@ -337,7 +372,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
       testProposalError(
         "source-participant-does-not-host-party",
         "Party .* is not hosted by source participant",
-        sourceParticipantO = Some(participantWithoutParty),
+        sourceParticipant = participantWithoutParty,
         targetParticipant = participantWithParty,
       )
 
@@ -350,14 +385,8 @@ sealed trait OnlinePartyReplicationNegotiationTest
       testProposalError(
         "matching-participants",
         "Source and target participants .* cannot match",
-        sourceParticipantO = Some(participantWithParty),
+        sourceParticipant = participantWithParty,
         targetParticipant = participantWithParty,
-      )
-
-      testProposalError(
-        "source-participant-ambiguous-when-unspecified",
-        "No source participant specified and could not infer single source participant for party",
-        sourceParticipantO = None,
       )
 
       testProposalError(
@@ -369,7 +398,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
       testProposalError(
         "unexpected-topology-serial",
         "Specified serial .* does not match the expected serial",
-        serialO = Some(PositiveInt.tryCreate(1000)),
+        serial = PositiveInt.tryCreate(1000),
       )
   }
 
@@ -391,7 +420,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
           targetParticipant: LocalParticipantReference = participantWithoutParty,
           sequencerStringUids: Seq[String] = Seq(sequencer2.id.uid.toProtoPrimitive),
           partyIdString: String = alice.toProtoPrimitive,
-          serial: Long = unspecifiedTopologySerial,
+          serial: Long = dummyTopologySerial,
           partyReplicationIdS: String = validOnPRIdS,
       ) =
         clue(log)(
@@ -429,7 +458,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
                 participantWithParty.adminParty.toProtoPrimitive,
                 participantWithParty2.adminParty.toProtoPrimitive,
                 Seq.empty.asJava,
-                unspecifiedTopologySerial,
+                dummyTopologySerial,
               )
               participantWithParty2.ledger_api.commands
                 .submit(

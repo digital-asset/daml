@@ -57,6 +57,7 @@ import com.digitalasset.canton.util.{
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -106,12 +107,12 @@ final class PartyReplicator(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Hash] =
     executionQueue.executeEUS(
       {
-        val PartyReplicationArguments(partyId, synchronizerId, sourceParticipantIdO, serialO) = args
+        val PartyReplicationArguments(partyId, synchronizerId, sourceParticipantId, serial) = args
         for {
           _ <- EitherT.cond[FutureUnlessShutdown](
             syncService.isActive(),
             logger.info(
-              s"Initiating replication of party $partyId from participant $sourceParticipantIdO on synchronizer $synchronizerId"
+              s"Initiating replication of party $partyId from participant $sourceParticipantId on synchronizer $synchronizerId"
             ),
             s"Participant $participantId is inactive",
           )
@@ -136,10 +137,10 @@ final class PartyReplicator(
           syncPersistentState = connectedSynchronizer.synchronizerHandle.syncPersistentState
           sourceParticipantId <- ensurePartyHostedBySourceButNotTargetParticipant(
             partyId,
-            sourceParticipantIdO,
+            sourceParticipantId,
             participantId,
             syncPersistentState.topologyStore,
-            serialO,
+            serial,
           )
           requestId =
             syncPersistentState.pureCryptoApi
@@ -164,7 +165,7 @@ final class PartyReplicator(
             synchronizerId,
             sourceParticipantId,
             sequencerCandidates,
-            serialO,
+            serial,
           )
         } yield {
           val newStatus = PartyReplicationStatus.ProposalProcessed(
@@ -173,7 +174,7 @@ final class PartyReplicator(
             synchronizerId,
             sourceParticipantId,
             participantId,
-            serialO,
+            serial,
           )
           logger.info(s"Party replication $requestId proposal processed")
           partyReplications.put(requestId, newStatus).discard
@@ -212,7 +213,7 @@ final class PartyReplicator(
           synchronizerId,
           targetParticipantId,
           sequencerIdsProposed,
-          serialO,
+          serial,
         ) = proposal
         connectedSynchronizer <-
           EitherT.fromEither[FutureUnlessShutdown](
@@ -258,10 +259,10 @@ final class PartyReplicator(
         )
         _ <- ensurePartyHostedBySourceButNotTargetParticipant(
           partyId,
-          Some(participantId),
+          participantId,
           targetParticipantId,
           connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
-          serialO,
+          serial,
         )
       } yield PartyReplicationAgreementParams.fromProposal(proposal, participantId, sequencerId)
 
@@ -277,7 +278,7 @@ final class PartyReplicator(
             response.synchronizerId,
             response.sourceParticipantId,
             response.targetParticipantId,
-            response.serialO,
+            response.serial,
           )
           logger.info(
             s"Party replication ${response.requestId} proposal processed at source participant"
@@ -328,18 +329,18 @@ final class PartyReplicator(
   /** Checks that the party is
     *   - hosted by the source participant
     *   - not yet hosted by the target participant, but can be proposed to be with the provided
-    *     serial if specified
+    *     serial
     */
   private def ensurePartyHostedBySourceButNotTargetParticipant(
       partyId: PartyId,
-      sourceParticipantIdO: Option[ParticipantId],
+      sourceParticipantId: ParticipantId,
       targetParticipantId: ParticipantId,
       topologyStore: TopologyStore[SynchronizerStore],
-      serialO: Option[PositiveInt],
+      serial: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, ParticipantId] =
     for {
       _ <- EitherT.cond[FutureUnlessShutdown](
-        !sourceParticipantIdO.contains(targetParticipantId),
+        sourceParticipantId != targetParticipantId,
         (),
         s"Source and target participants $targetParticipantId cannot match",
       )
@@ -350,27 +351,14 @@ final class PartyReplicator(
       participantsExceptTargetParticipant = activeParticipantsOfParty.filterNot(
         _ == targetParticipantId
       )
-      sourceParticipantId <- EitherT.fromEither[FutureUnlessShutdown](sourceParticipantIdO match {
-        case None =>
-          Either
-            .cond(
-              participantsExceptTargetParticipant.sizeCompare(1) <= 0,
-              (),
-              s"No source participant specified and could not infer single source participant for party $partyId among ${participantsExceptTargetParticipant
-                  .mkString(",")}",
-            )
-            .flatMap(_ =>
-              participantsExceptTargetParticipant.headOption
-                .toRight(s"No source participant available to replicate party $partyId from")
-            )
-        case Some(sourcePid) =>
-          Either.cond(
-            participantsExceptTargetParticipant.contains(sourcePid),
-            sourcePid,
-            s"Party $partyId is not hosted by source participant $sourcePid. Only hosted on ${activeParticipantsOfParty
-                .mkString(",")}",
-          )
-      })
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        Either.cond(
+          participantsExceptTargetParticipant.contains(sourceParticipantId),
+          (),
+          s"Party $partyId is not hosted by source participant $sourceParticipantId. Only hosted on ${activeParticipantsOfParty
+              .mkString(",")}",
+        )
+      )
       _ <- EitherT.cond[FutureUnlessShutdown](
         !activeParticipantsOfParty.contains(targetParticipantId),
         (),
@@ -378,9 +366,9 @@ final class PartyReplicator(
       )
       expectedSerial = partyToParticipantTopologyHeadTx.serial.increment
       _ <- EitherT.cond[FutureUnlessShutdown](
-        serialO.forall(_ == expectedSerial),
+        serial == expectedSerial,
         (),
-        s"Specified serial $serialO does not match the expected serial $expectedSerial add $partyId to $targetParticipantId.",
+        s"Specified serial $serial does not match the expected serial $expectedSerial add $partyId to $targetParticipantId.",
       )
     } yield sourceParticipantId
 
@@ -418,9 +406,9 @@ final class PartyReplicator(
               synchronizerId,
               sourceParticipantId,
               targetParticipantId,
+              serial,
             ),
           sequencerId,
-          serialO,
         ) = status
         syncPersistentState = connectedSynchronizer.synchronizerHandle.syncPersistentState
         partyToParticipantTopologyHeadTx <- partyToParticipantTopologyHead(
@@ -438,95 +426,112 @@ final class PartyReplicator(
             ),
           )
         )
-        // TODO(#25055): Make this work for decentralized parties in which case the source
-        //  participant cannot sign on behalf of the replicating party. Instead this needs
-        //  to be turned into a wait until all the party signers have authorized the topology
-        //  transaction.
-        _ <- syncPersistentState.topologyManager
-          .proposeAndAuthorize(
-            op = TopologyChangeOp.Replace,
-            mapping = proposedPartyToParticipantMapping,
-            serial = serialO,
-            signingKeys = Seq.empty,
-            protocolVersion = syncPersistentState.topologyManager.managerVersion.serialization,
-            expectFullAuthorization = false,
-            forceChanges = ForceFlags.none,
-            waitToBecomeEffective = Some(timeouts.network.asNonNegativeFiniteApproximation),
-          )
-          .leftMap { err =>
-            val exception = err.asGrpcError
-            logger.warn(
-              s"Error proposing party to participant topology change on $participantId",
-              exception,
+        // Sign and authorize the party addition on the target participant.
+        _ <- EitherTUtil.ifThenET(participantId == targetParticipantId)(
+          syncPersistentState.topologyManager
+            .proposeAndAuthorize(
+              op = TopologyChangeOp.Replace,
+              mapping = proposedPartyToParticipantMapping,
+              serial = Some(serial),
+              signingKeys = Seq.empty,
+              protocolVersion = syncPersistentState.topologyManager.managerVersion.serialization,
+              expectFullAuthorization = false,
+              forceChanges = ForceFlags.none,
+              waitToBecomeEffective = Some(timeouts.network.asNonNegativeFiniteApproximation),
             )
-            exception.getMessage
-          }
+            .leftMap { err =>
+              val exception = err.asGrpcError
+              logger.warn(
+                s"Error proposing party to participant topology change on $participantId",
+                exception,
+              )
+              exception.getMessage
+            }
+        )
+        // Wait to observe at least the expected serial.
+        partyToParticipantTopologyPartyAdded <- retryUntilLocalStoreUpdatedInExpectedState(
+          s"observe $partyId topology transaction serial $serial"
+        ) { _ =>
+          (for {
+            head <- partyToParticipantTopologyHead(partyId, syncPersistentState.topologyStore)
+            _ <- EitherT.cond[FutureUnlessShutdown](
+              serial <= head.serial,
+              (),
+              s"Head serial ${head.serial} has not reached specified serial $serial when adding $partyId to $targetParticipantId as part of $requestId.",
+            )
+          } yield head).value
+        }
         // Retrieve PartyToParticipant topology along with effective time, double check that our serial is the
         // latest head state and in case no serial was specified that the SP and TP are now indeed authorized to
         // host the party.
-        partyToParticipantTopologyPartyAdded <- partyToParticipantTopologyHead(
-          partyId,
-          syncPersistentState.topologyStore,
-        )
         _ <- EitherT.cond[FutureUnlessShutdown](
-          serialO.forall(_ == partyToParticipantTopologyPartyAdded.serial),
+          serial == partyToParticipantTopologyPartyAdded.serial,
           (),
-          s"Specified serial $serialO does not match the actual serial ${partyToParticipantTopologyPartyAdded.serial} when adding $partyId to $targetParticipantId as part of $requestId.",
+          s"Specified serial $serial does not match the newest serial ${partyToParticipantTopologyPartyAdded.serial} when adding $partyId to $targetParticipantId as part of $requestId. Has there been another potentially conflicting party hosting modification?",
         )
         _ <- EitherT.cond[FutureUnlessShutdown](
           partyToParticipantTopologyPartyAdded.mapping.participants.exists(
             _.participantId == targetParticipantId
           ),
           (),
-          s"Target participant $targetParticipantId missing from party $partyId even though just added as part of $requestId. This might be a race between expected serial $serialO and actual head serial ${partyToParticipantTopologyPartyAdded.serial}.",
+          s"Target participant $targetParticipantId not authorized to host party $partyId even though just added as part of request $requestId.",
         )
         _ <- EitherT.cond[FutureUnlessShutdown](
           partyToParticipantTopologyPartyAdded.mapping.participants.exists(
             _.participantId == sourceParticipantId
           ),
           (),
-          s"Source participant $sourceParticipantId missing from party $partyId even though kept around as part of $requestId. This might be a race between expected serial $serialO and actual head serial ${partyToParticipantTopologyPartyAdded.serial}.",
+          s"Source participant $sourceParticipantId authorization to host party $partyId has been removed, but is necessary for request $requestId.",
         )
         // On the source participant wait until the topology change is visible via the ledger api
         _ <- EitherTUtil.ifThenET(participantId == sourceParticipantId) {
           val operation = s"observe $partyId topology transaction via ledger api"
-          EitherT(
-            retry
-              .Pause(
-                logger,
-                this,
-                maxRetries = 10,
-                delay = timeouts.storageMaxRetryInterval.asFiniteApproximation,
-                operationName = operation,
-              )
-              .unlessShutdown(
-                performUnlessClosingF(operation)(
-                  syncService.participantNodePersistentState.value.ledgerApiStore
-                    .topologyEventOffsetPublishedOnRecordTime(
-                      synchronizerId,
-                      partyToParticipantTopologyPartyAdded.validFrom.value,
-                    )
-                    .map(offsetO => Either.cond(offsetO.nonEmpty, (), s"failed to $operation"))
-                ),
-                DbExceptionRetryPolicy,
-              )
+          retryUntilLocalStoreUpdatedInExpectedState(operation)(
+            performUnlessClosingF(_)(
+              syncService.participantNodePersistentState.value.ledgerApiStore
+                .topologyEventOffsetPublishedOnRecordTime(
+                  synchronizerId,
+                  partyToParticipantTopologyPartyAdded.validFrom.value,
+                )
+                .map(offsetO => Either.cond(offsetO.nonEmpty, (), s"failed to $operation"))
+            )
           )
         }
       } yield {
         val newStatus = PartyReplicationStatus.TopologyAuthorized(
           params,
           sequencerId,
-          partyToParticipantTopologyPartyAdded.serial,
           partyToParticipantTopologyPartyAdded.validFrom.value,
         )
         logger.info(
-          s"Party replication $requestId topology of party $partyId authorized with serial ${partyToParticipantTopologyPartyAdded.serial} and effective time ${partyToParticipantTopologyPartyAdded.validFrom.value}"
+          s"Party replication $requestId topology of party $partyId authorized with serial $serial and effective time ${partyToParticipantTopologyPartyAdded.validFrom.value}"
         )
         partyReplications.put(requestId, newStatus).discard
         connectToSequencerChannel(requestId)
       },
     )
   )
+
+  private def retryUntilLocalStoreUpdatedInExpectedState[T](
+      operation: String
+  )(
+      checkLocalStoreState: String => FutureUnlessShutdown[Either[String, T]]
+  )(implicit traceContext: TraceContext) =
+    EitherT(
+      retry
+        .Backoff(
+          logger,
+          this,
+          maxRetries = timeouts.unbounded.retries(1.second),
+          initialDelay = 1.second,
+          maxDelay = 10.seconds,
+          operationName = operation,
+        )
+        .unlessShutdown(
+          checkLocalStoreState(operation),
+          DbExceptionRetryPolicy,
+        )
+    )
 
   private def partyToParticipantTopologyHead(
       partyId: PartyId,
@@ -575,8 +580,8 @@ final class PartyReplicator(
             synchronizerId,
             sourceParticipantId,
             targetParticipantId,
-            sequencerId,
             _,
+            sequencerId,
             effectiveAt,
           ) = status.authorizedParams
           processorInfo <-

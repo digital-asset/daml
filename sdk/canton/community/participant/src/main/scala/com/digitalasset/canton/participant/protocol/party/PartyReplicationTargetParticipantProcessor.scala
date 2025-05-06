@@ -84,6 +84,7 @@ class PartyReplicationTargetParticipantProcessor(
 
   private val chunksRequestedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val chunksConsumedExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private val numberOfContractsProcessed = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val numberOfChunksToRequestEachTime = PositiveInt.three
 
   private val pureCrypto =
@@ -150,7 +151,10 @@ class PartyReplicationTargetParticipantProcessor(
               )
             )
             chunkConsumedUpToExclusive = chunksConsumedExclusive.updateAndGet(_.map(_ + 1))
-            _ = onProgress(chunkConsumedUpToExclusive)
+            numContractsProcessed = numberOfContractsProcessed.updateAndGet(
+              _.map(_ + contracts.size)
+            )
+            _ = onProgress(numContractsProcessed)
             _ <-
               if (chunkConsumedUpToExclusive == chunksConsumedExclusive.get()) {
                 // Create a new trace context and log the old and new trace ids, so that we don't end up with
@@ -168,7 +172,7 @@ class PartyReplicationTargetParticipantProcessor(
           logger.info(
             s"Target participant has received end of data after ${chunksConsumedExclusive.get().unwrap} chunks"
           )
-          onComplete(chunksConsumedExclusive.get())
+          onComplete(numberOfContractsProcessed.get())
           EitherT(
             FutureUnlessShutdown
               .lift(

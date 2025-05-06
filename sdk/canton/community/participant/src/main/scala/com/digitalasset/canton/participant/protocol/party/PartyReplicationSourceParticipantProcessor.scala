@@ -72,6 +72,7 @@ class PartyReplicationSourceParticipantProcessor private (
 )(implicit override val executionContext: ExecutionContext)
     extends SequencerChannelProtocolProcessor {
   private val chunkToSendUpToExclusive = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
+  private val numberOfContractsSent = new AtomicReference[NonNegativeInt](NonNegativeInt.zero)
   private val numberOfContractsPerChunk = PositiveInt.two
 
   /** Once connected notify the target participant that the source participant is ready to be asked
@@ -120,12 +121,15 @@ class PartyReplicationSourceParticipantProcessor private (
       sendingUpToChunk = chunkToSendUpToExclusive.updateAndGet(
         _ + NonNegativeInt.tryCreate(contracts.size)
       )
-      _ = onProgress(sendingUpToChunk)
+      numContractsSent = numberOfContractsSent.updateAndGet(
+        _ + NonNegativeInt.tryCreate(contracts.flatMap(_._1).size)
+      )
+      _ = onProgress(numContractsSent)
 
       // If there aren't enough contracts, send that we have reached the end of the ACS.
       _ <- EitherTUtil.ifThenET(sendingUpToChunk < newChunkToSendUpTo)(
         sendEndOfAcs(s"End of ACS after chunk $sendingUpToChunk").map(_ =>
-          onComplete(sendingUpToChunk)
+          onComplete(numContractsSent)
         )
       )
     } yield ()

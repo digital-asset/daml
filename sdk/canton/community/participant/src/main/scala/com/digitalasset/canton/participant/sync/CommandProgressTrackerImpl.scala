@@ -32,7 +32,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.protocol.LfSubmittedTransaction
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.data.Ref.TypeConId
+import com.digitalasset.daml.lf.data.Ref.TypeConName
 import com.digitalasset.daml.lf.transaction.Node.LeafOnlyAction
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
@@ -145,7 +145,7 @@ class CommandProgressTrackerImpl(
           lookedUpByKey: Int = 0,
       )
       def mk(
-          templateId: TypeConId,
+          templateId: TypeConName,
           coid: String,
           keyOpt: Option[GlobalKeyWithMaintainers],
       ): Contract =
