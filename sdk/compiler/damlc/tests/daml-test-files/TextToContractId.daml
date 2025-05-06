@@ -1,7 +1,8 @@
 -- Copyright (c) 2025, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ERROR range=45:1-45:27; Malformed contract id
+-- needs LF 2.dev to pretty print the Dev.MalformedContractId error
+-- @SINCE-LF 2.dev
 
 {-# OPTIONS_GHC -Wno-x-crypto #-}
 
@@ -42,6 +43,7 @@ canParseGlobalContractId = script do
   assert test1
   assert $ not test2
 
+-- @ERROR range=47:1-47:27; Malformed contract id
 cannotParseLocalContractId = script do
   let localCid = implode $ replicate 66 "0"
-  pure $ (fromHex localCid : ContractId A) -- fails with "Malformed contract id"
+  pure $ (fromHex localCid : ContractId A)
