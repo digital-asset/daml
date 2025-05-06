@@ -5,7 +5,7 @@ package com.digitalasset.daml.lf
 package script
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
@@ -353,7 +353,12 @@ private[lf] object IdeLedgerRunner {
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
-              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
+              val suffix = Bytes.fromByteArray(Array(0, 0))
+              val enrichedTx = enrich(tx).suffixCid(_ => suffix, _ => suffix) match {
+                case Right(enrichedTx) => SubmittedTransaction(enrichedTx)
+                case Left(err) => throw Error.Internal(err)
+              }
+              ledger.commit(committers, readAs, location, enrichedTx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
