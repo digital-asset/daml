@@ -1476,6 +1476,8 @@ Data Types
   The ``ContractId a`` type represents an ID for a contract created from a template ``a``\.
   You can use the ID to fetch the contract, among other things\.
 
+  **instance** `Template <type-da-internal-template-functions-template-31804_>`_ a \=\> :ref:`HasFromHex <class-da-crypto-text-hasfromhex-84972>` (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
+
   **instance** `Eq <class-ghc-classes-eq-22713_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)
 
   **instance** `Ord <class-ghc-classes-ord-6395_>`_ (`ContractId <type-da-internal-lf-contractid-95282_>`_ a)

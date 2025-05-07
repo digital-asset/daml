@@ -302,6 +302,7 @@ instance Pretty BuiltinExpr where
     BETextToParty -> "TEXT_TO_PARTY"
     BETextToInt64 -> "TEXT_TO_INT64"
     BETextToCodePoints -> "TEXT_TO_CODE_POINTS"
+    BETextToContractId -> "TEXT_TO_CONTRACT_ID"
     BECodePointsToText -> "CODE_POINTS_TO_TEXT"
     BECoerceContractId -> "COERCE_CONTRACT_ID"
     BETypeRepTyConName -> "TYPE_REP_TYCON_NAME"

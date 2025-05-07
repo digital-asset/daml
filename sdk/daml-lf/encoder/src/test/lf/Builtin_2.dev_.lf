@@ -84,9 +84,11 @@ module BuiltinMod {
   val textToInt64: Text -> Option Int64 =
     TEXT_TO_INT64;
   val textToNumeric: forall (a: nat). Numeric a -> Text -> Option (Numeric a) =
-      TEXT_TO_NUMERIC;
+    TEXT_TO_NUMERIC;
   val textToCodePoints: Text -> List Int64 =
     TEXT_TO_CODE_POINTS;
+  val textToContractId: forall (a: *). Text -> ContractId a =
+    TEXT_TO_CONTRACT_ID;
   val sha256Text: Text -> Text =
     SHA256_TEXT;
   val keccak256Text: Text -> Text =

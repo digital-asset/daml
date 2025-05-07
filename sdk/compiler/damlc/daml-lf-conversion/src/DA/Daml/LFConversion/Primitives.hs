@@ -104,6 +104,8 @@ convertPrim _ "BETextToInt64" (TText :-> TOptional TInt64) =
     pure $ EBuiltinFun BETextToInt64
 convertPrim _ "BETextToCodePoints" (TText :-> TList TInt64) =
     pure $ EBuiltinFun BETextToCodePoints
+convertPrim _ "BETextToContractId" (TText :-> TContractId a) =
+    pure $ EBuiltinFun BETextToContractId `ETyApp` a
 convertPrim _ "BECodePointsToText" (TList TInt64 :-> TText) =
     pure $ EBuiltinFun BECodePointsToText
 
@@ -209,7 +211,6 @@ convertPrim version "BEBigNumericToNumeric" ty@(TNumeric n0 :-> TBigNumeric :-> 
 
 convertPrim _ "BEContractIdToText" (TContractId t :-> TOptional TText) =
     pure $ ETyApp (EBuiltinFun BEContractIdToText) t
-
 
 -- Template Desugaring.
 

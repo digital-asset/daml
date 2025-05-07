@@ -232,6 +232,7 @@ typeOfBuiltin = \case
   BETextToParty    -> pure $ TText :-> TOptional TParty
   BETextToInt64    -> pure $ TText :-> TOptional TInt64
   BETextToCodePoints -> pure $ TText :-> TList TInt64
+  BETextToContractId -> pure $ TForall (alpha, KStar) $ TText :-> TContractId tAlpha
   BEAddNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BESubNumeric -> pure $ TForall (alpha, KNat) $ TNumeric tAlpha :-> TNumeric tAlpha :-> TNumeric tAlpha
   BEMulNumeric       -> pure $ TForall (alpha, KNat) $ TForall (beta, KNat) $ TForall (gamma, KNat) $ TNumeric tGamma :-> TNumeric tAlpha :-> TNumeric tBeta :-> TNumeric tGamma

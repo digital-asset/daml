@@ -40,6 +40,8 @@ Typeclasses
 
     Converts a hex encoded string into a typed data value\.
 
+  **instance** :ref:`Template <type-da-internal-template-functions-template-31804>` a \=\> `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`ContractId <type-da-internal-lf-contractid-95282>` a)
+
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Party <type-da-internal-lf-party-57932>`)
 
   **instance** `HasFromHex <class-da-crypto-text-hasfromhex-84972_>`_ (:ref:`Optional <type-da-internal-prelude-optional-37153>` :ref:`Int <type-ghc-types-int-37261>`)

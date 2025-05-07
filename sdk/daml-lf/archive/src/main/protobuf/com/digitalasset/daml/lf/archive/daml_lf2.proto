@@ -361,8 +361,9 @@ enum BuiltinFunction {
   SECP256K1_BOOL = 68;
   HEX_TO_TEXT = 69;
   TEXT_TO_HEX = 70;
+  TEXT_TO_CONTRACT_ID = 71;
 
-  // Next id is 71.
+  // Next id is 72.
 
   /* Dev Builtins */
   // We use fields above 1000 for dev features

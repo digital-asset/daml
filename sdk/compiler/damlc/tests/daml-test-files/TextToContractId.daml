@@ -1,0 +1,49 @@
+-- Copyright (c) 2025, Digital Asset (Switzerland) GmbH and/or its affiliates.
+-- All rights reserved.
+
+-- needs LF 2.dev to pretty print the Dev.MalformedContractId error
+-- @SINCE-LF 2.dev
+
+{-# OPTIONS_GHC -Wno-x-crypto #-}
+
+module TextToContractId where
+
+import DA.Assert
+import DA.Crypto.Text
+import DA.Text (implode)
+import Daml.Script
+
+template A
+  with
+    p : Party
+  where
+    signatory p
+
+template B
+  with
+    p : Party
+    hexID : BytesHex
+  where
+    signatory p
+
+    nonconsuming choice Check : Bool
+      with contractId : ContractId A
+      controller p
+      do return $ fromHex hexID == contractId
+
+canParseGlobalContractId = script do
+  p <- allocateParty "alice"
+  cid1 <- p `submit` createCmd (A p)
+  cid2 <- p `submit` createCmd (A p)
+  let hid1 = show cid1
+  cid1 === fromHex hid1
+  cid2 =/= fromHex hid1
+  test1 <- p `submit` createAndExerciseCmd (B p hid1) (Check cid1)
+  test2 <- p `submit` createAndExerciseCmd (B p hid1) (Check cid2)
+  assert test1
+  assert $ not test2
+
+-- @ERROR range=47:1-47:27; Malformed contract id
+cannotParseLocalContractId = script do
+  let localCid = implode $ replicate 66 "0"
+  pure $ (fromHex localCid : ContractId A)

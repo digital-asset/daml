@@ -1616,6 +1616,7 @@ private[lf] object DecodeV2 {
       BuiltinFunctionInfo(SECP256K1_BOOL, BSECP256K1Bool, minVersion = LV.Features.crypto),
       BuiltinFunctionInfo(HEX_TO_TEXT, BDecodeHex, minVersion = LV.Features.crypto),
       BuiltinFunctionInfo(TEXT_TO_HEX, BEncodeHex, minVersion = LV.Features.crypto),
+      BuiltinFunctionInfo(TEXT_TO_CONTRACT_ID, BTextToContractId, minVersion = LV.Features.crypto),
       BuiltinFunctionInfo(DATE_TO_UNIX_DAYS, BDateToUnixDays),
       BuiltinFunctionInfo(EXPLODE_TEXT, BExplodeText),
       BuiltinFunctionInfo(IMPLODE_TEXT, BImplodeText),
