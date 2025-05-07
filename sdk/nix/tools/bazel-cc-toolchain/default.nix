@@ -3,6 +3,7 @@
 , bintools
 , buildEnv
 , darwin
+, lib
 , libiconv
 , llvmPackages
 , makeWrapper
@@ -51,6 +52,7 @@ let
           echo "-resource-dir=${stdenv.cc}/resource-root" >> $out/nix-support/cc-cflags
           echo "-D_DNS_SD_LIBDISPATCH" >> $out/nix-support/cc-cflags # Needed for DNSServiceSetDispatchQueue to be available for gRPC
         '';
+      nativeTools = false;
     };
 
   cc-linux =
@@ -70,9 +72,20 @@ let
     then overrideCC stdenv cc-darwin
     else overrideCC stdenv cc-linux;
 in
-buildEnv {
-  name = "bazel-cc-toolchain";
-  paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
-  ignoreCollisions = true;
-  passthru = { isClang = customStdenv.cc.isClang; targetPrefix = customStdenv.cc.targetPrefix; };
-}
+  buildEnv (
+    {
+      name = "bazel-cc-toolchain";
+      paths = [ customStdenv.cc ] ++ (if stdenv.isDarwin then [ darwinBinutils ] else [ binutils ]);
+      ignoreCollisions = true;
+      passthru = { isClang = customStdenv.cc.isClang; targetPrefix = customStdenv.cc.targetPrefix; };
+    } // (lib.optionalAttrs stdenv.isDarwin {
+      # only add tools from darwin.cctools, but don't overwrite existing tools
+      postBuild = ''
+        for tool in libtool objdump; do
+           if [[ ! -e $out/bin/$tool ]]; then
+             ln -s -t $out/bin ${darwin.cctools}/bin/$tool
+           fi
+        done
+      '';
+    })
+  )
