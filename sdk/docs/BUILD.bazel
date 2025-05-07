@@ -248,8 +248,6 @@ genrule(
     # Copy Javadoc using unzip to avoid having to know the path to the 'jar' binary. Note flag to overwrite
     unzip -q -o $(locations //language-support/java:javadoc) -d $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs
     # Remove JAR metadata
-    rm -r $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/com/daml/ledger/api/v2/interactive/transaction/v1/InteractiveSubmissionDataOuterClass* \
-          $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/com/daml/ledger/api/v2/interactive/transaction/v1/class-use/InteractiveSubmissionDataOuterClass*
     rm -r $$DIR/html/sdk/sdlc-howtos/applications/integrate/bindings-java/javadocs/META-INF
 
     # Copy generated documentation for typescript libraries
