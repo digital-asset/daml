@@ -242,7 +242,7 @@ def install_java_deps():
             "org.pcollections:pcollections:4.0.1",
             "org.playframework.anorm:anorm-tokenizer_{}:2.7.0".format(scala_major_version),
             "org.playframework.anorm:anorm_{}:2.7.0".format(scala_major_version),
-            "org.postgresql:postgresql:42.6.0",
+            "org.postgresql:postgresql:42.7.3",
             "org.reactivestreams:reactive-streams-tck:1.0.4",
             "org.reactivestreams:reactive-streams:1.0.4",
             "org.reflections:reflections:0.9.12",
