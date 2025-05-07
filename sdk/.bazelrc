@@ -23,6 +23,10 @@ sync:darwin --repository_cache=.bazel-cache/repo
 
 test:oracle --repo_env DAML_ORACLE_TESTING=true --test_env ORACLE_USERNAME --test_env ORACLE_PORT --test_env ORACLE_PWD
 
+# set c++ compilation version to 14 (requiered for abseil)
+build --cxxopt=-std=c++14
+build --host_cxxopt=-std=c++14
+
 # Improve remote cache hit rate by exluding environment variables from the
 # sandbox that are not whitelisted using --action_env.
 # This will become the default in a future Bazel release.
