@@ -280,8 +280,10 @@ final class Conversions(
                     )
                 }
               case _: Upgrade =>
-                proto.ScriptError.UpgradeError.newBuilder.setMessage(
-                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                builder.setUpgradeError(
+                  proto.ScriptError.UpgradeError.newBuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
                 )
               case _: Crypto =>
                 proto.ScriptError.CryptoError.newBuilder.setMessage(
