@@ -2099,11 +2099,6 @@ Functions
   pointers\. Note that subsequent fetches and exercises might fail if the
   template of the contract on the ledger doesn't match\.
 
-.. _function-da-internal-lf-texttocontractid-62250:
-
-`textToContractId <function-da-internal-lf-texttocontractid-62250_>`_
-  \: `Text <type-ghc-types-text-51952_>`_ \-\> `ContractId <type-da-internal-lf-contractid-95282_>`_ a
-
 .. _function-da-internal-prelude-curry-6393:
 
 `curry <function-da-internal-prelude-curry-6393_>`_
