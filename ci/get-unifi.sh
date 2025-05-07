@@ -2,18 +2,27 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
-
+# Unifi latest url
+UNIFI_URL="${1:-europe-docker.pkg.dev/da-images-dev/oci-playground/components/assistant:latest}"
+# Get current machine OS type and ARCH
 OS_TYPE="$(uname -s | tr A-Z a-z)"
 if [[ $(uname -m) == 'x86_64' ]]; then
   CPU_ARCH='amd64'
 else
   CPU_ARCH="$(uname -m)"
 fi
+# ORAS CLI is also a built-in tool in some VM images for GitHub-hosted runners used for GitHub Actions,
+# as well as for Microsoft-hosted agents used for Azure Pipelines,
+# boxes: Ubuntu 20.04, Ubuntu 22.04 (https://oras.land/docs/installation)
+if [ ! -x "$(command -v oras)" ]; then
+  echo  "Missing tool required: oras"
+  exit 1
+fi
 
-gcloud auth configure-docker europe-docker.pkg.dev
+# Prepare unifi install destination
 [[ ! -d "${HOME}/.unifi/bin" ]] && mkdir -pv "${HOME}/.unifi/bin"
-nix-shell -p oras --run "oras pull --platform \"${OS_TYPE}/${CPU_ARCH}\" \
-          -o \"${HOME}/.unifi/bin\" \
-          \"europe-docker.pkg.dev/da-images-dev/oci-playground/components/assistant:latest\""
+# Get unifi from artifacts registry
+oras pull --platform "${OS_TYPE}/${CPU_ARCH}" -o "${HOME}/.unifi/bin" "${UNIFI_URL}"
+# Set execute permission
 chmod -v +x "${HOME}/.unifi/bin/unifi"
 ${HOME}/.unifi/bin/unifi version --assistant
