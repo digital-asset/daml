@@ -200,12 +200,12 @@ message VettedPackages {
   message VettedPackage {
     // the hash of the vetted package
     string package_id = 1;
-    // optional earliest ledger effective time (exclusive) as of which the package is considered valid.
+    // optional earliest ledger effective time (inclusive) as of which the package is considered valid.
     // must be less than or equal to valid_until if both are present.
-    google.protobuf.Timestamp valid_from = 2;
-    // optional latest ledger effective time (inclusive) until which the package is considered valid.
+    google.protobuf.Timestamp valid_from_inclusive = 2;
+    // optional latest ledger effective time (exclusive) until which the package is considered valid.
     // must be greater than or equal to valid_from if both are present.
-    google.protobuf.Timestamp valid_until = 3;
+    google.protobuf.Timestamp valid_until_exclusive = 3;
   }
   // the participant vetting the packages
   string participant_uid = 1;

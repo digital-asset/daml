@@ -212,7 +212,7 @@ class AvailabilityModuleDisseminationTest
 
           availability.receive(
             LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
             )
           )
 
@@ -274,7 +274,7 @@ class AvailabilityModuleDisseminationTest
 
           availability.receive(
             LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
             )
           )
 

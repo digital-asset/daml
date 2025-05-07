@@ -1163,9 +1163,9 @@ object PartyHostingLimits extends TopologyMappingCompanion {
   * effective time (LET) of Daml transactions.
   * @param packageId
   *   the hash of the package
-  * @param validFrom
+  * @param validFromInclusive
   *   optional inclusive start of the validity period in LET
-  * @param validUntil
+  * @param validUntilExclusive
   *   optional exclusive end of the validity period in LET
   *
   * Note that as validFrom and validUntil are in ledger effective time, the boundaries have
@@ -1173,22 +1173,23 @@ object PartyHostingLimits extends TopologyMappingCompanion {
   */
 final case class VettedPackage(
     packageId: LfPackageId,
-    validFrom: Option[CantonTimestamp],
-    validUntil: Option[CantonTimestamp],
+    validFromInclusive: Option[CantonTimestamp],
+    validUntilExclusive: Option[CantonTimestamp],
 ) extends PrettyPrinting {
 
-  def validAt(ts: CantonTimestamp): Boolean = validFrom.forall(_ <= ts) && validUntil.forall(_ > ts)
+  def validAt(ts: CantonTimestamp): Boolean =
+    validFromInclusive.forall(_ <= ts) && validUntilExclusive.forall(_ > ts)
 
   def toProtoV30: v30.VettedPackages.VettedPackage = v30.VettedPackages.VettedPackage(
     packageId,
-    validFrom = validFrom.map(_.toProtoTimestamp),
-    validUntil = validUntil.map(_.toProtoTimestamp),
+    validFromInclusive = validFromInclusive.map(_.toProtoTimestamp),
+    validUntilExclusive = validUntilExclusive.map(_.toProtoTimestamp),
   )
   override protected def pretty: Pretty[VettedPackage.this.type] = prettyOfClass(
     param("packageId", _.packageId),
-    paramIfDefined("validFrom", _.validFrom),
-    paramIfDefined("validUntil", _.validUntil),
-    paramIfTrue("unbounded", vp => vp.validFrom.isEmpty && vp.validUntil.isEmpty),
+    paramIfDefined("validFromInclusive", _.validFromInclusive),
+    paramIfDefined("validUntilExclusive", _.validUntilExclusive),
+    paramIfTrue("unbounded", vp => vp.validFromInclusive.isEmpty && vp.validUntilExclusive.isEmpty),
   )
 }
 
@@ -1202,9 +1203,9 @@ object VettedPackage {
     pkgId <- LfPackageId
       .fromString(value.packageId)
       .leftMap(ProtoDeserializationError.ValueConversionError("package_id", _))
-    validFrom <- value.validFrom.traverse(CantonTimestamp.fromProtoTimestamp)
-    validUntil <- value.validUntil.traverse(CantonTimestamp.fromProtoTimestamp)
-  } yield VettedPackage(pkgId, validFrom, validUntil)
+    validFromInclusive <- value.validFromInclusive.traverse(CantonTimestamp.fromProtoTimestamp)
+    validUntilExclusive <- value.validUntilExclusive.traverse(CantonTimestamp.fromProtoTimestamp)
+  } yield VettedPackage(pkgId, validFromInclusive, validUntilExclusive)
 }
 
 // Package vetting
@@ -1261,7 +1262,9 @@ object VettedPackages extends TopologyMappingCompanion {
       .toList
 
     val emptyValidity = packages.filter(vp =>
-      (vp.validFrom, vp.validUntil).tupled.exists { case (from, until) => from >= until }
+      (vp.validFromInclusive, vp.validUntilExclusive).tupled.exists { case (from, until) =>
+        from >= until
+      }
     )
 
     for {

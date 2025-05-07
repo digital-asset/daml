@@ -26,7 +26,7 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
             "test@",
             "test:", // used for QualifiedName string encoding
             "test.", // used for DottedName string encoding
-            "test#", // used for QualifiedChoiceName string encoding
+            "test#", // used for QualifiedChoiceId string encoding
           )
         forEvery(testCases)(Name.fromString(_) shouldBe a[Left[_, _]])
       }
@@ -368,7 +368,7 @@ class RefTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks w
     }
   }
 
-  "QualifiedChoiceName.fromString" - {
+  "QualifiedChoiceId.fromString" - {
 
     val errorMessageBeginning =
       "Separator ':' between package identifier and qualified name not found in "

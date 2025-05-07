@@ -193,9 +193,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
     // GlobalKey default constructor is private, so create a constructor function from the companion builder
     // and pass that to chimney so it can construct the instance
     def globalKeyConstructor(
-                              templateId: TypeConId,
-                              key: Value,
-                              packageName: Ref.PackageName,
+        templateId: TypeConId,
+        key: Value,
+        packageName: Ref.PackageName,
     ): Result[lf.transaction.GlobalKey] =
       lf.transaction.GlobalKey.build(templateId, key, packageName).leftMap(_.msg).toResult
 
