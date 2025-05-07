@@ -17,7 +17,10 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParameters,
   DynamicSequencingParametersWithValidity,
+  DynamicSynchronizerParameters,
+  DynamicSynchronizerParametersWithValidity,
 }
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
@@ -46,6 +49,23 @@ class CantonOrderingTopologyProviderTest
         .thenReturn(
           FutureUnlessShutdown.pure(
             Some(SequencerGroup(someSequencerIds, Seq.empty, PositiveInt.one))
+          )
+        )
+      when(topologySnapshotMock.findDynamicSynchronizerParameters())
+        .thenReturn(
+          FutureUnlessShutdown.pure(
+            Right(
+              DynamicSynchronizerParametersWithValidity(
+                DynamicSynchronizerParameters
+                  .defaultValues(
+                    testedProtocolVersion
+                  ),
+                validFrom = aTimestamp,
+                validUntil = None,
+                synchronizerId =
+                  SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+              )
+            ).withLeft[String]
           )
         )
       when(topologySnapshotMock.memberFirstKnownAt(any[SequencerId])(any[TraceContext]))
@@ -111,6 +131,10 @@ class CantonOrderingTopologyProviderTest
                       TopologyActivationTime.fromEffectiveTime(EffectiveTime(aTimestamp)),
                     keyIds = Set(FingerprintKeyId.toBftKeyId(pk.id)),
                   )
+                )
+              orderingTopology.maxRequestSizeToDeserialize shouldBe
+                MaxRequestSizeToDeserialize.Limit(
+                  DynamicSynchronizerParameters.defaultMaxRequestSize.value
                 )
             }
       }

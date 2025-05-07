@@ -5,6 +5,7 @@ package com.digitalasset.canton.util
 
 import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.util.collection.TrieMapUtil
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.collection.concurrent.TrieMap

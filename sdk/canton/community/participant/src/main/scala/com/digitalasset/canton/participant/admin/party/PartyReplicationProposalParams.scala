@@ -25,7 +25,7 @@ final case class PartyReplicationProposalParams private (
     synchronizerId: SynchronizerId,
     targetParticipantId: ParticipantId,
     sequencerIds: NonEmpty[List[SequencerId]],
-    serial: Option[PositiveInt],
+    serial: PositiveInt,
 )
 
 object PartyReplicationProposalParams {
@@ -62,12 +62,12 @@ object PartyReplicationProposalParams {
           .fromProtoPrimitive(synchronizer, "synchronizer")
           // The following error is impossible to trigger as the ledger-api does not emit invalid synchronizer ids
           .leftMap(err => s"Invalid synchronizerId $err")
-      serialIntO <- Either.cond(
+      serialInt <- Either.cond(
         c.topologySerial.toInt.toLong == c.topologySerial,
-        Option.when(c.topologySerial.toInt != 0)(c.topologySerial.toInt),
+        c.topologySerial.toInt,
         s"Non-integer serial ${c.topologySerial}",
       )
-      serial <- serialIntO.traverse(PositiveInt.create).leftMap(_.message)
+      serial <- PositiveInt.create(serialInt).leftMap(_.message)
     } yield PartyReplicationProposalParams(
       requestId,
       partyId,

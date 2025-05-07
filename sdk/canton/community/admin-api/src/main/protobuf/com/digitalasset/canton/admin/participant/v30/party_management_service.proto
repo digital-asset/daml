@@ -12,17 +12,23 @@ import "scalapb/scalapb.proto";
  * The PartyManagementService allows modifying party hosting on participants.
  */
 service PartyManagementService {
-  // Initiate adding a party already hosted on one or more non-local participants to the
-  // local participant in the specified synchronizer.
-  // Performs some checks synchronously and then starts the replication asynchronously.
+  // Initiate adding a party already hosted on one or more source participants to this
+  // target participant in the specified synchronizer.
+  // Performs some checks synchronously and then starts the party addition asynchronously.
+  //
+  // Depends on the party authorizing the PartyToParticipant topology proposal at the
+  // specified topology_serial prior or concurrently to this endpoint. On the other hand,
+  // this target participant authorizes the topology proposal as part of this endpoint in
+  // a specific, intermediate step, and therefore the target participant signature must not
+  // already be in place prior to the call.
   rpc AddPartyAsync(AddPartyAsyncRequest) returns (AddPartyAsyncResponse);
 
   // Status endpoint that given an add_party_request_id returns status information about progress,
   // completion, or errors of a previous call to AddPartyAsync on the source or target
   // participant.
   //
-  // Note that the status reflects the state as perceived by the local participant and does not
-  // imply the state of remote participants. The status on the target participant is more
+  // Note that the status reflects the state as perceived by this participant and does not
+  // imply the state of other participants. The status on the target participant is more
   // authoritative as the target participant drives the process of adding the party. For example
   // when the target participant status indicates "completed", the party has been added
   // successfully.
@@ -44,14 +50,13 @@ message AddPartyAsyncRequest {
   // The synchronizer in which to replicate the party
   // Required
   string synchronizer_id = 2;
-  // Optionally, the source participant already hosting the party
-  // Required if the party is already hosted on multiple participants.
+  // A source participant already hosting the party
+  // Required
   string source_participant_uid = 3;
-  // Optionally, the topology serial number of this request (auto-determined if omitted)
-  // NOTE: omitting the serial MAY end up overwriting previous mappings processed concurrently.
-  // To avoid such cases, first read the PartyToParticipant state using the TopologyManagerReadService
-  // and update the mappings accordingly, incrementing the serial by one and setting it explicitly.
-  uint32 serial = 4;
+  // The topology serial number of the PartyToParticipant topology transaction used to
+  // add the party to this target participant.
+  // Required
+  uint32 topology_serial = 4;
 }
 
 message AddPartyAsyncResponse {
@@ -76,45 +81,39 @@ message GetAddPartyStatusResponse {
   string synchronizer_id = 2;
   string source_participant_uid = 3;
   string target_participant_uid = 4;
+  uint32 topology_serial = 5;
 
   message Status {
     // The add-party request has been submitted by the target participant, or accepted by the
     // source participant.
-    message ProposalProcessed {
-      optional uint32 topology_serial = 1;
-    }
+    message ProposalProcessed {}
     // The add-party request has been observed as agreed to by all participants.
     message AgreementAccepted {
       string sequencer_uid = 1;
-      optional uint32 topology_serial = 2;
     }
     // The PartyToParticipant topology transaction has been authorized by all party and
     // participant signers.
     message TopologyAuthorized {
       string sequencer_uid = 1;
-      uint32 topology_serial = 2;
       // The timestamp at which the ACS snapshot for replication is taken.
-      google.protobuf.Timestamp timestamp = 3;
+      google.protobuf.Timestamp timestamp = 2;
     }
-    // The local participant has connected to the sequencer channel for ACS replication.
+    // This participant has connected to the sequencer channel for ACS replication.
     message ConnectionEstablished {
       string sequencer_uid = 1;
-      uint32 topology_serial = 2;
-      google.protobuf.Timestamp timestamp = 3;
+      google.protobuf.Timestamp timestamp = 2;
     }
-    // The local participant is ready for ACS replication or has started replicating the ACS.
+    // This participant is ready for ACS replication or has started replicating the ACS.
     message ReplicatingAcs {
       string sequencer_uid = 1;
-      uint32 topology_serial = 2;
-      google.protobuf.Timestamp timestamp = 3;
-      uint32 contracts_replicated = 4;
+      google.protobuf.Timestamp timestamp = 2;
+      uint32 contracts_replicated = 3;
     }
-    // The local participant has completed its part of the ACS replication.
+    // This participant has completed its part of the ACS replication.
     message Completed {
       string sequencer_uid = 1;
-      uint32 topology_serial = 2;
-      google.protobuf.Timestamp timestamp = 3;
-      uint32 contracts_replicated = 4;
+      google.protobuf.Timestamp timestamp = 2;
+      uint32 contracts_replicated = 3;
     }
     // The add-party request has failed after the specified last successful status.
     message Error {
@@ -140,7 +139,7 @@ message GetAddPartyStatusResponse {
     }
   }
 
-  Status status = 5;
+  Status status = 6;
 }
 
 message ExportAcsTargetSynchronizer {

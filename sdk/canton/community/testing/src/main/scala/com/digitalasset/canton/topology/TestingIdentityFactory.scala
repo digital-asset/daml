@@ -51,7 +51,8 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.{ErrorUtil, MapsUtil}
+import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.collection.MapsUtil
 import com.digitalasset.canton.{BaseTest, FutureHelpers, LfPackageId, LfPartyId}
 import com.google.common.annotations.VisibleForTesting
 

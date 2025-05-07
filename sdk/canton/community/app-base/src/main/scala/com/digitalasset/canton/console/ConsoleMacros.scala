@@ -39,7 +39,12 @@ import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLoggingUtil}
+import com.digitalasset.canton.logging.{
+  NamedLoggerFactory,
+  NamedLogging,
+  NodeLoggingUtil,
+  TracedLogger,
+}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
@@ -77,6 +82,7 @@ import java.time.Instant
 import scala.annotation.unused
 import scala.collection.mutable
 import scala.concurrent.duration.*
+import scala.sys.process.ProcessLogger
 
 trait ConsoleMacros extends NamedLogging with NoTracing {
 
@@ -85,6 +91,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
   @Help.Summary("Console utilities")
   @Help.Group("Utilities")
   object utils extends Helpful {
+
+    @Help.Summary("A process logger that forwards process logs to the canton logs")
+    def cantonProcessLogger(tracedLogger: TracedLogger = logger): ProcessLogger =
+      new ProcessLogger {
+        override def out(s: => String): Unit = tracedLogger.debug(s)
+        override def err(s: => String): Unit = tracedLogger.error(s)
+        override def buffer[T](f: => T): T = f
+      }
 
     @Help.Summary("Reflective inspection of object arguments, handy to inspect case class objects")
     @Help.Description(

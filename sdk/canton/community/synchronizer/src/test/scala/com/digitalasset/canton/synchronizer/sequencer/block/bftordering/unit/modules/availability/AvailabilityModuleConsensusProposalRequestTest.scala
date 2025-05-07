@@ -478,6 +478,7 @@ class AvailabilityModuleConsensusProposalRequestTest
                 BatchReadyForOrderingNode0Vote._2,
                 OrderingTopologyWithNode0To6,
               )
+              .getOrElse(fail("Progress was not updated"))
           disseminationProtocolState.disseminationProgress should contain only (ABatchId -> reviewedProgress)
           disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
@@ -487,7 +488,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val selfSendMessages = pipeToSelfQueue.flatMap(_.apply())
           selfSendMessages should contain only
             Availability.LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Left(reviewedProgress)))
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, signature = None))
             )
         }
       }
@@ -552,6 +553,7 @@ class AvailabilityModuleConsensusProposalRequestTest
                   AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes._2,
                   OrderingTopologyNodes0To3,
                 )
+                .getOrElse(fail("Progress was not updated"))
             disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress)
             disseminationProtocolState.toBeProvidedToConsensus should be(empty)
             disseminationProtocolState.batchesReadyForOrdering.keys should contain only ABatchId
@@ -572,7 +574,7 @@ class AvailabilityModuleConsensusProposalRequestTest
             val selfMessages = pipeToSelfQueue.flatMap(_.apply())
             selfMessages should contain only Availability.LocalDissemination
               .LocalBatchesStoredSigned(
-                Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, Left(reviewedProgress)))
+                Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, signature = None))
               )
           }
       }
@@ -639,6 +641,7 @@ class AvailabilityModuleConsensusProposalRequestTest
                 AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes._2,
                 newTopology,
               )
+              .getOrElse(fail("Progress was not updated"))
 
           disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress)
           disseminationProtocolState.toBeProvidedToConsensus should contain only
@@ -648,7 +651,7 @@ class AvailabilityModuleConsensusProposalRequestTest
           val selfMessages = pipeToSelfQueue.flatMap(_.apply())
           selfMessages should contain only Availability.LocalDissemination
             .LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, Left(reviewedProgress)))
+              Seq(LocalBatchStoredSigned(AnotherBatchId, ABatch, signature = None))
             )
         }
     }
@@ -692,8 +695,9 @@ class AvailabilityModuleConsensusProposalRequestTest
             OrderingTopologyNodes0To6.copy(
               nodesTopologyInfo =
                 OrderingTopologyNodes0To6.nodesTopologyInfo.map { case (nodeId, nodeInfo) =>
-                  // Change the key of node0 so that the batch has to be re-signed and re-disseminated
-                  nodeId -> (if (nodeId == "node0")
+                  // Change the key of node0 and node6 so that the PoA is only left with 2 valid acks < f+1 = 3
+                  //  and it will be re-signed by node0
+                  nodeId -> (if (nodeId == "node0" || nodeId == "node6")
                                nodeInfo.copy(keyIds =
                                  Set(BftKeyId(anotherNoSignature.signedBy.toProtoPrimitive))
                                )

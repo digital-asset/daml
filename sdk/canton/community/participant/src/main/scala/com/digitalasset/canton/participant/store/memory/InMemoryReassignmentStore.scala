@@ -27,7 +27,8 @@ import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MapsUtil}
+import com.digitalasset.canton.util.collection.MapsUtil
+import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil}
 import monocle.Monocle.toAppliedFocusOps
 
 import java.util.ConcurrentModificationException

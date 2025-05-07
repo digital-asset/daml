@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
@@ -358,6 +359,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             new RequestInspector {
               override def isRequestToAllMembersOfSynchronizer(
                   request: OrderingRequest,
+                  maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
                   logger: TracedLogger,
                   traceContext: TraceContext,
               )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true

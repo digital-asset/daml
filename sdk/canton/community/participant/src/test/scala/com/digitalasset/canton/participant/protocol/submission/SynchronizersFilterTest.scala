@@ -68,7 +68,7 @@ class SynchronizersFilterTest
         val packageNotValid = defaultPackageId
         val packagesWithModifedValidityPeriod = correctPackages.map(vp =>
           if (vp.packageId == packageNotValid)
-            vp.copy(validFrom = validFrom, validUntil = validUntil)
+            vp.copy(validFromInclusive = validFrom, validUntilExclusive = validUntil)
           else vp
         )
         val (unusableSynchronizers, usableSynchronizers) =

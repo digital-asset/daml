@@ -225,13 +225,15 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       )
 
       val packageNotYetValid = ExerciseByInterface.correctPackages.map(vp =>
-        if (vp.packageId == missingPackage) vp.copy(validFrom = Some(ledgerTime.plusMillis(1L)))
+        if (vp.packageId == missingPackage)
+          vp.copy(validFromInclusive = Some(ledgerTime.plusMillis(1L)))
         else vp
       )
       runWithModifiedPackages(packageNotYetValid)
 
       val packageNotValidAnymore = ExerciseByInterface.correctPackages.map(vp =>
-        if (vp.packageId == missingPackage) vp.copy(validUntil = Some(ledgerTime.minusMillis(1L)))
+        if (vp.packageId == missingPackage)
+          vp.copy(validUntilExclusive = Some(ledgerTime.minusMillis(1L)))
         else vp
       )
       runWithModifiedPackages(packageNotValidAnymore)

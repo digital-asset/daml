@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.SequencerMemberValid
 import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.*
+import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.immutable
@@ -128,7 +128,10 @@ class BlockUpdateGeneratorImpl(
   override def extractBlockEvents(block: RawLedgerBlock): BlockEvents = {
     val ledgerBlockEvents = block.events.mapFilter { tracedEvent =>
       implicit val traceContext: TraceContext = tracedEvent.traceContext
-      LedgerBlockEvent.fromRawBlockEvent(protocolVersion)(tracedEvent.value) match {
+      // TODO(i10428) Prevent zip bombing when decompressing the request
+      LedgerBlockEvent.fromRawBlockEvent(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)(
+        tracedEvent.value
+      ) match {
         case Left(error) =>
           InvalidLedgerEvent.Error(block.blockHeight, error).discard
           None

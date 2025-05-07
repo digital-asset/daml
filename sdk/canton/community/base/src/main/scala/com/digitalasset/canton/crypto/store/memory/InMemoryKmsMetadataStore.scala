@@ -11,7 +11,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.TrieMapUtil
+import com.digitalasset.canton.util.collection.TrieMapUtil
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext

@@ -5,6 +5,7 @@ package com.digitalasset.canton.util
 
 import cats.Id
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.util.collection.MapsUtil
 import org.scalatest.wordspec.AnyWordSpec
 
 class MapsUtilTest extends AnyWordSpec with BaseTest {

@@ -6,7 +6,9 @@ package com.digitalasset.canton.integration.tests.release
 import better.files.File
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.buildinfo.BuildInfo
+import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.BufferedProcessLogger
+import com.digitalasset.canton.console.ConsoleMacros.utils
 import com.digitalasset.canton.logging.LogEntry
 import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, Outcome, SuiteMixin}
@@ -91,6 +93,47 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
     "successfully start canton sandbox" in { processLogger =>
       s"$cantonBin sandbox --exit-after-bootstrap" ! processLogger
       checkOutput(processLogger, shouldContain = Seq("Canton sandbox is ready"))
+    }
+
+    "successfully initialize participant with offline root namespace key" in { processLogger =>
+      val offlineExampleDir = File(s"$cantonDir/examples/10-offline-root-namespace-init")
+      val cantonBinRel = offlineExampleDir.relativize(File(cantonBin))
+      Process(
+        s"$cantonBinRel run --config external-init-example.conf bootstrap.canton",
+        cwd = offlineExampleDir.toJava,
+      ).!(processLogger) shouldBe 0
+      checkOutput(
+        processLogger,
+        shouldContain = Seq(
+          "participant initialization completed successfully"
+        ),
+      )
+    }
+
+    "successfully run the interactive topology example" in { processLogger =>
+      val interactiveTopologyDir = File(s"$cantonDir/examples/08-interactive-submission")
+      val cantonBinRel = interactiveTopologyDir.relativize(File(cantonBin))
+
+      var cantonProcess: Option[Process] = None
+
+      try {
+        cantonProcess = Some(
+          Process(
+            s"$cantonBinRel --no-tty --config interactive-submission.conf --bootstrap bootstrap.canton",
+            cwd = interactiveTopologyDir.toJava,
+          ).run(processLogger)
+        )
+
+        val portsFile = interactiveTopologyDir / "canton_ports.json"
+        utils.retry_until_true(NonNegativeDuration.ofSeconds(20))(portsFile.exists)
+
+        Process(
+          "./interactive_topology_example.sh",
+          cwd = interactiveTopologyDir.toJava,
+        ).!(processLogger) shouldBe 0
+      } finally {
+        cantonProcess.foreach(_.destroy())
+      }
     }
 
     "successfully start canton sandbox on bespoke ports" in { processLogger =>

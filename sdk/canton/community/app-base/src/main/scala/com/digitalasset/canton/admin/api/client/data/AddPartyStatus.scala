@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.admin.api.client.data
 
-import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
@@ -24,6 +23,7 @@ final case class AddPartyStatus(
     synchronizerId: SynchronizerId,
     sourceParticipantId: ParticipantId,
     targetParticipantId: ParticipantId,
+    topologySerial: PositiveInt,
     status: AddPartyStatus.Status,
 )
 
@@ -47,6 +47,10 @@ object AddPartyStatus {
           "target_participant_uid",
         )
         .map(ParticipantId(_))
+      topologySerial <- ProtoConverter.parsePositiveInt(
+        "topology_serial",
+        proto.topologySerial,
+      )
       statusP <- ProtoConverter.required("status", proto.status).map(_.status)
       status <- parseStatus(statusP)
     } yield AddPartyStatus(
@@ -54,6 +58,7 @@ object AddPartyStatus {
       synchronizerId,
       sourceParticipantId,
       targetParticipantId,
+      topologySerial,
       status,
     )
 
@@ -62,64 +67,41 @@ object AddPartyStatus {
   ): ParsingResult[Status] =
     statusP match {
       case v30.GetAddPartyStatusResponse.Status.Status.ProposalProcessed(status) =>
-        for {
-          topologySerialO <- status.topologySerial.traverse(
-            ProtoConverter.parsePositiveInt("topology_serial", _)
-          )
-        } yield ProposalProcessed(topologySerialO)
+        Right(ProposalProcessed)
       case v30.GetAddPartyStatusResponse.Status.Status.AgreementAccepted(status) =>
         for {
           sequencerId <- UniqueIdentifier
             .fromProtoPrimitive(status.sequencerUid, "sequencer_id")
             .map(SequencerId(_))
-          topologySerialO <- status.topologySerial.traverse(
-            ProtoConverter.parsePositiveInt("topology_serial", _)
-          )
-        } yield AgreementAccepted(sequencerId, topologySerialO)
+        } yield AgreementAccepted(sequencerId)
       case v30.GetAddPartyStatusResponse.Status.Status.TopologyAuthorized(status) =>
         for {
-          commonFields <- parseCommonFields(
-            status.sequencerUid,
-            status.topologySerial,
-            status.timestamp,
-          )
-          (sequencerId, topologySerial, timestamp) = commonFields
-        } yield TopologyAuthorized(sequencerId, topologySerial, timestamp)
+          commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
+          (sequencerId, timestamp) = commonFields
+        } yield TopologyAuthorized(sequencerId, timestamp)
       case v30.GetAddPartyStatusResponse.Status.Status.ConnectionEstablished(status) =>
         for {
-          commonFields <- parseCommonFields(
-            status.sequencerUid,
-            status.topologySerial,
-            status.timestamp,
-          )
-          (sequencerId, topologySerial, timestamp) = commonFields
-        } yield ConnectionEstablished(sequencerId, topologySerial, timestamp)
+          commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
+          (sequencerId, timestamp) = commonFields
+        } yield ConnectionEstablished(sequencerId, timestamp)
       case v30.GetAddPartyStatusResponse.Status.Status.ReplicatingAcs(status) =>
         for {
-          commonFields <- parseCommonFields(
-            status.sequencerUid,
-            status.topologySerial,
-            status.timestamp,
-          )
-          (sequencerId, topologySerial, timestamp) = commonFields
+          commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
+          (sequencerId, timestamp) = commonFields
           contractsReplicated <- ProtoConverter.parseNonNegativeInt(
             "contracts_replicated",
             status.contractsReplicated,
           )
-        } yield ReplicatingAcs(sequencerId, topologySerial, timestamp, contractsReplicated)
+        } yield ReplicatingAcs(sequencerId, timestamp, contractsReplicated)
       case v30.GetAddPartyStatusResponse.Status.Status.Completed(status) =>
         for {
-          commonFields <- parseCommonFields(
-            status.sequencerUid,
-            status.topologySerial,
-            status.timestamp,
-          )
-          (sequencerId, topologySerial, timestamp) = commonFields
+          commonFields <- parseCommonFields(status.sequencerUid, status.timestamp)
+          (sequencerId, timestamp) = commonFields
           contractsReplicated <- ProtoConverter.parseNonNegativeInt(
             "contracts_replicated",
             status.contractsReplicated,
           )
-        } yield Completed(sequencerId, topologySerial, timestamp, contractsReplicated)
+        } yield Completed(sequencerId, timestamp, contractsReplicated)
       case v30.GetAddPartyStatusResponse.Status.Status.Error(status) =>
         for {
           statusPriorToErrorP <- ProtoConverter.required(
@@ -147,40 +129,33 @@ object AddPartyStatus {
 
   private def parseCommonFields(
       sequencerUidP: String,
-      topologySerialP: Int,
       timestampPO: Option[protobuf.timestamp.Timestamp],
-  ): ParsingResult[(SequencerId, PositiveInt, CantonTimestamp)] = for {
+  ): ParsingResult[(SequencerId, CantonTimestamp)] = for {
     sequencerId <- UniqueIdentifier
       .fromProtoPrimitive(sequencerUidP, "sequencer_id")
       .map(SequencerId(_))
-    topologySerial <- ProtoConverter.parsePositiveInt("topology_serial", topologySerialP)
     timestampP <- ProtoConverter.required("timestamp", timestampPO)
     timestamp <- CantonTimestamp.fromProtoTimestamp(timestampP)
-  } yield (sequencerId, topologySerial, timestamp)
+  } yield (sequencerId, timestamp)
 
   sealed trait Status
-  final case class ProposalProcessed(topologySerial: Option[PositiveInt]) extends Status
-  final case class AgreementAccepted(sequencerId: SequencerId, topologySerial: Option[PositiveInt])
-      extends Status
+  final case object ProposalProcessed extends Status
+  final case class AgreementAccepted(sequencerId: SequencerId) extends Status
   final case class TopologyAuthorized(
       sequencerId: SequencerId,
-      topologySerial: PositiveInt,
       timestamp: CantonTimestamp,
   ) extends Status
   final case class ConnectionEstablished(
       sequencerId: SequencerId,
-      topologySerial: PositiveInt,
       timestamp: CantonTimestamp,
   ) extends Status
   final case class ReplicatingAcs(
       sequencerId: SequencerId,
-      topologySerial: PositiveInt,
       timestamp: CantonTimestamp,
       contractsReplicated: NonNegativeInt,
   ) extends Status
   final case class Completed(
       sequencerId: SequencerId,
-      topologySerial: PositiveInt,
       timestamp: CantonTimestamp,
       contractsReplicated: NonNegativeInt,
   ) extends Status

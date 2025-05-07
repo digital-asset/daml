@@ -5,25 +5,7 @@
 
 set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first error
 
-# Setup paths
-# If we're running from the repo, use the protobuf from the repo
-if git rev-parse --is-inside-work-tree &>/dev/null || false; then
-    ROOT_PATH=$(git rev-parse --show-toplevel)
-    COMMUNITY_PROTO_ROOT="$ROOT_PATH/community/base/src/main/protobuf"
-    export TOPOLOGY_PROTO="$COMMUNITY_PROTO_ROOT/com/digitalasset/canton/protocol/v30/topology.proto"
-    export CRYPTO_PROTO="$COMMUNITY_PROTO_ROOT/com/digitalasset/canton/crypto/v30/crypto.proto"
-    export VERSION_WRAPPER_PROTO="$COMMUNITY_PROTO_ROOT/com/digitalasset/canton/version/v1/untyped_versioned_message.proto"
-else
-    # From the release artifact use the buf image
-    # [start-docs-entry: offline root key proto paths]
-    # The image contains the protobuf definitions required to generate the topology transactions necessary to initialize the node
-    # It is generated during the Canton release process
-    BUF_PROTO_IMAGE="../../scripts/offline-root-key/root_namespace_buf_image.bin"
-    export TOPOLOGY_PROTO="$BUF_PROTO_IMAGE"
-    export CRYPTO_PROTO="$BUF_PROTO_IMAGE"
-    export VERSION_WRAPPER_PROTO="$BUF_PROTO_IMAGE"
-    # [end-docs-entry: offline root key proto paths]
-fi
+source "$(dirname "$0")/utils.sh"
 
 OUTPUT_DIR="${OUTPUT_DIR:=$(mktemp -d)}"
 echo "Using $OUTPUT_DIR as temporary directory to write files to."
@@ -49,7 +31,7 @@ openssl ec -inform der -in "$PRIVATE_KEY" -pubout -outform der -out "$PUBLIC_KEY
 "$SCRIPTS_ROOT/prepare-certs.sh" --root-delegation --root-pub-key "$PUBLIC_KEY" --target-pub-key "$PUBLIC_KEY" --output "$ROOT_NAMESPACE_PREFIX"
 # [end-docs-entry: prepare root cert]
 # [start-docs-entry: prepare delegation cert]
-"$SCRIPTS_ROOT/prepare-certs.sh" --root-pub-key "$PUBLIC_KEY" --canton-target-pub-key "$CANTON_NAMESPACE_DELEGATION_PUB_KEY" --output "$INTERMEDIATE_NAMESPACE_PREFIX"
+"$SCRIPTS_ROOT/prepare-certs.sh" --intermediate-delegation --root-pub-key "$PUBLIC_KEY" --canton-target-pub-key "$CANTON_NAMESPACE_DELEGATION_PUB_KEY" --output "$INTERMEDIATE_NAMESPACE_PREFIX"
 # [end-docs-entry: prepare delegation cert]
 
 # Sign both hashes with the public key

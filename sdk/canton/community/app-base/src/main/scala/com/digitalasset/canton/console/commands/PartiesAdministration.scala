@@ -342,8 +342,8 @@ class ParticipantPartiesAdministrationGroup(
   def add_party_async(
       party: PartyId,
       synchronizerId: SynchronizerId,
-      sourceParticipant: Option[ParticipantId],
-      serial: Option[PositiveInt],
+      sourceParticipant: ParticipantId,
+      serial: PositiveInt,
   ): String = check(FeatureFlag.Preview) {
     consoleEnvironment.run {
       reference.adminCommand(

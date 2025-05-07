@@ -21,8 +21,8 @@ import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MapsUtil
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.collection.MapsUtil
 
 import scala.collection.concurrent
 import scala.collection.concurrent.TrieMap

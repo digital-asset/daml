@@ -1,0 +1,34 @@
+import better.files.File
+import scala.sys.process.{Process, ProcessLogger}
+import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.crypto.SigningKeyUsage
+
+val opensslScriptDirectory = Option(System.getProperty("canton-examples.openssl-script-dir")).getOrElse(".")
+val opensslKeysDirectory = Option(System.getProperty("canton-examples.openssl-keys-dir")).getOrElse(".")
+
+// Generate intermediate key with restriction
+val keyWithRestrictionsPath = s"$opensslKeysDirectory/restricted-key.pub"
+val keyWithRestrictions = participant1.keys.secret.generate_signing_key(
+  name = "RestrictedKey",
+  usage = Set(SigningKeyUsage.Namespace),
+)
+// Write public intermediate key to a file
+participant1.keys.public.download_to(keyWithRestrictions.id, keyWithRestrictionsPath)
+
+// Run the scripts generating the signed root and delegation certificates
+// This would usually be done on the offline site after having transfered restricted-key.pub to it
+Process(
+  Seq(
+    s"$opensslScriptDirectory/openssl-restricted-key-example.sh",
+    s"$opensslKeysDirectory/root_public_key.der",
+    s"$opensslKeysDirectory/root_private_key.der",
+    keyWithRestrictionsPath,
+  ),
+  cwd = File(opensslScriptDirectory).toJava,
+  extraEnv = "OUTPUT_DIR" -> opensslKeysDirectory,
+).!(utils.cantonProcessLogger())
+
+// Load the restricted key certificate
+// [start-docs-entry: load cert from file]
+participant1.topology.transactions.load_single_from_file(s"$opensslKeysDirectory/restricted_key_namespace.cert", TopologyStoreId.Authorized)
+// [end-docs-entry: load cert from file]

@@ -29,7 +29,8 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, SeqUtil, SingleUseCell}
+import com.digitalasset.canton.util.collection.SeqUtil
+import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, SingleUseCell}
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}

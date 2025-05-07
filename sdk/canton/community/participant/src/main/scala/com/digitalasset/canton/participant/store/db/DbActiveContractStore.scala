@@ -41,6 +41,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.collection.IterableUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.*
 

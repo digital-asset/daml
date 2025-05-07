@@ -13,7 +13,8 @@ import com.digitalasset.canton.serialization.{
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializationException}
-import com.digitalasset.canton.util.{HexString, IterableUtil}
+import com.digitalasset.canton.util.HexString
+import com.digitalasset.canton.util.collection.IterableUtil
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, SetParameter}
 

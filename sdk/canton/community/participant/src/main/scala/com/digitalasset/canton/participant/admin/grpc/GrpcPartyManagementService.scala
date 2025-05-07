@@ -76,19 +76,20 @@ class GrpcPartyManagementService(
   ): Either[String, PartyReplicationArguments] =
     for {
       partyId <- convert(request.partyId, "party_id", PartyId(_))
-      sourceParticipantIdO <- Option
-        .when(request.sourceParticipantUid.nonEmpty)(request.sourceParticipantUid)
-        .traverse(convert(_, "source_participant_uid", ParticipantId(_)))
+      sourceParticipantId <- convert(
+        request.sourceParticipantUid,
+        "source_participant_uid",
+        ParticipantId(_),
+      )
       synchronizerId <- convert(
         request.synchronizerId,
         "synchronizer_id",
         SynchronizerId(_),
       )
-      serialO <- Option
-        .when(request.serial != 0)(request.serial)
-        .traverse(ProtoConverter.parsePositiveInt("serial", _).leftMap(_.message))
-
-    } yield PartyReplicationArguments(partyId, synchronizerId, sourceParticipantIdO, serialO)
+      serial <- ProtoConverter
+        .parsePositiveInt("topology_serial", request.topologySerial)
+        .leftMap(_.message)
+    } yield PartyReplicationArguments(partyId, synchronizerId, sourceParticipantId, serial)
 
   private def convert[T](
       rawId: String,
@@ -123,6 +124,7 @@ class GrpcPartyManagementService(
         synchronizerId = status.params.synchronizerId.toProtoPrimitive,
         sourceParticipantUid = status.params.sourceParticipantId.uid.toProtoPrimitive,
         targetParticipantUid = status.params.targetParticipantId.uid.toProtoPrimitive,
+        topologySerial = status.params.serial.unwrap,
         status = Some(statusP),
       )
     })

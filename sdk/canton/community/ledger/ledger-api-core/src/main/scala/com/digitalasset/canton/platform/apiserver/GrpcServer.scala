@@ -10,7 +10,6 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.error.ErrorInterceptor
-import com.google.protobuf.Message
 import io.grpc.*
 import io.grpc.inprocess.InProcessServerBuilder
 import io.grpc.netty.NettyServerBuilder
@@ -59,12 +58,7 @@ object GrpcServer {
           .intercept(new ErrorInterceptor(loggerFactory))
 
       val builderWithServices = services.foldLeft(builderWithInterceptors) {
-        case (builder, service) =>
-          toLegacyService(service).fold(builder.addService(service))(legacyService =>
-            builder
-              .addService(service)
-              .addService(legacyService)
-          )
+        case (builder, service) => builder.addService(service)
       }
       ResourceOwner
         .forServer(builderWithServices, shutdownTimeout = 1.second)
@@ -120,35 +114,4 @@ object GrpcServer {
       )
       with NoStackTrace
 
-  // This exposes the existing services under com.daml also under com.digitalasset.
-  // This is necessary to allow applications built with an earlier version of the SDK
-  // to still work.
-  // The "proxy" services will not show up on the reflection service, because of the way it
-  // processes service definitions via protobuf file descriptors.
-  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-  private def toLegacyService(service: BindableService): Option[ServerServiceDefinition] = {
-    val `com.daml` = "com.daml"
-    val `com.digitalasset` = "com.digitalasset"
-
-    val damlDef = service.bindService()
-    val damlDesc = damlDef.getServiceDescriptor
-    // Only add "proxy" services if it actually contains com.daml in the service name.
-    // There are other services registered like the reflection service, that doesn't need the special treatment.
-    if (damlDesc.getName.contains(`com.daml`)) {
-      val digitalassetName = damlDesc.getName.replace(`com.daml`, `com.digitalasset`)
-      val digitalassetDef = ServerServiceDefinition.builder(digitalassetName)
-      damlDef.getMethods.forEach { methodDef =>
-        val damlMethodDesc = methodDef.getMethodDescriptor
-        val digitalassetMethodName =
-          damlMethodDesc.getFullMethodName.replace(`com.daml`, `com.digitalasset`)
-        val digitalassetMethodDesc =
-          damlMethodDesc.toBuilder.setFullMethodName(digitalassetMethodName).build()
-        val _ = digitalassetDef.addMethod(
-          digitalassetMethodDesc.asInstanceOf[MethodDescriptor[Message, Message]],
-          methodDef.getServerCallHandler.asInstanceOf[ServerCallHandler[Message, Message]],
-        )
-      }
-      Option(digitalassetDef.build())
-    } else None
-  }
 }
