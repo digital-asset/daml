@@ -1,10 +1,13 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. note::
+   Integrate into topology management explanation
+   
 .. _identity-package-management:
 
-Identity and Package Management
-###############################
+MOVE: Identity and Package Management
+#####################################
 
 Since Daml ledgers enable parties to automate the management of their rights and obligations through smart contract code, they also have to provide party and code management functions.
 Hence, this document addresses:

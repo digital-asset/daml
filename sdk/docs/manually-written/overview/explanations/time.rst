@@ -1,6 +1,14 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. note::
+   
+   * Move LAPI parts to BUILD subsite
+
+   * Integrate time monotonicity into the ledger model
+
+   * WHERE SHOULD THE SKEWs go?
+   
 .. _time:
 
 Time on Daml Ledgers
