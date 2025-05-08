@@ -64,12 +64,6 @@ genrule(
         cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@types ./
         cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@bazel ./
         cd ..
-        # Avoid file path too long errors on Windows of the form
-        #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-
-        # cd node_modules/bazel-out/k8-opt/bin/external/daml_extension_deps
-
-        # $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
         $(execpath //bazel_tools/sh:mktgz) $@ node_modules
     """,
     tools = ["//bazel_tools/sh:mktgz"],
