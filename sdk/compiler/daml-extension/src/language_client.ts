@@ -125,7 +125,7 @@ export class DamlLanguageClient {
     );
     this.context.subscriptions.push(this.virtualResourceManager);
 
-    let _unused = this.languageClient.onReady().then(() => {
+    this.languageClient.start().then(() => {
       this.startKeepAliveWatchdog();
       this.languageClient.onNotification(
         DamlVirtualResourceDidChangeNotification.type,
@@ -154,8 +154,6 @@ export class DamlLanguageClient {
         ),
       );
     });
-
-    this.languageClient.start();
   }
 
   async stop() {
