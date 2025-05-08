@@ -187,15 +187,8 @@ def daml_deps():
             sha256 = go_googleapis_sha256,
             strip_prefix = "googleapis-{}".format(go_googleapis_version),
             patches = [
-                # TODO Migrate those patches?
-                # # releaser:patch-cmd find . -name BUILD.bazel -delete
-                # "@io_bazel_rules_go//third_party:go_googleapis-deletebuild.patch",
-                # # set gazelle directives; change workspace name
-                # "@io_bazel_rules_go//third_party:go_googleapis-directives.patch",
-                # # releaser:patch-cmd gazelle -repo_root .
-                # "@io_bazel_rules_go//third_party:go_googleapis-gazelle.patch",
-                # # The Haskell gRPC bindings require access to the status.proto source file.
-                # "//bazel_tools:googleapis-status-proto.patch",
+                # The Haskell gRPC bindings require access to the status.proto source file.
+                "//bazel_tools:googleapis-status-proto.patch",
             ],
             patch_args = ["-E", "-p1"],
         )
@@ -231,10 +224,9 @@ def daml_deps():
             url = "https://github.com/bazelbuild/rules_scala/releases/download/v{}/rules_scala-v{}.tar.gz".format(rules_scala_version, rules_scala_version),
             strip_prefix = "rules_scala-%s" % rules_scala_version,
             sha256 = rules_scala_sha256,
-            # TODO Port paches?
-            # patches = [
-            #     "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
-            # ],
+            patches = [
+                "@com_github_digital_asset_daml//bazel_tools:scala-escape-jvmflags.patch",
+            ],
             patch_args = ["-p1"],
         )
 
