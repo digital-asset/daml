@@ -118,10 +118,10 @@ genrule(
         $$DIR/$(location //:yarn) compile
         # vsce needs Yarn or NPM in path and for some reason NPM
         # fails to find npm-cli.js so we use Yarn.
-        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//vsce/bin:vsce) package --yarn -o $$DIR/$@
+        PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
         "//:yarn",
-        "@daml_extension_deps//vsce/bin:vsce",
+        "@daml_extension_deps//@vscode/vsce/bin:vsce",
     ],
 )
