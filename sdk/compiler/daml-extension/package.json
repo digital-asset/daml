@@ -170,5 +170,8 @@
         "@types/vscode": "1.87",
         "typescript": "~5.8",
         "@vscode/vsce": "^2.22.0"
+    },
+    "resolutions": {
+        "glob": "7.2.3"
     }
 }

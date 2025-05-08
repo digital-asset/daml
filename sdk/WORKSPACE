@@ -719,7 +719,7 @@ node_repositories(
     # invalidated despite a change of an original source. To avoid such issues
     # we use the `nixpkgs_package` directly.
     # node_version = "18.12.1",
-    package_json = ["//:package.json"],
+    # package_json = ["//:package.json"],
     vendored_node = "@nodejs_dev_env" if is_windows else "@node_nix",
 )
 
