@@ -266,7 +266,7 @@ trait InFlightSubmissionTrackingIntegrationTest
           _.shouldBeCantonErrorCode(NoSynchronizerForSubmission),
           _.shouldBeCantonErrorCode(UnknownSubmitters),
           _.shouldBeCantonErrorCode(SubmissionDuringShutdown),
-          // TODO(#23334): clean-up these error expectations after the topology-aware package selection roll-out is finished
+          // TODO(#25385): clean-up these error expectations after the topology-aware package selection roll-out is finished
           _.shouldBeCantonErrorCode(UnableToQueryTopologySnapshot),
         ),
       ),

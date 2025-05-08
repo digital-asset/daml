@@ -561,7 +561,7 @@ object WellFormedTransaction {
 
     val transactions = transactionsWithRollbackScope.map(_.unwrap)
     val ledgerTimes = transactions.map(_.metadata.ledgerTime).distinct
-    val submissionTimes = transactions.map(_.metadata.submissionTime).distinct
+    val preparationTimes = transactions.map(_.metadata.preparationTime).distinct
     val versions = transactions.map(_.tx.version).distinct
     for {
       ledgerTime <- Either.cond(
@@ -569,10 +569,10 @@ object WellFormedTransaction {
         ledgerTimes.head1,
         s"Different ledger times: ${ledgerTimes.mkString(", ")}",
       )
-      submissionTime <- Either.cond(
-        submissionTimes.sizeCompare(1) == 0,
-        submissionTimes.head1,
-        s"Different submission times: ${submissionTimes.mkString(", ")}",
+      preparationTime <- Either.cond(
+        preparationTimes.sizeCompare(1) == 0,
+        preparationTimes.head1,
+        s"Different preparation times: ${preparationTimes.mkString(", ")}",
       )
       version = protocol.maxTransactionVersion(versions)
       _ <- MonadUtil
@@ -647,7 +647,7 @@ object WellFormedTransaction {
         mergedNodes.result() ++ rollbackNodes,
         mergedRoots.result().to(ImmArray),
       )
-      mergedMetadata = TransactionMetadata(ledgerTime, submissionTime, mergedSeeds.result())
+      mergedMetadata = TransactionMetadata(ledgerTime, preparationTime, mergedSeeds.result())
       // TODO(M98) With tighter conditions on freshness of contract IDs, we shouldn't need this check.
       result <- normalizeAndCheck(wrappedTx, mergedMetadata, WithSuffixesAndMerged)
     } yield result

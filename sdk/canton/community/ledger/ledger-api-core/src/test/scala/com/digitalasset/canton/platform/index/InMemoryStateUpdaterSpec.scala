@@ -753,7 +753,7 @@ object InMemoryStateUpdaterSpec {
   private val someTransactionMeta: TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Timestamp.Epoch,
     workflowId = Some(workflowId),
-    submissionTime = Timestamp.Epoch,
+    preparationTime = Timestamp.Epoch,
     submissionSeed = crypto.Hash.hashPrivateKey("SomeTxMeta"),
     timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,

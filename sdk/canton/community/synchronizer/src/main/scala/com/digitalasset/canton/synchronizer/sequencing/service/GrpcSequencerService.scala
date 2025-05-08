@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.DynamicSynchronizerParametersLookup
 import com.digitalasset.canton.protocol.SynchronizerParameters.MaxRequestSize
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.sequencer.api.v30
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer
@@ -421,7 +421,7 @@ class GrpcSequencerService(
     }
   }
 
-  private def toVersionSubscriptionResponseV0(event: OrdinarySerializedEvent) =
+  private def toVersionSubscriptionResponseV0(event: SequencedSerializedEvent) =
     v30.SubscriptionResponse(
       signedSequencedEvent = event.signedEvent.toByteString,
       Some(SerializableTraceContext(event.traceContext).toProtoV30),
@@ -440,7 +440,7 @@ class GrpcSequencerService(
   private def subscribeInternalV2[T](
       request: v30.SubscriptionRequestV2,
       responseObserver: StreamObserver[T],
-      toSubscriptionResponse: OrdinarySerializedEvent => T,
+      toSubscriptionResponse: SequencedSerializedEvent => T,
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     withServerCallStreamObserver(responseObserver) { observer =>
@@ -551,7 +551,7 @@ class GrpcSequencerService(
       expireAt: Option[CantonTimestamp],
       timestamp: Option[CantonTimestamp],
       observer: ServerCallStreamObserver[T],
-      toSubscriptionResponse: OrdinarySerializedEvent => T,
+      toSubscriptionResponse: SequencedSerializedEvent => T,
   )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
 
     logger.info(s"$member subscribes from timestamp=$timestamp")

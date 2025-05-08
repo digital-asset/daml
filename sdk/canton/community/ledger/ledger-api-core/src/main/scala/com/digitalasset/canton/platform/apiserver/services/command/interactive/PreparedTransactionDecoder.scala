@@ -492,6 +492,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
             _.ledgerEffectiveTime,
             ledgerEffectiveTime,
           )
+          .withFieldRenamed(_.preparationTime, _.preparationTime)
           .transform
           .toFutureWithLoggedFailures("Failed to deserialize transaction meta", logger)
       transaction <- transactionProto

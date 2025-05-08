@@ -23,17 +23,17 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficStateController,
 }
 import com.digitalasset.canton.sequencing.{
-  OrdinaryProtocolEvent,
   RawProtocolEvent,
+  SequencedProtocolEvent,
   SequencerTestUtils,
 }
-import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
 import com.digitalasset.canton.store.{SavePendingSendError, SendTrackerStore}
 import com.digitalasset.canton.topology.DefaultTestIdentities.{participant1, synchronizerId}
 import com.digitalasset.canton.topology.{DefaultTestIdentities, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerCounter}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.concurrent.atomic.AtomicInteger
@@ -47,8 +47,8 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
   private def sign(event: RawProtocolEvent): SignedContent[RawProtocolEvent] =
     SignedContent(event, SymbolicCrypto.emptySignature, None, testedProtocolVersion)
 
-  private def deliverDefault(timestamp: CantonTimestamp): OrdinaryProtocolEvent =
-    OrdinarySequencedEvent(
+  private def deliverDefault(timestamp: CantonTimestamp): SequencedProtocolEvent =
+    SequencedEventWithTraceContext(
       sign(
         SequencerTestUtils.mockDeliver(
           timestamp = timestamp,
@@ -63,11 +63,10 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       msgId: MessageId,
       timestamp: CantonTimestamp,
       trafficReceipt: Option[TrafficReceipt] = None,
-  ): OrdinaryProtocolEvent =
-    OrdinarySequencedEvent(
+  ): SequencedProtocolEvent =
+    SequencedEventWithTraceContext(
       sign(
         Deliver.create(
-          SequencerCounter(0),
           None,
           timestamp,
           DefaultTestIdentities.synchronizerId,
@@ -78,17 +77,18 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
           trafficReceipt,
         )
       )
-    )(traceContext)
+    )(
+      traceContext
+    )
 
   private def deliverError(
       msgId: MessageId,
       timestamp: CantonTimestamp,
       trafficReceipt: Option[TrafficReceipt] = None,
-  ): OrdinaryProtocolEvent =
-    OrdinarySequencedEvent(
+  ): SequencedProtocolEvent =
+    SequencedEventWithTraceContext(
       sign(
         DeliverError.create(
-          SequencerCounter(0),
           None,
           timestamp,
           DefaultTestIdentities.synchronizerId,
@@ -98,7 +98,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
           trafficReceipt,
         )
       )
-    )(traceContext)
+    )(
+      traceContext
+    )
 
   private case class Env(tracker: MySendTracker, store: InMemorySendTrackerStore)
 
@@ -321,7 +323,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
   }
 
   "updating" should {
-    def verifyEventRemovesPendingSend(event: OrdinaryProtocolEvent) = {
+    def verifyEventRemovesPendingSend(event: SequencedProtocolEvent) = {
       val Env(tracker, store) = mkSendTracker()
 
       for {

@@ -119,13 +119,13 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
   }
 
   protected val pruningRegexWithTrafficPurchase =
-    """Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints"""
+    """Removed at least ([1-9]\d*) events, at least (\d+) payloads"""
 
   protected val pruningRegex =
-    """Removed at least ([1-9]\d*) events, at least (\d+) payloads, at least ([1-9]\d*) counter checkpoints"""
+    """Removed at least ([1-9]\d*) events, at least (\d+) payloads"""
 
   protected val pruningNothing =
-    """Removed at least 0 events, at least 0 payloads, at least 0 counter checkpoints"""
+    """Removed at least 0 events, at least 0 payloads"""
 
   "prune only removes events up the point where all enabled clients have acknowledgements" in {
     implicit env =>

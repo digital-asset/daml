@@ -80,9 +80,9 @@ class TimeProofRequestSubmitterTest extends FixtureAsyncWordSpec with BaseTest {
     def mkTimeProof(seconds: Int): TimeProof = {
       val event =
         OrdinarySequencedEvent(
-          SignedContent(
+          counter = SequencerCounter(0),
+          signedEvent = SignedContent(
             Deliver.create(
-              SequencerCounter(0),
               None,
               CantonTimestamp.ofEpochSecond(seconds.toLong),
               DefaultTestIdentities.synchronizerId,
@@ -95,7 +95,7 @@ class TimeProofRequestSubmitterTest extends FixtureAsyncWordSpec with BaseTest {
             SymbolicCrypto.emptySignature,
             None,
             testedProtocolVersion,
-          )
+          ),
         )(traceContext)
       TimeProof.fromEventO(event).value
     }

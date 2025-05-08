@@ -22,7 +22,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   SignedContent,
   SubmissionRequest,
-  SubscriptionRequest,
+  SubscriptionRequestV2,
   TopologyStateForInitRequest,
   TopologyStateForInitResponse,
 }
@@ -122,8 +122,8 @@ class GrpcSequencerConnectionX(
     stub.downloadTopologyStateForInit(request, timeout)
 
   override def subscribe[E](
-      request: SubscriptionRequest,
-      handler: SerializedEventHandler[E],
+      request: SubscriptionRequestV2,
+      handler: SequencedEventHandler[E],
       timeout: Duration,
   )(implicit
       traceContext: TraceContext

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.model
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test}
@@ -49,15 +50,15 @@ trait ModelBasedTest extends AnyWordSpec with BftSequencerBaseTest { this: DbTes
           val command = generator.generateCommand(())
           command match {
             case Command.AddBatch(batchId, batch) =>
-              val () = Await.result(store.addBatch(batchId, batch), timeout)
-              val () = Await.result(model.addBatch(batchId, batch), timeout)
+              Await.result(store.addBatch(batchId, batch), timeout).discard
+              Await.result(model.addBatch(batchId, batch), timeout).discard
             case Command.FetchBatches(batches) =>
               val realValue = Await.result(store.fetchBatches(batches), timeout)
               val modelValue = Await.result(model.fetchBatches(batches), timeout)
               realValue shouldBe modelValue
             case Command.GC(staleBatchIds) =>
-              val () = store.gc(staleBatchIds)
-              val () = model.gc(staleBatchIds)
+              store.gc(staleBatchIds)
+              model.gc(staleBatchIds)
           }
         }
       }

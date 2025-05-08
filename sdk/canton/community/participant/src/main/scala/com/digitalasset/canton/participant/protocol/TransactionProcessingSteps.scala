@@ -841,7 +841,7 @@ class TransactionProcessingSteps(
                   viewTree.view,
                   keyResolverFor(viewTree.view),
                   ledgerTime,
-                  parsedRequest.submissionTime,
+                  parsedRequest.preparationTime,
                   () => engineController.abortStatus,
                 )
             }
@@ -878,7 +878,7 @@ class TransactionProcessingSteps(
           commonData,
           requestTimestamp,
           synchronizerParameters.ledgerTimeRecordTimeTolerance,
-          synchronizerParameters.submissionTimeRecordTimeTolerance,
+          synchronizerParameters.preparationTimeRecordTimeTolerance,
           amSubmitter,
           logger,
         )
@@ -1252,7 +1252,7 @@ class TransactionProcessingSteps(
           transactionMeta = TransactionMeta(
             ledgerEffectiveTime = lfTx.metadata.ledgerTime.toLf,
             workflowId = workflowIdO.map(_.unwrap),
-            submissionTime = lfTx.metadata.submissionTime.toLf,
+            preparationTime = lfTx.metadata.preparationTime.toLf,
             // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
             // transactions and it leaks the structure of the omitted parts of the transaction.
             submissionSeed = Update.noOpSeed,
@@ -1545,7 +1545,7 @@ object TransactionProcessingSteps {
 
     def ledgerTime: CantonTimestamp = rootViewTrees.head1.ledgerTime
 
-    def submissionTime: CantonTimestamp = rootViewTrees.head1.submissionTime
+    def preparationTime: CantonTimestamp = rootViewTrees.head1.preparationTime
   }
 
   private final case class ParallelChecksResult(
@@ -1577,7 +1577,7 @@ object TransactionProcessingSteps {
     */
   def tryCommonData(receivedViewTrees: NonEmpty[Seq[FullTransactionViewTree]]): CommonData = {
     val distinctCommonData = receivedViewTrees
-      .map(v => CommonData(v.transactionId, v.ledgerTime, v.submissionTime))
+      .map(v => CommonData(v.transactionId, v.ledgerTime, v.preparationTime))
       .distinct
     if (distinctCommonData.lengthCompare(1) == 0) distinctCommonData.head1
     else
@@ -1589,6 +1589,6 @@ object TransactionProcessingSteps {
   final case class CommonData(
       transactionId: TransactionId,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
   )
 }

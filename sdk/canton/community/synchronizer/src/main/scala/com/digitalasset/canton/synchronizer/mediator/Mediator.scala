@@ -312,7 +312,10 @@ private[mediator] class Mediator(
             }
 
             (
-              Traced(openEvent)(closedSignedEvent.traceContext),
+              WithCounter(
+                closedSignedEvent.counter,
+                Traced(openEvent)(closedSignedEvent.traceContext),
+              ),
               rejectionsF,
             )
           }

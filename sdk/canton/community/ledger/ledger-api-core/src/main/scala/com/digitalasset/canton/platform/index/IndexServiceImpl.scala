@@ -666,7 +666,7 @@ private[index] class IndexServiceImpl(
                 Failure(sre)
               },
               decodedError =>
-                // TODO(#23334): Make the NotConnectedToAnySynchronizer error available to this module
+                // TODO(#25385): Make the NotConnectedToAnySynchronizer error available to this module
                 //               and use its reference code id directly instead of the String representation
                 if (decodedError.code.id == "NOT_CONNECTED_TO_ANY_SYNCHRONIZER") {
                   Success(
@@ -1036,7 +1036,7 @@ object IndexServiceImpl {
     }
   }
 
-  // TODO(#23903): Unit test coverage
+  // TODO(#25385): Unit test coverage
   private def interfacesImplementedByWithUpgrades(
       metadata: PackageMetadata,
       interfaceId: Ref.Identifier,

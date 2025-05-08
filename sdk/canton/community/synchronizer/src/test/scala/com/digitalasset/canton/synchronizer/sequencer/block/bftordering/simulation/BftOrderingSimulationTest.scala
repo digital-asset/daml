@@ -27,6 +27,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
   BftOrderingModuleSystemInitializer,
   BftSequencerBaseTest,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
@@ -115,7 +116,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       .zip(initialOnboardingTimes)
       .view
       .map { case (endpoint, onboardingTime) =>
-        Simulation.endpointToNode(endpoint) -> onboardingTime
+        endpointToTestBftNodeId(endpoint) -> onboardingTime
       }
       .toMap
 
@@ -140,7 +141,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       }.toMap
       val initialNodesToStores =
         initialEndpointsWithStores.view.map { case (endpoint, store) =>
-          Simulation.endpointToNode(endpoint) -> store
+          endpointToTestBftNodeId(endpoint) -> store
         }.toMap
 
       val sendQueue = mutable.Queue.empty[(BftNodeId, BlockFormat.Block)]
@@ -227,11 +228,11 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           }.toMap
         val newlyOnboardedNodesToOnboardingTimes =
           newlyOnboardedEndpointsWithOnboardingTimes.view.map { case (endpoint, onboardingTime) =>
-            Simulation.endpointToNode(endpoint) -> onboardingTime
+            endpointToTestBftNodeId(endpoint) -> onboardingTime
           }.toMap
         val newlyOnboardedNodesToStores =
           newlyOnboardedEndpointsWithStores.view.map { case (endpoint, store) =>
-            Simulation.endpointToNode(endpoint) -> store
+            endpointToTestBftNodeId(endpoint) -> store
           }.toMap
 
         val allNodesToOnboardingTimes =
@@ -264,7 +265,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
               newlyOnboardedNodesToOnboardingTimes,
               initialNodesToStores.keys.toSeq,
               allEndpointsToTopologyData.keys.map { endpoint =>
-                Simulation.endpointToNode(endpoint) -> endpoint
+                endpointToTestBftNodeId(endpoint) -> endpoint
               }.toMap,
               allNodesToStores,
               model,
@@ -291,7 +292,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             val newOnboardingManager = stage.onboardingManager.newStage(
               newlyOnboardedNodesToOnboardingTimes,
               (alreadyOnboardedEndpoints ++ newlyOnboardedEndpoints).map { endpoint =>
-                Simulation.endpointToNode(endpoint) -> endpoint
+                endpointToTestBftNodeId(endpoint) -> endpoint
               }.toMap,
               newModel,
               simSettings,
@@ -338,7 +339,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
     val logger = loggerFactory.append("endpoint", s"$endpoint")
 
-    val thisNode = Simulation.endpointToNode(endpoint)
+    val thisNode = endpointToTestBftNodeId(endpoint)
     val orderingTopologyProvider =
       new SimulationOrderingTopologyProvider(
         thisNode,
@@ -436,9 +437,7 @@ class BftOrderingSimulationTest1NodeNoFaults extends BftOrderingSimulationTest {
 
 class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
     extends BftOrderingSimulationTest {
-
   override val numberOfRuns: Int = 2
-
   override val numberOfInitialNodes: Int = 1
 
   private val durationOfFirstPhaseWithFaults = 1.minute
@@ -494,6 +493,7 @@ class BftOrderingSimulationTestWithProgressiveOnboardingAndDelayNoFaults
 class BftOrderingSimulationTestWithConcurrentOnboardingsNoFaults extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 3
   override val numberOfInitialNodes: Int = 1 // f = 0
+
   private val numberOfOnboardedNodes = 6 // n = 7, f = 2
 
   private val randomSourceToCreateSettings: Random =
@@ -593,6 +593,7 @@ class BftOrderingEmptyBlocksSimulationTest extends BftOrderingSimulationTest {
   // At the moment of writing, the test requires 12 runs to fail on the liveness check when there's no "silent network detection".
   override val numberOfRuns: Int = 15
   override val numberOfInitialNodes: Int = 2
+
   private val durationOfFirstPhaseWithFaults = 1.minute
   private val durationOfSecondPhaseWithoutFaults = 1.minute
 
@@ -657,22 +658,56 @@ class BftOrderingSimulationTest2NodesLargeRequests extends BftOrderingSimulation
   )
 }
 
-/*
-// TODO(#17284) Activate when we can handle the crash restart fault
 class BftOrderingSimulationTest2NodesCrashFaults extends BftOrderingSimulationTest {
   override val numberOfRuns: Int = 10
-  override val numberOfNodes: Int = 2
+  override val numberOfInitialNodes: Int = 2
 
-  private val randomSourceToCreateSettings: Random = new Random(4) // remove seed to randomly explore seeds
+  private val durationOfFirstPhaseWithFaults = 2.minutes
+  private val durationOfSecondPhaseWithoutFaults = 1.minute
 
-  override def generateSimulationSettings(): SimulationSettings = SimulationSettings(
-    localSettings = LocalSettings(
-      randomSeed = randomSourceToCreateSettings.nextLong(),
-      crashRestartChance = Probability(0.01),
-    ),
-      randomSeed = randomSourceToCreateSettings.nextLong()
-    ),
-    durationWithFaults = 2.minutes,
+  private val randomSourceToCreateSettings: Random =
+    new Random(4) // remove seed to randomly explore seeds
+
+  override def generateStages(): Seq[SimulationTestStageSettings] = Seq(
+    SimulationTestStageSettings(
+      simulationSettings = SimulationSettings(
+        LocalSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong(),
+          crashRestartChance = Probability(0.02),
+        ),
+        NetworkSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong()
+        ),
+        durationOfFirstPhaseWithFaults,
+        durationOfSecondPhaseWithoutFaults,
+      )
+    )
   )
 }
- */
+
+class BftOrderingSimulationTest4NodesCrashFaults extends BftOrderingSimulationTest {
+  override val numberOfRuns: Int = 5
+  override val numberOfInitialNodes: Int = 4
+
+  private val durationOfFirstPhaseWithFaults = 2.minutes
+  private val durationOfSecondPhaseWithoutFaults = 1.minute
+
+  private val randomSourceToCreateSettings: Random =
+    new Random(4) // remove seed to randomly explore seeds
+
+  override def generateStages(): Seq[SimulationTestStageSettings] = Seq(
+    SimulationTestStageSettings(
+      simulationSettings = SimulationSettings(
+        LocalSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong(),
+          crashRestartChance = Probability(0.01),
+        ),
+        NetworkSettings(
+          randomSeed = randomSourceToCreateSettings.nextLong()
+        ),
+        durationOfFirstPhaseWithFaults,
+        durationOfSecondPhaseWithoutFaults,
+      )
+    )
+  )
+}

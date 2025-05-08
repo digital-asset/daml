@@ -123,9 +123,12 @@ object SequencerBftAdminData {
     override val pretty: Pretty[this.type] = prettyOfObject[this.type]
   }
   object PeerEndpointHealthStatus {
-    case object Unknown extends PeerEndpointHealthStatus
+    case object UnknownEndpoint extends PeerEndpointHealthStatus
     case object Unauthenticated extends PeerEndpointHealthStatus
-    case object Authenticated extends PeerEndpointHealthStatus
+    final case class Authenticated(sequencerId: SequencerId) extends PeerEndpointHealthStatus {
+      override val pretty: Pretty[Authenticated.this.type] =
+        prettyOfClass(param("sequencerId", _.sequencerId))
+    }
   }
 
   final case class PeerEndpointHealth(status: PeerEndpointHealthStatus, description: Option[String])
@@ -152,12 +155,30 @@ object SequencerBftAdminData {
         Some(
           ProtoPeerEndpointHealth(
             health.status match {
-              case PeerEndpointHealthStatus.Unknown =>
-                ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_UNKNOWN_ENDPOINT
+              case PeerEndpointHealthStatus.UnknownEndpoint =>
+                Some(
+                  ProtoPeerEndpointHealthStatus(
+                    ProtoPeerEndpointHealthStatus.Status.UnknownEndpoint(
+                      ProtoPeerEndpointHealthStatus.UnknownEndpoint()
+                    )
+                  )
+                )
               case PeerEndpointHealthStatus.Unauthenticated =>
-                ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_UNAUTHENTICATED
-              case PeerEndpointHealthStatus.Authenticated =>
-                ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_AUTHENTICATED
+                Some(
+                  ProtoPeerEndpointHealthStatus(
+                    ProtoPeerEndpointHealthStatus.Status.Unauthenticated(
+                      ProtoPeerEndpointHealthStatus.Unauthenticated()
+                    )
+                  )
+                )
+              case PeerEndpointHealthStatus.Authenticated(sequencerId) =>
+                Some(
+                  ProtoPeerEndpointHealthStatus(
+                    ProtoPeerEndpointHealthStatus.Status.Authenticated(
+                      ProtoPeerEndpointHealthStatus.Authenticated(sequencerId.toProtoPrimitive)
+                    )
+                  )
+                )
             },
             health.description,
           )
@@ -194,16 +215,31 @@ object SequencerBftAdminData {
             protoHealth <- status.health.toRight("Health is missing")
             healthDescription = protoHealth.description
             health <- protoHealth.status match {
-              case ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_UNKNOWN_ENDPOINT =>
-                Right(PeerEndpointHealthStatus.Unknown)
-              case ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_UNAUTHENTICATED =>
+              case Some(
+                    ProtoPeerEndpointHealthStatus(
+                      ProtoPeerEndpointHealthStatus.Status.UnknownEndpoint(_)
+                    )
+                  ) =>
+                Right(PeerEndpointHealthStatus.UnknownEndpoint)
+              case Some(
+                    ProtoPeerEndpointHealthStatus(
+                      ProtoPeerEndpointHealthStatus.Status.Unauthenticated(_)
+                    )
+                  ) =>
                 Right(PeerEndpointHealthStatus.Unauthenticated)
-              case ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_AUTHENTICATED =>
-                Right(PeerEndpointHealthStatus.Authenticated)
-              case ProtoPeerEndpointHealthStatus.Unrecognized(unrecognizedValue) =>
-                Left(s"Health status is unrecognised: $unrecognizedValue")
-              case ProtoPeerEndpointHealthStatus.PEER_ENDPOINT_HEALTH_STATUS_UNSPECIFIED =>
-                Left("Health status is unspecified")
+              case Some(
+                    ProtoPeerEndpointHealthStatus(
+                      ProtoPeerEndpointHealthStatus.Status.Authenticated(
+                        ProtoPeerEndpointHealthStatus.Authenticated(sequencerIdString)
+                      )
+                    )
+                  ) =>
+                SequencerId
+                  .fromProtoPrimitive(sequencerIdString, "sequencerId")
+                  .leftMap(_.toString)
+                  .map(PeerEndpointHealthStatus.Authenticated(_))
+              case _ =>
+                Left("Health status is empty")
             }
           } yield PeerEndpointStatus(endpointId, PeerEndpointHealth(health, healthDescription))
         }

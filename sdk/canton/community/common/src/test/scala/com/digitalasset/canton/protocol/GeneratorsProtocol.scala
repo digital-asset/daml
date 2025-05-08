@@ -105,7 +105,7 @@ final class GeneratorsProtocol(
           }
 
         // Because of the potential multiplication by 2 below, we want a reasonably small value
-        submissionTimeRecordTimeTolerance <- Gen
+        preparationTimeRecordTimeTolerance <- Gen
           .choose(0L, 10000L)
           .map(NonNegativeFiniteDuration.tryOfMicros)
 
@@ -123,7 +123,7 @@ final class GeneratorsProtocol(
           onboardingRestriction,
           acsCommitmentsCatchupConfig,
           participantSynchronizerLimits,
-          submissionTimeRecordTimeTolerance,
+          preparationTimeRecordTimeTolerance,
         )(representativePV)
 
       } yield dynamicSynchronizerParameters

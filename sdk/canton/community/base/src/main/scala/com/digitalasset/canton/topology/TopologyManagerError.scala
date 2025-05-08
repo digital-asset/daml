@@ -375,23 +375,23 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that it has been attempted to increase the ``submissionTimeRecordTimeTolerance`` synchronizer parameter in an insecure manner.
+    """This error indicates that it has been attempted to increase the ``preparationTimeRecordTimeTolerance`` synchronizer parameter in an insecure manner.
       |Increasing this parameter may disable security checks and can therefore be a security risk.
       |"""
   )
   @Resolution(
-    """Make sure that the new value of ``submissionTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` synchronizer parameter.
+    """Make sure that the new value of ``preparationTimeRecordTimeTolerance`` is at most half of the ``mediatorDeduplicationTimeout`` synchronizer parameter.
       |
-      |Use ``mySynchronizer.service.set_submission_time_record_time_tolerance`` for securely increasing submissionTimeRecordTimeTolerance.
+      |Use ``mySynchronizer.service.set_preparation_time_record_time_tolerance`` for securely increasing preparationTimeRecordTimeTolerance.
       |
-      |Alternatively, add the flag ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
-      |The security checks will be effective again after twice the new value of ``submissionTimeRecordTimeTolerance``.
-      |Using ``ForceFlag.SubmissionTimeRecordTimeToleranceIncrease`` is safe upon synchronizer bootstrapping.
+      |Alternatively, add the flag ``ForceFlag.PreparationTimeRecordTimeToleranceIncrease`` to your command, if security is not a concern for you.
+      |The security checks will be effective again after twice the new value of ``preparationTimeRecordTimeTolerance``.
+      |Using ``ForceFlag.PreparationTimeRecordTimeToleranceIncrease`` is safe upon synchronizer bootstrapping.
       |"""
   )
-  object IncreaseOfSubmissionTimeRecordTimeTolerance
+  object IncreaseOfPreparationTimeRecordTimeTolerance
       extends ErrorCode(
-        id = "TOPOLOGY_INCREASE_OF_SUBMISSION_TIME_TOLERANCE",
+        id = "TOPOLOGY_INCREASE_OF_PREPARATION_TIME_TOLERANCE",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class TemporarilyInsecure(
@@ -401,18 +401,18 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The parameter submissionTimeRecordTimeTolerance can currently not be increased to $newValue."
+            s"The parameter preparationTimeRecordTimeTolerance can currently not be increased to $newValue."
         )
         with TopologyManagerError
 
     final case class PermanentlyInsecure(
-        newSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+        newPreparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
         mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
     )(implicit
         override val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"Unable to increase submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
+            s"Unable to increase preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance, because it must not be more than half of mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
         )
         with TopologyManagerError
   }

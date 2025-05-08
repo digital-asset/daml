@@ -95,7 +95,7 @@ trait SequencerOnboardingTombstoneTest
     participant1.ledger_api.javaapi.commands.submit_async(
       Seq(participant1.id.adminParty),
       cycle,
-      commandId = "commandId",
+      commandId = "long-running-tx-id",
     )
 
     // Make sure that the participant's request has reached the sequencer
@@ -146,7 +146,7 @@ trait SequencerOnboardingTombstoneTest
       loggerFactory.assertLogsUnorderedOptional(
         {
 
-          clue("participant1 connects to sequencer2") {
+          clue("participant1 connects to sequencer2 the first time") {
             participant1.synchronizers.reconnect_all(ignoreFailures = false)
           }
 
@@ -248,7 +248,7 @@ trait SequencerOnboardingTombstoneTest
         sequencer2.sequencerConnection.withAlias(SequencerAlias.tryCreate("seq2x")),
       )
 
-      clue("participant1 connects to sequencer2") {
+      clue("participant1 connects to sequencer2 the second time") {
         participant1.synchronizers.reconnect_all(ignoreFailures = false)
       }
 

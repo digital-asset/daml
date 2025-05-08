@@ -621,7 +621,7 @@ class AvailabilityModuleOutputFetchTest
                 Availability.LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)),
                 Availability.LocalDissemination
                   .LocalBatchesStoredSigned(
-                    Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+                    Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
                   ),
               ),
               (

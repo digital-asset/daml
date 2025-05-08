@@ -24,4 +24,11 @@ final case class DisseminatedBatchMetadata(
     proofOfAvailability: ProofOfAvailability,
     epochNumber: EpochNumber,
     stats: OrderingRequestBatchStats,
-)
+) {
+  def regress(): InProgressBatchMetadata =
+    InProgressBatchMetadata(
+      proofOfAvailability.batchId,
+      epochNumber,
+      stats,
+    )
+}

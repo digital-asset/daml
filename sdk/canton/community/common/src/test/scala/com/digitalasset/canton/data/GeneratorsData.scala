@@ -87,14 +87,14 @@ final class GeneratorsData(
   implicit val participantMetadataArb: Arbitrary[ParticipantMetadata] = Arbitrary(
     for {
       ledgerTime <- Arbitrary.arbitrary[CantonTimestamp]
-      submissionTime <- Arbitrary.arbitrary[CantonTimestamp]
+      preparationTime <- Arbitrary.arbitrary[CantonTimestamp]
       workflowIdO <- Gen.option(workflowIdArb.arbitrary)
       salt <- Arbitrary.arbitrary[Salt]
 
       hashOps = TestHash // Not used for serialization
     } yield ParticipantMetadata(hashOps)(
       ledgerTime,
-      submissionTime,
+      preparationTime,
       workflowIdO,
       salt,
       protocolVersion,

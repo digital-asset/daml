@@ -19,6 +19,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   RemoteDissemination,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.output.OutputModuleTest
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -211,7 +212,7 @@ class AvailabilityModuleDisseminationTest
 
           availability.receive(
             LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
             )
           )
 
@@ -273,7 +274,7 @@ class AvailabilityModuleDisseminationTest
 
           availability.receive(
             LocalDissemination.LocalBatchesStoredSigned(
-              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Right(Signature.noSignature)))
+              Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
             )
           )
 
@@ -417,6 +418,86 @@ class AvailabilityModuleDisseminationTest
       disseminationProtocolState.batchesReadyForOrdering should be(empty)
       disseminationProtocolState.toBeProvidedToConsensus should be(empty)
       verifyZeroInteractions(availabilityStore)
+    }
+    "not store if there is no dissemination quota available for node" in {
+      implicit val ctx: ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+        new ProgrammableUnitTestContext()
+
+      val disseminationProtocolState = new DisseminationProtocolState()
+      val disseminationQuotas = disseminationProtocolState.disseminationQuotas
+      val disseminationQuotaSize = 1
+
+      val secondBatch = OrderingRequestBatch.create(
+        Seq(anOrderingRequest, anOrderingRequest),
+        anEpochNumber,
+      )
+      val secondBatchId = BatchId.from(secondBatch)
+
+      val availability = createAvailability[ProgrammableUnitTestEnv](
+        disseminationProtocolState = disseminationProtocolState,
+        maxNonOrderedBatchesPerNode = disseminationQuotaSize.toShort,
+        cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+      )
+
+      def canAcceptBatch(batchId: BatchId) =
+        disseminationQuotas.canAcceptForNode(Node1, batchId, disseminationQuotaSize)
+
+      // initially we can take a batch
+      canAcceptBatch(ABatchId) shouldBe true
+      availability.receive(
+        RemoteDissemination.RemoteBatch.create(ABatchId, ABatch, from = Node1)
+      )
+      canAcceptBatch(secondBatchId) shouldBe true
+      ctx.runPipedMessagesThenVerifyAndReceiveOnModule(availability) { message =>
+        message shouldBe (Availability.LocalDissemination.RemoteBatchStored(
+          ABatchId,
+          anEpochNumber,
+          Node1,
+        ))
+      }
+
+      // then after processing and storing the remote batch, we count it towards the quota
+      // so we can no longer take a batch. Note that we use a different batch id to check now,
+      // because the initial batch id will be accepted since we always accept a batch that has been accepted before
+      canAcceptBatch(secondBatchId) shouldBe false
+      // receiving a new batch after the quota is full gives a warning and the batch is rejected
+      loggerFactory.assertLogs(
+        availability.receive(
+          RemoteDissemination.RemoteBatch.create(secondBatchId, secondBatch, from = Node1)
+        ),
+        log => {
+          log.level shouldBe Level.WARN
+          log.message shouldBe (
+            s"Batch $secondBatchId from 'node1' cannot be taken because we have reached the limit of 1 unordered and unexpired batches from this node that we can hold on to, skipping"
+          )
+        },
+      )
+
+      // request from output module to fetch block data with this batch id will free one spot in the quota for this node
+      val block = OutputModuleTest.anOrderedBlockForOutput(batchIds = Seq(ABatchId))
+      availability.receive(
+        Availability.LocalOutputFetch.FetchBlockData(block)
+      )
+      canAcceptBatch(secondBatchId) shouldBe true
+
+      // so now we can take another batch, which will then fill up the quota again
+      availability.receive(
+        Availability.LocalDissemination.RemoteBatchStored(
+          secondBatchId,
+          anEpochNumber,
+          Node1,
+        )
+      )
+      canAcceptBatch(AnotherBatchId) shouldBe false
+
+      // we can also free up a spot when a batch in the quota expires
+      val expiringEpochNumber =
+        EpochNumber(anEpochNumber + OrderingRequestBatch.BatchValidityDurationEpochs)
+      availability.receive(
+        Availability.Consensus
+          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, expiringEpochNumber)
+      )
+      canAcceptBatch(AnotherBatchId) shouldBe true
     }
   }
 

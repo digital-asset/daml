@@ -1949,8 +1949,7 @@ object CantonConfig {
         .foldLeft(c) { case (subConfig, (key, obj)) =>
           subConfig.withValue(key, goVal(key, obj))
         }
-    go(config)
-      .resolve()
+    go(config.resolve()) // Resolve the config _before_ redacting confidential information
       .root()
       .get("canton")
       .render(CantonConfig.defaultConfigRenderer)

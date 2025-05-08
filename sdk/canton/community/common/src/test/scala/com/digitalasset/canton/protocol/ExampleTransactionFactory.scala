@@ -436,7 +436,7 @@ class ExampleTransactionFactory(
     val mediatorGroup: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
     val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
     val ledgerTimeUsed: CantonTimestamp = CantonTimestamp.Epoch.minusSeconds(1),
-    val submissionTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
+    val preparationTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9),
     val topologySnapshot: TopologySnapshot = defaultTopologySnapshot,
 )(implicit ec: ExecutionContext, tc: TraceContext)
     extends EitherValues {
@@ -535,14 +535,14 @@ class ExampleTransactionFactory(
   val lfTransactionSeed: LfHash = LfHash.deriveTransactionSeed(
     ExampleTransactionFactory.submissionSeed,
     ExampleTransactionFactory.submittingParticipant.toLf,
-    submissionTime.toLf,
+    preparationTime.toLf,
   )
 
   def deriveNodeSeed(path: Int*): LfHash =
     path.foldLeft(lfTransactionSeed)((seed, i) => LfHash.deriveNodeSeed(seed, i))
 
   def discriminator(nodeSeed: LfHash, stakeholders: Set[LfPartyId]): LfHash =
-    LfHash.deriveContractDiscriminator(nodeSeed, submissionTime.toLf, stakeholders)
+    LfHash.deriveContractDiscriminator(nodeSeed, preparationTime.toLf, stakeholders)
 
   val unicumGenerator = new UnicumGenerator(cryptoOps)
 
@@ -766,7 +766,7 @@ class ExampleTransactionFactory(
   }
 
   def mkMetadata(seeds: Map[LfNodeId, LfHash] = Map.empty): TransactionMetadata =
-    TransactionMetadata(ledgerTime, submissionTime, seeds)
+    TransactionMetadata(ledgerTime, preparationTime, seeds)
 
   def versionedTransactionWithSeeds(
       rootIndices: Seq[Int],
@@ -804,7 +804,7 @@ class ExampleTransactionFactory(
   val participantMetadata: ParticipantMetadata =
     ParticipantMetadata(cryptoOps)(
       ledgerTime,
-      submissionTime,
+      preparationTime,
       Some(workflowId),
       Salt.tryDeriveSalt(transactionSeed, 2, cryptoOps),
       protocolVersion,

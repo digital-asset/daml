@@ -2687,7 +2687,7 @@ class TopologyAdministrationGroup(
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
        waitForParticipants: if synchronize is defined, the command will also wait until parameters have been propagated
                             to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the submissionTimeRecordTimeTolerance"""
+       force: must be set to true when performing a dangerous operation, such as increasing the preparationTimeRecordTimeTolerance"""
     )
     def propose(
         synchronizerId: SynchronizerId,
@@ -2734,7 +2734,7 @@ class TopologyAdministrationGroup(
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
        waitForParticipants: if synchronize is defined, the command will also wait until the update has been propagated
                             to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the submissionTimeRecordTimeTolerance"""
+       force: must be set to true when performing a dangerous operation, such as increasing the preparationTimeRecordTimeTolerance"""
     )
     def propose_update(
         synchronizerId: SynchronizerId,
@@ -2799,68 +2799,68 @@ class TopologyAdministrationGroup(
       }
 
     @Help.Summary(
-      "Update the submission time record time tolerance in the dynamic synchronizer parameters"
+      "Update the preparation time record time tolerance in the dynamic synchronizer parameters"
     )
     @Help.Description(
       """If it would be insecure to perform the change immediately,
         |the command will block and wait until it is secure to perform the change.
-        |The command will block for at most twice of ``newSubmissionTimeRecordTimeTolerance``.
+        |The command will block for at most twice of ``newPreparationTimeRecordTimeTolerance``.
         |
-        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newSubmissionTimeRecordTimeTolerance``.
+        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newPreparationTimeRecordTimeTolerance``.
         |
         |Do not modify synchronizer parameters concurrently while running this command,
         |because the command may override concurrent changes.
         |
-        |force: update ``newSubmissionTimeRecordTimeTolerance`` immediately without blocking.
+        |force: update ``newPreparationTimeRecordTimeTolerance`` immediately without blocking.
         |This is safe to do during synchronizer bootstrapping and in test environments, but should not be done in operational production systems."""
     )
-    def set_submission_time_record_time_tolerance(
+    def set_preparation_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
-        newSubmissionTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        newPreparationTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
         force: Boolean = false,
     ): Unit =
       TraceContext.withNewTraceContext { implicit tc =>
         if (!force) {
-          securely_set_submission_time_record_time_tolerance(
+          securely_set_preparation_time_record_time_tolerance(
             synchronizerId,
-            newSubmissionTimeRecordTimeTolerance,
+            newPreparationTimeRecordTimeTolerance,
           )
         } else {
           logger.info(
-            s"Immediately updating submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
+            s"Immediately updating preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance..."
           )
           propose_update(
             synchronizerId,
-            _.update(submissionTimeRecordTimeTolerance = newSubmissionTimeRecordTimeTolerance),
-            force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
+            _.update(preparationTimeRecordTimeTolerance = newPreparationTimeRecordTimeTolerance),
+            force = ForceFlags(ForceFlag.PreparationTimeRecordTimeToleranceIncrease),
           )
         }
       }
 
-    private def securely_set_submission_time_record_time_tolerance(
+    private def securely_set_preparation_time_record_time_tolerance(
         synchronizerId: SynchronizerId,
-        newSubmissionTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        newPreparationTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
     )(implicit traceContext: TraceContext): Unit = {
 
       // See i9028 for a detailed design.
       // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
       // We wait until the antecedent of Lemma 2 Item 2 is falsified for all changes that violate the conclusion.
       // Note: This validation was originally designed for ledgerTimeRecordTimeTolerance. With the introduction of
-      // submissionTimeRecordTimeTolerance, the validation was moved to it instead of ledgerTimeRecordTimeTolerance
+      // preparationTimeRecordTimeTolerance, the validation was moved to it instead of ledgerTimeRecordTimeTolerance
 
       // Compute new parameters
       val oldSynchronizerParameters = get_dynamic_synchronizer_parameters(synchronizerId)
-      val oldSubmissionTimeRecordTimeTolerance =
-        oldSynchronizerParameters.submissionTimeRecordTimeTolerance
+      val oldPreparationTimeRecordTimeTolerance =
+        oldSynchronizerParameters.preparationTimeRecordTimeTolerance
 
-      val minMediatorDeduplicationTimeout = newSubmissionTimeRecordTimeTolerance * 2
+      val minMediatorDeduplicationTimeout = newPreparationTimeRecordTimeTolerance * 2
 
       if (
         oldSynchronizerParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout
       ) {
-        val err: RpcError = TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance
+        val err: RpcError = TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance
           .PermanentlyInsecure(
-            newSubmissionTimeRecordTimeTolerance.toInternal,
+            newPreparationTimeRecordTimeTolerance.toInternal,
             oldSynchronizerParameters.mediatorDeduplicationTimeout.toInternal,
           )
         val msg = CantonError.stringFromContext(err)
@@ -2868,20 +2868,20 @@ class TopologyAdministrationGroup(
       }
 
       logger.info(
-        s"Securely updating submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
+        s"Securely updating preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance..."
       )
 
-      // Poll until it is safe to increase submissionTimeRecordTimeTolerance
+      // Poll until it is safe to increase preparationTimeRecordTimeTolerance
       def checkPreconditions(): Future[Unit] = {
         val startTs = consoleEnvironment.environment.clock.now
 
         // Doing a no-op update so that the resulting topology transaction gives us a meaningful lower bound on the sequencer clock
         logger.info(
-          s"Do a no-op update of submissionTimeRecordTimeTolerance to $oldSubmissionTimeRecordTimeTolerance..."
+          s"Do a no-op update of preparationTimeRecordTimeTolerance to $oldPreparationTimeRecordTimeTolerance..."
         )
         propose_update(
           synchronizerId,
-          _.copy(submissionTimeRecordTimeTolerance = oldSubmissionTimeRecordTimeTolerance),
+          _.copy(preparationTimeRecordTimeTolerance = oldPreparationTimeRecordTimeTolerance),
         )
 
         logger.debug("Check for incompatible past synchronizer parameters...")
@@ -2907,8 +2907,8 @@ class TopologyAdministrationGroup(
         val waitDuration = allTransactions
           .filterNot(tx =>
             ConsoleDynamicSynchronizerParameters(tx.item)
-              .compatibleWithNewSubmissionTimeRecordTimeTolerance(
-                newSubmissionTimeRecordTimeTolerance
+              .compatibleWithNewPreparationTimeRecordTimeTolerance(
+                newPreparationTimeRecordTimeTolerance
               )
           )
           .map { tx =>
@@ -2934,7 +2934,7 @@ class TopologyAdministrationGroup(
             ) // avoid scheduleAfter, because that causes a race condition in integration tests
             .onShutdown(
               throw new IllegalStateException(
-                "Update of submissionTimeRecordTimeTolerance interrupted due to shutdown."
+                "Update of preparationTimeRecordTimeTolerance interrupted due to shutdown."
               )
             )
           // Do not submit checkPreconditions() to the clock because it is blocking and would therefore block the clock.
@@ -2945,20 +2945,20 @@ class TopologyAdministrationGroup(
       }
 
       consoleEnvironment.commandTimeouts.unbounded.await(
-        "Wait until submissionTimeRecordTimeTolerance can be increased."
+        "Wait until preparationTimeRecordTimeTolerance can be increased."
       )(
         checkPreconditions()
       )
 
       // Now that past values of mediatorDeduplicationTimeout have been large enough,
-      // we can change submissionTimeRecordTimeTolerance.
+      // we can change preparationTimeRecordTimeTolerance.
       logger.info(
-        s"Now changing submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
+        s"Now changing preparationTimeRecordTimeTolerance to $newPreparationTimeRecordTimeTolerance..."
       )
       propose_update(
         synchronizerId,
-        _.copy(submissionTimeRecordTimeTolerance = newSubmissionTimeRecordTimeTolerance),
-        force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
+        _.copy(preparationTimeRecordTimeTolerance = newPreparationTimeRecordTimeTolerance),
+        force = ForceFlags(ForceFlag.PreparationTimeRecordTimeToleranceIncrease),
       )
     }
   }

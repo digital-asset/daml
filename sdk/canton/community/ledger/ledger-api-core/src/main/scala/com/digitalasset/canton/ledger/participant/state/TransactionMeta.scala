@@ -21,8 +21,8 @@ import com.digitalasset.daml.lf.transaction.NodeId
   *   a submitter-provided identifier used for monitoring and to traffic-shape the work handled by
   *   Daml applications communicating over the ledger.
   *
-  * @param submissionTime:
-  *   the transaction submission time
+  * @param preparationTime:
+  *   the transaction prepartion time
   *
   * @param submissionSeed:
   *   the seed used to derive the transaction contract IDs.
@@ -44,7 +44,7 @@ import com.digitalasset.daml.lf.transaction.NodeId
 final case class TransactionMeta(
     ledgerEffectiveTime: Time.Timestamp,
     workflowId: Option[Ref.WorkflowId],
-    submissionTime: Time.Timestamp,
+    preparationTime: Time.Timestamp,
     submissionSeed: crypto.Hash,
     timeBoundaries: LedgerTimeBoundaries,
     optUsedPackages: Option[Set[Ref.PackageId]],
@@ -55,7 +55,7 @@ final case class TransactionMeta(
   override protected def pretty: Pretty[TransactionMeta.this.type] = prettyOfClass(
     param("ledgerEffectiveTime", _.ledgerEffectiveTime),
     paramIfDefined("workflowId", _.workflowId),
-    param("submissionTime", _.submissionTime),
+    param("preparationTime", _.preparationTime),
     param("timeBoundaries", _.timeBoundaries),
     indicateOmittedFields,
   )

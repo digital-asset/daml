@@ -77,7 +77,7 @@ class SequencerSnapshotOnboardingManager(
             snapshot
               .flatMap {
                 // technically the block we want is somewhere later than this, but this is good enough
-                _.nodeActiveAt.get(forNode).flatMap(_.firstBlockNumberInEpoch)
+                _.nodeActiveAt.get(forNode).flatMap(_.firstBlockNumberInStartEpoch)
               }
 
           blockFromSnapshot.getOrElse(

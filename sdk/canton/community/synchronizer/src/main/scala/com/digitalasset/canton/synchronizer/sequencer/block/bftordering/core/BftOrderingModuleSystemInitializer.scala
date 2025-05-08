@@ -7,7 +7,10 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.{
+  BftOrderingStores,
+  BootstrapTopologyInfo,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.{
@@ -108,19 +111,20 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
 
     val thisNodeFirstKnownAt =
       sequencerSnapshotAdditionalInfo.flatMap(_.nodeActiveAt.get(bootstrapTopologyInfo.thisNode))
-    val firstBlockNumberInOnboardingEpoch = thisNodeFirstKnownAt.flatMap(_.firstBlockNumberInEpoch)
+    val firstBlockNumberInOnboardingEpoch =
+      thisNodeFirstKnownAt.flatMap(_.firstBlockNumberInStartEpoch)
     val previousBftTimeForOnboarding = thisNodeFirstKnownAt.flatMap(_.previousBftTime)
 
     val initialLowerBound = thisNodeFirstKnownAt.flatMap { data =>
       for {
-        epoch <- data.epochNumber
-        blockNumber <- data.firstBlockNumberInEpoch
+        epoch <- data.startEpochNumber
+        blockNumber <- data.firstBlockNumberInStartEpoch
       } yield (epoch, blockNumber)
     }
 
     val onboardingEpochCouldAlterOrderingTopology =
       thisNodeFirstKnownAt
-        .flatMap(_.epochCouldAlterOrderingTopology)
+        .flatMap(_.startEpochCouldAlterOrderingTopology)
         .exists(pendingChanges => pendingChanges)
     val outputModuleStartupState =
       OutputModule.StartupState(
@@ -271,11 +275,11 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
   ): (EpochNumber, OrderingTopologyInfo[E]) = {
     import TraceContext.Implicits.Empty.*
 
-    val (
-      initialTopologyQueryTimestamp,
+    val BootstrapTopologyInfo(
       initialEpochNumber,
+      initialTopologyQueryTimestamp,
       previousTopologyQueryTimestamp,
-      onboarding,
+      maybeOnboardingTopologyQueryTimestamp,
     ) =
       getInitialAndPreviousTopologyQueryTimestamps(moduleSystem)
 
@@ -289,25 +293,31 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
 
     val previousLeaders = getLeadersFrom(previousTopology, EpochNumber(initialEpochNumber - 1))
 
+    val maybeOnboardingTopologyAndCryptoProvider = maybeOnboardingTopologyQueryTimestamp
+      .map(onboardingTopologyQueryTimestamp =>
+        getOrderingTopologyAt(moduleSystem, onboardingTopologyQueryTimestamp, "onboarding")
+      )
+
     (
       initialEpochNumber,
       OrderingTopologyInfo(
         node,
         // Use the previous topology (not containing this node) as current topology when onboarding.
         //  This prevents relying on newly onboarded nodes for state transfer.
-        currentTopology = if (onboarding) previousTopology else initialTopology,
+        currentTopology = initialTopology,
         currentCryptoProvider =
-          if (onboarding)
-            DelegationCryptoProvider(
-              // Note that, when onboarding, the signing crypto provider corresponds to the onboarding node activation timestamp
-              //  (so that its signing key is present), the verification will use the one at the start of epoch
-              signer = initialCryptoProvider,
-              verifier = previousCryptoProvider,
-            )
-          else initialCryptoProvider,
-        currentLeaders = if (onboarding) previousLeaders else initialLeaders,
-        previousTopology,
-        previousCryptoProvider,
+          maybeOnboardingTopologyAndCryptoProvider.fold(initialCryptoProvider) {
+            case (_, onboardingCryptoProvider) =>
+              DelegationCryptoProvider(
+                // Note that, when onboarding, the signing crypto provider corresponds to the onboarding node activation
+                //  timestamp (so that its signing key is present), the verification will use the one at the start of epoch.
+                signer = onboardingCryptoProvider,
+                verifier = initialCryptoProvider,
+              )
+          },
+        currentLeaders = initialLeaders,
+        previousTopology, // for canonical commit set verification
+        previousCryptoProvider, // for canonical commit set verification
         previousLeaders,
       ),
     )
@@ -324,17 +334,27 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
           node,
           failBootstrap("Activation information is required when onboarding but it's empty"),
         )
-        val epochNumber = thisNodeActiveAt.epochNumber.getOrElse(
-          failBootstrap("epoch information is required when onboarding but it's empty")
+        val epochNumber = thisNodeActiveAt.startEpochNumber.getOrElse(
+          failBootstrap("Start epoch information is required when onboarding but it's empty")
         )
-        val initialTopologyQueryTimestamp = thisNodeActiveAt.timestamp
-        val previousTopologyQueryTimestamp =
-          thisNodeActiveAt.epochTopologyQueryTimestamp.getOrElse(
+        val initialTopologyQueryTimestamp =
+          thisNodeActiveAt.startEpochTopologyQueryTimestamp.getOrElse(
             failBootstrap(
               "Start epoch topology query timestamp is required when onboarding but it's empty"
             )
           )
-        (initialTopologyQueryTimestamp, epochNumber, previousTopologyQueryTimestamp, true)
+        val previousTopologyQueryTimestamp =
+          thisNodeActiveAt.previousEpochTopologyQueryTimestamp.getOrElse {
+            // If the start epoch is immediately after the genesis epoch
+            initialTopologyQueryTimestamp
+          }
+        val onboardingTopologyQueryTimestamp = thisNodeActiveAt.timestamp
+        BootstrapTopologyInfo(
+          epochNumber,
+          initialTopologyQueryTimestamp,
+          previousTopologyQueryTimestamp,
+          Some(onboardingTopologyQueryTimestamp),
+        )
 
       case _ =>
         // Regular (i.e., non-onboarding) start
@@ -348,11 +368,10 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
           val latestCompletedEpoch = fetchLatestEpoch(moduleSystem, includeInProgress = false)
           latestCompletedEpoch.info.topologyActivationTime
         }
-        (
-          initialTopologyQueryTimestamp,
+        BootstrapTopologyInfo(
           initialTopologyEpochInfo.number,
+          initialTopologyQueryTimestamp,
           previousTopologyQueryTimestamp,
-          false,
         )
     }
 
@@ -408,5 +427,30 @@ object BftOrderingModuleSystemInitializer {
       epochStore: EpochStore[E],
       epochStoreReader: EpochStoreReader[E],
       outputStore: OutputMetadataStore[E],
+  )
+
+  /** In case of onboarding, the topology query timestamps look as follows:
+    * {{{
+    * ───|────────────|─────────────────────|──────────────────────────|──────────> time
+    *   Previous     Initial topology ts   Onboarding topology ts     (Topology ts, where
+    *   topology ts  (start epoch)         (node active in topology)  node is active in consensus)
+    * }}}
+    *
+    * @param initialEpochNumber
+    *   A start epoch number.
+    * @param initialTopologyQueryTimestamp
+    *   A timestamp to get an initial topology (and a crypto provider) for signing and validation.
+    * @param previousTopologyQueryTimestamp
+    *   A timestamp to get a topology (and a crypto provider) for canonical commit set validation at
+    *   the first epoch boundary.
+    * @param onboardingTopologyQueryTimestamp
+    *   An optional timestamp to get a topology (and a crypto provider) for signing state transfer
+    *   requests for onboarding.
+    */
+  final case class BootstrapTopologyInfo(
+      initialEpochNumber: EpochNumber,
+      initialTopologyQueryTimestamp: TopologyActivationTime,
+      previousTopologyQueryTimestamp: TopologyActivationTime,
+      onboardingTopologyQueryTimestamp: Option[TopologyActivationTime] = None,
   )
 }

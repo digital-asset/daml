@@ -268,7 +268,7 @@ def encode_metadata(metadata):
             metadata.max_ledger_effective_time,
             encode_int64,
         )
-        + encode_int64(metadata.submission_time)
+        + encode_int64(metadata.preparation_time)
         + encode_repeated(metadata.input_contracts, encode_input_contract)
     )
 

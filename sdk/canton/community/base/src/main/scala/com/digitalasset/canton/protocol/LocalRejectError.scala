@@ -191,21 +191,21 @@ object LocalRejectError extends LocalRejectionGroup {
     }
 
     @Explanation(
-      """This error is thrown if the submission time and the record time differ more than permitted.
+      """This error is thrown if the preparation time and the record time differ more than permitted.
         This can happen in an overloaded system due to high latencies or for transactions with long interpretation times."""
     )
     @Resolution(
       "For long-running transactions, adjust the ledger time bounds used with the command submission. For short-running transactions, simply retry."
     )
-    object SubmissionTime
+    object PreparationTime
         extends LocalRejectErrorCode(
-          id = "LOCAL_VERDICT_SUBMISSION_TIME_OUT_OF_BOUND",
+          id = "LOCAL_VERDICT_PREPARATION_TIME_OUT_OF_BOUND",
           ErrorCategory.ContentionOnSharedResources,
         ) {
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(
             _causePrefix =
-              "Rejected transaction as delta of the submission time and the record time exceed the time tolerance "
+              "Rejected transaction as delta of the preparation time and the record time exceed the time tolerance "
           )
     }
 

@@ -267,7 +267,7 @@ trait SynchronizerParametersChangeIntegrationTest
           _.update(
             confirmationResponseTimeout = 40.seconds,
             mediatorDeduplicationTimeout = 2.minutes,
-            submissionTimeRecordTimeTolerance = 1.minute,
+            preparationTimeRecordTimeTolerance = 1.minute,
             mediatorReactionTimeout = 20.seconds,
             assignmentExclusivityTimeout = 1.second,
             topologyChangeDelay = 0.millis,
@@ -321,7 +321,7 @@ trait SynchronizerParametersChangeIntegrationTest
               _trafficControlParameters,
               _onboardingRestriction,
               _acsCommitmentsCatchupConfig,
-              _submissionTimeRecordTimeTolerance,
+              _preparationTimeRecordTimeTolerance,
             ) =>
           ()
       }
@@ -405,9 +405,9 @@ trait SynchronizerParametersChangeIntegrationTest
     def increaseTolerance(
         p: ConsoleDynamicSynchronizerParameters
     ): ConsoleDynamicSynchronizerParameters =
-      p.update(submissionTimeRecordTimeTolerance = p.submissionTimeRecordTimeTolerance * 2)
+      p.update(preparationTimeRecordTimeTolerance = p.preparationTimeRecordTimeTolerance * 2)
 
-    "not configure insecure values for mediatorDeduplicationTimeout and submissionTimeRecordTimeTolerance" taggedAs secureConfigurationAsset
+    "not configure insecure values for mediatorDeduplicationTimeout and preparationTimeRecordTimeTolerance" taggedAs secureConfigurationAsset
       .setAttack(
         Attack(
           actor = "a malicious participant",
@@ -432,23 +432,23 @@ trait SynchronizerParametersChangeIntegrationTest
         acsCommitmentsCatchUp = None,
         participantSynchronizerLimits =
           ParticipantSynchronizerLimits(confirmationRequestsMaxRate = NonNegativeInt.zero),
-        submissionTimeRecordTimeTolerance = d,
+        preparationTimeRecordTimeTolerance = d,
       )
-      ex.getMessage shouldBe "The submissionTimeRecordTimeTolerance (10s) must be at most half of the mediatorDeduplicationTimeout (10s)."
+      ex.getMessage shouldBe "The preparationTimeRecordTimeTolerance (10s) must be at most half of the mediatorDeduplicationTimeout (10s)."
     }
 
-    "require force to immediately increase submissionTimeRecordTimeTolerance" taggedAs secureConfigurationAsset
+    "require force to immediately increase preparationTimeRecordTimeTolerance" taggedAs secureConfigurationAsset
       .setAttack(
         Attack(
           actor = "a synchronizer operator",
-          threat = "configures a too high value for submissionTimeRecordTimeTolerance by accident",
+          threat = "configures a too high value for preparationTimeRecordTimeTolerance by accident",
           mitigation =
-            s"the synchronizer operator's topology managers require the use of the force flag ForceFlag.SubmissionTimeRecordTimeToleranceIncrease",
+            s"the synchronizer operator's topology managers require the use of the force flag ForceFlag.PreparationTimeRecordTimeToleranceIncrease",
         )
       ) in { implicit env =>
-      // Refuse to increase submissionTimeRecordTimeTolerance without increasing mediatorDeduplicationTimeout
+      // Refuse to increase preparationTimeRecordTimeTolerance without increasing mediatorDeduplicationTimeout
       val oldParams = getCurrentSynchronizerParameters(daSynchronizer)
-      val oldTol = oldParams.submissionTimeRecordTimeTolerance
+      val oldTol = oldParams.preparationTimeRecordTimeTolerance
       val oldDedup = oldParams.mediatorDeduplicationTimeout
 
       val oldToErrorMessage = (oldTol * 2).toString
@@ -456,10 +456,10 @@ trait SynchronizerParametersChangeIntegrationTest
 
       assertThrowsAndLogsCommandFailures(
         daSynchronizer.sequencer.topology.synchronizer_parameters
-          .set_submission_time_record_time_tolerance(daSynchronizer.synchronizerId, oldTol * 2),
+          .set_preparation_time_record_time_tolerance(daSynchronizer.synchronizerId, oldTol * 2),
         _.shouldBeCommandFailure(
-          TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance,
-          s"Unable to increase submissionTimeRecordTimeTolerance to $oldToErrorMessage, " +
+          TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance,
+          s"Unable to increase preparationTimeRecordTimeTolerance to $oldToErrorMessage, " +
             s"because it must not be more than half of mediatorDeduplicationTimeout ($oldDedupErrorMessage).",
         ),
       )
@@ -474,8 +474,8 @@ trait SynchronizerParametersChangeIntegrationTest
       assertThrowsAndLogsCommandFailures(
         updateDynamicSynchronizerParameters(daSynchronizer, increaseTolerance),
         _.shouldBeCommandFailure(
-          TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance,
-          s"The parameter submissionTimeRecordTimeTolerance can currently not be increased to",
+          TopologyManagerError.IncreaseOfPreparationTimeRecordTimeTolerance,
+          s"The parameter preparationTimeRecordTimeTolerance can currently not be increased to",
         ),
       )
 
@@ -486,7 +486,7 @@ trait SynchronizerParametersChangeIntegrationTest
         daSynchronizer.synchronizerId,
         newParams,
         mustFullyAuthorize = true,
-        force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
+        force = ForceFlags(ForceFlag.PreparationTimeRecordTimeToleranceIncrease),
       )
 
       getCurrentSynchronizerParameters(daSynchronizer) shouldBe newParams

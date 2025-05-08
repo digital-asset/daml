@@ -172,9 +172,9 @@ class ParallelMessageDispatcher(
 
     withSpan("MessageDispatcher.handle") { implicit traceContext => _ =>
       val processingResult: ProcessingResult = eventE.event match {
-        case OrdinarySequencedEvent(_, signedEvent) =>
+        case OrdinarySequencedEvent(sequencerCounter, signedEvent) =>
           val signedEventE = eventE.map(_ => signedEvent)
-          processOrdinary(signedEventE)
+          processOrdinary(sequencerCounter, signedEventE)
 
         case _: IgnoredSequencedEvent[_] =>
           pureProcessingResult
@@ -191,29 +191,29 @@ class ParallelMessageDispatcher(
   }
 
   private def processOrdinary(
-      signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]]
+      sequencerCounter: SequencerCounter,
+      signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): ProcessingResult =
     signedEventE.event.content match {
-      case deliver @ Deliver(sc, _pts, ts, _, _, _, _, _)
-          if TimeProof.isTimeProofDeliver(deliver) =>
-        logTimeProof(sc, ts)
+      case deliver @ Deliver(_pts, ts, _, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
+        logTimeProof(sequencerCounter, ts)
         FutureUnlessShutdown
           .lift(
-            recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
+            recordOrderPublisher.scheduleEmptyAcsChangePublication(sequencerCounter, ts)
           )
           .flatMap(_ => pureProcessingResult)
 
-      case Deliver(sc, _pts, ts, _, msgId, _, _, _) =>
+      case Deliver(_pts, ts, _, msgId, _, _, _) =>
         // TODO(#13883) Validate the topology timestamp
         if (signedEventE.hasNoErrors) {
-          logEvent(sc, ts, msgId, signedEventE.event)
+          logEvent(sequencerCounter, ts, msgId, signedEventE.event)
         } else {
-          logFaultyEvent(sc, ts, msgId, signedEventE.map(_.content))
+          logFaultyEvent(sequencerCounter, ts, msgId, signedEventE.map(_.content))
         }
         @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
         val deliverE =
           signedEventE.asInstanceOf[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]]
-        processBatch(deliverE)
+        processBatch(sequencerCounter, deliverE)
           .transform {
             case success @ Success(_) => success
 
@@ -224,8 +224,8 @@ class ParallelMessageDispatcher(
               Failure(ex)
           }
 
-      case error @ DeliverError(sc, _pts, ts, _, msgId, status, _) =>
-        logDeliveryError(sc, ts, msgId, status)
+      case error @ DeliverError(_pts, ts, _, msgId, status, _) =>
+        logDeliveryError(sequencerCounter, ts, msgId, status)
         observeDeliverError(error)
     }
 

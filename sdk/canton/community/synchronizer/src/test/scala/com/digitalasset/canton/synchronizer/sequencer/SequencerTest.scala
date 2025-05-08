@@ -5,7 +5,12 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.{
+  BatchingConfig,
+  CachingConfigs,
+  DefaultProcessingTimeouts,
+  ProcessingTimeout,
+}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.*
@@ -17,7 +22,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.resource.MemoryStorage
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
+import com.digitalasset.canton.sequencing.SequencedSerializedEvent
 import com.digitalasset.canton.sequencing.client.RequestSigner
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -26,13 +31,7 @@ import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.version.RepresentativeProtocolVersion
-import com.digitalasset.canton.{
-  BaseTest,
-  FailOnShutdown,
-  HasExecutionContext,
-  SequencerCounter,
-  config,
-}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext, config}
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
@@ -124,6 +123,7 @@ class SequencerTest
       sequencerMember = topologyClientMember,
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
     )
 
     val sequencer: DatabaseSequencer =
@@ -145,10 +145,10 @@ class SequencerTest
     def readAsSeq(
         member: Member,
         limit: Int,
-        sc: SequencerCounter = SequencerCounter(0),
-    ): FutureUnlessShutdown[Seq[OrdinarySerializedEvent]] =
+        startingTimestamp: Option[CantonTimestamp] = None,
+    ): FutureUnlessShutdown[Seq[SequencedSerializedEvent]] =
       FutureUnlessShutdown.outcomeF(
-        valueOrFail(sequencer.readInternal(member, sc).failOnShutdown)(
+        valueOrFail(sequencer.readInternalV2(member, startingTimestamp).failOnShutdown)(
           s"read for $member"
         ) flatMap {
           _.take(limit.toLong)

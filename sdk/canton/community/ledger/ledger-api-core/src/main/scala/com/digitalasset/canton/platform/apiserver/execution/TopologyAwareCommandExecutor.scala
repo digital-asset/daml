@@ -44,7 +44,7 @@ import scala.collection.{View, mutable}
 import scala.concurrent.ExecutionContext
 import scala.util.chaining.scalaUtilChainingOps
 
-// TODO(#23334): Consider introducing performance observability metrics
+// TODO(#25385): Consider introducing performance observability metrics
 //               due to the high computational complexity of the algorithm
 /** Command executor that performs the topology-aware package selection algorithm for command
   * interpretation.
@@ -53,7 +53,7 @@ import scala.util.chaining.scalaUtilChainingOps
   * not honored if it conflicts with the preference set computed by this algorithm. It is only used
   * to fine-tune the selection.
   *
-  * TODO(#23334): Add algorithm outline
+  * TODO(#25385): Add algorithm outline
   */
 private[execution] class TopologyAwareCommandExecutor(
     syncService: SyncService,
@@ -104,7 +104,7 @@ private[execution] class TopologyAwareCommandExecutor(
       }
       .flatMap[ErrorCause, CommandExecutionResult] {
         case Pass1ContinuationResult.Pass1RoutingFailed(interpretationResult, cause) =>
-          // TODO(#23334): Do not attempt pass 2 on every error
+          // TODO(#25385): Do not attempt pass 2 on every error
           logDebug(s"Pass 1 of $pkgSelectionDesc failed synchronizer routing: $cause")
           logDebug(s"Attempting pass 2 of $pkgSelectionDesc - using the draft transaction")
           pass2(
@@ -274,7 +274,7 @@ private[execution] class TopologyAwareCommandExecutor(
         _.getOrElse(
           submitterParty,
           throw new RuntimeException(
-            "TODO(#23334) Graceful handling: the package map should only contain vetted packages for the submitter party"
+            "TODO(#25385) Graceful handling: the package map should only contain vetted packages for the submitter party"
           ),
         )
       )
@@ -466,7 +466,7 @@ private[execution] class TopologyAwareCommandExecutor(
       ) { case (syncCandidatesAccE, (syncId, topologyAndDraftTransactionBasedPackageMap)) =>
         for {
           syncCandidatesAcc <- syncCandidatesAccE
-          // TODO(#23334): Consider filtering out synchronizers for which the applied restrictions
+          // TODO(#25385): Consider filtering out synchronizers for which the applied restrictions
           //               lead to errors instead of failing the entire selection
           maybeCandidatesForSynchronizer <- pickVersionsWithRestrictions(
             synchronizerId = syncId,
@@ -583,7 +583,7 @@ private[execution] class TopologyAwareCommandExecutor(
     pkgIds.view
       .flatMap(pkgId =>
         // The package metadata view does not store utility packages
-        // TODO(#23334): Reject submissions where the resolution does not yield a package name
+        // TODO(#25385): Reject submissions where the resolution does not yield a package name
         //                     for non-utility packages
         packageVersionMap.get(pkgId).map(pkgId -> _)
       )
@@ -594,7 +594,7 @@ private[execution] class TopologyAwareCommandExecutor(
       .mapValues(s => SortedSet.from(s.map(e => OrderablePackageId(pkgId = e._1, version = e._2))))
       .toMap
 
-  // TODO(#23334): Ideally the Engine already returns a specialized error instead
+  // TODO(#25385): Ideally the Engine already returns a specialized error instead
   //          of having the need to decide here whether the package-name was discarded or not
   private def refinePackageNotFoundError(
       errorCause: ErrorCause,

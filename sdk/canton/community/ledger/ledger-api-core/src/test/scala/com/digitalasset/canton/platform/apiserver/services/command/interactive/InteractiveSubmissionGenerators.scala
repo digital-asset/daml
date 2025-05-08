@@ -157,7 +157,7 @@ object InteractiveSubmissionGenerators {
   private def transactionMetaGen(transaction: VersionedTransaction): Gen[TransactionMeta] = for {
     ledgerEffectiveTime <- Arbitrary.arbitrary[Time.Timestamp]
     workflowIdO <- Gen.option(lfWorkflowIdArb.arbitrary)
-    submissionTime <- Arbitrary.arbitrary[Time.Timestamp]
+    preparationTime <- Arbitrary.arbitrary[Time.Timestamp]
     submissionSeed <- Arbitrary.arbitrary[crypto.Hash]
     timeBoundaries <- timeBoundariesGen
     usedPackagesO <- Arbitrary.arbitrary[Option[Set[LfPackageId]]]
@@ -168,7 +168,7 @@ object InteractiveSubmissionGenerators {
   } yield TransactionMeta(
     ledgerEffectiveTime,
     workflowIdO,
-    submissionTime,
+    preparationTime,
     submissionSeed,
     timeBoundaries,
     usedPackagesO,

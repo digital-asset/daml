@@ -276,7 +276,7 @@ class CommandSubmissionServiceImplSpec
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = Timestamp.Epoch,
       workflowId = None,
-      submissionTime = Time.Timestamp.Epoch,
+      preparationTime = Time.Timestamp.Epoch,
       submissionSeed = Hash.hashPrivateKey("SomeHash"),
       timeBoundaries = LedgerTimeBoundaries.unconstrained,
       optUsedPackages = None,

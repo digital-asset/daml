@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer
 
-import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts}
+import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, DefaultProcessingTimeouts}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -57,6 +56,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
       sequencerMember = sequencerId,
       blockSequencerMode = false,
       cachingConfigs = CachingConfigs(),
+      batchingConfig = BatchingConfig(),
     )
 
     DatabaseSequencer.single(
@@ -116,10 +116,10 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
         messages <- readForMembers(List(sender), sequencer).failOnShutdown("readForMembers")
         _ = {
           val details = EventDetails(
-            SequencerCounter(0),
-            sender,
-            Some(request.messageId),
-            None,
+            previousTimestamp = None,
+            to = sender,
+            messageId = Some(request.messageId),
+            trafficReceipt = None,
             EnvelopeDetails(messageContent, recipients),
           )
           checkMessages(List(details), messages)
@@ -179,16 +179,16 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
         messages2 <- readForMembers(
           List(sender),
           secondSequencer,
-          firstSequencerCounter = SequencerCounter(1),
+          startTimestamp = firstEventTimestamp(sender)(messages).map(_.immediateSuccessor),
         )
 
       } yield {
         // the second sequencer (started from snapshot) is able to continue operating and create new messages
         val details2 = EventDetails(
-          SequencerCounter(1),
-          sender,
-          Some(request2.messageId),
-          None,
+          previousTimestamp = messages.headOption.map(_._2.timestamp),
+          to = sender,
+          messageId = Some(request2.messageId),
+          trafficReceipt = None,
           EnvelopeDetails(messageContent2, recipients),
         )
         checkMessages(List(details2), messages2)

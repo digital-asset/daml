@@ -13,14 +13,14 @@ import com.digitalasset.daml.lf.transaction.Transaction.Metadata
   *
   * @param ledgerTime
   *   The ledger time of the transaction
-  * @param submissionTime
-  *   The submission time of the transaction
+  * @param preparationTime
+  *   The preparation time of the transaction
   * @param seeds
   *   The node seeds by node ID
   */
 final case class TransactionMetadata(
     ledgerTime: CantonTimestamp,
-    submissionTime: CantonTimestamp,
+    preparationTime: CantonTimestamp,
     seeds: Map[LfNodeId, LfHash],
 )
 
@@ -28,20 +28,20 @@ object TransactionMetadata {
   def fromLf(ledgerTime: CantonTimestamp, metadata: Metadata): TransactionMetadata =
     TransactionMetadata(
       ledgerTime = ledgerTime,
-      submissionTime = CantonTimestamp(metadata.submissionTime),
+      preparationTime = CantonTimestamp(metadata.submissionTime),
       seeds = metadata.nodeSeeds.toSeq.toMap,
     )
 
   def fromTransactionMeta(
       metaLedgerEffectiveTime: Time.Timestamp,
-      metaSubmissionTime: Time.Timestamp,
+      metaPreparationTime: Time.Timestamp,
       metaOptNodeSeeds: Option[ImmArray[(NodeId, crypto.Hash)]],
   ): Either[String, TransactionMetadata] =
     for {
       seeds <- metaOptNodeSeeds.toRight("Node seeds must be specified")
     } yield TransactionMetadata(
       CantonTimestamp(metaLedgerEffectiveTime),
-      CantonTimestamp(metaSubmissionTime),
+      CantonTimestamp(metaPreparationTime),
       seeds.toSeq.toMap,
     )
 

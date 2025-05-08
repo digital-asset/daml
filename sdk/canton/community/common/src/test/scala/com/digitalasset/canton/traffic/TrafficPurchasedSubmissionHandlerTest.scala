@@ -33,12 +33,7 @@ import com.digitalasset.canton.sequencing.traffic.{
 import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{
-  BaseTest,
-  HasExecutionContext,
-  ProtocolVersionChecksAnyWordSpec,
-  SequencerCounter,
-}
+import com.digitalasset.canton.{BaseTest, HasExecutionContext, ProtocolVersionChecksAnyWordSpec}
 import com.google.rpc.status.Status
 import org.mockito.ArgumentCaptor
 import org.mockito.Mockito.clearInvocations
@@ -278,7 +273,6 @@ class TrafficPurchasedSubmissionHandlerTest
 
     val messageId = MessageId.randomMessageId()
     val deliverError = DeliverError.create(
-      SequencerCounter.Genesis,
       None,
       CantonTimestamp.Epoch,
       synchronizerId,
@@ -314,7 +308,7 @@ class TrafficPurchasedSubmissionHandlerTest
         Seq(
           (
             _.message should include(
-              s"The traffic balance request submission failed: DeliverError(counter = 0, previous timestamp = None(), timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
+              s"The traffic balance request submission failed: DeliverError(previous timestamp = None(), timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
             ),
             "sequencing failure",
           )

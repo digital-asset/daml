@@ -121,16 +121,6 @@ message TrafficControlErrorReason {
 
 message SendAsyncResponse {}
 
-message SubscriptionRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
-
-  string member = 1;
-
-  // Indicates the next event to receive.
-  // If it refers to an event that has already been acknowledged, the sequencer may reject the request.
-  int64 counter = 2;
-}
-
 message SubscriptionRequestV2 {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 

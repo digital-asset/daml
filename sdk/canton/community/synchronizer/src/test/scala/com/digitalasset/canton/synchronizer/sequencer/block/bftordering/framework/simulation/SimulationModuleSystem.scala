@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.net
   P2PEndpoint,
   PlainTextP2PEndpoint,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.{
   ModuleControl,
   SystemInitializer,
@@ -83,7 +84,7 @@ object SimulationModuleSystem {
     )(
         onNode: (P2PEndpoint.Id, BftNodeId) => Unit
     ): P2PNetworkRef[P2PMessageT] = {
-      val node = Simulation.endpointToNode(endpoint)
+      val node = endpointToTestBftNodeId(endpoint)
       endpoint match {
         case plaintextEndpoint: PlainTextP2PEndpoint =>
           collector.addOpenConnection(node, plaintextEndpoint, onNode)
@@ -438,7 +439,7 @@ object SimulationModuleSystem {
       }
     val initialSequencersToMachines: Map[BftNodeId, Machine[?, ?]] =
       initialSequencersToInitializers.view.map { case (endpoint, simulationInitializer) =>
-        val node = Simulation.endpointToNode(endpoint)
+        val node = endpointToTestBftNodeId(endpoint)
         node -> machineInitializer.initialize(
           onboardingManager.provide(ReasonForProvide.ProvideForInit, node),
           simulationInitializer,
