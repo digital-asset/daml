@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
@@ -21,7 +22,8 @@ class TimeoutManager[E <: Env[E], ParentModuleMessageT, TimeoutIdT](
     override val loggerFactory: NamedLoggerFactory,
     timeout: FiniteDuration,
     timeoutId: TimeoutIdT,
-) extends NamedLogging {
+)(implicit metricsContext: MetricsContext)
+    extends NamedLogging {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var timeoutCancellable: Option[CancellableEvent] = None

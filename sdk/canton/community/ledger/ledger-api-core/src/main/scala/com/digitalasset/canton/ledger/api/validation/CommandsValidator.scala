@@ -104,7 +104,7 @@ final class CommandsValidator(
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet =
         if (topologyAwarePackageSelectionEnabled) {
-          // TODO(#23334): move the decision point into the TopologyAwareCommandExecutor
+          // TODO(#25385): move the decision point into the TopologyAwareCommandExecutor
           prepareRequest.packageIdSelectionPreference.map(Ref.PackageId.assertFromString).toSet
         } else
           packageResolutions.packagePreferenceSet,
@@ -163,7 +163,7 @@ final class CommandsValidator(
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet =
         if (topologyAwarePackageSelectionEnabled) {
-          // TODO(#23334): move the decision point into the TopologyAwareCommandExecutor
+          // TODO(#25385): move the decision point into the TopologyAwareCommandExecutor
           commands.packageIdSelectionPreference.map(Ref.PackageId.assertFromString).toSet
         } else
           packageResolutions.packagePreferenceSet,

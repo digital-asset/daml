@@ -1,35 +1,29 @@
 import better.files.File
 import scala.sys.process.{Process, ProcessLogger}
-
 // start participant node
 participant1.start()
 
-val tmpDir = File.newTemporaryDirectory()
+val tmpDir = Option(System.getProperty("canton-examples.openssl-keys-dir")).map(File(_)).getOrElse(File.newTemporaryDirectory())
 // Generate intermediate key
-val delegateKeyPath = (tmpDir / "delegate_key.pub").pathAsString
-val delegateKey = participant1.keys.secret.generate_signing_key(
-  name = "NamespaceDelegation",
-  usage = com.digitalasset.canton.crypto.SigningKeyUsage.NamespaceOnly,
+val intermediateKeyPath = (tmpDir / "intermediate_key.pub").pathAsString
+val intermediateKey = participant1.keys.secret.generate_signing_key(
+  name = "IntermediateKey",
+  usage = Set(SigningKeyUsage.Namespace),
 )
 // Write public intermediate key to a file
-participant1.keys.public.download_to(delegateKey.id, delegateKeyPath)
+participant1.keys.public.download_to(intermediateKey.id, intermediateKeyPath)
 
 val opensslScriptDirectory = Option(System.getProperty("canton-examples.openssl-script-dir")).getOrElse(".")
 // Run the scripts generating the signed root and delegation certificates
-// This would usually be done on the offline site after having transfered delegate_key.pub to it
-val processLogger = new ProcessLogger {
-  override def out(s: => String): Unit = logger.debug(s)
-  override def err(s: => String): Unit = logger.error(s)
-  override def buffer[T](f: => T): T = f
-}
+// This would usually be done on the offline site after having transfered intermediate_key.pub to it
 Process(
   Seq(
     s"$opensslScriptDirectory/openssl-example.sh",
-    delegateKeyPath,
+    intermediateKeyPath,
   ),
   cwd = File(opensslScriptDirectory).toJava,
   extraEnv = "OUTPUT_DIR" -> tmpDir.pathAsString,
-).!(processLogger)
+).!(utils.cantonProcessLogger())
 
 // Once the certificates have be generated on the offline site, they can be transfered back
 // to initialize the participant node
@@ -40,3 +34,9 @@ participant1.topology.init_id(
     (tmpDir / "intermediate_namespace.cert").pathAsString,
   ),
 )
+
+if (participant1.is_initialized) {
+  println("participant initialization completed successfully")
+} else {
+  Console.err.println("participant initialization failed")
+}

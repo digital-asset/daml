@@ -54,7 +54,7 @@ private[routing] class SynchronizerRankComputation(
               readers,
               synchronizerState,
             )
-              // TODO(#23334): The resulting error is discarded in toOption. Consider forwarding it instead
+              // TODO(#25385): The resulting error is discarded in toOption. Consider forwarding it instead
               .toOption.value
           )
         // Priority of synchronizer
@@ -62,7 +62,7 @@ private[routing] class SynchronizerRankComputation(
         // pick according to the least amount of reassignments
       } yield rankedSynchronizers.minOption
         .toRight(
-          // TODO(#23334): Revisit this reported error as it can be misleading
+          // TODO(#25385): Revisit this reported error as it can be misleading
           TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
             s"None of the following $synchronizerIds is suitable for automatic reassignment."
           )

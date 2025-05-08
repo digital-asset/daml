@@ -290,6 +290,7 @@ final class BftBlockOrderer(
       "bftOrderingPekkoModuleSystem",
       createSystemInitializer(),
       createClientNetworkManager(),
+      metrics,
       loggerFactory,
     )
 
@@ -520,7 +521,8 @@ final class BftBlockOrderer(
     val replyPromise = Promise[SequencerNode.SnapshotMessage]()
     val replyRef = new ModuleRef[SequencerNode.SnapshotMessage] {
       override def asyncSendTraced(msg: SequencerNode.SnapshotMessage)(implicit
-          traceContext: TraceContext
+          traceContext: TraceContext,
+          metricsContext: MetricsContext,
       ): Unit =
         replyPromise.success(msg)
     }
@@ -556,7 +558,8 @@ final class BftBlockOrderer(
     val replyPromise = Promise[SequencerNode.Message]()
     val replyRef = new ModuleRef[SequencerNode.Message] {
       override def asyncSendTraced(msg: SequencerNode.Message)(implicit
-          traceContext: TraceContext
+          traceContext: TraceContext,
+          metricsContext: MetricsContext,
       ): Unit =
         replyPromise.success(msg)
     }

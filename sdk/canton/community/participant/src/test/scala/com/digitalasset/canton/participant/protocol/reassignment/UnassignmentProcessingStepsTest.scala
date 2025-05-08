@@ -802,7 +802,7 @@ final class UnassignmentProcessingStepsTest
 
       constructPendingDataAndResponseWith(
         unassignmentProcessingStepsWithoutPackages
-      ).value.pendingData.unassignmentValidationResult.validationErrors.head shouldBe a[
+      ).value.pendingData.unassignmentValidationResult.reassigningParticipantValidationResult.head shouldBe a[
         PackageIdUnknownOrUnvetted
       ]
     }
@@ -871,9 +871,10 @@ final class UnassignmentProcessingStepsTest
           hostedStakeholders = Set(party1),
           validationResult = UnassignmentValidationResult.ValidationResult(
             activenessResult = mkActivenessResult(),
-            authenticationErrorO = None,
-            metadataResultET = EitherT.right(FutureUnlessShutdown.unit),
-            validationErrors = Nil,
+            participantSignatureVerificationResult = None,
+            contractAuthenticationResultF = EitherT.right(FutureUnlessShutdown.unit),
+            submitterCheckResult = None,
+            reassigningParticipantValidationResult = Nil,
           ),
         )
 

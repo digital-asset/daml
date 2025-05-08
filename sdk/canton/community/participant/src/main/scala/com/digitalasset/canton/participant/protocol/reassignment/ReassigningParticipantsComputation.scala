@@ -22,7 +22,8 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
-import com.digitalasset.canton.util.{MapsUtil, ReassignmentTag, SingletonTraverse}
+import com.digitalasset.canton.util.collection.MapsUtil
+import com.digitalasset.canton.util.{ReassignmentTag, SingletonTraverse}
 
 import scala.concurrent.ExecutionContext
 

@@ -96,7 +96,7 @@ class TransactionRoutingProcessor(
     logger.debug(s"Routing the transaction to synchronizer $synchronizerId")
 
     for {
-      // TODO(#23334) Not needed anymore if we just authenticate all before interpretation
+      // TODO(#25385) Not needed anymore if we just authenticate all before interpretation
       //          and ensure we just forward the payload
       inputDisclosedContracts <- EitherT
         .fromEither[FutureUnlessShutdown](

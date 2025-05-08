@@ -51,8 +51,10 @@ object SimulationModuleSystem {
       collector: NodeCollector,
   ) extends ModuleRef[MessageT] {
 
-    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
-      collector.addInternalEvent(name, ModuleControl.Send(msg, traceContext))
+    override def asyncSendTraced(
+        msg: MessageT
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
+      collector.addInternalEvent(name, ModuleControl.Send(msg, traceContext, metricsContext))
   }
 
   private[simulation] final case class SimulationP2PNetworkRef[P2PMessageT](
@@ -183,16 +185,19 @@ object SimulationModuleSystem {
     override val self: SimulationModuleRef[MessageT] = SimulationModuleRef(to, collector)
 
     override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): CancellableEvent = {
       val tickCounter =
-        collector.addTickEvent(delay, to, ModuleControl.Send(message, traceContext))
+        collector.addTickEvent(delay, to, ModuleControl.Send(message, traceContext, metricsContext))
       SimulationCancelable(collector, tickCounter)
     }
 
     override def pipeToSelfInternal[X](
         futureUnlessShutdown: SimulationFuture[X]
-    )(fun: Try[X] => Option[MessageT])(implicit traceContext: TraceContext): Unit =
+    )(
+        fun: Try[X] => Option[MessageT]
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       collector.addFuture(to, futureUnlessShutdown, fun)
 
     override def newModuleRef[NewModuleMessageT](
@@ -236,7 +241,8 @@ object SimulationModuleSystem {
     override def self: SimulationModuleRef[MessageT] = unsupportedForClientModules()
 
     override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): CancellableEvent = {
       val tickId = collector.addTickEvent(delay, message)
       SimulationCancelable(collector, tickId)
@@ -244,7 +250,8 @@ object SimulationModuleSystem {
 
     override def pipeToSelfInternal[X](futureUnlessShutdown: SimulationFuture[X])(
         fun: Try[X] => Option[MessageT]
-    )(implicit traceContext: TraceContext): Unit = unsupportedForClientModules()
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
+      unsupportedForClientModules()
 
     override def become(module: Module[SimulationEnv, MessageT]): Unit =
       unsupportedForClientModules()
@@ -280,13 +287,15 @@ object SimulationModuleSystem {
     override def self: SimulationModuleRef[MessageT] = unsupportedForSystem()
 
     override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): CancellableEvent =
       unsupportedForSystem()
 
     override def pipeToSelfInternal[X](futureUnlessShutdown: SimulationFuture[X])(
         fun: Try[X] => Option[MessageT]
-    )(implicit traceContext: TraceContext): Unit = unsupportedForSystem()
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
+      unsupportedForSystem()
 
     private def unsupportedForSystem(): Nothing =
       sys.error("Unsupported for system object")
@@ -328,7 +337,9 @@ object SimulationModuleSystem {
 
   private final case class SimulatedRefForClient[MessageT](collector: ClientCollector)
       extends ModuleRef[MessageT] {
-    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+    override def asyncSendTraced(
+        msg: MessageT
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       collector.addClientRequest(msg)
   }
 

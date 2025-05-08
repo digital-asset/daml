@@ -726,7 +726,6 @@ final class IssConsensusModule[E <: Env[E]](
     } else if (!activeTopologyInfo.currentTopology.contains(pbftMessage.from)) {
       // Message is for current epoch but is not from a node in this epoch's topology; this is non-compliant
       //  behavior because correct BFT nodes are supposed not to start consensus for epochs they are not part of.
-      // TODO(i18194) Check signature that message is from this node
       logger.warn(
         s"Discarded PBFT message $messageType message from '${pbftMessage.from}' not in the current epoch's topology"
       )

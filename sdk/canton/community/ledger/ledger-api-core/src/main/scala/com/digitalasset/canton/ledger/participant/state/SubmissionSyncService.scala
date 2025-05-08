@@ -92,7 +92,7 @@ trait SubmissionSyncService {
       routingSynchronizerState: RoutingSynchronizerState,
       submitterInfo: SubmitterInfo,
       transactionMeta: TransactionMeta,
-      // TODO(#23334): Consider removing since it's currently not used
+      // TODO(#25385): Consider removing since it's currently not used
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
       processedDisclosedContracts: ImmArray[FatContractInstance],

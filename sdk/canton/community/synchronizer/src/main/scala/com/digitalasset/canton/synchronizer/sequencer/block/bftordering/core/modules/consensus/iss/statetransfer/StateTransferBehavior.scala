@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
@@ -105,7 +106,8 @@ final class StateTransferBehavior[E <: Env[E]](
 
   private var cancelledSegments = 0
 
-  private val postponedConsensusMessages = new mutable.Queue[Consensus.Message[E]]()
+  @VisibleForTesting
+  private[bftordering] val postponedConsensusMessages = new mutable.Queue[Consensus.Message[E]]()
 
   private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(
     new StateTransferManager(
@@ -215,11 +217,18 @@ final class StateTransferBehavior[E <: Env[E]](
           )
           setNewEpochState(newEpochInfo, membership, cryptoProvider)
         }
+        cleanUpPostponedMessageQueue()
         stateTransferManager.stateTransferNewEpoch(
           newEpochInfo.number,
           membership,
           initialState.topologyInfo.currentCryptoProvider, // used only for signing the request
         )(abort)
+
+      case Consensus.Admin.GetOrderingTopology(callback) =>
+        callback(
+          epochState.epoch.info.number,
+          activeTopologyInfo.currentMembership.orderingTopology.nodes,
+        )
 
       case Consensus.ConsensusMessage.AsyncException(e) =>
         logger.error(s"$messageType: exception raised from async consensus message: ${e.toString}")
@@ -335,6 +344,23 @@ final class StateTransferBehavior[E <: Env[E]](
         )
         Consensus.NewEpochStored(newEpochInfo, newMembership, newCryptoProvider)
     }
+  }
+
+  private def cleanUpPostponedMessageQueue()(implicit traceContext: TraceContext): Unit = {
+    val currentEpochNumber = epochState.epoch.info.number
+
+    postponedConsensusMessages.dequeueAll {
+      case pbftMessage: Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage =>
+        pbftMessage.underlyingNetworkMessage.message.blockMetadata.epochNumber < currentEpochNumber
+      // We don't store retransmission messages, as they will likely be stale once state transfer is finished.
+      case _: Consensus.RetransmissionsMessage => true
+      case otherMsg =>
+        // In practice, there should be no other messages in the queue than the ones handled above.
+        logger.warn(
+          s"Unexpected unhandled consensus message in the postponed message queue: ${otherMsg.getClass.getSimpleName}"
+        )
+        false
+    }.discard
   }
 
   private def transitionBackToConsensus(newEpochTopologyMessage: Consensus.NewEpochTopology[E])(

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   CancellableEvent,
@@ -21,7 +22,9 @@ package object modules {
   private[unit] def fakeCellModule[ModuleMessageT, CellMessageT <: ModuleMessageT: Manifest](
       cell: AtomicReference[Option[CellMessageT]]
   ): ModuleRef[ModuleMessageT] = new ModuleRef[ModuleMessageT] {
-    override def asyncSendTraced(msg: ModuleMessageT)(implicit traceContext: TraceContext): Unit =
+    override def asyncSendTraced(
+        msg: ModuleMessageT
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       msg match {
         case cellMsg: CellMessageT => cell.set(Some(cellMsg))
         case other => fail(s"Unexpected message $other")
@@ -31,13 +34,17 @@ package object modules {
   private[unit] def fakeRecordingModule[MessageT](
       buffer: mutable.ArrayBuffer[MessageT]
   ): ModuleRef[MessageT] = new ModuleRef[MessageT] {
-    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+    override def asyncSendTraced(
+        msg: MessageT
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       buffer += msg
   }
 
   private[unit] def fakeModuleExpectingSilence[MessageT]: ModuleRef[MessageT] =
     new ModuleRef[MessageT] {
-      override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+      override def asyncSendTraced(
+          msg: MessageT
+      )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
         fail(s"Module should not receive any requests but received $msg")
     }
 

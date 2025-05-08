@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
-import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
@@ -35,8 +34,6 @@ import org.scalatest.wordspec.AnyWordSpec
 class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTest {
 
   import StateTransferMessageValidatorTest.*
-
-  implicit private val metricsContext: MetricsContext = MetricsContext.Empty
 
   private val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
   private val validator =

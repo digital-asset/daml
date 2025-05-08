@@ -448,7 +448,7 @@ abstract class ReassignmentServiceIntegrationTest
             .SubmitterMustBeStakeholder(
               ReassignmentRef(cid),
               submittingParty = otherParty.toLf,
-              stakeholders = Set(signatory.toLf),
+              stakeholders = Set(signatory.toLf, observer.toLf),
             )
             .message
         )

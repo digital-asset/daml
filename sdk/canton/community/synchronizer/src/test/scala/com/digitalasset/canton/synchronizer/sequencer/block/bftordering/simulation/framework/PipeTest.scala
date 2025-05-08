@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.framework
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.Port
@@ -45,6 +46,9 @@ import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
 object PipeTest {
+
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
   trait PipeStore[E <: Env[E]] {
     def load(x: Int): E#FutureUnlessShutdownT[String]
   }

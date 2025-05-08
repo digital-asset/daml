@@ -5,6 +5,9 @@
 
 set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first error
 
+# Requirements
+# BUF_PROTO_IMAGE should point to a buf image containing at least the topology.proto and untyped_versioned_message.proto
+
 ################################################
 # Low level utility function to manipulate bytes
 ################################################
@@ -82,9 +85,9 @@ compute_topology_transaction_hash() {
 # Takes json input on stdin
 # [start convert_json_to_bin fn]
 convert_json_to_bin() {
-    local proto_file="$1"
+    local buf_image="$1"
     local type="$2"
-    buf convert "$proto_file" --validate --type="$type" --from -#format=json
+    buf convert "$buf_image" --validate --type="$type" --from -#format=json
 }
 # [end convert_json_to_bin fn]
 
@@ -95,9 +98,9 @@ convert_json_to_bin() {
 # Takes binary input on stdin
 # [start convert_bin_to_json fn]
 convert_bin_to_json() {
-    local proto_file="$1"
+    local buf_image="$1"
     local type="$2"
-    buf convert "$proto_file" --validate --type="$type" --from -#format=binpb
+    buf convert "$buf_image" --validate --type="$type" --from -#format=binpb
 }
 # [end convert_bin_to_json fn]
 
@@ -114,7 +117,7 @@ build_namespace_mapping() {
   local format="$2"
   local public_key="$3"
   local spec="$4"
-  local is_root="$5"
+  local restrictions="$5"
     cat <<EOF
 {
   "namespace_delegation": {
@@ -125,7 +128,7 @@ build_namespace_mapping() {
       "usage": ["SIGNING_KEY_USAGE_NAMESPACE"],
       "key_spec": "$spec"
     },
-    "is_root_delegation": $is_root
+    $restrictions
   }
 }
 EOF
@@ -135,13 +138,13 @@ EOF
 build_namespace_mapping_from_signing_key() {
   local namespace="$1"
   local signing_key="$2"
-  local is_root="$3"
+  local restrictions="$3"
     cat <<EOF
 {
   "namespace_delegation": {
     "namespace": "$namespace",
     "target_key": $signing_key,
-    "is_root_delegation": $is_root
+    $restrictions
   }
 }
 EOF
@@ -286,7 +289,7 @@ serialize_topology_transaction_from_mapping_and_serial() {
   local serial="$2"
   local transaction
   transaction=$(build_topology_transaction "$mapping" "$serial")
-  json_to_serialized_versioned_message "$transaction" "$TOPOLOGY_PROTO" "com.digitalasset.canton.protocol.v30.TopologyTransaction"
+  json_to_serialized_versioned_message "$transaction" "$BUF_PROTO_IMAGE" "com.digitalasset.canton.protocol.v30.TopologyTransaction"
 }
 # [end serialize_topology_transaction_from_mapping_and_serial fn]
 
@@ -296,7 +299,7 @@ serialize_topology_transaction_from_mapping_and_serial() {
 # [start serialize_topology_transaction fn]
 serialize_topology_transaction() {
   local transaction="$1"
-  json_to_serialized_versioned_message "$transaction" "$TOPOLOGY_PROTO" "com.digitalasset.canton.protocol.v30.TopologyTransaction"
+  json_to_serialized_versioned_message "$transaction" "$BUF_PROTO_IMAGE" "com.digitalasset.canton.protocol.v30.TopologyTransaction"
 }
 # [end serialize_topology_transaction fn]
 
@@ -310,7 +313,7 @@ serialized_versioned_message_to_json() {
   local proto=$1
   local message_type=$2
 
-  WRAPPER=$(convert_bin_to_json "$VERSION_WRAPPER_PROTO" "com.digitalasset.canton.version.v1.UntypedVersionedMessage")
+  WRAPPER=$(convert_bin_to_json "$BUF_PROTO_IMAGE" "com.digitalasset.canton.version.v1.UntypedVersionedMessage")
   echo "$WRAPPER" | jq -r .data | decode_from_base64 | convert_bin_to_json "$proto" "$message_type"
 }
 # [end serialized_versioned_message_to_json fn]
@@ -329,7 +332,7 @@ json_to_serialized_versioned_message() {
   SERIALIZED_JSON_BASE64=$(echo "$json" | convert_json_to_bin "$proto"  "$message_type" | encode_to_base64)
   versioned_transaction=$(build_versioned_transaction "$SERIALIZED_JSON_BASE64")
   echo "$versioned_transaction" | convert_json_to_bin \
-        "$VERSION_WRAPPER_PROTO" \
+        "$BUF_PROTO_IMAGE" \
         "com.digitalasset.canton.version.v1.UntypedVersionedMessage"
 }
 # [end json_to_serialized_versioned_message fn]

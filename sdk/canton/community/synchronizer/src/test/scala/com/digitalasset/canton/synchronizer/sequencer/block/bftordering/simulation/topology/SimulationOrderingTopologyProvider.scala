@@ -4,6 +4,8 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
@@ -53,6 +55,9 @@ class SimulationOrderingTopologyProvider(
             )
           }.toMap,
           SequencingParameters.Default,
+          MaxRequestSizeToDeserialize.Limit(
+            DynamicSynchronizerParameters.defaultMaxRequestSize.value
+          ),
           activationTime,
           // Switch the value deterministically so that we trigger all code paths.
           areTherePendingCantonTopologyChanges = activationTime.value.toMicros % 2 == 0,

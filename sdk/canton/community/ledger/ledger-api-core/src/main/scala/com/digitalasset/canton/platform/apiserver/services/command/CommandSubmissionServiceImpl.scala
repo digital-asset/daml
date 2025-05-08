@@ -225,7 +225,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       .toScalaUnwrapped
   }
 
-  // TODO(#23334): Deduplicate with same logic from InteractiveSubmissionService
+  // TODO(#25385): Deduplicate with same logic from InteractiveSubmissionService
   private def failedOnCommandProcessing(
       error: ErrorCause
   )(implicit

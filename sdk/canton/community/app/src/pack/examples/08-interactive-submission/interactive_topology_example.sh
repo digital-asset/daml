@@ -6,23 +6,38 @@
 set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first error
 
 # Setup
-# If we're running from the repo, use the protobuf from the repo
-if git rev-parse --is-inside-work-tree &>/dev/null || false; then
-    ROOT_PATH=$(git rev-parse --show-toplevel)
-    TOPOLOGY_PROTO=$ROOT_PATH/community/base/src/main/protobuf/com/digitalasset/canton/protocol/v30/topology.proto
-    VERSION_WRAPPER_PROTO=$ROOT_PATH/community/base/src/main/protobuf/com/digitalasset/canton/version/v1/untyped_versioned_message.proto
+# [start-docs-entry: set buf image path]
+CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+BUF_PROTO_IMAGE="$CURRENT_DIR/interactive_topology_buf_image.json.gz"
+# [end-docs-entry: set buf image path]
+# If we're in the release artifact
+if [ -d "$CURRENT_DIR/../../protobuf/community" ]; then
+  echo "Building buf image from artifact"
+    # [start-docs-entry: set artifact root path]
+    ROOT_PATH="../../protobuf"
+    # [end-docs-entry: set artifact root path]
 else
-    # Otherwise assume we're running from the release artifact, in which case the protobuf folder is a few levels above
-    ROOT_PATH=../../../protobuf
-    TOPOLOGY_PROTO=$ROOT_PATH/community/com/digitalasset/canton/protocol/v30/topology.proto
-    VERSION_WRAPPER_PROTO=$ROOT_PATH/community/com/digitalasset/canton/version/v1/untyped_versioned_message.proto
+  echo "Building buf image from repo"
+  # If the buf image is not there, assume we're in the git repo
+  ROOT_PATH=$(git rev-parse --show-toplevel)
 fi
+# [start-docs-entry: build buf image]
+(
+  cd "$ROOT_PATH" &&
+  buf build \
+      --type "com.digitalasset.canton.protocol.v30.TopologyTransaction" \
+      --type "com.digitalasset.canton.version.v1.UntypedVersionedMessage" \
+      --type "com.digitalasset.canton.protocol.v30.SignedTopologyTransaction" \
+      -o "$BUF_PROTO_IMAGE"
+)
+export BUF_PROTO_IMAGE
+# [start-docs-entry: build buf image]
 
 # Source the utility script
 source "$(dirname "$0")/utils.sh"
 
 # Read GRPC_ENDPOINT and SYNCHRONIZER_ID from arguments
-GRPC_ENDPOINT="${1:-localhost:5012}"
+GRPC_ENDPOINT="${1:-"localhost:$(jq -r .participant1.adminApi canton_ports.json)"}"
 SYNCHRONIZER_ID="${2:-}"
 
 # Read SYNCHRONIZER_ID from the environment or from the file if not provided as an argument
@@ -50,7 +65,8 @@ echo "Fingerprint: $fingerprint"
 # [start create mapping]
 # Base64 encoded public key: grpcurl expects protobuf bytes value to be Base64 encoded in the JSON representation
 public_key_base64=$(openssl enc -base64 -A -in namespace_public_key.der)
-mapping=$(build_namespace_mapping "$fingerprint" "CRYPTO_KEY_FORMAT_DER" "$public_key_base64" "SIGNING_KEY_SPEC_EC_P256" true)
+# This is a root delegation and therefore can sign all mappings
+mapping=$(build_namespace_mapping "$fingerprint" "CRYPTO_KEY_FORMAT_DER" "$public_key_base64" "SIGNING_KEY_SPEC_EC_P256" '"can_sign_all_mappings": {}')
 # [end create mapping]
 
 # [start build transaction]

@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData,
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.TimeOfRequest
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.MapsUtil
+import com.digitalasset.canton.util.collection.MapsUtil
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap

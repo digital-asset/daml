@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
@@ -169,7 +170,8 @@ class SequencerSnapshotOnboardingManager(
           sequencerActivationTime.value,
           new ModuleRef[SequencerNode.SnapshotMessage] {
             override def asyncSendTraced(msg: SequencerNode.SnapshotMessage)(implicit
-                traceContext: TraceContext
+                traceContext: TraceContext,
+                metricsContext: MetricsContext,
             ): Unit =
               msg match {
                 case SnapshotMessage.AdditionalInfo(info) =>

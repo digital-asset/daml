@@ -35,7 +35,8 @@ class MempoolModuleTest extends AnyWordSpec with BftSequencerBaseTest {
 
   private val requestRefusedHandler = Some(new ModuleRef[SequencerNode.Message] {
     override def asyncSendTraced(msg: SequencerNode.Message)(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): Unit =
       msg match {
         case SequencerNode.RequestAccepted => fail("the request should fail")

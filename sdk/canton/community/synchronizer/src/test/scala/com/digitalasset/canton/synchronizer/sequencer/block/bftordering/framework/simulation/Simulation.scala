@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
@@ -141,7 +142,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           node,
           to,
           EventOriginator.FromClient,
-          ModuleControl.Send(msg, traceContext),
+          ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
         )
       case ClientCollector.CancelTick(tickCounter) =>
         agenda.removeClientTick(node, tickCounter)
@@ -163,7 +164,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       )
     msg match {
 
-      case ModuleControl.Send(message, traceContext) =>
+      case ModuleControl.Send(message, traceContext, _, _, _) =>
         tryGetReactor(node, machine, to, msg).foreach { reactor =>
           val module = asModule[MessageT](reactor)
           module.receive(message)(context, traceContext)
@@ -206,7 +207,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
             node,
             name,
             EventOriginator.FromFuture,
-            ModuleControl.Send(msg, traceContext),
+            ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
           )
         }
     }
@@ -261,6 +262,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
               throw new IllegalStateException(s"Endpoint $endpoint has not been added to $to"),
         ),
         TraceContext.empty,
+        MetricsContext.Empty,
       ),
     )
   }
@@ -283,7 +285,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       case None =>
         msg match {
           // TODO(#23434) check if can be fixed differently
-          case Send(RetransmissionsMessage.StatusRequest(_), _) =>
+          case Send(RetransmissionsMessage.StatusRequest(_), _, _, _, _) =>
             // We don't care about status requests after the module is gone
             None
           case _ =>
@@ -320,7 +322,11 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
           case InternalEvent(machineName, to, _, msg) =>
             executeEvent(machineName, ModuleAddress.ViaName(to), msg)
           case InjectedSend(machineName, to, _, msg) =>
-            executeEvent(machineName, to, ModuleControl.Send(msg, TraceContext.empty))
+            executeEvent(
+              machineName,
+              to,
+              ModuleControl.Send(msg, TraceContext.empty, MetricsContext.Empty),
+            )
           case InternalTick(machineName, to, _, msg) =>
             executeEvent(machineName, ModuleAddress.ViaName(to), msg)
           case RunFuture(machine, to, toRun, fun, traceContext) =>
@@ -332,7 +338,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
               machineName,
               tryGetMachine(machineName).networkInReactor,
               EventOriginator.FromNetwork,
-              ModuleControl.Send(msg, traceContext),
+              ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
             )
           case ClientTick(machine, _, msg, traceContext) =>
             logger.info(s"Client for $machine ticks")

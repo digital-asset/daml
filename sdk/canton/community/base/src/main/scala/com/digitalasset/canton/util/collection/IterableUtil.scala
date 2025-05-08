@@ -1,12 +1,13 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.util
+package com.digitalasset.canton.util.collection
 
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.util.ErrorUtil
 
 import scala.annotation.tailrec
 import scala.collection.{IterableOps, immutable}

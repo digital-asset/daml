@@ -74,7 +74,7 @@ object ReassignmentValidationError {
       stakeholders: Set[LfPartyId],
   ) extends ReassignmentValidationError {
     override def message: String =
-      s"For $reference: submitter `$submittingParty` is not a stakeholder"
+      s"For $reference: submitter `$submittingParty` is not a stakeholder. "
   }
 
   final case class MetadataNotFound(err: engine.Error) extends ReassignmentValidationError {

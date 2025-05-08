@@ -91,7 +91,7 @@ class PackagePreferenceBackend(
         // There is (at most) a preferred package for each synchronizer
         // Pick the one with the highest version, if any
         // If two preferences match, pick according to synchronizer-id order
-        // TODO(#23334): Consider using the synchronizer priority order to break ties
+        // TODO(#25385): Consider using the synchronizer priority order to break ties
         //               However since the synchronizer priority is a participant-local concept,
         //               this might result in different outcomes depending on the participant used
         //               for rendering this list

@@ -11,8 +11,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
+  EpochStore,
+  Genesis,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.StateTransferType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
@@ -21,7 +24,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   TopologyActivationTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  *,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
@@ -46,6 +52,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.IssConsensusModuleTest.myId
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -349,11 +356,23 @@ class StateTransferBehaviorTest
     }
 
     "receiving a new epoch stored message" should {
-      "set the epoch state and start state-transferring the epoch" in {
+      "set the epoch state, clean up the postponed message queue, and start state-transferring the epoch" in {
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
         val (context, stateTransferBehavior) =
           createStateTransferBehavior(maybeStateTransferManager = Some(stateTransferManagerMock))
         implicit val ctx: ContextType = context
+
+        val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+        when(underlyingMessage.blockMetadata).thenReturn(
+          BlockMetadata(
+            EpochNumber(anEpochInfo.number - 1L), // outdated message
+            BlockNumber.First,
+          )
+        )
+        val signedMessage = underlyingMessage.fakeSign
+        stateTransferBehavior.postponedConsensusMessages.enqueue(
+          Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage)
+        )
 
         stateTransferBehavior.receive(
           Consensus.NewEpochStored(
@@ -375,6 +394,8 @@ class StateTransferBehaviorTest
               ) =>
         }
 
+        stateTransferBehavior.postponedConsensusMessages shouldBe empty
+
         verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
           eqTo(anEpochInfo.number),
           eqTo(aMembership),
@@ -383,6 +404,22 @@ class StateTransferBehaviorTest
 
         succeed
       }
+    }
+  }
+
+  "receiving a 'GetOrderingTopology' message" should {
+    "return the ordering topology" in {
+      val (context, stateTransferBehavior) = createStateTransferBehavior()
+      implicit val ctx: ContextType = context
+
+      val callbackCell = new SingleUseCell[(EpochNumber, Set[BftNodeId])]
+      def callback(epochNumber: EpochNumber, nodes: Set[BftNodeId]): Unit =
+        callbackCell.putIfAbsent(epochNumber -> nodes)
+
+      stateTransferBehavior.receive(Consensus.Admin.GetOrderingTopology(callback))
+
+      callbackCell.get shouldBe
+        Some(Genesis.GenesisEpochNumber -> aMembership.orderingTopology.nodes)
     }
   }
 

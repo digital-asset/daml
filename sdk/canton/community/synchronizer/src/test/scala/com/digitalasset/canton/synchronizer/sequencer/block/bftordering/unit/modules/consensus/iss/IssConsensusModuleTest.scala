@@ -121,7 +121,6 @@ class IssConsensusModuleTest
 
   private val clock = new SimClock(loggerFactory = loggerFactory)
 
-  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
   private implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
 
   private val blockOrder4Nodes =

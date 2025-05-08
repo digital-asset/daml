@@ -154,7 +154,7 @@ final case class DisclosedContract(
   }
 }
 
-// TODO(#23334): Deduplicate with logic from TopologyAwareCommandExecutor
+// TODO(#25385): Deduplicate with logic from TopologyAwareCommandExecutor
 // Wrapper used for ordering package ids by version
 final case class PackageReference(
     pkdId: LfPackageId,

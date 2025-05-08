@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.data.ReassignmentRef.ReassignmentIdRef
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   ContractsReassignmentBatch,
@@ -232,7 +233,7 @@ class AssignmentValidationTest
         .value
 
       result.isSuccessfulF.futureValueUS shouldBe false
-      result.validationErrors should contain(
+      result.reassigningParticipantValidationResult should contain(
         InconsistentReassignmentCounters(
           reassignmentId,
           wrongCounters,
@@ -277,7 +278,9 @@ class AssignmentValidationTest
       validate(contract.contractId).value shouldBe a[AssignmentValidationResult]
 
       // The data differs from the one stored locally in ReassignmentData
-      validate(unauthenticatedContractId).value.validationErrors.head shouldBe a[
+      validate(
+        unauthenticatedContractId
+      ).value.reassigningParticipantValidationResult.head shouldBe a[
         ContractDataMismatch
       ]
     }
@@ -308,7 +311,7 @@ class AssignmentValidationTest
 
       validate(
         additionalObservingParticipant
-      ).value.validationErrors shouldBe Seq(
+      ).value.reassigningParticipantValidationResult shouldBe Seq(
         ReassigningParticipantsMismatch(
           ReassignmentRef(unassignmentData.reassignmentId),
           expected = reassigningParticipants,
@@ -321,7 +324,7 @@ class AssignmentValidationTest
 
       validate(
         additionalConfirmingParticipant
-      ).value.validationErrors shouldBe Seq(
+      ).value.reassigningParticipantValidationResult shouldBe Seq(
         ReassigningParticipantsMismatch(
           ReassignmentRef(unassignmentData.reassignmentId),
           expected = reassigningParticipants,
@@ -330,7 +333,7 @@ class AssignmentValidationTest
       )
 
       // Empty reassigning participants means it's not a reassigning participant.
-      validate(Set.empty).value.validationErrors shouldBe Nil
+      validate(Set.empty).value.reassigningParticipantValidationResult shouldBe Nil
     }
 
     "detect non-stakeholder submitter" in {
@@ -354,10 +357,18 @@ class AssignmentValidationTest
       // Happy path / control
       validate(signatory).value.isSuccessfulF.futureValueUS shouldBe true
 
-      validate(otherParty).value.validationErrors.map(_.getClass) shouldBe Seq(
-        classOf[NonInitiatorSubmitsBeforeExclusivityTimeout],
-        classOf[SubmitterMustBeStakeholder],
+      validate(otherParty).value.submitterCheckResult shouldBe Some(
+        SubmitterMustBeStakeholder(
+          ReassignmentIdRef(unassignmentData.reassignmentId),
+          submittingParty = otherParty,
+          stakeholders = assignmentRequest.stakeholders.all,
+        )
       )
+
+      validate(otherParty).value.reassigningParticipantValidationResult.loneElement shouldBe a[
+        NonInitiatorSubmitsBeforeExclusivityTimeout
+      ]
+
     }
   }
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30.BftOrderingServiceReceiveResponse
@@ -14,7 +15,8 @@ final class GrpcServerHandle[NetworkMessage](
     clientHandle: StreamObserver[BftOrderingServiceReceiveResponse],
     cleanupClientHandle: StreamObserver[BftOrderingServiceReceiveResponse] => Unit,
     override val loggerFactory: NamedLoggerFactory,
-) extends StreamObserver[NetworkMessage]
+)(implicit metricsContext: MetricsContext)
+    extends StreamObserver[NetworkMessage]
     with NamedLogging {
 
   override def onNext(value: NetworkMessage): Unit =

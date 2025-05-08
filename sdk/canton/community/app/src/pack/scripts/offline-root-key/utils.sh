@@ -5,8 +5,29 @@
 
 set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first error
 
+CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+BUF_PROTO_IMAGE=${BUF_PROTO_IMAGE:="${CURRENT_DIR}/root_namespace_buf_image.json.gz"}
+if [[ -n "$BUF_PROTO_IMAGE" && -f "$BUF_PROTO_IMAGE" ]]; then
+  echo "Using buf image from $BUF_PROTO_IMAGE"
+else
+  echo "Building buf image from source"
+  # If the buf image is not there, assume we're in the git repo and build it
+  export BUF_PROTO_IMAGE="$CURRENT_DIR/root_namespace_buf_image.json.gz"
+  ROOT_PATH=$(git rev-parse --show-toplevel)
+  (
+    cd "$ROOT_PATH" &&
+    buf build \
+        --type "com.digitalasset.canton.protocol.v30.TopologyTransaction" \
+        --type "com.digitalasset.canton.version.v1.UntypedVersionedMessage" \
+        --type "com.digitalasset.canton.protocol.v30.SignedTopologyTransaction" \
+        --type "com.digitalasset.canton.crypto.v30.SigningPublicKey" \
+        -o "$BUF_PROTO_IMAGE"
+  )
+fi
+
 # Source the transaction utility script
-source "$(dirname "$0")/../topology/topology_util.sh"
+source "$CURRENT_DIR/../topology/topology_util.sh"
 
 # Check for required tools and print their versions
 check_tool() {
@@ -16,7 +37,7 @@ check_tool() {
     echo "Error: Required tool '$tool' is not installed."
     exit 1
   fi
-  version=$(eval "$version_command" 2>&1)
+  version=$(eval "$version_command" 2>&1 | head -n 1)
   echo "$tool version: $version"
 }
 

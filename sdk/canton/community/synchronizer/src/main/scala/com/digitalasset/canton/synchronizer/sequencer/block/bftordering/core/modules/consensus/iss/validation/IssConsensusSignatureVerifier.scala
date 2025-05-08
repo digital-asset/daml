@@ -21,7 +21,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
-  Commit,
   PbftNetworkMessage,
   PrePrepare,
   Prepare,
@@ -147,19 +146,19 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
         }
       collectFuturesAndFlatten(
         canonicalCommitSet.sortedCommits.map(
-          validateCommit(_, cryptoProviderForCanonicalCommits)
+          validateMessageSignature(_, cryptoProviderForCanonicalCommits)
         ) :+ validateOrderingBlock(block)
       )
   }
 
-  private def validateCommit(
-      commit: SignedMessage[Commit],
+  private def validateMessageSignature[T <: PbftNetworkMessage](
+      signedMessage: SignedMessage[T],
       cryptoProvider: CryptoProvider[E],
-  )(implicit context: FutureContext[E], traceContext: TraceContext) = {
+  )(implicit context: FutureContext[E], traceContext: TraceContext): VerificationResult = {
     implicit val cp: CryptoProvider[E] = cryptoProvider
     validateSignedMessage((_: PbftNetworkMessage) =>
       context.pureFuture(Either.unit[Seq[SignatureCheckError]])
-    )(commit)
+    )(signedMessage)
   }
 
   private def validateViewChange(
@@ -191,10 +190,13 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
       validateSignedMessage[PrePrepare](validatePrePrepare(_, topologyInfo))(certificate.prePrepare)
     val reminderValidationF: VerificationResult = certificate match {
       case CommitCertificate(_, commits) =>
-        collectFuturesAndFlatten(commits.map(validateCommit(_, topologyInfo.currentCryptoProvider)))
-      case PrepareCertificate(_, _) =>
-        // TODO(#18194) implement
-        context.pureFuture(Either.unit[Seq[SignatureCheckError]])
+        collectFuturesAndFlatten(
+          commits.map(validateMessageSignature(_, topologyInfo.currentCryptoProvider))
+        )
+      case PrepareCertificate(_, prepares) =>
+        collectFuturesAndFlatten(
+          prepares.map(validateMessageSignature(_, topologyInfo.currentCryptoProvider))
+        )
     }
     collectFuturesAndFlatten(Seq(prePrepareValidationF, reminderValidationF))
   }

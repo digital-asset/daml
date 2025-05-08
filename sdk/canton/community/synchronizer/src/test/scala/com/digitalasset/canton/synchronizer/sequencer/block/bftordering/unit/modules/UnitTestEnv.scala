@@ -103,7 +103,8 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
     unsupported()
 
   override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): CancellableEvent =
     unsupported()
 
@@ -111,7 +112,7 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit =
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
     unsupported()
 
   override def blockingAwait[X](future: E#FutureUnlessShutdownT[X]): X = unsupported()
@@ -210,20 +211,23 @@ final case class IgnoringUnitTestContext[MessageT]()
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
   override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): CancellableEvent =
     fakeCancellableEventExpectingSilence
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: () => X)(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit = ()
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = ()
 
   override def blockingAwait[X](future: () => X): X = future()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 }
 
 class IgnoringModuleRef[-MessageT] extends ModuleRef[MessageT] {
-  override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit = ()
+  override def asyncSendTraced(
+      msg: MessageT
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = ()
 }
 
 /** Convenience unit test [[Env]] storing delayed messages, with support for cancellation.
@@ -246,7 +250,8 @@ class FakeTimerCellUnitTestContext[MessageT](
   override def self: IgnoringModuleRef[MessageT] = new IgnoringModuleRef()
 
   override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): CancellableEvent = {
     delayCount += 1
     val newDelayCount = delayCount
@@ -255,7 +260,8 @@ class FakeTimerCellUnitTestContext[MessageT](
   }
 
   override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): Unit = ()
 
   override def blockingAwait[X](future: () => X): X = future()
@@ -285,13 +291,15 @@ final case class FakePipeToSelfCellUnitTestContext[MessageT](
 
   override def pipeToSelfInternal[X](futureUnlessShutdown: () => X)(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit =
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
     cell.set(Some(() => fun(Try(futureUnlessShutdown()))))
 
   override def blockingAwait[X](future: () => X): X = future()
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X = future()
 
-  override def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent = () => true
+  override def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
+      metricsContext: MetricsContext
+  ): CancellableEvent = () => true
 }
 
 /** Convenience unit test [[Env]] storing queue of pipeToSelf messages.
@@ -311,7 +319,8 @@ final case class FakePipeToSelfQueueUnitTestContext[MessageT](
     new FunctionFutureContext[FakePipeToSelfQueueUnitTestEnv]
 
   override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): Unit =
     queue.addOne(() => fun(Try(future())))
 }
@@ -355,12 +364,15 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   private var closeActionCell: Option[() => Unit] = None
 
   override def self: ModuleRef[MessageT] = new ModuleRef[MessageT] {
-    override def asyncSendTraced(msg: MessageT)(implicit traceContext: TraceContext): Unit =
+    override def asyncSendTraced(
+        msg: MessageT
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       selfQueue.addOne((msg, traceContext))
   }
 
   override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): CancellableEvent = {
     delayedQueue.addOne(message)
     val delayCount = delayedQueue.size
@@ -374,7 +386,8 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
     new FunctionFutureContext[ProgrammableUnitTestEnv]
 
   override def pipeToSelfInternal[X](future: () => X)(fun: Try[X] => Option[MessageT])(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): Unit =
     pipedQueue.addOne(() => fun(Try(future())))
 

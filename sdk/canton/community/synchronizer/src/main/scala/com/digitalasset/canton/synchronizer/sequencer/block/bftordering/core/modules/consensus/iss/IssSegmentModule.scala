@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.SyncCryptoError
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -67,7 +68,7 @@ class IssSegmentModule[E <: Env[E]](
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     override val timeouts: ProcessingTimeout,
     override val loggerFactory: NamedLoggerFactory,
-)(implicit synchronizerProtocolVersion: ProtocolVersion)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, metricsContext: MetricsContext)
     extends Module[E, ConsensusSegment.Message]
     with NamedLogging {
 
