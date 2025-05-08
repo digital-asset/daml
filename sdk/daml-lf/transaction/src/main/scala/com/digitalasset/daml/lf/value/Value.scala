@@ -192,8 +192,8 @@ object Value {
   sealed abstract class ContractId extends Product with Serializable {
     def coid: String
     def toBytes: Bytes
-    def isLocal: Boolean
     def version: ContractIdVersion
+    def isAbsolute: Boolean
   }
 
   object ContractId {
@@ -202,9 +202,9 @@ object Value {
         with data.NoCopy {
       override lazy val toBytes: Bytes = V1.prefix ++ discriminator.bytes ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
-      override def isLocal: Boolean = suffix.isEmpty
       override def toString: String = s"ContractId($coid)"
       override def version: ContractIdVersion = ContractIdVersion.V1
+      override def isAbsolute: Boolean = suffix.nonEmpty
     }
 
     object V1 {
@@ -253,12 +253,11 @@ object Value {
     final case class V2 private (local: Bytes, suffix: Bytes) extends ContractId with data.NoCopy {
       override lazy val toBytes: Bytes = V2.prefix ++ local ++ suffix
       lazy val coid: Ref.HexString = toBytes.toHexString
-      override def isLocal: Boolean = suffix.isEmpty
       override def toString: String = s"ContractId($coid)"
       override def version: ContractIdVersion = ContractIdVersion.V2
 
       def isRelative: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) >= 0
-      def isAbsolute: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) < 0
+      override def isAbsolute: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) < 0
     }
 
     object V2 {
@@ -312,6 +311,13 @@ object Value {
 
       def unsuffixed(time: Time.Timestamp, nodeSeed: crypto.Hash): V2 =
         new V2(timePrefix(time) ++ discriminator(nodeSeed), Bytes.Empty)
+
+      private[lf] def suffixed(
+          time: Time.Timestamp,
+          nodeSeed: crypto.Hash,
+          suffix: Bytes,
+      ): Either[String, V2] =
+        build(timePrefix(time) ++ discriminator(nodeSeed), suffix)
 
       def fromBytes(bytes: Bytes): Either[String, V2] =
         if (bytes.startsWith(prefix) && bytes.length >= suffixStart) {

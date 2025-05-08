@@ -25,6 +25,7 @@ import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
@@ -742,36 +743,69 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "ContractId operations" - {
-    val suffix = Bytes.fromByteArray(Array.iterate(0.toByte, 4)(b => (b + 1).toByte))
-    val cid1 = Value.ContractId.V1(Hash.hashPrivateKey("#contract1"), suffix)
-    val cid2 = Value.ContractId.V1(Hash.hashPrivateKey("#contract2"))
+    val relativeSuffix = Bytes.fromByteArray(Array(0, 1, 2, 3))
+    val absoluteSuffix = Bytes.fromByteArray(Array(-1, 0, 1, 2))
+
+    val absoluteCidV1 = ContractId.V1(Hash.hashPrivateKey("#contract1"), absoluteSuffix)
+    val localCidV1 = ContractId.V1(Hash.hashPrivateKey("#contract2"))
+
+    def cidV2WithSuffix(discriminator: String, suffix: Bytes): ContractId =
+      ContractId.V2
+        .suffixed(Time.Timestamp.Epoch, Hash.hashPrivateKey(discriminator), suffix)
+        .toOption
+        .get
+
+    val absoluteCidV2 = cidV2WithSuffix("#contract3", absoluteSuffix)
+    val relativeCidV2 = cidV2WithSuffix("#contract4", relativeSuffix)
+    val localCidV2 =
+      ContractId.V2.unsuffixed(Time.Timestamp.Epoch, Hash.hashPrivateKey("#contract5"))
 
     "EQUAL @ContractId" - {
       "works as expected" in {
         evalApp(
           e"EQUAL @(ContractId Mod:T)",
-          Array(SContractId(cid1), SContractId(cid1)),
+          Array(SContractId(absoluteCidV1), SContractId(absoluteCidV1)),
         ) shouldBe Right(SBool(true))
         evalApp(
           e"EQUAL @(ContractId Mod:T)",
-          Array(SContractId(cid1), SContractId(cid2)),
+          Array(SContractId(absoluteCidV1), SContractId(localCidV1)),
         ) shouldBe Right(SBool(false))
       }
     }
 
     "TEXT_TO_CONTRACT-ID" - {
-      "should parse global contract ID" in {
-        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(cid1.toBytes.toHexString))) shouldBe Right(
-          SContractId(cid1)
+      "should parse absolute contract ID" in {
+        val absoluteCidV1AsHex = absoluteCidV1.toBytes.toHexString
+        val absoluteCidV2AsHex = absoluteCidV2.toBytes.toHexString
+        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(absoluteCidV1AsHex))) shouldBe Right(
+          SContractId(absoluteCidV1)
+        )
+        evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(absoluteCidV2AsHex))) shouldBe Right(
+          SContractId(absoluteCidV2)
         )
       }
 
-      "should fail to parse local contract id" in {
-        val cid2AsHexString = cid2.toBytes.toHexString
+      "should fail to parse relative contract id" in {
+        val relativeCidV2AsHex = relativeCidV2.toBytes.toHexString
         inside {
-          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(cid2AsHexString)))
+          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(relativeCidV2AsHex)))
         } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
-          error shouldBe IE.Dev.MalformedContractId(cid2AsHexString)
+          error shouldBe IE.Dev.MalformedContractId(relativeCidV2AsHex)
+        }
+      }
+
+      "should fail to parse local contract id" in {
+        val localCidV1AsHex = localCidV1.toBytes.toHexString
+        val localCidV2AsHex = localCidV2.toBytes.toHexString
+        inside {
+          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(localCidV1AsHex)))
+        } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
+          error shouldBe IE.Dev.MalformedContractId(localCidV1AsHex)
+        }
+        inside {
+          evalApp(e"TEXT_TO_CONTRACT_ID", Array(SText(localCidV2AsHex)))
+        } { case Left(SError.SErrorDamlException(IE.Dev(_, error))) =>
+          error shouldBe IE.Dev.MalformedContractId(localCidV2AsHex)
         }
       }
 
@@ -1355,12 +1389,12 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       "CONTRACT_ID_TO_TEXT" - {
         "returns None on-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
-          val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+          val cid = ContractId.V1(Hash.hashPrivateKey("abc"))
           evalAppOnLedger(e"$f", Array(SContractId(cid))) shouldBe Right(SOptional(None))
         }
         "returns Some(abc) off-ledger" in {
           val f = """(\(c:(ContractId Mod:T)) -> CONTRACT_ID_TO_TEXT @Mod:T c)"""
-          val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+          val cid = ContractId.V1(Hash.hashPrivateKey("abc"))
           evalApp(e"$f", Array(SContractId(cid))) shouldBe Right(SOptional(Some(SText(cid.coid))))
         }
       }
@@ -1664,7 +1698,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
   "SBCacheDisclosedContract" - {
     "updates on ledger cached contract map" - {
-      val contractId = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
+      val contractId = ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id"))
 
       "when no template key is defined" in {
         val templateId = Ref.Identifier.assertFromString("-pkgId-:Mod:Iou")
@@ -1775,7 +1809,7 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     "cannot be caught when exercising a choice" in {
       inside {
-        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+        val cid = ContractId.V1(Hash.hashPrivateKey("abc"))
         evalUpdateAppOnLedger(
           e"Mod:exerciseFailingPreconditionAndCatchError",
           Array(SContractId(cid)),
@@ -2223,55 +2257,51 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   def evalAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        Map.empty,
+      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract).map(_._1)
 
   def evalOnLedger(
       e: Expr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        Map.empty,
+      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance],
   ): Either[
     SError,
     (
         SValue,
-        Map[Value.ContractId, ContractInfo],
-        Map[GlobalKey, Value.ContractId],
+        Map[ContractId, ContractInfo],
+        Map[GlobalKey, ContractId],
     ),
   ] = evalUpdateOnLedger(SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))), getContract)
 
   def evalUpdateOnLedger(
       e: Expr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        Map.empty,
+      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
 
   def evalUpdateAppOnLedger(
       e: Expr,
       args: Array[SValue],
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance] =
-        Map.empty,
+      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance] = Map.empty,
   ): Either[SError, SValue] =
     evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
       .map(_._1)
 
   def evalUpdateOnLedger(
       sexpr: SExpr,
-      getContract: PartialFunction[Value.ContractId, Value.VersionedThinContractInstance],
+      getContract: PartialFunction[ContractId, Value.VersionedThinContractInstance],
   ): Either[
     SError,
     (
         SValue,
-        Map[Value.ContractId, ContractInfo],
-        Map[GlobalKey, Value.ContractId],
+        Map[ContractId, ContractInfo],
+        Map[GlobalKey, ContractId],
     ),
   ] = {
     val machine =
@@ -2319,7 +2349,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
   )
 
   def buildDisclosedContract(
-      contractId: Value.ContractId,
+      contractId: ContractId,
       owner: Party,
       maintainer: Party,
       templateId: Ref.Identifier,
