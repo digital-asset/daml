@@ -76,9 +76,9 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
               case Some(timestamp) =>
                 EitherT.rightT(
                   OrdinarySequencedEvent(
+                    SequencerCounter(0),
                     SignedContent(
                       Deliver.create(
-                        SequencerCounter(0),
                         None,
                         timestamp,
                         SynchronizerId.tryFromString("namespace::id"),
@@ -91,7 +91,7 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                       SymbolicCrypto.emptySignature,
                       None,
                       testedProtocolVersion,
-                    )
+                    ),
                   )(TraceContext.empty)
                 )
               case None =>

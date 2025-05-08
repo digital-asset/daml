@@ -6,12 +6,12 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.Send
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.RetransmissionsMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.P2PNetworkOut
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.Simulation.endpointToNode
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
   MachineInitializer,
   SimulationEnv,
@@ -229,7 +229,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   private def startMachine(
       endpoint: P2PEndpoint
   ): BftNodeId = {
-    val node = endpointToNode(endpoint)
+    val node = endpointToTestBftNodeId(endpoint)
     val initializer = topology.laterOnboardedEndpointsWithInitializers(endpoint)
     val onboardingData = onboardingManager.provide(ProvideForInit, node)
     val machine = machineInitializer.initialize(onboardingData, initializer)
@@ -412,12 +412,6 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
   }
 }
 
-object Simulation {
-
-  def endpointToNode(endpoint: P2PEndpoint): BftNodeId =
-    BftNodeId(endpoint.id.url)
-}
-
 final case class Reactor[InnerMessage](module: Module[SimulationEnv, InnerMessage])
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
@@ -477,7 +471,7 @@ final case class Topology[
   lazy val activeNonInitialEndpoints: Seq[P2PEndpoint] =
     laterOnboardedEndpointsWithInitializers
       .filter { case (endpoint, _) =>
-        val nodeId = endpointToNode(endpoint)
+        val nodeId = endpointToTestBftNodeId(endpoint)
         activeSequencersToMachines.contains(nodeId)
       }
       .keys

@@ -16,12 +16,12 @@ object TimeValidator {
       commonData: CommonData,
       sequencerTimestamp: CantonTimestamp,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
-      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+      preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       amSubmitter: Boolean,
       logger: TracedLogger,
   )(implicit tc: TraceContext): Either[TimeCheckFailure, Unit] = {
 
-    val CommonData(_transactionId, ledgerTime, submissionTime) = commonData
+    val CommonData(_transactionId, ledgerTime, preparationTime) = commonData
 
     def log(msg: String): Unit = {
       lazy val logMsg = s"Time validation has failed: $msg"
@@ -46,20 +46,20 @@ object TimeValidator {
         )
       )
     }
-    // check that the submission time is valid
+    // check that the preparation time is valid
     else if (
-      submissionTime < sequencerTimestamp - submissionTimeRecordTimeTolerance ||
-      submissionTime > sequencerTimestamp + submissionTimeRecordTimeTolerance
+      preparationTime < sequencerTimestamp - preparationTimeRecordTimeTolerance ||
+      preparationTime > sequencerTimestamp + preparationTimeRecordTimeTolerance
     ) {
       log(
-        s"The delta of the submission time $submissionTime and the record time $sequencerTimestamp exceeds the max " +
-          s"of $submissionTimeRecordTimeTolerance"
+        s"The delta of the preparation time $preparationTime and the record time $sequencerTimestamp exceeds the max " +
+          s"of $preparationTimeRecordTimeTolerance"
       )
       Left(
-        SubmissionTimeRecordTimeDeltaTooLargeError(
-          submissionTime,
+        PreparationTimeRecordTimeDeltaTooLargeError(
+          preparationTime,
           sequencerTimestamp,
-          submissionTimeRecordTimeTolerance,
+          preparationTimeRecordTimeTolerance,
         )
       )
 
@@ -75,8 +75,8 @@ object TimeValidator {
       maxDelta: NonNegativeFiniteDuration,
   ) extends TimeCheckFailure
 
-  final case class SubmissionTimeRecordTimeDeltaTooLargeError(
-      submissionTime: CantonTimestamp,
+  final case class PreparationTimeRecordTimeDeltaTooLargeError(
+      preparationTime: CantonTimestamp,
       recordTime: CantonTimestamp,
       maxDelta: NonNegativeFiniteDuration,
   ) extends TimeCheckFailure

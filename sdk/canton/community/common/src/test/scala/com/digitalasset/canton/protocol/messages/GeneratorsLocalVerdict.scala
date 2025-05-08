@@ -21,7 +21,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.ReassignmentRejects
 import com.digitalasset.canton.protocol.LocalRejectError.TimeRejects.{
   LedgerTime,
   LocalTimeout,
-  SubmissionTime,
+  PreparationTime,
 }
 import com.digitalasset.canton.protocol.LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
 import com.digitalasset.canton.protocol.{LocalRejectErrorImpl, Malformed}
@@ -41,7 +41,7 @@ final case class GeneratorsLocalVerdict(protocolVersion: ProtocolVersion) {
       LockedContracts.Reject(resources),
       InactiveContracts.Reject(resources),
       LedgerTime.Reject(details),
-      SubmissionTime.Reject(details),
+      PreparationTime.Reject(details),
       LocalTimeout.Reject(),
       ActivenessCheckFailed.Reject(details),
       ReassignmentRejects.ValidationFailed.Reject(details),

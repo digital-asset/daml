@@ -37,8 +37,8 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.{
   LatestUpto,
-  OrdinarySequencedEvent,
   PossiblyIgnoredSequencedEvent,
+  SequencedEventWithTraceContext,
 }
 import com.digitalasset.canton.synchronizer.sequencer.errors.SequencerError.InvalidAcknowledgementTimestamp
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -231,7 +231,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         participant1.health.ping(participant1)
       }
 
-      // TODO(#11834): Ignoring future events is incompatible with the counter based event ignoring/unignoring APIs,
+      // TODO(#25162): Ignoring future events is incompatible with the counter based event ignoring/unignoring APIs,
       //  because the future timestamp are unknown unlike the counters. Need to consider and implement
       //  a new timestamp-based API for the use case of ignoring future events, should it still be necessary.
       "insert an empty ignored event, therefore ignore the next ping and then successfully ping again" ignore {
@@ -305,8 +305,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         // Choose DeliverError as type of tampered event, because we don't expect DeliverErrors to be stored
         // as part of the previous tests.
         val tamperedEvent = DeliverError.create(
-          lastStoredEvent.counter,
-          None, // TODO(#11834): Make sure that ignored sequenced events works with previous timestamps
+          None,
           lastStoredEvent.timestamp,
           daId,
           MessageId.tryCreate("schnitzel"),
@@ -315,7 +314,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
           Option.empty[TrafficReceipt],
         )
         val tracedSignedTamperedEvent =
-          OrdinarySequencedEvent(lastEvent.copy(content = tamperedEvent))(traceContext)
+          SequencedEventWithTraceContext(lastEvent.copy(content = tamperedEvent))(traceContext)
 
         // Replace last event by the tamperedEvent
         val p1Node = participant1.underlying.value
@@ -504,7 +503,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         participant1.repair.ignore_events(
           daId,
           lastRequestSequencerCounter,
-          // TODO(#11834): This ignores the future event, which is incompatible with previous timestamps.
+          // TODO(#25162): This ignores the future event, which is incompatible with previous timestamps.
           //  The test work probably because the result message is ignored without prior confirmation request.
           //  Need to check if that is good enough and if we don't need to extend event ignoring API
           //  to support ignoring "future" timestamps.

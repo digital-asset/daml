@@ -4,7 +4,11 @@
 package com.digitalasset.canton.sequencing.handlers
 
 import com.digitalasset.canton.sequencing.protocol.Envelope
-import com.digitalasset.canton.sequencing.{OrdinaryApplicationHandler, UnsignedApplicationHandler}
+import com.digitalasset.canton.sequencing.{
+  OrdinaryApplicationHandler,
+  UnsignedApplicationHandler,
+  WithCounter,
+}
 import com.digitalasset.canton.tracing.Traced
 
 /** Removes the [[com.digitalasset.canton.sequencing.protocol.SignedContent]] wrapper before
@@ -15,6 +19,10 @@ object StripSignature {
       handler: UnsignedApplicationHandler[Env]
   ): OrdinaryApplicationHandler[Env] =
     handler.replace(events =>
-      handler(events.map(_.map(e => Traced(e.signedEvent.content)(e.traceContext))))
+      handler(
+        events.map(
+          _.map(e => WithCounter(e.counter, Traced(e.signedEvent.content)(e.traceContext)))
+        )
+      )
     )
 }

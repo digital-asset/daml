@@ -39,7 +39,7 @@ class DisseminationProtocolStateTest
   "Reviewing a batch ready for ordering" when {
 
     "the topology is unchanged" should {
-      "yield an in-progress batch with the original acks" in {
+      "do nothing" in {
         val orderingTopology =
           orderingTopologyWith(ANodeId, BftKeyId(noSignature.signedBy.toProtoPrimitive))
         val disseminatedBatchMetadata =
@@ -47,16 +47,7 @@ class DisseminationProtocolStateTest
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
           orderingTopology,
-        ) shouldBe
-          DisseminationProgress(
-            orderingTopology,
-            InProgressBatchMetadata(
-              ABatchId,
-              AnEpochNumber,
-              SomeStats,
-            ),
-            disseminatedBatchMetadata.proofOfAvailability.acks.toSet,
-          )
+        ) shouldBe empty
       }
     }
 
@@ -71,14 +62,16 @@ class DisseminationProtocolStateTest
           disseminatedBatchMetadata,
           newTopology,
         ) shouldBe
-          DisseminationProgress(
-            newTopology,
-            InProgressBatchMetadata(
-              ABatchId,
-              AnEpochNumber,
-              SomeStats,
-            ),
-            Set.empty,
+          Some(
+            DisseminationProgress(
+              newTopology,
+              InProgressBatchMetadata(
+                ABatchId,
+                AnEpochNumber,
+                SomeStats,
+              ),
+              Set.empty,
+            )
           )
       }
     }
@@ -101,14 +94,16 @@ class DisseminationProtocolStateTest
           disseminatedBatchMetadata,
           newTopology,
         ) shouldBe
-          DisseminationProgress(
-            newTopology,
-            InProgressBatchMetadata(
-              ABatchId,
-              AnEpochNumber,
-              SomeStats,
-            ),
-            Set.empty,
+          Some(
+            DisseminationProgress(
+              newTopology,
+              InProgressBatchMetadata(
+                ABatchId,
+                AnEpochNumber,
+                SomeStats,
+              ),
+              Set.empty,
+            )
           )
       }
     }

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -17,7 +18,6 @@ import com.digitalasset.canton.synchronizer.sequencer.InFlightAggregation.Aggreg
 import com.digitalasset.canton.synchronizer.sequencer.admin.data.SequencerHealthStatus.implicitPrettyString
 import com.digitalasset.canton.topology.{Member, SynchronizerId}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
 import com.google.protobuf.ByteString
 
 import scala.collection.SeqView
@@ -25,7 +25,6 @@ import scala.collection.SeqView
 final case class SequencerSnapshot(
     lastTs: CantonTimestamp,
     latestBlockHeight: Long,
-    heads: Map[Member, SequencerCounter],
     previousTimestamps: Map[Member, Option[CantonTimestamp]],
     status: SequencerPruningStatus,
     inFlightAggregations: InFlightAggregations,
@@ -66,12 +65,6 @@ final case class SequencerSnapshot(
     v30.SequencerSnapshot(
       latestTimestamp = lastTs.toProtoPrimitive,
       lastBlockHeight = latestBlockHeight.toLong,
-      headMemberCounters =
-        // TODO(#12075) sortBy is a poor man's approach to achieving deterministic serialization here
-        //  Figure out whether we need this for sequencer snapshots
-        heads.toSeq.sortBy { case (member, _) => member }.map { case (member, counter) =>
-          v30.SequencerSnapshot.MemberCounter(member.toProtoPrimitive, counter.toProtoPrimitive)
-        },
       status = Some(status.toProtoV30),
       inFlightAggregations = inFlightAggregations.toSeq.map(serializeInFlightAggregation),
       additional =
@@ -93,7 +86,6 @@ final case class SequencerSnapshot(
   override protected def pretty: Pretty[SequencerSnapshot.this.type] = prettyOfClass(
     param("lastTs", _.lastTs),
     param("latestBlockHeight", _.latestBlockHeight),
-    param("heads", _.heads),
     param("previousTimestamps", _.previousTimestamps),
     param("status", _.status),
     param("inFlightAggregations", _.inFlightAggregations),
@@ -106,7 +98,9 @@ final case class SequencerSnapshot(
   def hasSameContentsAs(otherSnapshot: SequencerSnapshot): Boolean =
     lastTs == otherSnapshot.lastTs && latestBlockHeight == otherSnapshot.latestBlockHeight &&
       // map comparison
-      heads.equals(otherSnapshot.heads) && status == otherSnapshot.status &&
+      previousTimestamps.equals(
+        otherSnapshot.previousTimestamps
+      ) && status == otherSnapshot.status &&
       // map comparison
       inFlightAggregations.equals(otherSnapshot.inFlightAggregations) &&
       additional == otherSnapshot.additional &&
@@ -127,7 +121,6 @@ object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
   def apply(
       lastTs: CantonTimestamp,
       latestBlockHeight: Long,
-      heads: Map[Member, SequencerCounter],
       previousTimestamps: Map[Member, Option[CantonTimestamp]],
       status: SequencerPruningStatus,
       inFlightAggregations: InFlightAggregations,
@@ -139,7 +132,6 @@ object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
     SequencerSnapshot(
       lastTs,
       latestBlockHeight,
-      heads,
       previousTimestamps,
       status,
       inFlightAggregations,
@@ -218,13 +210,6 @@ object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
 
     for {
       lastTs <- CantonTimestamp.fromProtoPrimitive(request.latestTimestamp)
-      heads <- request.headMemberCounters
-        .traverse { case v30.SequencerSnapshot.MemberCounter(member, counter) =>
-          Member
-            .fromProtoPrimitive(member, "registeredMembers")
-            .map(m => m -> SequencerCounter(counter))
-        }
-        .map(_.toMap)
       previousTimestamps <- request.memberPreviousTimestamps
         .traverse { case v30.SequencerSnapshot.MemberPreviousTimestamp(member, timestamp) =>
           Member
@@ -246,7 +231,6 @@ object SequencerSnapshot extends VersioningCompanion[SequencerSnapshot] {
     } yield SequencerSnapshot(
       lastTs,
       request.lastBlockHeight,
-      heads,
       previousTimestamps,
       status,
       inFlightAggregations,

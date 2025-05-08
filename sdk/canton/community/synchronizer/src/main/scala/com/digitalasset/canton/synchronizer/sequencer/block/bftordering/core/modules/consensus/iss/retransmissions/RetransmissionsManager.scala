@@ -128,8 +128,7 @@ class RetransmissionsManager[E <: Env[E]](
     case Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message) =>
       // do cheap validations before checking signature to potentially save ourselves from doing the expensive signature check
       validateUnverifiedNetworkMessage(message.message) match {
-        case Left(error) =>
-          logger.info(error)
+        case Left(error) => logger.info(error)
         case Right(()) =>
           context.pipeToSelf(
             activeCryptoProvider.verifySignedMessage(

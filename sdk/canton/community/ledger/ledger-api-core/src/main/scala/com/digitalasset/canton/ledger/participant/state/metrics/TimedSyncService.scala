@@ -180,7 +180,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       delegate.validateDar(dar, darName),
     )
 
-  // TODO(#23334): Time the operation
+  // TODO(#25385): Time the operation
   override def packageMapFor(
       submitters: Set[LfPartyId],
       informees: Set[LfPartyId],
@@ -198,7 +198,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       routingSynchronizerState,
     )
 
-  // TODO(#23334): Time the operation
+  // TODO(#25385): Time the operation
   override def computeHighestRankedSynchronizerFromAdmissible(
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,
@@ -218,7 +218,7 @@ final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetr
       routingSynchronizerState,
     )
 
-  // TODO(#23334): Time the operation
+  // TODO(#25385): Time the operation
   override def selectRoutingSynchronizer(
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,

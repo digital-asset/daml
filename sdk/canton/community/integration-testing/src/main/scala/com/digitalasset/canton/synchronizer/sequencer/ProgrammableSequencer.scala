@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{HashPurpose, SynchronizerCryptoClient}
@@ -41,7 +42,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{FutureUtil, MonadUtil}
-import com.digitalasset.canton.{BaseTest, SequencerCounter}
 import monocle.macros.syntax.lens.*
 import org.apache.pekko.stream.KillSwitches
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
@@ -319,37 +319,9 @@ class ProgrammableSequencer(
       baseSequencer.sendAsyncSigned(toSend)
     }
 
-  override def read(member: Member, offset: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
-    blockedMemberReads.get.get(member) match {
-      case Some(promise) =>
-        logger.debug(s"Blocking sequencer source for member $member")
-        EitherT.right[CreateSubscriptionError](
-          FutureUnlessShutdown.pure {
-            Source
-              .lazyFutureSource(() =>
-                promise.future
-                  .flatMap(_ => baseSequencer.read(member, offset).value.unwrap)
-                  .map(
-                    _.onShutdown(throw new IllegalStateException("Sequencer shutting down")).left
-                      .map(err => throw new IllegalStateException(s"Sequencer failed with $err"))
-                      .merge
-                  )
-              )
-              .viaMat(KillSwitches.single)(Keep.right)
-              .watchTermination()((mat, fd) => (mat, FutureUnlessShutdown.outcomeF(fd)))
-          }
-        )
-
-      case None =>
-        logger.debug(s"Member $member is not blocked, emitting sequencer source")
-        baseSequencer.read(member, offset)
-    }
-
   override def readV2(member: Member, timestamp: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.EventSource] =
+  ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     blockedMemberReads.get.get(member) match {
       case Some(promise) =>
         logger.debug(s"Blocking sequencer source for member $member")

@@ -21,6 +21,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{
   OrdinarySerializedEvent,
+  SequencedSerializedEvent,
   SequencerAggregator,
   SequencerTestUtils,
 }
@@ -93,7 +94,7 @@ class SequencedEventTestFixture(
     ByteString.copyFromUtf8("signatureCarlos1"),
     carlos.fingerprint,
   )
-  lazy val aliceEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
+  lazy val aliceEvents: Seq[SequencedSerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
       previousTimestamp = Option.when(s > 1)(CantonTimestamp.Epoch.plusSeconds(s.toLong - 1)),
@@ -101,7 +102,7 @@ class SequencedEventTestFixture(
       signatureOverride = Some(signatureAlice),
     ).onShutdown(throw new RuntimeException("failed to create alice event")).futureValue
   )
-  lazy val bobEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
+  lazy val bobEvents: Seq[SequencedSerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
       previousTimestamp =
@@ -110,7 +111,7 @@ class SequencedEventTestFixture(
       signatureOverride = Some(signatureBob),
     ).onShutdown(throw new RuntimeException("failed to create bob event")).futureValue
   )
-  lazy val carlosEvents: Seq[OrdinarySerializedEvent] = (1 to 5).map(s =>
+  lazy val carlosEvents: Seq[SequencedSerializedEvent] = (1 to 5).map(s =>
     createEvent(
       timestamp = CantonTimestamp.Epoch.plusSeconds(s.toLong),
       previousTimestamp =
@@ -163,7 +164,7 @@ class SequencedEventTestFixture(
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
       previousTimestamp: Option[CantonTimestamp] = None,
       topologyTimestamp: Option[CantonTimestamp] = None,
-  ): FutureUnlessShutdown[OrdinarySerializedEvent] = {
+  ): FutureUnlessShutdown[SequencedSerializedEvent] = {
     import cats.syntax.option.*
     val message = {
       val fullInformeeTree = factory.MultipleRootsAndViewNestings.fullInformeeTree
@@ -178,7 +179,6 @@ class SequencedEventTestFixture(
       testedProtocolVersion,
     )
     val deliver: Deliver[ClosedEnvelope] = Deliver.create[ClosedEnvelope](
-      SequencerCounter(counter),
       previousTimestamp = previousTimestamp,
       timestamp,
       synchronizerId,
@@ -194,8 +194,9 @@ class SequencedEventTestFixture(
         .map(FutureUnlessShutdown.pure)
         .getOrElse(sign(deliver.getCryptographicEvidence, deliver.timestamp))
     } yield OrdinarySequencedEvent(
-      SignedContent(deliver, sig, None, testedProtocolVersion)
-    )(traceContext)
+      SequencerCounter(counter),
+      SignedContent(deliver, sig, None, testedProtocolVersion),
+    )(traceContext).asSequencedSerializedEvent
   }
 
   def createEventWithCounterAndTs(
@@ -204,14 +205,15 @@ class SequencedEventTestFixture(
       customSerialization: Option[ByteString] = None,
       messageIdO: Option[MessageId] = None,
       topologyTimestampO: Option[CantonTimestamp] = None,
+      previousTimestamp: Option[CantonTimestamp] = None,
   )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[OrdinarySerializedEvent] = {
     val event =
       SequencerTestUtils.mockDeliverClosedEnvelope(
-        counter = counter,
         timestamp = timestamp,
         deserializedFrom = customSerialization,
         messageId = messageIdO,
         topologyTimestampO = topologyTimestampO,
+        previousTimestamp = previousTimestamp,
       )
     for {
       signature <- sign(
@@ -219,7 +221,8 @@ class SequencedEventTestFixture(
         event.timestamp,
       )
     } yield OrdinarySequencedEvent(
-      SignedContent(event, signature, None, testedProtocolVersion)
+      SequencerCounter(counter),
+      SignedContent(event, signature, None, testedProtocolVersion),
     )(traceContext)
   }
 

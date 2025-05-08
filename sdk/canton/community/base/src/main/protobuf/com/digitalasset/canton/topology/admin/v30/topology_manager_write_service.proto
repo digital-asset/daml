@@ -235,7 +235,7 @@ enum ForceFlag {
   /** Required when unvetting a package with active contracts */
   FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8;
   /** Required when increasing the submission time record time tolerance */
-  FORCE_FLAG_SUBMISSION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
+  FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
   /** Required when we want to change all participants' permissions to observation while the party is still a signatory of a contract. */
   FORCE_FLAG_ALLOW_INSUFFICIENT_PARTICIPANT_PERMISSION_FOR_SIGNATORY_PARTY = 10;
   /** Required when changing the party-to-participant mapping, that would result in insufficient

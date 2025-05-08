@@ -313,7 +313,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
         .createV2(
           any[Option[CantonTimestamp]],
           any[Member],
-          any[SerializedEventOrErrorHandler[NotUsed]],
+          any[SequencedEventOrErrorHandler[NotUsed]],
         )(any[TraceContext])
     )
       .thenAnswer {

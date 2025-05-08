@@ -5,13 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.Signature
-import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequired}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.BatchesRequest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.{
-  BatchesRequest,
-  DisseminationProgress,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -85,7 +82,8 @@ object Availability {
     final case class LocalBatchStoredSigned(
         batchId: BatchId,
         batch: OrderingRequestBatch,
-        progressOrSignature: Either[DisseminationProgress, Signature],
+        // None if this message is just used to trigger further dissemination
+        signature: Option[Signature],
     )
 
     final case class LocalBatchesStoredSigned(
@@ -162,11 +160,7 @@ object Availability {
       ): ParsingResult[RemoteBatch] =
         for {
           id <- BatchId.fromProto(storeRequest.batchId)
-          batch <- storeRequest.batch match {
-            case Some(batch) =>
-              OrderingRequestBatch.fromProtoV30(batch)
-            case None => Left(ProtoDeserializationError.FieldNotSet("batch"))
-          }
+          batch <- parseRequired(OrderingRequestBatch.fromProtoV30, "batch", storeRequest.batch)
           rpv <- protocolVersionRepresentativeFor(SupportedVersions.ProtoData)
         } yield Availability.RemoteDissemination.RemoteBatch(id, batch, from)(
           rpv,
@@ -464,7 +458,14 @@ object Availability {
         epochNumber: EpochNumber,
         orderedBatchIds: Seq[BatchId] = Seq.empty,
     ) extends Consensus[E]
+
+    final case class UpdateTopologyDuringStateTransfer[E <: Env[E]](
+        orderingTopology: OrderingTopology,
+        cryptoProvider: CryptoProvider[E],
+    ) extends Consensus[E]
+
     final case class Ordered(batchIds: Seq[BatchId]) extends Consensus[Nothing]
+
     final case object LocalClockTick extends Consensus[Nothing]
   }
 }

@@ -54,7 +54,7 @@ import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.{
 import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements.FetchCleanTimestamp
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
-import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.DecreasingSequencerCounter
+import com.digitalasset.canton.sequencing.client.SequencedEventValidationError.PreviousTimestampMismatch
 import com.digitalasset.canton.sequencing.client.SequencerClient.SequencerTransports
 import com.digitalasset.canton.sequencing.client.SequencerClientSubscriptionError.*
 import com.digitalasset.canton.sequencing.client.transports.{
@@ -72,7 +72,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.{TrafficReceipt, TrafficStateController}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
-import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
+import com.digitalasset.canton.store.SequencedEventStore.ProcessingSequencedEvent
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
@@ -369,7 +369,6 @@ abstract class SequencerClientImpl(
           val dummySendResult =
             SendResult.Success(
               Deliver.create(
-                SequencerCounter.Genesis,
                 previousTimestamp = None,
                 CantonTimestamp.now(),
                 synchronizerId,
@@ -1018,8 +1017,8 @@ class RichSequencerClientImpl(
   private def createSubscription(
       sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
-      preSubscriptionEvent: Option[PossiblyIgnoredSerializedEvent],
-      eventHandler: OrdinaryApplicationHandler[ClosedEnvelope],
+      preSubscriptionEvent: Option[ProcessingSerializedEvent],
+      eventHandler: SequencedApplicationHandler[ClosedEnvelope],
   )(implicit
       traceContext: TraceContext
   ): ResilientSequencerSubscription[SequencerClientSubscriptionError] = {
@@ -1061,7 +1060,7 @@ class RichSequencerClientImpl(
       loggerFactoryWithSequencerAlias,
     )
 
-    // Match the narrow case of a mediator-side TransportChange causing a sequencer-counter race condition
+    // Match the narrow case of a mediator-side TransportChange causing a sequencer-timestamp race condition
     // in the sequencer client and crash the mediator in such cases (#24967).
     def maybeExitOnFatalError(
         error: SubscriptionCloseReason[SequencerClientSubscriptionError]
@@ -1069,12 +1068,12 @@ class RichSequencerClientImpl(
       (error, member) match {
         case (
               SubscriptionCloseReason.HandlerError(
-                EventValidationError(DecreasingSequencerCounter(newSc, oldSc))
+                EventValidationError(PreviousTimestampMismatch(receivedTs, expectedTs))
               ),
               MediatorId(_),
             ) if exitOnFatalErrors =>
           exitOnFatalError(
-            s"Decreasing sequencer counter detected from $oldSc to $newSc. Has there been a TransportChange?",
+            s"Sequenced timestamp mismatch received $receivedTs but expected $expectedTs. Has there been a TransportChange?",
             logger,
           )
         case _ => ()
@@ -1116,10 +1115,10 @@ class RichSequencerClientImpl(
   ): Unit = FatalError.exitOnFatalError(message, logger)
 
   private class SubscriptionHandler(
-      applicationHandler: OrdinaryApplicationHandler[ClosedEnvelope],
+      applicationHandler: SequencedApplicationHandler[ClosedEnvelope],
       eventValidator: SequencedEventValidator,
       processingDelay: DelaySequencedEvent,
-      initialPriorEvent: Option[PossiblyIgnoredSerializedEvent],
+      initialPriorEvent: Option[ProcessingSerializedEvent],
       sequencerAlias: SequencerAlias,
       sequencerId: SequencerId,
       override protected val loggerFactory: NamedLoggerFactory,
@@ -1129,7 +1128,7 @@ class RichSequencerClientImpl(
     // we'll restart from the last successfully processed event counter and we'll validate it is still the last event we processed and that we're not seeing
     // a sequencer fork.
     private val priorEvent =
-      new AtomicReference[Option[PossiblyIgnoredSerializedEvent]](initialPriorEvent)
+      new AtomicReference[Option[ProcessingSerializedEvent]](initialPriorEvent)
 
     private val delayLogger = new DelayLogger(
       clock,
@@ -1140,7 +1139,7 @@ class RichSequencerClientImpl(
     )
 
     def handleEvent(
-        serializedEvent: OrdinarySerializedEvent
+        serializedEvent: SequencedSerializedEvent
     ): FutureUnlessShutdown[Either[SequencerClientSubscriptionError, Unit]] = {
       implicit val traceContext: TraceContext = serializedEvent.traceContext
       // Process the event only if no failure has been detected
@@ -1152,12 +1151,13 @@ class RichSequencerClientImpl(
         // did last process. However if successful, there's no need to give it to the application handler or to store
         // it as we're really sure we've already processed it.
         // we'll also see the last event replayed if the resilient sequencer subscription reconnects.
-        val isReplayOfPriorEvent = priorEvent.get().map(_.counter).contains(serializedEvent.counter)
+        val isReplayOfPriorEvent =
+          priorEvent.get().map(_.timestamp).contains(serializedEvent.timestamp)
 
         if (isReplayOfPriorEvent) {
           // just validate
           logger.debug(
-            s"Do not handle event with sequencerCounter ${serializedEvent.counter}, as it is replayed and has already been handled."
+            s"Do not handle event with timestamp ${serializedEvent.timestamp}, as it is replayed and has already been handled."
           )
           eventValidator
             .validateOnReconnect(priorEvent.get(), serializedEvent, sequencerId)
@@ -1165,7 +1165,7 @@ class RichSequencerClientImpl(
             .value
         } else {
           logger.debug(
-            s"Validating sequenced event coming from $sequencerId (alias = $sequencerAlias) with counter ${serializedEvent.counter} and timestamp ${serializedEvent.timestamp}"
+            s"Validating sequenced event coming from $sequencerId (alias = $sequencerAlias) with timestamp ${serializedEvent.timestamp}"
           )
           (for {
             _ <- EitherT.right(
@@ -1177,7 +1177,7 @@ class RichSequencerClientImpl(
               .leftMap[SequencerClientSubscriptionError](EventValidationError.apply)
             _ = logger.debug("Event validation completed successfully")
             _ = priorEvent.set(Some(serializedEvent))
-            _ = delayLogger.checkForDelay(serializedEvent)
+            _ = delayLogger.checkForDelay_(serializedEvent)
 
             toSignalHandler <- EitherT(
               sequencerAggregator
@@ -1220,7 +1220,7 @@ class RichSequencerClientImpl(
     // TODO(#13789) This code should really not live in the `SubscriptionHandler` class of which we have multiple
     //  instances with equivalent parameters in case of BFT subscriptions.
     private def signalHandler(
-        eventHandler: OrdinaryApplicationHandler[ClosedEnvelope]
+        eventHandler: SequencedApplicationHandler[ClosedEnvelope]
     )(implicit traceContext: TraceContext): Unit = performUnlessClosing(functionFullName) {
       val isIdle = blocking {
         handlerIdleLock.synchronized {
@@ -1237,10 +1237,10 @@ class RichSequencerClientImpl(
     }.discard
 
     private def handleReceivedEventsUntilEmpty(
-        eventHandler: OrdinaryApplicationHandler[ClosedEnvelope]
+        eventHandler: SequencedApplicationHandler[ClosedEnvelope]
     ): FutureUnlessShutdown[Unit] = {
       val inboxSize = config.eventInboxSize.unwrap
-      val javaEventList = new java.util.ArrayList[OrdinarySerializedEvent](inboxSize)
+      val javaEventList = new java.util.ArrayList[SequencedSerializedEvent](inboxSize)
       if (sequencerAggregator.eventQueue.drainTo(javaEventList, inboxSize) > 0) {
         import scala.jdk.CollectionConverters.*
         val handlerEvents = javaEventList.asScala.toSeq
@@ -1288,7 +1288,7 @@ class RichSequencerClientImpl(
     * [[applicationHandlerFailure]] contains an error.
     */
   private def processEventBatch[
-      Box[+X <: Envelope[?]] <: PossiblyIgnoredSequencedEvent[X],
+      Box[+X <: Envelope[?]] <: ProcessingSequencedEvent[X],
       Env <: Envelope[?],
   ](
       eventHandler: ApplicationHandler[Lambda[`+X <: Envelope[_]` => Traced[Seq[Box[X]]]], Env],
@@ -1299,9 +1299,9 @@ class RichSequencerClientImpl(
       .fold(EitherT.pure[FutureUnlessShutdown, ApplicationHandlerFailure](())) { eventBatchNE =>
         applicationHandlerFailure.get.fold {
           implicit val batchTraceContext: TraceContext = TraceContext.ofBatch(eventBatch)(logger)
-          val lastSc = eventBatchNE.last1.counter
+          val lastTimestamp = eventBatchNE.last1.timestamp
           val firstEvent = eventBatchNE.head1
-          val firstSc = firstEvent.counter
+          val firstTimestamp = firstEvent.timestamp
           metrics.handler.numEvents.inc(eventBatch.size.toLong)(MetricsContext.Empty)
           logger.debug(
             s"Passing ${eventBatch.size} events to the application handler ${eventHandler.name}."
@@ -1346,17 +1346,19 @@ class RichSequencerClientImpl(
 
               case _ if isClosing =>
                 logger.info(
-                  s"$sync event processing failed for event batch with sequencer counters $firstSc to $lastSc, most likely due to an ongoing shutdown",
+                  s"$sync event processing failed for event batch with sequencing timestamps $firstTimestamp to $lastTimestamp, most likely due to an ongoing shutdown",
                   error,
                 )
                 putApplicationHandlerFailure(ApplicationHandlerShutdown)
 
               case _ =>
                 logger.error(
-                  s"$sync event processing failed for event batch with sequencer counters $firstSc to $lastSc.",
+                  s"$sync event processing failed for event batch with sequencing timestamps $firstTimestamp to $lastTimestamp.",
                   error,
                 )
-                putApplicationHandlerFailure(ApplicationHandlerException(error, firstSc, lastSc))
+                putApplicationHandlerFailure(
+                  ApplicationHandlerException(error, firstTimestamp, lastTimestamp)
+                )
             }
           }
 
@@ -1377,7 +1379,7 @@ class RichSequencerClientImpl(
                   UnlessShutdown.unit
                 } // note, we are adding our async processing to the flush future, so we know once the async processing has finished
                 addToFlushAndLogErrorUS(
-                  s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
+                  s"asynchronous event processing for event batch with sequencing timestamps $firstTimestamp to $lastTimestamp."
                 )(asyncSignalledF)
                 // we do not wait for the async results to finish, we are done here once the synchronous part is done
                 UnlessShutdown.Outcome(Either.unit)

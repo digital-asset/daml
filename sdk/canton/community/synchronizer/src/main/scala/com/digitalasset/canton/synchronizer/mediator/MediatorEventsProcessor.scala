@@ -124,7 +124,12 @@ private[mediator] class MediatorEventsProcessor(
       case _ => None
     }
     val stages =
-      extractMediatorEvents(event.counter, event.timestamp, topologyTimestampO, envelopes)
+      extractMediatorEvents(
+        tracedProtocolEvent.counter,
+        event.timestamp,
+        topologyTimestampO,
+        envelopes,
+      )
 
     stages.map(Traced(_))
   }

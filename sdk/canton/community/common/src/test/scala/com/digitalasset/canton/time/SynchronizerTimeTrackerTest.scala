@@ -48,9 +48,9 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
 
   def timeProofEvent(ts: CantonTimestamp): OrdinaryProtocolEvent =
     OrdinarySequencedEvent(
-      SignedContent(
+      counter = SequencerCounter(0),
+      signedEvent = SignedContent(
         Deliver.create(
-          SequencerCounter(0),
           None,
           ts,
           DefaultTestIdentities.synchronizerId,
@@ -63,15 +63,15 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,
-      )
+      ),
     )(traceContext)
 
   def otherEvent(ts: CantonTimestamp): OrdinaryProtocolEvent = {
     // create a event which won't be flagged as a time proof
     val event = OrdinarySequencedEvent(
-      SignedContent(
+      counter = SequencerCounter(0),
+      signedEvent = SignedContent(
         Deliver.create(
-          SequencerCounter(0),
           None,
           ts,
           DefaultTestIdentities.synchronizerId,
@@ -84,7 +84,7 @@ class SynchronizerTimeTrackerTest extends FixtureAsyncWordSpec with BaseTest {
         SymbolicCrypto.emptySignature,
         None,
         testedProtocolVersion,
-      )
+      ),
     )(traceContext)
 
     // make sure future changes don't treat this as a time proof

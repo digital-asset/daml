@@ -1284,7 +1284,7 @@ class ParallelIndexerSubscriptionSpec
       transactionMeta = TransactionMeta(
         ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
         workflowId = None,
-        submissionTime = Time.Timestamp.assertFromLong(3),
+        preparationTime = Time.Timestamp.assertFromLong(3),
         submissionSeed = crypto.Hash.assertFromString(
           "01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086"
         ),

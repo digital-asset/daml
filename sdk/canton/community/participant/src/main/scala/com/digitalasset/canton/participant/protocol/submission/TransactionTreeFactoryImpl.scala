@@ -107,7 +107,7 @@ class TransactionTreeFactoryImpl(
     // Create fields
     val participantMetadata = ParticipantMetadata(cryptoOps)(
       metadata.ledgerTime,
-      metadata.submissionTime,
+      metadata.preparationTime,
       workflowId,
       participantMetadataSalt,
       protocolVersion,

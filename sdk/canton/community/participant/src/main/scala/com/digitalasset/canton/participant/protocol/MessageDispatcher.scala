@@ -169,14 +169,16 @@ trait MessageDispatcher { this: NamedLogging =>
     *     and instead must deduplicate replays on the recipient side.
     */
   protected def processBatch(
-      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]
+      sequencerCounter: SequencerCounter,
+      eventE: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
   )(implicit traceContext: TraceContext): ProcessingResult = {
     val deliver = eventE.event.content
     // TODO(#13883) Validate the topology timestamp
     // TODO(#13883) Centralize the topology timestamp constraints in a single place so that they are well-documented
-    val Deliver(sc, _pts, ts, _, _, batch, topologyTimestampO, _) = deliver
+    val Deliver(_pts, ts, _, _, batch, topologyTimestampO, _) = deliver
 
-    val envelopesWithCorrectSynchronizerId = filterBatchForSynchronizerId(batch, sc, ts)
+    val envelopesWithCorrectSynchronizerId =
+      filterBatchForSynchronizerId(batch, sequencerCounter, ts)
 
     // Sanity check the batch
     // we can receive an empty batch if it was for a deliver we sent but were not a recipient
@@ -188,7 +190,7 @@ trait MessageDispatcher { this: NamedLogging =>
     }
     for {
       identityResult <- processTopologyTransactions(
-        sc,
+        sequencerCounter,
         SequencedTime(ts),
         deliver.topologyTimestampO,
         envelopesWithCorrectSynchronizerId,
@@ -196,12 +198,12 @@ trait MessageDispatcher { this: NamedLogging =>
       trafficResult <- processTraffic(ts, topologyTimestampO, envelopesWithCorrectSynchronizerId)
       acsCommitmentResult <- processAcsCommitmentEnvelope(
         envelopesWithCorrectSynchronizerId,
-        sc,
+        sequencerCounter,
         ts,
       )
       transactionReassignmentResult <- processTransactionAndReassignmentMessages(
         eventE,
-        sc,
+        sequencerCounter,
         ts,
         envelopesWithCorrectSynchronizerId,
       )
@@ -272,7 +274,7 @@ trait MessageDispatcher { this: NamedLogging =>
         val viewType = msg.protocolMessage.message.viewType
         val processor = tryProtocolProcessor(viewType)
 
-        doProcess(ResultKind(viewType, () => processor.processResult(event)))
+        doProcess(ResultKind(viewType, () => processor.processResult(sc, event)))
 
       case _ =>
         // Alarm about invalid confirmation result messages
@@ -566,7 +568,6 @@ trait MessageDispatcher { this: NamedLogging =>
   )(implicit traceContext: TraceContext): ProcessingResult = {
     val receipts = events.mapFilter {
       case Deliver(
-            counter,
             _previousTimestamp,
             timestamp,
             _synchronizerId,
@@ -578,7 +579,6 @@ trait MessageDispatcher { this: NamedLogging =>
         // The event was submitted by the current participant iff the message ID is set.
         messageIdO.map(_ -> SequencedSubmission(timestamp))
       case DeliverError(
-            _counter,
             _previousTimestamp,
             _timestamp,
             _synchronizerId,

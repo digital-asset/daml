@@ -1804,7 +1804,7 @@ object UpdateToDbDtoSpec {
   private val someTransactionMeta = state.TransactionMeta(
     ledgerEffectiveTime = Time.Timestamp.assertFromLong(2),
     workflowId = Some(someWorkflowId),
-    submissionTime = Time.Timestamp.assertFromLong(3),
+    preparationTime = Time.Timestamp.assertFromLong(3),
     submissionSeed = someHash,
     timeBoundaries = LedgerTimeBoundaries.unconstrained,
     optUsedPackages = None,

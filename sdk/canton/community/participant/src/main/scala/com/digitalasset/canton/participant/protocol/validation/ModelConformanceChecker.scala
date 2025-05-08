@@ -94,7 +94,7 @@ class ModelConformanceChecker(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ErrorWithSubTransaction, Result] = {
-    val CommonData(transactionId, ledgerTime, submissionTime) = commonData
+    val CommonData(transactionId, ledgerTime, preparationTime) = commonData
 
     // Previous checks in Phase 3 ensure that all the root views are sent to the same
     // mediator, and that they all have the same correct root hash, and therefore the
@@ -119,7 +119,7 @@ class ModelConformanceChecker(
             transactionUuid,
             keyResolverFor(view),
             ledgerTime,
-            submissionTime,
+            preparationTime,
             submittingParticipantO,
             topologySnapshot,
             getEngineAbortStatus,
@@ -247,7 +247,7 @@ class ModelConformanceChecker(
       view: TransactionView,
       resolverFromView: LfKeyResolver,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
@@ -276,7 +276,7 @@ class ModelConformanceChecker(
           authorizers,
           cmd,
           ledgerTime,
-          submissionTime,
+          preparationTime,
           seed,
           packagePreference,
           failed,
@@ -298,7 +298,7 @@ class ModelConformanceChecker(
       transactionUuid: UUID,
       resolverFromView: LfKeyResolver,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       submitterMetadataO: Option[SubmitterMetadata],
       topologySnapshot: TopologySnapshot,
       getEngineAbortStatus: GetEngineAbortStatus,
@@ -322,7 +322,7 @@ class ModelConformanceChecker(
             view,
             resolverFromView,
             ledgerTime,
-            submissionTime,
+            preparationTime,
             getEngineAbortStatus,
           )
         )
@@ -496,7 +496,7 @@ object ModelConformanceChecker {
                 mediatorGroup,
                 synchronizerId,
                 reInterpretationResult.timeBoundaries,
-                reInterpretationResult.metadata.submissionTime.toLf,
+                reInterpretationResult.metadata.preparationTime.toLf,
                 enrichedInputContracts,
               ),
               reInterpretationResult.metadata.seeds,

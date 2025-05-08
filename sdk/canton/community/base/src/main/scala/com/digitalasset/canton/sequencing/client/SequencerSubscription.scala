@@ -4,7 +4,6 @@
 package com.digitalasset.canton.sequencing.client
 
 import com.digitalasset.base.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerSubscriptionErrorGroup
@@ -114,13 +113,13 @@ object SequencerSubscriptionError extends SequencerSubscriptionErrorGroup {
 
     object Error {
       def apply(
-          counter: SequencerCounter,
+          sequencingTimestamp: CantonTimestamp,
           member: Member,
           timestamp: CantonTimestamp,
       )(implicit
           loggingContext: ErrorLoggingContext
       ): Error = new Error(
-        s"This sequencer cannot sign the event with counter $counter for member $member at signing timestamp $timestamp, delivering a tombstone and terminating the subscription."
+        s"This sequencer cannot sign the event with sequencing timestamp $sequencingTimestamp for member $member at signing timestamp $timestamp, delivering a tombstone and terminating the subscription."
       )
     }
   }

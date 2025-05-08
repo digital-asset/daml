@@ -75,7 +75,7 @@ trait TransactionViewTree extends ViewTree {
 
   lazy val ledgerTime: CantonTimestamp = participantMetadata.ledgerTime
 
-  lazy val submissionTime: CantonTimestamp = participantMetadata.submissionTime
+  lazy val preparationTime: CantonTimestamp = participantMetadata.preparationTime
 
   lazy val workflowIdO: Option[WorkflowId] = participantMetadata.workflowIdO
 }

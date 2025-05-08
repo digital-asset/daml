@@ -120,10 +120,11 @@ object BootstrapDetectorTest {
       myId -> NodeActiveAt(
         TopologyActivationTime(CantonTimestamp.Epoch),
         Some(EpochNumber(1500L)),
-        firstBlockNumberInEpoch = Some(BlockNumber(15000L)),
-        epochTopologyQueryTimestamp = Some(TopologyActivationTime(CantonTimestamp.MinValue)),
-        epochCouldAlterOrderingTopology = None,
+        firstBlockNumberInStartEpoch = Some(BlockNumber(15000L)),
+        startEpochTopologyQueryTimestamp = Some(TopologyActivationTime(CantonTimestamp.MinValue)),
+        startEpochCouldAlterOrderingTopology = None,
         previousBftTime = None,
+        previousEpochTopologyQueryTimestamp = None,
       )
     )
   )

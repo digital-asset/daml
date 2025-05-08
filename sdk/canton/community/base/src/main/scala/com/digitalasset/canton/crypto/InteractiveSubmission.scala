@@ -58,7 +58,7 @@ object InteractiveSubmission {
         mediatorGroup: Int,
         synchronizerId: SynchronizerId,
         timeBoundaries: LedgerTimeBoundaries,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, FatContractInstance],
     ) = new TransactionMetadataForHashing(
       actAs = SortedSet.from(actAs),
@@ -67,7 +67,7 @@ object InteractiveSubmission {
       mediatorGroup = mediatorGroup,
       synchronizerId = synchronizerId,
       timeBoundaries = timeBoundaries,
-      submissionTime = submissionTime,
+      preparationTime = preparationTime,
       disclosedContracts = SortedMap.from(disclosedContracts),
     )
 
@@ -81,7 +81,7 @@ object InteractiveSubmission {
         mediatorGroup: Int,
         synchronizerId: SynchronizerId,
         timeBoundaries: LedgerTimeBoundaries,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, SerializableContract],
     ): TransactionMetadataForHashing = {
 
@@ -101,7 +101,7 @@ object InteractiveSubmission {
         mediatorGroup,
         synchronizerId,
         timeBoundaries,
-        submissionTime,
+        preparationTime,
         SortedMap.from(asFatContracts),
       )
     }
@@ -114,7 +114,7 @@ object InteractiveSubmission {
       mediatorGroup: Int,
       synchronizerId: SynchronizerId,
       timeBoundaries: LedgerTimeBoundaries,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
@@ -141,7 +141,7 @@ object InteractiveSubmission {
       metadata.mediatorGroup,
       metadata.synchronizerId.toProtoPrimitive,
       metadata.timeBoundaries,
-      metadata.submissionTime,
+      metadata.preparationTime,
       metadata.disclosedContracts,
     )
 

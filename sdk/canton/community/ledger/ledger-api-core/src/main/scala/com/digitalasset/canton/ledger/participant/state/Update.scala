@@ -308,7 +308,7 @@ object Update {
           Logging.updateId(txAccepted.updateId),
           Logging.ledgerTime(txAccepted.transactionMeta.ledgerEffectiveTime),
           Logging.workflowIdOpt(txAccepted.transactionMeta.workflowId),
-          Logging.submissionTime(txAccepted.transactionMeta.submissionTime),
+          Logging.preparationTime(txAccepted.transactionMeta.preparationTime),
           Logging.synchronizerId(txAccepted.synchronizerId),
         )
     }
@@ -636,8 +636,8 @@ object Update {
     def ledgerTime(time: Timestamp): LoggingEntry =
       "ledgerTime" -> time.toInstant
 
-    def submissionTime(time: Timestamp): LoggingEntry =
-      "submissionTime" -> time.toInstant
+    def preparationTime(time: Timestamp): LoggingEntry =
+      "preparationTime" -> time.toInstant
 
     def deduplicationPeriod(period: Option[DeduplicationPeriod]): LoggingEntry =
       "deduplicationPeriod" -> period

@@ -45,7 +45,7 @@ private[canton] final case class CommandInterpretationResult(
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
     processedDisclosedContracts: ImmArray[FatContractInstance],
-    // TODO(#23334): Consider removing the prescribed synchronizer decision from command interpreter
+    // TODO(#25385): Consider removing the prescribed synchronizer decision from command interpreter
     //               and factor this field out of here as well.
     optSynchronizerId: Option[SynchronizerId],
 ) {

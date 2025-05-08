@@ -99,7 +99,8 @@ final class IssConsensusModule[E <: Env[E]](
     // TODO(#23484): we cannot queue all messages (e.g., during state transfer) due to a potential OOM error
     private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
       new mutable.Queue(),
-    private val queuedConsensusMessages: Seq[Consensus.Message[E]] = Seq.empty,
+    private val postponedConsensusMessageQueue: mutable.Queue[Consensus.Message[E]] =
+      new mutable.Queue[Consensus.Message[E]](),
 )(
     // Only tests pass the state manager as parameter, and it's convenient to have it as an option
     //  to avoid two different constructor calls depending on whether the test want to customize it or not.
@@ -154,9 +155,8 @@ final class IssConsensusModule[E <: Env[E]](
   @VisibleForTesting
   private[bftordering] def getEpochState: EpochState[E] = epochState
 
-  override def ready(self: ModuleRef[Consensus.Message[E]]): Unit =
-    // TODO(#16761) also resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
-    queuedConsensusMessages.foreach(self.asyncSend)
+  // TODO(#16761) resend locally-led ordered blocks (PrePrepare) in activeEpoch in case my node crashed
+  override def ready(self: ModuleRef[Consensus.Message[E]]): Unit = ()
 
   override protected def receiveInternal(message: Consensus.Message[E])(implicit
       context: E#ActorContextT[Consensus.Message[E]],
@@ -229,8 +229,13 @@ final class IssConsensusModule[E <: Env[E]](
           newEpochTopologyMessage.membership,
           newEpochTopologyMessage.cryptoProvider,
         )
+        // Complete init early to avoid re-queueing messages.
         initCompleted(receiveInternal(_))
         processNewEpochTopology(newEpochTopologyMessage, currentEpochInfo, newEpochInfo)
+        // Try to process messages that potentially triggered a catch-up (should do nothing for onboarding).
+        processQueuedPbftMessages()
+        // Then, go through messages that got postponed during state transfer.
+        postponedConsensusMessageQueue.dequeueAll(_ => true).foreach(context.self.asyncSend)
 
       case Consensus.Admin.GetOrderingTopology(callback) =>
         callback(
@@ -267,17 +272,7 @@ final class IssConsensusModule[E <: Env[E]](
             s"New epoch: ${epochState.epoch.info.number} has started with ordering topology ${newMembership.orderingTopology}"
           )
 
-          // Process messages for this epoch that may have arrived when processing the previous one.
-          //  PBFT messages for a future epoch may become stale after a catch-up, so we need to extract and discard them.
-          val queuedPbftMessages =
-            futurePbftMessageQueue.dequeueAll(
-              _.message.blockMetadata.epochNumber <= epochState.epoch.info.number
-            )
-
-          queuedPbftMessages.foreach { pbftMessage =>
-            if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
-              processPbftMessage(pbftMessage)
-          }
+          processQueuedPbftMessages()
         }
     }
 
@@ -332,47 +327,60 @@ final class IssConsensusModule[E <: Env[E]](
     }
   }
 
+  private def processQueuedPbftMessages()(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    // Process messages for this epoch that may have arrived when processing the previous one.
+    //  PBFT messages for a future epoch may become stale after a catch-up, so we need to extract and discard them.
+    val queuedPbftMessages =
+      futurePbftMessageQueue.dequeueAll(
+        _.message.blockMetadata.epochNumber <= epochState.epoch.info.number
+      )
+
+    queuedPbftMessages.foreach { pbftMessage =>
+      if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
+        processPbftMessage(pbftMessage)
+    }
+  }
+
   private def handleProtocolMessage(
       message: Consensus.ProtocolMessage
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Unit =
-    message match {
-      case stateTransferMessage: Consensus.StateTransferMessage =>
+    ifInitCompleted(message) {
+      case localAvailabilityMessage: Consensus.LocalAvailability =>
+        handleLocalAvailabilityMessage(localAvailabilityMessage)
+
+      case consensusMessage: Consensus.ConsensusMessage =>
+        handleConsensusMessage(consensusMessage)
+
+      case Consensus.RetransmissionsMessage.VerifiedNetworkMessage(
+            Consensus.RetransmissionsMessage.RetransmissionRequest(
+              EpochStatus(from, epochNumber, _)
+            )
+          )
+          if startCatchupIfNeeded(
+            catchupDetector.updateLatestKnownNodeEpoch(from, epochNumber),
+            epochNumber,
+          ) =>
+        logger.debug(
+          s"Ignoring retransmission request from $from as we are entering catch-up mode"
+        )
+
+      case msg: Consensus.RetransmissionsMessage =>
+        retransmissionsManager.handleMessage(activeTopologyInfo.currentCryptoProvider, msg)
+
+      case msg: Consensus.StateTransferMessage =>
         serverStateTransferManager.handleStateTransferMessage(
-          stateTransferMessage,
+          msg,
           activeTopologyInfo,
           latestCompletedEpoch,
         )(abort) match {
           case StateTransferMessageResult.Continue =>
           case other => abort(s"Unexpected result $other from server-side state transfer manager")
-        }
-      case _ =>
-        ifInitCompleted(message) {
-          case localAvailabilityMessage: Consensus.LocalAvailability =>
-            handleLocalAvailabilityMessage(localAvailabilityMessage)
-
-          case consensusMessage: Consensus.ConsensusMessage =>
-            handleConsensusMessage(consensusMessage)
-
-          case Consensus.RetransmissionsMessage.VerifiedNetworkMessage(
-                Consensus.RetransmissionsMessage.RetransmissionRequest(
-                  EpochStatus(from, epochNumber, _)
-                )
-              )
-              if startCatchupIfNeeded(
-                catchupDetector.updateLatestKnownNodeEpoch(from, epochNumber),
-                epochNumber,
-              ) =>
-            logger.debug(
-              s"Ignoring retransmission request from $from as we are entering catch-up mode"
-            )
-
-          case msg: Consensus.RetransmissionsMessage =>
-            retransmissionsManager.handleMessage(activeTopologyInfo.currentCryptoProvider, msg)
-
-          case _: Consensus.StateTransferMessage => // handled at the top regardless of the init, just to make the match exhaustive
         }
     }
 
@@ -921,7 +929,7 @@ object IssConsensusModule {
         EpochLength,
         Option[SequencerSnapshotAdditionalInfo],
         OrderingTopologyInfo[?],
-        mutable.Queue[SignedMessage[PbftNetworkMessage]],
+        Seq[SignedMessage[PbftNetworkMessage]],
         Seq[Consensus.Message[?]],
     )
   ] =
@@ -930,8 +938,8 @@ object IssConsensusModule {
         issConsensusModule.epochLength,
         issConsensusModule.initialState.sequencerSnapshotAdditionalInfo,
         issConsensusModule.activeTopologyInfo,
-        issConsensusModule.futurePbftMessageQueue,
-        issConsensusModule.queuedConsensusMessages,
+        issConsensusModule.futurePbftMessageQueue.toSeq,
+        issConsensusModule.postponedConsensusMessageQueue.toSeq,
       )
     )
 }

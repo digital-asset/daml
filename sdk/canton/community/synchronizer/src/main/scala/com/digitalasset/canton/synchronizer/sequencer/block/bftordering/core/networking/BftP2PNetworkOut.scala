@@ -13,6 +13,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.Se
   PeerEndpointHealthStatus,
   PeerEndpointStatus,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.AvailabilityModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
@@ -236,7 +237,12 @@ final class BftP2PNetworkOut[E <: Env[E]](
         callback(getStatus(endpointIds))
     }
 
-  private def getStatus(endpointIds: Option[Iterable[P2PEndpoint.Id]] = None) =
+  private def getStatus(
+      endpointIds: Option[Iterable[P2PEndpoint.Id]] = None
+  )(implicit
+      context: E#ActorContextT[P2PNetworkOut.Message],
+      traceContext: TraceContext,
+  ): SequencerBftAdminData.PeerNetworkStatus =
     SequencerBftAdminData.PeerNetworkStatus(
       endpointIds
         .getOrElse(
@@ -246,13 +252,21 @@ final class BftP2PNetworkOut[E <: Env[E]](
         )
         .map { endpointId =>
           val defined = known.isDefined(endpointId)
-          val authenticated = known.getNode(endpointId).isDefined
+          val maybeNodeId = known.getNode(endpointId)
           PeerEndpointStatus(
             endpointId,
-            health = (defined, authenticated) match {
-              case (false, _) => PeerEndpointHealth(PeerEndpointHealthStatus.Unknown, None)
-              case (_, false) => PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None)
-              case _ => PeerEndpointHealth(PeerEndpointHealthStatus.Authenticated, None)
+            health = (defined, maybeNodeId) match {
+              case (false, _) => PeerEndpointHealth(PeerEndpointHealthStatus.UnknownEndpoint, None)
+              case (_, None) => PeerEndpointHealth(PeerEndpointHealthStatus.Unauthenticated, None)
+              case (_, Some(nodeId)) =>
+                PeerEndpointHealth(
+                  PeerEndpointHealthStatus.Authenticated(
+                    SequencerNodeId
+                      .fromBftNodeId(nodeId)
+                      .getOrElse(abort(s"Node ID '$nodeId' is not a valid sequencer ID"))
+                  ),
+                  None,
+                )
             },
           )
         }
@@ -276,7 +290,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
     if (!availabilityStarted) {
       if (maxNodesContemporarilyAuthenticated >= endpointThresholdForAvailabilityStart - 1) {
         logger.debug(
-          s"Tthreshold $endpointThresholdForAvailabilityStart reached: starting availability"
+          s"Threshold $endpointThresholdForAvailabilityStart reached: starting availability"
         )
         dependencies.availability.asyncSend(Availability.Start)
         availabilityStarted = true
@@ -358,7 +372,8 @@ final class BftP2PNetworkOut[E <: Env[E]](
       endpointId: P2PEndpoint.Id,
       node: BftNodeId,
   )(implicit
-      traceContext: TraceContext
+      context: E#ActorContextT[P2PNetworkOut.Message],
+      traceContext: TraceContext,
   ): Unit = {
     logger.debug(s"Registering '$node' at $endpointId")
     known.setNode(endpointId, node)
@@ -372,7 +387,8 @@ final class BftP2PNetworkOut[E <: Env[E]](
   private def disconnect(
       endpointId: P2PEndpoint.Id
   )(implicit
-      traceContext: TraceContext
+      context: E#ActorContextT[P2PNetworkOut.Message],
+      traceContext: TraceContext,
   ): Unit = {
     logger.debug(
       s"Disconnecting '${known.getNode(endpointId).getOrElse("<unknown>")}' at $endpointId"
@@ -382,7 +398,10 @@ final class BftP2PNetworkOut[E <: Env[E]](
     logEndpointsStatus()
   }
 
-  private def logEndpointsStatus()(implicit traceContext: TraceContext): Unit =
+  private def logEndpointsStatus()(implicit
+      context: E#ActorContextT[P2PNetworkOut.Message],
+      traceContext: TraceContext,
+  ): Unit =
     logger.info(getStatus().toString)
 }
 

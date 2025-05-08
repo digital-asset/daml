@@ -109,7 +109,7 @@ trait SubmitCommandTrialErrorTest extends CommunityIntegrationTest with SharedEn
 
       assertThrowsAndLogsCommandFailures(
         participant1.ledger_api.javaapi.commands.submit(Seq(Bank), cmds),
-        // TODO(#23334): Improve error assertion once the detailed rejection is propagated
+        // TODO(#25385): Improve error assertion once the detailed rejection is propagated
         _.commandFailureMessage should (include(PackageSelectionFailed.id) and include(
           "No synchronizers satisfy the draft transaction topology requirements"
         )),

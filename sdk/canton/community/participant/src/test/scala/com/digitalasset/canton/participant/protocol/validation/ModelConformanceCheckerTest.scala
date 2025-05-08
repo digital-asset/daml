@@ -87,7 +87,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
-        submissionTime: CantonTimestamp,
+        preparationTime: CantonTimestamp,
         rootSeed: Option[LfHash],
         packageResolution: Map[PackageName, PackageId],
         expectFailure: Boolean,
@@ -99,7 +99,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     ] = {
       incrementInterpretations()
       ledgerTime shouldEqual factory.ledgerTime
-      submissionTime shouldEqual factory.submissionTime
+      preparationTime shouldEqual factory.preparationTime
 
       val (_, (reinterpretedTx, metadata, keyResolver), _) =
         // The code below assumes that for reinterpretedSubtransactions the combination
@@ -129,7 +129,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
-        submissionTime: CantonTimestamp,
+        preparationTime: CantonTimestamp,
         rootSeed: Option[LfHash],
         packageResolution: Map[PackageName, PackageId],
         expectFailure: Boolean,
@@ -183,7 +183,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         view,
         keyResolver,
         commonData.ledgerTime,
-        commonData.submissionTime,
+        commonData.preparationTime,
         getEngineAbortStatus = () => EngineAbortStatus.notAborted,
       )
       .failOnShutdown
@@ -365,7 +365,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             submitters: Set[LfPartyId],
             command: LfCommand,
             ledgerTime: CantonTimestamp,
-            submissionTime: CantonTimestamp,
+            preparationTime: CantonTimestamp,
             rootSeed: Option[LfHash],
             packageResolution: Map[PackageName, PackageId],
             expectFailure: Boolean,
@@ -432,7 +432,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
               submitters: Set[LfPartyId],
               command: LfCommand,
               ledgerTime: CantonTimestamp,
-              submissionTime: CantonTimestamp,
+              preparationTime: CantonTimestamp,
               rootSeed: Option[LfHash],
               packageResolution: Map[PackageName, PackageId],
               expectFailure: Boolean,
@@ -517,7 +517,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
                 submitters: Set[LfPartyId],
                 command: LfCommand,
                 ledgerTime: CantonTimestamp,
-                submissionTime: CantonTimestamp,
+                preparationTime: CantonTimestamp,
                 rootSeed: Option[LfHash],
                 packageResolution: Map[PackageName, PackageId],
                 expectFailure: Boolean,

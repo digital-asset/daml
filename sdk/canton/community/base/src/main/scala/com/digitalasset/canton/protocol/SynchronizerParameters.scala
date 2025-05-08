@@ -300,8 +300,8 @@ object OnboardingRestriction {
   *   the absolute difference would be larger for a command, then the command must be rejected.
   * @param mediatorDeduplicationTimeout
   *   the time for how long a request will be stored at the mediator for deduplication purposes.
-  *   This must be at least twice the `submissionTimeRecordTimeTolerance`. It is fine to choose the
-  *   minimal value, unless you plan to subsequently increase `submissionTimeRecordTimeTolerance.`
+  *   This must be at least twice the `preparationTimeRecordTimeTolerance`. It is fine to choose the
+  *   minimal value, unless you plan to subsequently increase `preparationTimeRecordTimeTolerance.`
   * @param reconciliationInterval
   *   The size of the reconciliation interval (minimum duration between two ACS commitments). Note:
   *   default to [[StaticSynchronizerParameters.defaultReconciliationInterval]] for backward
@@ -326,12 +326,12 @@ object OnboardingRestriction {
   *   the number of reconciliation intervals that the participant skips in catch-up mode, and the
   *   number of catch-up intervals intervals a participant should lag behind in order to enter
   *   catch-up mode.
-  * @param submissionTimeRecordTimeTolerance
-  *   the maximum absolute difference between the submission time and the record time of a command.
+  * @param preparationTimeRecordTimeTolerance
+  *   the maximum absolute difference between the preparation time and the record time of a command.
   *   If the absolute difference would be larger for a command, then the command must be rejected.
   *   Defaults to [[ledgerTimeRecordTimeTolerance]] if not set when deserializing from proto.
   * @throws DynamicSynchronizerParameters$.InvalidDynamicSynchronizerParameters
-  *   if `mediatorDeduplicationTimeout` is less than twice of `submissionTimeRecordTimeTolerance`.
+  *   if `mediatorDeduplicationTimeout` is less than twice of `preparationTimeRecordTimeTolerance`.
   */
 final case class DynamicSynchronizerParameters private (
     confirmationResponseTimeout: NonNegativeFiniteDuration,
@@ -347,7 +347,7 @@ final case class DynamicSynchronizerParameters private (
     onboardingRestriction: OnboardingRestriction,
     acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters],
     participantSynchronizerLimits: ParticipantSynchronizerLimits,
-    submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+    preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       DynamicSynchronizerParameters.type
@@ -363,10 +363,10 @@ final case class DynamicSynchronizerParameters private (
 
   // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.jtqcu52qpf82
   if (
-    submissionTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) > mediatorDeduplicationTimeout
+    preparationTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) > mediatorDeduplicationTimeout
   )
     throw new InvalidDynamicSynchronizerParameters(
-      s"The submissionTimeRecordTimeTolerance ($submissionTimeRecordTimeTolerance) must be at most half of the " +
+      s"The preparationTimeRecordTimeTolerance ($preparationTimeRecordTimeTolerance) must be at most half of the " +
         s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
     )
 
@@ -435,8 +435,8 @@ final case class DynamicSynchronizerParameters private (
       trafficControlParameters: Option[TrafficControlParameters] = trafficControl,
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
       acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters] = acsCommitmentsCatchUp,
-      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
-        submissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+        preparationTimeRecordTimeTolerance,
   ): DynamicSynchronizerParameters = DynamicSynchronizerParameters.tryCreate(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -451,7 +451,7 @@ final case class DynamicSynchronizerParameters private (
     onboardingRestriction = onboardingRestriction,
     acsCommitmentsCatchUpParameters = acsCommitmentsCatchUp,
     participantSynchronizerLimits = ParticipantSynchronizerLimits(confirmationRequestsMaxRate),
-    submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
+    preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,
   )(representativeProtocolVersion)
 
   def toProtoV30: v30.DynamicSynchronizerParameters = v30.DynamicSynchronizerParameters(
@@ -469,7 +469,7 @@ final case class DynamicSynchronizerParameters private (
       Some(sequencerAggregateSubmissionTimeout.toProtoPrimitive),
     trafficControl = trafficControl.map(_.toProtoV30),
     acsCommitmentsCatchup = acsCommitmentsCatchUp.map(_.toProtoV30),
-    submissionTimeRecordTimeTolerance = Some(submissionTimeRecordTimeTolerance.toProtoPrimitive),
+    preparationTimeRecordTimeTolerance = Some(preparationTimeRecordTimeTolerance.toProtoPrimitive),
   )
 
   override protected def pretty: Pretty[DynamicSynchronizerParameters] =
@@ -487,7 +487,7 @@ final case class DynamicSynchronizerParameters private (
       paramIfDefined("traffic control", _.trafficControl),
       paramIfDefined("ACS commitment catchup", _.acsCommitmentsCatchUp),
       param("participant synchronizer limits", _.participantSynchronizerLimits),
-      param("submission time record time tolerance", _.submissionTimeRecordTimeTolerance),
+      param("preparation time record time tolerance", _.preparationTimeRecordTimeTolerance),
       param("onboarding restriction", _.onboardingRestriction),
     )
 }
@@ -534,11 +534,11 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
   private val defaultLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
 
-  private val defaultSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+  private val defaultPreparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfHours(24)
 
   private val defaultMediatorDeduplicationTimeout: NonNegativeFiniteDuration =
-    defaultSubmissionTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
+    defaultPreparationTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
 
   // Based on SequencerClientConfig.defaultMaxSequencingTimeOffset + 1 minute of slack for the clock drift
   private val defaultSequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
@@ -555,7 +555,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
     *
     * @return
     *   `Left(...)` if `mediatorDeduplicationTimeout` is less than twice of
-    *   `submissionTimeRecordTimeTolerance`.
+    *   `preparationTimeRecordTimeTolerance`.
     */
   private def create(
       confirmationResponseTimeout: NonNegativeFiniteDuration,
@@ -571,7 +571,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       onboardingRestriction: OnboardingRestriction,
       acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters],
       participantSynchronizerLimits: ParticipantSynchronizerLimits,
-      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+      preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[
         DynamicSynchronizerParameters.type
@@ -592,7 +592,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
         onboardingRestriction,
         acsCommitmentsCatchUp,
         participantSynchronizerLimits,
-        submissionTimeRecordTimeTolerance,
+        preparationTimeRecordTimeTolerance,
       )(representativeProtocolVersion)
     )
 
@@ -615,7 +615,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       onboardingRestriction: OnboardingRestriction,
       acsCommitmentsCatchUpParameters: Option[AcsCommitmentsCatchUpParameters],
       participantSynchronizerLimits: ParticipantSynchronizerLimits,
-      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+      preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[
         DynamicSynchronizerParameters.type
@@ -635,7 +635,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       onboardingRestriction,
       acsCommitmentsCatchUpParameters,
       participantSynchronizerLimits,
-      submissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance,
     )(representativeProtocolVersion)
 
   /** Default dynamic synchronizer parameters for non-static clocks */
@@ -662,7 +662,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       acsCommitmentsCatchUpParameters = defaultAcsCommitmentsCatchUp,
       participantSynchronizerLimits =
         DynamicSynchronizerParameters.defaultParticipantSynchronizerLimits,
-      submissionTimeRecordTimeTolerance = defaultSubmissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance = defaultPreparationTimeRecordTimeTolerance,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -679,8 +679,8 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
         DynamicSynchronizerParameters.defaultReconciliationInterval,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         defaultSequencerAggregateSubmissionTimeout,
-      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
-        defaultSubmissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+        defaultPreparationTimeRecordTimeTolerance,
   ) =
     DynamicSynchronizerParameters.tryCreate(
       confirmationResponseTimeout = defaultConfirmationResponseTimeout,
@@ -696,7 +696,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       onboardingRestriction = defaultOnboardingRestriction,
       acsCommitmentsCatchUpParameters = defaultAcsCommitmentsCatchUp,
       participantSynchronizerLimits = ParticipantSynchronizerLimits(confirmationRequestsMaxRate),
-      submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -732,7 +732,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
       sequencerAggregateSubmissionTimeoutP,
       trafficControlConfigP,
       acsCommitmentCatchupConfigP,
-      submissionTimeRecordTimeToleranceP,
+      preparationTimeRecordTimeToleranceP,
     ) = synchronizerParametersP
     for {
 
@@ -795,10 +795,10 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
         .required("participant_synchronizer_limits", defaultLimitsP)
         .flatMap(ParticipantSynchronizerLimits.fromProtoV30)
 
-      submissionTimeRecordTimeTolerance <- submissionTimeRecordTimeToleranceP
+      preparationTimeRecordTimeTolerance <- preparationTimeRecordTimeToleranceP
         .traverse(
           NonNegativeFiniteDuration.fromProtoPrimitive(
-            "submissionTimeRecordTimeTolerance"
+            "preparationTimeRecordTimeTolerance"
           )
         )
         // TODO(i16458) enforce this field is always set when 3.x is stable
@@ -819,7 +819,7 @@ object DynamicSynchronizerParameters extends VersioningCompanion[DynamicSynchron
           onboardingRestriction = onboardingRestriction,
           acsCommitmentsCatchUp = acsCommitmentCatchupConfig,
           participantSynchronizerLimits = participantSynchronizerLimits,
-          submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
+          preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,
         )(rpv).leftMap(_.toProtoDeserializationError)
     } yield synchronizerParameters
   }

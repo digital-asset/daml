@@ -585,13 +585,13 @@ class CantonSyncService(
           .fromEither[FutureUnlessShutdown](
             TransactionMetadata.fromTransactionMeta(
               metaLedgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
-              metaSubmissionTime = transactionMeta.submissionTime,
+              metaPreparationTime = transactionMeta.preparationTime,
               metaOptNodeSeeds = transactionMeta.optNodeSeeds,
             )
           )
           .leftMap(RoutingInternalError.IllformedTransaction.apply)
 
-        // TODO(#23334):: Consider removing this check as it is redundant
+        // TODO(#25385):: Consider removing this check as it is redundant
         //                      (performed as well in normalizeAndCheck)
         // do some sanity checks for invalid inputs (to not conflate these with broken nodes)
         _ <- EitherT.fromEither[FutureUnlessShutdown](
@@ -601,7 +601,7 @@ class CantonSyncService(
           }
         )
 
-        // TODO(#23334):: Consider moving before SyncService, so that the result of command interpretation
+        // TODO(#25385):: Consider moving before SyncService, so that the result of command interpretation
         //                      is already sanity checked wrt Canton TX normalization rules
         wfTransaction <- EitherT.fromEither[FutureUnlessShutdown](
           WellFormedTransaction
