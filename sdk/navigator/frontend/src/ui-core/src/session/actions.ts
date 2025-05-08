@@ -54,7 +54,7 @@ function handleSessionResponse<A extends Redux.Action>(
 // Async action creators
 function init<A extends Redux.Action>(
   to: To<A>,
-): ThunkAction<void, void, undefined, A> {
+): ThunkAction<void, {}, undefined, A> {
   return dispatch => {
     fetch(sessionUrl, { credentials: "include" })
       // TODO(NAV-14): Add better error handling here
@@ -63,10 +63,10 @@ function init<A extends Redux.Action>(
   };
 }
 
-function signIn<S, A extends Redux.Action>(
+function signIn<A extends Redux.Action>(
   to: To<A>,
   userId: UserId,
-): ThunkAction<void, S, undefined, A> {
+): ThunkAction<void, {}, undefined, A> {
   return dispatch => {
     dispatch(to({ type: "AUTHENTICATING" }));
     fetch(sessionUrl, {
@@ -80,10 +80,10 @@ function signIn<S, A extends Redux.Action>(
   };
 }
 
-function signOut<S, A extends Redux.Action>(
+function signOut<A extends Redux.Action>(
   to: To<A>,
   resetStoreAction: A,
-): ThunkAction<void, S, undefined, A> {
+): ThunkAction<void, {}, undefined, A> {
   return dispatch => {
     dispatch(to({ type: "UNAUTHENTICATING" }));
     // Empty out store on logout to avoid stale caches.

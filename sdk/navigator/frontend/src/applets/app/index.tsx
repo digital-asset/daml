@@ -55,7 +55,7 @@ export const toConfig = (action: ConfigSource.Action): Action => ({
 
 export const resetApp = (): Action => ({ type: "RESET_APP" });
 
-export const initSession = (): ThunkAction<void, void, undefined, Action> =>
+export const initSession = (): ThunkAction<void, {}, undefined, Action> =>
   Session.init(toSession);
 export const initConfig = (): ThunkAction<void, State, undefined, Action> =>
   ConfigSource.reload(toConfig);
