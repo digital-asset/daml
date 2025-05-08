@@ -2,6 +2,7 @@
 , binutils
 , bintools
 , buildEnv
+, coreutils
 , darwin
 , lib
 , libiconv
@@ -86,6 +87,8 @@ in
              ln -s -t $out/bin ${darwin.cctools}/bin/$tool
            fi
         done
+
+        wrapProgram $out/bin/cc --prefix PATH : ${coreutils}/bin
       '';
     })
   )
