@@ -25,7 +25,7 @@
     "@types/classnames": "^2.2.11",
     "@types/color": "^3.0.1",
     "@types/deep-equal": "^1.0.1",
-    "@types/lodash": "^4.14.76",
+    "@types/lodash": "^4.5",
     "@types/modernizr": "^3.5.3",
     "@types/react": "^17.0.0",
     "@types/react-autosuggest": "^10.0.1",
@@ -37,7 +37,7 @@
     "@types/styled-components": "^5.1.0",
     "@typescript-eslint/eslint-plugin": "^4.9.0",
     "@typescript-eslint/parser": "^4.9.0",
-    "apollo": "^2.5.1",
+    "apollo": "^2.34.0",
     "case-sensitive-paths-webpack-plugin": "^2.3.0",
     "classnames": "^2.2.5",
     "css-loader": "^5.2.7",
@@ -62,14 +62,14 @@
     "webpack-dev-server": "^4.7.3"
   },
   "dependencies": {
-    "@apollo/client": "^3.3.2",
+    "@apollo/client": "^3.13.8",
     "babel-standalone": "^6.26.0",
     "color": "^3.0.1",
     "deep-equal": "^2.0.5",
     "enzyme": "^3.11.0",
     "es6-promise": "^4.1.1",
     "jpeg-js": "^0.4.4",
-    "lodash": "^4.17.19",
+    "lodash": "^4.5",
     "modernizr": "^3.11.8",
     "moment": "^2.29.4",
     "normalize.css": "^8.0.1",
@@ -92,7 +92,7 @@
   "resolutions": {
     "**/shelljs": "^0.8.5",
     "**/moment": "^2.29.4",
-    "apollo/**/parse-url": "^8.1.0",
+    "@apollo/federation": "^0.38.1",
     "modernizr/**/markdown-it": "^12.3.2"
   }
 }
