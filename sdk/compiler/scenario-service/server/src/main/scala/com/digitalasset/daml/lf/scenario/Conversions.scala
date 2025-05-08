@@ -268,8 +268,10 @@ final class Conversions(
                     )
                 }
               case _: Upgrade =>
-                proto.ScenarioError.UpgradeError.newBuilder.setMessage(
-                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                builder.setUpgradeError(
+                  proto.ScenarioError.UpgradeError.newBuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
                 )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
