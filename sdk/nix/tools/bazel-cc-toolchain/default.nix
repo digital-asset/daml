@@ -80,6 +80,7 @@ in
       ignoreCollisions = true;
       passthru = { isClang = customStdenv.cc.isClang; targetPrefix = customStdenv.cc.targetPrefix; };
     } // (lib.optionalAttrs stdenv.isDarwin {
+      nativeBuildInputs = [ makeWrapper ];
       # only add tools from darwin.cctools, but don't overwrite existing tools
       postBuild = ''
         for tool in libtool objdump; do
