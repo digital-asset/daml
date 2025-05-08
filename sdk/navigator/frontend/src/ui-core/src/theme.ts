@@ -230,7 +230,7 @@ export const hardcodedStyle = {
 // files. Some others didn't.
 
 const typed: styled.ThemedStyledComponentsModule<ThemeInterface> =
-  styled as styled.ThemedStyledComponentsModule<ThemeInterface>;
+  styled as any as styled.ThemedStyledComponentsModule<ThemeInterface>;
 
 export const {
   css,
