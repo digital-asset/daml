@@ -43,7 +43,6 @@ load(
     "rules_haskell_version",
     "rules_jvm_external_sha256",
     "rules_jvm_external_version",
-    "rules_nixpkgs_patches",
     "rules_nixpkgs_sha256",
     "rules_nixpkgs_version",
     "rules_nodejs_sha256",
@@ -82,10 +81,6 @@ def daml_deps():
             strip_prefix = strip_prefix,
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
-            patches = [
-                p.replace("@com_github_digital_asset_daml", "@daml")
-                for p in rules_nixpkgs_patches
-            ],
             patch_args = ["-p1"],
         )
 
@@ -94,10 +89,6 @@ def daml_deps():
             strip_prefix = strip_prefix + "/core",
             urls = ["https://github.com/tweag/rules_nixpkgs/archive/%s.tar.gz" % rules_nixpkgs_version],
             sha256 = rules_nixpkgs_sha256,
-            patches = [
-                p.replace("@com_github_digital_asset_daml", "@daml")
-                for p in rules_nixpkgs_patches
-            ],
             patch_args = ["-p2"],
         )
 
