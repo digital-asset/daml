@@ -70,7 +70,7 @@ import org.apache.pekko.{Done, NotUsed}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import java.util.{Timer, TimerTask}
 import scala.collection.concurrent.TrieMap
-import scala.collection.{immutable, mutable}
+import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future, Promise, blocking}
 import scala.language.implicitConversions
@@ -896,7 +896,7 @@ object PekkoUtil extends HasLoggerName {
           maxBatchSize: Int,
           maxBatchCount: Int,
           catchUpMode: CatchUpMode = MaximizeConcurrency,
-      ): U#Repr[immutable.Iterable[A]] =
+      ): U#Repr[Iterable[A]] =
         graph.via(BatchN(maxBatchSize, maxBatchCount, catchUpMode))
 
       def dropIf(count: Int)(condition: A => Boolean): U#Repr[A] =

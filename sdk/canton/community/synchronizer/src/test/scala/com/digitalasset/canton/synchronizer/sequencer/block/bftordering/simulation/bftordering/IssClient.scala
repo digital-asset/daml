@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.bftordering
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
@@ -30,6 +31,8 @@ class IssClient[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
 ) extends Module[E, Unit]
     with NamedLogging {
+
+  import IssClient.*
 
   private val random = new Random(simSettings.localSettings.randomSeed)
 
@@ -64,6 +67,8 @@ class IssClient[E <: Env[E]](
 }
 
 object IssClient {
+
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   def initializer[E <: Env[E]](
       simSettings: SimulationSettings,

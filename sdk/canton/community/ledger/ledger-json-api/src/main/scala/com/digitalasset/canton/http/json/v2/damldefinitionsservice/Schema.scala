@@ -84,13 +84,13 @@ object Schema {
         Encoder.encodeString.contramap[Ref.Name](_.toString),
       )
 
-    lazy implicit val typeConNameKeyDecoder: KeyDecoder[Ref.TypeConId] =
+    lazy implicit val TypeConIdKeyDecoder: KeyDecoder[Ref.TypeConId] =
       KeyDecoder.instance(Ref.TypeConId.fromString(_).toOption)
 
-    lazy implicit val typeConNameKeyEncoder: KeyEncoder[Ref.TypeConId] =
+    lazy implicit val TypeConIdKeyEncoder: KeyEncoder[Ref.TypeConId] =
       KeyEncoder.instance(_.toString())
 
-    lazy implicit val typeConNameCodec: Codec[Ref.TypeConId] = Codec.from(
+    lazy implicit val TypeConIdCodec: Codec[Ref.TypeConId] = Codec.from(
       Decoder.decodeString.emap(Ref.TypeConId.fromString),
       Encoder.encodeString.contramap[Ref.TypeConId](_.toString()),
     )
@@ -146,7 +146,7 @@ object Schema {
     lazy implicit val nameTapirCodec: sttp.tapir.Schema[Ref.Name] =
       sttp.tapir.Schema.schemaForString
         .map(str => Ref.Name.fromString(str).toOption)(_.toString)
-    lazy implicit val typeConNameTapirCodec: sttp.tapir.Schema[Ref.TypeConId] =
+    lazy implicit val TypeConIdTapirCodec: sttp.tapir.Schema[Ref.TypeConId] =
       sttp.tapir.Schema.schemaForString
         .map(str => Some(Ref.TypeConId.assertFromString(str)))(_.toString())
         .format("<package-id>:<module-name>:<entity-name>")

@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.util
+package com.digitalasset.canton.util.collection
 
 import cats.FlatMap
 import cats.data.Chain
@@ -10,6 +10,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.util.{ChainUtil, Checked, ErrorUtil}
 
 import scala.annotation.tailrec
 import scala.collection.{concurrent, mutable}
@@ -239,14 +240,15 @@ object MapsUtil {
     * @throws java.lang.IllegalArgumentException
     *   if the minuend is not defined for all keys of the subtrahend.
     */
-  def mapDiff[K, V](minuend: Map[K, V], subtrahend: collection.Map[K, V])(implicit
+  def mapDiff[K, V](from: Map[K, V], subtract: scala.collection.Map[K, V])(implicit
       loggingContext: ErrorLoggingContext
   ): Map[K, V] = {
     ErrorUtil.requireArgument(
-      subtrahend.keySet.subsetOf(subtrahend.keySet),
-      s"Cannot compute map difference if minuend is not defined whenever subtrahend is defined. Missing keys: ${subtrahend.keySet diff minuend.keySet}",
+      subtract.keySet.subsetOf(subtract.keySet),
+      s"Cannot compute map difference if minuend is not defined whenever subtrahend is defined. Missing keys: " +
+        s"${subtract.keySet diff from.keySet}",
     )
-    minuend.filter { case (k, v) => !subtrahend.get(k).contains(v) }
+    from.filter { case (k, v) => !subtract.get(k).contains(v) }
   }
 
   /** @return

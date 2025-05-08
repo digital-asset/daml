@@ -240,8 +240,8 @@ object RejectionGenerators {
           commandsSynchronizerId.toProtoPrimitive,
         )
       case ErrorCause.RoutingFailed(baseError) =>
-        // TODO(#23334) Streamline ErrorCause usage
-        // TODO(#23334) This is logged again on this creation
+        // TODO(#25385) Streamline ErrorCause usage
+        // TODO(#25385) This is logged again on this creation
         new DamlErrorWithDefiniteAnswer(baseError.cause, baseError.throwableO)(
           baseError.code,
           NoLogging,

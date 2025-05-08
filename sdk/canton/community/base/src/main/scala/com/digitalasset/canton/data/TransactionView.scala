@@ -21,7 +21,8 @@ import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.util.{ErrorUtil, MapsUtil, NamedLoggingLazyVal}
+import com.digitalasset.canton.util.collection.MapsUtil
+import com.digitalasset.canton.util.{ErrorUtil, NamedLoggingLazyVal}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfVersioned, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting

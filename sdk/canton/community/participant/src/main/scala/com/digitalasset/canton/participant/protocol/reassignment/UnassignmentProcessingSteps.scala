@@ -467,11 +467,12 @@ class UnassignmentProcessingSteps(
         }
       )
 
-      val engineAbortStatusF = unassignmentValidationResult.metadataResultET.value.map {
-        case Left(ReassignmentValidationError.ReinterpretationAborted(_, reason)) =>
-          EngineAbortStatus.aborted(reason)
-        case _ => EngineAbortStatus.notAborted
-      }
+      val engineAbortStatusF =
+        unassignmentValidationResult.contractAuthenticationResultF.value.map {
+          case Left(ReassignmentValidationError.ReinterpretationAborted(_, reason)) =>
+            EngineAbortStatus.aborted(reason)
+          case _ => EngineAbortStatus.notAborted
+        }
 
       val entry = PendingUnassignment(
         parsedRequest.requestId,
@@ -529,29 +530,33 @@ class UnassignmentProcessingSteps(
       FutureUnlessShutdown,
       ReassignmentProcessorError,
       CommitAndStoreContractsAndPublishEvent,
-    ] = for {
-      eventO <- EitherT.fromEither[FutureUnlessShutdown](
-        createRejectionEvent(RejectionArgs(pendingRequestData, reason))
-      )
-      _ = if (isReassigningParticipant)
-        reassignmentCoordination.completeUnassignment(
+    ] =
+      for {
+        eventO <- EitherT.fromEither[FutureUnlessShutdown](
+          createRejectionEvent(RejectionArgs(pendingRequestData, reason))
+        )
+        _ = reassignmentCoordination.completeUnassignment(
           unassignmentValidationResult.reassignmentId
         )
-    } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+      } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+
+    def mergeRejectionReasons(
+        reason: TransactionRejection,
+        validationError: Option[TransactionRejection],
+    ): TransactionRejection =
+      // we reject with the phase 7 rejection, as it is the best information we have
+      validationError.getOrElse(reason)
 
     for {
-      isSuccessful <- EitherT.right(unassignmentValidationResult.isSuccessfulF)
-      commit <- verdict match {
-        // TODO(i22887): Right now we fail at phase 7 if any validation has failed.
-        // We should fail only for some specific errors e.g ModelConformance check.
-        case _: Verdict.Approve if !isSuccessful =>
-          reassignmentCoordination
-            .completeUnassignment(unassignmentValidationResult.reassignmentId)
-          throw new RuntimeException(
-            s"Unassignment validation failed for $requestId because: ${unassignmentValidationResult.validationResult}"
-          )
+      rejectionO <- EitherT.right(
+        checkPhase7Validations(unassignmentValidationResult)
+      )
 
-        case _: Verdict.Approve =>
+      commit <- (verdict, rejectionO) match {
+        case (_: Verdict.Approve, Some(rejection)) =>
+          rejected(rejection)
+
+        case (_: Verdict.Approve, _) =>
           val commitSet = unassignmentValidationResult.commitSet
           val commitSetFO = Some(FutureUnlessShutdown.pure(commitSet))
           val unassignmentData = UnassignmentData(
@@ -583,10 +588,11 @@ class UnassignmentProcessingSteps(
             Seq.empty,
             Some(reassignmentAccepted),
           )
-        case reasons: Verdict.ParticipantReject =>
-          rejected(reasons.keyEvent)
+        case (reasons: Verdict.ParticipantReject, rejectionO) =>
+          rejected(mergeRejectionReasons(reasons.keyEvent, rejectionO))
 
-        case rejection: MediatorReject => rejected(rejection)
+        case (rejection: MediatorReject, rejectionO) =>
+          rejected(mergeRejectionReasons(rejection, rejectionO))
       }
     } yield commit
 
@@ -631,16 +637,16 @@ class UnassignmentProcessingSteps(
 
   override def localRejectFromActivenessCheck(
       requestId: RequestId,
-      activenessResult: ActivenessResult,
       validationResult: ReassignmentValidationResult,
   ): Option[LocalRejectError] = {
     import com.digitalasset.canton.ReassignmentCounter
+    val activenessResult = validationResult.activenessResult
 
     def counterIsCorrect(
         contractId: LfContractId,
         declaredReassignmentCounter: ReassignmentCounter,
     ): Boolean = {
-      val expectedStatus = Some(ActiveContractStore.Active(declaredReassignmentCounter - 1))
+      val expectedStatus = Option(ActiveContractStore.Active(declaredReassignmentCounter - 1))
       activenessResult.contracts.priorStates.get(contractId).contains(expectedStatus)
     }
 

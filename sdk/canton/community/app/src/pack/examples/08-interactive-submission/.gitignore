@@ -11,4 +11,5 @@ daml_commit
 canton_ports.json
 **.der
 **.bin
+**.json.gz
 **.binpb

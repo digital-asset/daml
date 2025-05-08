@@ -20,6 +20,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.dispatch.ControlMessage
 
+import java.time.Instant
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Failure, Success, Try}
 
@@ -84,6 +85,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
   )(implicit
       context: E#ActorContextT[MessageT],
       traceContext: TraceContext,
+      merticsContext: MetricsContext,
   ): Unit =
     context.pipeToSelf(futureUnlessShutdown)(fun.andThen(Some(_)))
 
@@ -92,7 +94,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
   )(implicit
       context: E#ActorContextT[MessageT],
       traceContext: TraceContext,
-      mc: MetricsContext,
+      metricsContext: MetricsContext,
   ): Unit =
     context.pipeToSelf(context.timeFuture(timer, futureUnlessShutdown))(fun.andThen(Some(_)))
 
@@ -159,13 +161,14 @@ trait ModuleRef[-AcceptedMessageT] {
     */
   def asyncSend(
       msg: AcceptedMessageT
-  ): Unit = asyncSendTraced(msg)(TraceContext.empty)
+  )(implicit metricsContext: MetricsContext): Unit =
+    asyncSendTraced(msg)(TraceContext.empty, metricsContext)
 
   /** Send operation that is also providing the current TraceContext
     */
   def asyncSendTraced(
       msg: AcceptedMessageT
-  )(implicit traceContext: TraceContext): Unit
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit
 }
 
 /** An abstraction of the network for deterministic simulation testing purposes.
@@ -263,11 +266,14 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
 
   def self: E#ModuleRefT[MessageT]
 
-  def delayedEvent(delay: FiniteDuration, message: MessageT): CancellableEvent =
-    delayedEventTraced(delay, message)(TraceContext.empty)
+  def delayedEvent(delay: FiniteDuration, message: MessageT)(implicit
+      metricsContext: MetricsContext
+  ): CancellableEvent =
+    delayedEventTraced(delay, message)(TraceContext.empty, metricsContext)
 
   def delayedEventTraced(delay: FiniteDuration, messageT: MessageT)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): CancellableEvent
 
   /** Similar to TraceContext.withNewTraceContext but can be deterministically simulated
@@ -280,7 +286,7 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
       timer: Timer,
       futureUnlessShutdown: => E#FutureUnlessShutdownT[X],
   )(implicit
-      mc: MetricsContext
+      metricsContext: MetricsContext
   ): E#FutureUnlessShutdownT[X] =
     futureContext.timeFuture(timer, futureUnlessShutdown)
 
@@ -312,7 +318,7 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
 
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit =
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
     pipeToSelfInternal(futureUnlessShutdown) {
       UnlessShutdown.recoverFromAbortException(_) match {
         case Success(Outcome(x)) => fun(Success(x))
@@ -326,7 +332,7 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
 
   protected def pipeToSelfInternal[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]
-  )(implicit traceContext: TraceContext): Unit
+  )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit
 
   def blockingAwait[X](future: E#FutureUnlessShutdownT[X]): X
 
@@ -391,6 +397,10 @@ object Module {
     final case class Send[E <: Env[E], AcceptedMessageT](
         message: AcceptedMessageT,
         traceContext: TraceContext,
+        metricsContext: MetricsContext,
+        // The following fields are only used for metrics
+        maybeSendInstant: Option[Instant] = None,
+        maybeDelay: Option[FiniteDuration] = None,
     ) extends ModuleControl[E, AcceptedMessageT]
 
     final case class SetBehavior[E <: Env[E], AcceptedMessageT](

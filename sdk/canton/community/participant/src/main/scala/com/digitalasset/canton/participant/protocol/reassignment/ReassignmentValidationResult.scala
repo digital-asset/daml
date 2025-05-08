@@ -15,9 +15,11 @@ trait ReassignmentValidationResult {
   def rootHash: RootHash
   def contracts: ContractsReassignmentBatch
   def activenessResult: ActivenessResult
-  def authenticationErrorO: Option[AuthenticationError]
-  def metadataResultET: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit]
-  def validationErrors: Seq[ReassignmentValidationError]
+  def participantSignatureVerificationResult: Option[AuthenticationError]
+  def contractAuthenticationResultF
+      : EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit]
+  def submitterCheckResult: Option[ReassignmentValidationError]
+  def reassigningParticipantValidationResult: Seq[ReassignmentValidationError]
   def isUnassignment: Boolean
   def isReassigningParticipant: Boolean
   def activenessResultIsSuccessful: Boolean = activenessResult.isSuccessful

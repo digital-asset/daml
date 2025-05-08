@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.p2p.grpc
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.SequencerNodeId
@@ -106,7 +107,7 @@ object PekkoGrpcP2PNetworking {
       clientHandle: StreamObserver[BftOrderingServiceReceiveResponse],
       cleanupClientHandle: StreamObserver[BftOrderingServiceReceiveResponse] => Unit,
       loggerFactory: NamedLoggerFactory,
-  ): StreamObserver[P2PMessageT] =
+  )(implicit metricsContext: MetricsContext): StreamObserver[P2PMessageT] =
     Try(
       clientHandle.onNext(
         BftOrderingServiceReceiveResponse(node)

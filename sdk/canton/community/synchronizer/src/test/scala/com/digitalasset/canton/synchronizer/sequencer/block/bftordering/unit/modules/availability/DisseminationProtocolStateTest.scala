@@ -6,6 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.Signature.noSignature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.DisseminationProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
@@ -129,6 +131,9 @@ object DisseminationProtocolStateTest {
         )
       ),
       SequencingParameters.Default, // irrelevant for this test
+      MaxRequestSizeToDeserialize.Limit(
+        DynamicSynchronizerParameters.defaultMaxRequestSize.value
+      ), // irrelevant for this test
       AnActivationTime, // irrelevant for this test
       areTherePendingCantonTopologyChanges = false, // irrelevant for this test
     )

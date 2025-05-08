@@ -42,7 +42,7 @@ import com.digitalasset.canton.store.db.{DbDeserializationException, DbPrunableB
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.util.IterableUtil.Ops
+import com.digitalasset.canton.util.collection.IterableUtil.Ops
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable

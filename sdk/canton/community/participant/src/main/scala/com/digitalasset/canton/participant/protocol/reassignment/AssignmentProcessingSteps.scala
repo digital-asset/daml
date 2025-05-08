@@ -380,7 +380,7 @@ private[reassignment] class AssignmentProcessingSteps(
         }
       )
 
-      val engineAbortStatusF = assignmentValidationResult.metadataResultET.value.map {
+      val engineAbortStatusF = assignmentValidationResult.contractAuthenticationResultF.value.map {
         case Left(ReassignmentValidationError.ReinterpretationAborted(_, reason)) =>
           EngineAbortStatus.aborted(reason)
         case _ => EngineAbortStatus.notAborted
@@ -437,33 +437,36 @@ private[reassignment] class AssignmentProcessingSteps(
 
     def rejected(
         reason: TransactionRejection
-    ): Either[ReassignmentProcessorError, CommitAndStoreContractsAndPublishEvent] =
-      for {
+    ): EitherT[
+      FutureUnlessShutdown,
+      ReassignmentProcessorError,
+      CommitAndStoreContractsAndPublishEvent,
+    ] = {
+      val commit = for {
         eventO <- createRejectionEvent(RejectionArgs(pendingRequestData, reason))
       } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
+      EitherT.fromEither[FutureUnlessShutdown](commit)
+    }
+
+    def mergeRejectionReasons(
+        reason: TransactionRejection,
+        validationError: Option[TransactionRejection],
+    ): TransactionRejection =
+      // we reject with the phase 7 rejection, as it is the best information we have
+      validationError.getOrElse(reason)
 
     for {
-      isSuccessful <- EitherT.right(assignmentValidationResult.isSuccessfulF)
-      commitAndStoreContract <- verdict match {
-        // TODO(i22887): Right now we fail at phase 7 if any validation has failed
-        //  except reassignmentDataNotFound which is a race condition usually.
-        //  We should fail only for some specific errors e.g ModelConformance check.
-        // TODO(i22993): Adding this exception is a workaround, we should remove it once we have decided how to deal
-        //  with completing assignment before unassignment.
-        case _: Verdict.Approve
-            if !isSuccessful && !assignmentValidationResult.validationResult.isUnassignmentDataNotFound =>
-          throw new RuntimeException(
-            s"Assignment validation failed for $requestId because: ${assignmentValidationResult.validationResult}"
-          )
+      rejectionO <- EitherT.right(checkPhase7Validations(assignmentValidationResult))
 
-        case _: Verdict.Approve =>
+      commitAndStoreContract <- (verdict, rejectionO) match {
+        case (_: Verdict.Approve, Some(rejection)) =>
+          rejected(rejection)
+        case (_: Verdict.Approve, _) =>
           val commitSet = assignmentValidationResult.commitSet
           val commitSetO = Some(FutureUnlessShutdown.pure(commitSet))
           val contractsToBeStored = assignmentValidationResult.contracts.contracts.map(_.contract)
 
           for {
-            // By inserting assignment data, it allows us to process the assignment before the unassignment.
-            // TODO(i22993): workaround for issue 22993.
             _ <-
               if (
                 assignmentValidationResult.validationResult.isUnassignmentDataNotFound
@@ -488,14 +491,13 @@ private[reassignment] class AssignmentProcessingSteps(
             Some(update),
           )
 
-        case reasons: Verdict.ParticipantReject =>
-          EitherT.fromEither[FutureUnlessShutdown](rejected(reasons.keyEvent))
+        case (reasons: Verdict.ParticipantReject, rejectionO) =>
+          rejected(mergeRejectionReasons(reasons.keyEvent, rejectionO))
 
-        case rejection: Verdict.MediatorReject =>
-          EitherT.fromEither[FutureUnlessShutdown](rejected(rejection))
+        case (rejection: Verdict.MediatorReject, rejectionO) =>
+          rejected(mergeRejectionReasons(rejection, rejectionO))
       }
     } yield commitAndStoreContract
-
   }
 
   override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
@@ -504,9 +506,9 @@ private[reassignment] class AssignmentProcessingSteps(
 
   override def localRejectFromActivenessCheck(
       requestId: RequestId,
-      activenessResult: ActivenessResult,
       validationResult: ReassignmentValidationResult,
-  ): Option[LocalRejectError] =
+  ): Option[LocalRejectError] = {
+    val activenessResult = validationResult.activenessResult
     if (validationResult.activenessResultIsSuccessful) None
     else if (activenessResult.inactiveReassignments.contains(validationResult.reassignmentId))
       Some(
@@ -527,6 +529,7 @@ private[reassignment] class AssignmentProcessingSteps(
       throw new RuntimeException(
         s"Assignment $requestId: Unexpected activeness result $activenessResult"
       )
+  }
 }
 
 object AssignmentProcessingSteps {

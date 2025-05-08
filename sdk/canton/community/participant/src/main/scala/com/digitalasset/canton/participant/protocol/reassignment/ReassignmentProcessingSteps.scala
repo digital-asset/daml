@@ -38,7 +38,6 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   NoMediatorError,
   ProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.conflictdetection.ActivenessResult
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
 import com.digitalasset.canton.participant.protocol.{
@@ -140,7 +139,6 @@ trait ReassignmentProcessingSteps[
 
   def localRejectFromActivenessCheck(
       requestId: RequestId,
-      activenessResult: ActivenessResult,
       validationResult: ReassignmentValidationResult,
   ): Option[LocalRejectError]
 
@@ -379,35 +377,39 @@ trait ReassignmentProcessingSteps[
         else
           FutureUnlessShutdown.pure(Set.empty[LfPartyId])
 
-      metadataResult <-
-        if (hostedConfirmingParties.nonEmpty) validationResult.metadataResultET.value
+      contractAuthenticationResult <-
+        if (hostedConfirmingParties.nonEmpty) validationResult.contractAuthenticationResultF.value
         else
           FutureUnlessShutdown.pure(Right(()))
     } yield {
       if (hostedConfirmingParties.isEmpty) None
       else {
-        val activenessResult = validationResult.activenessResult
-        val authenticationErrorO = validationResult.authenticationErrorO
+        val authenticationErrorO = validationResult.participantSignatureVerificationResult
 
         val authenticationRejection = authenticationErrorO.map(err =>
           LocalRejectError.MalformedRejects.MalformedRequest
             .Reject(err.message)
         )
 
-        val modelConformanceRejection = metadataResult.swap.toSeq.map(err =>
+        val modelConformanceRejection = contractAuthenticationResult.swap.toSeq.map(err =>
           LocalRejectError.MalformedRejects.ModelConformance.Reject(err.toString)
         )
 
+        val submitterCheckRejection = validationResult.submitterCheckResult.map(err =>
+          LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
+        )
+
         val failedValidationRejection =
-          validationResult.validationErrors.map(err =>
+          validationResult.reassigningParticipantValidationResult.map(err =>
             LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
           )
 
-        val contractRejection =
-          localRejectFromActivenessCheck(requestId, activenessResult, validationResult)
+        val activnessRejection =
+          localRejectFromActivenessCheck(requestId, validationResult)
 
         val localRejections =
-          (modelConformanceRejection ++ contractRejection.toList ++ authenticationRejection.toList ++ failedValidationRejection)
+          (modelConformanceRejection ++ activnessRejection.toList ++
+            authenticationRejection.toList ++ submitterCheckRejection ++ failedValidationRejection)
             .map { err =>
               err.logWithContext()
               err.toLocalReject(protocolVersion)
@@ -443,6 +445,39 @@ trait ReassignmentProcessingSteps[
         )
         Some(confirmationResponses)
       }
+    }
+
+  /** During phase 7, the validations that should be checked are the validations that can be done on
+    * all participants, whether reassigning or non-reassigning participants. These checks include:
+    *   - Contract authentication check.
+    *   - Validation of the signature of the submitting participant.
+    *   - Checks related to the submitter party:
+    *     - Is the submitter a stakeholder?
+    *     - Is the submitter hosted on the participant?
+    */
+  def checkPhase7Validations(
+      reassignmentValidationResult: ReassignmentValidationResult
+  ): FutureUnlessShutdown[Option[TransactionRejection]] =
+    reassignmentValidationResult.contractAuthenticationResultF.value.map {
+      contractAuthenticationResult =>
+        val modelConformanceRejection =
+          contractAuthenticationResult
+            .leftMap(error =>
+              LocalRejectError.MalformedRejects.ModelConformance.Reject(error.toString)
+            )
+            .swap
+            .toOption
+
+        val authenticationRejection =
+          reassignmentValidationResult.participantSignatureVerificationResult.map(err =>
+            LocalRejectError.MalformedRejects.MalformedRequest
+              .Reject(err.message)
+          )
+
+        val submitterCheckRejection = reassignmentValidationResult.submitterCheckResult.map(err =>
+          LocalRejectError.ReassignmentRejects.ValidationFailed.Reject(err.message)
+        )
+        (modelConformanceRejection.toList ++ authenticationRejection.toList ++ submitterCheckRejection.toList).headOption
     }
 
 }

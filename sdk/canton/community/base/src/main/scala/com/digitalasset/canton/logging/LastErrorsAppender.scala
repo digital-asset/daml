@@ -11,6 +11,7 @@ import ch.qos.logback.core.spi.AppenderAttachable
 import ch.qos.logback.core.{Appender, AppenderBase}
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.util.collection.BoundedQueue
 import com.github.blemale.scaffeine.Scaffeine
 import com.typesafe.scalalogging.Logger
 
@@ -168,24 +169,4 @@ class LastErrorsAppender()
     }
 
   override def detachAppender(name: String): Boolean = throw new NotImplementedError()
-}
-
-@SuppressWarnings(Array("org.wartremover.warts.While"))
-class BoundedQueue[A](maxQueueSize: Int) extends mutable.Queue[A] {
-
-  private def trim(): Unit =
-    while (sizeIs > maxQueueSize) dequeue().discard
-
-  override def addOne(elem: A): BoundedQueue.this.type = {
-    val ret = super.addOne(elem)
-    trim()
-    ret
-  }
-
-  override def addAll(elems: IterableOnce[A]): BoundedQueue.this.type = {
-    val ret = super.addAll(elems)
-    trim()
-    ret
-  }
-
 }

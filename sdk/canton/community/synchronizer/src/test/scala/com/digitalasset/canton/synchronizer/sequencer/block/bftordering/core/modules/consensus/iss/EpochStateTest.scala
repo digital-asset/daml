@@ -175,10 +175,11 @@ object EpochStateTest {
     new ModuleRef[ConsensusSegment.Message] {
       override def asyncSendTraced(
           msg: ConsensusSegment.Message
-      )(implicit traceContext: TraceContext): Unit = msg match {
-        case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
-          segmentState.processEvent(pbftEvent)
-        case _ => ()
-      }
+      )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
+        msg match {
+          case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
+            segmentState.processEvent(pbftEvent)
+          case _ => ()
+        }
     }
 }

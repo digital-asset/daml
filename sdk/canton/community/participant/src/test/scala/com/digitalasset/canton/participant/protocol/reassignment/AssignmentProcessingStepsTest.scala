@@ -592,7 +592,7 @@ class AssignmentProcessingStepsTest
           }
           val assignmentValidationResult = result.pendingData.assignmentValidationResult
           val modelConformanceError =
-            assignmentValidationResult.metadataResultET.value.futureValueUS
+            assignmentValidationResult.contractAuthenticationResultF.value.futureValueUS
 
           modelConformanceError.left.value match {
             case ContractIdAuthenticationFailure(ref, reason, contractId) =>
@@ -602,7 +602,7 @@ class AssignmentProcessingStepsTest
             case other => fail(s"Did not expect $other")
           }
 
-          assignmentValidationResult.validationErrors should contain(
+          assignmentValidationResult.reassigningParticipantValidationResult should contain(
             ContractDataMismatch(reassignmentId)
           )
         }
@@ -728,7 +728,7 @@ class AssignmentProcessingStepsTest
             )("construction of pending data and response failed").failOnShutdown
 
           metadataCheck =
-            result.pendingData.assignmentValidationResult.metadataResultET.futureValueUS
+            result.pendingData.assignmentValidationResult.contractAuthenticationResultF.futureValueUS
         } yield {
           metadataCheck.left.value shouldBe expectedError
           result.confirmationResponsesF.futureValueUS.value
@@ -768,9 +768,10 @@ class AssignmentProcessingStepsTest
           hostedStakeholders = contract.metadata.stakeholders,
           validationResult = AssignmentValidationResult.ValidationResult(
             activenessResult = mkActivenessResult(),
-            authenticationErrorO = None,
-            metadataResultET = EitherT.rightT(()),
-            validationErrors = Seq.empty,
+            participantSignatureVerificationResult = None,
+            contractAuthenticationResultF = EitherT.rightT(()),
+            submitterCheckResult = None,
+            reassigningParticipantValidationResult = Seq.empty,
           ),
         ),
         MediatorGroupRecipient(MediatorGroupIndex.one),

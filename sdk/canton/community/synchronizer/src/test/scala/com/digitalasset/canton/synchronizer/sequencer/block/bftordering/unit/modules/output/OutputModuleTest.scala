@@ -7,7 +7,9 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencer.admin.v30
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -123,8 +125,8 @@ class OutputModuleTest
         output.receive(Output.BlockOrdered(initialBlock))
 
         verify(availabilityRef, times(1)).asyncSendTraced(
-          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
-        )
+          eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
+        )(any[TraceContext], any[MetricsContext])
         succeed
       }
     }
@@ -146,15 +148,15 @@ class OutputModuleTest
         output.receive(Output.BlockOrdered(initialBlock))
 
         verify(availabilityRef, times(1)).asyncSendTraced(
-          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
-        )
+          eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
+        )(any[TraceContext], any[MetricsContext])
 
         clearInvocations(availabilityRef)
         output.receive(Output.BlockOrdered(initialBlock))
 
         verify(availabilityRef, never).asyncSend(
-          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
-        )
+          eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
+        )(any[MetricsContext])
         succeed
       }
 
@@ -178,8 +180,8 @@ class OutputModuleTest
         output.receive(Output.BlockOrdered(initialBlock))
 
         verify(availabilityRef, never).asyncSend(
-          Availability.LocalOutputFetch.FetchBlockData(initialBlock)
-        )
+          eqTo(Availability.LocalOutputFetch.FetchBlockData(initialBlock))
+        )(any[MetricsContext])
         succeed
       }
     }
@@ -733,7 +735,7 @@ class OutputModuleTest
                 Membership(BftNodeId("node1"), newOrderingTopology, Seq.empty),
                 any[CryptoProvider[ProgrammableUnitTestEnv]],
               )
-            )
+            )(any[MetricsContext])
 
             succeed
           }
@@ -773,12 +775,14 @@ class OutputModuleTest
         )
 
         verify(consensusRef, never).asyncSend(
-          Consensus.NewEpochTopology(
-            secondEpochNumber,
-            aNewMembership,
-            aCryptoProvider,
+          eqTo(
+            Consensus.NewEpochTopology(
+              secondEpochNumber,
+              aNewMembership,
+              aCryptoProvider,
+            )
           )
-        )
+        )(any[MetricsContext])
 
         output.receive(
           TopologyFetched(
@@ -792,21 +796,25 @@ class OutputModuleTest
         order
           .verify(consensusRef, times(1))
           .asyncSend(
-            Consensus.NewEpochTopology(
-              EpochNumber.First,
-              aNewMembership,
-              aCryptoProvider,
+            eqTo(
+              Consensus.NewEpochTopology(
+                EpochNumber.First,
+                aNewMembership,
+                aCryptoProvider,
+              )
             )
-          )
+          )(any[MetricsContext])
         order
           .verify(consensusRef, times(1))
           .asyncSend(
-            Consensus.NewEpochTopology(
-              secondEpochNumber,
-              aNewMembership,
-              aCryptoProvider,
+            eqTo(
+              Consensus.NewEpochTopology(
+                secondEpochNumber,
+                aNewMembership,
+                aCryptoProvider,
+              )
             )
-          )
+          )(any[MetricsContext])
 
         succeed
       }
@@ -819,6 +827,7 @@ class OutputModuleTest
           createOutputModule[ProgrammableUnitTestEnv](requestInspector = new RequestInspector {
             override def isRequestToAllMembersOfSynchronizer(
                 request: OrderingRequest,
+                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
                 logger: TracedLogger,
                 traceContext: TraceContext,
             )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
@@ -887,6 +896,7 @@ class OutputModuleTest
           requestInspector = new RequestInspector {
             override def isRequestToAllMembersOfSynchronizer(
                 request: OrderingRequest,
+                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
                 logger: TracedLogger,
                 traceContext: TraceContext,
             )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
@@ -912,7 +922,7 @@ class OutputModuleTest
             Membership.forTesting(BftNodeId("node1")),
             any[CryptoProvider[ProgrammableUnitTestEnv]],
           )
-        )
+        )(any[MetricsContext])
         succeed
       }
     }
@@ -946,6 +956,9 @@ class OutputModuleTest
             ),
         ),
         SequencingParameters.Default,
+        MaxRequestSizeToDeserialize.Limit(
+          DynamicSynchronizerParameters.defaultMaxRequestSize.value
+        ), // irrelevant for this test
         topologyActivationTime,
         areTherePendingCantonTopologyChanges = false,
       )
@@ -1039,39 +1052,42 @@ class OutputModuleTest
       context.runPipedMessagesAndReceiveOnModule(output)
 
       verify(sequencerNodeRef, times(1)).asyncSend(
-        SequencerNode.SnapshotMessage.AdditionalInfo(
-          v30.BftSequencerSnapshotAdditionalInfo(
-            Map(
-              node1 ->
-                v30.BftSequencerSnapshotAdditionalInfo
-                  .SequencerActiveAt(
-                    timestamp = node1TopologyInfo.activationTime.value.toMicros,
-                    startEpochNumber = Some(EpochNumber.First),
-                    firstBlockNumberInStartEpoch = Some(BlockNumber.First),
-                    startEpochTopologyQueryTimestamp =
-                      Some(previousTopologyActivationTime.value.toMicros),
-                    startEpochCouldAlterOrderingTopology = None,
-                    previousBftTime = None,
-                    previousEpochTopologyQueryTimestamp = None,
-                  ),
-              node2 ->
-                v30.BftSequencerSnapshotAdditionalInfo
-                  .SequencerActiveAt(
-                    timestamp = node2TopologyInfo.activationTime.value.toMicros,
-                    startEpochNumber = Some(EpochNumber(1L)),
-                    firstBlockNumberInStartEpoch = Some(BlockNumber(DefaultEpochLength)),
-                    startEpochTopologyQueryTimestamp = Some(topologyActivationTime.value.toMicros),
-                    startEpochCouldAlterOrderingTopology = Some(true),
-                    previousBftTime = Some(
-                      bftTimeForBlockInFirstEpoch(BlockNumber(DefaultEpochLength - 1L)).toMicros
+        eqTo(
+          SequencerNode.SnapshotMessage.AdditionalInfo(
+            v30.BftSequencerSnapshotAdditionalInfo(
+              Map(
+                node1 ->
+                  v30.BftSequencerSnapshotAdditionalInfo
+                    .SequencerActiveAt(
+                      timestamp = node1TopologyInfo.activationTime.value.toMicros,
+                      startEpochNumber = Some(EpochNumber.First),
+                      firstBlockNumberInStartEpoch = Some(BlockNumber.First),
+                      startEpochTopologyQueryTimestamp =
+                        Some(previousTopologyActivationTime.value.toMicros),
+                      startEpochCouldAlterOrderingTopology = None,
+                      previousBftTime = None,
+                      previousEpochTopologyQueryTimestamp = None,
                     ),
-                    previousEpochTopologyQueryTimestamp =
-                      Some(previousTopologyActivationTime.value.toMicros),
-                  ),
+                node2 ->
+                  v30.BftSequencerSnapshotAdditionalInfo
+                    .SequencerActiveAt(
+                      timestamp = node2TopologyInfo.activationTime.value.toMicros,
+                      startEpochNumber = Some(EpochNumber(1L)),
+                      firstBlockNumberInStartEpoch = Some(BlockNumber(DefaultEpochLength)),
+                      startEpochTopologyQueryTimestamp =
+                        Some(topologyActivationTime.value.toMicros),
+                      startEpochCouldAlterOrderingTopology = Some(true),
+                      previousBftTime = Some(
+                        bftTimeForBlockInFirstEpoch(BlockNumber(DefaultEpochLength - 1L)).toMicros
+                      ),
+                      previousEpochTopologyQueryTimestamp =
+                        Some(previousTopologyActivationTime.value.toMicros),
+                    ),
+              )
             )
           )
         )
-      )
+      )(any[MetricsContext])
       succeed
     }
   }
@@ -1105,8 +1121,8 @@ class OutputModuleTest
     output.receive(Output.BlockOrdered(block))
 
     verify(availabilityRef, times(1)).asyncSendTraced(
-      Availability.LocalOutputFetch.FetchBlockData(block)
-    )
+      eqTo(Availability.LocalOutputFetch.FetchBlockData(block))
+    )(any[TraceContext], any[MetricsContext])
     val completeBlockData = CompleteBlockData(block, batches = Seq.empty)
     output.receive(Output.BlockDataFetched(completeBlockData))
     cell.get().getOrElse(fail("BlockDataStored not received")).apply() // store block
@@ -1236,6 +1252,7 @@ object OutputModuleTest {
 
     override def isRequestToAllMembersOfSynchronizer(
         _request: OrderingRequest,
+        _maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
         _logger: TracedLogger,
         _traceContext: TraceContext,
     )(implicit _synchronizerProtocolVersion: ProtocolVersion): Boolean = {

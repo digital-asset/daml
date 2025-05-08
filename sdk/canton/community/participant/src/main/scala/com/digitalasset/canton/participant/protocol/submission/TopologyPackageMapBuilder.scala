@@ -32,8 +32,8 @@ final class TopologyPackageMapBuilder(
   //   - which package-ids can be accepted (i.e. they are vetting-valid)
   //     in a transaction by each of the informees provided
   //   - if the prescribed synchronizer is provided, only that one is considered
-  // TODO(#23334): Deduplicate with logic from SynchronizerSelector
-  // TODO(#23334): Split the functionality in two phases: first restricts the synchronizers
+  // TODO(#25385): Deduplicate with logic from SynchronizerSelector
+  // TODO(#25385): Split the functionality in two phases: first restricts the synchronizers
   //                      based on the input submitters and informees; second computes the package maps
   def packageMapFor(
       submitters: Set[LfPartyId],
@@ -168,7 +168,7 @@ final class TopologyPackageMapBuilder(
           // We only care about packages vetted on all hosting participants
           // Otherwise, a transaction using them will be rejected
           .reduceOption(_.intersect(_))
-          // TODO(#23334): Empty set means that the party does not have any commonly vetting package-id
+          // TODO(#25385): Empty set means that the party does not have any commonly vetting package-id
           //          across all its hosting participants. This probably spells trouble
           //          and the synchronizer-id must be disconsidered (maybe stale)
           .getOrElse(Set.empty)

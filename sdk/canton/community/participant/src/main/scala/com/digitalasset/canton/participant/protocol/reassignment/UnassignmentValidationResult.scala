@@ -25,6 +25,7 @@ import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -47,14 +48,22 @@ final case class UnassignmentValidationResult(
 
   def isReassigningParticipant: Boolean = assignmentExclusivity.isDefined
   override def isUnassignment: Boolean = true
+
+  @VisibleForTesting
   def isSuccessfulF(implicit ec: ExecutionContext): FutureUnlessShutdown[Boolean] =
     validationResult.isSuccessful
 
   def activenessResult: ActivenessResult = validationResult.activenessResult
-  def authenticationErrorO: Option[AuthenticationError] = validationResult.authenticationErrorO
-  def metadataResultET: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
-    validationResult.metadataResultET
-  def validationErrors: Seq[ReassignmentValidationError] = validationResult.validationErrors
+  def participantSignatureVerificationResult: Option[AuthenticationError] =
+    validationResult.participantSignatureVerificationResult
+  def contractAuthenticationResultF
+      : EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit] =
+    validationResult.contractAuthenticationResultF
+
+  override def submitterCheckResult: Option[ReassignmentValidationError] =
+    validationResult.submitterCheckResult
+  def reassigningParticipantValidationResult: Seq[ReassignmentValidationError] =
+    validationResult.reassigningParticipantValidationResult
   def contracts = fullTree.contracts
 
   def commitSet = CommitSet(
@@ -127,13 +136,19 @@ final case class UnassignmentValidationResult(
 object UnassignmentValidationResult {
   final case class ValidationResult(
       activenessResult: ActivenessResult,
-      authenticationErrorO: Option[AuthenticationError],
-      metadataResultET: EitherT[FutureUnlessShutdown, ReassignmentValidationError, Unit],
-      validationErrors: Seq[ReassignmentValidationError],
+      participantSignatureVerificationResult: Option[AuthenticationError],
+      contractAuthenticationResultF: EitherT[
+        FutureUnlessShutdown,
+        ReassignmentValidationError,
+        Unit,
+      ],
+      submitterCheckResult: Option[ReassignmentValidationError],
+      reassigningParticipantValidationResult: Seq[ReassignmentValidationError],
   ) {
     def isSuccessful(implicit ec: ExecutionContext): FutureUnlessShutdown[Boolean] =
       for {
-        modelConformanceCheck <- metadataResultET.value
-      } yield activenessResult.isSuccessful && authenticationErrorO.isEmpty && validationErrors.isEmpty && modelConformanceCheck.isRight
+        modelConformanceCheck <- contractAuthenticationResultF.value
+      } yield activenessResult.isSuccessful && participantSignatureVerificationResult.isEmpty
+        && reassigningParticipantValidationResult.isEmpty && modelConformanceCheck.isRight
   }
 }

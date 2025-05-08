@@ -15,7 +15,7 @@ if git rev-parse --is-inside-work-tree &>/dev/null || false; then
     ADMIN_API_PROTO_PATH=$ROOT_PATH/community/admin-api/src/main/protobuf
 else
     # Otherwise assume we're running from the release artifact, in which case the protobuf folder is a few levels above
-    ROOT_PATH=../../../protobuf
+    ROOT_PATH=../../protobuf
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community
     LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api
     ADMIN_API_PROTO_PATH=$ROOT_PATH/admin-api

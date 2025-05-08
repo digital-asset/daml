@@ -3,11 +3,14 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator.RetransmissionResponseValidationError
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
@@ -58,6 +61,7 @@ class RetransmissionsManager[E <: Env[E]](
 
   private var incomingRetransmissionsRequestCount = 0
   private var outgoingRetransmissionsRequestCount = 0
+  private var discardedWrongEpochRetransmissionsResponseCount = 0
 
   private val previousEpochsRetransmissionsTracker = new PreviousEpochsRetransmissionsTracker(
     HowManyEpochsToKeep,
@@ -114,8 +118,15 @@ class RetransmissionsManager[E <: Env[E]](
           metrics.consensus.votes.labels.Epoch -> epoch.toString
         )
       )
+    metrics.consensus.retransmissions.discardedWrongEpochRetransmissionResponseMeter
+      .mark(discardedWrongEpochRetransmissionsResponseCount.toLong)(
+        mc.withExtraLabels(
+          metrics.consensus.votes.labels.Epoch -> epoch.toString
+        )
+      )
     incomingRetransmissionsRequestCount = 0
     outgoingRetransmissionsRequestCount = 0
+    discardedWrongEpochRetransmissionsResponseCount = 0
   }
 
   def handleMessage(
@@ -246,7 +257,21 @@ class RetransmissionsManager[E <: Env[E]](
       case response: Consensus.RetransmissionsMessage.RetransmissionResponse =>
         validator match {
           case Some(validator) =>
-            validator.validateRetransmissionResponse(response)
+            val validationResult = validator.validateRetransmissionResponse(response)
+            validationResult match {
+              case Left(_: RetransmissionResponseValidationError.MalformedMessage) =>
+                emitNonCompliance(metrics)(
+                  response.from,
+                  currentEpoch.map(_.epoch.info.number),
+                  view = None,
+                  block = None,
+                  metrics.security.noncompliant.labels.violationType.values.RetransmissionResponseInvalidMessage,
+                )
+              case Left(_: RetransmissionResponseValidationError.WrongEpoch) =>
+                discardedWrongEpochRetransmissionsResponseCount += 1
+              case _ => ()
+            }
+            validationResult.leftMap(_.errorMsg)
           case None =>
             Left(
               s"Received a retransmission response from ${response.from} while transitioning epochs, ignoring"

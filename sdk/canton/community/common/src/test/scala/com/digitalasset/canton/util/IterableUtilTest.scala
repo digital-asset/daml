@@ -6,6 +6,7 @@ package com.digitalasset.canton.util
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.util.IterableUtilTest.CompareOnlyFirst
+import com.digitalasset.canton.util.collection.IterableUtil
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.annotation.tailrec

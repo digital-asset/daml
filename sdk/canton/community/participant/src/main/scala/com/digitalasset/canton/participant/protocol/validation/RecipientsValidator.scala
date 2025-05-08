@@ -21,7 +21,8 @@ import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, Recipient, 
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, IterableUtil}
+import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.collection.IterableUtil
 
 import scala.collection.mutable
 import scala.concurrent.ExecutionContext

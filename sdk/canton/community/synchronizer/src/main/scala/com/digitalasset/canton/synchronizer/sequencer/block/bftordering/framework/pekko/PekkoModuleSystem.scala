@@ -9,6 +9,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.parallelApplicativeFutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Module.ModuleControl.{
@@ -27,6 +28,7 @@ import org.apache.pekko.actor.typed.*
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.{BootstrapSetup, Cancellable}
 
+import java.time.Instant
 import scala.collection.mutable
 import scala.concurrent.*
 import scala.concurrent.duration.*
@@ -60,14 +62,29 @@ object PekkoModuleSystem {
                 maybeModule = Some(m)
                 if (ready)
                   m.ready(pekkoContext.self)
-                sendsAwaitingAModule.foreach { case Send(message, traceContext) =>
-                  m.receive(message)(pekkoContext, traceContext)
+                sendsAwaitingAModule.foreach {
+                  case Send(message, traceContext, metricsContext, sendInstant, maybeDelay) =>
+                    sendInstant.foreach(
+                      moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
+                        moduleName,
+                        _,
+                        maybeDelay,
+                      )(metricsContext)
+                    )
+                    m.receive(message)(pekkoContext, traceContext)
                 }
                 sendsAwaitingAModule.clear()
                 Behaviors.same
-              case send @ Send(message, traceContext) =>
+              case send @ Send(message, traceContext, metricsContext, sendInstant, maybeDelay) =>
                 maybeModule match {
                   case Some(module) =>
+                    sendInstant.foreach(
+                      moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
+                        moduleName,
+                        _,
+                        maybeDelay,
+                      )(metricsContext)
+                    )
                     module.receive(message)(pekkoContext, traceContext)
                   case _ =>
                     sendsAwaitingAModule.enqueue(send)
@@ -95,9 +112,10 @@ object PekkoModuleSystem {
       ref: ActorRef[ModuleControl[PekkoEnv, AcceptedMessageT]]
   ) extends ModuleRef[AcceptedMessageT] {
     override def asyncSendTraced(message: AcceptedMessageT)(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): Unit =
-      ref ! Send(message, traceContext)
+      ref ! Send(message, traceContext, metricsContext, maybeSendInstant = Some(Instant.now))
   }
 
   private final case class PekkoCancellableEvent(cancellable: Cancellable)
@@ -115,13 +133,20 @@ object PekkoModuleSystem {
     override val self: PekkoModuleRef[MessageT] = PekkoModuleRef(underlying.self)
 
     override def delayedEventTraced(delay: FiniteDuration, message: MessageT)(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): CancellableEvent =
       PekkoCancellableEvent(
         underlying.scheduleOnce(
           delay,
           underlying.self,
-          Send[PekkoEnv, MessageT](message, traceContext),
+          Send[PekkoEnv, MessageT](
+            message,
+            traceContext,
+            metricsContext,
+            maybeSendInstant = Some(Instant.now),
+            maybeDelay = Some(delay),
+          ),
         )
       )
 
@@ -138,7 +163,9 @@ object PekkoModuleSystem {
 
     override def pipeToSelfInternal[X](
         futureUnlessShutdown: PekkoFutureUnlessShutdown[X]
-    )(fun: Try[X] => Option[MessageT])(implicit traceContext: TraceContext): Unit =
+    )(
+        fun: Try[X] => Option[MessageT]
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       underlying.pipeToSelf(
         toFuture(
           futureUnlessShutdown.action,
@@ -147,7 +174,8 @@ object PekkoModuleSystem {
         )
       ) { result =>
         fun(result) match {
-          case Some(msg) => Send(msg, traceContext)
+          case Some(msg) =>
+            Send(msg, traceContext, metricsContext, maybeSendInstant = Some(Instant.now))
           case None => NoOp()
         }
       }
@@ -321,6 +349,7 @@ object PekkoModuleSystem {
 
   private[bftordering] final class PekkoModuleSystem(
       underlyingRootActorContext: ActorContext[ModuleControl[PekkoEnv, Unit]],
+      val metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   ) extends ModuleSystem[PekkoEnv] {
 
@@ -333,17 +362,19 @@ object PekkoModuleSystem {
 
     override def newModuleRef[AcceptedMessageT](
         moduleName: ModuleName
-    ): PekkoModuleRef[AcceptedMessageT] = newModuleRefImpl(moduleName, rootActorContext.underlying)
+    ): PekkoModuleRef[AcceptedMessageT] =
+      newModuleRefImpl(moduleName, rootActorContext.underlying)
 
     protected[pekko] def newModuleRefImpl[AcceptedMessageT, ContextMessageT](
         moduleName: ModuleName,
         actorContext: ActorContext[ModuleControl[PekkoEnv, ContextMessageT]],
     ): PekkoModuleRef[AcceptedMessageT] = {
-      val actorRef = actorContext.spawn(
-        pekkoBehavior[AcceptedMessageT](this, moduleName, loggerFactory),
-        moduleName.name,
-        MailboxSelector.fromConfig("bft-ordering.control-mailbox"),
-      )
+      val actorRef =
+        actorContext.spawn(
+          pekkoBehavior[AcceptedMessageT](this, moduleName, loggerFactory),
+          moduleName.name,
+          MailboxSelector.fromConfig("bft-ordering.control-mailbox"),
+        )
       actorContext.watch(actorRef)
       PekkoModuleRef(actorRef)
     }
@@ -353,7 +384,6 @@ object PekkoModuleSystem {
         module: framework.Module[PekkoEnv, AcceptedMessageT],
     ): Unit =
       moduleRef.ref ! SetBehavior(module, ready = false)
-
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
@@ -361,6 +391,7 @@ object PekkoModuleSystem {
       name: String,
       systemInitializer: SystemInitializer[PekkoEnv, P2PMessageT, InputMessageT],
       p2pManager: ClientP2PNetworkManager[PekkoEnv, P2PMessageT],
+      metrics: BftOrderingMetrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
@@ -374,7 +405,7 @@ object PekkoModuleSystem {
           .supervise {
             Behaviors.setup[ModuleControl[PekkoEnv, Unit]] { actorContext =>
               val logger = loggerFactory.getLogger(getClass)
-              val moduleSystem = new PekkoModuleSystem(actorContext, loggerFactory)
+              val moduleSystem = new PekkoModuleSystem(actorContext, metrics, loggerFactory)
               resultPromise.success(systemInitializer.initialize(moduleSystem, p2pManager))
               Behaviors.receiveSignal { case (_, Terminated(actorRef)) =>
                 logger.debug(

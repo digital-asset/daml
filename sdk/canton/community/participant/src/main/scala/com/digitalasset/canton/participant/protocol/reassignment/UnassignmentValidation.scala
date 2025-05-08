@@ -107,7 +107,7 @@ private[reassignment] class UnassignmentValidation(
             stakeholders = expectedStakeholders.all,
           )
           .value
-          .map(_.swap.toSeq)
+          .map(_.swap.toOption)
 
       reassigningParticipantCheckResult <- targetTopology match {
         case Some(targetTopology) =>
@@ -124,9 +124,10 @@ private[reassignment] class UnassignmentValidation(
 
     } yield UnassignmentValidationResult.ValidationResult(
       activenessResult = activenessResult,
-      authenticationErrorO = authenticationErrorO,
-      metadataResultET = metadataResultET,
-      validationErrors = submitterCheckResult ++ reassigningParticipantCheckResult,
+      participantSignatureVerificationResult = authenticationErrorO,
+      contractAuthenticationResultF = metadataResultET,
+      submitterCheckResult = submitterCheckResult,
+      reassigningParticipantValidationResult = reassigningParticipantCheckResult,
     )
   }
 

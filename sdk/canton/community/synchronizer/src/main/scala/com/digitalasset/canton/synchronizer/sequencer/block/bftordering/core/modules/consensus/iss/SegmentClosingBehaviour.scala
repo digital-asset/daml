@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -34,7 +35,8 @@ final class SegmentClosingBehaviour[E <: Env[E]](
     messageToSendParent: Consensus.Message[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-) extends Module[E, ConsensusSegment.Message] {
+)(implicit metricsContext: MetricsContext)
+    extends Module[E, ConsensusSegment.Message] {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var haveReceivedStartModuleClosingBehaviourMessage: Boolean = false

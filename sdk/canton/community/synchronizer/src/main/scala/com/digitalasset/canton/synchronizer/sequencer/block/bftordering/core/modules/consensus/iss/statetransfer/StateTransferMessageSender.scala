@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
@@ -39,7 +40,7 @@ final class StateTransferMessageSender[E <: Env[E]](
     epochLength: EpochLength, // TODO(#19289) support variable epoch lengths
     epochStore: EpochStore[E],
     override val loggerFactory: NamedLoggerFactory,
-)(implicit synchronizerProtocolVersion: ProtocolVersion)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, metricsContext: MetricsContext)
     extends NamedLogging {
 
   import StateTransferMessageSender.*

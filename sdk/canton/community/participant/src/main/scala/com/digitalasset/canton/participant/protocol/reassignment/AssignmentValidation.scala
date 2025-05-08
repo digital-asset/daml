@@ -148,15 +148,18 @@ private[reassignment] class AssignmentValidation(
             stakeholders = assignmentRequest.stakeholders.all,
           )
           .value
-          .map(_.swap.toSeq)
+          .map(_.swap.toOption)
 
-      authenticationErrorO <- AuthenticationValidator.verifyViewSignature(parsedRequest)
+      participantSignatureVerificationResult <- AuthenticationValidator.verifyViewSignature(
+        parsedRequest
+      )
 
     } yield AssignmentValidationResult.ValidationResult(
       activenessResult = activenessResult,
-      authenticationErrorO = authenticationErrorO,
-      metadataResultET = stakeholdersCheckResultET,
-      validationErrors = submitterCheckResult,
+      participantSignatureVerificationResult = participantSignatureVerificationResult,
+      contractAuthenticationResultF = stakeholdersCheckResultET,
+      submitterCheckResult = submitterCheckResult,
+      reassigningParticipantValidationResult = Seq.empty,
     )
   }
 

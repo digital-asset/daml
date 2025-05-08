@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules
 
-import com.digitalasset.canton.BaseTest
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Module,
@@ -14,7 +15,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.wordspec.AnyWordSpec
 
-class HasDelayedInitUnitTest extends AnyWordSpec with BaseTest {
+class HasDelayedInitUnitTest extends AnyWordSpec with BftSequencerBaseTest {
   private implicit val unitTestContext: UnitTestContext[UnitTestEnv, String] =
     UnitTestContext()
 
@@ -26,16 +27,16 @@ class HasDelayedInitUnitTest extends AnyWordSpec with BaseTest {
         val delayedInitModule = new DelayedInitModule(echoRef, loggerFactory, timeouts)
         delayedInitModule.receive("message1")
 
-        verify(echoRef, never).asyncSend("message1")
+        verify(echoRef, never).asyncSend(eqTo("message1"))(any[MetricsContext])
 
         delayedInitModule.receive("init")
 
-        verify(echoRef, times(1)).asyncSend(eqTo("initComplete"))
-        verify(echoRef, times(1)).asyncSend(eqTo("message1"))
+        verify(echoRef, times(1)).asyncSend(eqTo("initComplete"))(any[MetricsContext])
+        verify(echoRef, times(1)).asyncSend(eqTo("message1"))(any[MetricsContext])
 
         delayedInitModule.receive("message2")
 
-        verify(echoRef, times(1)).asyncSend(eqTo("message2"))
+        verify(echoRef, times(1)).asyncSend(eqTo("message2"))(any[MetricsContext])
       }
     }
   }
@@ -47,6 +48,9 @@ class DelayedInitModule(
     override val timeouts: ProcessingTimeout,
 ) extends Module[UnitTestEnv, String]
     with HasDelayedInit[String] {
+
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
   override def receiveInternal(
       message: String
   )(implicit context: UnitTestContext[UnitTestEnv, String], traceContext: TraceContext): Unit =

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -39,7 +40,7 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
     dependencies: ConsensusModuleDependencies[E],
     loggerFactory: NamedLoggerFactory,
     timeouts: ProcessingTimeout,
-)(implicit synchronizerProtocolVersion: ProtocolVersion)
+)(implicit synchronizerProtocolVersion: ProtocolVersion, metricsContext: MetricsContext)
     extends SegmentModuleRefFactory[E] {
   override def apply(
       context: E#ActorContextT[Consensus.Message[E]],

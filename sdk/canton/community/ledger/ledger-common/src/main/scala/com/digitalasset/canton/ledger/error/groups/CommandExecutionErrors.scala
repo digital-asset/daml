@@ -1018,7 +1018,7 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
   }
 
-  // TODO(#23334): Consider moving in dedicated error group
+  // TODO(#25385): Consider moving in dedicated error group
   @Explanation(
     """This error is a catch-all for errors thrown by topology-aware package selection in command processing."""
   )

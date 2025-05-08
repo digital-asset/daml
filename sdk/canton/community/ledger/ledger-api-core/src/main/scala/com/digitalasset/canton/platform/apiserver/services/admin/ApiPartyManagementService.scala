@@ -259,7 +259,7 @@ private[apiserver] final class ApiPartyManagementService private (
       } { case (partyIdHintO, annotations, identityProviderId, synchronizerIdO) =>
         val partyName = partyIdHintO.getOrElse(generatePartyName)
         val trackerKey = submissionIdGenerator(partyName)
-        withEnrichedLoggingContext(telemetry)(logging.submissionId(trackerKey.submissionId)) {
+        withEnrichedLoggingContext(logging.submissionId(trackerKey.submissionId)) {
           implicit loggingContext =>
             for {
               _ <- identityProviderExistsOrError(identityProviderId)
