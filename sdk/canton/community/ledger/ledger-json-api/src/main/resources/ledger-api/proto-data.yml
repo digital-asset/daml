@@ -1556,7 +1556,7 @@ messages:
           and submitted within a time window around the ledger time assigned to the transaction during the prepare method.
           The time delta around that ledger time is a configuration of the ledger, usually short, around 1 minute.
           If however the transaction does not depend on time, the available time window to sign and submit the transaction is bound
-          by the submission timestamp, which is also assigned in the "prepare" step (this request),
+          by the preparation time, which is also assigned in the "prepare" step (this request),
           but can be configured with a much larger skew, allowing for more time to sign the request (in the order of hours).
           Must not be set at the same time as min_ledger_time_rel.
           Optional
@@ -2647,7 +2647,7 @@ oneOfs:
           and submitted within a time window around the ledger time assigned to the transaction during the prepare method.
           The time delta around that ledger time is a configuration of the ledger, usually short, around 1 minute.
           If however the transaction does not depend on time, the available time window to sign and submit the transaction is bound
-          by the submission timestamp, which is also assigned in the "prepare" step (this request),
+          by the preparation time, which is also assigned in the "prepare" step (this request),
           but can be configured with a much larger skew, allowing for more time to sign the request (in the order of hours).
           Must not be set at the same time as min_ledger_time_rel.
           Optional

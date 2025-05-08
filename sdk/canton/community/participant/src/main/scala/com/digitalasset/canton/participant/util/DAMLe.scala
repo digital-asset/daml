@@ -266,7 +266,7 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = rootSeed,
-        submissionTime = preparationTime.toLf,
+        preparationTime = preparationTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
         engineLogger =
@@ -303,7 +303,7 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = Some(DAMLe.zeroSeed),
-        submissionTime = Time.Timestamp.Epoch, // Only used to compute contract ids
+        preparationTime = Time.Timestamp.Epoch, // Only used to compute contract ids
         ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
         packageResolution = Map.empty,
       )
