@@ -388,7 +388,8 @@ message ScriptError {
     UpgradeError upgrade_error = 44;
     FailureStatusError failure_status_error = 45;
     MalformedContractId malformed_contract_id = 47;
-    // next is 48;
+    CryptoError crypto_error = 48;
+    // next is 49;
   }
 }
 

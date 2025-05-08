@@ -546,6 +546,9 @@ prettyScriptErrorError lvl (Just err) =  do
         [ "Malformed contract id:"
         , label_ "Contract id:" $ ltext scriptError_MalformedContractIdValue
         ]
+    ScriptErrorErrorCryptoError ScriptError_CryptoError {..} -> do
+      pure $ text $ TL.toStrict scriptError_CryptoErrorMessage
+
 
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
