@@ -32,6 +32,19 @@ toolchain(
         "@platforms//os:windows",
     ],
 )
+toolchain(
+    name = "bootstrap_toolchain",
+    toolchain = ":runtime",
+    toolchain_type = "@bazel_tools//tools/jdk:bootstrap_runtime_toolchain_type",
+    exec_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:windows",
+    ],
+)
 """.format(
         java_home = java_home.replace("\\", "/"),
     ))
