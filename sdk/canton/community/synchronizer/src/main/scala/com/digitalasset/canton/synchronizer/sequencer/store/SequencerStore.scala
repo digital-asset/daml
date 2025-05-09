@@ -396,10 +396,12 @@ final case class RegisteredMember(
 @VisibleForTesting
 private[canton] final case class SequencerStoreRecordCounts(
     events: Long,
+    eventRecipients: Long,
     payloads: Long,
 ) {
   def -(other: SequencerStoreRecordCounts): SequencerStoreRecordCounts = SequencerStoreRecordCounts(
     events - other.events,
+    eventRecipients - other.eventRecipients,
     payloads - other.payloads,
   )
 }

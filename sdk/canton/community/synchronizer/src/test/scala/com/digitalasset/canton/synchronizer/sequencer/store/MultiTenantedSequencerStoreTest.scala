@@ -22,6 +22,8 @@ trait MultiTenantedSequencerStoreTest
     with FailOnShutdown {
   this: AsyncWordSpec & BaseTest =>
 
+  def sequencerMember: Member
+
   def multiTenantedSequencerStore(mk: () => SequencerStore): Unit = {
     val alice: Member = ParticipantId("alice")
     val bob: Member = ParticipantId("bob")
@@ -42,6 +44,9 @@ trait MultiTenantedSequencerStoreTest
         )(),
       )
 
+    def ensureSequencerMemberIsRegistered(store: SequencerStore) =
+      store.registerMember(sequencerMember, CantonTimestamp.MinValue)
+
     def writeDelivers(store: SequencerWriterStore, sender: SequencerMemberId)(
         epochSeconds: Int*
     ) = {
@@ -49,6 +54,7 @@ trait MultiTenantedSequencerStoreTest
         epochSeconds.map(ts).map(ts => deliver(ts, sender)).toList
       val payloads = SynchronizerSequencingTestUtils.payloadsForEvents(delivers)
       for {
+        _ <- ensureSequencerMemberIsRegistered(store.store)
         _unit <- store
           .savePayloads(NonEmptyUtil.fromUnsafe(payloads), instanceDiscriminator)
           .valueOrFail(s"Save payloads")

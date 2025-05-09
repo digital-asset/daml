@@ -190,6 +190,7 @@ class SyncPersistentStateManager(
       }
     } yield ()
 
+  // TODO(#25388): This should be per PSId
   def staticSynchronizerParameters(
       synchronizerId: SynchronizerId
   ): Option[StaticSynchronizerParameters] =

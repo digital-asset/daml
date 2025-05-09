@@ -293,7 +293,7 @@ class StateTransferBehaviorTest
                     None, // snapshotAdditionalInfo
                     `aTopologyInfo`,
                     futurePbftMessageQueue,
-                    Seq(), // queuedConsensusMessages
+                    Some(Seq()), // queuedConsensusMessages
                   )
                 ) if futurePbftMessageQueue.isEmpty =>
               // A successful check below means that the new epoch topology message has been resent

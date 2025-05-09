@@ -69,7 +69,13 @@ import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction, S
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ConfiguredPhysicalSynchronizerId,
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
@@ -2141,9 +2147,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description(
       "For each returned synchronizer, the boolean indicates whether the participant is currently connected to the synchronizer."
     )
-    def list_registered(): Seq[(SynchronizerConnectionConfig, Boolean)] = consoleEnvironment.run {
-      adminCommand(ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers)
-    }
+    def list_registered()
+        : Seq[(SynchronizerConnectionConfig, ConfiguredPhysicalSynchronizerId, Boolean)] =
+      consoleEnvironment.run {
+        adminCommand(ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers)
+      }
 
     @Help.Summary("Returns true if a synchronizer is registered using the given alias")
     def is_registered(synchronizerAlias: SynchronizerAlias): Boolean =
@@ -2154,10 +2162,18 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       list_registered().map(_._1).find(_.synchronizerAlias == synchronizerAlias)
 
     @Help.Summary("Modify existing synchronizer connection")
+    @Help.Description("""
+      The arguments are:
+          synchronizerAlias - Alias of the synchronizer
+          modifier - The change to be applied to the config.
+          validation - The validations which need to be done to the connection.
+          physicalSynchronizerId - Physical id of the synchronizer. If empty, the active one will be updated (if none is active, an error is returned).
+    """)
     def modify(
         synchronizerAlias: SynchronizerAlias,
         modifier: SynchronizerConnectionConfig => SynchronizerConnectionConfig,
         validation: SequencerConnectionValidation = SequencerConnectionValidation.All,
+        physicalSynchronizerId: Option[PhysicalSynchronizerId] = None,
     ): Unit =
       consoleEnvironment.runE {
         for {
@@ -2166,7 +2182,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           ).toEither
           cfg <- registeredSynchronizers
             .collectFirst {
-              case (config, _) if config.synchronizerAlias == synchronizerAlias => config
+              case (config, _, _) if config.synchronizerAlias == synchronizerAlias => config
             }
             .toRight(s"No such synchronizer $synchronizerAlias configured")
           newConfig = modifier(cfg)
@@ -2177,6 +2193,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           )
           _ <- adminCommand(
             ParticipantAdminCommands.SynchronizerConnectivity.ModifySynchronizerConnection(
+              physicalSynchronizerId,
               modifier(cfg),
               validation,
             )

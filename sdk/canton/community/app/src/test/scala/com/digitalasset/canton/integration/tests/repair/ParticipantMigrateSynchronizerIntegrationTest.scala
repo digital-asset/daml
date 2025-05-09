@@ -13,7 +13,7 @@ import com.digitalasset.canton.console.{
   LocalParticipantReference,
   SequencerReference,
 }
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.MediatorError.InvalidMessage
 import com.digitalasset.canton.examples.java as M
@@ -44,7 +44,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{KnownPhysicalSynchronizerId, PartyId}
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, SynchronizerAlias}
 import monocle.macros.syntax.lens.*
@@ -369,9 +369,21 @@ final class ParticipantMigrateSynchronizerIntegrationTest
         .valueOrFail("failed to grab node")
         .sync
         .synchronizerConnectionConfigStore
-    store.setStatus(daName, SynchronizerConnectionConfigStore.Vacating).value.futureValueUS.value
     store
-      .setStatus(acmeName, SynchronizerConnectionConfigStore.MigratingTo)
+      .setStatus(
+        daName,
+        KnownPhysicalSynchronizerId(daId.toPhysical),
+        SynchronizerConnectionConfigStore.Vacating,
+      )
+      .value
+      .futureValueUS
+      .value
+    store
+      .setStatus(
+        acmeName,
+        KnownPhysicalSynchronizerId(acmeId.toPhysical),
+        SynchronizerConnectionConfigStore.MigratingTo,
+      )
       .value
       .futureValueUS
       .value
@@ -453,19 +465,8 @@ final class ParticipantMigrateSynchronizerIntegrationTest
 
         inspection.requestJournalSize(daName) shouldBe Some(UnlessShutdown.Outcome(0))
 
-        // ACS commitments should be purged
-        def check[A](
-            f: (
-                SynchronizerAlias,
-                CantonTimestamp,
-                CantonTimestamp,
-                Option[ParticipantId],
-            ) => Iterable[A]
-        ) = f(daName, CantonTimestamp.Epoch, CantonTimestamp.MaxValue, None) shouldBe empty
-        check(inspection.findReceivedCommitments)
-        check(inspection.findComputedCommitments)
-        check(inspection.outstandingCommitments)
-        inspection.bufferedCommitments(daName, CantonTimestamp.MaxValue) shouldBe empty
+        // Note that ACS commitments are not purged by PruningProcessor.purgeSynchronizer for audit reasons.
+        // Hence not checking for the AcsCommitmentStore to be empty after purge.
       }
     }
 
@@ -655,9 +656,23 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
         .valueOrFail("failed to grab node")
         .sync
         .synchronizerConnectionConfigStore
-    store.setStatus(daName, SynchronizerConnectionConfigStore.Vacating).value.futureValueUS.value
+
     store
-      .setStatus(acmeName, SynchronizerConnectionConfigStore.MigratingTo)
+      .setStatus(
+        daName,
+        KnownPhysicalSynchronizerId(daId.toPhysical),
+        SynchronizerConnectionConfigStore.Vacating,
+      )
+      .value
+      .futureValueUS
+      .value
+
+    store
+      .setStatus(
+        acmeName,
+        KnownPhysicalSynchronizerId(acmeId.toPhysical),
+        SynchronizerConnectionConfigStore.MigratingTo,
+      )
       .value
       .futureValueUS
       .value
@@ -667,7 +682,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
 
 }
 
-trait ParticipantMigrateSynchronizerIntegrationTestHelpers { self: BaseTest =>
+sealed trait ParticipantMigrateSynchronizerIntegrationTestHelpers { self: BaseTest =>
   protected def grabParty(participant: LocalParticipantReference, name: String): PartyId =
     participant.parties
       .hosted(filterParty = name)

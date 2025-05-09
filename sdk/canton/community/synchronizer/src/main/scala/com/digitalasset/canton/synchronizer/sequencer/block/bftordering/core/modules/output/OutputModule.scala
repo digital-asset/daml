@@ -16,6 +16,7 @@ import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedOrderingRequest
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.{
   DefaultDatabaseReadTimeout,
@@ -105,8 +106,11 @@ class OutputModule[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     requestInspector: RequestInspector = DefaultRequestInspector, // For testing
-)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
-    extends Output[E]
+)(implicit
+    override val config: BftBlockOrdererConfig,
+    synchronizerProtocolVersion: ProtocolVersion,
+    mc: MetricsContext,
+) extends Output[E]
     with HasDelayedInit[Message[E]] {
 
   private val thisNode = startupState.thisNode

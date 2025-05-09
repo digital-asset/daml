@@ -15,23 +15,6 @@ import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, checked}
 import slick.jdbc.{GetResult, SetParameter}
 
-/** utility class to ensure that strings conform to LF specification minus our internal delimiter */
-object SafeSimpleString {
-
-  val delimiter = "::"
-
-  def fromProtoPrimitive(str: String): Either[String, String] =
-    for {
-      _ <- LfPartyId.fromString(str)
-      opt <- Either.cond(
-        !str.contains(delimiter),
-        str,
-        s"String contains reserved delimiter `$delimiter`.",
-      )
-    } yield opt
-
-}
-
 object Namespace {
   implicit val setParameterNamespace: SetParameter[Namespace] = (v, pp) =>
     pp >> v.toLengthLimitedString

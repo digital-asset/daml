@@ -640,12 +640,17 @@ class ParticipantNodeBootstrap(
           parameters.batchingConfig.maxPruningBatchSize,
           arguments.metrics.pruning,
           exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
-          synchronizerId =>
+          synchronizerConnectionStatus = synchronizerId =>
             synchronizerAliasManager
               .aliasForSynchronizerId(synchronizerId)
-              .flatMap(synchronizerAlias =>
-                synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.status)
-              ),
+              .flatMap { synchronizerAlias =>
+                // TODO(#25422) Wire synchronizerConnectionConfigStore to PruningProcessor and handle several physical instances per alias
+                synchronizerConnectionConfigStore
+                  .getAllFor(synchronizerAlias)
+                  .toOption
+                  .flatMap(_.headOption)
+                  .map(_.status)
+              },
           parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,

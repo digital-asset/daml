@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
@@ -25,6 +26,10 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   MigrationErrors,
   SyncServiceUnknownSynchronizer,
 }
+import com.digitalasset.canton.participant.sync.SynchronizerMigrationError.InvalidArgument.{
+  InvalidSynchronizerConfigStatuses,
+  SourceSynchronizerIdUnknown,
+}
 import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasManager,
   SynchronizerConnectionConfig,
@@ -32,7 +37,12 @@ import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerRegistryHelpers,
 }
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{
+  ConfiguredPhysicalSynchronizerId,
+  KnownPhysicalSynchronizerId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -86,7 +96,9 @@ class SynchronizerMigration(
       targetSynchronizerId: Target[SynchronizerId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Source[
+    ConfiguredPhysicalSynchronizerId
+  ]] = {
     logger.debug(s"Checking migration request from $source to ${target.unwrap.synchronizerAlias}")
     for {
       // check that target alias differs from source
@@ -95,16 +107,31 @@ class SynchronizerMigration(
         (),
         InvalidArgument.SameSynchronizerAlias(source.unwrap),
       )
+
       // check that source synchronizer exists and has not been deactivated
-      sourceStatus <- EitherT
-        .fromEither[FutureUnlessShutdown](source.traverse(synchronizerConnectionConfigStore.get))
-        .leftMap(_ => InvalidArgument.UnknownSourceSynchronizer(source))
-        .map(_.map(_.status))
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        sourceStatus.unwrap.canMigrateFrom,
-        (),
-        InvalidArgument.InvalidSynchronizerConfigStatus(source, sourceStatus),
-      )
+      sourceConnectionE = synchronizerConnectionConfigStore
+        .getAllFor(source.unwrap)
+        .fold(
+          err => SourceSynchronizerIdUnknown(err.alias).asLeft,
+          connections => {
+            if (connections.isEmpty)
+              InvalidArgument.UnknownSourceSynchronizer(source).asLeft
+            else {
+              connections.filter(_.status.canMigrateFrom) match {
+                case Nil => InvalidSynchronizerConfigStatuses(source, Nil).asLeft
+                case Seq(connection) => connection.asRight
+                case other =>
+                  InvalidSynchronizerConfigStatuses(
+                    source,
+                    other.map(c => (c.configuredPSId, c.status)),
+                  ).asLeft
+              }
+            }
+          },
+        )
+
+      sourceConnection <- EitherT.fromEither[FutureUnlessShutdown](sourceConnectionE).map(Source(_))
+
       // check that synchronizer id (in config) matches observed synchronizer id
       _ <- target.unwrap.synchronizerId.traverse_ { expectedSynchronizerId =>
         EitherT.cond[FutureUnlessShutdown](
@@ -126,15 +153,22 @@ class SynchronizerMigration(
           sourceSynchronizerId
         ): SynchronizerMigrationError,
       )
-    } yield ()
+    } yield sourceConnection.map(_.configuredPSId)
   }
 
-  private def registerNewSynchronizer(target: Target[SynchronizerConnectionConfig])(implicit
+  private def registerNewSynchronizer(
+      target: Target[SynchronizerConnectionConfig],
+      psid: PhysicalSynchronizerId,
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
     logger.debug(s"Registering new synchronizer ${target.unwrap.synchronizerAlias}")
     synchronizerConnectionConfigStore
-      .put(target.unwrap, SynchronizerConnectionConfigStore.MigratingTo)
+      .put(
+        target.unwrap,
+        SynchronizerConnectionConfigStore.MigratingTo,
+        KnownPhysicalSynchronizerId(psid),
+      )
       .leftMap[SynchronizerMigrationError](_ =>
         InternalError.DuplicateConfig(target.unwrap.synchronizerAlias)
       )
@@ -223,25 +257,30 @@ class SynchronizerMigration(
   def migrateSynchronizer(
       source: Source[SynchronizerAlias],
       target: Target[SynchronizerConnectionConfig],
-      targetSynchronizerId: Target[SynchronizerId],
+      targetPSId: Target[PhysicalSynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
-    def prepare(): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
+    def prepare(): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Source[
+      ConfiguredPhysicalSynchronizerId
+    ]] = {
       logger.debug(
         s"Preparing synchronizer migration from $source to ${target.unwrap.synchronizerAlias}"
       )
       for {
         // check that the request makes sense
-        _ <- checkMigrationRequest(source, target, targetSynchronizerId)
+        sourcePSId <- checkMigrationRequest(source, target, targetPSId.map(_.logical))
         // check if the target alias already exists.
         targetStatusO = target.traverse(config =>
-          synchronizerConnectionConfigStore.get(config.synchronizerAlias).toOption.map(_.status)
+          synchronizerConnectionConfigStore
+            .get(config.synchronizerAlias, KnownPhysicalSynchronizerId(targetPSId.unwrap))
+            .toOption
+            .map(_.status)
         )
         // check if we are already active on the target synchronizer
         _ <- targetStatusO.fold {
           // synchronizer not yet configured, add the configuration
-          registerNewSynchronizer(target)
+          registerNewSynchronizer(target, targetPSId.value)
         } { targetStatus =>
           logger.debug(s"Checking status of target synchronizer ${target.unwrap.synchronizerAlias}")
           EitherT.fromEither[FutureUnlessShutdown](
@@ -259,12 +298,12 @@ class SynchronizerMigration(
               _ <- aliasManager.synchronizerIdForAlias(target.unwrap.synchronizerAlias).traverse_ {
                 storedSynchronizerId =>
                   Either.cond(
-                    targetSynchronizerId.unwrap == storedSynchronizerId,
+                    targetPSId.unwrap.logical == storedSynchronizerId,
                     (),
                     InvalidArgument.ExpectedSynchronizerIdsDiffer(
                       target.map(_.synchronizerAlias),
                       storedSynchronizerId,
-                      targetSynchronizerId,
+                      targetPSId.map(_.logical),
                     ),
                   )
               }
@@ -272,41 +311,50 @@ class SynchronizerMigration(
           )
         }
         _ <- updateSynchronizerStatus(
-          target.unwrap.synchronizerAlias,
+          target.map(_.synchronizerAlias),
+          targetPSId.map(KnownPhysicalSynchronizerId(_): ConfiguredPhysicalSynchronizerId),
           SynchronizerConnectionConfigStore.MigratingTo,
         )
-        _ <- updateSynchronizerStatus(source.unwrap, SynchronizerConnectionConfigStore.Vacating)
-      } yield ()
+        _ <- updateSynchronizerStatus(
+          source,
+          sourcePSId,
+          SynchronizerConnectionConfigStore.Vacating,
+        )
+      } yield sourcePSId
     }
 
     for {
-      _ <- performUnlessClosingEitherUSF(functionFullName)(prepare())
-      sourceSynchronizerId <- performUnlessClosingEitherUSF(functionFullName)(
+      sourcePSId <- performUnlessClosingEitherUSF(functionFullName)(prepare())
+      sourceLSId <- performUnlessClosingEitherUSF(functionFullName)(
         source.traverse(getSynchronizerId(_))
       )
       _ <- prepareSynchronizerConnection(Traced(target.unwrap.synchronizerAlias))
-      _ <- migrateContracts(source, sourceSynchronizerId, targetSynchronizerId)
+      _ <- migrateContracts(source, sourceLSId, targetPSId.map(_.logical))
       _ <- performUnlessClosingEitherUSF(functionFullName)(
         updateSynchronizerStatus(
-          target.unwrap.synchronizerAlias,
+          target.map(_.synchronizerAlias),
+          targetPSId.map(KnownPhysicalSynchronizerId(_): ConfiguredPhysicalSynchronizerId),
           SynchronizerConnectionConfigStore.Active,
         )
       )
       _ <- performUnlessClosingEitherUSF(functionFullName)(
-        updateSynchronizerStatus(source.unwrap, SynchronizerConnectionConfigStore.Inactive)
+        updateSynchronizerStatus(source, sourcePSId, SynchronizerConnectionConfigStore.Inactive)
       )
     } yield ()
   }
 
-  private def updateSynchronizerStatus(
-      alias: SynchronizerAlias,
+  private def updateSynchronizerStatus[T[X] <: ReassignmentTag[X]: SameReassignmentType](
+      alias: T[SynchronizerAlias],
+      physicalSynchronizerId: T[ConfiguredPhysicalSynchronizerId],
       state: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] = {
-    logger.info(s"Changing status of synchronizer configuration $alias to $state")
+    logger.info(
+      s"Changing status of synchronizer configuration ($alias, $physicalSynchronizerId) to $state"
+    )
     synchronizerConnectionConfigStore
-      .setStatus(alias, state)
+      .setStatus(alias.unwrap, physicalSynchronizerId.unwrap, state)
       .leftMap(err => SynchronizerMigrationError.InternalError.Generic(err.toString))
   }
 
@@ -388,6 +436,20 @@ object SynchronizerMigrationError extends MigrationErrors() {
     ) extends CantonError.Impl(
           cause =
             s"The synchronizer configuration state of $synchronizer is in an invalid state for the requested migration $status"
+        )
+        with SynchronizerMigrationError
+
+    final case class InvalidSynchronizerConfigStatuses[
+        T[X] <: ReassignmentTag[X]: SameReassignmentType
+    ](
+        synchronizer: T[SynchronizerAlias],
+        statuses: Seq[(ConfiguredPhysicalSynchronizerId, SynchronizerConnectionConfigStore.Status)],
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Expecting a single connection to be migrated from for $synchronizer but found: ${statuses
+                .mkString(", ")}"
         )
         with SynchronizerMigrationError
 

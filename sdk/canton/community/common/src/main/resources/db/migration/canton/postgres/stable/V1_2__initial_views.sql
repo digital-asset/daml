@@ -273,16 +273,16 @@ create or replace view debug.sequencer_client_pending_sends as
 create or replace view debug.par_synchronizer_connection_configs as
   select
     synchronizer_alias,
+    physical_synchronizer_id,
+    empty_if_null_physical_synchronizer_id,
     config,
     status
   from par_synchronizer_connection_configs;
 
 create or replace view debug.par_synchronizers as
   select
-    order_number,
-    alias,
-    synchronizer_id,
-    status
+    synchronizer_alias,
+    synchronizer_id
   from par_synchronizers;
 
 create or replace view debug.par_reassignments as

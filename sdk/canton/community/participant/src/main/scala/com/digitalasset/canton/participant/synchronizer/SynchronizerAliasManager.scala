@@ -11,7 +11,11 @@ import com.digitalasset.canton.participant.store.{
   SynchronizerAliasAndIdStore,
   SynchronizerConnectionConfigStore,
 }
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{
+  KnownPhysicalSynchronizerId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.collect.{BiMap, HashBiMap}
 
@@ -23,13 +27,13 @@ trait SynchronizerAliasResolution extends AutoCloseable {
   def synchronizerIdForAlias(alias: SynchronizerAlias): Option[SynchronizerId]
   def aliasForSynchronizerId(id: SynchronizerId): Option[SynchronizerAlias]
   def connectionStateForSynchronizer(
-      id: SynchronizerId
+      id: PhysicalSynchronizerId
   ): Option[SynchronizerConnectionConfigStore.Status]
   def aliases: Set[SynchronizerAlias]
 }
 
 class SynchronizerAliasManager private (
-    configStore: SynchronizerConnectionConfigStore,
+    val configStore: SynchronizerConnectionConfigStore,
     synchronizerAliasAndIdStore: SynchronizerAliasAndIdStore,
     initialSynchronizerAliasMap: Map[SynchronizerAlias, SynchronizerId],
     protected val loggerFactory: NamedLoggerFactory,
@@ -42,6 +46,7 @@ class SynchronizerAliasManager private (
       HashBiMap.create[SynchronizerAlias, SynchronizerId](initialSynchronizerAliasMap.asJava)
     )
 
+  // TODO(#25388) Switch to physical id
   def processHandshake(synchronizerAlias: SynchronizerAlias, synchronizerId: SynchronizerId)(
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
@@ -59,11 +64,6 @@ class SynchronizerAliasManager private (
       case _ => EitherT.rightT[FutureUnlessShutdown, SynchronizerAliasManager.Error](())
     }
 
-  def synchronizerIdForAlias(alias: String): Option[SynchronizerId] =
-    SynchronizerAlias
-      .create(alias)
-      .toOption
-      .flatMap(al => Option(synchronizerAliasToId.get().get(al)))
   override def synchronizerIdForAlias(alias: SynchronizerAlias): Option[SynchronizerId] = Option(
     synchronizerAliasToId.get().get(alias)
   )
@@ -72,10 +72,10 @@ class SynchronizerAliasManager private (
   )
 
   override def connectionStateForSynchronizer(
-      synchronizerId: SynchronizerId
+      psid: PhysicalSynchronizerId
   ): Option[SynchronizerConnectionConfigStore.Status] = for {
-    alias <- aliasForSynchronizerId(synchronizerId)
-    conf <- configStore.get(alias).toOption
+    alias <- aliasForSynchronizerId(psid.logical)
+    conf <- configStore.get(alias, KnownPhysicalSynchronizerId(psid)).toOption
   } yield conf.status
 
   /** Return known synchronizer aliases

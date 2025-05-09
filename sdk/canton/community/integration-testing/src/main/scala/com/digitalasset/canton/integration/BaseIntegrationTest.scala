@@ -5,7 +5,7 @@ package com.digitalasset.canton.integration
 
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference}
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.{
   BaseTest,
   ProtocolVersionChecksFixtureAnyWordSpec,
@@ -170,4 +170,7 @@ private[integration] trait BaseIntegrationTest
       )
   }
 
+  implicit class RichSynchronizerId(val id: SynchronizerId) {
+    def toPhysical: PhysicalSynchronizerId = PhysicalSynchronizerId(id, testedProtocolVersion)
+  }
 }

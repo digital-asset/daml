@@ -180,7 +180,6 @@ class PbftViewChangeState(
 
   def createNewViewMessage(
       metadata: BlockMetadata,
-      segmentIdx: Int,
       prePrepares: Seq[SignedMessage[PrePrepare]],
       abort: String => Nothing,
   ): NewView = {
@@ -192,7 +191,6 @@ class PbftViewChangeState(
 
     NewView.create(
       metadata,
-      segmentIdx,
       view,
       viewChangeSet,
       prePrepares,
@@ -245,7 +243,9 @@ class PbftViewChangeState(
       logger.warn(s"New View message from ${nv.from}, but the leader of view $view is $leader")
     } else if (newView.isDefined) {
       logger.info(
-        s"New view message for segment=${nv.message.segmentIndex} and view=$view already exists; ignoring new one from ${nv.from}"
+        s"New view message for segment starting at block=${nv.message.blockMetadata.blockNumber} w/ " +
+          s"epoch=${nv.message.blockMetadata.epochNumber} and view=$view already exists; ignoring new one " +
+          s"from ${nv.from}"
       )
     } else {
       messageValidator.validateNewViewMessage(nv.message) match {

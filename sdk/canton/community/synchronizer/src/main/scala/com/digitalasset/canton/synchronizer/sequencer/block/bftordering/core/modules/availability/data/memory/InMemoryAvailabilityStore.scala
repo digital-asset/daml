@@ -54,9 +54,12 @@ abstract class GenericInMemoryAvailabilityStore[E <: Env[E]](
 
   override def gc(staleBatchIds: Seq[BatchId])(implicit
       traceContext: TraceContext
-  ): Unit =
-    staleBatchIds.foreach { staleBatchId =>
-      val _ = allKnownBatchesById.remove(staleBatchId)
+  ): E#FutureUnlessShutdownT[Unit] =
+    createFuture(gcName) { () =>
+      staleBatchIds.foreach { staleBatchId =>
+        val _ = allKnownBatchesById.remove(staleBatchId)
+      }
+      Success(())
     }
 
   @VisibleForTesting

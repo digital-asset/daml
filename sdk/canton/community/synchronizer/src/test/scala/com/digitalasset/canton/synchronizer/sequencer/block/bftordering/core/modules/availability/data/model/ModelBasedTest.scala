@@ -57,8 +57,8 @@ trait ModelBasedTest extends AnyWordSpec with BftSequencerBaseTest { this: DbTes
               val modelValue = Await.result(model.fetchBatches(batches), timeout)
               realValue shouldBe modelValue
             case Command.GC(staleBatchIds) =>
-              store.gc(staleBatchIds)
-              model.gc(staleBatchIds)
+              Await.result(store.gc(staleBatchIds), timeout)
+              Await.result(model.gc(staleBatchIds), timeout)
           }
         }
       }

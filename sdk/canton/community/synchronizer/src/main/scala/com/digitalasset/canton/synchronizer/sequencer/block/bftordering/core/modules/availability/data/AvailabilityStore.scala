@@ -33,7 +33,8 @@ trait AvailabilityStore[E <: Env[E]] extends AutoCloseable {
 
   def gc(staleBatchIds: Seq[BatchId])(implicit
       traceContext: TraceContext
-  ): Unit
+  ): E#FutureUnlessShutdownT[Unit]
+  protected def gcName: String = s"remove batches"
 
   @VisibleForTesting
   def loadNumberOfRecords(implicit

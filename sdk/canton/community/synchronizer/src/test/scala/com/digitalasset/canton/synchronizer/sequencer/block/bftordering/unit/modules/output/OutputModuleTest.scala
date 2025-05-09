@@ -15,6 +15,7 @@ import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
@@ -1214,7 +1215,7 @@ class OutputModuleTest
       loggerFactory,
       timeouts,
       requestInspector,
-    )(synchronizerProtocolVersion, MetricsContext.Empty)
+    )(new BftBlockOrdererConfig(), synchronizerProtocolVersion, MetricsContext.Empty)
   }
 
   private class TestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]

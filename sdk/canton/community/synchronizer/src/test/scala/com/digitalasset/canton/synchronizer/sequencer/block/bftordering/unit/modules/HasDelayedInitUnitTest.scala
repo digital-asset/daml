@@ -7,6 +7,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   Module,
@@ -46,6 +47,7 @@ class DelayedInitModule(
     echoRef: ModuleRef[String],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
+    override val config: BftBlockOrdererConfig = new BftBlockOrdererConfig(),
 ) extends Module[UnitTestEnv, String]
     with HasDelayedInit[String] {
 

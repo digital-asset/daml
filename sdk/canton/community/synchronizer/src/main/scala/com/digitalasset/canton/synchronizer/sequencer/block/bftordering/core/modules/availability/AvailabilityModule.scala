@@ -11,7 +11,10 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
+  BftBlockOrdererConfig,
+  FingerprintKeyId,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.AvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
@@ -80,7 +83,7 @@ final class AvailabilityModule[E <: Env[E]](
     initialEpochNumber: EpochNumber,
     initialCryptoProvider: CryptoProvider[E],
     availabilityStore: data.AvailabilityStore[E],
-    config: AvailabilityModuleConfig,
+    moduleConfig: AvailabilityModuleConfig,
     clock: Clock,
     random: Random,
     metrics: BftOrderingMetrics,
@@ -92,8 +95,11 @@ final class AvailabilityModule[E <: Env[E]](
 )(
     // Only passed in tests
     private var messageAuthorizer: MessageAuthorizer = initialMembership.orderingTopology
-)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
-    extends Availability[E]
+)(implicit
+    override val config: BftBlockOrdererConfig,
+    synchronizerProtocolVersion: ProtocolVersion,
+    mc: MetricsContext,
+) extends Availability[E]
     with HasDelayedInit[Availability.Message[E]] {
 
   import AvailabilityModule.*
@@ -407,16 +413,15 @@ final class AvailabilityModule[E <: Env[E]](
   )(implicit
       traceContext: TraceContext,
       context: E#ActorContextT[Availability.Message[E]],
-  ): Unit =
+  ): Seq[BatchId] =
     if (currentEpoch < lastKnownEpochNumber) {
       abort(
         s"Trying to update lastKnownEpochNumber in Availability module to $currentEpoch which is lower than the current value $lastKnownEpochNumber"
       )
     } else if (lastKnownEpochNumber != currentEpoch) {
       lastKnownEpochNumber = currentEpoch
-      val expiredEpoch = EpochNumber(
-        lastKnownEpochNumber - OrderingRequestBatch.BatchValidityDurationEpochs
-      )
+      val batchValidityDuration = OrderingRequestBatch.BatchValidityDurationEpochs
+      val expiredEpoch = EpochNumber(lastKnownEpochNumber - batchValidityDuration)
 
       def deleteExpiredBatches[M](
           map: mutable.Map[BatchId, M],
@@ -434,8 +439,6 @@ final class AvailabilityModule[E <: Env[E]](
         }
       }
 
-      disseminationProtocolState.disseminationQuotas.expireEpoch(expiredEpoch)
-
       deleteExpiredBatches(
         disseminationProtocolState.batchesReadyForOrdering,
         "batchesReadyForOrdering",
@@ -445,7 +448,11 @@ final class AvailabilityModule[E <: Env[E]](
         disseminationProtocolState.disseminationProgress,
         "disseminationProgress",
       )(_.batchMetadata.epochNumber)
-    }
+
+      disseminationProtocolState.disseminationQuotas.expireEpoch(initialEpochNumber, expiredEpoch)
+      val evictionEpoch = EpochNumber(expiredEpoch - batchValidityDuration)
+      disseminationProtocolState.disseminationQuotas.evictBatches(evictionEpoch)
+    } else Seq.empty
 
   private def handleConsensusMessage(
       consensusMessage: Availability.Consensus[E]
@@ -465,7 +472,19 @@ final class AvailabilityModule[E <: Env[E]](
             forEpochNumber,
             ordered,
           ) =>
-        updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, forEpochNumber)
+        val batchesToBeEvicted =
+          updateLastKnownEpochNumberAndForgetExpiredBatches(messageType, forEpochNumber)
+
+        if (batchesToBeEvicted.nonEmpty)
+          context.pipeToSelf(availabilityStore.gc(batchesToBeEvicted)) {
+            case Failure(error) =>
+              logger.error("Failed to remove batches", error)
+              None
+            case Success(_) =>
+              logger.debug(s"Evicted ${batchesToBeEvicted.size} batches")
+              None
+          }
+
         handleConsensusProposalRequest(
           messageType,
           orderingTopology,
@@ -490,7 +509,7 @@ final class AvailabilityModule[E <: Env[E]](
           disseminationProtocolState.batchesReadyForOrdering.isEmpty &&
           disseminationProtocolState.toBeProvidedToConsensus.nonEmpty &&
           disseminationProtocolState.lastProposalTime
-            .exists(ts => (clock.now - ts).toScala > config.emptyBlockCreationInterval)
+            .exists(ts => (clock.now - ts).toScala > moduleConfig.emptyBlockCreationInterval)
         ) {
           logger.debug("LocalClockTick: proposing empty block to local consensus")
           val maxBatchesPerProposal =
@@ -521,7 +540,7 @@ final class AvailabilityModule[E <: Env[E]](
       s"$actingOnMessageType: recording block request from local consensus and reviewing progress"
     )
     disseminationProtocolState.toBeProvidedToConsensus enqueue ToBeProvidedToConsensus(
-      config.maxBatchesPerProposal,
+      moduleConfig.maxBatchesPerProposal,
       forEpochNumber,
     )
     updateActiveTopology(actingOnMessageType, orderingTopology, cryptoProvider)
@@ -961,6 +980,9 @@ final class AvailabilityModule[E <: Env[E]](
               logger.debug(
                 s"$messageType received from $from first request for batch $batchId, loading it"
               )
+              // It's safe to run the fetch before setting the `incomingBatchRequests` entry
+              //  because modules are single-threaded and the completion message will be
+              //  processed afterward.
               pipeToSelf(availabilityStore.fetchBatches(Seq(batchId))) {
                 case Failure(exception) =>
                   abort(s"failed to fetch batch $batchId", exception)
@@ -974,8 +996,7 @@ final class AvailabilityModule[E <: Env[E]](
                         Some(result),
                       )
                     case AvailabilityStore.AllBatches(batches) =>
-                      logger.error(s"Wrong batches fetched. Requested $batchId got $batches")
-                      Availability.LocalOutputFetch.AttemptedBatchDataLoadForNode(batchId, None)
+                      abort(s"Wrong batches fetched. Requested only $batchId, got $batches")
                   }
               }
               Some(Set(from))
@@ -1086,7 +1107,7 @@ final class AvailabilityModule[E <: Env[E]](
     //  strategy in a majority of situations.
     context
       .delayedEventTraced(
-        config.outputFetchTimeout,
+        moduleConfig.outputFetchTimeout,
         Availability.LocalOutputFetch.FetchRemoteBatchDataTimeout(batchId),
       )
       .discard
@@ -1155,7 +1176,7 @@ final class AvailabilityModule[E <: Env[E]](
   )(implicit traceContext: TraceContext): Unit = {
     // we tell mempool we want enough batches to fill up a proposal in order to make up for the one we just created
     // times the multiplier in order to try to disseminate-ahead batches for a following proposal
-    val atMost = config.maxBatchesPerProposal * DisseminateAheadMultiplier -
+    val atMost = moduleConfig.maxBatchesPerProposal * DisseminateAheadMultiplier -
       // if we have pending batches for ordering we subtract them in order for this buffer to not grow indefinitely
       (disseminationProtocolState.batchesReadyForOrdering.size + disseminationProtocolState.disseminationProgress.size)
 
@@ -1236,11 +1257,11 @@ final class AvailabilityModule[E <: Env[E]](
       )
 
       _ <- Either.cond(
-        batch.requests.sizeIs <= config.maxRequestsInBatch.toInt,
+        batch.requests.sizeIs <= moduleConfig.maxRequestsInBatch.toInt,
         (), {
           emitInvalidMessage(metrics, from)
           s"Batch $batchId from '$from' contains more requests (${batch.requests.size}) than allowed " +
-            s"(${config.maxRequestsInBatch}), skipping"
+            s"(${moduleConfig.maxRequestsInBatch}), skipping"
         },
       )
 
@@ -1269,10 +1290,10 @@ final class AvailabilityModule[E <: Env[E]](
       from: BftNodeId,
   ): Either[String, Unit] = Either.cond(
     disseminationProtocolState.disseminationQuotas
-      .canAcceptForNode(from, batchId, config.maxNonOrderedBatchesPerNode.toInt),
+      .canAcceptForNode(from, batchId, moduleConfig.maxNonOrderedBatchesPerNode.toInt),
     (), {
       emitInvalidMessage(metrics, from)
-      s"Batch $batchId from '$from' cannot be taken because we have reached the limit of ${config.maxNonOrderedBatchesPerNode} unordered and unexpired batches from " +
+      s"Batch $batchId from '$from' cannot be taken because we have reached the limit of ${moduleConfig.maxNonOrderedBatchesPerNode} unordered and unexpired batches from " +
         s"this node that we can hold on to, skipping"
     },
   )

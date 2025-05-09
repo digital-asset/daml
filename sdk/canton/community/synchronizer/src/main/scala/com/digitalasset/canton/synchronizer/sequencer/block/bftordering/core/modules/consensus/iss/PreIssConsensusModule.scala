@@ -26,6 +26,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.collection.BoundedQueue
+import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -48,7 +50,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
 )(implicit
     synchronizerProtocolVersion: ProtocolVersion,
-    config: BftBlockOrdererConfig,
+    override val config: BftBlockOrdererConfig,
     mc: MetricsContext,
 ) extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
@@ -88,6 +90,10 @@ final class PreIssConsensusModule[E <: Env[E]](
           dependencies,
           loggerFactory,
           timeouts,
+          // TODO(#23484): implement per-node quotas
+          // Drop newest to ensure continuity of messages (and fall back to retransmissions or state transfer later if needed)
+          futurePbftMessageQueue =
+            new BoundedQueue(config.consensusQueueMaxSize, DropStrategy.DropNewest),
         )()()
         context.become(consensus)
         // This will send all queued messages to the proper Consensus module.

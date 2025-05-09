@@ -80,7 +80,7 @@ class BatchDisseminationNodeQuotaTrackerTest extends AsyncWordSpec with BaseTest
       tracker.addBatch(node1, batchId4, epoch3)
       tracker.canAcceptForNode(node1, someBatchId, quotaSize) shouldBe false
 
-      tracker.expireEpoch(epoch2)
+      tracker.expireEpoch(initialEpoch = epoch1, expirationEpoch = epoch2)
       tracker.canAcceptForNode(node1, someBatchId, quotaSize) shouldBe true
 
       // expiring epoch2 removes both all batches from epoch1 and epoch2
@@ -89,6 +89,32 @@ class BatchDisseminationNodeQuotaTrackerTest extends AsyncWordSpec with BaseTest
 
       // there should be 2 batches left
       tracker.canAcceptForNode(node1, someBatchId, 2) shouldBe false
+    }
+
+    "be able to evict batches" in {
+      val tracker = new BatchDisseminationNodeQuotaTracker()
+
+      tracker.addBatch(node1, batchId1, epoch1)
+      tracker.addBatch(node1, batchId2, epoch1)
+      tracker.addBatch(node1, batchId3, epoch2)
+      tracker.addBatch(node1, batchId4, epoch3)
+      tracker.addBatch(node1, batchId5, epoch3)
+
+      tracker.expireEpoch(initialEpoch = epoch1, expirationEpoch = epoch2)
+
+      // nothing to evict because batches from the initial epoch are not tracked for eviction
+      tracker.evictBatches(evictionEpoch = epoch1) shouldBe empty
+
+      // evict batches from epoch 2
+      tracker.evictBatches(evictionEpoch = epoch2) shouldBe Seq(batchId3)
+
+      // nothing to evict from epoch 3 yet because it hasn't expired yet
+      tracker.evictBatches(evictionEpoch = epoch3) shouldBe empty
+
+      tracker.expireEpoch(initialEpoch = epoch1, expirationEpoch = epoch3)
+
+      // now that epoch is expired, we can evict from it
+      tracker.evictBatches(evictionEpoch = epoch3) shouldBe Seq(batchId4, batchId5)
     }
 
     "still accept previously accepted batches even if quota is full" in {

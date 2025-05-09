@@ -36,7 +36,7 @@ trait SynchronizerAliasAndIdStore extends AutoCloseable {
 }
 
 object SynchronizerAliasAndIdStore {
-  trait Error
+  sealed trait Error extends Product with Serializable
   final case class SynchronizerAliasAlreadyAdded(
       alias: SynchronizerAlias,
       synchronizerId: SynchronizerId,

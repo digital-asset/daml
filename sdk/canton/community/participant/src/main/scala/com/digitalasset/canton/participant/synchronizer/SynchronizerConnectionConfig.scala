@@ -61,6 +61,7 @@ final case class SynchronizerConnectionConfig(
     synchronizerAlias: SynchronizerAlias,
     sequencerConnections: SequencerConnections,
     manualConnect: Boolean = false,
+    // TODO(#25388) Switch to PSId
     synchronizerId: Option[SynchronizerId] = None,
     priority: Int = 0,
     initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
