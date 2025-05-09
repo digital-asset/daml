@@ -64,7 +64,7 @@ export class DamlLanguageClient {
   // Keep alive timer for periodically checking that the server is responding
   // to requests in a timely manner. If the server fails to respond it is
   // terminated with SIGTERM.
-  private keepAliveTimer: NodeJS.Timer | null = null;
+  private keepAliveTimer: ReturnType<typeof setInterval> | undefined;
   private keepAliveInterval = 60000; // Send KA every 60s.
 
   // Wait for max 120s before restarting process.

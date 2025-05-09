@@ -45,7 +45,7 @@ nodejs_binary(
     data = [
         "@navigator_frontend_deps//:node_modules",
     ],
-    entry_point = "@navigator_frontend_deps//:node_modules/webpack/bin/webpack.js",
+    entry_point = { "@navigator_frontend_deps//:node_modules/webpack": "bin/webpack.js" },
 )
 
 # TODO (drsk) We should switch the frontend rule to use the bazel typescript rules instead of
@@ -100,7 +100,7 @@ genrule(
     # with symbolic links and a node_modules directory that is not in the project root.
     # All input files are therefore copied to a working directory.
     cp -rL "$$(pwd)/$$(dirname $(execpath declarations.d.ts))/src" "$$IN/src"
-    cp -rL "$$(pwd)/external/navigator_frontend_deps/node_modules" "$$IN/node_modules"
+    cp -rL "$$(pwd)/bazel-out/k8-opt/bin/external/navigator_frontend_deps/node_modules" "$$IN/node_modules"
     cp -L "$$(pwd)/$(execpath webpack.config.js)" "$$IN/webpack.config.js"
     cp -L "$$(pwd)/$(execpath .modernizrrc)" "$$IN/.modernizrrc"
     cp -L "$$(pwd)/$(execpath modernizr.js)" "$$IN/modernizr.js"
