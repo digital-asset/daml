@@ -104,8 +104,11 @@ message RegisterSynchronizerRequest {
 message RegisterSynchronizerResponse {}
 
 message ModifySynchronizerRequest {
-  SynchronizerConnectionConfig new_config = 1;
-  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 2;
+  // If empty, the request will update the single active connection for the alias in `new_config`
+  optional string physical_synchronizer_id = 1;
+
+  SynchronizerConnectionConfig new_config = 2;
+  com.digitalasset.canton.admin.sequencer.v30.SequencerConnectionValidation sequencer_connection_validation = 3;
 }
 
 message ModifySynchronizerResponse {}
@@ -116,6 +119,7 @@ message ListRegisteredSynchronizersResponse {
   message Result {
     SynchronizerConnectionConfig config = 1;
     bool connected = 2;
+    optional string physical_synchronizer_id = 3;
   }
   repeated Result results = 1;
 }

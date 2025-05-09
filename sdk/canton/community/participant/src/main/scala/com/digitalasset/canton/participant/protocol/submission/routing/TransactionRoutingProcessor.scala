@@ -419,14 +419,18 @@ object TransactionRoutingProcessor {
     )
   }
 
+  // TODO(#25422) Have synchronizerAliasManager in synchronizerConnectionConfigStore and add trait SynchronizerPriority
   private def priorityOfSynchronizer(
       synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
       synchronizerAliasManager: SynchronizerAliasManager,
   )(synchronizerId: SynchronizerId): Int = {
     val maybePriority = for {
       synchronizerAlias <- synchronizerAliasManager.aliasForSynchronizerId(synchronizerId)
-      config <- synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.config)
-    } yield config.priority
+      priority <- synchronizerConnectionConfigStore
+        .getActive(synchronizerAlias, singleExpected = false)
+        .toOption
+        .map(_.config.priority)
+    } yield priority
 
     // If the participant is disconnected from the synchronizer while this code is evaluated,
     // we may fail to determine the priority.

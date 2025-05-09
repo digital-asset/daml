@@ -421,6 +421,7 @@ class InMemorySequencerStore(
     FutureUnlessShutdown.pure(
       SequencerStoreRecordCounts(
         events.size().toLong,
+        events.asScala.values.flatMap(_.members).size.toLong,
         payloads.size.toLong,
       )
     )

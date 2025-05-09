@@ -64,7 +64,7 @@ import com.digitalasset.canton.participant.protocol.submission.routing.{
 }
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.MissingConfigForAlias
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.UnknownAlias
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectSynchronizer
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
@@ -827,7 +827,11 @@ class CantonSyncService(
     for {
       _ <- validateSequencerConnection(config, sequencerConnectionValidation)
       _ <- synchronizerConnectionConfigStore
-        .put(config, SynchronizerConnectionConfigStore.Active)
+        .put(
+          config,
+          SynchronizerConnectionConfigStore.Active,
+          configuredPSId = UnknownPhysicalSynchronizerId,
+        )
         .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError)
     } yield ()
 
@@ -848,16 +852,33 @@ class CantonSyncService(
 
   /** Modifies the settings of the synchronizer connection
     *
-    * NOTE: This does not automatically reconnect to the synchronizer.
+    * @param psidO
+    *   If empty, the request will update the single active connection for the alias in `config`
+    *   NOTE: This does not automatically reconnect to the synchronizer.
     */
   def modifySynchronizer(
+      psidO: Option[PhysicalSynchronizerId],
       config: SynchronizerConnectionConfig,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
       _ <- validateSequencerConnection(config, sequencerConnectionValidation)
+
+      connectionIdToUpdateE = psidO match {
+        case Some(psid) => KnownPhysicalSynchronizerId(psid).asRight[SyncServiceError]
+        case None =>
+          synchronizerConnectionConfigStore
+            .getActive(config.synchronizerAlias, singleExpected = true)
+            .map(_.configuredPSId)
+            .leftMap(err =>
+              SyncServiceError.SyncServiceAliasResolution
+                .Error(config.synchronizerAlias, err.message)
+            )
+      }
+      connectionIdToUpdate <- EitherT.fromEither[FutureUnlessShutdown](connectionIdToUpdateE)
+
       _ <- synchronizerConnectionConfigStore
-        .replace(config)
+        .replace(connectionIdToUpdate, config)
         .leftMap(e =>
           SyncServiceError.SyncServiceUnknownSynchronizer.Error(e.alias): SyncServiceError
         )
@@ -914,7 +935,11 @@ class CantonSyncService(
       _ <-
         connectQueue.executeEUS(
           migrationService
-            .migrateSynchronizer(source, target, targetSynchronizerInfo.map(_.synchronizerId))
+            .migrateSynchronizer(
+              source,
+              target,
+              targetSynchronizerInfo.map(_.physicalSynchronizerId),
+            )
             .leftMap[SyncServiceError](
               SyncServiceError.SyncServiceMigrationError(source, target.map(_.synchronizerAlias), _)
             ),
@@ -1147,10 +1172,13 @@ class CantonSyncService(
       connectSynchronizer: ConnectSynchronizer,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SyncServiceError, Boolean] =
-    synchronizerConnectionConfigByAlias(synchronizerAlias)
-      .mapK(FutureUnlessShutdown.outcomeK)
-      .leftMap(_ => SyncServiceError.SyncServiceUnknownSynchronizer.Error(synchronizerAlias))
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Boolean] = {
+    logger.debug(s"Trying to connect $participantId to $synchronizerAlias")
+
+    EitherT
+      .fromEither[FutureUnlessShutdown](
+        getSynchronizerConnectionConfigForAlias(synchronizerAlias, onlyActive = true)
+      )
       .flatMap { _ =>
         val initial = if (keepRetrying) {
           // we're remembering that we have been trying to reconnect here
@@ -1173,6 +1201,7 @@ class CantonSyncService(
           connectSynchronizer = connectSynchronizer,
         )
       }
+  }
 
   private def attemptSynchronizerConnection(
       synchronizerAlias: SynchronizerAlias,
@@ -1264,10 +1293,34 @@ class CantonSyncService(
     clock.scheduleAt(reconnectAttempt, timestamp).discard
   }
 
-  def synchronizerConnectionConfigByAlias(
-      synchronizerAlias: SynchronizerAlias
-  ): EitherT[Future, MissingConfigForAlias, StoredSynchronizerConnectionConfig] =
-    EitherT.fromEither[Future](synchronizerConnectionConfigStore.get(synchronizerAlias))
+  /** Get the synchronizer connection corresponding to the alias. Fail if no connection can be
+    * found. If more than one connections are found, takes the highest one.
+    *
+    * @param synchronizerAlias
+    *   Synchronizer alias
+    * @param onlyActive
+    *   Restrict connection to active ones (default).
+    */
+  def getSynchronizerConnectionConfigForAlias(
+      synchronizerAlias: SynchronizerAlias,
+      onlyActive: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): Either[SyncServiceError, StoredSynchronizerConnectionConfig] =
+    synchronizerConnectionConfigStore.getAllFor(synchronizerAlias) match {
+      case Left(_: UnknownAlias) =>
+        SyncServiceError.SyncServiceUnknownSynchronizer.Error(synchronizerAlias).asLeft
+
+      case Right(configs) =>
+        val filteredConfigs = if (onlyActive) {
+          val active = configs.filter(_.status.isActive)
+          NonEmpty
+            .from(active)
+            .toRight(SyncServiceError.SyncServiceSynchronizerIsNotActive.Error(synchronizerAlias))
+        } else configs.asRight
+
+        filteredConfigs.map(_.maxBy1(_.configuredPSId))
+    }
 
   private def performSynchronizerConnectionOrHandshake(
       synchronizerAlias: SynchronizerAlias,
@@ -1278,7 +1331,10 @@ class CantonSyncService(
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     connectSynchronizer match {
       case ConnectSynchronizer.HandshakeOnly =>
-        performSynchronizerHandshake(synchronizerAlias, skipStatusCheck = skipStatusCheck)
+        performSynchronizerHandshake(
+          synchronizerAlias,
+          skipStatusCheck = skipStatusCheck,
+        )
       case _ =>
         performSynchronizerConnection(
           synchronizerAlias,
@@ -1287,7 +1343,13 @@ class CantonSyncService(
         )
     }
 
-  /** Perform handshake with the given synchronizer. */
+  /** Perform handshake with the given synchronizer.
+    * @param synchronizerAlias
+    *   Alias of the synchronizer
+    * @param skipStatusCheck
+    *   If false, check that the connection is active (default).
+    * @return
+    */
   private def performSynchronizerHandshake(
       synchronizerAlias: SynchronizerAlias,
       skipStatusCheck: Boolean,
@@ -1302,28 +1364,33 @@ class CantonSyncService(
       logger.debug(s"Synchronizer ${synchronizerAlias.unwrap} already registered")
       EitherT.rightT(())
     } else {
-
       logger.debug(s"About to perform handshake with synchronizer: ${synchronizerAlias.unwrap}")
+
       for {
-        synchronizerConnectionConfig <- synchronizerConnectionConfigByAlias(synchronizerAlias)
-          .mapK(FutureUnlessShutdown.outcomeK)
-          .leftMap[SyncServiceError] { case MissingConfigForAlias(alias) =>
-            SyncServiceError.SyncServiceUnknownSynchronizer.Error(alias)
-          }
-        // do not connect to a synchronizer that is not active
-        _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-          synchronizerConnectionConfig.status.isActive || skipStatusCheck,
-          SyncServiceError.SyncServiceSynchronizerIsNotActive
-            .Error(synchronizerAlias, synchronizerConnectionConfig.status): SyncServiceError,
+        synchronizerConnectionConfig <- EitherT.fromEither[FutureUnlessShutdown](
+          getSynchronizerConnectionConfigForAlias(synchronizerAlias, onlyActive = !skipStatusCheck)
         )
         _ = logger.debug(
-          s"Performing handshake with synchronizer with config: ${synchronizerConnectionConfig.config}"
+          s"Performing handshake with synchronizer with id ${synchronizerConnectionConfig.configuredPSId} and config: ${synchronizerConnectionConfig.config}"
         )
         synchronizerHandle <- EitherT(
           synchronizerRegistry.connect(synchronizerConnectionConfig.config)
         )
           .leftMap[SyncServiceError](err =>
             SyncServiceError.SyncServiceFailedSynchronizerConnection(synchronizerAlias, err)
+          )
+
+        psid = PhysicalSynchronizerId(
+          synchronizerHandle.synchronizerId,
+          synchronizerHandle.staticParameters.protocolVersion,
+        )
+
+        _ = logger.debug(s"Registering id $psid for synchronizer with alias $synchronizerAlias")
+        _ <- synchronizerConnectionConfigStore
+          .setPhysicalSynchronizerId(synchronizerAlias, psid)
+          .leftMap[SyncServiceError](err =>
+            SyncServiceError.SyncServicePhysicalIdRegistration
+              .Error(synchronizerAlias, psid, err.message)
           )
 
         _ = synchronizerHandle.close()
@@ -1371,22 +1438,26 @@ class CantonSyncService(
 
       val ret: EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = for {
 
-        synchronizerConnectionConfig <- synchronizerConnectionConfigByAlias(synchronizerAlias)
-          .mapK(FutureUnlessShutdown.outcomeK)
-          .leftMap[SyncServiceError] { case MissingConfigForAlias(alias) =>
-            SyncServiceError.SyncServiceUnknownSynchronizer.Error(alias)
-          }
-        // do not connect to a synchronizer that is not active
-        _ <- EitherT.cond[FutureUnlessShutdown](
-          synchronizerConnectionConfig.status.isActive || skipStatusCheck,
-          (),
-          SyncServiceError.SyncServiceSynchronizerIsNotActive
-            .Error(synchronizerAlias, synchronizerConnectionConfig.status): SyncServiceError,
+        synchronizerConnectionConfig <- EitherT.fromEither[FutureUnlessShutdown](
+          getSynchronizerConnectionConfigForAlias(synchronizerAlias, onlyActive = !skipStatusCheck)
         )
         _ = logger.debug(
-          s"Connecting to synchronizer with config: ${synchronizerConnectionConfig.config}"
+          s"Connecting to synchronizer with id ${synchronizerConnectionConfig.configuredPSId} config: ${synchronizerConnectionConfig.config}"
         )
         synchronizerHandle <- connect(synchronizerConnectionConfig.config)
+
+        psid = PhysicalSynchronizerId(
+          synchronizerHandle.synchronizerId,
+          synchronizerHandle.staticParameters.protocolVersion,
+        )
+
+        _ = logger.debug(s"Registering id $psid for synchronizer with alias $synchronizerAlias")
+        _ <- synchronizerConnectionConfigStore
+          .setPhysicalSynchronizerId(synchronizerAlias, psid)
+          .leftMap[SyncServiceError](err =>
+            SyncServiceError.SyncServicePhysicalIdRegistration
+              .Error(synchronizerAlias, psid, err.message)
+          )
 
         synchronizerId = synchronizerHandle.synchronizerId
         synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)

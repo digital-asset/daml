@@ -7,6 +7,7 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
@@ -498,6 +499,47 @@ class AvailabilityModuleDisseminationTest
           .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, expiringEpochNumber)
       )
       canAcceptBatch(AnotherBatchId) shouldBe true
+    }
+    "evict batches that are being tracked of after some epochs" in {
+      implicit val ctx: ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+        new ProgrammableUnitTestContext()
+      val availabilityStore = spy(new FakeAvailabilityStore[ProgrammableUnitTestEnv])
+      val disseminationProtocolState = new DisseminationProtocolState()
+
+      val availability = createAvailability[ProgrammableUnitTestEnv](
+        disseminationProtocolState = disseminationProtocolState,
+        cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        availabilityStore = availabilityStore,
+        initialEpochNumber = Genesis.GenesisEpochNumber,
+      )
+
+      availability.receive(
+        Availability.LocalDissemination.RemoteBatchStored(
+          ABatchId,
+          anEpochNumber,
+          Node1,
+        )
+      )
+
+      // just expiring an epoch is not enough to evict its batches
+      val expiringEpochNumber =
+        EpochNumber(anEpochNumber + OrderingRequestBatch.BatchValidityDurationEpochs)
+      availability.receive(
+        Availability.Consensus
+          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, expiringEpochNumber)
+      )
+      verifyZeroInteractions(availabilityStore)
+
+      // an extra window of batch validity has to go by for an epoch have its batches evicted
+      val evictionEpochNumber =
+        EpochNumber(anEpochNumber + 2 * OrderingRequestBatch.BatchValidityDurationEpochs)
+      availability.receive(
+        Availability.Consensus
+          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, evictionEpochNumber)
+      )
+
+      // the batch got evicted
+      verify(availabilityStore).gc(Seq(ABatchId))
     }
   }
 

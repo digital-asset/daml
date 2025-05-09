@@ -533,7 +533,6 @@ class IssConsensusModuleTest
           ConsensusSegment.ConsensusMessage.ViewChange
             .create(
               BlockMetadata(EpochNumber.First, BlockNumber.First),
-              segmentIndex = 1,
               viewNumber = ViewNumber.First,
               consensusCerts = Seq.empty,
               from = myId,
@@ -1092,7 +1091,7 @@ class IssConsensusModuleTest
         loggerFactory,
         timeouts,
         futurePbftMessageQueue,
-        postponedConsensusMessageQueue,
+        Some(postponedConsensusMessageQueue),
       )(maybeOnboardingStateTransferManager)(
         catchupDetector = maybeCatchupDetector.getOrElse(
           new DefaultCatchupDetector(topologyInfo.currentMembership, loggerFactory)

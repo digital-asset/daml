@@ -422,7 +422,10 @@ object SequencerInfoLoader {
       staticSynchronizerParameters: StaticSynchronizerParameters,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       sequencerConnections: SequencerConnections,
-  )
+  ) {
+    def physicalSynchronizerId: PhysicalSynchronizerId =
+      PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.protocolVersion)
+  }
 
   sealed trait SequencerInfoLoaderError extends Product with Serializable {
     def cause: String

@@ -51,7 +51,13 @@ import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ConfiguredPhysicalSynchronizerId,
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{BinaryFileUtil, GrpcStreamingUtils, OptionUtil, PathUtils}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -1221,7 +1227,7 @@ object ParticipantAdminCommands {
           v30.ListRegisteredSynchronizersRequest,
           v30.ListRegisteredSynchronizersResponse,
           Seq[
-            (SynchronizerConnectionConfig, Boolean)
+            (SynchronizerConnectionConfig, ConfiguredPhysicalSynchronizerId, Boolean)
           ],
         ] {
 
@@ -1239,15 +1245,26 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.ListRegisteredSynchronizersResponse
-      ): Either[String, Seq[(SynchronizerConnectionConfig, Boolean)]] = {
+      ): Either[String, Seq[
+        (SynchronizerConnectionConfig, ConfiguredPhysicalSynchronizerId, Boolean)
+      ]] = {
 
         def mapRes(
             result: v30.ListRegisteredSynchronizersResponse.Result
-        ): Either[String, (SynchronizerConnectionConfig, Boolean)] =
+        ): Either[
+          String,
+          (SynchronizerConnectionConfig, ConfiguredPhysicalSynchronizerId, Boolean),
+        ] =
           for {
             configP <- result.config.toRight("Server has sent empty config")
             config <- SynchronizerConnectionConfig.fromProtoV30(configP).leftMap(_.toString)
-          } yield (config, result.connected)
+            psid <- result.physicalSynchronizerId
+              .traverse(
+                PhysicalSynchronizerId.fromProtoPrimitive(_, "physical_synchronizer_id")
+              )
+              .map(ConfiguredPhysicalSynchronizerId(_))
+              .leftMap(_.toString)
+          } yield (config, psid, result.connected)
 
         response.results.traverse(mapRes)
       }
@@ -1318,6 +1335,7 @@ object ParticipantAdminCommands {
     }
 
     final case class ModifySynchronizerConnection(
+        synchronizerId: Option[PhysicalSynchronizerId],
         config: SynchronizerConnectionConfig,
         sequencerConnectionValidation: SequencerConnectionValidation,
     ) extends Base[v30.ModifySynchronizerRequest, v30.ModifySynchronizerResponse, Unit] {
@@ -1327,6 +1345,7 @@ object ParticipantAdminCommands {
           v30.ModifySynchronizerRequest(
             newConfig = Some(config.toProtoV30),
             sequencerConnectionValidation = sequencerConnectionValidation.toProtoV30,
+            physicalSynchronizerId = synchronizerId.map(_.toProtoPrimitive),
           )
         )
 

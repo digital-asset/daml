@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform.apiserver.execution
 import cats.data.EitherT
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 /** Class for retrieving dynamic synchronizer parameters.
@@ -20,7 +20,7 @@ import com.digitalasset.canton.tracing.TraceContext
   * dynamic synchronizer parameters.
   */
 trait DynamicSynchronizerParameterGetter {
-  def getLedgerTimeRecordTimeTolerance(synchronizerIdO: Option[SynchronizerId])(implicit
+  def getLedgerTimeRecordTimeTolerance(synchronizerIdO: Option[PhysicalSynchronizerId])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration]
 }

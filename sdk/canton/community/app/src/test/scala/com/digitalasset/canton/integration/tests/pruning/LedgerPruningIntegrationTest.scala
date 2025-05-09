@@ -285,11 +285,15 @@ abstract class LedgerPruningIntegrationTest
     val p1Id = participant1.id.adminParty
     val p2Id = participant2.id.adminParty
 
+    // wait until all unrelated active contracts are archived
+    eventually() {
+      acsCount(participant1) shouldBe 0
+      acsCount(participant2) shouldBe 0
+    }
+
     val p1UnrelatedPingContracts = pcsCount(participant1)
-    val p1UnrelatedActivePingContracts = acsCount(participant1)
 
     val p2UnrelatedPingContracts = pcsCount(participant2)
-    val p2UnrelatedActivePingContracts = acsCount(participant2)
 
     // Perform a level 2 bong to produce a lot of archived contracts and events to be pruned.
     // Produces 14 contracts.
@@ -301,7 +305,7 @@ abstract class LedgerPruningIntegrationTest
 
     pcsCount(participant1) shouldBe 14 + p1UnrelatedPingContracts
     // No new ping contracts should remain active
-    acsCount(participant1) shouldBe p1UnrelatedActivePingContracts
+    acsCount(participant1) shouldBe 0
 
     // Creates two more contracts (that stay active)
     createCycleContract(
@@ -407,7 +411,7 @@ abstract class LedgerPruningIntegrationTest
       p1LedgerEnd,
       p1PruningOffset,
       lastSeenTxTsBeforePruning,
-      16 + p1UnrelatedActivePingContracts,
+      16,
       2,
     )
     pruneAndCheck(
@@ -415,7 +419,7 @@ abstract class LedgerPruningIntegrationTest
       p2LedgerEnd,
       p2PruningOffset,
       lastSeenTxTsBeforePruning,
-      16 + p2UnrelatedActivePingContracts,
+      16,
       2,
     )
 

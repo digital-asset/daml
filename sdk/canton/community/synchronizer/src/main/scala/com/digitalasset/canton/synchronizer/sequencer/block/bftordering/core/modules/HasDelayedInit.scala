@@ -4,16 +4,23 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules
 
 import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.collection.BoundedQueue
+import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
 
 trait HasDelayedInit[M] { self: NamedLogging =>
 
+  implicit protected val config: BftBlockOrdererConfig
+
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var initComplete = false
-  private val postponedMessages = new mutable.Queue[M]
+  // Drop newest to ensure continuity of messages
+  private val postponedMessages: mutable.Queue[M] =
+    new BoundedQueue(config.delayedInitQueueMaxSize, DropStrategy.DropNewest)
 
   /** Called when a module completes relevant initialization and is ready to resume processing
     * events. Any postponed events are dequeued and processed using the provided message handler.

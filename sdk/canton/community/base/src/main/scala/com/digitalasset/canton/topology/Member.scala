@@ -140,7 +140,6 @@ object Member {
         .valueOr(err => throw new DbDeserializationException(err))
     }
   }
-
 }
 
 final case class SynchronizerId(uid: UniqueIdentifier) extends Identity {
@@ -149,7 +148,6 @@ final case class SynchronizerId(uid: UniqueIdentifier) extends Identity {
 }
 
 object SynchronizerId {
-
   implicit val orderSynchronizerId: Order[SynchronizerId] =
     Order.by[SynchronizerId, String](_.toProtoPrimitive)
   implicit val synchronizerIdEncoder: Encoder[SynchronizerId] =
@@ -179,7 +177,6 @@ object SynchronizerId {
 
   def fromString(str: String): Either[String, SynchronizerId] =
     UniqueIdentifier.fromProtoPrimitive_(str).map(SynchronizerId(_)).leftMap(_.message)
-
 }
 
 /** A participant identifier */

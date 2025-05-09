@@ -41,16 +41,16 @@ class DbRegisteredSynchronizersStore(
       val insert = storage.profile match {
         case _: DbStorage.Profile.Postgres =>
           sqlu"""
-        insert into par_synchronizers(alias, synchronizer_id)
+        insert into par_synchronizers(synchronizer_alias, synchronizer_id)
         values ($alias, $synchronizerId)
         on conflict do nothing
         """
         case _ =>
           sqlu"""
-        insert into par_synchronizers(alias, synchronizer_id)
+        insert into par_synchronizers(synchronizer_alias, synchronizer_id)
         select $alias, $synchronizerId from dual
         where not exists (select * from par_synchronizers where synchronizer_id = $synchronizerId)
-          and not exists (select * from par_synchronizers where alias = $alias)
+          and not exists (select * from par_synchronizers where synchronizer_alias = $alias)
           """
       }
 
@@ -64,7 +64,7 @@ class DbRegisteredSynchronizersStore(
           // We may have inserted the row even if the row count is lower. So check whether the row is actually there.
           doubleAlias <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select synchronizer_id from par_synchronizers where alias = $alias"
+              sql"select synchronizer_id from par_synchronizers where synchronizer_alias = $alias"
                 .as[SynchronizerId],
               functionFullName,
             )
@@ -83,7 +83,7 @@ class DbRegisteredSynchronizersStore(
           )
           doubleSynchronizerId <- EitherT.right[Either[Error, Unit]](
             storage.query(
-              sql"select alias from par_synchronizers where synchronizer_id = $synchronizerId"
+              sql"select synchronizer_alias from par_synchronizers where synchronizer_id = $synchronizerId"
                 .as[SynchronizerAlias],
               functionFullName,
             )
@@ -111,7 +111,7 @@ class DbRegisteredSynchronizersStore(
   ): FutureUnlessShutdown[Map[SynchronizerAlias, SynchronizerId]] =
     storage
       .query(
-        sql"""select alias, synchronizer_id from par_synchronizers"""
+        sql"""select synchronizer_alias, synchronizer_id from par_synchronizers"""
           .as[(SynchronizerAlias, SynchronizerId)]
           .map(_.toMap),
         functionFullName,

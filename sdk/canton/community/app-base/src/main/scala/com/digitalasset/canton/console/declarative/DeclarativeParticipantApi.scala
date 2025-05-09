@@ -552,7 +552,7 @@ class DeclarativeParticipantApi(
 
     def fetchConnections(): Either[String, Seq[(SynchronizerAlias, DeclarativeConnectionConfig)]] =
       queryAdminApi(ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers)
-        .map(_.map { case (synchronizerConnectionConfig, _) => synchronizerConnectionConfig }
+        .map(_.map { case (synchronizerConnectionConfig, _, _) => synchronizerConnectionConfig }
           .map(toDeclarative))
 
     def removeSynchronizerConnection(
@@ -563,7 +563,8 @@ class DeclarativeParticipantApi(
         currentO <- queryAdminApi(
           ParticipantAdminCommands.SynchronizerConnectivity.ListRegisteredSynchronizers
         ).map(_.collectFirst {
-          case (config, _) if config.synchronizerAlias == synchronizerAlias => config
+          case (config, psidO, _) if config.synchronizerAlias == synchronizerAlias =>
+            (config, psidO)
         })
         current <- currentO
           .toRight(s"Unable to find configuration for synchronizer $synchronizerAlias")
@@ -572,9 +573,11 @@ class DeclarativeParticipantApi(
             synchronizerAlias
           )
         )
+        (currentConfig, psidO) = current
         _ <- queryAdminApi(
           ParticipantAdminCommands.SynchronizerConnectivity.ModifySynchronizerConnection(
-            current.copy(manualConnect = true),
+            config = currentConfig.copy(manualConnect = true),
+            synchronizerId = psidO.toOption,
             sequencerConnectionValidation = SequencerConnectionValidation.Disabled,
           )
         )
@@ -596,6 +599,8 @@ class DeclarativeParticipantApi(
         synchronizerConnectionConfig <- config.toSynchronizerConnectionConfig
         _ <- queryAdminApi(
           ParticipantAdminCommands.SynchronizerConnectivity.ModifySynchronizerConnection(
+            // TODO(#25344) Allow to specify the PSId for declarative configs
+            synchronizerId = None,
             synchronizerConnectionConfig,
             sequencerConnectionValidation = SequencerConnectionValidation.Active,
           )

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
@@ -22,19 +23,21 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.collection.BoundedQueue
+import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
 
-import SegmentState.RetransmissionResult
+import SegmentState.{RetransmissionResult, computeLeaderOfView}
 import EpochState.{Epoch, Segment}
 import PbftBlockState.*
-import SegmentState.computeLeaderOfView
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class SegmentState(
@@ -45,6 +48,10 @@ class SegmentState(
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
+    getViewChangeWindowSize: OrderingTopology => NonNegativeInt = orderingTopology =>
+      NonNegativeInt.tryCreate(
+        orderingTopology.size * SegmentState.ViewNumbersWindowTopologySizeFactor
+      ),
 )(implicit
     synchronizerProtocolVersion: ProtocolVersion,
     config: BftBlockOrdererConfig,
@@ -70,9 +77,12 @@ class SegmentState(
   private var inViewChange: Boolean = false
   private var strongQuorumReachedForCurrentView: Boolean = false
 
-  private val futureViewMessagesQueue = mutable.Queue[SignedMessage[PbftNormalCaseMessage]]()
+  // TODO(#23484): implement per-node quotas
+  // Drop newest to preserve continuity of messages
+  private val futureViewMessagesQueue: mutable.Queue[SignedMessage[PbftNormalCaseMessage]] =
+    new BoundedQueue(config.consensusQueueMaxSize, DropStrategy.DropNewest)
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
-  private var discardedStaleViewMessagesCount = 0
+  private var discardedViewMessagesCount = 0
   private var discardedRetransmittedCommitCertsCount = 0
   private var retransmittedMessagesCount = 0
   private var retransmittedCommitCertificatesCount = 0
@@ -96,6 +106,10 @@ class SegmentState(
         abort,
       )
     }
+
+  @VisibleForTesting
+  private[bftordering] def getViewChangeState =
+    viewChangeState.toMap
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def processEvent(
@@ -155,7 +169,7 @@ class SegmentState(
   def commitVotes: Map[BftNodeId, Long] = sumOverInProgressBlocks(_.commitVoters)
 
   def discardedMessageCount: Int =
-    discardedStaleViewMessagesCount
+    discardedViewMessagesCount
       + discardedRetransmittedCommitCertsCount
       + segmentBlocks.forgetNE.map(_.discardedMessages).sum
       + viewChangeState.values.map(_.discardedMessages).sum
@@ -301,7 +315,7 @@ class SegmentState(
         s"Segment received PbftNormalCaseMessage with stale view ${msg.message.viewNumber}; " +
           s"current view = $currentViewNumber"
       )
-      discardedStaleViewMessagesCount += 1
+      discardedViewMessagesCount += 1
     } else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
       futureViewMessagesQueue.enqueue(msg)
       logger.info(
@@ -317,6 +331,7 @@ class SegmentState(
     * @param process
     *   process the message and indicate if we should attempt to advance the view change process
     */
+  @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   private def processViewChangeMessage[Message](
       message: Message,
       viewNumber: ViewNumber,
@@ -328,28 +343,60 @@ class SegmentState(
         s"Segment received PbftViewChangeMessage with stale view $viewNumber; " +
           s"current view = $currentViewNumber"
       )
-      discardedStaleViewMessagesCount += 1
+      discardedViewMessagesCount += 1
     } else if (viewNumber == currentViewNumber && !inViewChange) {
       logger.info(
         s"Segment received PbftViewChangeMessage with matching view $viewNumber, " +
           s"but View Change is already complete, current view = $currentViewNumber"
       )
-      discardedStaleViewMessagesCount += 1
+      discardedViewMessagesCount += 1
     } else {
-      val vcState = viewChangeState.getOrElseUpdate(
-        viewNumber,
-        new PbftViewChangeState(
-          membership,
-          computeLeader(viewNumber),
-          epochNumber,
-          viewNumber,
-          segment.slotNumbers,
-          metrics,
-          loggerFactory,
-        ),
-      )
-      if (process(vcState)(message) && vcState.shouldAdvanceViewChange) {
-        result = advanceViewChange(viewNumber)
+      val viewChangeWindowSize = getViewChangeWindowSize(membership.orderingTopology)
+      message match {
+        case SignedMessage(_: ViewChange, _)
+            if viewNumber > currentViewNumber + viewChangeWindowSize.value =>
+          // We reject view change messages that are too far ahead to avoid OOMs
+          //  due to filling the view change state with too many entries, as
+          //  this could be leveraged by malicious nodes to perform DoS attacks.
+          //
+          // This strategy will not get the network into an unrecoverable state, even
+          //  in the presence of f malicious nodes and some additional unresponsive nodes,
+          //  because it is not possible to transition the responsive portion of the network into arbitrary high
+          //  view numbers without the unavailable portion of the network being able to do so as well (as soon
+          //  as it becomes available again):
+          //
+          //  - Entering a (potentially nested) view change is the only way a view number can be increased
+          //  - Entering a (potentially nested) view change is guaranteed to be honest because at least one
+          //    correct node is part of the necessary ViewChange message quorum
+          //  - Correct view change behavior forbids starting a nested view change with less than
+          //    a strong quorum
+          //  - Correct view change behavior forbids skipping view numbers
+          //  - A NewView message embeds a strong quorum and is always sufficient to increase the view
+          //    number of nodes who observe it
+          logger.info(
+            s"Segment received ViewChange with view $viewNumber, " +
+              s"but it is too far in the future (current view = $currentViewNumber, " +
+              s"view numbers window size = $viewChangeWindowSize," +
+              s"current ordering topology size = ${membership.orderingTopology.size})"
+          )
+          discardedViewMessagesCount += 1
+
+        case _ =>
+          val vcState = viewChangeState.getOrElseUpdate(
+            viewNumber,
+            new PbftViewChangeState(
+              membership,
+              computeLeader(viewNumber),
+              epochNumber,
+              viewNumber,
+              segment.slotNumbers,
+              metrics,
+              loggerFactory,
+            ),
+          )
+          if (process(vcState)(message) && vcState.shouldAdvanceViewChange) {
+            result = advanceViewChange(viewNumber)
+          }
       }
     }
     result
@@ -558,7 +605,6 @@ class SegmentState(
       val newViewMessage = viewState
         .createNewViewMessage(
           viewChangeBlockMetadata,
-          segmentIdx = originalLeaderIndex,
           prePrepares,
           abort,
         )
@@ -604,7 +650,6 @@ class SegmentState(
       segmentBlocks.map(_.consensusCertificate).collect { case Some(cert) => cert }
     ViewChange.create(
       viewChangeBlockMetadata,
-      segmentIndex = originalLeaderIndex,
       newViewNumber,
       consensusCerts,
       from = membership.myId,
@@ -688,6 +733,8 @@ class SegmentState(
 }
 
 object SegmentState {
+
+  private final val ViewNumbersWindowTopologySizeFactor = 2
 
   final case class RetransmissionResult(
       messages: Seq[SignedMessage[PbftNetworkMessage]],

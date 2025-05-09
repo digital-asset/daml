@@ -287,6 +287,8 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
     val pruningRef = moduleSystem
       .newModuleRef[Pruning.Message](ModuleName("pruning"))
 
+    implicit val bftOrdererConfig: BftBlockOrdererConfig = new BftBlockOrdererConfig()
+
     val metrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
     implicit val metricsContext: MetricsContext = MetricsContext.Empty
 

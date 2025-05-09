@@ -111,7 +111,6 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
   ) =
     ViewChange.create(
       BlockMetadata(EpochNumber(epochNumber), BlockNumber(segment)),
-      0,
       viewNumber,
       consensusCerts,
       from,
@@ -124,7 +123,6 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       from: BftNodeId = myId,
   ): NewView = NewView.create(
     BlockMetadata(EpochNumber(0), BlockNumber(0)),
-    0,
     viewNumber,
     viewChanges,
     prePrepares,

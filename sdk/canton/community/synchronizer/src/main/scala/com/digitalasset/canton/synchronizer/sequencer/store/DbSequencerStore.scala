@@ -620,7 +620,7 @@ class DbSequencerStore(
   override def saveEvents(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[PayloadId]]])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val saveSql =
+    val saveEventSql =
       """insert into sequencer_events (
         |  ts, node_index, event_type, message_id, sender, recipients,
         |  payload_id, topology_timestamp, trace_context, error, consumed_cost, extra_traffic_consumed, base_traffic_remainder
@@ -628,8 +628,10 @@ class DbSequencerStore(
         |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         |  on conflict do nothing""".stripMargin
 
-    storage.queryAndUpdate(
-      DbStorage.bulkOperation_(saveSql, events, storage.profile) { pp => event =>
+    val eventRows = events.map(DeliverStoreEventRow(instanceIndex, _))
+
+    val saveEventsAction = DbStorage.bulkOperation_(saveEventSql, eventRows, storage.profile) {
+      pp => eventRow =>
         val DeliverStoreEventRow(
           timestamp,
           sequencerInstanceIndex,
@@ -642,7 +644,7 @@ class DbSequencerStore(
           traceContext,
           errorO,
           trafficReceiptO,
-        ) = DeliverStoreEventRow(instanceIndex, event)
+        ) = eventRow
 
         pp >> timestamp
         pp >> sequencerInstanceIndex
@@ -657,9 +659,47 @@ class DbSequencerStore(
         pp >> trafficReceiptO.map(_.consumedCost)
         pp >> trafficReceiptO.map(_.extraTrafficConsumed)
         pp >> trafficReceiptO.map(_.baseTrafficRemainder)
-      },
-      functionFullName,
-    )
+    }
+
+    val saveEventRecipientsSql =
+      """insert into sequencer_event_recipients (node_index, recipient_id, ts, is_topology_event)
+        |values (?, ?, ?, ?)
+        |on conflict do nothing""".stripMargin
+
+    for {
+      sequencerMemberId <- lookupMember(sequencerMember)
+        .map(
+          _.map(_.memberId)
+            .getOrElse(
+              ErrorUtil.invalidState(
+                s"Sequencer member $sequencerMember not found in sequencer members table"
+              )
+            )
+        )
+      recipientRows = eventRows.forgetNE.flatMap { row =>
+        row.recipientsO.toList.flatMap { members =>
+          val isTopologyEvent =
+            members.contains(sequencerMemberId) && members.sizeIs > 1
+          members.map(m => (row.instanceIndex, m, row.timestamp, isTopologyEvent))
+        }
+      }
+
+      saveRecipientsAction = DbStorage.bulkOperation_(
+        saveEventRecipientsSql,
+        recipientRows,
+        storage.profile,
+      ) { pp => row =>
+        val (sequencerInstanceIndex, recipient, timestamp, isTopologyEvent) = row
+        pp >> sequencerInstanceIndex
+        pp >> recipient
+        pp >> timestamp
+        pp >> isTopologyEvent
+      }
+      _ <- storage.queryAndUpdate(
+        DBIO.seq(saveEventsAction, saveRecipientsAction).transactionally,
+        functionFullName,
+      )
+    } yield ()
   }
 
   override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
@@ -1070,31 +1110,31 @@ class DbSequencerStore(
 
   /**   - Without filters this returns results for all enabled members, to be used in the sequencer
     *     snapshot.
-    *   - With `filterForMemberO` this returns results for a specific member, to be used when
-    *     reading events for the member.
-    *   - With both filters set this returns results the "candidate topology" timestamp that is safe
-    *     to use in the member's subscription.
+    *   - With `filterForMemberO = Some(member, false)` this returns results for a specific member,
+    *     to be used when reading events for the member.
+    *   - With `filterForMemberO = Some(member, true)` this returns results the "candidate topology"
+    *     timestamp that is safe to use in the member's subscription.
     *     - In this case, if the returned value is below the sequencer lower bound, the lower bound
     *       should be used instead.
     */
   private def memberPreviousEventTimestamps(
       beforeInclusive: CantonTimestamp,
       safeWatermark: CantonTimestamp,
-      filterForMemberO: Option[SequencerMemberId] = None,
-      filterForTopologyClientMemberIdO: Option[SequencerMemberId] = None,
+      filterForMemberO: Option[(SequencerMemberId, Boolean)] = None,
   ): DBIOAction[Map[Member, Option[CantonTimestamp]], NoStream, Effect.Read] = {
-    require(
-      filterForTopologyClientMemberIdO.forall(_ => filterForMemberO.isDefined),
-      "filterForTopologyClientMemberIdO is only intended to be used together with filterForMemberO",
-    )
     val memberFilter = filterForMemberO
-      .map(memberId => sql"and id = $memberId")
+      .map { case (memberId, _) =>
+        sql"and id = $memberId"
+      }
       .getOrElse(sql"")
-    val topologyClientMemberFilter = filterForTopologyClientMemberIdO
-      .map(topologyClientMemberId =>
-        sql"and (#$memberContainsBefore $topologyClientMemberId #$memberContainsAfter)"
+    val topologyClientMemberFilter =
+      if (
+        filterForMemberO.exists { case (_, filterTopologyEvent) =>
+          filterTopologyEvent
+        }
       )
-      .getOrElse(sql"")
+        sql"""and is_topology_event is true"""
+      else sql""
 
     (sql"""
             with
@@ -1111,31 +1151,43 @@ class DbSequencerStore(
                   -- no need to consider disabled members since they can't be served events anymore
                   and enabled = true
                   """ ++ memberFilter ++ sql"""
+              ),
+              watermarks as (
+                select
+                  node_index,
+                  case
+                    when sequencer_online then ${CantonTimestamp.MaxValue.toMicros}
+                    else watermark_ts
+                  end as watermark_ts
+                from sequencer_watermarks
+                where watermark_ts is not null
               )
-            -- for each enabled member, find the latest event before the given timestamp using a subquery
-            select m.member, coalesce( -- we use coalesce to handle the case where there are no events for a member
-                (
-                 select events.ts
-                        from sequencer_events events
-                        left join sequencer_watermarks watermarks
-                        on events.node_index = watermarks.node_index
-                      where
-                        (
-                          -- if the sequencer that produced the event is offline, only consider up until its offline watermark
-                          watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
-                        )
-                        and events.ts <= $beforeInclusive
-                        and events.ts >= m.registered_ts
-                        and events.ts <= $safeWatermark
-                        and (#$memberContainsBefore m.id #$memberContainsAfter)
-                        """ ++ topologyClientMemberFilter ++ sql"""
-                      order by events.ts desc
-                      limit 1
-                ),
-                pruned_previous_event_timestamp -- otherwise we use the timestamp stored by pruning or onboarding
-              ) as previous_ts
-            from enabled_members m
-             """).as[(Member, Option[CantonTimestamp])].map(_.toMap)
+           select
+             m.member,
+             coalesce(
+               (
+                 select
+                   (
+                     select member_recipient.ts
+                     from sequencer_event_recipients member_recipient
+                     where
+                       member_recipient.node_index = watermarks.node_index
+                       and m.id = member_recipient.recipient_id
+                       """ ++ topologyClientMemberFilter ++ sql"""
+                       and member_recipient.ts <= watermarks.watermark_ts
+                       and member_recipient.ts <= $beforeInclusive
+                       and member_recipient.ts <= $safeWatermark
+                       and member_recipient.ts >= m.registered_ts
+                     order by member_recipient.node_index, member_recipient.recipient_id, member_recipient.ts desc
+                     limit 1
+                   ) as ts
+                 from watermarks
+                 order by ts desc
+                 limit 1
+               ),
+               m.pruned_previous_event_timestamp
+             ) previous_ts
+           from enabled_members m""").as[(Member, Option[CantonTimestamp])].map(_.toMap)
   }
 
   override def deleteEventsPastWatermark(
@@ -1314,7 +1366,14 @@ class DbSequencerStore(
       beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] =
     storage.update(
-      sqlu"delete from sequencer_events where ts < $beforeExclusive",
+      DBIO
+        .sequence(
+          Seq(
+            sqlu"delete from sequencer_events where ts < $beforeExclusive",
+            sqlu"delete from sequencer_event_recipients where ts < $beforeExclusive",
+          )
+        )
+        .map(_.sum),
       functionFullName,
     )
 
@@ -1394,8 +1453,9 @@ class DbSequencerStore(
 
     for {
       events <- count(sql"select count(*) from sequencer_events")
+      eventRecipients <- count(sql"select count(*) from sequencer_event_recipients")
       payloads <- count(sql"select count(*) from sequencer_payloads")
-    } yield SequencerStoreRecordCounts(events, payloads)
+    } yield SequencerStoreRecordCounts(events, eventRecipients, payloads)
   }
 
   /** Count stored events for this node. Used exclusively by tests. */
@@ -1463,28 +1523,18 @@ class DbSequencerStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]] = {
 
-    def query(sequencerId: SequencerMemberId, registeredMember: RegisteredMember) = for {
+    def query(registeredMember: RegisteredMember) = for {
       safeWatermarkO <- safeWaterMarkDBIO
       membersPreviousTimestamps <- memberPreviousEventTimestamps(
         beforeInclusive = timestampExclusive.immediatePredecessor,
         safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue),
-        filterForMemberO = Some(registeredMember.memberId),
-        filterForTopologyClientMemberIdO = Some(sequencerId),
+        filterForMemberO = Some(registeredMember.memberId -> true),
       )
     } yield {
       membersPreviousTimestamps.headOption.flatMap { case (_, ts) => ts }
     }
 
     for {
-      sequencerId <- lookupMember(sequencerMember)
-        .map(_.map(_.memberId))
-        .map(
-          _.getOrElse(
-            ErrorUtil.invalidState(
-              s"Sequencer member $sequencerMember not found in sequencer members table"
-            )
-          )
-        )
       registeredMember <- lookupMember(member).map(
         _.getOrElse(
           ErrorUtil.invalidState(
@@ -1501,7 +1551,7 @@ class DbSequencerStore(
       // If no such event found the query will return sequencer_members.pruned_previous_event_timestamp,
       // which will be below the lower bound or be None.
       latestTopologyTimestampCandidate <- storage.query(
-        query(sequencerId, registeredMember),
+        query(registeredMember),
         functionFullName,
       )
     } yield {
@@ -1538,7 +1588,7 @@ class DbSequencerStore(
       previousTimestamp <- memberPreviousEventTimestamps(
         beforeInclusive = timestampExclusive.immediatePredecessor,
         safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue),
-        filterForMemberO = Some(memberId),
+        filterForMemberO = Some(memberId -> false),
       )
     } yield previousTimestamp
 

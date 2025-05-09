@@ -93,19 +93,16 @@ sealed trait AcsImportNoSynchronizerConnectionIntegrationTest
       import env.*
 
       participant2.synchronizers.register(sequencer1, daName, manualConnect = false)
-      participant2.synchronizers.list_registered().map { case (config, _) =>
+      participant2.synchronizers.list_registered().map { case (config, _, _) =>
         config.synchronizerAlias
-      } shouldBe Seq(
-        daName
-      )
+      } shouldBe Seq(daName)
       participant2.synchronizers.list_connected() shouldBe empty
 
       participant3.synchronizers.register(sequencer1, daName, manualConnect = true)
-      participant3.synchronizers.list_registered().map { case (config, _) =>
+      participant3.synchronizers.list_registered().map { case (config, _, _) =>
         config.synchronizerAlias
-      } shouldBe Seq(
-        daName
-      )
+      } shouldBe Seq(daName)
+
       participant3.synchronizers.list_connected() shouldBe empty
     }
 

@@ -393,6 +393,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       disseminationProtocolState,
       outputFetchProtocolState,
     )(messageAuthorizer)(
+      new BftBlockOrdererConfig(),
       synchronizerProtocolVersion,
       MetricsContext.Empty,
     )
