@@ -35,6 +35,9 @@ def da_ts_library(
         tsconfig = tsconfig,
         source_map = source_map,
         declaration = declaration,
+        # When validating is turned-on it requiere a `root_dir` to be set, but no values make the validator happy
+        # TODO We should try to turn this back on when migrating to rules_ts
+        validate = False,
     )
     js_library(
         name = name,
