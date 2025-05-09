@@ -42,7 +42,7 @@ da_haskell_binary(
     name = "run-with-yarn",
     srcs = ["RunWithYarn.hs"],
     data = [
-        "@nodejs//:yarn",
+        "@yarn//:yarn",
     ],
     hackage_deps = [
         "base",
