@@ -24,15 +24,21 @@ class UpgradeTestUtil(upgradeTestLibDar: Path)(implicit executor: ExecutionConte
   private val builtTestCaseDars: mutable.HashMap[TestCase, (Path, Seq[Dar])] =
     new mutable.HashMap[TestCase, (Path, Seq[Dar])]
 
-  def buildTestCaseDarMemoized(testCase: TestCase): Future[(Path, Seq[Dar])] =
+  def buildTestCaseDarMemoized(
+      languageVersion: LanguageVersion,
+      testCase: TestCase,
+  ): Future[(Path, Seq[Dar])] =
     builtTestCaseDars
       .get(testCase)
-      .fold(buildTestCaseDar(testCase).map { res =>
+      .fold(buildTestCaseDar(languageVersion, testCase).map { res =>
         builtTestCaseDars.update(testCase, res)
         res
       })(Future.successful(_))
 
-  private def buildTestCaseDar(testCase: TestCase): Future[(Path, Seq[Dar])] = Future {
+  private def buildTestCaseDar(
+      languageVersion: LanguageVersion,
+      testCase: TestCase,
+  ): Future[(Path, Seq[Dar])] = Future {
     val testCaseRoot = Files.createDirectory(tempDir.resolve(testCase.name))
     val testCasePkg = Files.createDirectory(testCaseRoot.resolve("test-case"))
     // Each dar is tagged with whether it needs to be uploaded, to save time on duplicate uploads
@@ -55,7 +61,7 @@ class UpgradeTestUtil(upgradeTestLibDar: Path)(implicit executor: ExecutionConte
     val darPath = assertBuildDar(
       name = testCase.name,
       version = 1,
-      lfVersion = LanguageVersion.v2_dev,
+      lfVersion = languageVersion,
       modules = Map(
         (testCase.name, Files.readString(testCase.damlPath)),
         ("PackageIds", packageIdsModuleSource),
@@ -157,10 +163,10 @@ object UpgradeTestUtil {
   }
 
   // Ensures no package name is defined twice across all test files
-  def getTestCases(testFileDir: Path): Seq[TestCase] = {
+  def getTestCases(defaultLfVersion: LanguageVersion, testFileDir: Path): Seq[TestCase] = {
     import java.lang.management.ManagementFactory
     println(ManagementFactory.getRuntimeMXBean().getInputArguments())
-    val cases = getTestCasesUnsafe(testFileDir)
+    val cases = getTestCasesUnsafe(defaultLfVersion, testFileDir)
     val packageNameDefiners = mutable.Map[String, Seq[String]]()
     for {
       c <- cases
@@ -183,7 +189,10 @@ object UpgradeTestUtil {
   private def isTest(file: File): Boolean =
     file.getName.endsWith(".daml")
 
-  private def getTestCasesUnsafe(testFileDir: Path): Seq[TestCase] =
+  private def getTestCasesUnsafe(
+      defaultLfVersion: LanguageVersion,
+      testFileDir: Path,
+  ): Seq[TestCase] =
     testFileDir.toFile.listFiles(isTest _).toSeq.map { testFile =>
       val damlPath = testFile.toPath
       val damlRelPath = testFileDir.relativize(damlPath)
@@ -191,7 +200,7 @@ object UpgradeTestUtil {
         name = damlRelPath.toString.stripSuffix(".daml"),
         damlPath,
         damlRelPath,
-        pkgDefs = PackageDefinition.readFromFile(damlPath),
+        pkgDefs = PackageDefinition.readFromFile(defaultLfVersion, damlPath),
       )
     }
 
@@ -276,7 +285,10 @@ object UpgradeTestUtil {
           )
       }
 
-    private[UpgradeTestUtil] def readFromFile(path: Path): Seq[PackageDefinition] = {
+    private[UpgradeTestUtil] def readFromFile(
+        defaultLfVersion: LanguageVersion,
+        path: Path,
+    ): Seq[PackageDefinition] = {
       val fileLines = Files.readAllLines(path).asScala.toSeq
       val packageComments =
         findComments("PACKAGE", fileLines).map { comment =>
@@ -306,7 +318,7 @@ object UpgradeTestUtil {
           PackageDefinition(
             name = c.name,
             version = version,
-            lfVersion = versionedLfVersion.fold(LanguageVersion.v2_dev)(vLf =>
+            lfVersion = versionedLfVersion.fold(defaultLfVersion)(vLf =>
               LanguageVersion.assertFromString(unversionLines(vLf, version))
             ),
             depends = unversionLines(versionedDepends, version).split('\n').toSeq.filter(_ != ""),
