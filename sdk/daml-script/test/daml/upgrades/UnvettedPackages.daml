@@ -279,7 +279,9 @@ v1UnvettedOnSubmitter
   -> Test
 v1UnvettedOnSubmitter makeCommands = test $
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` makeCommands alice cidV2 iid)
     expectPackageMissingFailure
     participant0
     []
@@ -337,7 +339,9 @@ v1UnvettedOnInformee
 v1UnvettedOnInformee isConfirming makeCommands = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` makeCommands alice cidV2 iid)
     expectPackageMissingFailure
     participant1
     (if isConfirming then [bob] else [])
@@ -376,7 +380,9 @@ helperFetchInterface p _ iid = createAndExerciseCmd (testTemplateHelper p) (Help
 fetchUndistributedUnvettedOnSubmitter : Test
 fetchUndistributedUnvettedOnSubmitter = test $
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` helperFetch alice cidV2 iid)
     expectPackageMissingFailure
     participant0
     []
@@ -385,7 +391,9 @@ fetchUndistributedUnvettedOnSubmitter = test $
 fetchUndistributedUnvettedOnSubmitterInterface : Test
 fetchUndistributedUnvettedOnSubmitterInterface = test $
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` helperFetchInterface alice cidV2 iid)
     expectPackageMissingFailure
     participant0
     []
@@ -395,7 +403,9 @@ fetchDistributedUnvettedOnSubmitter : Test
 fetchDistributedUnvettedOnSubmitter = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` helperFetch alice cidV2 iid)
     expectPackageMissingFailure
     participant0
     [bob]
@@ -405,7 +415,9 @@ fetchDistributedUnvettedOnSubmitterInterface : Test
 fetchDistributedUnvettedOnSubmitterInterface = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` helperFetchInterface alice cidV2 iid)
     expectPackageMissingFailure
     participant0
     [bob]
@@ -425,6 +437,7 @@ fetchDisclosedSubmitter participant makeChoice = test $ do
       cidWithoutAlice <- bob `submit` createCmd ((testTemplateHelper bob) with obs = [alice])
       waitForCid alice cidWithoutAlice
       cidWithAlice <- alice `submit` exerciseExactCmd cidWithoutAlice HelperPromoteObserver with newSig = alice
+      waitForCid bob cidWithAlice
       (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidWithAlice (makeChoice cidV2 iid)
     )
     expectPackageMissingFailure
@@ -442,7 +455,9 @@ fetchDistributedUnvettedOnNonConfirmingInformee : Test
 fetchDistributedUnvettedOnNonConfirmingInformee = test $ do
   bob <- allocatePartyOn "bob" participant1
   unvettedTest
-    (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
+    (\alice cidV2 iid -> do
+      waitForCid alice cidV2
+      alice `trySubmit` helperFetch alice cidV2 iid)
     expectSuccess -- Because non-signatories do not get visibility of fetches
     participant1
     []
