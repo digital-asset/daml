@@ -56,19 +56,17 @@ genrule(
         mkdir node_modules
         cd node_modules
         for f in $(locations @daml_extension_deps//:node_modules); do
-            # Because Bazel paths are weird, we need to remove everything
-            # before node_modules. We also need to extract the path separately
-            # from the filename because we need to create the path (mkdir -p)
-            # before we can write the file
-            file=$$(basename $$f)
-            dir=$$(dirname $$f | sed 's:^.*/node_modules/::')
-            mkdir -p $$dir
-            cp ../$$f $$dir/$$file
+            # exclude @bazel and @types directories that will be copied later
+            if [[ $$f != *"@"* ]]; then
+              cp -r ../$$f ./
+            fi
         done
+        cp -r ../bazel-out/k8-opt/bin/external/daml_extension_deps/node_modules/@types ./
+        cp -r ../bazel-out/k8-opt/bin/external/daml_extension_deps/node_modules/@bazel ./
         cd ..
         # Avoid file path too long errors on Windows of the form
         #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-        $(execpath //bazel_tools/sh:mktgz) $@ --exclude="node_modules/.cache/*" node_modules
+        $(execpath //bazel_tools/sh:mktgz) $@ node_modules
     """,
     tools = ["//bazel_tools/sh:mktgz"],
 )
@@ -96,6 +94,7 @@ genrule(
         "*.json",
         "README.md",
         "yarn.lock",
+        ".vscodeignore",
         "src/*",
     ]) + [
         ":node_deps_cache",
@@ -116,8 +115,10 @@ genrule(
         sed -i "s/__VERSION__/{npm}/" package.json
         sed -i 's/"name": "daml"/"name": "daml-bundled"/' package.json
         $$DIR/$(location //:yarn) compile
-        # vsce needs Yarn or NPM in path and for some reason NPM
-        # fails to find npm-cli.js so we use Yarn.
+        # vsce needs Yarn or NPM to get the minimal dependency set to include in the artifact
+        # Using Yarn has a bug whereby some transitive dependencies are not included (specifically concat-map)
+        # NPM can't find npm-cli.js for some reason and won't run
+        # So for now, we explicitly depend on concat-map in `package.json` to avoid this
         PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [

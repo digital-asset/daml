@@ -166,7 +166,7 @@ alias(
 
 alias(
     name = "yarn",
-    actual = "@nodejs//:yarn",
+    actual = "@yarn//:yarn",
 )
 
 alias(
