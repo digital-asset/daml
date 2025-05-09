@@ -144,7 +144,9 @@ export async function activate(context: vscode.ExtensionContext) {
     showRecommendedDirenvPage,
   );
 
-  context.subscriptions.push(d1, d2, d3, d4, d5);
+  let d6 = vscode.commands.registerCommand("daml.shutdown", deactivate);
+
+  context.subscriptions.push(d1, d2, d3, d4, d5, d6);
 }
 
 interface IdeManifest {
@@ -307,7 +309,7 @@ async function stopLanguageServers() {
 export async function deactivate() {
   for (let projectPath in damlLanguageClients) {
     let damlLanguageClient = damlLanguageClients[projectPath];
-    damlLanguageClient.forceStop();
+    await damlLanguageClient.forceStop();
   }
 }
 
