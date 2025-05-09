@@ -234,7 +234,7 @@ object Hash {
         mediatorGroup: Int,
         domainId: String,
         ledgerEffectiveTime: Option[Time.Timestamp],
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: SortedMap[ContractId, FatContractInstance],
     )
   }
@@ -260,7 +260,7 @@ object Hash {
       .withContext("Ledger Effective Time")(
         _.addOptional(metadata.ledgerEffectiveTime.map(_.micros), _.addLong)
       )
-      .withContext("Submission Time")(_.addLong(metadata.submissionTime.micros))
+      .withContext("Preparation Time")(_.addLong(metadata.preparationTime.micros))
       .withContext("Disclosed Contracts")(
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>
@@ -1035,11 +1035,11 @@ object Hash {
   def deriveTransactionSeed(
       submissionSeed: Hash,
       participantId: Ref.ParticipantId,
-      submitTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
   ): Hash =
     hMacBuilder(submissionSeed)
       .addString(participantId)
-      .addLong(submitTime.micros)
+      .addLong(preparationTime.micros)
       .build
 
   def deriveNodeSeed(
