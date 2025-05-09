@@ -13,6 +13,13 @@
     "module": "commonjs",
     "esModuleInterop": true,
     "declaration": true,
-    "sourceMap": true
+    "sourceMap": true,
+    // @types/node is causing issues with this version of typescript.
+    "skipLibCheck": true,
+    // those two options are needed to find @mojotech/json-type-validation validation library
+    "baseUrl": "./",
+    "paths": {
+      "*": ["node_modules/*"]
+    },
   }
 }

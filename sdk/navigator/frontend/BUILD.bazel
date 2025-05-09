@@ -45,7 +45,7 @@ nodejs_binary(
     data = [
         "@navigator_frontend_deps//:node_modules",
     ],
-    entry_point = { "@navigator_frontend_deps//:node_modules/webpack": "bin/webpack.js" },
+    entry_point = {"@navigator_frontend_deps//:node_modules/webpack": "bin/webpack.js"},
 )
 
 # TODO (drsk) We should switch the frontend rule to use the bazel typescript rules instead of

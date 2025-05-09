@@ -19,6 +19,7 @@ def jest_test(name, srcs, deps, jest_config = ":jest.config.js", tsconfig = ":ts
         "@language_support_ts_deps//jest",
         "@language_support_ts_deps//ts-jest",
         "@language_support_ts_deps//typescript",
+        "@language_support_ts_deps//lodash",
     ] if not is_windows else []
 
     _jest_test(
