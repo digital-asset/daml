@@ -826,4 +826,32 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
+  override def listTopologyFreeze(
+      request: ListTopologyFreezeRequest
+  ): Future[ListTopologyFreezeResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val ret = for {
+      res <- collectFromStoresByFilterString(
+        request.baseQuery,
+        TopologyFreeze.code,
+        // do not do UID filtering here, since the suffix of the physical synchronizer id
+        // could cause a non-match on the namespace part of the filter. instead we filter
+        // explicitly below
+        "",
+      )
+    } yield {
+      val results = res.collect {
+        case (context, freeze: TopologyFreeze)
+            if freeze.physicalSynchronizerId.toProtoPrimitive.startsWith(
+              request.filterPhysicalSynchronizerId
+            ) =>
+          adminProto.ListTopologyFreezeResponse.Result(
+            context = Some(createBaseResult(context)),
+            item = Some(freeze.toProto),
+          )
+      }
+      adminProto.ListTopologyFreezeResponse(results)
+    }
+    CantonGrpcUtil.mapErrNewEUS(ret)
+  }
 }

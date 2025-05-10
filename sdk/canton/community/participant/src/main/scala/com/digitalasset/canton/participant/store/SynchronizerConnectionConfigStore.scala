@@ -9,6 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AtMostOnePhysicalActive,
@@ -16,13 +17,21 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   MissingConfigForSynchronizer,
   NoActiveSynchronizer,
   UnknownAlias,
+  UnknownId,
 }
 import com.digitalasset.canton.participant.store.db.DbSynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.store.memory.InMemorySynchronizerConnectionConfigStore
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.{
+  SynchronizerAliasResolution,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbDeserializationException
-import com.digitalasset.canton.topology.{ConfiguredPhysicalSynchronizerId, PhysicalSynchronizerId}
+import com.digitalasset.canton.topology.{
+  ConfiguredPhysicalSynchronizerId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
@@ -43,6 +52,8 @@ final case class StoredSynchronizerConnectionConfig(
 trait SynchronizerConnectionConfigStore extends AutoCloseable {
   protected def logger: TracedLogger
   protected implicit def ec: ExecutionContext
+
+  def aliasResolution: SynchronizerAliasResolution
 
   /** Stores a synchronizer connection config together with the status. Primary identifier is the
     * (synchronizer alias, physical synchronizer id). Will return an
@@ -108,6 +119,22 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
         }
     }
 
+  /** Retrieves the active connection for `id`. Return an
+    * [[SynchronizerConnectionConfigStore.Error]] if the id is unknown or if no connection is
+    * active.
+    *
+    * @param singleExpected
+    *   If true, fails if more than one active connection exist.
+    */
+  def getActive(
+      id: SynchronizerId,
+      singleExpected: Boolean,
+  ): Either[SynchronizerConnectionConfigStore.Error, StoredSynchronizerConnectionConfig] =
+    for {
+      alias <- aliasResolution.aliasForSynchronizerId(id).toRight(UnknownId(id))
+      config <- getActive(alias, singleExpected = singleExpected)
+    } yield config
+
   /** Retrieves all configured synchronizers connection configs
     */
   def getAll(): Seq[StoredSynchronizerConnectionConfig]
@@ -126,6 +153,20 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       alias: SynchronizerAlias
   ): Either[UnknownAlias, NonEmpty[Seq[StoredSynchronizerConnectionConfig]]]
 
+  def getAllFor(
+      id: SynchronizerId
+  ): Either[UnknownId, NonEmpty[Seq[StoredSynchronizerConnectionConfig]]] = for {
+    alias <- aliasResolution.aliasForSynchronizerId(id).toRight(UnknownId(id))
+    configs <- getAllFor(alias).leftMap(_ => UnknownId(id))
+  } yield configs
+
+  def getAllStatusesFor(
+      id: SynchronizerId
+  ): Either[UnknownId, NonEmpty[Seq[SynchronizerConnectionConfigStore.Status]]] = for {
+    alias <- aliasResolution.aliasForSynchronizerId(id).toRight(UnknownId(id))
+    configs <- getAllFor(alias).leftMap(_ => UnknownId(id))
+  } yield configs.map(_.status)
+
   /** Dump and refresh all connection configs. Used when a warm participant replica becomes active
     * to ensure it has accurate configs cached.
     */
@@ -143,7 +184,7 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
 object SynchronizerConnectionConfigStore {
 
-  sealed trait Status extends Serializable with Product {
+  sealed trait Status extends Serializable with Product with PrettyPrinting {
     def dbType: Char
     def canMigrateTo: Boolean
     def canMigrateFrom: Boolean
@@ -166,6 +207,7 @@ object SynchronizerConnectionConfigStore {
     val canMigrateTo: Boolean = true
     val canMigrateFrom: Boolean = true
     val isActive: Boolean = true
+    override protected def pretty: Pretty[Active.type] = prettyOfString(_ => "Active")
   }
   // migrating into
   case object MigratingTo extends Status {
@@ -173,6 +215,7 @@ object SynchronizerConnectionConfigStore {
     val canMigrateTo: Boolean = true
     val canMigrateFrom: Boolean = false
     val isActive: Boolean = false
+    override protected def pretty: Pretty[MigratingTo.type] = prettyOfString(_ => "MigratingTo")
   }
   // migrating off
   case object Vacating extends Status {
@@ -180,6 +223,7 @@ object SynchronizerConnectionConfigStore {
     val canMigrateTo: Boolean = false
     val canMigrateFrom: Boolean = true
     val isActive: Boolean = false
+    override protected def pretty: Pretty[Vacating.type] = prettyOfString(_ => "Vacating")
   }
   case object Inactive extends Status {
     val dbType: Char = 'I'
@@ -187,6 +231,7 @@ object SynchronizerConnectionConfigStore {
       false // we can not downgrade as we might have pruned all important state
     val canMigrateFrom: Boolean = false
     val isActive: Boolean = false
+    override protected def pretty: Pretty[Inactive.type] = prettyOfString(_ => "Inactive")
   }
 
   sealed trait Error extends Serializable with Product {
@@ -225,10 +270,15 @@ object SynchronizerConnectionConfigStore {
     override def message: String =
       s"Synchronizer with alias `$alias` is unknown. Has the synchronizer been registered?"
   }
+  final case class UnknownId(id: SynchronizerId) extends Error {
+    override def message: String =
+      s"Synchronizer with id `$id` is unknown. Has the synchronizer been registered?"
+  }
 
   def create(
       storage: Storage,
       releaseProtocolVersion: ReleaseProtocolVersion,
+      aliasResolution: SynchronizerAliasResolution,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -237,11 +287,14 @@ object SynchronizerConnectionConfigStore {
   ): FutureUnlessShutdown[SynchronizerConnectionConfigStore] =
     storage match {
       case _: MemoryStorage =>
-        FutureUnlessShutdown.pure(new InMemorySynchronizerConnectionConfigStore(loggerFactory))
+        FutureUnlessShutdown.pure(
+          new InMemorySynchronizerConnectionConfigStore(aliasResolution, loggerFactory)
+        )
       case dbStorage: DbStorage =>
         new DbSynchronizerConnectionConfigStore(
           dbStorage,
           releaseProtocolVersion,
+          aliasResolution,
           timeouts,
           loggerFactory,
         ).initialize()

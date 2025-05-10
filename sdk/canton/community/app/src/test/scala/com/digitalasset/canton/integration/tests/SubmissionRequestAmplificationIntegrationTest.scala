@@ -196,14 +196,15 @@ abstract class SubmissionRequestAmplificationIntegrationTest
     )
     sequencer1.topology.synchronisation.await_idle()
 
-    val members = List(participant1.id, participant2.id, mediator1.id, mediator2.id)
+    val members = List(mediator1.id, mediator2.id, participant2.id, participant1.id)
     // Give credits to everyone
-    members.foreach { n =>
-      sequencer1.traffic_control.set_traffic_balance(n, PositiveInt.one, topUpAmountNNL)
-    }
-
-    eventually() {
-      members.foreach { member =>
+    members.foreach { member =>
+      sequencer1.traffic_control.set_traffic_balance(member, PositiveInt.one, topUpAmountNNL)
+      // Wait for each top up to be observed before making the next one
+      // This makes sure that participant1 is the last one to get a top up (because it's last in the members list)
+      // Incidentally this allows us to test that participant1 can ping participant2 immediately after its top up is
+      // sequenced even if no event gets sequenced after that.
+      eventually() {
         // Need to approximate the traffic state to the latest available here, otherwise we won't observe the change
         // since no event is sequenced after the top up
         // Check that both sequencers see the top up

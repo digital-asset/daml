@@ -110,6 +110,13 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       ptpSourceOnly.context.serial
     }
 
+    // Wait until decentralized party is visible via the ledger api on participant1 to ensure that
+    // the coin submissions succeed.
+    eventually() {
+      val partiesOnP1 = participant1.ledger_api.parties.list().map(_.party)
+      partiesOnP1 should contain(decentralizedParty)
+    }
+
     logger.info(
       s"Decentralized party created and hosted on source participant $participant1 with serial $previousSerial"
     )
@@ -199,7 +206,10 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
           logger.info(
             s"TP and SP completed party replication with status $tpStatus and $spStatus"
           )
-        case _ => fail("TP and SP did not complete party replication")
+        case (targetStatus, sourceStatus) =>
+          fail(
+            s"TP and SP did not complete party replication. TP and SP status: $targetStatus and $sourceStatus"
+          )
       }
     }
 

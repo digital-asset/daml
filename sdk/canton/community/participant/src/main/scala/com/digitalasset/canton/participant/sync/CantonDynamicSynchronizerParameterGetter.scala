@@ -10,6 +10,7 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.platform.apiserver.execution.DynamicSynchronizerParameterGetter
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -28,6 +29,7 @@ class CantonDynamicSynchronizerParameterGetter(
     syncCrypto: SyncCryptoApiParticipantProvider,
     protocolVersionFor: SynchronizerId => Option[ProtocolVersion],
     aliasManager: SynchronizerAliasManager,
+    synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit
     ec: ExecutionContext
@@ -71,7 +73,7 @@ class CantonDynamicSynchronizerParameterGetter(
         def getTolerance(
             alias: SynchronizerAlias
         ): FutureUnlessShutdown[Option[NonNegativeFiniteDuration]] =
-          aliasManager.configStore
+          synchronizerConnectionConfigStore
             .getActive(alias, singleExpected = false)
             .map(_.configuredPSId) match {
             case Left(err) =>

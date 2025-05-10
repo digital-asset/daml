@@ -361,7 +361,7 @@ class EnterpriseSequencerRateLimitManagerTest
               NonNegativeLong.zero,
               maxBaseTrafficRemainder,
               NonNegativeLong.zero,
-              sequencerTs,
+              sequencerTs.immediateSuccessor,
               None,
             ),
           )

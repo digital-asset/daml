@@ -30,6 +30,7 @@ trait DbSynchronizerConnectionConfigStoreTest
       new DbSynchronizerConnectionConfigStore(
         storage,
         testedReleaseProtocolVersion,
+        aliasManager,
         timeouts,
         loggerFactory,
       ).initialize()

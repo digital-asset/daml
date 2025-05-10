@@ -17,17 +17,27 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   NoActiveSynchronizer,
   UnknownAlias,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.participant.store.memory.InMemoryRegisteredSynchronizersStore
+import com.digitalasset.canton.participant.synchronizer.{
+  SynchronizerAliasManager,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{BaseTest, FailOnShutdown, SequencerAlias, SynchronizerAlias}
+import com.digitalasset.canton.{
+  BaseTest,
+  FailOnShutdown,
+  HasExecutionContext,
+  SequencerAlias,
+  SynchronizerAlias,
+}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
-  this: AsyncWordSpec with BaseTest =>
+  this: AsyncWordSpec with BaseTest with HasExecutionContext =>
 
   private val uid = DefaultTestIdentities.uid
   private val synchronizerId =
@@ -49,6 +59,15 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
     Some(NonNegativeFiniteDuration.tryOfSeconds(5)),
     SynchronizerTimeTrackerConfig(),
   )
+
+  protected lazy val synchronizers = {
+    val store = new InMemoryRegisteredSynchronizersStore(loggerFactory)
+    store.addMapping(alias, synchronizerId.logical).futureValueUS
+
+    store
+  }
+  protected lazy val aliasManager =
+    SynchronizerAliasManager.create(synchronizers, loggerFactory).futureValueUS
 
   def synchronizerConnectionConfigStore(
       mk: => FutureUnlessShutdown[SynchronizerConnectionConfigStore]

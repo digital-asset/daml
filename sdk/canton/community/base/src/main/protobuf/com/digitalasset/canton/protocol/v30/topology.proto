@@ -57,6 +57,7 @@ message Enums {
     reserved 16; // was TrafficControlState
     TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
     TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING = 18;
+    TOPOLOGY_MAPPING_CODE_TOPOLOGY_FREEZE = 19;
   }
 }
 
@@ -334,6 +335,16 @@ message PurgeTopologyTransaction {
   repeated TopologyMapping mappings = 2;
 }
 
+// activates a freeze of the topology state of the synchronizer, after which only
+// synchronizer migration specific topology mappings are accepted. removing this mapping
+// unfreezes the topology state again.
+// authorization: whoever controls the physical synchronizer
+// UNIQUE(physical_synchronizer_id)
+message TopologyFreeze {
+  // the synchronizer id
+  string physical_synchronizer_id = 1;
+}
+
 // [docs-entry-start: topology mapping]
 message TopologyMapping {
   oneof mapping {
@@ -356,6 +367,8 @@ message TopologyMapping {
     DynamicSequencingParametersState sequencing_dynamic_parameters_state = 15;
 
     PartyToKeyMapping party_to_key_mapping = 16;
+
+    TopologyFreeze topology_freeze = 17;
   }
   reserved 2; // was identifier_delegation
   reserved 10; // was authority_of

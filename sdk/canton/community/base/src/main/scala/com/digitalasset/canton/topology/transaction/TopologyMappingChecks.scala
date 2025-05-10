@@ -3,9 +3,11 @@
 
 package com.digitalasset.canton.topology.transaction
 
+import cats.Monad
 import cats.data.EitherT
 import cats.instances.order.*
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -196,10 +198,40 @@ class ValidatingTopologyMappingChecks(
     for {
       _ <- checkFirstIsNotRemove
       _ <- checkRemoveDoesNotChangeMapping
+      _ <- checkTopologyIsNotFrozenInSynchronizerStore(effective, toValidate, pendingChangesLookup)
       _ <- checkOpt.getOrElse(EitherTUtil.unitUS)
     } yield ()
 
   }
+
+  private val mappingsAllowedDuringFreeze = Set[Code](Code.TopologyFreeze)
+
+  /** Check that the topology state is not frozen if this store is a synchronizer store. All other
+    * stores are not subject to freezing the topology state.
+    */
+  private def checkTopologyIsNotFrozenInSynchronizerStore(
+      effective: EffectiveTime,
+      toValidate: GenericSignedTopologyTransaction,
+      pendingChangesLookup: PendingChangesLookup,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TopologyTransactionRejection, Unit] =
+    Monad[EitherT[FutureUnlessShutdown, TopologyTransactionRejection, *]].whenA(
+      store.storeId.isSynchronizerStore
+    )(for {
+      results <- loadFromStore(effective, Set(Code.TopologyFreeze), pendingChangesLookup)
+      freezesO = NonEmpty.from(results.flatMap(_.selectMapping[TopologyFreeze].toList))
+      _ <- freezesO match {
+        case None => EitherTUtil.unitUS[TopologyTransactionRejection]
+        case Some(freezes) =>
+          EitherTUtil.condUnitET[FutureUnlessShutdown](
+            mappingsAllowedDuringFreeze.contains(toValidate.mapping.code),
+            TopologyTransactionRejection.TopologyFreezeActive(
+              freezes.head1.mapping.physicalSynchronizerId.logical
+            ): TopologyTransactionRejection,
+          )
+      }
+    } yield {})
 
   private def loadHistoryFromStore(
       effectiveTime: EffectiveTime,

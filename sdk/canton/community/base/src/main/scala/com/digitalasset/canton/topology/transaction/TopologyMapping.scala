@@ -171,6 +171,8 @@ object TopologyMapping {
     case object PartyToKeyMapping
         extends Code("ptk", v30Code.TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING)
 
+    case object TopologyFreeze extends Code("frz", v30Code.TOPOLOGY_MAPPING_CODE_TOPOLOGY_FREEZE)
+
     lazy val all: Seq[Code] = Seq(
       NamespaceDelegation,
       DecentralizedNamespaceDefinition,
@@ -186,6 +188,7 @@ object TopologyMapping {
       PurgeTopologyTransaction,
       SequencingDynamicParametersState,
       PartyToKeyMapping,
+      TopologyFreeze,
     )
 
     def fromString(code: String): ParsingResult[Code] =
@@ -299,7 +302,7 @@ object TopologyMapping {
   def fromProtoV30(proto: v30.TopologyMapping): ParsingResult[TopologyMapping] =
     proto.mapping match {
       case Mapping.Empty =>
-        Left(ProtoDeserializationError.TransactionDeserialization("No mapping set"))
+        FieldNotSet("mapping").asLeft
       case Mapping.NamespaceDelegation(value) => NamespaceDelegation.fromProtoV30(value)
       case Mapping.DecentralizedNamespaceDefinition(value) =>
         DecentralizedNamespaceDefinition.fromProtoV30(value)
@@ -320,6 +323,7 @@ object TopologyMapping {
       case Mapping.SequencerSynchronizerState(value) =>
         SequencerSynchronizerState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
+      case Mapping.TopologyFreeze(value) => TopologyFreeze.fromProtoV30(value)
     }
 }
 
@@ -1848,4 +1852,56 @@ object PurgeTopologyTransaction extends TopologyMappingCompanion {
     } yield result
   }
 
+}
+
+// Indicates a freeze of the topology state. Only topology transactions related to synchronizer migrations are permitted
+// after this transaction has become effective. Removing this mapping effectively unfreezes the topology state again.
+final case class TopologyFreeze(
+    physicalSynchronizerId: PhysicalSynchronizerId
+) extends TopologyMapping {
+
+  override def companion: TopologyFreeze.type = TopologyFreeze
+
+  def toProto: v30.TopologyFreeze =
+    v30.TopologyFreeze(
+      physicalSynchronizerId = physicalSynchronizerId.toProtoPrimitive
+    )
+
+  def toProtoV30: v30.TopologyMapping =
+    v30.TopologyMapping(
+      v30.TopologyMapping.Mapping.TopologyFreeze(
+        toProto
+      )
+    )
+
+  override def namespace: Namespace = physicalSynchronizerId.logical.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(physicalSynchronizerId.logical.uid)
+
+  override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
+    physicalSynchronizerId.logical
+  )
+
+  override def requiredAuth(
+      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
+  ): RequiredAuth = RequiredNamespaces(Set(physicalSynchronizerId.logical.namespace))
+
+  override def uniqueKey: MappingHash = TopologyFreeze.uniqueKey(physicalSynchronizerId)
+}
+
+object TopologyFreeze extends TopologyMappingCompanion {
+
+  def uniqueKey(physicalSynchronizerId: PhysicalSynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(physicalSynchronizerId.toProtoPrimitive))
+
+  override def code: TopologyMapping.Code = Code.TopologyFreeze
+
+  def fromProtoV30(
+      value: v30.TopologyFreeze
+  ): ParsingResult[TopologyFreeze] =
+    for {
+      physicalSynchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        value.physicalSynchronizerId,
+        "physical_synchronizer_id",
+      )
+    } yield TopologyFreeze(physicalSynchronizerId)
 }
