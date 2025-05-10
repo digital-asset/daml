@@ -630,7 +630,7 @@ class TopologyAdministrationGroup(
           protocolVersion: Option[String] = None,
       ): Seq[ListPurgeTopologyTransactionResult] = consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommands.Read.PurgeTopologyTransaction(
+          TopologyAdminCommands.Read.ListPurgeTopologyTransaction(
             BaseQuery(
               store,
               proposals,
@@ -2347,7 +2347,7 @@ class TopologyAdministrationGroup(
       consoleEnvironment
         .run {
           adminCommand(
-            TopologyAdminCommands.Read.MediatorSynchronizerState(
+            TopologyAdminCommands.Read.ListMediatorSynchronizerState(
               BaseQuery(
                 synchronizerId,
                 proposals,
@@ -2554,7 +2554,7 @@ class TopologyAdministrationGroup(
         protocolVersion: Option[String] = None,
     ): Seq[ListSequencerSynchronizerStateResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommands.Read.SequencerSynchronizerState(
+        TopologyAdminCommands.Read.ListSequencerSynchronizerState(
           BaseQuery(
             store,
             proposals,
@@ -2634,7 +2634,7 @@ class TopologyAdministrationGroup(
         protocolVersion: Option[String] = None,
     ): Seq[ListSynchronizerParametersStateResult] = consoleEnvironment.run {
       adminCommand(
-        TopologyAdminCommands.Read.SynchronizerParametersState(
+        TopologyAdminCommands.Read.ListSynchronizerParametersState(
           BaseQuery(
             store,
             proposals,
@@ -2961,6 +2961,131 @@ class TopologyAdministrationGroup(
         force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
       )
     }
+  }
+
+  object synchronizer_migration extends Helpful {
+
+    @Help.Summary("Inspect topology freezes")
+    @Help.Group("Topology Freeze State")
+    object topology_freezes extends Helpful {
+      def list(
+          store: Option[TopologyStoreId] = None,
+          proposals: Boolean = false,
+          timeQuery: TimeQuery = TimeQuery.HeadState,
+          operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
+          filterPhysicalSynchronizer: String = "",
+          filterSigningKey: String = "",
+      ): Seq[ListTopologyFreezeResult] = consoleEnvironment.run {
+        adminCommand(
+          TopologyAdminCommands.Read.ListTopologyFreeze(
+            BaseQuery(
+              store,
+              proposals,
+              timeQuery,
+              operation,
+              filterSigningKey,
+              None,
+            ),
+            filterPhysicalSynchronizer,
+          )
+        )
+      }
+
+      @Help.Summary("Propose freezing the topology state")
+      @Help.Description(
+        """
+         physicalSynchronizerId: the target synchronizer to freeze
+
+         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                                propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
+                                 automatically.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                             satisfy the mapping's authorization requirements.
+         signedBy: the fingerprint of the key to be used to sign this proposal
+         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                 This transaction will be rejected if another fully authorized transaction with the same serial already
+                 exists, or if there is a gap between this serial and the most recently used serial.
+                 If None, the serial will be automatically selected by the node.
+         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+      )
+      def propose_freeze(
+          physicalSynchronizerId: PhysicalSynchronizerId,
+          store: Option[TopologyStoreId] = None,
+          mustFullyAuthorize: Boolean = false,
+          signedBy: Option[Fingerprint] = None,
+          serial: Option[PositiveInt] = None,
+          synchronize: Option[config.NonNegativeDuration] = Some(
+            consoleEnvironment.commandTimeouts.unbounded
+          ),
+      ): SignedTopologyTransaction[TopologyChangeOp, TopologyFreeze] =
+        consoleEnvironment.run {
+          adminCommand(
+            TopologyAdminCommands.Write.Propose(
+              mapping = TopologyFreeze(physicalSynchronizerId),
+              signedBy = signedBy.toList,
+              serial = serial,
+              change = TopologyChangeOp.Replace,
+              mustFullyAuthorize = mustFullyAuthorize,
+              forceChanges = ForceFlags.none,
+              // TODO(#25467): use physical synchronizer id to uniquely identify the target store
+              store = store.getOrElse(TopologyStoreId.Synchronizer(physicalSynchronizerId.logical)),
+              waitToBecomeEffective = synchronize,
+            )
+          )
+        }
+      @Help.Summary("Propose unfreezing the topology state")
+      @Help.Description(
+        """
+         physicalSynchronizerId: the target synchronizer to unfreeze
+
+         store: - "Authorized": the topology transaction will be stored in the node's authorized store and automatically
+                                propagated to connected synchronizers, if applicable.
+                - "<synchronizer id>": the topology transaction will be directly submitted to the specified synchronizer without
+                                 storing it locally first. This also means it will _not_ be synchronized to other synchronizers
+                                 automatically.
+         mustFullyAuthorize: when set to true, the proposal's previously received signatures and the signature of this node must be
+                             sufficient to fully authorize the topology transaction. if this is not the case, the request fails.
+                             when set to false, the proposal retains the proposal status until enough signatures are accumulated to
+                             satisfy the mapping's authorization requirements.
+         signedBy: the fingerprint of the key to be used to sign this proposal
+         serial: the expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+                 This transaction will be rejected if another fully authorized transaction with the same serial already
+                 exists, or if there is a gap between this serial and the most recently used serial.
+                 If None, the serial will be automatically selected by the node.
+         synchronize: Synchronization timeout to wait until the proposal has been observed on the synchronizer."""
+      )
+      def propose_unfreeze(
+          physicalSynchronizerId: PhysicalSynchronizerId,
+          store: Option[TopologyStoreId] = None,
+          mustFullyAuthorize: Boolean = false,
+          signedBy: Option[Fingerprint] = None,
+          serial: Option[PositiveInt] = None,
+          synchronize: Option[config.NonNegativeDuration] = Some(
+            consoleEnvironment.commandTimeouts.unbounded
+          ),
+      ): SignedTopologyTransaction[TopologyChangeOp, TopologyFreeze] =
+        consoleEnvironment.run {
+          adminCommand(
+            TopologyAdminCommands.Write.Propose(
+              mapping = TopologyFreeze(physicalSynchronizerId),
+              signedBy = signedBy.toList,
+              serial = serial,
+              change = TopologyChangeOp.Remove,
+              mustFullyAuthorize = mustFullyAuthorize,
+              forceChanges = ForceFlags.none,
+              // TODO(#25467): use physical synchronizer id to uniquely identify the target store
+              store = store.getOrElse(TopologyStoreId.Synchronizer(physicalSynchronizerId.logical)),
+              waitToBecomeEffective = synchronize,
+            )
+          )
+        }
+
+    }
+
   }
 
   @Help.Summary("Inspect topology stores")

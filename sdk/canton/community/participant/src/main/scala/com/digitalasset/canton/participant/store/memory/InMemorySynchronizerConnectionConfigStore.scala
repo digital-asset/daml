@@ -22,7 +22,10 @@ import com.digitalasset.canton.participant.store.{
   StoredSynchronizerConnectionConfig,
   SynchronizerConnectionConfigStore,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.{
+  SynchronizerAliasResolution,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
   KnownPhysicalSynchronizerId,
@@ -36,7 +39,8 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
 
 class InMemorySynchronizerConnectionConfigStore(
-    protected override val loggerFactory: NamedLoggerFactory
+    val aliasResolution: SynchronizerAliasResolution,
+    protected override val loggerFactory: NamedLoggerFactory,
 ) extends SynchronizerConnectionConfigStore
     with NamedLogging {
   protected implicit val ec: ExecutionContext = DirectExecutionContext(noTracingLogger)

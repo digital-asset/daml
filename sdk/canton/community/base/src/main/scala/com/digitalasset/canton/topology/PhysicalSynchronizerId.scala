@@ -6,50 +6,65 @@ package com.digitalasset.canton.topology
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
-final case class PhysicalSynchronizerId private (logical: SynchronizerId, suffix: String) {
+final case class PhysicalSynchronizerId(
+    logical: SynchronizerId,
+    protocolVersion: ProtocolVersion,
+    serial: NonNegativeInt = NonNegativeInt.zero,
+) {
+  def suffix: String = s"$protocolVersion${PhysicalSynchronizerId.secondaryDelimiter}$serial"
+
   def toLengthLimitedString: String300 =
     String300.tryCreate(
-      s"${logical.toLengthLimitedString}${PhysicalSynchronizerId.delimiter}$suffix"
+      s"${logical.toLengthLimitedString}${PhysicalSynchronizerId.primaryDelimiter}$suffix"
     )
 
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
 }
 
 object PhysicalSynchronizerId {
-  private val delimiter: String = "::"
+  private val primaryDelimiter: String = "::" // Between LSId and suffix
+  private val secondaryDelimiter: String = "-" // Between components of the suffix
 
-  // TODO(#25422) Better ordering
   implicit val physicalSynchronizerIdOrdering: Ordering[PhysicalSynchronizerId] =
-    Ordering.by(psid => (psid.logical.toLengthLimitedString.unwrap, psid.suffix))
+    Ordering.by(psid =>
+      (psid.logical.toLengthLimitedString.unwrap, psid.protocolVersion, psid.serial)
+    )
 
   implicit val physicalSynchronizerIdOrderingO: Ordering[Option[PhysicalSynchronizerId]] =
     Ordering.by(psidO =>
       (
         psidO.isDefined, // false < true and we want None < Some(id)
-        psidO.fold("")(_.logical.toLengthLimitedString.unwrap),
-        psidO.fold("")(_.suffix),
+        psidO,
       )
     )
 
-  // TODO(#25344) Add serial into PSId
-  // TODO(#25344) Better construction
-  def apply(lsId: SynchronizerId, protocolVersion: ProtocolVersion): PhysicalSynchronizerId =
-    PhysicalSynchronizerId(lsId, protocolVersion.toString)
-
   def fromString(raw: String): Either[String, PhysicalSynchronizerId] = {
-    val elements = raw.split(delimiter)
+    val elements = raw.split(primaryDelimiter)
     val elementsCount = elements.sizeIs
 
-    if (elementsCount == 3)
-      SynchronizerId
-        .fromString(elements.take(2).mkString(delimiter))
-        .map(PhysicalSynchronizerId(_, suffix = elements(2)))
-    else
+    if (elementsCount == 3) {
+      for {
+        lsid <- SynchronizerId.fromString(elements.take(2).mkString(primaryDelimiter))
+        suffix = elements(2)
+        suffixComponents = suffix.split("-")
+        _ <- Either.cond(
+          suffixComponents.sizeIs == 2,
+          (),
+          s"Cannot parse $suffix as a physical synchronizer id suffix",
+        )
+        pv <- ProtocolVersion.create(suffixComponents(0))
+        serialInt <- suffixComponents(1).toIntOption.toRight(
+          s"Cannot parse ${suffixComponents(1)} to an int"
+        )
+        serial <- NonNegativeInt.create(serialInt).leftMap(_.message)
+      } yield PhysicalSynchronizerId(lsid, pv, serial)
+    } else
       Left(s"Unable to parse `$raw` as physical synchronizer id")
   }
 

@@ -214,8 +214,8 @@ class EnterpriseSequencerRateLimitManager(
   /** Validate that the sender has enough traffic to send the request. Does NOT consume any traffic.
     * @param sender
     *   sender of the request
-    * @param lastSequencedTimestamp
-    *   timestamp of the last known sequenced event
+    * @param trafficTimestamp
+    *   timestamp to be used for computing the available traffic of the sender
     * @param cost
     *   cost of the event
     * @param parameters
@@ -223,7 +223,7 @@ class EnterpriseSequencerRateLimitManager(
     */
   private def validateEnoughTraffic(
       sender: Member,
-      lastSequencedTimestamp: CantonTimestamp,
+      trafficTimestamp: CantonTimestamp,
       cost: NonNegativeLong,
       parameters: TrafficControlParameters,
   )(implicit
@@ -236,14 +236,14 @@ class EnterpriseSequencerRateLimitManager(
         )
       // Get the traffic balance at the timestamp of the last known sequenced event
       trafficPurchased <-
-        getTrafficPurchased(lastSequencedTimestamp, None, warnIfApproximate = false)(sender)
+        getTrafficPurchased(trafficTimestamp, None, warnIfApproximate = false)(sender)
           .leftWiden[SequencerRateLimitError]
       trafficConsumed = trafficConsumedManager.getTrafficConsumed
-      // It's possible traffic gets consumed for the member between lastSequencedTimestamp is picked, and here,
-      // which would make trafficConsumed.sequencingTimestamp > lastSequencedTimestamp
+      // It's possible traffic gets consumed for the member between trafficTimestamp is picked, and here,
+      // which would make trafficConsumed.sequencingTimestamp > trafficTimestamp
       // This would throw off the base rate computation, so we make sure to pick the max of both timestamp
       // which gives us the most up to date state anyway
-      consumeAtTimestamp = trafficConsumed.sequencingTimestamp.max(lastSequencedTimestamp)
+      consumeAtTimestamp = trafficConsumed.sequencingTimestamp.max(trafficTimestamp)
       // Check that there's enough traffic available
       _ <- EitherT
         .fromEither[FutureUnlessShutdown]
@@ -298,7 +298,15 @@ class EnterpriseSequencerRateLimitManager(
       .flatMap {
         // If there's a cost to validate against the current available traffic, do that
         case Some(ValidCost(cost, params, _)) =>
-          validateEnoughTraffic(request.sender, lastSequencedTimestamp, cost, params)
+          // Pick the immediate successor of the lastSequencedTimestamp, as the event being validated would at least
+          // be sequenced at that timestamp. This consequently allows a member to use their purchased traffic
+          // immediately after it's been sequenced even if no event is sequenced after.
+          validateEnoughTraffic(
+            request.sender,
+            lastSequencedTimestamp.immediateSuccessor,
+            cost,
+            params,
+          )
         // Otherwise let the request through
         case None => EitherT.pure(())
       }

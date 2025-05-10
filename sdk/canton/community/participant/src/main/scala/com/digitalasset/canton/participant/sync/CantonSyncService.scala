@@ -298,7 +298,6 @@ class CantonSyncService(
     connectedSynchronizersLookup = connectedSynchronizersLookup,
     cryptoPureApi = syncCrypto.pureCrypto,
     synchronizerConnectionConfigStore = synchronizerConnectionConfigStore,
-    synchronizerAliasManager = aliasManager,
     participantId = participantId,
     parameters = parameters,
     loggerFactory = loggerFactory,
@@ -401,6 +400,7 @@ class CantonSyncService(
       syncCrypto,
       syncPersistentStateManager.protocolVersionFor,
       aliasManager,
+      synchronizerConnectionConfigStore,
       loggerFactory,
     )
 

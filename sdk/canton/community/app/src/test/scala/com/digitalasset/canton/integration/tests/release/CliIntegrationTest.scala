@@ -125,7 +125,7 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
         )
 
         val portsFile = interactiveTopologyDir / "canton_ports.json"
-        utils.retry_until_true(NonNegativeDuration.ofSeconds(20))(portsFile.exists)
+        utils.retry_until_true(NonNegativeDuration.ofSeconds(60))(portsFile.exists)
 
         Process(
           "./interactive_topology_example.sh",
