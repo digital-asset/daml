@@ -247,6 +247,7 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
   | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
   | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
+  | WEUpgradeShouldNotImplementNonUpgradeableIfaces !Version !(Qualified TypeConName)
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -288,6 +289,11 @@ instance Pretty ErrorOrWarning where
         [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
         , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
+    WEUpgradeShouldNotImplementNonUpgradeableIfaces depLfVersion iface ->
+      vsep
+        [ "This package implements a " <> pPrint iface <> " from a package with LF version " <> pPrint depLfVersion <> "."
+        , "It is forbidden to implement interfaces with version <= LF1.15 in templates from packages with LF version >= LF 1.17."
+        ]
     where
       pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
@@ -300,6 +306,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
       , (upgradeSerializedLF15DependencyName, upgradeSerializedLF15DependencyFlag)
       , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
+      , (allowImplementNonUpgradeableInterfacesName, allowImplementNonUpgradeableInterfacesFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -310,6 +317,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
       WEUpgradeDependsOnSerializableNonUpgradeableDataType {} -> AsWarning
       WEDependsOnDatatypeFromNewDamlScript {} -> AsWarning
+      WEUpgradeShouldNotImplementNonUpgradeableIfaces {} -> AsError
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -381,6 +389,18 @@ upgradeDependencyMetadataFilter =
     \case
         WEDependencyHasUnparseableVersion {} -> True
         WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
+        _ -> False
+
+allowImplementNonUpgradeableInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+allowImplementNonUpgradeableInterfacesFlag status = RawDamlWarningFlag allowImplementNonUpgradeableInterfacesName status allowImplementNonUpgradeableInterfacesFilter
+
+allowImplementNonUpgradeableInterfacesName :: String
+allowImplementNonUpgradeableInterfacesName = "internal-allow-implement-non-upgradeable-interfaces"
+
+allowImplementNonUpgradeableInterfacesFilter :: ErrorOrWarning -> Bool
+allowImplementNonUpgradeableInterfacesFilter =
+    \case
+        WEUpgradeShouldNotImplementNonUpgradeableIfaces {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage

@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 object PackageUpgradeValidator {
-  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])]
 }
 
 class PackageUpgradeValidator(
@@ -65,7 +65,7 @@ class PackageUpgradeValidator(
                 // by a cache depending on the order in which the packages are uploaded.
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap, upgradingPackagesMap)
               )
-              res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
+              res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version, Some(pkg.languageVersion)))), rest)
             } yield res
           case None =>
             logger.debug(
@@ -111,6 +111,18 @@ class PackageUpgradeValidator(
 
       case None =>
         for {
+          _ <- EitherT(
+            Future(
+              TypecheckUpgrades(loggerFactory).typecheckUpgradesStandalone(packageMap, uploadedPackage)
+                .toEither
+            )
+          ).leftMap[DamlError] {
+            case unhandledErr =>
+              InternalError.Unhandled(
+                unhandledErr,
+                Some(s"Typechecking upgrades for $uploadedPackageId failed with unknown error."),
+              )
+          }
           optMaximalDar <- EitherT.right[DamlError](
             maximalVersionedDar(uploadedPackageMetadata, packageMap, upgradingPackagesMap)
           )
@@ -157,16 +169,16 @@ class PackageUpgradeValidator(
 
   private def existingVersionedPackageId(
       packageMetadata: Ast.PackageMetadata,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
   ): Option[Ref.PackageId] = {
     val pkgName = packageMetadata.name
     val pkgVersion = packageMetadata.version
-    packageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`)) => pkgId }
+    packageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`, _)) => pkgId }
   }
 
   private def minimalVersionedDar(
       packageMetadata: Ast.PackageMetadata,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
       upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -174,7 +186,7 @@ class PackageUpgradeValidator(
     val pkgName = packageMetadata.name
     val pkgVersion = packageMetadata.version
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      .collect { case (pkgId, (`pkgName`, pkgVersion, _)) =>
         (pkgId, pkgVersion)
       }
       .filter { case (_, version) => pkgVersion < version }
@@ -193,7 +205,7 @@ class PackageUpgradeValidator(
 
   private def maximalVersionedDar(
       packageMetadata: Ast.PackageMetadata,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
       upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -201,7 +213,7 @@ class PackageUpgradeValidator(
     val pkgName = packageMetadata.name
     val pkgVersion = packageMetadata.version
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
+      .collect { case (pkgId, (`pkgName`, pkgVersion, _)) =>
         (pkgId, pkgVersion)
       }
       .filter { case (_, version) => pkgVersion > version }
@@ -234,7 +246,7 @@ class PackageUpgradeValidator(
           logger.info(s"Package $newPkgId1WithMeta claims to upgrade package id $oldPkgId2WithMeta")
           EitherT(
             Future(
-              TypecheckUpgrades
+              TypecheckUpgrades(loggerFactory)
                 .typecheckUpgrades(
                   packageMap,
                   (newPkgId1WithMeta.pkgId, newPkg1),

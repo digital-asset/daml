@@ -153,11 +153,16 @@ checkPackageSingle mbContext pkg externalPkgs = do
       withMbContext :: TcM () -> TcM ()
       withMbContext = maybe id withContext mbContext
   withReaderT (\preEnv -> mkGamma preEnv presentWorld) $
-    withMbContext $ do
-      checkNewInterfacesAreUnused pkg
-      checkInterfacesAndExceptionsHaveNoTemplates
-      forM_ (NM.toList (getModules pkg)) $ \mod ->
-        WarnUpgradedDependencies.checkModule mod
+    withMbContext $
+      checkStandalone pkg
+
+checkStandalone :: HasModules a => a -> TcM ()
+checkStandalone hasModules = do
+  checkNewInterfacesAreUnused hasModules
+  checkInterfacesAndExceptionsHaveNoTemplates
+  checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces hasModules
+  forM_ (NM.toList (getModules hasModules)) $ \mod ->
+    WarnUpgradedDependencies.checkModule mod
 
 checkModule
   :: LF.World -> LF.Module
@@ -169,10 +174,7 @@ checkModule world0 module_ deps version upgradeInfo warningFlags mbUpgradedPkg =
     shouldTypecheck <- shouldTypecheckM
     when shouldTypecheck $ do
       let world = extendWorldSelf module_ world0
-      withReaderT (\preEnv -> mkGamma preEnv world) $ do
-        checkNewInterfacesAreUnused module_
-        checkInterfacesAndExceptionsHaveNoTemplates
-        WarnUpgradedDependencies.checkModule module_
+      withReaderT (\preEnv -> mkGamma preEnv world) $ checkStandalone module_
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkgWithId, upgradingDeps) -> do
@@ -289,9 +291,16 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                   pure Nothing
                 Right presentVersion -> do
                   let result = (packageName, (Just presentVersion, presentPkgId, presentPkg))
+                  let otherDepsWithSelf = addDep result upgradeablePackageMap
+                      depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems otherDepsWithSelf
                   unless (packageName `elem` [PackageName "daml-prim", PackageName "daml-stdlib"]) $
                     case HMS.lookup packageName upgradeablePackageMap of
-                      Nothing -> pure ()
+                      Nothing -> withReaderT (const versionAndInfo) $ do
+                        pure ()
+                        --checkPackageSingle
+                        --  Nothing
+                        --  presentPkg
+                        --  depsAsExternalPackages
                       Just upgradeablePkgs -> do
                         let filterUpgradeablePkgs pred = mapMaybe $ \case
                               (Just v, pkgId, pkg) | pred (v, pkgId, pkg) -> Just (v, pkgId, pkg)
@@ -304,8 +313,6 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                           then
                             throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
                           else do
-                            let otherDepsWithSelf = addDep result upgradeablePackageMap
-                                depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems otherDepsWithSelf
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> withReaderT (const versionAndInfo) $ do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
@@ -596,6 +603,18 @@ checkInterfacesAndExceptionsHaveNoTemplates = do
         diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
     when (not (null templateDefined) && not (null exceptionDefined)) $
         diagnosticWithContext WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
+
+checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces :: HasModules a => a -> TcM ()
+checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces hasModules =
+    forM_ (HMS.toList (instantiatedIfaces modules)) $ \(ifaceQualName, _modTplImpls) ->
+        case qualPackage ifaceQualName of
+          PRImport pkgId -> do
+            pkg <- inWorld (lookupPackage (PRImport pkgId))
+            when (not (packageLfVersion pkg `supports` featurePackageUpgrades)) $
+              diagnosticWithContext $ WEUpgradeShouldNotImplementNonUpgradeableIfaces (packageLfVersion pkg) ifaceQualName
+          _ -> pure ()
+    where
+    modules = getModules hasModules
 
 -- Check that any interfaces defined in this package or module do not also have
 -- an instance. Interfaces defined in other packages are allowed to have
