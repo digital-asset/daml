@@ -108,6 +108,7 @@ sh_test(
         "$(location //test-common:model-tests-2.1.dar)",
         "$(location :hidden.dar)",
         "$(location @grpcurl_nix//:bin)",
+        "$(location //canton:openapi_ts)",
         "$(POSIX_DIFF)",
     ],
     data = [
@@ -117,6 +118,7 @@ sh_test(
         "//:java",
         "//:yarn",
         "//canton:community_app_deploy.jar",
+        "//canton:openapi_ts",
         "//language-support/ts/daml-ledger:npm_package",
         "//language-support/ts/daml-types:npm_package",
         # TODO(#14706): revert to model-tests-default once the default major

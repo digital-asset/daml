@@ -695,6 +695,27 @@ load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
 
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+RULES_OPEN_API_COMMIT = "ff9718e8799722e81b2cd4d2afede4cc34410b01"  # see compatibility matrix
+
+RULES_OPEN_API_SHA256 = "db6cd07b013e095cba265a8ba6ee5d39380007cbcdb1b91f9548988987da0214"  # see compatibility matrix
+
+http_archive(
+    name = "io_bazel_rules_openapi",
+    sha256 = RULES_OPEN_API_SHA256,
+    strip_prefix = "rules_openapi-%s" % RULES_OPEN_API_COMMIT,
+    url = "https://github.com/meetup/rules_openapi/archive/%s.tar.gz" % RULES_OPEN_API_COMMIT,
+)
+
+load("@io_bazel_rules_openapi//openapi:openapi.bzl", "openapi_repositories")
+
+openapi_repositories(
+    codegen_cli_provider = "openapi",
+    codegen_cli_sha256 = "f3ed312310e390324b33ba2ffff290ce812935207a1493ec5c098d0a441be51c",
+    codegen_cli_version = "5.4.0",
+)
+
 # TODO (aherrmann) This wrapper is only used on Windows.
 #   Replace by an appropriate Windows only `dadew_tool` call.
 dev_env_tool(

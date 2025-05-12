@@ -30,6 +30,7 @@ load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
 load("//language-support/java:javaopts.bzl", "da_java_bindings_javacopts")
 load("//language-support/java/codegen:codegen.bzl", "dar_to_java")
 load("//rules_daml:daml.bzl", "daml_compile")
+load("@io_bazel_rules_openapi//openapi:openapi.bzl", "openapi_gen")
 
 ### build-info ###
 
@@ -1887,5 +1888,16 @@ da_haskell_library(
         "text",
         "vector",
     ],
+    visibility = ["//visibility:public"],
+)
+
+openapi_gen(
+    name = "openapi_ts",
+    additional_properties = {
+        "npmName": "@daml/openapi",
+        "npmVersion": "1.0.0",
+    },
+    language = "typescript",
+    spec = "community/ledger/ledger-json-api/src/test/resources/json-api-docs/openapi.yaml",
     visibility = ["//visibility:public"],
 )

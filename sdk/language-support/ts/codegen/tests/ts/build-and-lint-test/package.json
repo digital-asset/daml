@@ -6,6 +6,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@daml/ledger": "file:../daml-ledger",
+    "@daml/openapi": "file:../daml-openapi",
     "@daml.js/build-and-lint-1.0.0": "file:../daml2js/build-and-lint-1.0.0",
     "p-event": "^4.1.0"
   },
