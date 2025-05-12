@@ -271,10 +271,6 @@ def daml_deps():
             patches = [
                 "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_hotfix.patch",
             ],
-            # # TODO Those must be backported? or can we jump directly to rules_js?
-            #  # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
-            #  "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
-            # #     "@com_github_digital_asset_daml//bazel_tools:rules_nodejs_node_dependency.patch",
             patch_args = ["-p1"],
         )
 
@@ -293,14 +289,6 @@ def daml_deps():
             ],
             patch_args = ["-p1"],
         )
-
-    # if "rules_proto" not in native.existing_rules():
-    #     http_archive(
-    #         name = "rules_proto",
-    #         sha256 = "14a225870ab4e91869652cfd69ef2028277fc1dc4910d65d353b62d6e0ae21f4",
-    #         strip_prefix = "rules_proto-7.1.0",
-    #         url = "https://github.com/bazelbuild/rules_proto/releases/download/7.1.0/rules_proto-7.1.0.tar.gz",
-    #     )
 
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
