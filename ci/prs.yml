@@ -173,7 +173,7 @@ jobs:
         gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
         gcloud auth configure-docker --quiet ${REGISTRY%%/*}
         echo "Get unifi from ${REGISTRY}..."
-        ./ci/get-unifi.sh "${REGISTRY}/components/assistant:latest"
+        ./ci/get-unifi.sh europe-docker.pkg.dev/da-images-dev/oci-private/components/assistant:latest
         echo "Publish to ${REGISTRY}..."
         ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${REGISTRY}
       env:
