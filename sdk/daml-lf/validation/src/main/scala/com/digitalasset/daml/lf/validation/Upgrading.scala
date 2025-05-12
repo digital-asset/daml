@@ -31,8 +31,7 @@ object UpgradeError {
     def message: String;
   }
 
-  final case class CannotImplementNonUpgradeableInterface(iface: Ref.TypeConName)
-      extends Error {
+  final case class CannotImplementNonUpgradeableInterface(iface: Ref.TypeConName) extends Error {
     override def message: String =
       s"Tried to implement ${iface}. Templates with LF version >= 1.17 cannot implement interfaces with LF version <= 1.15."
   }
@@ -385,14 +384,17 @@ object TypecheckUpgrades {
 }
 
 case class TypecheckUpgrades(
-  val loggerFactory: NamedLoggerFactory,
+    val loggerFactory: NamedLoggerFactory
 ) extends TypecheckUpgradesUtils {
-  //case object StandaloneDarCheck extends UploadPhaseCheck {
+  // case object StandaloneDarCheck extends UploadPhaseCheck {
   //  override def toString: String = "standalone-dar-check"
-  //}
+  // }
 
   def typecheckUpgradesStandalone(
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+      packageMap: Map[
+        Ref.PackageId,
+        (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+      ],
       present: (
           Ref.PackageId,
           Ast.Package,
@@ -405,7 +407,10 @@ case class TypecheckUpgrades(
   }
 
   def typecheckUpgrades(
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+      packageMap: Map[
+        Ref.PackageId,
+        (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+      ],
       present: (
           Ref.PackageId,
           Ast.Package,
@@ -420,8 +425,12 @@ case class TypecheckUpgrades(
         val (presentPackageId, presentPkg) = present
         val tc = TypecheckUpgradesPair(
           packageMap
-            + (presentPackageId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(presentPkg.languageVersion)))
-            + (pastPackageId -> (pastPkg.name.get, pastPkg.metadata.get.version, Some(pastPkg.languageVersion))),
+            + (presentPackageId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
+              presentPkg.languageVersion
+            )))
+            + (pastPackageId -> (pastPkg.name.get, pastPkg.metadata.get.version, Some(
+              pastPkg.languageVersion
+            ))),
           Upgrading((pastPackageId, pastPkg), present),
           loggerFactory,
         )
@@ -447,12 +456,17 @@ case class TypecheckUpgradesStandalone(
       instance <- template.implements
     } {
       packageMap.get(instance._2.interfaceId.packageId) match {
-        case Some((_, _, Some(languageVersion))) if languageVersion < LanguageVersion.Features.smartContractUpgrade =>
-          //fail(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId))
-          logger.warn(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId).message)
+        case Some((_, _, Some(languageVersion)))
+            if languageVersion < LanguageVersion.Features.smartContractUpgrade =>
+          // fail(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId))
+          logger.warn(
+            UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId).message
+          )
         case None =>
-          //fail(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId))
-          logger.warn(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId).message)
+          // fail(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId))
+          logger.warn(
+            UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId).message
+          )
         case _ =>
           ()
       }
