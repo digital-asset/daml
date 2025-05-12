@@ -213,13 +213,3 @@ class UpgradesITSmallDev
       numParticipants = 2,
       testCaseFilter = _.name != "SubViews",
     )
-
-class UpgradesITSLargeDev
-    extends UpgradesIT(
-      runCantonInDevMode = true,
-      languageVersion = LanguageVersion.Major.V2.dev,
-      upgradeTestLibDarPath = "daml-script/test/upgrade-test-lib-dev.dar",
-      testFilesDirPath = "daml-script/test/daml/upgrades/dev",
-      numParticipants = 5,
-      testCaseFilter = _.name == "SubViews",
-    )
