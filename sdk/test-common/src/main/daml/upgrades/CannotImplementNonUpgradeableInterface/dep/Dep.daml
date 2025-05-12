@@ -1,0 +1,6 @@
+module Dep where
+
+data IView = IView {}
+
+interface I where
+  viewtype IView

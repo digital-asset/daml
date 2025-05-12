@@ -593,6 +593,26 @@ da_scala_dar_resources_library(
 ]
 
 [
+    daml_compile(
+        name = "upgrades-CannotImplementNonUpgradeableInterface-dep",
+        srcs = glob(["src/main/daml/upgrades/CannotImplementNonUpgradeableInterface/dep/*.daml"]),
+        project_name = "upgrades-CannotImplementNonUpgradeableInterface-dep",
+        target = "1.15",
+        version = "1.0.0",
+        visibility = ["//visibility:public"],
+    ),
+    daml_compile(
+        name = "upgrades-CannotImplementNonUpgradeableInterface",
+        srcs = glob(["src/main/daml/upgrades/CannotImplementNonUpgradeableInterface/main/*.daml"]),
+        project_name = "upgrades-CannotImplementNonUpgradeableInterface",
+        data_dependencies = ["//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar"],
+        target = "1.dev",
+        version = "1.0.0",
+        visibility = ["//visibility:public"],
+    ),
+]
+
+[
     [
         filegroup(
             name = "upgrades-{}-dep-files".format(identifier),

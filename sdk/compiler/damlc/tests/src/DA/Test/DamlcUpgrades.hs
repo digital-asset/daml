@@ -502,6 +502,12 @@ tests damlc =
             , testUpgradeCheck
                   "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
                   (FailWithError "error type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
+            , testUpgradeCheckMany
+                  "CannotImplementNonUpgradeableInterface"
+                  (FailWithError "error type checking <none>:\n  This package implements a .*:Dep:I from a package with LF version 1.15.") $
+                  do
+                    dar <- locateRunfiles (mainWorkspace </> "test-common/upgrades-CannotImplementNonUpgradeableInterface.dar")
+                    pure [dar]
             ]
        )
   where
@@ -509,33 +515,40 @@ tests damlc =
         :: String
         -> Expectation
         -> TestTree
-    testUpgradeCheck name expectation =
+    testUpgradeCheck name expectation = testUpgradeCheckMany name expectation $ do
+        let testAdditionaDarRunfile version = locateRunfiles (mainWorkspace </> "test-common" </> ("upgrades-" <> name <> "-" <> version <> ".dar"))
+        v1Dar <- testAdditionaDarRunfile "v1"
+        v2Dar <- testAdditionaDarRunfile "v2"
+        pure [v1Dar, v2Dar]
+
+    testUpgradeCheckMany
+        :: String
+        -> Expectation
+        -> IO [String]
+        -> TestTree
+    testUpgradeCheckMany name expectation getFilenames =
         testCase (name <> " (upgrade-check)") $ do
-            let testAdditionaDarRunfile version = locateRunfiles (mainWorkspace </> "test-common" </> ("upgrades-" <> name <> "-" <> version <> ".dar"))
-            v1Dar <- testAdditionaDarRunfile "v1"
-            v2Dar <- testAdditionaDarRunfile "v2"
-            let expectedDiagFile = Nothing
-            let regexPrefix = maybe "" (\filePat -> "File:.*" <> T.pack filePat <> ".+") expectedDiagFile
+            filenames <- getFilenames
             case expectation of
               Succeed ->
-                  callProcessSilent damlc ["upgrade-check", v1Dar, v2Dar]
+                  callProcessSilent damlc $ "upgrade-check" : filenames
               SucceedWithoutWarning regex -> do
-                  stderr <- callProcessForSuccessfulStderr damlc ["upgrade-check", v1Dar, v2Dar]
+                  stderr <- callProcessForSuccessfulStderr damlc $ "upgrade-check" : filenames
                   let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
                   let compiledRegex :: Regex
                       compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
                   when (matchTest compiledRegex stderr) $
                     assertFailure ("`daml build` succeeded, but should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
               FailWithError regex -> do
-                  stderr <- callProcessForStderr damlc ["upgrade-check", v1Dar, v2Dar]
-                  let regexWithSeverity = regexPrefix <> "Severity: DsError\nMessage: \n" <> regex
+                  stderr <- callProcessForStderr damlc $ "upgrade-check" : filenames
+                  let regexWithSeverity = "Severity: DsError\nMessage: \n" <> regex
                   let compiledRegex :: Regex
                       compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
                   unless (matchTest compiledRegex stderr) $
                       assertFailure ("`daml build` failed as expected, but did not give an error matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
               SucceedWithWarning regex -> do
-                  stderr <- callProcessForSuccessfulStderr damlc ["upgrade-check", v1Dar, v2Dar]
-                  let regexWithSeverity = regexPrefix <> "Severity: DsWarning\nMessage: \n" <> regex
+                  stderr <- callProcessForSuccessfulStderr damlc $ "upgrade-check" : filenames
+                  let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
                   let compiledRegex :: Regex
                       compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
                   case matchCount compiledRegex stderr of

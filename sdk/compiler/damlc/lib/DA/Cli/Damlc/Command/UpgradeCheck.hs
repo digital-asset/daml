@@ -182,6 +182,14 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                   (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
                   (Just (main, deps))
           when (not (null errs)) (throwE [CEDiagnostic path errs])
+      let upwnavToExternalDep UpgradedPkgWithNameAndVersion { upwnavPkgId, upwnavPkg } = LF.ExternalPackage upwnavPkgId upwnavPkg
+      let standaloneErrors =
+            extractDiagnostics
+              LFV.version2_dev
+              (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
+              (mkDamlWarningFlags damlWarningFlagParserTypeChecker []) $
+                Upgrade.checkPackageSingle Nothing (upwnavPkg main) (map upwnavToExternalDep deps)
+      when (not (null standaloneErrors)) (throwE [CEDiagnostic path standaloneErrors])
 
 runUpgradeCheck :: [String] -> IO ()
 runUpgradeCheck rawPaths = do
