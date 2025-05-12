@@ -211,6 +211,20 @@ da_haskell_library(
     for version in LEGACY_DAML_SCRIPT_LF_VERSIONS
 ]
 
+daml_compile(
+    name = "iface15",
+    srcs = ["daml/Interface15.daml"],
+    target = "1.15",
+)
+
+daml_compile(
+    name = "tmpl17",
+    srcs = ["daml/Template17.daml"],
+    data_dependencies = ["//daml-script/test:iface15.dar"],
+    dependencies = ["//daml-script/daml:daml-script.dar"],
+    target = "1.17",
+)
+
 [
     da_haskell_test(
         name = "integration-script2-{}".format(mangle_for_damlc(version)),

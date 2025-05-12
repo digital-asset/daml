@@ -8,6 +8,7 @@ import java.util.concurrent.TimeUnit
 
 import com.daml.ledger.api.v1.commands.{
   Command,
+  CreateAndExerciseCommand,
   CreateCommand,
   ExerciseByKeyCommand,
   ExerciseCommand,
@@ -75,6 +76,11 @@ object ValueConversions {
   }
 
   implicit def value2Optional(value: Value): Option[Value] = Some(value)
+
+  implicit class CreateAndExerciseCommands(val createAndExercise: CreateAndExerciseCommand)
+      extends AnyVal {
+    def wrap = Command.of(Command.Command.CreateAndExercise(createAndExercise))
+  }
 
   implicit class ExerciseCommands(val exercise: ExerciseCommand) extends AnyVal {
     def wrap = Command.of(Command.Command.Exercise(exercise))

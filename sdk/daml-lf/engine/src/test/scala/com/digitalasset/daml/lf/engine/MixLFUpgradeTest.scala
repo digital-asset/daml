@@ -199,7 +199,7 @@ class MixLFUpgradeTest extends AnyFreeSpec with Matchers with Inside {
                 assert(exe.templateId == tmplId)
                 assert(exe.interfaceId.contains(ifaceId))
 
-                // Check the trailing None fields are drop iff the interface >= 1.17
+                // Check the trailing None fields are dropped iff the interface >= 1.17
                 inside(exe.chosenValue) { case Value.ValueRecord(_, fields) =>
                   assert(fields.length == expectNumberOfField)
                 }
