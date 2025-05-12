@@ -401,6 +401,11 @@ class IdeLedgerClient(
           innerError.actual,
           Pretty.prettyDamlException(e).renderWideStream.mkString,
         )
+      case e @ DisallowInterfaceExercise(_, _, _, _) =>
+        submitErrors.DevError(
+          e.getClass.getSimpleName,
+          Pretty.prettyDamlException(e).renderWideStream.mkString,
+        )
       case e @ Dev(_, innerError) =>
         submitErrors.DevError(
           innerError.getClass.getSimpleName,

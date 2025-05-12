@@ -271,6 +271,12 @@ final class Conversions(
                 proto.ScenarioError.UpgradeError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
+              case DisallowInterfaceExercise(cid, ifaceId, tmplId) =>
+                builder.setDisallowInterfaceExercise(
+                  proto.ScenarioError.DisallowInterfaceExercise.newBuilder
+                    .setContractRef(mkContractRef(cid, tmplId))
+                    .setInterfaceId(convertIdentifier(ifaceId))
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
             }

@@ -130,6 +130,7 @@ da_scala_test_suite(
         "//daml-lf/language",
         "//daml-lf/parser",
         "//daml-lf/transaction",
+        "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",

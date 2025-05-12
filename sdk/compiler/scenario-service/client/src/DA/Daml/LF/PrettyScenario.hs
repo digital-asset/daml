@@ -525,6 +525,17 @@ prettyScenarioErrorError lvl (Just err) =  do
         ]
     ScenarioErrorErrorUpgradeError ScenarioError_UpgradeError {..} -> do
        pure $ text $ TL.toStrict scenarioError_UpgradeErrorMessage
+    ScenarioErrorErrorDisallowInterfaceExercise (ScenarioError_DisallowInterfaceExercise coid ifaceId choiceName templId) -> do
+      pure $ vcat
+        [ "Attempted to exercise an LF 1.15 interface implemented by an LF 1.17 (or newer) template, but this operation is disallowed since 2.10.1"
+        , label_ "Contract: " $
+            prettyMay "<missing contract>"
+              (prettyContractRef lvl world) coid
+        , label_ "Choice:" $ prettyChoiceId world ifaceId choiceName
+        , label_ "Template:" $
+            prettyMay "<missing template id>"
+              (prettyDefName lvl world) templId
+        ]
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
   fcommasep $ map prettyParty $ S.toList $
