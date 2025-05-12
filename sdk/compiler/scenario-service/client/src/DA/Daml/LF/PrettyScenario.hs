@@ -525,7 +525,7 @@ prettyScenarioErrorError lvl (Just err) =  do
         ]
     ScenarioErrorErrorUpgradeError ScenarioError_UpgradeError {..} -> do
        pure $ text $ TL.toStrict scenarioError_UpgradeErrorMessage
-    ScenarioErrorErrorDisallowInterfaceExercise (ScenarioError_DisallowInterfaceExercise coid ifaceId choiceName templId) -> do
+    ScenarioErrorErrorDisallowedInterfaceExercise (ScenarioError_DisallowedInterfaceExercise coid ifaceId choiceName templId) -> do
       pure $ vcat
         [ "Attempted to exercise an LF 1.15 interface implemented by an LF 1.17 (or newer) template, but this operation is disallowed since 2.10.1"
         , label_ "Contract: " $

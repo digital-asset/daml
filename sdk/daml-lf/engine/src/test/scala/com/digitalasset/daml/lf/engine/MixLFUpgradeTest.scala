@@ -10,6 +10,7 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.engine.{Engine, EngineConfig}
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.transaction.{
+  Node,
   SubmittedTransaction,
   Transaction,
   TransactionCoder,
@@ -118,7 +119,8 @@ class MixLFUpgradeTest extends AnyFreeSpec with Matchers with Inside {
   )
 
   for (ifaceVersion <- langVersions) s"interface version = ${ifaceVersion.pretty}" - {
-    val entryIface @ (ifaceId, ifacePkg) = buildIfacePkg(ifaceVersion)
+    val entryIface @ (ifacePkgId, ifacePkg) = buildIfacePkg(ifaceVersion)
+    val ifaceId = Ref.TypeConName(ifacePkgId, Ref.QualifiedName.assertFromString("Mod:Iface"))
 
     for (tmplVersion1 <- langVersions if ifaceVersion <= tmplVersion1)
       s"implementation version = ${tmplVersion1.pretty}" - {
@@ -126,17 +128,18 @@ class MixLFUpgradeTest extends AnyFreeSpec with Matchers with Inside {
         val broken =
           (ifaceVersion < LanguageVersion.Features.smartContractUpgrade) && (LanguageVersion.Features.smartContractUpgrade <= tmplVersion1)
 
-        val entryImpl1 @ (implPkgId, implPkg) = buildImplPkg(ifaceId, tmplVersion1, 1)
+        val entryImpl1 @ (implPkgId, implPkg) = buildImplPkg(ifacePkgId, tmplVersion1, 1)
+        val tmplId = Ref.TypeConName(implPkgId, Ref.QualifiedName.assertFromString("Mod:T"))
 
         val pkgs = Map(entryIface, entryImpl1)
 
-        s"exercise-by-interface succeeds" in {
+        s"exercise-by-interface should ${if (broken) "fail" else "succeed"}" in {
           val engine = new Engine(engineConfig)
           val pkgMap = List(
-            ifaceId -> ifacePkg.metadata,
+            ifacePkgId -> ifacePkg.metadata,
             implPkgId -> implPkg.metadata,
           ).collect { case (id, Some(m)) => id -> (m.name -> m.version) }.toMap
-          val pkgPref = Set(ifaceId, implPkgId)
+          val pkgPref = Set(ifacePkgId, implPkgId)
 
           val cmd = ApiCommand.CreateAndExercise(
             Ref.Identifier(implPkgId, Ref.QualifiedName.assertFromString("Mod:T")),
@@ -186,9 +189,27 @@ class MixLFUpgradeTest extends AnyFreeSpec with Matchers with Inside {
           inside(result) {
             case Right((tx, _)) if !broken =>
               checkSerializable(tx)
+              val expectNumberOfField =
+                if (ifaceVersion < LanguageVersion.Features.smartContractUpgrade) 3 else 2
+
+              inside(tx.nodes.values.collect {
+                case exe: Node.Exercise if exe.interfaceId.isDefined => exe
+              }.toList) { case List(exe) =>
+                // just double check there is only the expected exercise-by-interface in the tx
+                assert(exe.templateId == tmplId)
+                assert(exe.interfaceId.contains(ifaceId))
+
+                // Check the trailing None fields are drop iff the interface >= 1.17
+                inside(exe.chosenValue) { case Value.ValueRecord(_, fields) =>
+                  assert(fields.length == expectNumberOfField)
+                }
+                inside(exe.exerciseResult) { case Some(Value.ValueRecord(_, fields)) =>
+                  assert(fields.length == expectNumberOfField)
+                }
+              }
               succeed
-            case Left(_) if broken =>
-              succeed
+            case Left(error) if broken =>
+              error should include("DisallowedInterfaceExercise")
           }
         }
       }

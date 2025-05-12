@@ -1042,7 +1042,7 @@ private[lf] object SBuiltin {
             val ifaceVersion = machine.tmplId2TxVersion(ifaceId)
             if (ifaceVersion < TxVersion.minUpgrade && TxVersion.minUpgrade <= tmplVersion)
               throw SErrorDamlException(
-                IE.DisallowInterfaceExercise(coid, ifaceId, choiceId, templateId)
+                IE.DisallowedInterfaceExercise(coid, ifaceId, choiceId, templateId)
               )
             else
               ifaceVersion max tmplVersion

@@ -278,7 +278,7 @@ message ScenarioError {
     string message = 1;
   }
 
-  message DisallowInterfaceExercise {
+  message DisallowedInterfaceExercise {
     ContractRef contract_ref = 1;
     Identifier interface_id = 2;
     string choice_id = 3;
@@ -380,7 +380,7 @@ message ScenarioError {
     Empty cancelledByRequest = 41;
     LookupError lookup_error = 43;
     UpgradeError upgrade_error = 44;
-    DisallowInterfaceExercise disallow_interface_exercise = 45;
+    DisallowedInterfaceExercise disallowed_interface_exercise = 45;
     // next is 46;
   }
 }

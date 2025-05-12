@@ -209,7 +209,7 @@ private[lf] object Pretty {
               )
           }
         }
-      case DisallowInterfaceExercise(coid, ifaceId, choiceName, tmplId) =>
+      case DisallowedInterfaceExercise(coid, ifaceId, choiceName, tmplId) =>
         text(s"LF 1.15 interface choice implemented by LF 1.17 (or newer) template is disallowed") &
           text("when exercising choice") & prettyIdentifier(ifaceId) & text(":") & text(
             choiceName

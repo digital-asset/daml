@@ -197,7 +197,7 @@ object Error {
 
   }
 
-  final case class DisallowInterfaceExercise(
+  final case class DisallowedInterfaceExercise(
       coid: ContractId,
       ifaceId: TypeConName,
       choiceName: ChoiceName,
