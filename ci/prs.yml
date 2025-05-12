@@ -154,6 +154,8 @@ jobs:
       AZURE_TOKEN: $(System.AccessToken)
 
 - job: test_publish_to_oci
+  dependsOn:
+    - check_for_release
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
