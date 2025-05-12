@@ -582,7 +582,7 @@ final class CommandClientIT
             )
           r <- assertCommandFailsWithCode(
             command,
-            Code.RESOURCE_EXHAUSTED,
+            Code.FAILED_PRECONDITION,
             "DISALLOWED_INTERFACE_EXERCISE",
           )
         } yield r
