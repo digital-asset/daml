@@ -1,0 +1,173 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE AllowAmbiguousTypes #-}
+
+module DataChanges (main) where
+
+import UpgradeTestLib
+import qualified V1.OptionalFieldsAdded as V1
+import qualified V2.OptionalFieldsAdded as V2
+import DA.Text
+import DA.Optional (fromSome)
+import PackageIds
+
+import V1.DataChangesDummy
+
+main : TestTree
+main = tests
+  [ tofswdViaKeyExerciseInCommandLocal
+  , tofswdViaKeyExerciseInChoiceLocal
+  , tofswdViaKeyExerciseInCommandGlobal
+  , tofswdViaKeyExerciseInChoiceGlobal
+  , tofswdViaKeyExerciseInCommandDisclosed
+  , tofswdViaKeyExerciseInChoiceDisclosed
+  ]
+
+
+{- PACKAGE
+name: data-changes
+versions: 2
+-}
+
+
+{- MODULE
+package: data-changes
+contents: |
+  module OptionalFieldsAdded where
+
+  data OptionalFieldsAddedKey = OptionalFieldsAddedKey
+    { party : Party
+    }
+    deriving (Eq, Show)
+
+  template OptionalFieldsAdded
+    with
+      party : Party
+      newField : Optional Text                 -- @V  2
+    where
+      signatory party
+      key (OptionalFieldsAddedKey party) : OptionalFieldsAddedKey
+      maintainer key.party
+      choice OptionalFieldsAddedCall : Text
+        controller party
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+      choice OptionalFieldsAddedCallWithCtl : Text
+        with
+          ctl: Party
+        controller ctl
+        do pure "V1"                           -- @V 1
+        do pure "V2"                           -- @V  2
+
+  template OptionalFieldsAddedCallHelper
+    with
+      party : Party
+    where
+      signatory party
+
+      choice OptionalFieldsAddedCallHelperMake : ContractId OptionalFieldsAdded
+        with
+          dat : OptionalFieldsAdded
+          ctl : Party
+        controller ctl
+        do
+          create dat
+
+      choice OptionalFieldsAddedCallHelperCallViaKey : ()
+        with
+          k : OptionalFieldsAddedKey
+          ctl : Party
+        controller ctl
+        do
+          exerciseByKey @OptionalFieldsAdded k (OptionalFieldsAddedCallWithCtl ctl)
+          pure ()
+-}
+
+{- PACKAGE
+name: data-changes-dummy
+versions: 1
+depends: |
+  data-changes-1.0.0
+  data-changes-2.0.0
+-}
+
+{- MODULE
+package: data-changes-dummy
+contents: |
+  module DataChangesDummy where
+
+  import qualified V1.OptionalFieldsAdded as V1
+  import qualified V2.OptionalFieldsAdded as V2
+
+  template OptionalFieldsLocalDummy
+    with
+      party : Party
+    where
+      signatory party
+
+      choice OptionalFieldsLocalTemplateDummyChoiceByKey : ()
+        controller party
+        do
+          cid <- create
+            (V2.OptionalFieldsAdded
+              party
+              (Some "V2")
+            )
+          let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+          exerciseByKey @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey party) (V1.OptionalFieldsAddedCallWithCtl party)
+          pure ()
+-}
+
+dataChangesV1 : PackageId
+dataChangesV1 = getPackageId "data-changes-1.0.0"
+
+templateOptionalFieldsSetWhenDowngradingTest : Show b => Text -> (Party -> Party -> Script (Either SubmitError b)) -> (Text, Test)
+templateOptionalFieldsSetWhenDowngradingTest trailer f = ("Fails if an optional field is set when downgrading (" <> trailer <> ")", s)
+  where
+  s = test $ do
+    a <- allocatePartyOn "alice" participant0
+    b <- allocatePartyOn "bob" participant0
+    res <- f a b
+    case res of
+      Left (UpgradeError (DowngradeDropDefinedField "OptionalFieldsAdded:OptionalFieldsAdded" 1) _) -> pure ()
+      _ -> assertFail $ "Expected specific failure but got " <> show res
+
+tofswdViaKeyExerciseInCommandGlobal : (Text, Test)
+tofswdViaKeyExerciseInCommandGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in command, key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  -- Ensure we can only call the V1 choice
+  a `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) V1.OptionalFieldsAddedCall
+
+tofswdViaKeyExerciseInChoiceGlobal : (Text, Test)
+tofswdViaKeyExerciseInChoiceGlobal = templateOptionalFieldsSetWhenDowngradingTest "static,  global,    in choice,  key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+  (actAs a) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
+
+tofswdViaKeyExerciseInCommandLocal : (Text, Test)
+tofswdViaKeyExerciseInCommandLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in command, key" $ \a b -> do
+  trySubmit (actAs a) $ (,) <$>
+    createAndExerciseExactCmd (V2.OptionalFieldsAddedCallHelper a) (V2.OptionalFieldsAddedCallHelperMake (V2.OptionalFieldsAdded a (Some "V2")) a) <*>
+    createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper a) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) a)
+
+tofswdViaKeyExerciseInCommandDisclosed : (Text, Test)
+tofswdViaKeyExerciseInCommandDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in command, key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  let cidV1 = coerceContractId @V2.OptionalFieldsAdded @V1.OptionalFieldsAdded cid
+  (actAs b <> disclose disclosure) `trySubmit` exerciseByKeyExactCmd @V1.OptionalFieldsAdded (V1.OptionalFieldsAddedKey a) (V1.OptionalFieldsAddedCallWithCtl b)
+
+tofswdViaKeyExerciseInChoiceLocal : (Text, Test)
+tofswdViaKeyExerciseInChoiceLocal = templateOptionalFieldsSetWhenDowngradingTest "static,  local,     in choice,  key" $ \a b -> do
+  (actAs a) `trySubmit` createAndExerciseExactCmd (OptionalFieldsLocalDummy a) OptionalFieldsLocalTemplateDummyChoiceByKey
+
+tofswdViaKeyExerciseInChoiceDisclosed : (Text, Test)
+tofswdViaKeyExerciseInChoiceDisclosed = templateOptionalFieldsSetWhenDowngradingTest "static,  disclosed, in choice,  key" $ \a b -> do
+  cid <- a `submit` createCmd V2.OptionalFieldsAdded with party = a, newField = Some "V2"
+
+  disclosure <- fromSome <$> queryDisclosure a cid
+
+  (actAs b <> disclose disclosure) `trySubmit` createAndExerciseExactCmd (V1.OptionalFieldsAddedCallHelper b) (V1.OptionalFieldsAddedCallHelperCallViaKey (V1.OptionalFieldsAddedKey a) b)
