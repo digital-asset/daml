@@ -17,6 +17,7 @@ load(
     "//daml-lf/language:daml-lf.bzl",
     "ENGINE_LF_DEV_VERSIONS",
     "LF_DEFAULT_DEV_VERSION",
+    "LF_DEFAULT_MAJOR_VERSION",
     "lf_version_default_or_latest",
     "mangle_for_damlc",
 )
@@ -242,7 +243,7 @@ daml_compile(
         "//daml-script/daml:daml-script.dar",
     ],
     project_name = "upgrade-test-lib",
-    target = "2.1",
+    target = lf_version_default_or_latest(LF_DEFAULT_MAJOR_VERSION),
     version = "1.0.0",
 )
 
