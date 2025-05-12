@@ -541,6 +541,10 @@ prettyScriptErrorError lvl (Just err) =  do
         ]
     ScriptErrorErrorUpgradeError ScriptError_UpgradeError {..} -> do
        pure $ text $ TL.toStrict scriptError_UpgradeErrorMessage
+    ScriptErrorErrorCryptoError ScriptError_CryptoError {..} -> do
+      pure $ text $ TL.toStrict scriptError_CryptoErrorMessage
+
+
 partyDifference :: V.Vector Party -> V.Vector Party -> Doc SyntaxClass
 partyDifference with without =
   fcommasep $ map prettyParty $ S.toList $
