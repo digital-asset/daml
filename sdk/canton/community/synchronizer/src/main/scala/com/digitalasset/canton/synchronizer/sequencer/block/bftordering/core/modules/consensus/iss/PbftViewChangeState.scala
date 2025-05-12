@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 import cats.instances.map.*
 import cats.syntax.functor.*
 import com.daml.metrics.api.MetricsContext
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
@@ -42,7 +43,7 @@ class PbftViewChangeState(
     leader: BftNodeId,
     epoch: EpochNumber,
     view: ViewNumber,
-    blockNumbers: Seq[BlockNumber],
+    blockNumbers: NonEmpty[Seq[BlockNumber]],
     metrics: BftOrderingMetrics,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)

@@ -4,7 +4,10 @@
 package com.digitalasset.canton.topology
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.base.error.ErrorCategory.InvalidGivenCurrentSystemStateResourceExists
+import com.digitalasset.base.error.ErrorCategory.{
+  InvalidGivenCurrentSystemStateOther,
+  InvalidGivenCurrentSystemStateResourceExists,
+}
 import com.digitalasset.base.error.{
   Alarm,
   AlarmErrorCode,
@@ -766,6 +769,24 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"Cannot create topology store with id $storeId, because it already exists."
+        )
+        with TopologyManagerError
+  }
+
+  // TODO(#25467): use PhysicalSynchronizerId
+  @Explanation(
+    "This error indicates that a topology freeze is active and only mapping related to synchronizer migration are permitted."
+  )
+  @Resolution(
+    "Contact the owners of the synchronizer about the ongoing topology freeze."
+  )
+  object TopologyFreezeActive
+      extends ErrorCode(id = "TOPOLOGY_FREEZE_ACTIVE", InvalidGivenCurrentSystemStateOther) {
+    final case class Reject(synchronizerId: SynchronizerId)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The topology state of synchronizer $synchronizerId is frozen and no more topology changes are allowed."
         )
         with TopologyManagerError
   }

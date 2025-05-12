@@ -22,7 +22,10 @@ import com.digitalasset.canton.participant.store.{
   StoredSynchronizerConnectionConfig,
   SynchronizerConnectionConfigStore,
 }
-import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
+import com.digitalasset.canton.participant.synchronizer.{
+  SynchronizerAliasResolution,
+  SynchronizerConnectionConfig,
+}
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.topology.{
@@ -42,6 +45,7 @@ import scala.concurrent.ExecutionContext
 class DbSynchronizerConnectionConfigStore private[store] (
     override protected val storage: DbStorage,
     releaseProtocolVersion: ReleaseProtocolVersion,
+    val aliasResolution: SynchronizerAliasResolution,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit protected val ec: ExecutionContext)

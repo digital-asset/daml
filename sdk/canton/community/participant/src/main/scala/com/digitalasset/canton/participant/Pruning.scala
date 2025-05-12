@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.participant
 
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{ConfiguredPhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.ShowUtil.*
 
 object Pruning {
@@ -58,10 +59,12 @@ object Pruning {
   }
 
   final case class PurgingOnlyAllowedOnInactiveSynchronizer(
-      synchronizerId: SynchronizerId,
-      status: SynchronizerConnectionConfigStore.Status,
+      id: SynchronizerId,
+      active: NonEmpty[
+        Set[(ConfiguredPhysicalSynchronizerId, SynchronizerConnectionConfigStore.Status)]
+      ],
   ) extends LedgerPruningError {
     override def message: String =
-      s"Synchronizer $synchronizerId status needs to be inactive, but is ${status.getClass.getSimpleName}"
+      s"Synchronizer $id status needs to be inactive, but has active connections: $active"
   }
 }

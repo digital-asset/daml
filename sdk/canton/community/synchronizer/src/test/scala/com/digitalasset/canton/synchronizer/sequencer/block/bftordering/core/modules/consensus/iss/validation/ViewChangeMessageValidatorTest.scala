@@ -106,7 +106,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       viewNumber: ViewNumber,
       consensusCerts: Seq[ConsensusCertificate],
       epochNumber: Long = 0L,
-      segment: Long = 0L,
+      segment: Long = 1L,
       from: BftNodeId = myId,
   ) =
     ViewChange.create(
@@ -121,8 +121,9 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       viewChanges: Seq[SignedMessage[ViewChange]],
       prePrepares: Seq[SignedMessage[PrePrepare]],
       from: BftNodeId = myId,
+      segment: Long = 1L,
   ): NewView = NewView.create(
-    BlockMetadata(EpochNumber(0), BlockNumber(0)),
+    BlockMetadata(EpochNumber(0), BlockNumber(segment)),
     viewNumber,
     viewChanges,
     prePrepares,
@@ -136,6 +137,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val result = validator.validateViewChangeMessage(viewChangeMsg(view1, Seq.empty))
 
       result shouldBe Right(())
+    }
+
+    "error when message is using wrong blockNumber" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val result =
+        validator.validateViewChangeMessage(viewChangeMsg(view1, Seq.empty, segment = 2L))
+
+      result shouldBe Left("the blockNumber 2 is not the first block in segment 1")
     }
 
     "error when message has prepare certificates for the wrong epoch" in {
@@ -362,6 +372,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       result shouldBe Right(())
     }
 
+    "error when message is using wrong blockNumber" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val result =
+        validator.validateNewViewMessage(newViewMessage(view1, Seq.empty, Seq.empty, segment = 2L))
+
+      result shouldBe Left("the blockNumber 2 is not the first block in segment 1")
+    }
+
     "error when there are view changes are for wrong epoch" in {
       val validator = new ViewChangeMessageValidator(membership, blockNumbers)
 
@@ -394,7 +413,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val result = validator.validateNewViewMessage(newView)
 
       result shouldBe Left(
-        "there are view change messages for the wrong segment identifier (3, 2 instead of 0)"
+        "there are view change messages for the wrong segment identifier (3, 2 instead of 1)"
       )
     }
 
