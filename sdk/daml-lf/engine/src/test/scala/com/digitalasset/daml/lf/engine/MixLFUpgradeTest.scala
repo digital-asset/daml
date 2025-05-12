@@ -99,7 +99,6 @@ class MixLFUpgradeTest extends AnyFreeSpec with Matchers with Inside {
     val deserialized = TransactionCoder
       .decodeTransaction(TransactionCoder.NidDecoder, ValueCoder.CidDecoder, serialized)
       .fold(x => sys.error(x.errorMessage), identity)
-    remy.log(deserialized == tx)
     require(deserialized == tx)
   }
 
