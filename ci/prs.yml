@@ -168,6 +168,8 @@ jobs:
     - bash: |
         #!/usr/bin/env bash
         set -eo pipefail
+        eval "$(cd sdk; dev-env/bin/dade-assist)"
+        source $(bash-lib)
         gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
         gcloud auth configure-docker --quiet ${REGISTRY%%/*}
         echo "Get unifi from ${REGISTRY}..."
