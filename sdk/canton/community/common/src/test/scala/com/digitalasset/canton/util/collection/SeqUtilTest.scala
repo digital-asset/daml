@@ -1,10 +1,9 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.util
+package com.digitalasset.canton.util.collection
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.util.collection.SeqUtil
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.util.Random

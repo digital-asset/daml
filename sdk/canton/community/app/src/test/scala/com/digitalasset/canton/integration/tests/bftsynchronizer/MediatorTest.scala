@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.{ForceFlag, SynchronizerId}
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
-trait MediatorTest extends CommunityIntegrationTest with SharedEnvironment {
+sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2S3M3_Manual
@@ -28,7 +28,7 @@ trait MediatorTest extends CommunityIntegrationTest with SharedEnvironment {
   private val synchronizer: SynchronizerAlias = SynchronizerAlias.tryCreate("bft-synchronizer1")
 
   private var synchronizerId: SynchronizerId = _
-  var synchronizerOwners: Seq[LocalParticipantReference] = _
+  private var synchronizerOwners: Seq[LocalParticipantReference] = _
 
   s"Startup $synchronizer" in { implicit env =>
     import env.*

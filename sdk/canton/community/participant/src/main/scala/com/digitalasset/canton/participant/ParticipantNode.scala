@@ -391,24 +391,24 @@ class ParticipantNodeBootstrap(
       )
 
       for {
+        synchronizerAliasManager <- EitherT
+          .right[String](
+            SynchronizerAliasManager
+              .create(
+                registeredSynchronizersStore,
+                loggerFactory,
+              )
+          )
+
         synchronizerConnectionConfigStore <- EitherT
           .right(
             SynchronizerConnectionConfigStore.create(
               storage,
               ReleaseProtocolVersion.latest,
+              synchronizerAliasManager,
               timeouts,
               loggerFactory,
             )
-          )
-
-        synchronizerAliasManager <- EitherT
-          .right[String](
-            SynchronizerAliasManager
-              .create(
-                synchronizerConnectionConfigStore,
-                registeredSynchronizersStore,
-                loggerFactory,
-              )
           )
 
         persistentStateContainer = new LifeCycleContainer[ParticipantNodePersistentState](
@@ -640,12 +640,7 @@ class ParticipantNodeBootstrap(
           parameters.batchingConfig.maxPruningBatchSize,
           arguments.metrics.pruning,
           exitOnFatalFailures = arguments.parameterConfig.exitOnFatalFailures,
-          synchronizerId =>
-            synchronizerAliasManager
-              .aliasForSynchronizerId(synchronizerId)
-              .flatMap(synchronizerAlias =>
-                synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.status)
-              ),
+          synchronizerConnectionConfigStore,
           parameters.processingTimeouts,
           futureSupervisor,
           loggerFactory,

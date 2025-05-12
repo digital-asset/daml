@@ -156,14 +156,18 @@ class DbAvailabilityStore(
 
   override def gc(staleBatchIds: Seq[BatchId])(implicit
       traceContext: TraceContext
-  ): Unit =
-    if (staleBatchIds.nonEmpty) {
-      val _ = storage.update_(
-        sqlu"""delete from ord_availability_batch
+  ): PekkoFutureUnlessShutdown[Unit] =
+    PekkoFutureUnlessShutdown(
+      gcName,
+      () =>
+        if (staleBatchIds.nonEmpty) {
+          storage.update_(
+            sqlu"""delete from ord_availability_batch
                  where id in ($staleBatchIds#${",?" * (staleBatchIds.size - 1)})""",
-        functionFullName,
-      )
-    }
+            functionFullName,
+          )
+        } else FutureUnlessShutdown.unit,
+    )
 
   override def loadNumberOfRecords(implicit
       traceContext: TraceContext

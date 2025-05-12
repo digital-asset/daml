@@ -17,10 +17,10 @@ message Filters {
   // template or wildcard filter means additional events that will match the query.
   // The impact of include_interface_view and include_created_event_blob fields in the filters will
   // also be accumulated.
-  // At least one cumulative filter MUST be specified.
   // A template or an interface SHOULD NOT appear twice in the accumulative field.
   // A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
-  // Optional
+  // Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
+  // include_created_event_blob unset is used.
   repeated CumulativeFilter cumulative = 1;
 }
 

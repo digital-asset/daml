@@ -125,7 +125,6 @@ message ConsensusMessage {
   BlockMetadata block_metadata = 1;
   int64 view_number = 2;
   string from = 3;
-  // Might want to include segment
 
   oneof message {
     PrePrepare pre_prepare = 4;
@@ -162,14 +161,12 @@ message Commit {
 // A `ViewChange` message is sent when an instance of PBFT fails to make progress
 // before a timeout triggers.
 message ViewChange {
-  int32 segment_index = 1;
   repeated ConsensusCertificate consensus_certs = 2;
 }
 
 // A `NewView` message is sent by the next node taking over leader responsibilities
 // of a PBFT instance at the end of a view change
 message NewView {
-  int32 segment_index = 1;
   repeated SignedMessage /*ConsensusMessage*/view_changes = 2;
   repeated SignedMessage /*ConsensusMessage*/pre_prepares = 3;
 }

@@ -27,8 +27,8 @@ import com.digitalasset.canton.error.{
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
-import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{LedgerSubmissionId, LfPartyId, SynchronizerAlias}
@@ -120,6 +120,50 @@ object SyncServiceError extends SyncServiceErrorGroup {
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause = s"The synchronizer with alias ${synchronizerAlias.unwrap} is unknown."
+        )
+        with SyncServiceError
+  }
+
+  @Explanation(
+    "This error results if the service cannot infer the active synchronizer for the alias."
+  )
+  @Resolution(
+    "Please confirm the synchronizer alias is correct, or configure the synchronizer before (re)connecting."
+  )
+  object SyncServiceAliasResolution
+      extends ErrorCode(
+        "SYNC_SERVICE_ALIAS_RESOLUTION",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Error(synchronizerAlias: SynchronizerAlias, error: String)(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Unable to find single active synchronizer connection for ${synchronizerAlias.unwrap}: $error"
+        )
+        with SyncServiceError
+  }
+
+  @Explanation(
+    "This error results if the service cannot register the physical synchronizer id for the given alias."
+  )
+  @Resolution(
+    "Please confirm the synchronizer alias and id are correct."
+  )
+  object SyncServicePhysicalIdRegistration
+      extends ErrorCode(
+        "SYNC_SERVICE_PHYSICAL_ID_REGISTRATION",
+        ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+      ) {
+    final case class Error(
+        synchronizerAlias: SynchronizerAlias,
+        physicalSynchronizerId: PhysicalSynchronizerId,
+        error: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Unable to register id $physicalSynchronizerId for alias ${synchronizerAlias.unwrap}: $error"
         )
         with SyncServiceError
   }
@@ -245,13 +289,10 @@ object SyncServiceError extends SyncServiceErrorGroup {
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
 
-    final case class Error(
-        synchronizerAlias: SynchronizerAlias,
-        status: SynchronizerConnectionConfigStore.Status,
-    )(implicit
+    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"$synchronizerAlias has status $status and can therefore not be connected to."
+          cause = s"$synchronizerAlias is not active and can therefore not be connected to."
         )
         with SyncServiceError
   }
@@ -382,6 +423,7 @@ object SyncServiceError extends SyncServiceErrorGroup {
             "Failed to await for participant becoming active due to missing synchronizer objects"
         )
         with SyncServiceError
+
     final case class CleanHeadAwaitFailed(
         synchronizerAlias: SynchronizerAlias,
         ts: CantonTimestamp,

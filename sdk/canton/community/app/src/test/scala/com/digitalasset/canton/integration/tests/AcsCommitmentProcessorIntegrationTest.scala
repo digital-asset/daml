@@ -55,7 +55,7 @@ import scala.concurrent.duration.DurationInt
 import scala.jdk.CollectionConverters.*
 import scala.jdk.DurationConverters.*
 
-trait AcsCommitmentProcessorIntegrationTest
+sealed trait AcsCommitmentProcessorIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with SortedReconciliationIntervalsHelpers
@@ -71,7 +71,7 @@ trait AcsCommitmentProcessorIntegrationTest
 
   private var lastCommTick: CantonTimestampSecond = _
 
-  lazy val maxDedupDuration = java.time.Duration.ofHours(1)
+  private lazy val maxDedupDuration = java.time.Duration.ofHours(1)
   private val confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfHours(1)
   private val mediatorReactionTimeout = NonNegativeFiniteDuration.tryOfHours(1)
   private val pruningTimeout =
@@ -577,7 +577,7 @@ trait AcsCommitmentProcessorIntegrationTest
         p1Computed
       }
 
-      val (period, participant, commitment) = p1Computed.loneElement
+      val (period, _participant, commitment) = p1Computed.loneElement
       alreadyDeployedContracts = alreadyDeployedContracts.concat(createdCids)
       (createdCids, period, commitment)
     }
@@ -1213,5 +1213,4 @@ class AcsCommitmentProcessorReferenceIntegrationTestH2
       ),
     )
   )
-
 }

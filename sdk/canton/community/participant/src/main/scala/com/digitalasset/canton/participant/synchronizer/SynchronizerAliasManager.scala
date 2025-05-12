@@ -7,10 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.{
-  SynchronizerAliasAndIdStore,
-  SynchronizerConnectionConfigStore,
-}
+import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.collect.{BiMap, HashBiMap}
@@ -22,14 +19,10 @@ import scala.jdk.CollectionConverters.*
 trait SynchronizerAliasResolution extends AutoCloseable {
   def synchronizerIdForAlias(alias: SynchronizerAlias): Option[SynchronizerId]
   def aliasForSynchronizerId(id: SynchronizerId): Option[SynchronizerAlias]
-  def connectionStateForSynchronizer(
-      id: SynchronizerId
-  ): Option[SynchronizerConnectionConfigStore.Status]
   def aliases: Set[SynchronizerAlias]
 }
 
 class SynchronizerAliasManager private (
-    configStore: SynchronizerConnectionConfigStore,
     synchronizerAliasAndIdStore: SynchronizerAliasAndIdStore,
     initialSynchronizerAliasMap: Map[SynchronizerAlias, SynchronizerId],
     protected val loggerFactory: NamedLoggerFactory,
@@ -42,6 +35,7 @@ class SynchronizerAliasManager private (
       HashBiMap.create[SynchronizerAlias, SynchronizerId](initialSynchronizerAliasMap.asJava)
     )
 
+  // TODO(#25388) Switch to physical id
   def processHandshake(synchronizerAlias: SynchronizerAlias, synchronizerId: SynchronizerId)(
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
@@ -59,11 +53,6 @@ class SynchronizerAliasManager private (
       case _ => EitherT.rightT[FutureUnlessShutdown, SynchronizerAliasManager.Error](())
     }
 
-  def synchronizerIdForAlias(alias: String): Option[SynchronizerId] =
-    SynchronizerAlias
-      .create(alias)
-      .toOption
-      .flatMap(al => Option(synchronizerAliasToId.get().get(al)))
   override def synchronizerIdForAlias(alias: SynchronizerAlias): Option[SynchronizerId] = Option(
     synchronizerAliasToId.get().get(alias)
   )
@@ -71,17 +60,11 @@ class SynchronizerAliasManager private (
     synchronizerAliasToId.get().inverse().get(id)
   )
 
-  override def connectionStateForSynchronizer(
-      synchronizerId: SynchronizerId
-  ): Option[SynchronizerConnectionConfigStore.Status] = for {
-    alias <- aliasForSynchronizerId(synchronizerId)
-    conf <- configStore.get(alias).toOption
-  } yield conf.status
-
   /** Return known synchronizer aliases
     *
-    * Note: this includes inactive synchronizers! Use [[connectionStateForSynchronizer]] to check
-    * the status
+    * Note: this includes inactive synchronizers! Use
+    * [[com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore]] to check the
+    * status
     */
   override def aliases: Set[SynchronizerAlias] = Set(
     synchronizerAliasToId.get().keySet().asScala.toSeq*
@@ -89,8 +72,9 @@ class SynchronizerAliasManager private (
 
   /** Return known synchronizer ids
     *
-    * Note: this includes inactive synchronizers! Use [[connectionStateForSynchronizer]] to check
-    * the status
+    * Note: this includes inactive synchronizers! Use
+    * [[com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore]] to check the
+    * status
     */
   def ids: Set[SynchronizerId] = Set(synchronizerAliasToId.get().values().asScala.toSeq*)
 
@@ -116,7 +100,6 @@ class SynchronizerAliasManager private (
 
 object SynchronizerAliasManager {
   def create(
-      configStore: SynchronizerConnectionConfigStore,
       synchronizerAliasAndIdStore: SynchronizerAliasAndIdStore,
       loggerFactory: NamedLoggerFactory,
   )(implicit
@@ -126,7 +109,6 @@ object SynchronizerAliasManager {
     for {
       synchronizerAliasToId <- synchronizerAliasAndIdStore.aliasToSynchronizerIdMap
     } yield new SynchronizerAliasManager(
-      configStore,
       synchronizerAliasAndIdStore,
       synchronizerAliasToId,
       loggerFactory,

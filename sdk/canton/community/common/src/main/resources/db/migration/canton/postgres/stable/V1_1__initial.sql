@@ -13,13 +13,11 @@ create table par_daml_packages (
 );
 
 create table par_dars (
-
   main_package_id varchar collate "C" not null primary key,
   data bytea not null,
   description varchar collate "C" null,
   name varchar collate "C" not null,
   version varchar collate "C" not null
-
 );
 
 -- This table tracks the packages contained in the uploaded DARs
@@ -235,21 +233,23 @@ create table sequencer_client_pending_sends (
 );
 
 create table par_synchronizer_connection_configs(
-  synchronizer_alias varchar collate "C" not null primary key,
+  synchronizer_alias varchar collate "C" not null,
+  physical_synchronizer_id varchar collate "C", -- can be null (id is unknown before the handshake)
+
+  -- We would like to have unique (synchronizer_alias, synchronizer_id). However, for postgres < 15, there is no
+  -- way to force two nulls to be considered distinct. We use generated columns to mimic that behavior.
+  empty_if_null_physical_synchronizer_id varchar collate "C" generated always as (case when physical_synchronizer_id is null then '' else physical_synchronizer_id end) stored not null,
+  unique (synchronizer_alias, empty_if_null_physical_synchronizer_id),
+
   config bytea, -- the protobuf-serialized versioned synchronizer connection config
   status char(1) default 'A' not null
 );
 
 -- used to register all synchronizers that a participant connects to
 create table par_synchronizers(
-  -- to keep track of the order synchronizers were registered
-  order_number serial not null primary key,
-  -- synchronizer human readable alias
-  alias varchar collate "C" not null unique,
-  -- synchronizer id
+  synchronizer_alias varchar collate "C" not null unique,
   synchronizer_id varchar collate "C" not null unique,
-  status char(1) default 'A' not null,
-  unique (alias, synchronizer_id)
+  primary key (synchronizer_alias, synchronizer_id)
 );
 
 create table par_reassignments (

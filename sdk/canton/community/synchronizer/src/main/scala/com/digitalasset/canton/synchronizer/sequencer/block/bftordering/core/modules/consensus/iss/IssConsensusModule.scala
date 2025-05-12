@@ -96,11 +96,8 @@ final class IssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-    // TODO(#23484): we cannot queue all messages (e.g., during state transfer) due to a potential OOM error
-    private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
-      new mutable.Queue(),
-    private val postponedConsensusMessageQueue: mutable.Queue[Consensus.Message[E]] =
-      new mutable.Queue[Consensus.Message[E]](),
+    private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]],
+    private val postponedConsensusMessageQueue: Option[mutable.Queue[Consensus.Message[E]]] = None,
 )(
     // Only tests pass the state manager as parameter, and it's convenient to have it as an option
     //  to avoid two different constructor calls depending on whether the test want to customize it or not.
@@ -117,7 +114,7 @@ final class IssConsensusModule[E <: Env[E]](
     private var messageAuthorizer: MessageAuthorizer = activeTopologyInfo.currentTopology,
 )(implicit
     synchronizerProtocolVersion: ProtocolVersion,
-    config: BftBlockOrdererConfig,
+    override val config: BftBlockOrdererConfig,
     mc: MetricsContext,
 ) extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
@@ -235,7 +232,9 @@ final class IssConsensusModule[E <: Env[E]](
         // Try to process messages that potentially triggered a catch-up (should do nothing for onboarding).
         processQueuedPbftMessages()
         // Then, go through messages that got postponed during state transfer.
-        postponedConsensusMessageQueue.dequeueAll(_ => true).foreach(context.self.asyncSend)
+        postponedConsensusMessageQueue.foreach(
+          _.dequeueAll(_ => true).foreach(context.self.asyncSend)
+        )
 
       case Consensus.Admin.GetOrderingTopology(callback) =>
         callback(
@@ -929,7 +928,7 @@ object IssConsensusModule {
         Option[SequencerSnapshotAdditionalInfo],
         OrderingTopologyInfo[?],
         Seq[SignedMessage[PbftNetworkMessage]],
-        Seq[Consensus.Message[?]],
+        Option[Seq[Consensus.Message[?]]],
     )
   ] =
     Some(
@@ -938,7 +937,7 @@ object IssConsensusModule {
         issConsensusModule.initialState.sequencerSnapshotAdditionalInfo,
         issConsensusModule.activeTopologyInfo,
         issConsensusModule.futurePbftMessageQueue.toSeq,
-        issConsensusModule.postponedConsensusMessageQueue.toSeq,
+        issConsensusModule.postponedConsensusMessageQueue.map(_.toSeq),
       )
     )
 }

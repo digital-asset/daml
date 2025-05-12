@@ -10,6 +10,7 @@ import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
 import cats.{Eval, Monad}
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -83,9 +84,7 @@ class PruningProcessor(
     maxPruningBatchSize: PositiveInt,
     metrics: PruningMetrics,
     exitOnFatalFailures: Boolean,
-    synchronizerConnectionStatus: SynchronizerId => Option[
-      SynchronizerConnectionConfigStore.Status
-    ],
+    synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -214,16 +213,23 @@ class PruningProcessor(
         .get(synchronizerId)
         .toRight(PurgingUnknownSynchronizer(synchronizerId))
     )
-    synchronizerStatus <- EitherT.fromEither[FutureUnlessShutdown](
-      synchronizerConnectionStatus(synchronizerId).toRight(
-        PurgingUnknownSynchronizer(synchronizerId)
-      )
+
+    // Ensure all configs are inactive
+    configs <- EitherT.fromEither[FutureUnlessShutdown](
+      synchronizerConnectionConfigStore
+        .getAllFor(synchronizerId)
+        .leftMap(_ => PurgingUnknownSynchronizer(synchronizerId))
     )
-    _ <- EitherT.cond[FutureUnlessShutdown](
-      synchronizerStatus == SynchronizerConnectionConfigStore.Inactive,
-      (),
-      PurgingOnlyAllowedOnInactiveSynchronizer(synchronizerId, synchronizerStatus),
+    _ <- EitherT.fromEither[FutureUnlessShutdown](
+      NonEmpty
+        .from(configs.collect {
+          case config if config.status != SynchronizerConnectionConfigStore.Inactive =>
+            (config.configuredPSId, config.status)
+        }.toSet)
+        .toLeft(())
+        .leftMap(PurgingOnlyAllowedOnInactiveSynchronizer(synchronizerId, _))
     )
+
     _ = logger.info(s"Purging inactive synchronizer $synchronizerId")
 
     _ <- EitherT.right(
@@ -428,16 +434,22 @@ class PruningProcessor(
       // This is just a sanity check; it does not prevent a migration from being started concurrently with pruning
       import SynchronizerConnectionConfigStore.*
       allSynchronizers.filterA { case (synchronizerId, _state) =>
-        synchronizerConnectionStatus(synchronizerId) match {
-          case None =>
+        synchronizerConnectionConfigStore.getAllStatusesFor(synchronizerId) match {
+          case Left(_: UnknownId) =>
             Left(LedgerPruningInternalError(s"No synchronizer status for $synchronizerId"))
-          case Some(Active) => Right(true)
-          case Some(Inactive) => Right(false)
-          case Some(migratingStatus) =>
-            logger.warn(
-              s"Unable to prune while $synchronizerId is being migrated ($migratingStatus)"
-            )
-            Left(LedgerPruningNotPossibleDuringHardMigration(synchronizerId, migratingStatus))
+          case Right(configs) =>
+            configs.forgetNE
+              .traverse {
+                case Active => Right(true)
+                case Inactive => Right(false)
+                case migratingStatus =>
+                  logger.warn(
+                    s"Unable to prune while $synchronizerId is being migrated ($migratingStatus)"
+                  )
+                  Left(LedgerPruningNotPossibleDuringHardMigration(synchronizerId, migratingStatus))
+              }
+              // Considered active is there is one active connection
+              .map(_.exists(identity))
         }
       }
     }

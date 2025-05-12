@@ -80,7 +80,6 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
         validateViewChange(msg, topologyInfo)
       case ConsensusSegment.ConsensusMessage.NewView(
             blockMetadata,
-            segmentIndex,
             viewNumber,
             viewChanges,
             prePrepares,
@@ -170,7 +169,6 @@ final class IssConsensusSignatureVerifier[E <: Env[E]] {
   ): VerificationResult = message match {
     case ConsensusSegment.ConsensusMessage.ViewChange(
           _blockMetadata,
-          _segmentIndex,
           _viewNumber,
           certs,
           _from,

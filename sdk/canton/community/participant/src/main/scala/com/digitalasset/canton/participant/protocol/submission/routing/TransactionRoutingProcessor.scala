@@ -43,7 +43,6 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
 import com.digitalasset.canton.participant.protocol.submission.routing.TransactionRoutingProcessor.inputContractsStakeholders
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizersLookup
-import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -375,7 +374,6 @@ object TransactionRoutingProcessor {
   def apply(
       connectedSynchronizersLookup: ConnectedSynchronizersLookup,
       synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
-      synchronizerAliasManager: SynchronizerAliasManager,
       cryptoPureApi: CryptoPureApi,
       participantId: ParticipantId,
       parameters: ParticipantNodeParameters,
@@ -391,16 +389,14 @@ object TransactionRoutingProcessor {
 
     val synchronizerRankComputation = new SynchronizerRankComputation(
       participantId = participantId,
-      priorityOfSynchronizer =
-        priorityOfSynchronizer(synchronizerConnectionConfigStore, synchronizerAliasManager),
+      priorityOfSynchronizer = priorityOfSynchronizer(synchronizerConnectionConfigStore),
       loggerFactory = loggerFactory,
     )
 
     val synchronizerSelectorFactory = new SynchronizerSelectorFactory(
       admissibleSynchronizersComputation =
         new AdmissibleSynchronizersComputation(participantId, loggerFactory),
-      priorityOfSynchronizer =
-        priorityOfSynchronizer(synchronizerConnectionConfigStore, synchronizerAliasManager),
+      priorityOfSynchronizer = priorityOfSynchronizer(synchronizerConnectionConfigStore),
       synchronizerRankComputation = synchronizerRankComputation,
       loggerFactory = loggerFactory,
     )
@@ -420,13 +416,14 @@ object TransactionRoutingProcessor {
   }
 
   private def priorityOfSynchronizer(
-      synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore,
-      synchronizerAliasManager: SynchronizerAliasManager,
+      synchronizerConnectionConfigStore: SynchronizerConnectionConfigStore
   )(synchronizerId: SynchronizerId): Int = {
     val maybePriority = for {
-      synchronizerAlias <- synchronizerAliasManager.aliasForSynchronizerId(synchronizerId)
-      config <- synchronizerConnectionConfigStore.get(synchronizerAlias).toOption.map(_.config)
-    } yield config.priority
+      priority <- synchronizerConnectionConfigStore
+        .getActive(synchronizerId, singleExpected = false)
+        .toOption
+        .map(_.config.priority)
+    } yield priority
 
     // If the participant is disconnected from the synchronizer while this code is evaluated,
     // we may fail to determine the priority.

@@ -45,6 +45,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.collection.BoundedQueue
+import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -107,7 +109,10 @@ final class StateTransferBehavior[E <: Env[E]](
   private var cancelledSegments = 0
 
   @VisibleForTesting
-  private[bftordering] val postponedConsensusMessages = new mutable.Queue[Consensus.Message[E]]()
+  private[bftordering] val postponedConsensusMessages: mutable.Queue[Consensus.Message[E]] =
+    // TODO(#23484): implement per-node quotas
+    // Drop newest to ensure continuity of messages (and resort to another catch-up if necessary)
+    new BoundedQueue(config.consensusQueueMaxSize, DropStrategy.DropNewest)
 
   private val stateTransferManager = maybeCustomStateTransferManager.getOrElse(
     new StateTransferManager(
@@ -402,7 +407,7 @@ final class StateTransferBehavior[E <: Env[E]](
       loggerFactory,
       timeouts,
       futurePbftMessageQueue = initialState.pbftMessageQueue,
-      postponedConsensusMessageQueue = postponedConsensusMessages,
+      postponedConsensusMessageQueue = Some(postponedConsensusMessages),
     )()(catchupDetector)
 
     context.become(consensusBehavior)

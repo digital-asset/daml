@@ -180,6 +180,31 @@ class SequencerReaderTestV2
         ignoreWarningsFromLackOfTopologyUpdates,
       )
 
+    def readWithQueueFUS(
+        member: Member,
+        timestampInclusive: Option[CantonTimestamp],
+    ): FutureUnlessShutdown[SinkQueueWithCancel[SequencedSerializedEvent]] = {
+
+      val subscribeF = valueOrFail(reader.readV2(member, timestampInclusive).failOnShutdown)(
+        s"Events source for $member"
+      )
+
+      val source = Source
+        .future(
+          subscribeF
+        )
+        .flatMapConcat(identity)
+        .map {
+          case Right(event) => event
+          case Left(err) =>
+            fail(s"The DatabaseSequencer's SequencerReader does not produce tombstone-errors: $err")
+        }
+        .idleTimeout(defaultTimeout)
+        .runWith(Sink.queue())
+
+      FutureUnlessShutdown.outcomeF(subscribeF.map(_ => source))
+    }
+
     def readWithQueue(
         member: Member,
         timestampInclusive: Option[CantonTimestamp],
@@ -351,13 +376,42 @@ class SequencerReaderTestV2
       } // it'll be alices fifth event
     }
 
+    "correctly compute previous timestamp when subscribing above the watermark" in { env =>
+      import env.*
+
+      for {
+        _ <- store.registerMember(topologyClientMember, ts0).failOnShutdown
+        aliceId <- store.registerMember(alice, ts0).failOnShutdown
+        delivers = (1L to 5L)
+          .map(ts0.plusSeconds)
+          .map(Sequenced(_, mockDeliverStoreEvent(sender = aliceId, traceContext = traceContext)()))
+          .toList
+        _ <- storeAndWatermark(delivers)
+
+        // We simulate the processing being slow (still processing ts=2 when subscription is created for ts=5)
+        _ <- store.saveWatermark(instanceIndex, ts0.plusSeconds(2L)).valueOrFail("saveWatermark")
+        // We create a subscription for ts=5 (above the watermark)
+        queue <- readWithQueueFUS(alice, timestampInclusive = ts0.plusSeconds(5L).some)
+        // We advance the watermark, so that ts=5 event can be read
+        _ <- store.saveWatermark(instanceIndex, ts0.plusSeconds(5L)).valueOrFail("saveWatermark")
+
+        event5 <- pullFromQueue(queue)
+        _ = queue.cancel() // cancel the queue now we're done with it
+      } yield {
+        event5.value.previousTimestamp shouldBe Some(ts0.plusSeconds(4L))
+        event5.value.timestamp shouldBe ts0.plusSeconds(5L)
+      }
+    }
+
     "attempting to read an unregistered member returns error" in { env =>
       import env.*
 
       for {
         _ <- store.registerMember(topologyClientMember, ts0)
         // we haven't registered alice
-        error <- leftOrFail(reader.readV2(alice, timestampInclusive = None))("read unknown member")
+        error <- leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))(
+          "read unknown member"
+        )
       } yield error shouldBe CreateSubscriptionError.UnknownMember(alice)
     }
 
@@ -367,7 +421,7 @@ class SequencerReaderTestV2
         for {
           // we haven't registered the topology client member
           _ <- store.registerMember(alice, ts0)
-          error <- leftOrFail(reader.readV2(alice, timestampInclusive = None))(
+          error <- leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))(
             "read unknown topology client"
           )
         } yield error shouldBe CreateSubscriptionError.UnknownMember(topologyClientMember)
@@ -380,7 +434,9 @@ class SequencerReaderTestV2
         _ <- store.registerMember(topologyClientMember, ts0)
         _ <- store.registerMember(alice, ts0)
         _ <- store.disableMember(alice)
-        error <- leftOrFail(reader.readV2(alice, timestampInclusive = None))("read disabled member")
+        error <- leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))(
+          "read disabled member"
+        )
       } yield error shouldBe CreateSubscriptionError.MemberDisabled(alice)
     }
 
@@ -468,7 +524,7 @@ class SequencerReaderTestV2
               .saveLowerBound(ts(10), ts(9).some)
               .valueOrFail("saveLowerBound")
             error <- loggerFactory.assertLogs(
-              leftOrFail(reader.readV2(alice, timestampInclusive = None))("read"),
+              leftOrFail(reader.readV2(alice, requestedTimestampInclusive = None))("read"),
               _.errorMessage shouldBe expectedMessage,
             )
           } yield inside(error) {
@@ -497,7 +553,9 @@ class SequencerReaderTestV2
             .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
           error <- loggerFactory.assertLogs(
-            leftOrFail(reader.readV2(alice, timestampInclusive = Some(ts0.plusSeconds(10))))(
+            leftOrFail(
+              reader.readV2(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(10)))
+            )(
               "read succeeded"
             ),
             _.errorMessage shouldBe expectedMessage,
@@ -524,7 +582,7 @@ class SequencerReaderTestV2
             .saveLowerBound(ts(10), ts(9).some)
             .valueOrFail("saveLowerBound")
           _ <- reader
-            .readV2(alice, timestampInclusive = Some(ts0.plusSeconds(13)))
+            .readV2(alice, requestedTimestampInclusive = Some(ts0.plusSeconds(13)))
             .valueOrFail("read")
         } yield succeed // the above not failing is enough of an assertion
       }

@@ -338,7 +338,7 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class SynchronizerParametersState(
+    final case class ListSynchronizerParametersState(
         query: BaseQuery,
         filterSynchronizerId: String,
     ) extends BaseCommand[
@@ -370,7 +370,7 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class MediatorSynchronizerState(
+    final case class ListMediatorSynchronizerState(
         query: BaseQuery,
         filterSynchronizerId: String,
     ) extends BaseCommand[
@@ -402,7 +402,7 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class SequencerSynchronizerState(
+    final case class ListSequencerSynchronizerState(
         query: BaseQuery,
         filterSynchronizerId: String,
     ) extends BaseCommand[
@@ -434,7 +434,7 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class PurgeTopologyTransaction(
+    final case class ListPurgeTopologyTransaction(
         query: BaseQuery,
         filterSynchronizerId: String,
     ) extends BaseCommand[
@@ -463,6 +463,37 @@ object TopologyAdminCommands {
       ): Either[String, Seq[ListPurgeTopologyTransactionResult]] =
         response.results
           .traverse(ListPurgeTopologyTransactionResult.fromProtoV30)
+          .leftMap(_.toString)
+    }
+
+    final case class ListTopologyFreeze(
+        query: BaseQuery,
+        filterPhysicalSynchronizerId: String,
+    ) extends BaseCommand[
+          v30.ListTopologyFreezeRequest,
+          v30.ListTopologyFreezeResponse,
+          Seq[ListTopologyFreezeResult],
+        ] {
+
+      override protected def createRequest(): Either[String, v30.ListTopologyFreezeRequest] =
+        Right(
+          new ListTopologyFreezeRequest(
+            baseQuery = Some(query.toProtoV1),
+            filterPhysicalSynchronizerId = filterPhysicalSynchronizerId,
+          )
+        )
+
+      override protected def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.ListTopologyFreezeRequest,
+      ): Future[v30.ListTopologyFreezeResponse] =
+        service.listTopologyFreeze(request)
+
+      override protected def handleResponse(
+          response: v30.ListTopologyFreezeResponse
+      ): Either[String, Seq[ListTopologyFreezeResult]] =
+        response.results
+          .traverse(ListTopologyFreezeResult.fromProtoV30)
           .leftMap(_.toString)
     }
 

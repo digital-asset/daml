@@ -7,6 +7,7 @@ import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.option.*
+import cats.syntax.order.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
@@ -128,7 +129,7 @@ class SequencerReader(
     with FlagCloseable
     with HasCloseContext {
 
-  def readV2(member: Member, timestampInclusive: Option[CantonTimestamp])(implicit
+  def readV2(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
     performUnlessClosingEitherUSF(functionFullName)(for {
@@ -167,8 +168,27 @@ class SequencerReader(
         s"Topology processor at: ${syncCryptoApi.approximateTimestamp}"
       )
 
+      safeWatermarkTimestampO <- EitherT.right(store.fetchWatermark(0)).map(_.map(_.timestamp))
+      _ = logger.debug(
+        s"Current safe watermark is $safeWatermarkTimestampO"
+      )
+
+      // It can happen that a member switching between sequencers runs into a sequencer that is catching up.
+      // In this situation, the sequencer has to wait for the watermark to catch up to the requested timestamp.
+      // To address this we start reading from the watermark timestamp itself, and use the dropWhile filter
+      // of the `reader.from` to only release events that are at or after the requested timestamp to the subscriber.
+      readFromTimestampInclusive =
+        if (safeWatermarkTimestampO < requestedTimestampInclusive) {
+          logger.debug(
+            s"Safe watermark $safeWatermarkTimestampO is before the requested timestamp. Will commence reading from the safe watermark and skip events until requested timestamp $requestedTimestampInclusive (inclusive)."
+          )
+          safeWatermarkTimestampO
+        } else {
+          requestedTimestampInclusive
+        }
+
       latestTopologyClientRecipientTimestamp <- EitherT.right(
-        timestampInclusive
+        readFromTimestampInclusive
           .flatTraverse { timestamp =>
             store.latestTopologyClientRecipientTimestamp(
               member = member,
@@ -182,7 +202,8 @@ class SequencerReader(
             )
           )
       )
-      previousEventTimestamp <- EitherT.right(timestampInclusive.flatTraverse { timestamp =>
+
+      previousEventTimestamp <- EitherT.right(readFromTimestampInclusive.flatTraverse { timestamp =>
         store.previousEventTimestamp(
           registeredMember.memberId,
           timestampExclusive =
@@ -198,7 +219,7 @@ class SequencerReader(
       lowerBoundExclusiveO <- EitherT.right(store.fetchLowerBound())
       _ <- EitherT
         .cond[FutureUnlessShutdown](
-          (timestampInclusive, lowerBoundExclusiveO) match {
+          (requestedTimestampInclusive, lowerBoundExclusiveO) match {
             // Reading from the beginning, with no lower bound
             case (None, None) => true
             // Reading from the beginning, with a lower bound present
@@ -221,7 +242,7 @@ class SequencerReader(
             val lowerBoundText = lowerBoundExclusiveO
               .map { case (lowerBound, _) => lowerBound.toString }
               .getOrElse("epoch")
-            val timestampText = timestampInclusive
+            val timestampText = readFromTimestampInclusive
               .map(timestamp => s"$timestamp (inclusive)")
               .getOrElse("the beginning")
             val errorMessage =
@@ -230,7 +251,8 @@ class SequencerReader(
                 show"or below the member's registration timestamp ${registeredMember.registeredFrom}."
 
             logger.error(errorMessage)
-            CreateSubscriptionError.EventsUnavailableForTimestamp(timestampInclusive, errorMessage)
+            CreateSubscriptionError
+              .EventsUnavailableForTimestamp(readFromTimestampInclusive, errorMessage)
           },
         )
         .leftWiden[CreateSubscriptionError]
@@ -243,13 +265,13 @@ class SequencerReader(
         loggerFactoryForMember,
       )
       reader.from(
-        event => timestampInclusive.exists(event.unvalidatedEvent.timestamp < _),
+        event => requestedTimestampInclusive.exists(event.unvalidatedEvent.timestamp < _),
         ReadState(
           member,
           registeredMember.memberId,
           // This is a "reading watermark" meaning that "we have read up to and including this timestamp",
           // so if we want to grab the event exactly at timestampInclusive, we do -1 here
-          nextReadTimestamp = timestampInclusive
+          nextReadTimestamp = readFromTimestampInclusive
             .map(_.immediatePredecessor)
             .getOrElse(
               memberOnboardingTxSequencingTime

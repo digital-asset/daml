@@ -1039,6 +1039,36 @@ trait TopologyManagementIntegrationTest
 
     }
 
+    "query topology freeze" in { implicit env =>
+      import env.*
+
+      val freezeMapping = synchronizerOwners1
+        .map { owner =>
+          owner.topology.synchronizer_migration.topology_freezes.propose_freeze(
+            PhysicalSynchronizerId(daId, testedProtocolVersion)
+          )
+        }
+        .headOption
+        .value
+        .mapping
+
+      eventually() {
+        forAll(
+          synchronizerOwners1.map(
+            _.topology.synchronizer_migration.topology_freezes
+              .list(daId)
+              .loneElement
+              .item
+          )
+        )(result => result shouldBe freezeMapping)
+      }
+      synchronizerOwners1.foreach(
+        _.topology.synchronizer_migration.topology_freezes.propose_unfreeze(
+          PhysicalSynchronizerId(daId, testedProtocolVersion)
+        )
+      )
+    }
+
     "issue topology transactions concurrently" in { implicit env =>
       import env.*
 

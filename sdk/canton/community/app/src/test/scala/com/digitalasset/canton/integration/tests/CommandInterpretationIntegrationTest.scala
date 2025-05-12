@@ -23,7 +23,9 @@ import scala.concurrent.duration.*
 
 // This test tests that the daml engine is able to abort a submission if it takes too
 // much time during interpretation.
-trait CommandInterpretationIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
+sealed trait CommandInterpretationIntegrationTest
+    extends CommunityIntegrationTest
+    with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1

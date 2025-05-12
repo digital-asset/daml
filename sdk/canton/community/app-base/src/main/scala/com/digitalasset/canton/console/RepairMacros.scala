@@ -565,7 +565,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
   ): Iterator[Map[SynchronizerAlias, Seq[LfContractId]]] = {
     val idToAlias = targetParticipant.synchronizers
       .list_registered()
-      .map { case (synchronizerConnectionConfig, _) =>
+      .map { case (synchronizerConnectionConfig, _, _) =>
         val synchronizerAlias = synchronizerConnectionConfig.synchronizerAlias
         (
           targetParticipant.synchronizers.id_of(synchronizerAlias),

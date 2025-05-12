@@ -310,9 +310,7 @@ final case class DeclarativeConnectionConfig(
         initializeFromTrustedSynchronizer = initializeFromTrustedSynchronizer,
       )
     }
-
   }
-
 }
 
 object DeclarativeConnectionConfig {
