@@ -271,10 +271,11 @@ final class Conversions(
                 proto.ScenarioError.UpgradeError.newBuilder.setMessage(
                   speedy.Pretty.prettyDamlException(interpretationError).render(80)
                 )
-              case DisallowedInterfaceExercise(cid, ifaceId, tmplId) =>
+              case DisallowedInterfaceExercise(cid, ifaceId, choiceName, tmplId) =>
                 builder.setDisallowedInterfaceExercise(
                   proto.ScenarioError.DisallowedInterfaceExercise.newBuilder
                     .setContractRef(mkContractRef(cid, tmplId))
+                    .setChoiceId(choiceName)
                     .setInterfaceId(convertIdentifier(ifaceId))
                 )
               case err @ Dev(_, _) =>
