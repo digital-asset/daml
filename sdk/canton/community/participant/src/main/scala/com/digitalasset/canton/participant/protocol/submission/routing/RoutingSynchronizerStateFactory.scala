@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.syntax.foldable.*
 import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.ledger.participant.state.RoutingSynchronizerState
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.sync.{
   ConnectedSynchronizer,
@@ -58,8 +59,8 @@ class RoutingSynchronizerStateImpl private[routing] (
   override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]] = {
-    type Acc = (Seq[LfContractId], Map[LfContractId, SynchronizerId])
+  ): FutureUnlessShutdown[Map[LfContractId, (SynchronizerId, ContractStateStatus)]] = {
+    type Acc = (Seq[LfContractId], Map[LfContractId, (SynchronizerId, ContractStateStatus)])
     connectedSynchronizers
       .collect {
         // only look at synchronizers that are ready for submission
@@ -68,7 +69,9 @@ class RoutingSynchronizerStateImpl private[routing] (
           connectedSynchronizer
       }
       .toList
-      .foldM[FutureUnlessShutdown, Acc]((coids, Map.empty[LfContractId, SynchronizerId]): Acc) {
+      .foldM[FutureUnlessShutdown, Acc](
+        (coids, Map.empty[LfContractId, (SynchronizerId, ContractStateStatus)]): Acc
+      ) {
         // if there are no more cids for which we don't know the synchronizer, we are done
         case ((pending, acc), _) if pending.isEmpty => FutureUnlessShutdown.pure((pending, acc))
         case ((pending, acc), connectedSynchronizer) =>
@@ -76,10 +79,13 @@ class RoutingSynchronizerStateImpl private[routing] (
           connectedSynchronizer.ephemeral.requestTracker
             .getApproximateStates(pending)
             .map { res =>
-              val done = acc ++ res.collect {
-                case (cid, status) if status.status.isActive =>
-                  (cid, connectedSynchronizer.synchronizerId)
-              }
+              val done =
+                acc ++ res.collect {
+                  case (cid, status) if status.status.isActive =>
+                    (cid, (connectedSynchronizer.synchronizerId, ContractStateStatus.Active))
+                  case (cid, status) if status.status.isArchived =>
+                    (cid, (connectedSynchronizer.synchronizerId, ContractStateStatus.Archived))
+                }
               (pending.filterNot(cid => done.contains(cid)), done)
             }
       }

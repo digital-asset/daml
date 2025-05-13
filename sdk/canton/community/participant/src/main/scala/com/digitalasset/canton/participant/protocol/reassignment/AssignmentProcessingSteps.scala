@@ -370,7 +370,7 @@ private[reassignment] class AssignmentProcessingSteps(
           )
           FutureUnlessShutdown.pure(None)
         }
-      } else // TODO(i22993): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
+      } else // TODO(i24532): Not sending a confirmation response is a workaround to make possible to process the assignment before unassignment
         FutureUnlessShutdown.pure(None)
 
       // We consider that we rejected if we fail to process or if at least one of the responses is not "approve"

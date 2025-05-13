@@ -36,6 +36,7 @@ message BftOrderingServiceReceiveRequest {
   string trace_context = 1;
   BftOrderingMessageBody body = 2;
   string sent_by = 3;
+  google.protobuf.Timestamp sent_at = 4;
 }
 
 message BftOrderingServiceReceiveResponse {

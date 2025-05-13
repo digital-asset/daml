@@ -46,6 +46,7 @@ import shapeless.*
 import shapeless.HList.*
 import shapeless.syntax.std.traversable.*
 
+import java.time.Instant
 import scala.collection.mutable
 import scala.util.{Failure, Success, Try}
 
@@ -209,6 +210,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
                 "",
                 Some(networkMessageBody),
                 selfNode,
+                None,
               ),
             )
           )
@@ -240,11 +242,13 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
             )
           )
 
-          val networkSend = BftOrderingServiceReceiveRequest(
-            "",
-            Some(networkMessageBody),
-            selfNode,
-          )
+          val networkSend =
+            BftOrderingServiceReceiveRequest(
+              "",
+              Some(networkMessageBody),
+              selfNode,
+              None,
+            )
           verify(sendActionSpy, times(1)).apply(
             otherInitialEndpointsTupled._1,
             networkSend,
@@ -283,6 +287,7 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
             traceContext = "",
             Some(networkMessageBody),
             selfNode,
+            None,
           )
         )
       }
@@ -664,14 +669,12 @@ class BftP2PNetworkOutTest extends AnyWordSpec with BftSequencerBaseTest {
       nodeActions.put(endpoint, onNode)
 
       new P2PNetworkRef[BftOrderingServiceReceiveRequest]() {
-        override def asyncP2PSend(msg: BftOrderingServiceReceiveRequest)(
-            onCompletion: => Unit
-        )(implicit
-            traceContext: TraceContext
-        ): Unit = {
-          asyncP2PSendAction(endpoint, msg)
-          onCompletion
-        }
+        override def asyncP2PSend(createMsg: Option[Instant] => BftOrderingServiceReceiveRequest)(
+            implicit
+            traceContext: TraceContext,
+            metricsContext: MetricsContext,
+        ): Unit =
+          asyncP2PSendAction(endpoint, createMsg(None))
 
         override protected def timeouts: ProcessingTimeout =
           BftP2PNetworkOutTest.this.timeouts

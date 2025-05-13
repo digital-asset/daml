@@ -373,6 +373,7 @@ final class BftBlockOrderer(
       p2pGrpcNetworking.clientRole.closeConnection,
       timeouts,
       loggerFactory,
+      metrics,
     )
 
   private def tryCreateServerEndpoint(
@@ -384,7 +385,9 @@ final class BftBlockOrderer(
       p2pNetworkInModuleRef,
       clientEndpoint,
       p2pGrpcNetworking.serverRole.cleanupClientHandle,
+      getMessageSendInstant = msg => msg.sentAt.map(_.asJavaInstant),
       loggerFactory,
+      metrics,
     )
   }
 

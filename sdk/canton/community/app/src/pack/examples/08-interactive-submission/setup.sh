@@ -13,12 +13,14 @@ if git rev-parse --is-inside-work-tree &>/dev/null || false; then
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community/base/src/main/protobuf
     LEDGER_API_PROTO_PATH=$ROOT_PATH/community/ledger-api/src/main/protobuf
     ADMIN_API_PROTO_PATH=$ROOT_PATH/community/admin-api/src/main/protobuf
+    LAPI_VALUE_PROTO_PATH=$ROOT_PATH/community/lib/ledger-api-value/target/protobuf_external/com/daml/ledger/api/v2/value.proto
 else
     # Otherwise assume we're running from the release artifact, in which case the protobuf folder is a few levels above
     ROOT_PATH=../../protobuf
     COMMUNITY_PROTO_PATH=$ROOT_PATH/community
     LEDGER_API_PROTO_PATH=$ROOT_PATH/ledger-api
     ADMIN_API_PROTO_PATH=$ROOT_PATH/admin-api
+    LAPI_VALUE_PROTO_PATH=$LEDGER_API_PROTO_PATH/com/daml/ledger/api/v2/value.proto
 fi
 
 COMMUNITY_CANTON_PROTO_PATH=$COMMUNITY_PROTO_PATH/com/digitalasset/canton
@@ -40,23 +42,7 @@ download_if_not_exists() {
   fi
 }
 
-
-# Get the daml version so we can download the correct value.proto from the repo
-DAML_COMMIT_FILE="daml_commit"
-
-# In the release artifact there will be a file with the commit hash in it
-if [[ -f "$DAML_COMMIT_FILE" ]]; then
-    echo "Using Daml commit $DAML_COMMIT read from $DAML_COMMIT_FILE"
-    DAML_COMMIT=$(<"$DAML_COMMIT_FILE")
-else
-    source "$ROOT_PATH/scripts/daml_version_util.sh"
-    # When run from the repo, we extract the commit from DamlVersions.scala
-    DAML_COMMIT=$(cd "$ROOT_PATH" && echo $(get_daml_commit))
-    echo "Using Daml commit $DAML_COMMIT extracted from DamlVersions.scala"
-fi
-
-# Proto for LF Values, not packaged directly in canton so we need to get it from the daml repo
-download_if_not_exists "https://raw.githubusercontent.com/digital-asset/daml/$DAML_COMMIT/sdk/daml-lf/ledger-api-value/src/main/protobuf/com/daml/ledger/api/v2/value.proto" "com/daml/ledger/api/v2/value.proto"
+mkdir -p "com/daml/ledger/api/v2" && cp "$LAPI_VALUE_PROTO_PATH" "com/daml/ledger/api/v2/value.proto"
 # Google and scalapb common protos also not directly packaged in canton
 download_if_not_exists "https://raw.githubusercontent.com/googleapis/googleapis/3597f7db2191c00b100400991ef96e52d62f5841/google/rpc/status.proto" "google/rpc/status.proto"
 download_if_not_exists "https://raw.githubusercontent.com/protocolbuffers/protobuf/407aa2d9319f5db12964540810b446fecc22d419/src/google/protobuf/empty.proto" "google/protobuf/empty.proto"

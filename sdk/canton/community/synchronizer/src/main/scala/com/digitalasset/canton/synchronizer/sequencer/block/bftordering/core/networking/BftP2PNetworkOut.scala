@@ -38,8 +38,9 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.timestamp.Timestamp
 
-import java.time.{Duration, Instant}
+import java.time.Instant
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
@@ -164,7 +165,9 @@ final class BftP2PNetworkOut[E <: Env[E]](
     if (node != thisNode)
       networkSendIfKnown(node, message)
     else
-      dependencies.p2pNetworkIn.asyncSend(messageToSend(message.toProto))
+      dependencies.p2pNetworkIn.asyncSend(
+        messageToSend(message.toProto, maybeNetworkSendInstant = None)
+      )
 
   private def networkSendIfKnown(
       to: BftNodeId,
@@ -320,21 +323,20 @@ final class BftP2PNetworkOut[E <: Env[E]](
   private def networkSend(
       ref: P2PNetworkRef[BftOrderingServiceReceiveRequest],
       message: BftOrderingMessageBody,
-  )(implicit traceContext: TraceContext, mc: MetricsContext): Unit = {
-    val start = Instant.now()
-    ref.asyncP2PSend(messageToSend(message)) {
-      val end = Instant.now()
-      metrics.p2p.send.networkWriteLatency.update(Duration.between(start, end))
-    }
-  }
+  )(implicit traceContext: TraceContext, mc: MetricsContext): Unit =
+    ref.asyncP2PSend(maybeNetworkSendInstant => messageToSend(message, maybeNetworkSendInstant))
 
   private def messageToSend(
-      message: BftOrderingMessageBody
+      message: BftOrderingMessageBody,
+      maybeNetworkSendInstant: Option[Instant],
   )(implicit traceContext: TraceContext): BftOrderingServiceReceiveRequest =
     BftOrderingServiceReceiveRequest(
       traceContext.traceId.getOrElse(""),
       Some(message),
       thisNode,
+      maybeNetworkSendInstant.map(networkSendInstant =>
+        Timestamp(networkSendInstant.getEpochSecond, networkSendInstant.getNano)
+      ),
     )
 
   private def connectInitialNodes(otherInitialEndpoints: Seq[P2PEndpoint])(implicit

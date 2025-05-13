@@ -85,7 +85,7 @@ final case class Ping[E <: Env[E]](
     message match {
       case "init" =>
         context.delayedEvent(5.seconds, "tick")
-        otherNode.asyncP2PSend("ping")(())
+        otherNode.asyncP2PSend(_ => "ping")
       case "tick" =>
         val helperRef = context.newModuleRef[String](ModuleName("ping-helper"))
         val helper = PingHelper[E](context.self, recorder, loggerFactory, timeouts)
@@ -93,7 +93,7 @@ final case class Ping[E <: Env[E]](
         helper.ready(helperRef)
         helperRef.asyncSend("tick")
       case "tick-ack" =>
-        otherNode.asyncP2PSend("ping-tick")(())
+        otherNode.asyncP2PSend(_ => "ping-tick")
       case "pong" =>
         recorder.pingActorReceivedClientPing = true
         context.become(copy[E](state = state.copy(clientPing = true)))
@@ -110,7 +110,7 @@ final case class Ping[E <: Env[E]](
       self: ModuleRef[String]
   )(implicit traceContext: TraceContext): Unit =
     if (state.clientPing && state.clockPing) {
-      otherNode.asyncP2PSend("complete")(())
+      otherNode.asyncP2PSend(_ => "complete")
       self.asyncSend("complete")
     }
 }
@@ -122,15 +122,17 @@ final case class Pong[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
 ) extends Module[E, String] {
 
+  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
+
   override def receiveInternal(message: String)(implicit
       context: E#ActorContextT[String],
       traceContext: TraceContext,
   ): Unit =
     message match {
       case "ping" =>
-        otherNode.asyncP2PSend("pong")(())
+        otherNode.asyncP2PSend(_ => "pong")
       case "ping-tick" =>
-        otherNode.asyncP2PSend("pong-tick")(())
+        otherNode.asyncP2PSend(_ => "pong-tick")
       case "complete" =>
         recorder.pongActorStopped = true
         context.stop()

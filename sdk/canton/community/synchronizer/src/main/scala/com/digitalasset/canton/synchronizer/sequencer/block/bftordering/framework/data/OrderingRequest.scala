@@ -124,9 +124,7 @@ object OrderingRequestBatch extends VersioningCompanion[OrderingRequestBatch] {
             OrderingRequest(
               protoOrderingRequest.tag,
               protoOrderingRequest.payload,
-              protoOrderingRequest.orderingStartInstant.map(i =>
-                Instant.ofEpochSecond(i.seconds, i.nanos.toLong)
-              ),
+              protoOrderingRequest.orderingStartInstant.map(_.asJavaInstant),
             ),
             TraceContext.fromW3CTraceParent(protoOrderingRequest.traceContext),
           )

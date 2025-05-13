@@ -331,8 +331,7 @@ class ProgrammableUnitTestEnv extends BaseIgnoringUnitTestEnv[ProgrammableUnitTe
 }
 
 object ProgrammableUnitTestEnv {
-  private[unit] case object noSignatureCryptoProvider
-      extends CryptoProvider[ProgrammableUnitTestEnv] {
+  case object noSignatureCryptoProvider extends CryptoProvider[ProgrammableUnitTestEnv] {
     override def signHash(hash: Hash)(implicit
         traceContext: TraceContext
     ): () => Either[SyncCryptoError, Signature] = () => Right(Signature.noSignature)

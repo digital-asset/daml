@@ -153,6 +153,13 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
         description = "Records the rate and latency when writing P2P messages to the network.",
         qualification = MetricQualification.Latency,
       )
+
+      private[metrics] val grpcLatency: Item = Item(
+        prefix :+ "grpc-latency",
+        summary = "Latency of a gRPC message send",
+        description = "Records the rate and latency of a gRPC message send.",
+        qualification = MetricQualification.Latency,
+      )
     }
     private[metrics] val send = new SendMetrics
 
@@ -715,8 +722,21 @@ class BftOrderingMetrics private[metrics] (
         )
       )
 
+      val sendsRetried: Counter = openTelemetryMetricsFactory.counter(
+        MetricInfo(
+          prefix :+ "sends-retried",
+          summary = "P2P sends retried",
+          description =
+            "Total P2P network sends retried after a delay due to missing connectivity.",
+          qualification = MetricQualification.Latency,
+        )
+      )
+
       val networkWriteLatency: Timer =
         openTelemetryMetricsFactory.timer(histograms.p2p.send.networkWriteLatency.info)
+
+      val grpcLatency: Timer =
+        openTelemetryMetricsFactory.timer(histograms.p2p.send.grpcLatency.info)
     }
     val send = new SendMetrics
 
