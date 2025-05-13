@@ -216,13 +216,22 @@ case $1 in
                 exit 1
             fi
             target_branch=$(release_branch_for_version "$version")
+            branch_name=${target_branch#origin/}
+            sha="$(git rev-parse "$commit")"
             case $(check_new_version_and_commit "$version" "$commit") in
               exact)
-                make_snapshot snapshot "$(git rev-parse "$commit")" "$version"
+                echo "add the following line to LATEST in order to preserve semver ordering:"
+                make_snapshot snapshot $sha "$version"
+                echo "and commit with the following (2 lines) message:"
+                echo "$branch_name Snapshot"
+                echo "Create a snapshot for [$branch_name](https://github.com/digital-asset/daml/commits/$branch_name/) at commit $sha"
                 ;;
               adhoc)
+                echo "add the following line to LATEST in order to preserve semver ordering:"
+                make_snapshot adhoc $sha "$version"
                 echo "WARNING: The expected release branch for version $version is '$target_branch', but commit $commit is not on any release branch. Generating an adhoc release name..." >&2
-                make_snapshot adhoc "$(git rev-parse "$commit")" "$version"
+                echo "and commit with the following message:"
+                echo "$branch_name adhoc Snapshot"
                 ;;
               failure)
                 echo "ERROR: The expected release branch for version $version is '$target_branch', but commit $commit belongs to a different release branch: $(find_release_branches_for_commit "$commit" | tr '\n' ' ')" >&2

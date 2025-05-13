@@ -38,11 +38,16 @@ The steps to create a release are:
 
    ```
    $ git fetch
-   $ ./release.sh snapshot origin/release/2.0.x 2.0.0
+   $ ./release.sh snapshot origin/release/3.4.x 3.4.0
    ```
 
    You should put that line in the file in order to preserve semver ordering,
    and overwrite any existing snapshot with the same prefix.
+
+   For non-adhoc snapshot please add the link to the commits of the release branch
+   + the commit sha in the description of you PR. For instance here are examples 
+    - "Create a snapshot for [main](https://github.com/digital-asset/daml/commits/main/) at commit ae6a13742aa79da2fcac79e0a27c6f7fe81fcf10"
+    - "Create a snapshot for [release/3.3.x](https://github.com/digital-asset/daml/commits/release/3.3.x/) at commit 7f71343bd265865977a09c4936d48278322e34ad"
 
    For a stable release, follow the same steps but remove the `-snapshot.*`
    part of the generated string.
