@@ -186,6 +186,7 @@ da_haskell_library(
         "either",
         "extra",
         "file-embed",
+        "filelock",
         "filepath",
         "ghcide",
         "ghc-lib",

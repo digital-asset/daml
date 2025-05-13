@@ -141,15 +141,9 @@ initPackageConfig options scriptDar dars = do
         , "data-dependencies:"
         , "- " <> show scriptDar
         ] ++ ["- " <> show dar | dar <- dars]
-    withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
-        dir <- getCurrentDirectory
-        installDependencies
-            (toNormalizedFilePath' dir)
-            options
-            (unsafeResolveReleaseVersion pSdkVersion)
-            pDependencies
-            pDataDependencies
-        createProjectPackageDb (toNormalizedFilePath' dir) options pModulePrefixes
+    dir <- getCurrentDirectory
+    withPackageConfig (ProjectPath ".") $
+        setupPackageDbFromPackageConfig (toNormalizedFilePath' dir) options
 
 drainHandle :: Handle -> Chan String -> IO ()
 drainHandle handle chan = forever $ do

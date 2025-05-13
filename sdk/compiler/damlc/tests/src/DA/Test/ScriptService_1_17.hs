@@ -68,18 +68,8 @@ main = withSdkVersions $ do
             "data-dependencies:",
             "- " <> show scriptDar
           ]
-      withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
-        let projDir = toNormalizedFilePath' dir
-        installDependencies
-            projDir
-            options
-            (unsafeResolveReleaseVersion pSdkVersion)
-            pDependencies
-            pDataDependencies
-        createProjectPackageDb
-          projDir
-          options
-          pModulePrefixes
+      withPackageConfig (ProjectPath ".") $
+        setupPackageDbFromPackageConfig (toNormalizedFilePath' dir) options
 
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
