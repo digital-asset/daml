@@ -247,7 +247,7 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
   | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
   | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
-  | WEUpgradeShouldNotImplementNonUpgradeableIfaces (PackageId, Maybe PackageMetadata) Version !(Qualified TypeConName) !(Qualified TypeConName) -- [Qualified TypeConName]
+  | WEUpgradeShouldNotImplementNonUpgradeableIfaces (PackageId, Maybe PackageMetadata) Version !(Qualified TypeConName) !(Qualified TypeConName)
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -297,13 +297,6 @@ instance Pretty ErrorOrWarning where
     where
       pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
-
-      --pPrintList [] = ""
-      --pPrintList [x] = pPrint x
-      --pPrintList (x:y:rest) = go x y rest
-      --  where
-      --    go x y [] = pPrint x <> ", and " <> pPrint y
-      --    go x y (next:rest) = pPrint x <> ", " <> go y next rest
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser

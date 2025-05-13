@@ -291,16 +291,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                   pure Nothing
                 Right presentVersion -> do
                   let result = (packageName, (Just presentVersion, presentPkgId, presentPkg))
-                  let otherDepsWithSelf = addDep result upgradeablePackageMap
-                      depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems otherDepsWithSelf
                   unless (packageName `elem` [PackageName "daml-prim", PackageName "daml-stdlib"]) $
                     case HMS.lookup packageName upgradeablePackageMap of
-                      Nothing -> withReaderT (const versionAndInfo) $ do
-                        pure ()
-                        --checkPackageSingle
-                        --  Nothing
-                        --  presentPkg
-                        --  depsAsExternalPackages
+                      Nothing -> pure ()
                       Just upgradeablePkgs -> do
                         let filterUpgradeablePkgs pred = mapMaybe $ \case
                               (Just v, pkgId, pkg) | pred (v, pkgId, pkg) -> Just (v, pkgId, pkg)
@@ -313,6 +306,8 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                           then
                             throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
                           else do
+                            let otherDepsWithSelf = addDep result upgradeablePackageMap
+                                depsAsExternalPackages = map (\(_, pkgId, pkg) -> ExternalPackage pkgId pkg) $ concat $ HMS.elems otherDepsWithSelf
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> withReaderT (const versionAndInfo) $ do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
