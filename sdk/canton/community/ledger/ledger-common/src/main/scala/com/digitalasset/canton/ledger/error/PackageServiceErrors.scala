@@ -284,24 +284,38 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         ) {
       @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
       final case class Error(
-          oldPackage: Util.PkgIdWithNameAndVersion,
-          newPackage: Util.PkgIdWithNameAndVersion,
           upgradeError: UpgradeError,
-          phase: TypecheckUpgrades.UploadPhaseCheck,
+          phase: TypecheckUpgrades.UploadPhaseCheck[Util.PkgIdWithNameAndVersion],
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
             cause = phase match {
-              case TypecheckUpgrades.MaximalDarCheck =>
+              case TypecheckUpgrades.MaximalDarCheck(oldPackage, newPackage) =>
                 s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${upgradeError.prettyInternal}"
-              case TypecheckUpgrades.MinimalDarCheck =>
+              case TypecheckUpgrades.MinimalDarCheck(oldPackage, newPackage) =>
                 s"The uploaded DAR contains a package $oldPackage, but upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${upgradeError.prettyInternal}"
+              case TypecheckUpgrades.StandaloneDarCheck(newPackage) =>
+                s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that it cannot be upgraded. Reason: ${upgradeError.prettyInternal}"
             },
-            extraContext = Map(
-              "oldPackage" -> oldPackage,
-              "newPackage" -> newPackage,
-              "additionalInfo" -> upgradeError.prettyInternal,
-            ),
+            extraContext = phase match {
+              case TypecheckUpgrades.MaximalDarCheck(oldPackage, newPackage) =>
+                Map(
+                  "oldPackage" -> oldPackage,
+                  "newPackage" -> newPackage,
+                  "additionalInfo" -> upgradeError.prettyInternal,
+                )
+              case TypecheckUpgrades.MinimalDarCheck(oldPackage, newPackage) =>
+                Map(
+                  "oldPackage" -> oldPackage,
+                  "newPackage" -> newPackage,
+                  "additionalInfo" -> upgradeError.prettyInternal,
+                )
+              case TypecheckUpgrades.StandaloneDarCheck(newPackage) =>
+                Map(
+                  "newPackage" -> newPackage,
+                  "additionalInfo" -> upgradeError.prettyInternal,
+                )
+            }
           )
     }
 

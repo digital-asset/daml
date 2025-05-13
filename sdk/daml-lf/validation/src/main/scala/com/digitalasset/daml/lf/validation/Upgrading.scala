@@ -10,6 +10,7 @@ import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.daml.lf.language.Util
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -377,31 +378,95 @@ abstract class TypecheckUpgradesUtils extends NamedLogging {
 }
 
 object TypecheckUpgrades {
-  sealed abstract class UploadPhaseCheck
-  case object MinimalDarCheck extends UploadPhaseCheck {
-    override def toString: String = "minimal-dar-check"
+  sealed abstract class UploadPhaseCheck[A] {
+    def uploadedPackage: A
+    def map[B](f: A => B): UploadPhaseCheck[B]
   }
-  case object MaximalDarCheck extends UploadPhaseCheck {
+  implicit class UploadPhaseCheckOptionalHelper[A](
+    phase: UploadPhaseCheck[Option[A]]
+  ) {
+    def sequenceOptional: Option[UploadPhaseCheck[A]] =
+      phase match {
+        case MaximalDarCheck(None, _) | MaximalDarCheck(_, None) => None
+        case MaximalDarCheck(Some(oldPkg), Some(newPkg)) => Some(MaximalDarCheck(oldPkg, newPkg))
+        case MinimalDarCheck(None, _) | MinimalDarCheck(_, None) => None
+        case MinimalDarCheck(Some(oldPkg), Some(newPkg)) => Some(MinimalDarCheck(oldPkg, newPkg))
+        case StandaloneDarCheck(None) => None
+        case StandaloneDarCheck(Some(newPkg)) => Some(StandaloneDarCheck(newPkg))
+      }
+  }
+  final case class MinimalDarCheck[A](
+    oldPackage: A,
+    newPackage: A
+  ) extends UploadPhaseCheck[A] {
+    override def uploadedPackage = newPackage
+    override def toString: String = "minimal-dar-check"
+    override def map[B](f: A => B) = MinimalDarCheck(f(oldPackage), f(newPackage))
+  }
+  final case class MaximalDarCheck[A](
+    oldPackage: A,
+    newPackage: A
+  ) extends UploadPhaseCheck[A] {
+    override def uploadedPackage = oldPackage
     override def toString: String = "maximal-dar-check"
+    override def map[B](f: A => B) = MaximalDarCheck(f(oldPackage), f(newPackage))
+  }
+  final case class StandaloneDarCheck[A](
+    newPackage: A
+  ) extends UploadPhaseCheck[A] {
+    override def uploadedPackage = newPackage
+    override def toString: String = "standalone-dar-check"
+    override def map[B](f: A => B) = StandaloneDarCheck(f(newPackage))
   }
 }
 
 case class TypecheckUpgrades(
     val loggerFactory: NamedLoggerFactory
 ) extends TypecheckUpgradesUtils {
-  def typecheckUpgradesStandalone(
+  private def typecheckUpgradesStandalone(
       packageMap: Map[
         Ref.PackageId,
         (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
       ],
       present: (
-          Ref.PackageId,
+          Util.PkgIdWithNameAndVersion,
           Ast.Package,
       ),
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
-    val tc = TypecheckUpgradesStandalone(packageMap, present, loggerFactory)
+    val (presentPackageId, presentPkg) = present
+    val tc = TypecheckUpgradesStandalone(packageMap, (presentPackageId.pkgId, presentPkg), loggerFactory)
+    tc.check()
+  }
+
+  private def typecheckUpgradesPair(
+      packageMap: Map[
+        Ref.PackageId,
+        (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+      ],
+      past: (
+          Util.PkgIdWithNameAndVersion,
+          Ast.Package,
+      ),
+      present: (
+          Util.PkgIdWithNameAndVersion,
+          Ast.Package,
+      ),
+  ): Try[Unit] = {
+    val (pastPackageId, pastPkg) = past
+    val (presentPackageId, presentPkg) = present
+    val tc = TypecheckUpgradesPair(
+      packageMap
+        + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
+          presentPkg.languageVersion
+        )))
+        + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version, Some(
+          pastPkg.languageVersion
+        ))),
+      Upgrading((pastPackageId.pkgId, pastPkg), (presentPackageId.pkgId, presentPkg)),
+      loggerFactory,
+    )
     tc.check()
   }
 
@@ -410,30 +475,20 @@ case class TypecheckUpgrades(
         Ref.PackageId,
         (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
       ],
-      present: (
-          Ref.PackageId,
+      phase: TypecheckUpgrades.UploadPhaseCheck[(
+          Util.PkgIdWithNameAndVersion,
           Ast.Package,
-      ),
-      pastPackageId: Ref.PackageId,
-      mbPastPkg: Option[Ast.Package],
+      )],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
-    mbPastPkg match {
-      case None =>
-        fail(UpgradeError.CouldNotResolveUpgradedPackageId(Upgrading(pastPackageId, present._1)));
-      case Some(pastPkg) =>
-        val (presentPackageId, presentPkg) = present
-        val tc = TypecheckUpgradesPair(
-          packageMap
-            + (presentPackageId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
-              presentPkg.languageVersion
-            )))
-            + (pastPackageId -> (pastPkg.name.get, pastPkg.metadata.get.version, Some(
-              pastPkg.languageVersion
-            ))),
-          Upgrading((pastPackageId, pastPkg), present),
-          loggerFactory,
-        )
-        tc.check()
+    phase match {
+      case TypecheckUpgrades.MaximalDarCheck(oldPkg, newPkg) =>
+        typecheckUpgradesPair(packageMap, oldPkg, newPkg)
+      case TypecheckUpgrades.MinimalDarCheck(oldPkg, newPkg) =>
+        typecheckUpgradesPair(packageMap, oldPkg, newPkg)
+      case TypecheckUpgrades.StandaloneDarCheck(newPkg) =>
+        typecheckUpgradesStandalone(packageMap, newPkg)
     }
   }
 }
