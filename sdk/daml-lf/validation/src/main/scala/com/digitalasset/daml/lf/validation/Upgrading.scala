@@ -334,6 +334,9 @@ abstract class TypecheckUpgradesUtils extends NamedLogging {
   def fail[A](err: UpgradeError.Error): Try[A] =
     Failure(UpgradeError(err))
 
+  def warn(err: UpgradeError.Error)(implicit loggingContext: LoggingContextWithTrace): Unit =
+    logger.warn(err.message)
+
   def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try(t.map(f(_).get).toSeq)
 
@@ -386,10 +389,6 @@ object TypecheckUpgrades {
 case class TypecheckUpgrades(
     val loggerFactory: NamedLoggerFactory
 ) extends TypecheckUpgradesUtils {
-  // case object StandaloneDarCheck extends UploadPhaseCheck {
-  //  override def toString: String = "standalone-dar-check"
-  // }
-
   def typecheckUpgradesStandalone(
       packageMap: Map[
         Ref.PackageId,
@@ -454,19 +453,14 @@ case class TypecheckUpgradesStandalone(
       mod <- pkg._2.modules.values
       template <- mod.templates.values
       instance <- template.implements
+      ifaceId = instance._2.interfaceId
     } {
-      packageMap.get(instance._2.interfaceId.packageId) match {
+      packageMap.get(ifaceId.packageId) match {
         case Some((_, _, Some(languageVersion)))
             if languageVersion < LanguageVersion.Features.smartContractUpgrade =>
-          // fail(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId))
-          logger.warn(
-            UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId).message
-          )
+          warn(UpgradeError.CannotImplementNonUpgradeableInterface(ifaceId))
         case None =>
-          // fail(UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId))
-          logger.warn(
-            UpgradeError.CannotImplementNonUpgradeableInterface(instance._2.interfaceId).message
-          )
+          warn(UpgradeError.CannotImplementNonUpgradeableInterface(ifaceId))
         case _ =>
           ()
       }
