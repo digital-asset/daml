@@ -45,7 +45,7 @@ The steps to create a release are:
    and overwrite any existing snapshot with the same prefix.
 
    For non-adhoc snapshot please add the link to the commits of the release branch
-   + the commit sha in the description of you PR. For instance here are examples 
+   and the commit sha in the description of you PR. For instance here are examples 
     - "Create a snapshot for [main](https://github.com/digital-asset/daml/commits/main/) at commit ae6a13742aa79da2fcac79e0a27c6f7fe81fcf10"
     - "Create a snapshot for [release/3.3.x](https://github.com/digital-asset/daml/commits/release/3.3.x/) at commit 7f71343bd265865977a09c4936d48278322e34ad"
 
