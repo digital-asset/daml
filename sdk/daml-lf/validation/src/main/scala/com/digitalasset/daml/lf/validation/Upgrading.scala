@@ -331,9 +331,14 @@ private case class Env(
 private case class Closure[A](env: Env, value: A)
 
 abstract class TypecheckUpgradesUtils(
-  val packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+    val packageMap: Map[
+      Ref.PackageId,
+      (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+    ]
 ) extends NamedLogging {
-  protected def getIfUpgradeable(pkgId: Ref.PackageId): Either[Option[LanguageVersion], (Ref.PackageName, Ref.PackageVersion)] = {
+  protected def getIfUpgradeable(
+      pkgId: Ref.PackageId
+  ): Either[Option[LanguageVersion], (Ref.PackageName, Ref.PackageVersion)] = {
     import Ordering.Implicits._
 
     packageMap.get(pkgId) match {
@@ -358,7 +363,9 @@ abstract class TypecheckUpgradesUtils(
   protected def fail[A](err: UpgradeError.Error): Try[A] =
     Failure(UpgradeError(err))
 
-  protected def warn(err: UpgradeError.Error)(implicit loggingContext: LoggingContextWithTrace): Unit =
+  protected def warn(err: UpgradeError.Error)(implicit
+      loggingContext: LoggingContextWithTrace
+  ): Unit =
     logger.warn(err.message)
 
   protected def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
@@ -465,7 +472,7 @@ case class TypecheckUpgrades(
         packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
           presentPkg.languageVersion
         ))),
-        loggerFactory
+        loggerFactory,
       )
     tc.check()
   }
@@ -527,7 +534,10 @@ case class TypecheckUpgrades(
 
 case class TypecheckUpgradesStandalone(
     pkg: (Ref.PackageId, Ast.Package),
-    override val packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+    override val packageMap: Map[
+      Ref.PackageId,
+      (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+    ],
     val loggerFactory: NamedLoggerFactory,
 ) extends TypecheckUpgradesUtils(packageMap = packageMap) {
 
@@ -563,7 +573,10 @@ case class TypecheckUpgradesPair(
     packages: Upgrading[
       (Ref.PackageId, Ast.Package)
     ],
-    override val packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+    override val packageMap: Map[
+      Ref.PackageId,
+      (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+    ],
     val loggerFactory: NamedLoggerFactory,
 ) extends TypecheckUpgradesUtils(packageMap = packageMap) {
   private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
