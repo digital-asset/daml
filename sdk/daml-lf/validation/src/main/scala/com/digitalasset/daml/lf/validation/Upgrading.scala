@@ -32,7 +32,12 @@ object UpgradeError {
     def message: String;
   }
 
-  final case class CannotImplementNonUpgradeableInterface(pkg: Ref.PackageId, lfVersion: Option[LanguageVersion], iface: Ref.TypeConName, tpl: Ref.DottedName) extends Error {
+  final case class CannotImplementNonUpgradeableInterface(
+      pkg: Ref.PackageId,
+      lfVersion: Option[LanguageVersion],
+      iface: Ref.TypeConName,
+      tpl: Ref.DottedName,
+  ) extends Error {
     override def message: String =
       s"Template ${tpl} implements interface ${iface} from package ${pkg} which has LF version ${lfVersion.map(_.pretty).getOrElse("<= 1.15")}. It is forbidden for upgradeable templates (LF version >= 1.17) to implement interfaces from non-upgradeable packages (LF version <= 1.15)."
   }
@@ -383,7 +388,7 @@ object TypecheckUpgrades {
     def map[B](f: A => B): UploadPhaseCheck[B]
   }
   implicit class UploadPhaseCheckOptionalHelper[A](
-    phase: UploadPhaseCheck[Option[A]]
+      phase: UploadPhaseCheck[Option[A]]
   ) {
     def sequenceOptional: Option[UploadPhaseCheck[A]] =
       phase match {
@@ -396,23 +401,23 @@ object TypecheckUpgrades {
       }
   }
   final case class MinimalDarCheck[A](
-    oldPackage: A,
-    newPackage: A
+      oldPackage: A,
+      newPackage: A,
   ) extends UploadPhaseCheck[A] {
     override def uploadedPackage = newPackage
     override def toString: String = "minimal-dar-check"
     override def map[B](f: A => B) = MinimalDarCheck(f(oldPackage), f(newPackage))
   }
   final case class MaximalDarCheck[A](
-    oldPackage: A,
-    newPackage: A
+      oldPackage: A,
+      newPackage: A,
   ) extends UploadPhaseCheck[A] {
     override def uploadedPackage = oldPackage
     override def toString: String = "maximal-dar-check"
     override def map[B](f: A => B) = MaximalDarCheck(f(oldPackage), f(newPackage))
   }
   final case class StandaloneDarCheck[A](
-    newPackage: A
+      newPackage: A
   ) extends UploadPhaseCheck[A] {
     override def uploadedPackage = newPackage
     override def toString: String = "standalone-dar-check"
@@ -436,7 +441,8 @@ case class TypecheckUpgrades(
       loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
     val (presentPackageId, presentPkg) = present
-    val tc = TypecheckUpgradesStandalone(packageMap, (presentPackageId.pkgId, presentPkg), loggerFactory)
+    val tc =
+      TypecheckUpgradesStandalone(packageMap, (presentPackageId.pkgId, presentPkg), loggerFactory)
     tc.check()
   }
 
@@ -475,10 +481,12 @@ case class TypecheckUpgrades(
         Ref.PackageId,
         (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
       ],
-      phase: TypecheckUpgrades.UploadPhaseCheck[(
-          Util.PkgIdWithNameAndVersion,
-          Ast.Package,
-      )],
+      phase: TypecheckUpgrades.UploadPhaseCheck[
+        (
+            Util.PkgIdWithNameAndVersion,
+            Ast.Package,
+        )
+      ],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
@@ -513,7 +521,14 @@ case class TypecheckUpgradesStandalone(
       packageMap.get(ifaceId.packageId) match {
         case Some((_, _, Some(languageVersion)))
             if languageVersion < LanguageVersion.Features.smartContractUpgrade =>
-          warn(UpgradeError.CannotImplementNonUpgradeableInterface(pkg._1, Some(languageVersion), ifaceId, tplName))
+          warn(
+            UpgradeError.CannotImplementNonUpgradeableInterface(
+              pkg._1,
+              Some(languageVersion),
+              ifaceId,
+              tplName,
+            )
+          )
         case None =>
           warn(UpgradeError.CannotImplementNonUpgradeableInterface(pkg._1, None, ifaceId, tplName))
         case _ =>
