@@ -7,6 +7,7 @@ load(
     "da_scala_test_suite",
 )
 load("@scala_version//:index.bzl", "scala_major_version")
+load("//rules_daml:daml.bzl", "daml_compile")
 
 da_scala_library(
     name = "ledger-api-client",
@@ -83,6 +84,7 @@ da_scala_test_suite(
     name = "ledger-api-client-integration-tests",
     srcs = glob(["src/it/**/*.scala"]),
     data = [
+        ":template17.dar",
         "//test-common:dar-files-default",
     ],
     resources = [
@@ -121,4 +123,17 @@ da_scala_test_suite(
         "@maven//:ch_qos_logback_logback_classic",
         "@maven//:io_netty_netty_handler",
     ],
+)
+
+daml_compile(
+    name = "iface15",
+    srcs = ["src/daml/Interface15.daml"],
+    target = "1.15",
+)
+
+daml_compile(
+    name = "template17",
+    srcs = ["src/daml/Template17.daml"],
+    data_dependencies = ["//ledger/ledger-api-client:iface15.dar"],
+    target = "1.17",
 )

@@ -197,6 +197,13 @@ object Error {
 
   }
 
+  final case class DisallowedInterfaceExercise(
+      coid: ContractId,
+      ifaceId: TypeConName,
+      choiceName: ChoiceName,
+      templateId: TypeConName,
+  ) extends Error
+
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
 

@@ -48,7 +48,7 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
 
     // Post upgrades, we only consider a node 1.17 if the interface is 1.17
     // We do not support coimplements
-    "template version > interface" in {
+    "template version > interface" ignore {
       val pkgs = SpeedyTestLib.typeAndCompile(
         majorLanguageVersion,
         Map(

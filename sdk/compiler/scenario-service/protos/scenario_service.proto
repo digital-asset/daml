@@ -278,6 +278,13 @@ message ScenarioError {
     string message = 1;
   }
 
+  message DisallowedInterfaceExercise {
+    ContractRef contract_ref = 1;
+    Identifier interface_id = 2;
+    string choice_id = 3;
+    Identifier template_id = 4;
+  }
+
   message LookupError {
     message NotFound {
       string not_found = 1;
@@ -373,7 +380,8 @@ message ScenarioError {
     Empty cancelledByRequest = 41;
     LookupError lookup_error = 43;
     UpgradeError upgrade_error = 44;
-    // next is 45;
+    DisallowedInterfaceExercise disallowed_interface_exercise = 45;
+    // next is 46;
   }
 }
 
