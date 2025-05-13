@@ -120,8 +120,8 @@ jobs:
         eval "$(cd sdk; ./dev-env/bin/dade-assist)"
         # Authorize in GCLOUD
         gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
-        gcloud auth configure-docker --quiet europe-docker.pkg.dev
-        ./ci/get-unifi.sh "europe-docker.pkg.dev/da-images-dev/oci-playground/components/assistant:latest" 
+        gcloud auth configure-docker --quiet ${REGISTRY%%/*}
+        ./ci/get-unifi.sh "${REGISTRY}/components/assistant:latest"
         ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${REGISTRY}
       name: publish_to_oci
       env:
