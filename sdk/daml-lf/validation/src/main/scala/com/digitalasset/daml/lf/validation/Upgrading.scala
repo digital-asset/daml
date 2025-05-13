@@ -32,9 +32,9 @@ object UpgradeError {
     def message: String;
   }
 
-  final case class CannotImplementNonUpgradeableInterface(iface: Ref.TypeConName) extends Error {
+  final case class CannotImplementNonUpgradeableInterface(pkg: Ref.PackageId, lfVersion: Option[LanguageVersion], iface: Ref.TypeConName, tpl: Ref.DottedName) extends Error {
     override def message: String =
-      s"Tried to implement ${iface}. Templates with LF version >= 1.17 cannot implement interfaces with LF version <= 1.15."
+      s"Template ${tpl} implements interface ${iface} from package ${pkg} which has LF version ${lfVersion.map(_.pretty).getOrElse("<= 1.15")}. It is forbidden for upgradeable templates (LF version >= 1.17) to implement interfaces from non-upgradeable packages (LF version <= 1.15)."
   }
 
   final case class CouldNotResolveUpgradedPackageId(packageId: Upgrading[Ref.PackageId])
@@ -506,16 +506,16 @@ case class TypecheckUpgradesStandalone(
 
     for {
       mod <- pkg._2.modules.values
-      template <- mod.templates.values
+      (tplName, template) <- mod.templates
       instance <- template.implements
       ifaceId = instance._2.interfaceId
     } {
       packageMap.get(ifaceId.packageId) match {
         case Some((_, _, Some(languageVersion)))
             if languageVersion < LanguageVersion.Features.smartContractUpgrade =>
-          warn(UpgradeError.CannotImplementNonUpgradeableInterface(ifaceId))
+          warn(UpgradeError.CannotImplementNonUpgradeableInterface(pkg._1, Some(languageVersion), ifaceId, tplName))
         case None =>
-          warn(UpgradeError.CannotImplementNonUpgradeableInterface(ifaceId))
+          warn(UpgradeError.CannotImplementNonUpgradeableInterface(pkg._1, None, ifaceId, tplName))
         case _ =>
           ()
       }
