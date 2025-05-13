@@ -606,12 +606,15 @@ checkInterfacesAndExceptionsHaveNoTemplates = do
 
 checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces :: HasModules a => a -> TcM ()
 checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces hasModules =
-    forM_ (HMS.toList (instantiatedIfaces modules)) $ \(ifaceQualName, _modTplImpls) ->
+    forM_ (HMS.toList (instantiatedIfaces modules)) $ \(ifaceQualName, modTplImpls) ->
         case qualPackage ifaceQualName of
           PRImport pkgId -> do
             pkg <- inWorld (lookupPackage (PRImport pkgId))
             when (not (packageLfVersion pkg `supports` featurePackageUpgrades)) $
-              diagnosticWithContext $ WEUpgradeShouldNotImplementNonUpgradeableIfaces (packageLfVersion pkg) ifaceQualName
+              forM_ modTplImpls $ \modTplImpl -> do
+                let (instanceModule, instanceTpl, instanceTplName, instanceImpl) = modTplImpl
+                withContext (ContextTemplate instanceModule instanceTpl (TPInterfaceInstance (InterfaceInstanceHead (tpiInterface instanceImpl) instanceTplName) (tpiLocation instanceImpl))) $
+                    diagnosticWithContext $ WEUpgradeShouldNotImplementNonUpgradeableIfaces (pkgId, packageMetadata pkg) (packageLfVersion pkg) ifaceQualName instanceTplName
           _ -> pure ()
     where
     modules = getModules hasModules

@@ -504,7 +504,7 @@ tests damlc =
                   (FailWithError "error type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
             , testUpgradeCheckMany
                   "CannotImplementNonUpgradeableInterface"
-                  (FailWithError "error type checking <none>:\n  This package implements a .*:Dep:I from a package with LF version 1.15.") $
+                  (FailWithError "error type checking template Main.T interface instance .*:Dep:I for Main:T:\n  Template Main:T implements interface .*:Dep:I from package .* \\(upgrades-example-CannotImplementNonUpgradeableInterface-dep, 1.0.0\\) which has LF version 1.15.\n  \n  It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).") $
                   pure <$> locateRunfiles (mainWorkspace </> "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar")
             , testUpgradeCheckMany
                   "CanImplementUpgradeableInterface"
@@ -513,7 +513,7 @@ tests damlc =
             ] ++
             [ mkTest
                   (prefix <> "CannotImplementNonUpgradeableInterface")
-                  (expectation "type checking <none>:\n  This package implements a .*:Dep:I from a package with LF version 1.15.")
+                  (expectation "type checking template Main.T interface instance .*:Dep:I for Main:T:\n  Template Main:T implements interface .*:Dep:I from package .* \\(upgrades-example-CannotImplementNonUpgradeableInterface-dep, 1.0.0\\) which has LF version 1.15.\n  \n  It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).") $
                   testOptions
                     { mbLocation = Just "CannotImplementNonUpgradeableInterface"
                     , warnCannotImplementNonUpgradeableInterface = warnCannotImplementNonUpgradeableInterface
@@ -750,7 +750,7 @@ tests damlc =
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
-            ++ ["  - -Winternal-allow-implement-non-upgradeable-interfaces" | warnCannotImplementNonUpgradeableInterface ]
+            ++ ["  - -Winternal-upgrade-implement-non-upgradeable-interfaces" | warnCannotImplementNonUpgradeableInterface ]
             ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )

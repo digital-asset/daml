@@ -247,7 +247,7 @@ data ErrorOrWarning
   | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
   | WEUpgradeDependsOnSerializableNonUpgradeableDataType (PackageId, Maybe PackageMetadata, Version) Version !(Qualified TypeConName)
   | WEDependsOnDatatypeFromNewDamlScript (PackageId, PackageMetadata) Version !(Qualified TypeConName)
-  | WEUpgradeShouldNotImplementNonUpgradeableIfaces !Version !(Qualified TypeConName)
+  | WEUpgradeShouldNotImplementNonUpgradeableIfaces (PackageId, Maybe PackageMetadata) Version !(Qualified TypeConName) !(Qualified TypeConName) -- [Qualified TypeConName]
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -289,14 +289,21 @@ instance Pretty ErrorOrWarning where
         [ "This package depends on a datatype " <> pPrint tcn <> " from " <> pprintDep (depPkgId, Just depMeta) <> " with LF version " <> pPrint depLfVersion <> "."
         , "It is not recommended that >= LF1.17 packages use datatypes from Daml Script, because those datatypes will not be upgradeable."
         ]
-    WEUpgradeShouldNotImplementNonUpgradeableIfaces depLfVersion iface ->
+    WEUpgradeShouldNotImplementNonUpgradeableIfaces dep depLfVersion iface tpl ->
       vsep
-        [ "This package implements a " <> pPrint iface <> " from a package with LF version " <> pPrint depLfVersion <> "."
-        , "It is forbidden to implement interfaces with version <= LF1.15 in templates from packages with LF version >= LF 1.17."
+        [ "Template " <> pPrint tpl <> " implements interface " <> pPrint iface <> " from package " <> pprintDep dep <> " which has LF version " <> pPrint depLfVersion <> "."
+        , "It is forbidden for upgradeable templates (LF version >= 1.17) to implement interfaces from non-upgradeable packages (LF version <= 1.15)."
         ]
     where
       pprintDep (pkgId, Just meta) = pPrint pkgId <> " (" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
+
+      --pPrintList [] = ""
+      --pPrintList [x] = pPrint x
+      --pPrintList (x:y:rest) = go x y rest
+      --  where
+      --    go x y [] = pPrint x <> ", and " <> pPrint y
+      --    go x y (next:rest) = pPrint x <> ", " <> go y next rest
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
@@ -306,7 +313,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
       , (upgradeSerializedLF15DependencyName, upgradeSerializedLF15DependencyFlag)
       , (referencesDamlScriptDatatypeName, referencesDamlScriptDatatypeFlag)
-      , (allowImplementNonUpgradeableInterfacesName, allowImplementNonUpgradeableInterfacesFlag)
+      , (upgradeImplementNonUpgradeableInterfacesName, upgradeImplementNonUpgradeableInterfacesFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -391,14 +398,14 @@ upgradeDependencyMetadataFilter =
         WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
         _ -> False
 
-allowImplementNonUpgradeableInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
-allowImplementNonUpgradeableInterfacesFlag status = RawDamlWarningFlag allowImplementNonUpgradeableInterfacesName status allowImplementNonUpgradeableInterfacesFilter
+upgradeImplementNonUpgradeableInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeImplementNonUpgradeableInterfacesFlag status = RawDamlWarningFlag upgradeImplementNonUpgradeableInterfacesName status upgradeImplementNonUpgradeableInterfacesFilter
 
-allowImplementNonUpgradeableInterfacesName :: String
-allowImplementNonUpgradeableInterfacesName = "internal-allow-implement-non-upgradeable-interfaces"
+upgradeImplementNonUpgradeableInterfacesName :: String
+upgradeImplementNonUpgradeableInterfacesName = "internal-upgrade-implement-non-upgradeable-interfaces"
 
-allowImplementNonUpgradeableInterfacesFilter :: ErrorOrWarning -> Bool
-allowImplementNonUpgradeableInterfacesFilter =
+upgradeImplementNonUpgradeableInterfacesFilter :: ErrorOrWarning -> Bool
+upgradeImplementNonUpgradeableInterfacesFilter =
     \case
         WEUpgradeShouldNotImplementNonUpgradeableIfaces {} -> True
         _ -> False
