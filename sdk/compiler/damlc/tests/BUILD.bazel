@@ -477,9 +477,6 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar",
 
         # Dars for upgrade-check tests
-        "//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar",
-        "//test-common:upgrades-CannotImplementNonUpgradeableInterface.dar",
-
         "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v1.dar",
         "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
         "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v1.dar",
@@ -649,6 +646,16 @@ da_haskell_test(
         "//test-common:upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePosition-files",
         "//test-common:upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v1.dar",
         "//test-common:upgrades-NoWarningWhenUsingLF115DependencyInNonSerializablePositionDep-v2.dar",
+
+        "//test-common:upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
+        "//test-common:upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+        "//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar",
+        "//test-common:upgrades-CannotImplementNonUpgradeableInterface-files",
+
+        "//test-common:upgrades-CanImplementUpgradeableInterface-v1.dar",
+        "//test-common:upgrades-CanImplementUpgradeableInterface-v2.dar",
+        "//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar",
+        "//test-common:upgrades-CanImplementUpgradeableInterface-files",
     ],
     hackage_deps = [
         "base",

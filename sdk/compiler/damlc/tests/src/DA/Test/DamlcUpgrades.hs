@@ -505,9 +505,37 @@ tests damlc =
             , testUpgradeCheckMany
                   "CannotImplementNonUpgradeableInterface"
                   (FailWithError "error type checking <none>:\n  This package implements a .*:Dep:I from a package with LF version 1.15.") $
-                  do
-                    dar <- locateRunfiles (mainWorkspace </> "test-common/upgrades-CannotImplementNonUpgradeableInterface.dar")
-                    pure [dar]
+                  pure <$> locateRunfiles (mainWorkspace </> "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar")
+            , testUpgradeCheckMany
+                  "CanImplementUpgradeableInterface"
+                  Succeed $
+                  pure <$> locateRunfiles (mainWorkspace </> "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar")
+            ] ++
+            [ mkTest
+                  (prefix <> "CannotImplementNonUpgradeableInterface")
+                  (expectation "type checking <none>:\n  This package implements a .*:Dep:I from a package with LF version 1.15.")
+                  testOptions
+                    { mbLocation = Just "CannotImplementNonUpgradeableInterface"
+                    , warnCannotImplementNonUpgradeableInterface = warnCannotImplementNonUpgradeableInterface
+                    , doTypecheck = doTypecheck
+                    , additionalDarsV1 = ["upgrades-CannotImplementNonUpgradeableInterface-dep.dar"]
+                    , additionalDarsV2 = ["upgrades-CannotImplementNonUpgradeableInterface-dep.dar"]
+                    }
+            | warnCannotImplementNonUpgradeableInterface <- [True, False]
+            , let prefix = if warnCannotImplementNonUpgradeableInterface then "Warns" else "Fail"
+            , let expectation msg =
+                      if warnCannotImplementNonUpgradeableInterface
+                         then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
+                         else FailWithError ("\ESC\\[0;91merror " <> msg)
+            , doTypecheck <- [True, False]
+            ] ++
+            [ mkTest
+                  "CanImplementUpgradeableInterface"
+                  Succeed
+                  testOptions
+                    { additionalDarsV1 = ["upgrades-CanImplementUpgradeableInterface-dep.dar"]
+                    , additionalDarsV2 = ["upgrades-CanImplementUpgradeableInterface-dep.dar"]
+                    }
             ]
        )
   where
@@ -646,12 +674,12 @@ tests damlc =
             handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
       where
         projectFile version lfVersion name upgradedFile mbDep darDeps =
-          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances
+          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances warnCannotImplementNonUpgradeableInterface
 
     handleExpectation :: Expectation -> FilePath -> FilePath -> Bool -> Maybe FilePath -> IO ()
     handleExpectation expectation dir dar shouldRunChecks expectedDiagFile =
       case expectation of
-        Succeed ->
+        Succeed -> do
             callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
         SucceedWithoutWarning regex -> do
             stderr <- callProcessForSuccessfulStderr damlc ["build", "--project-root", dir, "-o", dar]
@@ -662,7 +690,7 @@ tests damlc =
               if shouldRunChecks
                 then assertFailure ("`daml build` succeeded, but should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
                 else assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
-        FailWithError _ | not shouldRunChecks ->
+        FailWithError _ | not shouldRunChecks -> do
             callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
         FailWithError regex -> do
             stderr <- callProcessForStderr damlc ["build", "--project-root", dir, "-o", dar]
@@ -695,9 +723,9 @@ tests damlc =
             let oldDir = dir </> "oldVersion"
             let newDar = newDir </> "out.dar"
             let oldDar = oldDir </> "old.dar"
-            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False, ("daml/Main.daml", pure "module Main where")]
+            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False False, ("daml/Main.daml", pure "module Main where")]
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
-            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False, ("daml/Main.daml", pure "module Main where")]
+            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (Just oldDar) [] True False False, ("daml/Main.daml", pure "module Main where")]
             -- Metadata errors are reported on the daml.yaml file
             handleExpectation expectation newDir newDar True (Just $ toUnixPath $ newDir </> "daml.yaml")
 
@@ -706,8 +734,8 @@ tests damlc =
       '\\' -> '/'
       c -> c
 
-    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> (FilePath, IO String)
-    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances =
+    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> Bool -> (FilePath, IO String)
+    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances warnCannotImplementNonUpgradeableInterface =
         ( "daml.yaml"
         , pure $ unlines $
           [ "sdk-version: " <> sdkVersion
@@ -722,6 +750,7 @@ tests damlc =
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
             ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
+            ++ ["  - -Winternal-allow-implement-non-upgradeable-interfaces" | warnCannotImplementNonUpgradeableInterface ]
             ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )
@@ -743,6 +772,7 @@ data TestOptions = TestOptions
   , lfVersion :: VersionPair
   , sharedDep :: Dependency
   , warnBadInterfaceInstances :: Bool
+  , warnCannotImplementNonUpgradeableInterface :: Bool
   , setUpgradeField :: Bool
   , doTypecheck :: Bool
   , additionalDarsV1 :: [String]
@@ -757,6 +787,7 @@ testOptions =
     , lfVersion = versionPairs versionDefault
     , sharedDep = NoDependencies
     , warnBadInterfaceInstances = False
+    , warnCannotImplementNonUpgradeableInterface = False
     , setUpgradeField = True
     , doTypecheck = True
     , additionalDarsV1 = []
