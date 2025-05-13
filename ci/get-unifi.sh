@@ -35,4 +35,4 @@ fi
 ${ORAS} pull --platform "${OS_TYPE}/${CPU_ARCH}" -o "${HOME}/.unifi/bin" "${UNIFI_URL}"
 # Set execute permission
 chmod -v +x "${HOME}/.unifi/bin/unifi"
-${HOME}/.unifi/bin/unifi version --assistant
+"${HOME}/.unifi/bin/unifi" version --assistant
