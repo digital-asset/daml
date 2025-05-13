@@ -38,6 +38,24 @@ trait ContractStore {
 
 sealed trait ContractState
 
+sealed trait ContractStateStatus extends Product with Serializable {
+  def isActive: Boolean = this match {
+    case ContractStateStatus.Active => true
+    case _ => false
+  }
+
+  def isArchived: Option[Boolean] = this match {
+    case ContractStateStatus.Archived => Some(true)
+    case ContractStateStatus.Active => Some(false)
+    case ContractStateStatus.NotFound => None
+  }
+}
+object ContractStateStatus {
+  case object Active extends ContractStateStatus
+  case object Archived extends ContractStateStatus
+  case object NotFound extends ContractStateStatus
+}
+
 object ContractState {
   case object NotFound extends ContractState
   case object Archived extends ContractState

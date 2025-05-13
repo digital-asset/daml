@@ -40,6 +40,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.HexString
 import org.scalatest.Assertions.fail
 
+import java.time.Instant
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
 import scala.util.{Random, Try}
@@ -65,12 +66,11 @@ object SimulationModuleSystem {
   ) extends P2PNetworkRef[P2PMessageT]
       with NamedLogging {
 
-    override def asyncP2PSend(msg: P2PMessageT)(onCompletion: => Unit)(implicit
-        traceContext: TraceContext
-    ): Unit = {
-      collector.addNetworkEvent(node, msg)
-      onCompletion
-    }
+    override def asyncP2PSend(createMessage: Option[Instant] => P2PMessageT)(implicit
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
+    ): Unit =
+      collector.addNetworkEvent(node, createMessage(None))
   }
 
   private[simulation] final case class SimulationP2PNetworkManager[P2PMessageT](

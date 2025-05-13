@@ -397,14 +397,34 @@ object TransactionRoutingError extends RoutingErrorGroup {
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
 
-      final case class Error(contractIds: List[String])
-          extends TransactionErrorImpl(
-            cause =
-              s"The synchronizers for the contracts $contractIds are currently unknown due to ongoing contract reassignments or disconnected synchronizers"
+      final case class Error(
+          notFound: Seq[String],
+          archived: Map[SynchronizerId, Seq[String]],
+      ) extends TransactionErrorImpl(
+            cause = {
+              val notFoundMessage =
+                if (notFound.isEmpty) ""
+                else
+                  s"The synchronizers for the contracts ${notFound.mkString("(", ", ", ")")} are currently unknown due to ongoing contract reassignments or disconnected synchronizers."
+
+              val archivedMessage =
+                if (archived.isEmpty) ""
+                else {
+                  val archivedDetails = archived
+                    .map { case (syncId, contracts) => s"$contracts on synchronizer $syncId" }
+                    .mkString(", ")
+                  s"The following contracts have been archived: $archivedDetails."
+                }
+
+              List(notFoundMessage, archivedMessage).filter(_.nonEmpty).mkString("\n")
+            }
           )
           with TransactionRoutingError {
         override def resources: Seq[(ErrorResource, String)] = Seq(
-          (ErrorResource.ContractId, contractIds.mkString("[", ", ", "]"))
+          (
+            ErrorResource.ContractIds,
+            (notFound ++ archived.values.flatten).mkString("[", ", ", "]"),
+          )
         )
       }
     }
