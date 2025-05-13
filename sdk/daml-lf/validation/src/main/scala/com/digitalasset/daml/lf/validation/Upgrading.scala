@@ -330,23 +330,41 @@ private case class Env(
 /** A datatype closing over the free type variables of [[value]] with [[env]]. */
 private case class Closure[A](env: Env, value: A)
 
-abstract class TypecheckUpgradesUtils extends NamedLogging {
-  def failIf(predicate: Boolean, err: => UpgradeError.Error): Try[Unit] =
+abstract class TypecheckUpgradesUtils(
+  val packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+) extends NamedLogging {
+  protected def getIfUpgradeable(pkgId: Ref.PackageId): Either[Option[LanguageVersion], (Ref.PackageName, Ref.PackageVersion)] = {
+    import Ordering.Implicits._
+
+    packageMap.get(pkgId) match {
+      case Some((name, version, Some(languageVersion))) =>
+        if (languageVersion >= LanguageVersion.Features.smartContractUpgrade)
+          Right((name, version))
+        else
+          Left(Some(languageVersion))
+      case Some((name, version, None)) =>
+        Right((name, version))
+      case None =>
+        Left(None)
+    }
+  }
+
+  protected def failIf(predicate: Boolean, err: => UpgradeError.Error): Try[Unit] =
     if (predicate)
       fail(err)
     else
       Success(())
 
-  def fail[A](err: UpgradeError.Error): Try[A] =
+  protected def fail[A](err: UpgradeError.Error): Try[A] =
     Failure(UpgradeError(err))
 
-  def warn(err: UpgradeError.Error)(implicit loggingContext: LoggingContextWithTrace): Unit =
+  protected def warn(err: UpgradeError.Error)(implicit loggingContext: LoggingContextWithTrace): Unit =
     logger.warn(err.message)
 
-  def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
+  protected def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
     Try(t.map(f(_).get).toSeq)
 
-  def extractDelExistNew[K, V](
+  protected def extractDelExistNew[K, V](
       arg: Upgrading[Map[K, V]]
   ): (Map[K, V], Map[K, Upgrading[V]], Map[K, V]) =
     (
@@ -358,7 +376,7 @@ abstract class TypecheckUpgradesUtils extends NamedLogging {
       arg.present -- arg.past.keySet,
     )
 
-  def checkDeleted[K, V](
+  protected def checkDeleted[K, V](
       arg: Upgrading[Map[K, V]],
       handler: (K, V) => UpgradeError.Error,
       filter: (K, V) => Boolean = (_: K, _: V) => true,
@@ -370,7 +388,7 @@ abstract class TypecheckUpgradesUtils extends NamedLogging {
     }
   }
 
-  def checkLfVersions(
+  protected def checkLfVersions(
       arg: Upgrading[LanguageVersion]
   ): Try[Unit] = {
     import Ordering.Implicits._
@@ -427,7 +445,7 @@ object TypecheckUpgrades {
 
 case class TypecheckUpgrades(
     val loggerFactory: NamedLoggerFactory
-) extends TypecheckUpgradesUtils {
+) {
   private def typecheckUpgradesStandalone(
       packageMap: Map[
         Ref.PackageId,
@@ -442,7 +460,13 @@ case class TypecheckUpgrades(
   ): Try[Unit] = {
     val (presentPackageId, presentPkg) = present
     val tc =
-      TypecheckUpgradesStandalone(packageMap, (presentPackageId.pkgId, presentPkg), loggerFactory)
+      TypecheckUpgradesStandalone(
+        (presentPackageId.pkgId, presentPkg),
+        packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
+          presentPkg.languageVersion
+        ))),
+        loggerFactory
+      )
     tc.check()
   }
 
@@ -463,6 +487,7 @@ case class TypecheckUpgrades(
     val (pastPackageId, pastPkg) = past
     val (presentPackageId, presentPkg) = present
     val tc = TypecheckUpgradesPair(
+      Upgrading((pastPackageId.pkgId, pastPkg), (presentPackageId.pkgId, presentPkg)),
       packageMap
         + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
           presentPkg.languageVersion
@@ -470,7 +495,6 @@ case class TypecheckUpgrades(
         + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version, Some(
           pastPkg.languageVersion
         ))),
-      Upgrading((pastPackageId.pkgId, pastPkg), (presentPackageId.pkgId, presentPkg)),
       loggerFactory,
     )
     tc.check()
@@ -502,35 +526,30 @@ case class TypecheckUpgrades(
 }
 
 case class TypecheckUpgradesStandalone(
-    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
     pkg: (Ref.PackageId, Ast.Package),
+    override val packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
     val loggerFactory: NamedLoggerFactory,
-) extends TypecheckUpgradesUtils {
+) extends TypecheckUpgradesUtils(packageMap = packageMap) {
 
   def check()(implicit
       loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
-    import Ordering.Implicits._
-
     for {
       mod <- pkg._2.modules.values
       (tplName, template) <- mod.templates
       instance <- template.implements
       ifaceId = instance._2.interfaceId
     } {
-      packageMap.get(ifaceId.packageId) match {
-        case Some((_, _, Some(languageVersion)))
-            if languageVersion < LanguageVersion.Features.smartContractUpgrade =>
+      getIfUpgradeable(ifaceId.packageId) match {
+        case Left(mbVersion) =>
           warn(
             UpgradeError.CannotImplementNonUpgradeableInterface(
               pkg._1,
-              Some(languageVersion),
+              mbVersion,
               ifaceId,
               tplName,
             )
           )
-        case None =>
-          warn(UpgradeError.CannotImplementNonUpgradeableInterface(pkg._1, None, ifaceId, tplName))
         case _ =>
           ()
       }
@@ -541,12 +560,12 @@ case class TypecheckUpgradesStandalone(
 }
 
 case class TypecheckUpgradesPair(
-    packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
     packages: Upgrading[
       (Ref.PackageId, Ast.Package)
     ],
+    override val packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
     val loggerFactory: NamedLoggerFactory,
-) extends TypecheckUpgradesUtils {
+) extends TypecheckUpgradesUtils(packageMap = packageMap) {
   private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
 
   def check(): Try[Unit] = {
@@ -704,14 +723,14 @@ case class TypecheckUpgradesPair(
   private def checkIdentifiers(past: Ref.Identifier, present: Ref.Identifier): Boolean = {
     val compatibleNames = past.qualifiedName == present.qualifiedName
     val compatiblePackages =
-      (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
+      (getIfUpgradeable(past.packageId), getIfUpgradeable(present.packageId)) match {
         // The two packages have LF versions < 1.17.
         // They must be the exact same package as LF < 1.17 don't support upgrades.
-        case (None, None) => past.packageId == present.packageId
+        case (Left(_), Left(_)) => past.packageId == present.packageId
         // The two packages have LF versions >= 1.17.
         // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
         // topological order, the package version ordering is a proxy for the "upgrades" relationship.
-        case (Some((pastName, pastVersion, _)), Some((presentName, presentVersion, _))) =>
+        case (Right((pastName, pastVersion)), Right((presentName, presentVersion))) =>
           pastName == presentName && pastVersion <= presentVersion
         // LF versions < 1.17 and >= 1.17 are not comparable.
         case (_, _) => false
