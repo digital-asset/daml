@@ -25,7 +25,7 @@ import com.daml.lf.transaction.{
   ContractStateMachine,
   GlobalKey,
   GlobalKeyWithMaintainers,
-  TransactionVersion,
+  TransactionVersion => TxVersion,
   TransactionErrors => TxErr,
 }
 import com.daml.lf.value.{Value => V}
@@ -1015,6 +1015,7 @@ private[lf] object SBuiltin {
         args: util.ArrayList[SValue],
         machine: UpdateMachine,
     ): Control[Question.Update] = {
+      import Ordering.Implicits._
 
       val coid = getSContractId(args, 1)
       val templateArg: SValue = args.get(5)
@@ -1034,12 +1035,21 @@ private[lf] object SBuiltin {
             case None => crash(s"unexpected missing contract $coid")
           }
         )
-        val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
-        // Interfaces were added in LF1.15, therefore the interface version is 1.15+
-        // Interfaces in LF1.17 cannot have template version < interface version, as retroactive instances aren't supported in 17
-        // Therefore, if the interface support upgrades, we pick the interface version
-        // if it doesn't, then its 1.15, which is correct
-        val exerciseVersion = interfaceVersion.getOrElse(templateVersion)
+        val tmplVersion = machine.tmplId2TxVersion(templateId)
+
+        val exerciseVersion = interfaceId match {
+          case Some(ifaceId) =>
+            val ifaceVersion = machine.tmplId2TxVersion(ifaceId)
+            if (ifaceVersion < TxVersion.minUpgrade && TxVersion.minUpgrade <= tmplVersion)
+              throw SErrorDamlException(
+                IE.DisallowedInterfaceExercise(coid, ifaceId, choiceId, templateId)
+              )
+            else
+              ifaceVersion max tmplVersion
+          case None =>
+            tmplVersion
+        }
+
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
         val controllers = extractParties(NameOf.qualifiedNameOfCurrentFunc, args.get(2))
         machine.enforceChoiceControllersLimit(
@@ -2277,7 +2287,7 @@ private[lf] object SBuiltin {
 
   private[this] def extractKey(
       location: String,
-      packageTxVersion: TransactionVersion,
+      packageTxVersion: TxVersion,
       pkgName: Option[Ref.PackageName],
       templateId: Ref.TypeConName,
       v: SValue,
@@ -2320,8 +2330,8 @@ private[lf] object SBuiltin {
     SBuiltin.SBStructCon(contractInfoPositionStruct)
 
   private def extractContractInfo(
-      tmplId2TxVersion: TypeConName => TransactionVersion,
-      tmplId2PackageName: (TypeConName, TransactionVersion) => Option[PackageName],
+      tmplId2TxVersion: TypeConName => TxVersion,
+      tmplId2PackageName: (TypeConName, TxVersion) => Option[PackageName],
       contractInfoStruct: SValue,
   ): ContractInfo = {
     contractInfoStruct match {
