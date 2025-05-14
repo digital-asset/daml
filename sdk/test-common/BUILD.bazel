@@ -633,6 +633,7 @@ da_scala_dar_resources_library(
                 "data_dependencies": ["//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar"],
                 "lf_version": "1.dev",
             },
+            None,
         ),
         (
             "CanImplementUpgradeableInterface",
@@ -644,6 +645,7 @@ da_scala_dar_resources_library(
                 "data_dependencies": ["//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar"],
                 "lf_version": "1.dev",
             },
+            None,
         ),
     ]
 ]
