@@ -158,38 +158,42 @@ checkPackageAgainstPastPackages opts ((path, main, deps), pastPackages) = do
                   pure (rawVersion, pastPackageTuple)
                 _ -> Nothing
       let ordFst = compare `on` fst
-      case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
-        Nothing -> pure ()
-        Just (_, (closestPastPackageWithLowerVersionPath, closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps)) -> do
-          let errs =
-                Upgrade.checkPackageToDepth
-                  Upgrade.CheckAll
-                  (upwnavPkg main) deps
+      sequenceA
+        [ case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
+            Nothing -> pure ()
+            Just (_, (closestPastPackageWithLowerVersionPath, closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps)) -> do
+              let errs =
+                    Upgrade.checkPackageToDepth
+                      Upgrade.CheckAll
+                      (upwnavPkg main) deps
+                      LFV.version2_dev
+                      (UpgradeInfo (Just (fromNormalizedFilePath closestPastPackageWithLowerVersionPath)) True)
+                      (contramap Left (optDamlWarningFlags opts))
+                      (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
+              when (not (null errs)) (toValidate (throwE [CEDiagnostic path errs]))
+        , case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
+            Nothing -> pure ()
+            Just (_, (closestPastPackageWithHigherVersionPath, closestPastPackageWithHigherVersion, closestPastPackageWithHigherVersionDeps)) -> do
+              let errs =
+                    Upgrade.checkPackageToDepth
+                      Upgrade.CheckAll
+                      (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
+                      LFV.version2_dev
+                      (UpgradeInfo (Just (fromNormalizedFilePath closestPastPackageWithHigherVersionPath)) True)
+                      (contramap Left (optDamlWarningFlags opts))
+                      (Just (main, deps))
+              when (not (null errs)) (toValidate (throwE [CEDiagnostic path errs]))
+        , let upwnavToExternalDep UpgradedPkgWithNameAndVersion { upwnavPkgId, upwnavPkg } = LF.ExternalPackage upwnavPkgId upwnavPkg
+              standaloneErrors =
+                extractDiagnostics
                   LFV.version2_dev
-                  (UpgradeInfo (Just (fromNormalizedFilePath closestPastPackageWithLowerVersionPath)) True)
-                  (contramap Left (optDamlWarningFlags opts))
-                  (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
-          when (not (null errs)) (toValidate (throwE [CEDiagnostic path errs]))
-      case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
-        Nothing -> pure ()
-        Just (_, (closestPastPackageWithHigherVersionPath, closestPastPackageWithHigherVersion, closestPastPackageWithHigherVersionDeps)) -> do
-          let errs =
-                Upgrade.checkPackageToDepth
-                  Upgrade.CheckAll
-                  (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
-                  LFV.version2_dev
-                  (UpgradeInfo (Just (fromNormalizedFilePath closestPastPackageWithHigherVersionPath)) True)
-                  (contramap Left (optDamlWarningFlags opts))
-                  (Just (main, deps))
-          when (not (null errs)) (toValidate (throwE [CEDiagnostic path errs]))
-      let upwnavToExternalDep UpgradedPkgWithNameAndVersion { upwnavPkgId, upwnavPkg } = LF.ExternalPackage upwnavPkgId upwnavPkg
-      let standaloneErrors =
-            extractDiagnostics
-              LFV.version2_dev
-              (UpgradeInfo Nothing True)
-              (contramap Left (optDamlWarningFlags opts)) $
-                Upgrade.checkPackageSingle Nothing (upwnavPkg main) (map upwnavToExternalDep deps)
-      when (not (null standaloneErrors)) (toValidate (throwE [CEDiagnostic path standaloneErrors]))
+                  (UpgradeInfo Nothing True)
+                  (contramap Left (optDamlWarningFlags opts)) $
+                    Upgrade.checkPackageSingle Nothing (upwnavPkg main) (map upwnavToExternalDep deps)
+          in
+          when (not (null standaloneErrors)) (toValidate (throwE [CEDiagnostic path standaloneErrors]))
+        ]
+      pure ()
 
 runUpgradeCheck :: Options -> [String] -> IO ()
 runUpgradeCheck opts rawPaths = do
