@@ -63,6 +63,7 @@ class GrpcSequencerConnectClient(
           builder.build(),
           logger,
           timeouts.network,
+          None,
         )
         .leftMap(err => Error.Transport(err))
       response <- CantonGrpcUtil
@@ -75,6 +76,7 @@ class GrpcSequencerConnectClient(
           logger = logger,
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = None,
         )(_.getDomainId(v0.SequencerConnect.GetDomainId.Request()))
         .leftMap(err => Error.Transport(err.toString))
 
@@ -107,6 +109,7 @@ class GrpcSequencerConnectClient(
         logger = logger,
         logPolicy = CantonGrpcUtil.silentLogPolicy,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        token = None,
       )(_.getDomainParameters(v0.SequencerConnect.GetDomainParameters.Request()))
       .leftMap(err => Error.Transport(err.toString))
 
@@ -136,6 +139,7 @@ class GrpcSequencerConnectClient(
           logger = logger,
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = None,
         )(_.handshake(request.toProtoV0))
         .leftMap(err => Error.Transport(err.toString))
 
@@ -168,6 +172,7 @@ class GrpcSequencerConnectClient(
         logger = logger,
         logPolicy = CantonGrpcUtil.silentLogPolicy,
         retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+        token = None,
       )(_.getServiceAgreement(GetServiceAgreementRequest()))
       .leftMap(e => Error.Transport(e.toString))
     optAgreement <- EitherT

@@ -138,7 +138,21 @@
 
         <!-- # TODO(#13519): Suppress error in JSON API integration tests and remove this exception -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor</logger>
+            <logger>com.digitalasset.canton.auth.AuthorizationInterceptor</logger>
+            <maxLevel>INFO</maxLevel>
+            <contains>Could not resolve is_deactivated status for user </contains>
+            <testing>true</testing>
+        </rewrite>
+
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.auth.AuthorizationInterceptor</logger>
+            <maxLevel>INFO</maxLevel>
+            <contains>The command is missing a (valid) JWT token </contains>
+            <testing>true</testing>
+        </rewrite>
+
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor</logger>
             <maxLevel>INFO</maxLevel>
             <contains>Could not resolve is_deactivated status for user </contains>
             <testing>true</testing>
@@ -247,7 +261,7 @@
              SecuredApisIntegrationTest: PERMISSION_DENIED(7,0): Claims do not authorize to act as party
         -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.Authorizer</logger>
+            <logger>com.digitalasset.canton.auth.Authorizer</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
@@ -256,7 +270,7 @@
              PERMISSION_DENIED(7,0): Claims were valid until 2023-04-27T11:47:43Z, current time is 2023-04-27T11:47:44.532146Z
         -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.ledger.api.auth.OngoingAuthorizationObserver</logger>
+            <logger>com.digitalasset.canton.ledger.api.auth.UserBasedOngoingAuthorization</logger>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>

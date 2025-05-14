@@ -7,10 +7,10 @@ import com.daml.error.*
 import com.daml.error.utils.ErrorDetails
 import com.daml.lf.data.Ref
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidDeduplicationPeriodField.ValidMaxDeduplicationFieldKey
 import com.digitalasset.canton.ledger.error.groups.{
   AdminServiceErrors,
-  AuthorizationChecksErrors,
   ConsistencyErrors,
   RequestValidationErrors,
 }

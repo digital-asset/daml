@@ -5,8 +5,8 @@ package com.digitalasset.canton.ledger.api.auth.services
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v1.admin.user_management_service.*
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
-import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.logging.{
