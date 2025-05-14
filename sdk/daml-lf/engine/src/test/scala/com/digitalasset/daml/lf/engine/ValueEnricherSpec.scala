@@ -151,7 +151,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord(
           Some("Mod:Record"),
           ImmArray(
-            Some[Ref.Name]("field") -> ValueInt64(33),
+            Some[Ref.Name]("field") -> ValueInt64(33)
           ),
         ),
       ),
@@ -161,7 +161,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord(
           Some("Mod:Record"),
           ImmArray(
-            Some[Ref.Name]("field") -> ValueInt64(33),
+            Some[Ref.Name]("field") -> ValueInt64(33)
           ),
         ),
       ),
