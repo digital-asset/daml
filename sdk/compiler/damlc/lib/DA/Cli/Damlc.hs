@@ -347,7 +347,7 @@ cmdMultiIde _numProcessors =
         <*> many (strArgument mempty)
 
 cmdUpgradeCheck :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
-cmdUpgradeCheck _numProcessors =
+cmdUpgradeCheck numProcessors =
     command "upgrade-check" $ info (helper <*> cmd) $
        progDesc
         "Check upgrades for multiple DARs"
@@ -355,7 +355,12 @@ cmdUpgradeCheck _numProcessors =
     <> forwardOptions
   where
     cmd = fmap (Command UpgradeCheck Nothing) $ runUpgradeCheck
-        <$> many (strArgument $ help "Path to DAR")
+        <$> optionsParser
+              numProcessors
+              (EnableScenarioService False)
+              (pure Nothing)
+              disabledDlintUsageParser
+        <*> many (strArgument $ help "Path to DAR")
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =
@@ -2046,7 +2051,7 @@ cmdUseDamlYamlArgs = \case
   Repl -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
-  UpgradeCheck -> False -- just reads the DARs it is given
+  UpgradeCheck -> True
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

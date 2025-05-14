@@ -211,19 +211,21 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
-            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-{}.dar".format(target)],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.17",
+            target = target,
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
     ]
-    for identifier in [
+    for identifier, target in [
         # More more more tests ported from DamlcUpgrades.hs
-        "FailsWhenAnInstanceIsDropped",
-        "FailsWhenAnInstanceIsAddedSeparateDep",
-        "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
+        ("FailsWhenAnInstanceIsDropped", "1.17"),
+        ("FailsWhenAnInstanceIsAddedSeparateDep", "1.17"),
+        ("SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep", "1.17"),
+        ("CannotImplementNonUpgradeableInterface", "1.15"),
+        ("CanImplementUpgradeableInterface", "1.17"),
     ]
 ]
 
@@ -620,6 +622,28 @@ da_scala_dar_resources_library(
             {"lf_version": "1.15"},
             {"lf_version": "1.15"},
             None,
+        ),
+        (
+            "CannotImplementNonUpgradeableInterface",
+            {
+                "data_dependencies": ["//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+        ),
+        (
+            "CanImplementUpgradeableInterface",
+            {
+                "data_dependencies": ["//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
         ),
     ]
 ]

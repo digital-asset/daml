@@ -37,9 +37,14 @@ da_scala_library(
         "//ledger/ledger-api-errors:__subpackages__",
     ],
     deps = [
+        "//canton:community_util-logging",
+        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/language",
+        "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
