@@ -314,7 +314,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
   private[this] def getSynchronizerId: Future[String] =
     synchronizerConnectivityStub
       .listConnectedSynchronizers(admin_participant.ListConnectedSynchronizersRequest())
-      .map(_.connectedSynchronizers.head.synchronizerId)
+      .map(_.connectedSynchronizers.head.physicalSynchronizerId)
 
   private[this] def listHostingParticipants(
       partyId: String,
