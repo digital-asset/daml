@@ -9,7 +9,6 @@ import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import DA.Cli.Damlc.DependencyDb
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.PrettyScenario (prettyScenarioError, prettyScenarioResult)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS

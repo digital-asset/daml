@@ -10,7 +10,6 @@ import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import DA.Cli.Damlc.DependencyDb
 import DA.Daml.Compiler.Repl
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient

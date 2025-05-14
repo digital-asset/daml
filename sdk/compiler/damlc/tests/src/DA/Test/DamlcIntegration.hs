@@ -93,8 +93,7 @@ import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
 
-import DA.Cli.Damlc.DependencyDb (setupPackageDbFromPackageConfig)
-import DA.Cli.Damlc.Packaging (createProjectPackageDb)
+import DA.Cli.Damlc.Packaging (setupPackageDb)
 import Module (stringToUnitId)
 import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion, sdkPackageVersion)
 
