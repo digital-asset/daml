@@ -60,6 +60,9 @@ trait PublicServerConfig extends ServerConfig {
     val scheme = tls.fold("http")(_ => "https")
     s"$scheme://$address:$port"
   }
+
+  override def authServices: Seq[AuthServiceConfig] = Seq.empty
+  override def adminToken: Option[String] = None
 }
 
 final case class CommunityPublicServerConfig(

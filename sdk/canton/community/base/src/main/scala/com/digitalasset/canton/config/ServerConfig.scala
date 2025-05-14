@@ -9,6 +9,8 @@ import com.daml.metrics.api.MetricHandle.MetricsFactory
 import com.daml.metrics.api.MetricName
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.nonempty.NonEmpty
+import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
 import com.digitalasset.canton.crypto.X509CertificatePem
@@ -63,6 +65,14 @@ trait ServerConfig extends Product with Serializable {
     */
   def sslContext: Option[SslContext]
 
+  /** If any defined, enforces token based authorization when accessing this node through the given `address` and `port`.
+    */
+  def authServices: Seq[AuthServiceConfig]
+
+  /** If defined, the admin-token based authoriztion will be supported when accessing this node through the given `address` and `port`.
+    */
+  def adminToken: Option[String]
+
   /** server cert chain file if TLS is defined
     *
     * Used for domain internal GRPC sequencer connections
@@ -83,6 +93,9 @@ trait ServerConfig extends Product with Serializable {
       @nowarn("cat=deprecation") metrics: MetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[CantonAdminToken],
+      telemetry: Telemetry,
   ): CantonServerInterceptors
 
 }
@@ -95,11 +108,17 @@ trait CommunityServerConfig extends ServerConfig {
       @nowarn("cat=deprecation") metrics: MetricsFactory,
       loggerFactory: NamedLoggerFactory,
       grpcMetrics: GrpcServerMetrics,
+      authServices: Seq[AuthServiceConfig],
+      adminToken: Option[CantonAdminToken],
+      telemetry: Telemetry,
   ) = new CantonCommunityServerInterceptors(
     tracingConfig,
     apiLoggingConfig,
     loggerFactory,
     grpcMetrics,
+    authServices,
+    adminToken,
+    telemetry,
   )
 }
 
@@ -137,6 +156,8 @@ final case class CommunityAdminServerConfig(
     tls: Option[TlsServerConfig] = None,
     keepAliveServer: Option[BasicKeepAliveServerConfig] = Some(BasicKeepAliveServerConfig()),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    authServices: Seq[AuthServiceConfig] = Seq.empty,
+    adminToken: Option[String] = None,
 ) extends AdminServerConfig
     with CommunityServerConfig
 

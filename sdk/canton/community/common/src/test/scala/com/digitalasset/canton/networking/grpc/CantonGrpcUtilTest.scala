@@ -411,6 +411,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
           channel,
           logger,
           timeouts.network,
+          None,
         )
         resultET.futureValue shouldBe ()
       }
@@ -425,6 +426,7 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
           channel,
           logger,
           timeouts.network,
+          None,
         )
 
         val resultE = requestET.value.futureValue

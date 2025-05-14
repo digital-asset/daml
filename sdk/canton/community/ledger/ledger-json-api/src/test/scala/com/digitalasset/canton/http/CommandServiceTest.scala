@@ -4,30 +4,23 @@
 package com.digitalasset.canton.http
 
 import com.daml.ledger.api.v1 as lav1
-import lav1.command_service.{
-  SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest,
-}
+import lav1.command_service.{SubmitAndWaitForTransactionResponse, SubmitAndWaitForTransactionTreeResponse, SubmitAndWaitRequest}
 import lav1.transaction.{Transaction, TransactionTree}
 import com.digitalasset.canton.http.util.Logging as HLogging
 import com.daml.logging.LoggingContextOf
 import LoggingContextOf.{label, newLoggingContext}
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{AuthServiceJWTCodec, AuthServiceJWTPayload, CustomDamlJWTPayload, DecodedJwt, Jwt, JwtSigner}
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ledger.api.auth.AuthServiceJWTCodec
 import org.scalatest.Inside
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 import scalaz.{NonEmptyList, \/-}
 import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
-import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload}
 import spray.json.*
 import scalaz.syntax.show.*
-
 import java.util.concurrent.CopyOnWriteArrayList
+
 import scala.collection as sc
 import scala.concurrent.{Future, ExecutionContext as EC}
 import scala.jdk.CollectionConverters.*

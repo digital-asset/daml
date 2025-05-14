@@ -24,7 +24,7 @@ import com.digitalasset.canton.http.PackageService.ResolveContractTypeId.Overloa
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.eitherT
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
 import com.daml.ledger.api.v1 as api
 import com.daml.ledger.api.v1.event_query_service.{

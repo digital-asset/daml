@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.Engine
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
 import com.digitalasset.canton.config.InitConfigBase
 import com.digitalasset.canton.crypto.admin.grpc.GrpcVaultService.CommunityGrpcVaultServiceFactory
@@ -38,7 +39,11 @@ import com.digitalasset.canton.participant.domain.{
   DomainConnectionConfig as CantonDomainConnectionConfig,
 }
 import com.digitalasset.canton.participant.ledger.api.CantonLedgerApiServerWrapper.IndexerLockIds
-import com.digitalasset.canton.participant.ledger.api.*
+import com.digitalasset.canton.participant.ledger.api.{
+  StartableStoppableLedgerApiDependentServices,
+  StartableStoppableLedgerApiServer,
+  *,
+}
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.scheduler.{
   ParticipantSchedulersParameters,
@@ -119,10 +124,16 @@ class ParticipantNodeBootstrap(
     ](arguments)
     with ParticipantNodeBootstrapCommon[ParticipantNode] {
 
+  override def adminToken: Option[CantonAdminToken] =
+    Some(adminTokenWithFallback)
+
+  private def adminTokenWithFallback: CantonAdminToken =
+    config.ledgerApi.adminToken
+      .orElse(config.adminApi.adminToken)
+      .fold(fallbackAdminToken)(CantonAdminToken(_))
+
   /** per session created admin token for in-process connections to ledger-api */
-  val adminToken: CantonAdminToken = config.ledgerApi.adminToken.fold(
-    CantonAdminToken.create(crypto.pureCrypto)
-  )(token => CantonAdminToken(secret = token))
+  private val materilizedAdminToken: CantonAdminToken = adminTokenWithFallback
 
   override def config: LocalParticipantConfig = arguments.config
 
@@ -353,7 +364,7 @@ class ParticipantNodeBootstrap(
         replicationServiceFactory,
         createSchedulers,
         partyNotifierFactory,
-        adminToken,
+        materilizedAdminToken,
         topologyManager,
         packageDependencyResolver,
         componentFactory,
@@ -384,7 +395,7 @@ class ParticipantNodeBootstrap(
             ephemeralState.participantEventPublisher,
             ledgerApiServer,
             ledgerApiDependentServices,
-            adminToken,
+            materilizedAdminToken,
             recordSequencerInteractions,
             replaySequencerConfig,
             schedulers,

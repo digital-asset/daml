@@ -16,6 +16,7 @@ import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.HistogramDefinition
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.auth.{AccessLevel, AuthorizedUser}
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
   InvalidLengthString,
   defaultMaxLength,
@@ -826,6 +827,10 @@ object CantonConfig {
     lazy implicit val clockConfigReader: ConfigReader[ClockConfig] = deriveReader[ClockConfig]
     lazy implicit val jwtTimestampLeewayConfigReader: ConfigReader[JwtTimestampLeeway] =
       deriveReader[JwtTimestampLeeway]
+    lazy implicit val authorizedUserReader: ConfigReader[AuthorizedUser] =
+      deriveReader[AuthorizedUser]
+    lazy implicit val authServiceAccessLevelReader: ConfigReader[AccessLevel] =
+      deriveEnumerationReader[AccessLevel]
     lazy implicit val authServiceConfigUnsafeJwtHmac256Reader
         : ConfigReader[AuthServiceConfig.UnsafeJwtHmac256] =
       deriveReader[AuthServiceConfig.UnsafeJwtHmac256]
@@ -1224,6 +1229,8 @@ object CantonConfig {
     lazy implicit val clockConfigWriter: ConfigWriter[ClockConfig] = deriveWriter[ClockConfig]
     lazy implicit val jwtTimestampLeewayConfigWriter: ConfigWriter[JwtTimestampLeeway] =
       deriveWriter[JwtTimestampLeeway]
+    lazy implicit val authServiceAccessLevelWriter: ConfigWriter[AccessLevel] =
+      deriveEnumerationWriter[AccessLevel]
     lazy implicit val authServiceConfigJwtEs256CrtWriter
         : ConfigWriter[AuthServiceConfig.JwtEs256Crt] =
       deriveWriter[AuthServiceConfig.JwtEs256Crt]
@@ -1236,6 +1243,10 @@ object CantonConfig {
     lazy implicit val authServiceConfigJwtRs256JwksWriter
         : ConfigWriter[AuthServiceConfig.JwtRs256Jwks] =
       deriveWriter[AuthServiceConfig.JwtRs256Jwks]
+    lazy implicit val authorizedUserWriter: ConfigWriter[AuthorizedUser] =
+      confidentialWriter[AuthorizedUser](
+        _.copy(userId = "****")
+      )
     lazy implicit val authServiceConfigUnsafeJwtHmac256Writer
         : ConfigWriter[AuthServiceConfig.UnsafeJwtHmac256] =
       confidentialWriter[AuthServiceConfig.UnsafeJwtHmac256](

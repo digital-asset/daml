@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.authentication.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
+import com.digitalasset.canton.auth.AsyncForwardingListener
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.SequencerAuthenticationServerInterceptor.VerifyTokenError
 import com.digitalasset.canton.domain.sequencing.authentication.{
   MemberAuthenticationService,

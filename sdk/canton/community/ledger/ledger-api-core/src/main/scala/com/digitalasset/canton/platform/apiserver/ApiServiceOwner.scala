@@ -9,6 +9,7 @@ import com.daml.ledger.resources.ResourceOwner
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
   KeepAliveServerConfig,
@@ -16,7 +17,7 @@ import com.digitalasset.canton.config.{
   NonNegativeFiniteDuration,
 }
 import com.digitalasset.canton.ledger.api.auth.*
-import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
+import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
@@ -128,16 +129,20 @@ object ApiServiceOwner {
   ): ResourceOwner[ApiService] = {
 
     val authorizer = new Authorizer(
-      Clock.systemUTC.instant _,
-      ledgerId,
-      participantId,
-      userManagementStore,
-      servicesExecutionContext,
-      userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
-      pekkoScheduler = actorSystem.scheduler,
+      now = Clock.systemUTC.instant _,
+      ledgerId = ledgerId,
+      participantId = participantId,
+      ongoingAuthorizationFactory = UserBasedOngoingAuthorization.Factory(
+        now = Clock.systemUTC.instant _,
+        userManagementStore = userManagementStore,
+        userRightsCheckIntervalInSeconds = userManagement.cacheExpiryAfterWriteInSeconds,
+        pekkoScheduler = actorSystem.scheduler,
+        jwtTimestampLeeway = jwtTimestampLeeway,
+        tokenExpiryGracePeriodForStreams =
+          tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
+        loggerFactory = loggerFactory,
+      )(servicesExecutionContext, traceContext),
       jwtTimestampLeeway = jwtTimestampLeeway,
-      tokenExpiryGracePeriodForStreams =
-        tokenExpiryGracePeriodForStreams.map(_.asJavaApproximation),
       telemetry = telemetry,
       loggerFactory = loggerFactory,
     )
@@ -201,7 +206,7 @@ object ApiServiceOwner {
         maxInboundMessageSize,
         address,
         tls,
-        AuthorizationInterceptor(
+        new UserBasedAuthorizationInterceptor(
           authService = authService,
           Option.when(userManagement.enabled)(userManagementStore),
           new IdentityProviderAwareAuthServiceImpl(

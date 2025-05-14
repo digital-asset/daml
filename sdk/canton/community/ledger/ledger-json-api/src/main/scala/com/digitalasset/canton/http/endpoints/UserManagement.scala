@@ -9,8 +9,7 @@ import com.digitalasset.canton.http.EndpointsCompanion.*
 import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken
 import com.digitalasset.canton.http.util.FutureUtil.either
-import com.daml.jwt.domain.Jwt
-import com.digitalasset.canton.ledger.api.auth.StandardJWTPayload
+import com.daml.jwt.{Jwt, StandardJWTPayload}
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.traverse.*
 import scalaz.{-\/, EitherT, Monad, \/, \/-}

@@ -16,7 +16,7 @@ import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.toLedgerId
 import com.digitalasset.canton.http.util.JwtParties.*
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.std.option.*
