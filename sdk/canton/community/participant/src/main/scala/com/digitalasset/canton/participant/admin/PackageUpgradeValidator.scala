@@ -122,8 +122,8 @@ class PackageUpgradeValidator(
           )
           _ <- typecheckUpgrades(
             TypecheckUpgrades.MaximalDarCheck(
-              optUploadedDar,
               optMaximalDar,
+              optUploadedDar,
             ),
             packageMap,
           )
@@ -132,8 +132,8 @@ class PackageUpgradeValidator(
           )
           r <- typecheckUpgrades(
             TypecheckUpgrades.MinimalDarCheck(
-              optMinimalDar,
               optUploadedDar,
+              optMinimalDar,
             ),
             packageMap,
           )
