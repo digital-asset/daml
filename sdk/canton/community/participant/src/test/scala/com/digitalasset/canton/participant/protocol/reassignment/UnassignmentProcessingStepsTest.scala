@@ -111,11 +111,11 @@ final class UnassignmentProcessingStepsTest
   private val testTopologyTimestamp = CantonTimestamp.Epoch
 
   private lazy val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::synchronizer"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::synchronizer")).toPhysical
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private lazy val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::synchronizer"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::synchronizer")).toPhysical
   )
 
   private lazy val submitter: LfPartyId = PartyId(

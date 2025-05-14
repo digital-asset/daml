@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.{
 }
 import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 /** Stores the data of an unassignment that needs to be passed from the source synchronizer to the
@@ -25,7 +25,9 @@ final case class UnassignmentData(
 
   def targetSynchronizer: Target[SynchronizerId] = unassignmentRequest.targetSynchronizer
 
-  def sourceSynchronizer: Source[SynchronizerId] = unassignmentRequest.sourceSynchronizer
+  def sourceSynchronizer: Source[PhysicalSynchronizerId] = Source(
+    unassignmentRequest.synchronizerId
+  )
 
   def unassignmentTs: CantonTimestamp = reassignmentId.unassignmentTs
 

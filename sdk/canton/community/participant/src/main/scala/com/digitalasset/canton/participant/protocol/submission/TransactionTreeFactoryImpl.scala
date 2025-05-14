@@ -27,13 +27,12 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.WellFormedTransaction.{WithSuffixes, WithoutSuffixes}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.collection.MapsUtil
 import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.transaction.ContractStateMachine.KeyInactive
 import com.digitalasset.daml.lf.transaction.Transaction.{
@@ -63,8 +62,7 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 class TransactionTreeFactoryImpl(
     participantId: ParticipantId,
-    synchronizerId: SynchronizerId,
-    protocolVersion: ProtocolVersion,
+    synchronizerId: PhysicalSynchronizerId,
     contractSerializer: LfThinContractInst => SerializableRawContractInstance,
     cryptoOps: HashOps & HmacOps,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -72,6 +70,7 @@ class TransactionTreeFactoryImpl(
     extends TransactionTreeFactory
     with NamedLogging {
 
+  private val protocolVersion = synchronizerId.protocolVersion
   private val unicumGenerator = new UnicumGenerator(cryptoOps)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
   private val transactionViewDecompositionFactory = TransactionViewDecompositionFactory
@@ -172,7 +171,7 @@ class TransactionTreeFactoryImpl(
             MapsUtil.mergeMapsOfSets(commandExecutionPackages, inputContractPackages)
           UsableSynchronizers
             .checkPackagesVetted(
-              synchronizerId = synchronizerId,
+              synchronizerId = synchronizerId.logical,
               snapshot = topologySnapshot,
               requiredPackagesByParty = packagesByParty,
               metadata.ledgerTime,
@@ -532,7 +531,7 @@ class TransactionTreeFactoryImpl(
     }
     val contractMetadata = LfTransactionUtil.metadataFromCreate(createNode)
     val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
-      synchronizerId,
+      synchronizerId.logical,
       state.mediator,
       state.transactionUUID,
       viewPosition,
@@ -938,15 +937,13 @@ object TransactionTreeFactoryImpl {
   /** Creates a `TransactionTreeFactory`. */
   def apply(
       submittingParticipant: ParticipantId,
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
       cryptoOps: HashOps & HmacOps,
       loggerFactory: NamedLoggerFactory,
   )(implicit ex: ExecutionContext): TransactionTreeFactoryImpl =
     new TransactionTreeFactoryImpl(
       submittingParticipant,
       synchronizerId,
-      protocolVersion,
       contractSerializer,
       cryptoOps,
       loggerFactory,

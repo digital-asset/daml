@@ -8,7 +8,7 @@ import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.SynchronizerAliasAndIdStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.collect.{BiMap, HashBiMap}
 
@@ -35,21 +35,27 @@ class SynchronizerAliasManager private (
       HashBiMap.create[SynchronizerAlias, SynchronizerId](initialSynchronizerAliasMap.asJava)
     )
 
-  // TODO(#25388) Switch to physical id
-  def processHandshake(synchronizerAlias: SynchronizerAlias, synchronizerId: SynchronizerId)(
-      implicit traceContext: TraceContext
+  def processHandshake(
+      synchronizerAlias: SynchronizerAlias,
+      synchronizerId: PhysicalSynchronizerId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerAliasManager.Error, Unit] =
     synchronizerIdForAlias(synchronizerAlias) match {
-      // if a synchronizer with this alias is restarted with new id, a different alias should be used to connect to it, since it is considered a new synchronizer
-      case Some(previousId) if previousId != synchronizerId =>
+      /*
+       If a synchronizer with this alias is restarted with new id, a different alias should be used to connect to it,
+       since it is considered a new synchronizer.
+       Since correspondence id <-> alias is per logical id, we use `synchronizerId.logical`.
+       */
+      case Some(previousId) if previousId != synchronizerId.logical =>
         EitherT.leftT[FutureUnlessShutdown, Unit](
           SynchronizerAliasManager.SynchronizerAliasDuplication(
-            synchronizerId,
+            synchronizerId.logical,
             synchronizerAlias,
             previousId,
           )
         )
-      case None => addMapping(synchronizerAlias, synchronizerId)
+      case None => addMapping(synchronizerAlias, synchronizerId.logical)
       case _ => EitherT.rightT[FutureUnlessShutdown, SynchronizerAliasManager.Error](())
     }
 

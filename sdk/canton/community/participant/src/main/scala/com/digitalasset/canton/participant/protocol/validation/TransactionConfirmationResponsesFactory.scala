@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, checked}
@@ -25,7 +25,7 @@ import scala.concurrent.ExecutionContext
 
 class TransactionConfirmationResponsesFactory(
     participantId: ParticipantId,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     protocolVersion: ProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {

@@ -47,7 +47,7 @@ class SequencerTest
     with HasExecutionContext
     with FailOnShutdown {
 
-  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
   private val carole = ParticipantId("carole")
@@ -99,13 +99,13 @@ class SequencerTest
     val crypto: SynchronizerCryptoClient = valueOrFail(
       testingTopology
         .forOwner(SequencerId(synchronizerId.uid))
-        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+        .forSynchronizer(synchronizerId.logical, defaultStaticSynchronizerParameters)
         .toRight("crypto error")
     )("building crypto")
     val aliceCrypto: SynchronizerCryptoClient = valueOrFail(
       testingTopology
         .forOwner(alice)
-        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+        .forSynchronizer(synchronizerId.logical, defaultStaticSynchronizerParameters)
         .toRight("crypto error")
     )("building alice crypto")
 
@@ -190,7 +190,7 @@ class SequencerTest
   }
 
   class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
-    override def synchronizerId: SynchronizerId = fail("shouldn't be used")
+    override def synchronizerId: PhysicalSynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       fail("shouldn't be used")

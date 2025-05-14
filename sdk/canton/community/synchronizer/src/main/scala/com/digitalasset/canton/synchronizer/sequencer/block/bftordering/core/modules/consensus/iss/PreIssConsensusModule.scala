@@ -84,6 +84,7 @@ final class PreIssConsensusModule[E <: Env[E]](
             abort,
             previousEpochsCommitCerts,
             metrics,
+            clock,
             loggerFactory,
           ),
           random,

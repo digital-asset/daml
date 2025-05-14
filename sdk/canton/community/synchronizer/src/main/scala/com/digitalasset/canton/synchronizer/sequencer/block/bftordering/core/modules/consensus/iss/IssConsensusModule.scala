@@ -135,7 +135,7 @@ final class IssConsensusModule[E <: Env[E]](
       )()
     )
 
-  private val signatureVerifier = new IssConsensusSignatureVerifier[E]
+  private val signatureVerifier = new IssConsensusSignatureVerifier[E](metrics)
 
   logger.debug(
     "Starting with " +

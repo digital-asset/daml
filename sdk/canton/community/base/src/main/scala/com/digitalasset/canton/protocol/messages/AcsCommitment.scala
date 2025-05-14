@@ -114,7 +114,7 @@ object CommitmentPeriod {
   * time, and are exactly `interval` apart.
   */
 abstract sealed case class AcsCommitment private (
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     sender: ParticipantId,
     counterParticipant: ParticipantId,
     period: CommitmentPeriod,
@@ -132,7 +132,7 @@ abstract sealed case class AcsCommitment private (
 
   protected def toProtoV30: v30.AcsCommitment =
     v30.AcsCommitment(
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       sendingParticipantUid = sender.uid.toProtoPrimitive,
       counterParticipantUid = counterParticipant.uid.toProtoPrimitive,
       fromExclusive = period.fromExclusive.toProtoPrimitive,
@@ -186,7 +186,7 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
     Hash.digest(HashPurpose.HashedAcsCommitment, commitment, HashAlgorithm.Sha256)
 
   def create(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sender: ParticipantId,
       counterParticipant: ParticipantId,
       period: CommitmentPeriod,
@@ -208,9 +208,9 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
       bytes: ByteString
   ): ParsingResult[AcsCommitment] =
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(
-        protoMsg.synchronizerId,
-        "AcsCommitment.synchronizerId",
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        protoMsg.physicalSynchronizerId,
+        "AcsCommitment.physical_synchronizer_id",
       )
       sender <- UniqueIdentifier
         .fromProtoPrimitive(
@@ -266,7 +266,14 @@ object AcsCommitment extends VersioningCompanionMemoization[AcsCommitment] {
       GetResult[CommitmentPeriod],
       GetResult[Hash],
     ).andThen { case (sender, counterParticipant, period, commitment) =>
-      new AcsCommitment(synchronizerId, sender, counterParticipant, period, commitment)(
+      // TODO(#25502) Return a lighter version in the CommitmentQueue
+      new AcsCommitment(
+        PhysicalSynchronizerId(synchronizerId, protocolVersion),
+        sender,
+        counterParticipant,
+        period,
+        commitment,
+      )(
         protocolVersionRepresentativeFor(protocolVersion),
         None,
       ) {}

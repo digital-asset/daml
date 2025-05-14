@@ -84,7 +84,7 @@ class ParticipantTopologyTerminateProcessingTest
       .thenReturn(Outcome(Right(())))
 
     val proc = new ParticipantTopologyTerminateProcessing(
-      DefaultTestIdentities.synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
       testedProtocolVersion,
       recordOrderPublisher,
       store,

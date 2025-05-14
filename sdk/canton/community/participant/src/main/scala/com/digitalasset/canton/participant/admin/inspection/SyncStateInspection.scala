@@ -656,7 +656,7 @@ final class SyncStateInspection(
                 .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
                 .map(iter =>
                   iter.filter(cmt =>
-                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.synchronizerId == dp.indexedSynchronizer.synchronizerId && (counterParticipants.isEmpty ||
+                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.synchronizerId.logical == dp.indexedSynchronizer.synchronizerId && (counterParticipants.isEmpty ||
                       counterParticipants
                         .contains(cmt.sender))
                   )
@@ -950,7 +950,7 @@ final class SyncStateInspection(
         getPersistentState(synchronizerAlias)
           .toRight(s"Unknown synchronizer $synchronizerAlias")
       )
-      synchronizerId = state.indexedSynchronizer.synchronizerId
+      synchronizerId = state.physicalSynchronizerId
       unsequencedSubmissions <- EitherT.right(
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(synchronizerId, CantonTimestamp.now())

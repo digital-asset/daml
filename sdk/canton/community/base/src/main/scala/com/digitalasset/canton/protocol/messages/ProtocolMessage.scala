@@ -6,7 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.{
   HasRepresentativeProtocolVersion,
   RepresentativeProtocolVersion,
@@ -18,14 +18,14 @@ import com.google.common.annotations.VisibleForTesting
 trait ProtocolMessage
     extends Product
     with Serializable
-    with HasSynchronizerId
+    with HasPhysicalSynchronizerId
     with PrettyPrinting
     with HasRepresentativeProtocolVersion {
 
   override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type]
 
   /** The ID of the synchronizer over which this message is supposed to be sent. */
-  def synchronizerId: SynchronizerId
+  def synchronizerId: PhysicalSynchronizerId
 
   /** By default prints only the object name as a trade-off for shorter long lines and not leaking
     * confidential data. Sub-classes may override the pretty instance to print more information.
@@ -46,7 +46,7 @@ object ProtocolMessage {
     */
   def filterSynchronizerEnvelopes[M <: ProtocolMessage](
       envelopes: Seq[OpenEnvelope[M]],
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(
       onWrongSynchronizer: Seq[OpenEnvelope[M]] => Unit
   ): Seq[OpenEnvelope[M]] = {

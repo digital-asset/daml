@@ -842,6 +842,7 @@ final case class DynamicSynchronizerParametersWithValidity(
     parameters: DynamicSynchronizerParameters,
     validFrom: CantonTimestamp,
     validUntil: Option[CantonTimestamp],
+    // TODO(#25467) This should be physical
     synchronizerId: SynchronizerId,
 ) {
   def map[T](f: DynamicSynchronizerParameters => T): SynchronizerParameters.WithValidity[T] =

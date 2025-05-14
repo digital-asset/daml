@@ -78,7 +78,7 @@ trait SimpleFunctionalNodesTest
         Threading.sleep((topologyTransactionRegistrationTimeout.duration * 1.5).toMillis)
 
         // Trigger a new event on the synchronizer so that SendTracker can time out the topology broadcast message
-        participant1.testing.fetch_synchronizer_time(daId)
+        participant1.testing.fetch_synchronizer_time(daId.toPhysical)
 
         // Eventually the participant SynchronizerOutbox should succeed at resending the party creation.
         eventually() {

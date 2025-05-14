@@ -78,7 +78,7 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipie
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.processing.EffectiveTime
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -177,7 +177,7 @@ import scala.math.Ordering.Implicits.*
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class AcsCommitmentProcessor private (
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     participantId: ParticipantId,
     sequencerClient: SequencerClientSend,
     synchronizerCrypto: SyncCryptoClient[SyncCryptoApi],
@@ -185,7 +185,7 @@ class AcsCommitmentProcessor private (
     store: AcsCommitmentStore,
     pruningObserver: TraceContext => Unit,
     metrics: CommitmentMetrics,
-    protocolVersion: ProtocolVersion,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     override protected val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     activeContractStore: ActiveContractStore,
@@ -713,7 +713,7 @@ class AcsCommitmentProcessor private (
             healthComponent.resolveUnhealthy()
             for {
               noWait <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
-                Seq(synchronizerId),
+                Seq(synchronizerId.logical),
                 Seq.empty,
               )
               topoSnapshot <- synchronizerCrypto.ipsSnapshot(
@@ -911,7 +911,7 @@ class AcsCommitmentProcessor private (
 
     if (batch.lengthCompare(1) != 0) {
       Errors.InternalError
-        .MultipleCommitmentsInBatch(synchronizerId, timestamp, batch.length)
+        .MultipleCommitmentsInBatch(synchronizerId.logical, timestamp, batch.length)
         .discard
     }
 
@@ -919,7 +919,7 @@ class AcsCommitmentProcessor private (
       allConfigs <- acsCounterParticipantConfigStore.fetchAllSlowCounterParticipantConfig()
       (configsForSlowCounterParticipants, configsForSynchronizerThreshold) = allConfigs
       allNoWaits <- acsCounterParticipantConfigStore.getAllActiveNoWaitCounterParticipants(
-        Seq(synchronizerId),
+        Seq(synchronizerId.logical),
         Seq.empty,
       )
       _ <- batch.parTraverse_ { envelope =>
@@ -976,10 +976,14 @@ class AcsCommitmentProcessor private (
       reconIntervals.intervals.headOption.fold(1L)(_.intervalLength.duration.toMillis * 1000)
 
     val threshold = thresholds
-      .find(cfg => cfg.synchronizerId == synchronizerId)
+      .find(cfg => cfg.synchronizerId == synchronizerId.logical)
       .getOrElse(
         // we use a default value of 0 for threshold if no config have been provided
-        ConfigForSynchronizerThresholds(synchronizerId, NonNegativeLong.zero, NonNegativeLong.zero)
+        ConfigForSynchronizerThresholds(
+          synchronizerId.logical,
+          NonNegativeLong.zero,
+          NonNegativeLong.zero,
+        )
       )
 
     val defaultMax = threshold.thresholdDefault.value * reconIntervalLength
@@ -991,7 +995,7 @@ class AcsCommitmentProcessor private (
           .find(cfg => cfg.participantId == participantId)
           .fold(
             slowConfigs
-              .find(cfg => cfg.synchronizerId == synchronizerId)
+              .find(cfg => cfg.synchronizerId == synchronizerId.logical)
               .map(default => default.copy(isDistinguished = false, isAddedToMetrics = false))
           )(Some(_))
         (
@@ -1287,7 +1291,7 @@ class AcsCommitmentProcessor private (
         // not having received a commitment from us; in this case, we simply reply with an empty commitment, but we
         // issue a mismatch only if the counter-commitment was not empty
         if (remote.commitment != hashedEmptyCommitment)
-          Errors.MismatchError.NoSharedContracts.Mismatch(synchronizerId, remote).report()
+          Errors.MismatchError.NoSharedContracts.Mismatch(synchronizerId.logical, remote).report()
 
         // Due to the condition of this branch, in catch-up mode we don't reply with an empty commitment in between
         // catch-up boundaries. If the counter-participant thinks that there is still a shared contract at the
@@ -1317,7 +1321,7 @@ class AcsCommitmentProcessor private (
           true
         case mismatches =>
           Errors.MismatchError.CommitmentsMismatch
-            .Mismatch(synchronizerId, remote, mismatches.toSeq)
+            .Mismatch(synchronizerId.logical, remote, mismatches.toSeq)
             .report()
           false
       }
@@ -1838,7 +1842,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
     AcsCommitment.hashCommitment(emptyCommitment)
 
   def apply(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       participantId: ParticipantId,
       sequencerClient: SequencerClientSend,
       synchronizerCrypto: SyncCryptoClient[SyncCryptoApi],
@@ -1846,7 +1850,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       store: AcsCommitmentStore,
       pruningObserver: TraceContext => Unit,
       metrics: CommitmentMetrics,
-      protocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
       activeContractStore: ActiveContractStore,

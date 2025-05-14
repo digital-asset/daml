@@ -184,6 +184,7 @@ object SentAcsCommitment {
   }.toSeq
 }
 
+// TODO(#25483) Physical?
 final case class ReceivedAcsCommitment(
     synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,
@@ -243,7 +244,7 @@ object ReceivedAcsCommitment {
       )
     }) ++ buffering.map(cmt =>
       ReceivedAcsCommitment(
-        cmt.synchronizerId,
+        cmt.synchronizerId.logical,
         cmt.period,
         cmt.sender,
         Option.when(verbose)(cmt.commitment),

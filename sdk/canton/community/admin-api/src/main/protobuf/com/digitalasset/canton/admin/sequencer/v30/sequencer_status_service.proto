@@ -36,7 +36,7 @@ message SequencerStatusResponse {
     // required - status of the sequencer component it is running
     SequencerHealthStatus sequencer = 4;
 
-    string synchronizer_id = 5;
+    string physical_synchronizer_id = 5;
 
     SequencerAdminStatus admin = 6;
 

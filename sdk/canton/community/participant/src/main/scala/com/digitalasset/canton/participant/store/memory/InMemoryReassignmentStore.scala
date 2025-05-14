@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxParallelTraverse_
 import cats.instances.order.*
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
@@ -275,7 +276,7 @@ class InMemoryReassignmentStore(
         requestAfter.forall { case (ts, sourceSynchronizerID) =>
           (
             entry.unassignmentTs,
-            entry.unassignmentDataO.map(_.sourceSynchronizer),
+            entry.unassignmentDataO.map(_.sourceSynchronizer.map(_.logical)),
           ) > (ts, Some(sourceSynchronizerID))
         }
 

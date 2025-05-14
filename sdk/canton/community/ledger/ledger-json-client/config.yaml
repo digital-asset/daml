@@ -1,0 +1,4 @@
+apiPackage: "com.digitalasset.canton.openapi.json.api"
+modelPackage: "com.digitalasset.canton.openapi.json.model"
+generatorName: "java"
+

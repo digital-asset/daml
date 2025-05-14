@@ -326,7 +326,7 @@ class MediatorNodeBootstrap(
           mediatorId,
           staticSynchronizerParameters,
           authorizedTopologyManager,
-          synchronizerId,
+          PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
           synchronizerConfigurationStore,
           synchronizerTopologyStore,
           healthService,
@@ -373,12 +373,15 @@ class MediatorNodeBootstrap(
               .toEitherT[FutureUnlessShutdown]
 
             configToStore = MediatorSynchronizerConfiguration(
-              request.synchronizerId,
+              request.synchronizerId.logical,
               sequencerAggregatedInfo.staticSynchronizerParameters,
               request.sequencerConnections,
             )
             _ <- EitherT.right(synchronizerConfigurationStore.saveConfiguration(configToStore))
-          } yield (sequencerAggregatedInfo.staticSynchronizerParameters, request.synchronizerId)
+          } yield (
+            sequencerAggregatedInfo.staticSynchronizerParameters,
+            request.synchronizerId.logical,
+          )
         }.map(_ => InitializeMediatorResponse())
       }
 
@@ -392,7 +395,7 @@ class MediatorNodeBootstrap(
       mediatorId: MediatorId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       authorizedTopologyManager: AuthorizedTopologyManager,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       synchronizerConfigurationStore: MediatorSynchronizerConfigurationStore,
       synchronizerTopologyStore: TopologyStore[SynchronizerStore],
       healthService: DependenciesHealthService,
@@ -576,7 +579,7 @@ class MediatorNodeBootstrap(
             TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
               synchronizerTopologyStore,
               ips,
-              synchronizerId,
+              PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
               crypto.pureCrypto,
               arguments.parameterConfig,
               arguments.clock,
@@ -604,7 +607,7 @@ class MediatorNodeBootstrap(
         synchronizerLoggerFactory,
       )
       sequencerClientFactory = SequencerClientFactory(
-        synchronizerId,
+        PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
         syncCryptoWithOptionalSessionKeys,
         crypto,
         parameters.sequencerClient,
@@ -670,7 +673,7 @@ class MediatorNodeBootstrap(
           sequencerClientFactory,
           sequencerInfoLoader,
           synchronizerAlias,
-          synchronizerId,
+          PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
           sequencerClient,
           loggerFactory,
         )
@@ -713,7 +716,7 @@ class MediatorNodeBootstrap(
 
       mediatorRuntime <- MediatorRuntimeFactory.create(
         mediatorId,
-        synchronizerId,
+        PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
         storage,
         sequencerCounterTrackerStore,
         sequencedEventStore,
@@ -782,7 +785,7 @@ object MediatorNodeBootstrap {
 class MediatorNode(
     config: MediatorNodeConfig,
     mediatorId: MediatorId,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     protected[canton] val replicaManager: MediatorReplicaManager,
     storage: Storage,
     override val clock: Clock,

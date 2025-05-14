@@ -86,6 +86,9 @@ import scala.util.{Random, Try}
 
 private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBaseTest =>
 
+  protected val metrics =
+    SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+
   protected val Node0 = node(0)
   protected val Node1 = node(1)
   protected val Node2 = node(2)
@@ -386,7 +389,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       config,
       clock,
       new Random(0),
-      SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
+      metrics,
       dependencies,
       loggerFactory,
       timeouts,
@@ -410,9 +413,8 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
 
   protected def newMockCrypto: CryptoProvider[ProgrammableUnitTestEnv] = {
     val cryptoProvider = mock[CryptoProvider[ProgrammableUnitTestEnv]]
-    when(cryptoProvider.signHash(any[Hash])(any[TraceContext])).thenReturn(() =>
-      Right(Signature.noSignature)
-    )
+    when(cryptoProvider.signHash(any[Hash], any[String])(any[TraceContext], any[MetricsContext]))
+      .thenReturn(() => Right(Signature.noSignature))
     cryptoProvider
   }
 

@@ -6,7 +6,7 @@ package com.digitalasset.canton.data
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, Stakeholders, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId}
 
@@ -38,7 +38,7 @@ trait ViewTree extends PrettyPrinting {
   /** The synchronizer to which the
     * [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]] should be sent to
     */
-  def synchronizerId: SynchronizerId
+  def synchronizerId: PhysicalSynchronizerId
 
   /** The mediator group that is responsible for coordinating this request */
   def mediator: MediatorGroupRecipient

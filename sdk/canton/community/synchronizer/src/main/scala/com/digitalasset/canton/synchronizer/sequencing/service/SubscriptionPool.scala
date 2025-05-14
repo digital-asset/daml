@@ -3,10 +3,11 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.service
 
+import cats.data.EitherT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FlagCloseable
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencing.service.SubscriptionPool.{
@@ -19,8 +20,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 
 import scala.collection.concurrent.TrieMap
-import scala.collection.mutable
-import scala.concurrent.{ExecutionContext, blocking}
+import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.control.NonFatal
 
 object SubscriptionPool {
@@ -42,7 +42,7 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
     with NamedLogging {
 
   // as the subscriptions are mutable, any access or modifications to this pool are expected to be synchronized
-  private val pool = TrieMap[Member, mutable.Buffer[Subscription]]()
+  private val pool = TrieMap[Member, Vector[Subscription]]()
 
   private val subscribersGauge = metrics.publicApi.subscriptionsGauge
 
@@ -55,45 +55,61 @@ class SubscriptionPool[Subscription <: ManagedSubscription](
     * @return
     *   An error or the subscription we've created.
     */
-  def create(createSubscription: () => Subscription, member: Member)(implicit
+  def create(
+      createSubscription: () => FutureUnlessShutdown[Subscription],
+      member: Member,
+  )(implicit
       traceContext: TraceContext
-  ): Either[RegistrationError, Subscription] =
-    performUnlessClosing(functionFullName) {
-      blocking {
-        synchronized {
-          logger.debug(s"Creating subscription for $member")
-          val subscription = createSubscription()
+  ): EitherT[Future, RegistrationError, Subscription] =
+    performUnlessClosingEitherUSF(functionFullName) {
+      logger.debug(s"Creating subscription for $member")
+      EitherT.right[RegistrationError](createSubscription().map { subscription =>
+        blocking {
+          synchronized {
+            // if the subscription is already closed we won't add to the pool in the first place
+            if (!(subscription.isClosing || subscription.isCancelled)) {
+              logger.debug(s"Adding subscription from $member to pool")
+              pool
+                .updateWith(member) {
+                  case Some(subscriptions) => Some(subscriptions :+ subscription)
+                  case None => Some(Vector(subscription))
+                }
+                .discard
+            } else {
+              if (subscription.isCancelled) {
+                logger.debug(
+                  s"Not adding subscription for $member to the pool as the request has been cancelled"
+                )
+                if (!subscription.isClosing) {
+                  subscription.close()
+                }
+              } else {
+                logger.debug(
+                  s"Not adding subscription for $member to the pool as it already closing"
+                )
+              }
+            }
 
-          // if the subscription is already closed we won't add to the pool in the first place
-          if (!subscription.isClosing) {
-            logger.debug(s"Adding subscription from $member to pool")
-            pool.update(
-              member,
-              pool.get(member).fold(mutable.Buffer(subscription)) {
-                _ += subscription
-              },
+            subscription.onClosed(() => removeSubscription(member, subscription))
+
+            // schedule expiring the subscription
+            // this could potentially happen immediately if the expiration has already passed
+            subscription.expireAt.foreach(ts =>
+              clock.scheduleAt(
+                _ => {
+                  logger.debug(s"Expiring subscription for $member")
+                  closeSubscription(member, subscription)
+                },
+                ts,
+              )
             )
+
+            updatePoolMetrics()
           }
-
-          subscription.onClosed(() => removeSubscription(member, subscription))
-
-          // schedule expiring the subscription
-          // this could potentially happen immediately if the expiration has already passed
-          subscription.expireAt.foreach(ts =>
-            clock.scheduleAt(
-              _ => {
-                logger.debug(s"Expiring subscription for $member")
-                closeSubscription(member, subscription)
-              },
-              ts,
-            )
-          )
-
-          updatePoolMetrics()
-
-          Right(subscription)
         }
-      }
+
+        subscription
+      })
     } onShutdown Left(PoolClosed)
 
   def closeSubscriptions(member: Member, waitForClosed: Boolean = false)(implicit

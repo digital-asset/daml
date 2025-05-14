@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -80,8 +81,9 @@ class SimulationCryptoProvider(
       case None => Map.empty
     }
 
-  override def signHash(hash: Hash)(implicit
-      traceContext: TraceContext
+  override def signHash(hash: Hash, operationId: String)(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture(s"sign($hash)") { () =>
     Try {
       innerSign(hash)
@@ -92,7 +94,8 @@ class SimulationCryptoProvider(
       message: MessageT,
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     SimulationFuture("signMessage") { () =>
       Try {
@@ -112,8 +115,10 @@ class SimulationCryptoProvider(
       hash: Hash,
       member: BftNodeId,
       signature: Signature,
+      operationId: String,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): SimulationFuture[Either[SignatureCheckError, Unit]] =
     SimulationFuture(s"verifySignature($hash, $member)") { () =>
       Try {

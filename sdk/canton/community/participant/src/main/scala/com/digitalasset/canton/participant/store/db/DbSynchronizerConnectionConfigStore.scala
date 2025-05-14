@@ -405,6 +405,8 @@ class DbSynchronizerConnectionConfigStore private[store] (
 
     for {
       isChangeNeeded <- EitherT(changeNeeded()).leftWiden[SynchronizerConnectionConfigStore.Error]
+      all <- EitherT.right(getAllInternal)
+      _ = logger.debug(s"GEROLF: all: ${all.mkString("\n")}")
 
       _ <-
         if (isChangeNeeded)

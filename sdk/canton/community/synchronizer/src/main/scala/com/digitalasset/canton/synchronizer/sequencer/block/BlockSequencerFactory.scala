@@ -34,7 +34,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.{
   TrafficPurchasedManager,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -96,7 +96,7 @@ abstract class BlockSequencerFactory(
 
   protected def createBlockSequencer(
       name: String,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
@@ -174,7 +174,7 @@ abstract class BlockSequencerFactory(
     )
 
   override final def create(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       clock: Clock,
       driverClock: Clock,

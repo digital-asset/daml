@@ -63,7 +63,7 @@ trait SequencerClientFactory {
 
 object SequencerClientFactory {
   def apply(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
       crypto: SynchronizerCrypto,
       config: SequencerClientConfig,

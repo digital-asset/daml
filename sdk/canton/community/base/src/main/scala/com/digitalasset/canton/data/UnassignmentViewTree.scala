@@ -4,6 +4,7 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.toTraverseOps
 import com.digitalasset.canton.ProtoDeserializationError.{InvariantViolation, OtherError}
 import com.digitalasset.canton.ReassignmentCounter
@@ -16,7 +17,12 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -144,7 +150,7 @@ object UnassignmentViewTree
   */
 final case class UnassignmentCommonData private (
     override val salt: Salt,
-    sourceSynchronizerId: Source[SynchronizerId],
+    sourceSynchronizerId: Source[PhysicalSynchronizerId],
     sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
     reassigningParticipants: Set[ParticipantId],
@@ -166,7 +172,7 @@ final case class UnassignmentCommonData private (
   protected def toProtoV30: v30.UnassignmentCommonData =
     v30.UnassignmentCommonData(
       salt = Some(salt.toProtoV30),
-      sourceSynchronizerId = sourceSynchronizerId.unwrap.toProtoPrimitive,
+      sourcePhysicalSynchronizerId = sourceSynchronizerId.unwrap.toProtoPrimitive,
       sourceMediatorGroup = sourceMediatorGroup.group.value,
       stakeholders = Some(stakeholders.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -206,7 +212,7 @@ object UnassignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      sourceSynchronizer: Source[SynchronizerId],
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
       sourceMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       reassigningParticipants: Set[ParticipantId],
@@ -241,8 +247,8 @@ object UnassignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      sourceSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(sourceSynchronizerP, "source_synchronizer")
+      sourceSynchronizerId <- PhysicalSynchronizerId
+        .fromProtoPrimitive(sourceSynchronizerP, "source_physical_synchronizer_id")
         .map(Source(_))
       sourceMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "source_mediator_group",
@@ -434,8 +440,9 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def reassignmentRef: ContractIdRef = ContractIdRef(contracts.contractIds.toSet)
 
   // Synchronizers
-  override def synchronizerId: SynchronizerId = sourceSynchronizer.unwrap
-  override def sourceSynchronizer: Source[SynchronizerId] = commonData.sourceSynchronizerId
+  override def synchronizerId: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
+  override def sourceSynchronizer: Source[SynchronizerId] =
+    commonData.sourceSynchronizerId.map(_.logical)
   override def targetSynchronizer: Target[SynchronizerId] = view.targetSynchronizerId
   def targetTimeProof: TimeProof = view.targetTimeProof
   def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion

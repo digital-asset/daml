@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
@@ -1334,6 +1335,7 @@ trait ReassignmentStoreTest extends FailOnShutdown {
 }
 
 object ReassignmentStoreTest extends EitherValues with NoTracing {
+  import BaseTest.*
 
   val alice = LfPartyId.assertFromString("alice")
   val bob = LfPartyId.assertFromString("bob")
@@ -1426,8 +1428,8 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
 
     val helpers = ReassignmentDataHelpers(
       contract,
-      reassignmentId.sourceSynchronizer,
-      targetSynchronizerId,
+      reassignmentId.sourceSynchronizer.map(_.toPhysical),
+      targetSynchronizerId.map(_.toPhysical),
       identityFactory,
     )
 

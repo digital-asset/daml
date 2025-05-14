@@ -11,6 +11,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.{ClientChannelBuilder, ManagedChannelBuilderProxy}
 import com.digitalasset.canton.networking.{Endpoint, UrlValidator}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
 import com.google.protobuf.ByteString
@@ -50,6 +51,10 @@ sealed trait SequencerConnection extends PrettyPrinting {
   def certificates: Option[ByteString]
 
   def withCertificates(certificates: ByteString): SequencerConnection
+
+  def withSequencerId(sequencerId: SequencerId): SequencerConnection
+
+  def sequencerId: Option[SequencerId]
 }
 
 final case class GrpcSequencerConnection(
@@ -57,6 +62,7 @@ final case class GrpcSequencerConnection(
     transportSecurity: Boolean,
     customTrustCertificates: Option[ByteString],
     sequencerAlias: SequencerAlias,
+    sequencerId: Option[SequencerId],
 ) extends SequencerConnection {
 
   override def certificates: Option[ByteString] = customTrustCertificates
@@ -78,12 +84,14 @@ final case class GrpcSequencerConnection(
           customTrustCertificates,
         )
       ),
-      sequencerAlias.toProtoPrimitive,
+      alias = sequencerAlias.toProtoPrimitive,
+      sequencerId = sequencerId.map(_.toProtoPrimitive),
     )
 
   override protected def pretty: Pretty[GrpcSequencerConnection] =
     prettyOfClass(
       param("sequencerAlias", _.sequencerAlias),
+      paramIfDefined("sequencerId", _.sequencerId),
       param("endpoints", _.endpoints.map(_.toURI(transportSecurity)).toList),
       paramIfTrue("transportSecurity", _.transportSecurity),
       paramIfTrue("customTrustCertificates", _.customTrustCertificates.nonEmpty),
@@ -109,6 +117,9 @@ final case class GrpcSequencerConnection(
     copy(customTrustCertificates = Some(certificates))
 
   override def withAlias(alias: SequencerAlias): SequencerConnection = copy(sequencerAlias = alias)
+
+  override def withSequencerId(sequencerId: SequencerId): SequencerConnection =
+    copy(sequencerId = Some(sequencerId))
 }
 
 object GrpcSequencerConnection {
@@ -116,12 +127,19 @@ object GrpcSequencerConnection {
       connection: String,
       customTrustCertificates: Option[ByteString] = None,
       sequencerAlias: SequencerAlias = SequencerAlias.Default,
+      sequencerId: Option[SequencerId] = None,
   ): Either[String, GrpcSequencerConnection] =
     for {
       uri <- UrlValidator.validate(connection).leftMap(_.message)
       endpointsWithTlsFlag <- Endpoint.fromUris(NonEmpty(Seq, uri))
       (endpoints, useTls) = endpointsWithTlsFlag
-    } yield GrpcSequencerConnection(endpoints, useTls, customTrustCertificates, sequencerAlias)
+    } yield GrpcSequencerConnection(
+      endpoints,
+      useTls,
+      customTrustCertificates,
+      sequencerAlias,
+      sequencerId,
+    )
 
   def tryCreate(
       connection: String,
@@ -140,12 +158,14 @@ object SequencerConnection {
   ): ParsingResult[SequencerConnection] =
     configP.`type` match {
       case v30.SequencerConnection.Type.Empty => Left(ProtoDeserializationError.FieldNotSet("type"))
-      case v30.SequencerConnection.Type.Grpc(grpc) => fromGrpcProto(grpc, configP.alias)
+      case v30.SequencerConnection.Type.Grpc(grpc) =>
+        fromGrpcProto(grpc, configP.alias, configP.sequencerId)
     }
 
   private def fromGrpcProto(
       grpcP: v30.SequencerConnection.Grpc,
       alias: String,
+      sequencerIdP: Option[String],
   ): ParsingResult[SequencerConnection] =
     for {
       uris <- grpcP.connections
@@ -162,11 +182,13 @@ object SequencerConnection {
         .fromUris(urisNE)
         .leftMap(err => ProtoDeserializationError.ValueConversionError("connections", err))
       sequencerAlias <- SequencerAlias.fromProtoPrimitive(alias)
+      sequencerId <- sequencerIdP.traverse(SequencerId.fromProtoPrimitive(_, "sequencer_id"))
     } yield GrpcSequencerConnection(
       endpoints._1,
       grpcP.transportSecurity,
       grpcP.customTrustCertificates,
       sequencerAlias,
+      sequencerId,
     )
 
   def merge(connections: Seq[SequencerConnection]): Either[String, SequencerConnection] =
@@ -179,14 +201,28 @@ object SequencerConnection {
         (),
         "Sequencer connections can only be merged of the same alias",
       )
+      firstSequencerIdO = connectionsNel.map(_.sequencerId).collectFirst { case Some(sequencerId) =>
+        sequencerId
+      }
+      _ <- Either.cond(
+        connections
+          .flatMap(_.sequencerId)
+          .forall(sequencerId => firstSequencerIdO.forall(_ == sequencerId)),
+        (),
+        "Sequencer connections can only be merged of the same sequencer id",
+      )
+
       conn <- connectionsNel.head1 match {
-        case grpc @ GrpcSequencerConnection(endpoints, _, _, _) =>
+        case grpc @ GrpcSequencerConnection(endpoints, _, _, _, _) =>
           for {
             allMergedEndpoints <- connectionsNel.tail1.flatTraverse {
               case grpc: GrpcSequencerConnection => Right(grpc.endpoints.forgetNE)
               case _ => Left("Cannot merge grpc and http sequencer connections")
             }
-          } yield grpc.copy(endpoints = endpoints ++ allMergedEndpoints)
+          } yield grpc.copy(
+            endpoints = endpoints ++ allMergedEndpoints,
+            sequencerId = firstSequencerIdO,
+          )
       }
     } yield conn
 }

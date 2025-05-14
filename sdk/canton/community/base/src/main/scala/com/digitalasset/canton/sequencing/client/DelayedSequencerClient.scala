@@ -9,7 +9,7 @@ import com.digitalasset.canton.sequencing.client.DelayedSequencerClient.{
   Immediate,
   SequencedEventDelayPolicy,
 }
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent
@@ -24,7 +24,7 @@ case object NoDelay extends DelaySequencedEvent {
   override def delay(event: SequencedSerializedEvent): Future[Unit] = Future.unit
 }
 
-final case class DelayedSequencerClient(synchronizerId: SynchronizerId, member: String)
+final case class DelayedSequencerClient(synchronizerId: PhysicalSynchronizerId, member: String)
     extends DelaySequencedEvent {
 
   private[this] val onPublish: AtomicReference[SequencedEventDelayPolicy] =
@@ -41,19 +41,20 @@ final case class DelayedSequencerClient(synchronizerId: SynchronizerId, member: 
 
 object DelayedSequencerClient {
 
-  private val clients: concurrent.Map[(String, SynchronizerId, String), DelayedSequencerClient] =
-    new TrieMap[(String, SynchronizerId, String), DelayedSequencerClient]
+  private val clients
+      : concurrent.Map[(String, PhysicalSynchronizerId, String), DelayedSequencerClient] =
+    new TrieMap[(String, PhysicalSynchronizerId, String), DelayedSequencerClient]
 
   def delayedSequencerClient(
       environmentId: String,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       member: String,
   ): Option[DelayedSequencerClient] =
     clients.get((environmentId, synchronizerId, member))
 
   def registerAndCreate(
       environmentId: String,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       member: String,
   ): DelayedSequencerClient = {
     val delayedLog = new DelayedSequencerClient(synchronizerId, member)

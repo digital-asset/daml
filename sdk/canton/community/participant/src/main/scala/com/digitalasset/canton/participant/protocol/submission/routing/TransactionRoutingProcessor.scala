@@ -45,7 +45,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizersLookup
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
@@ -363,7 +363,7 @@ class TransactionRoutingProcessor(
     } yield ()
   }
 
-  private def wrapSubmissionError[T](synchronizerId: SynchronizerId)(
+  private def wrapSubmissionError[T](synchronizerId: PhysicalSynchronizerId)(
       eitherT: EitherT[FutureUnlessShutdown, TransactionSubmissionError, T]
   )(implicit ec: ExecutionContext): EitherT[FutureUnlessShutdown, TransactionRoutingError, T] =
     eitherT.leftMap(subm => TransactionRoutingError.SubmissionError(synchronizerId, subm))

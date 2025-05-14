@@ -16,7 +16,7 @@ import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIn
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
@@ -61,7 +61,7 @@ final class GeneratorsData(
 
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
     for {
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
 
       mediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -502,7 +502,7 @@ final class GeneratorsData(
   implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
+      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
 
       targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -531,7 +531,7 @@ final class GeneratorsData(
   implicit val unassignmentCommonData: Arbitrary[UnassignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      sourceSynchronizerId <- Arbitrary.arbitrary[Source[SynchronizerId]]
+      sourceSynchronizerId <- Arbitrary.arbitrary[Source[PhysicalSynchronizerId]]
 
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 

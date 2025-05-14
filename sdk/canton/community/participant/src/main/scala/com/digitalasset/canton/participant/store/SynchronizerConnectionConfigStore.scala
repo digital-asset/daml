@@ -68,9 +68,9 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ConfigAlreadyExists, Unit]
 
-  /** Replaces the config for the given alias and id. Will return an
+  /** Replaces the config for the given alias and physical synchronizer id. Will return an
     * [[SynchronizerConnectionConfigStore.MissingConfigForSynchronizer]] error if there is no config
-    * for the (alias, id)
+    * for the (alias, physicalSynchronizerId).
     */
   def replace(
       configuredPSId: ConfiguredPhysicalSynchronizerId,

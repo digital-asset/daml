@@ -83,7 +83,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
 
     for {
       indexedSynchronizerId <- EitherT
-        .right(syncPersistentStateManager.indexedSynchronizerId(synchronizerId))
+        .right(syncPersistentStateManager.indexedSynchronizerId(synchronizerId.logical))
 
       _ <- EitherT
         .fromEither[Future](verifySynchronizerId(config, synchronizerId))
@@ -109,7 +109,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
 
       topologyFactory <- syncPersistentStateManager
         .topologyFactoryFor(
-          synchronizerId,
+          synchronizerId.logical,
           sequencerAggregatedInfo.staticSynchronizerParameters.protocolVersion,
         )
         .toRight(
@@ -135,7 +135,10 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
 
       synchronizerCryptoApi <- EitherT.fromEither[FutureUnlessShutdown](
         cryptoApiProvider
-          .forSynchronizer(synchronizerId, sequencerAggregatedInfo.staticSynchronizerParameters)
+          .forSynchronizer(
+            synchronizerId.logical,
+            sequencerAggregatedInfo.staticSynchronizerParameters,
+          )
           .toRight(
             SynchronizerRegistryError.SynchronizerRegistryInternalError
               .InvalidState("crypto api for synchronizer is unavailable"): SynchronizerRegistryError
@@ -307,7 +310,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
 
   private def downloadSynchronizerTopologyStateForInitializationIfNeeded(
       syncPersistentStateManager: SyncPersistentStateManager,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       topologySnapshotValidator: InitialTopologySnapshotValidator,
       topologyClient: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
@@ -319,7 +322,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
     performUnlessClosingEitherUSF("check-for-synchronizer-topology-initialization")(
       syncPersistentStateManager.synchronizerTopologyStateInitFor(
-        synchronizerId,
+        synchronizerId.logical,
         participantId,
       )
     ).flatMap {
@@ -358,7 +361,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
   // connected to is the one expected
   private def verifySynchronizerId(
       config: SynchronizerConnectionConfig,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(implicit
       loggingContext: ErrorLoggingContext
   ): Either[SynchronizerIdMismatch.Error, Unit] =
@@ -442,7 +445,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
 object SynchronizerRegistryHelpers {
 
   private[synchronizer] final case class SynchronizerHandle(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       alias: SynchronizerAlias,
       staticParameters: StaticSynchronizerParameters,
       sequencer: RichSequencerClient,

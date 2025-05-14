@@ -32,7 +32,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
   OrdinarySequencedEvent,
 }
 import com.digitalasset.canton.topology.processing.SequencedTime
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -50,7 +50,7 @@ import scala.util.{Failure, Success}
   */
 class ParallelMessageDispatcher(
     override protected val protocolVersion: ProtocolVersion,
-    override protected val synchronizerId: SynchronizerId,
+    override protected val synchronizerId: PhysicalSynchronizerId,
     override protected val participantId: ParticipantId,
     override protected val requestTracker: RequestTracker,
     override protected val requestProcessors: RequestProcessors,
@@ -244,7 +244,7 @@ class ParallelMessageDispatcher(
       if (tickDecision.tickRecordOrderPublisher) {
         recordOrderPublisher.tick(
           SequencerIndexMoved(
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.logical,
             recordTime = ts,
           ),
           sequencerCounter = sc,

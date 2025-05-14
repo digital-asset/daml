@@ -73,6 +73,7 @@ class ReassignmentCoordination(
         .getOrElse(Future.successful(()))
     )
 
+  // TODO(#25483) This should be physical
   private[reassignment] def awaitSynchronizerTime(
       synchronizerId: ReassignmentTag[SynchronizerId],
       timestamp: CantonTimestamp,
@@ -97,6 +98,7 @@ class ReassignmentCoordination(
     * already been reached before the call. [[scala.Left$]] if the `synchronizer` is unknown or the
     * participant is not connected to the synchronizer.
     */
+  // TODO(#25483) This makes no sense: if the static parameters are provided, the synchronizer ID has to be physical
   private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       synchronizerId: T[SynchronizerId],
       staticSynchronizerParameters: T[StaticSynchronizerParameters],
@@ -164,6 +166,7 @@ class ReassignmentCoordination(
     } yield submissionResult
   }
 
+  // TODO(#25483) This should be physical
   private[reassignment] def getStaticSynchronizerParameter[T[_]: SingletonTraverse](
       synchronizerId: T[SynchronizerId]
   )(implicit
@@ -181,6 +184,7 @@ class ReassignmentCoordination(
     * `synchronizer` has not progressed far enough such that it can compute the snapshot. Use
     * [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
+  // TODO(#25483) This makes no sense: if the static parameters are provided, the synchronizer ID has to be physical
   private[reassignment] def cryptoSnapshot[
       T[X] <: ReassignmentTag[X]: SameReassignmentType: SingletonTraverse
   ](

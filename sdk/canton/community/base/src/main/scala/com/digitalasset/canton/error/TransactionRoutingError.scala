@@ -15,7 +15,7 @@ import com.digitalasset.base.error.{
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.RoutingErrorGroup
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 
 sealed trait TransactionRoutingError extends TransactionError with Product with Serializable
 sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingError {
@@ -28,7 +28,7 @@ sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingE
 object TransactionRoutingError extends RoutingErrorGroup {
 
   final case class SubmissionError[PARENT <: TransactionError](
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       parent: PARENT,
   ) extends TransactionParentError[PARENT]
       with TransactionRoutingError {

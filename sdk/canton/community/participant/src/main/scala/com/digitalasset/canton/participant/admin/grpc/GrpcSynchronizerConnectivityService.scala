@@ -196,7 +196,7 @@ class GrpcSynchronizerConnectivityService(
       case (alias, (synchronizerId, healthy)) =>
         new v30.ListConnectedSynchronizersResponse.Result(
           synchronizerAlias = alias.unwrap,
-          synchronizerId = synchronizerId.toProtoPrimitive,
+          physicalSynchronizerId = synchronizerId.toProtoPrimitive,
           healthy = healthy.unwrap,
         )
     }.toSeq))
@@ -374,7 +374,9 @@ class GrpcSynchronizerConnectivityService(
         .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
         .leftWiden[CantonBaseError]
-    } yield v30.GetSynchronizerIdResponse(synchronizerId = result.synchronizerId.toProtoPrimitive)
+    } yield v30.GetSynchronizerIdResponse(physicalSynchronizerId =
+      result.synchronizerId.toProtoPrimitive
+    )
     _mapErrNewEUS(ret)
   }
 

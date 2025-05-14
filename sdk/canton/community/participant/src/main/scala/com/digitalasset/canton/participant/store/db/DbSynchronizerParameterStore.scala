@@ -16,6 +16,7 @@ import slick.jdbc.SetParameter
 
 import scala.concurrent.ExecutionContext
 
+// TODO(#25483) This should be physical
 class DbSynchronizerParameterStore(
     synchronizerId: SynchronizerId,
     override protected val storage: DbStorage,

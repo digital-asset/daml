@@ -17,20 +17,28 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithInit
-import com.digitalasset.canton.topology.{SynchronizerId, TopologyManagerError}
+import com.digitalasset.canton.topology.{
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  TopologyManagerError,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import org.slf4j.event.Level
 
 /** A registry of synchronizers. */
 trait SynchronizerRegistry extends AutoCloseable {
 
-  /** Returns a synchronizer handle that is used to setup a connection to a new synchronizer
+  /** Returns a synchronizer handle that is used to setup a connection to a new synchronizer, and
+    * the synchronizer connection config that was updated with missing sequencer ids of sequencers
+    * for which the connection attempt was successful.
     */
   def connect(
       config: SynchronizerConnectionConfig
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Either[SynchronizerRegistryError, SynchronizerHandle]]
+  ): FutureUnlessShutdown[
+    Either[SynchronizerRegistryError, (SynchronizerHandle, SynchronizerConnectionConfig)]
+  ]
 
 }
 
@@ -271,8 +279,8 @@ object SynchronizerRegistryError extends SynchronizerRegistryErrorGroup {
           id = "SYNCHRONIZER_ID_MISMATCH",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(expected: SynchronizerId, observed: SynchronizerId)(implicit
-          val loggingContext: ErrorLoggingContext
+      final case class Error(expected: PhysicalSynchronizerId, observed: PhysicalSynchronizerId)(
+          implicit val loggingContext: ErrorLoggingContext
       ) extends CantonError.Impl(
             cause =
               "The synchronizer reports a different synchronizer id than the participant is expecting"
@@ -381,7 +389,7 @@ trait SynchronizerHandle extends AutoCloseable {
 
   def staticParameters: StaticSynchronizerParameters
 
-  def synchronizerId: SynchronizerId
+  def synchronizerId: PhysicalSynchronizerId
 
   def synchronizerAlias: SynchronizerAlias
 

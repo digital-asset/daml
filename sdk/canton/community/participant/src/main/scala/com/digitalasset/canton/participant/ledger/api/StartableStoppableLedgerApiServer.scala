@@ -49,7 +49,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
   ThreadpoolCheck,
 }
-import com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManagementService
+import com.digitalasset.canton.platform.apiserver.services.admin.Utils
 import com.digitalasset.canton.platform.apiserver.{
   ApiServiceOwner,
   InProcessGrpcName,
@@ -438,7 +438,7 @@ class StartableStoppableLedgerApiServer(
           )
           Future.successful(())
         case other =>
-          ApiUserManagementService.handleResult("creating extra admin user")(other).map(_ => ())
+          Utils.handleResult("creating extra admin user")(other).map(_ => ())
       }
   }
 

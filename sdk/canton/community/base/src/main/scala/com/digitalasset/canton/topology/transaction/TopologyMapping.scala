@@ -1509,7 +1509,8 @@ final case class SynchronizerParametersState(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
-  override def uniqueKey: MappingHash = SynchronizerParametersState.uniqueKey(synchronizerId)
+  override def uniqueKey: MappingHash =
+    SynchronizerParametersState.uniqueKey(synchronizerId)
 }
 
 object SynchronizerParametersState extends TopologyMappingCompanion {
@@ -1524,7 +1525,10 @@ object SynchronizerParametersState extends TopologyMappingCompanion {
   ): ParsingResult[SynchronizerParametersState] = {
     val v30.SynchronizerParametersState(synchronizerIdP, synchronizerParametersP) = value
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "synchronizer_id",
+      )
       parameters <- ProtoConverter.parseRequired(
         DynamicSynchronizerParameters.fromProtoV30,
         "synchronizer_parameters",
@@ -1875,7 +1879,7 @@ final case class TopologyFreeze(
     )
 
   override def namespace: Namespace = physicalSynchronizerId.logical.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(physicalSynchronizerId.logical.uid)
+  override def maybeUid: Option[UniqueIdentifier] = Some(physicalSynchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
     physicalSynchronizerId.logical

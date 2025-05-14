@@ -458,7 +458,10 @@ class SequencerNodeBootstrap(
       with HasCloseContext {
     override def getAdminToken: Option[String] = Some(adminToken.secret)
     // save one argument and grab the synchronizerId from the store ...
-    private val synchronizerId = synchronizerTopologyManager.synchronizerId
+    private val synchronizerId = PhysicalSynchronizerId(
+      synchronizerTopologyManager.synchronizerId,
+      staticSynchronizerParameters,
+    )
     private val synchronizerLoggerFactory =
       loggerFactory.append("synchronizerId", synchronizerId.toString)
 
@@ -494,7 +497,7 @@ class SequencerNodeBootstrap(
         addCloseable(indexedStringStore)
         for {
           indexedSynchronizer <- EitherT.right[String](
-            IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId)
+            IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId.logical)
           )
           sequencedEventStore = SequencedEventStore(
             storage,
@@ -631,7 +634,7 @@ class SequencerNodeBootstrap(
           syncCryptoWithOptionalSessionKeys = SynchronizerCryptoClient
             .createWithOptionalSessionKeys(
               sequencerId,
-              synchronizerId,
+              synchronizerId.logical,
               topologyClient,
               staticSynchronizerParameters,
               crypto,
@@ -649,7 +652,7 @@ class SequencerNodeBootstrap(
           // sequencer authentication uses a different set of signing keys and thus should not use session keys
           syncCryptoForAuthentication = SynchronizerCryptoClient.create(
             sequencerId,
-            synchronizerId,
+            synchronizerId.logical,
             topologyClient,
             staticSynchronizerParameters,
             crypto,
@@ -1007,7 +1010,7 @@ class SequencerNode(
     val ports = Map("public" -> config.publicApi.port, "admin" -> config.adminApi.port)
 
     SequencerNodeStatus(
-      sequencer.synchronizerId.unwrap,
+      sequencer.synchronizerId.logical.unwrap,
       sequencer.synchronizerId,
       uptime(),
       ports,
