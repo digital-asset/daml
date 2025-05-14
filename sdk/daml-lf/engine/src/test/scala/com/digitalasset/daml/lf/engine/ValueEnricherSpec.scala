@@ -152,7 +152,6 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
           Some("Mod:Record"),
           ImmArray(
             Some[Ref.Name]("field") -> ValueInt64(33),
-            Some[Ref.Name]("optField") -> ValueNone,
           ),
         ),
       ),
@@ -163,7 +162,6 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
           Some("Mod:Record"),
           ImmArray(
             Some[Ref.Name]("field") -> ValueInt64(33),
-            Some[Ref.Name]("optField") -> ValueNone,
           ),
         ),
       ),
