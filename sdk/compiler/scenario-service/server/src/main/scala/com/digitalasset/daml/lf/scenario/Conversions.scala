@@ -268,8 +268,17 @@ final class Conversions(
                     )
                 }
               case _: Upgrade =>
-                proto.ScenarioError.UpgradeError.newBuilder.setMessage(
-                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                builder.setUpgradeError(
+                  proto.ScenarioError.UpgradeError.newBuilder.setMessage(
+                    speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                  )
+                )
+              case DisallowedInterfaceExercise(cid, ifaceId, choiceName, tmplId) =>
+                builder.setDisallowedInterfaceExercise(
+                  proto.ScenarioError.DisallowedInterfaceExercise.newBuilder
+                    .setContractRef(mkContractRef(cid, tmplId))
+                    .setChoiceId(choiceName)
+                    .setInterfaceId(convertIdentifier(ifaceId))
                 )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)

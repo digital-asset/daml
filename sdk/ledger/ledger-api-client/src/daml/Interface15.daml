@@ -1,0 +1,15 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Interface15 where  
+  
+data V = V {}
+
+interface I where
+  viewtype V
+  owner: Party
+
+  nonconsuming choice C: ()
+    controller (owner this)
+    do
+      pure ()

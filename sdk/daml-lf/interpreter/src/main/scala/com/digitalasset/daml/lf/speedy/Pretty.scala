@@ -209,6 +209,13 @@ private[lf] object Pretty {
               )
           }
         }
+      case DisallowedInterfaceExercise(coid, ifaceId, choiceName, tmplId) =>
+        text(s"LF 1.15 interface choice implemented by LF 1.17 (or newer) template is disallowed") &
+          text("when exercising choice") & prettyIdentifier(ifaceId) & text(":") & text(
+            choiceName
+          ) /
+          text("on contract") & prettyContractId(coid) /
+          text("of template") & prettyTypeConName(tmplId)
       case Dev(_, error) =>
         error match {
           case Dev.Limit(error) =>

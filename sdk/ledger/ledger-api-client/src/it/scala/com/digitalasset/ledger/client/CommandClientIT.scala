@@ -17,12 +17,17 @@ import com.daml.ledger.api.v1.command_submission_service.{
   CommandSubmissionServiceGrpc,
   SubmitRequest,
 }
-import com.daml.ledger.api.v1.commands.{Command, CreateCommand, ExerciseCommand}
+import com.daml.ledger.api.v1.commands.{
+  Command,
+  CreateCommand,
+  CreateAndExerciseCommand,
+  ExerciseCommand,
+}
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.LedgerBoundary.LEDGER_BEGIN
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset.Value.Boundary
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc
-import com.daml.ledger.api.v1.value.{Record, RecordField}
+import com.daml.ledger.api.v1.value.{Identifier, Record, RecordField}
 import com.daml.ledger.client.configuration.CommandClientConfiguration
 import com.daml.ledger.client.services.commands.tracker.CompletionResponse.{
   CompletionFailure,
@@ -68,9 +73,13 @@ final class CommandClientIT
     with TryValues
     with Inside {
 
-  protected def darFile = Paths.get(BazelRunfiles.rlocation(ModelTestDar.path))
+  override protected val cantonFixtureDebugMode: CantonFixtureDebugMode =
+    CantonFixtureDebugKeepTmpFiles
 
-  override protected lazy val darFiles: List[java.nio.file.Path] = List(darFile)
+  protected def darFile = Paths.get(BazelRunfiles.rlocation(ModelTestDar.path))
+  def darFile0 = Paths.get(BazelRunfiles.rlocation("ledger/ledger-api-client/template17.dar"))
+
+  override protected lazy val darFiles: List[java.nio.file.Path] = List(darFile, darFile0)
 
   private val defaultCommandClientConfiguration =
     CommandClientConfiguration(
@@ -553,6 +562,30 @@ final class CommandClientIT
           a <- assertCommandFailsWithCode(command, Code.NOT_FOUND, "CONTRACT_NOT_FOUND")
         } yield a
 
+      }
+
+      "not accept exercise 1.15 interface implemented by 1.17 template" in {
+        for {
+          party <- freshParty()
+          command =
+            submitRequest(
+              "Exercise_15_interface_with_17_template",
+              List(
+                CreateAndExerciseCommand(
+                  Some(Identifier("#template17", "Template17", "T")),
+                  Some(List("" -> party.asParty).asRecord),
+                  "D",
+                  Some(Nil.asRecordValue),
+                ).wrap
+              ),
+              party,
+            )
+          r <- assertCommandFailsWithCode(
+            command,
+            Code.FAILED_PRECONDITION,
+            "DISALLOWED_INTERFACE_EXERCISE",
+          )
+        } yield r
       }
     }
   }
