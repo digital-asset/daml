@@ -12,6 +12,7 @@ import Ledger, {
   PartyInfo,
   Query,
   UserRightHelper,
+  LedgerError,
 } from "@daml/ledger";
 import {
   Choice,
@@ -1258,8 +1259,10 @@ test("stream close behaviour", async () => {
   const url = "ws" + httpBaseUrl().slice(4) + "v1/stream/query";
   const events: string[] = [];
   const ws = new WebSocket(url, ["jwt.token." + ALICE_TOKEN, "daml.ws.auth"]);
-  await new Promise(resolve => ws.addEventListener("open", () => resolve()));
-  const forCloseEvent = new Promise(resolve =>
+  await new Promise<void>(resolve =>
+    ws.addEventListener("open", () => resolve()),
+  );
+  const forCloseEvent = new Promise<void>(resolve =>
     ws.addEventListener("close", () => {
       events.push("close");
       resolve();
@@ -1364,7 +1367,8 @@ test("package API", async () => {
     try {
       await p;
       expect(true).toBe(false);
-    } catch (exc) {
+    } catch (e) {
+      const exc = e as LedgerError;
       expect([400, 404]).toContain(exc.status);
       expect(exc.errors.length).toBe(1);
     }
@@ -1378,7 +1382,7 @@ test("package API", async () => {
   );
   expect(packagesBefore.length > 1).toBe(true);
 
-  const nonSense = Uint8Array.from([1, 2, 3, 4]);
+  const nonSense = Buffer.from(Uint8Array.from([1, 2, 3, 4]));
 
   await expectFail(ledger.uploadDarFile(nonSense));
 
