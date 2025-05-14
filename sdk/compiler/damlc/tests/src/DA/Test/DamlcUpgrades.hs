@@ -265,18 +265,20 @@ tests damlc =
             , testUpgradeCheck
                   "FailsWhenAnInstanceIsAddedSeparateDep"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
-            , testUpgradeCheck
+            , testUpgradeCheckWithExtraArgs
                   "FailsWhenAnInstanceIsAddedUpgradedPackage"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+                  ["-Wno-upgrade-interfaces"]
             , testUpgradeCheck
                   "FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface"
                   (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
             , testUpgradeCheck
                   "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
                   Succeed
-            , testUpgradeCheck
+            , testUpgradeCheckWithExtraArgs
                   "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
                   Succeed
+                  ["-Wupgrade-interfaces"]
             , testUpgradeCheck
                   "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes"
                   (FailWithError "error type checking data type Main.Main:\n  The upgraded data type Main has changed the types of some of its original fields.")
@@ -543,11 +545,18 @@ tests damlc =
         :: String
         -> Expectation
         -> TestTree
-    testUpgradeCheck name expectation = testUpgradeCheckMany name expectation $ do
+    testUpgradeCheck name expectation = testUpgradeCheckWithExtraArgs name expectation []
+
+    testUpgradeCheckWithExtraArgs
+        :: String
+        -> Expectation
+        -> [String]
+        -> TestTree
+    testUpgradeCheckWithExtraArgs name expectation additional = testUpgradeCheckMany name expectation $ do
         let testAdditionaDarRunfile version = locateRunfiles (mainWorkspace </> "test-common" </> ("upgrades-" <> name <> "-" <> version <> ".dar"))
         v1Dar <- testAdditionaDarRunfile "v1"
         v2Dar <- testAdditionaDarRunfile "v2"
-        pure [v1Dar, v2Dar]
+        pure $ additional ++ [v1Dar, v2Dar]
 
     testUpgradeCheckMany
         :: String

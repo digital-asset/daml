@@ -29,7 +29,7 @@ import Control.Monad.Trans.Except
 import qualified Data.Validation as Validation
 import Data.Validation (Validation)
 import Data.Functor.Compose
-import DA.Daml.LF.TypeChecker.Error.WarningFlags
+import Data.Functor.Contravariant
 
 -- Monad in which all checking operations run
 -- Occasionally we change to CheckMValidate
@@ -142,57 +142,57 @@ sortPackagesParentFirstM packages =
       withIdAndPkg x@(_path, upgradedPkg, _deps) = (upwnavPkgId upgradedPkg, x, upwnavPkg upgradedPkg)
       withoutIdAndPkg (_pkgId, x, _pkg) = x
 
-checkPackageAgainstPastPackages :: (Archive, [Archive]) -> CheckM ()
-checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
+checkPackageAgainstPastPackages :: Options -> (Archive, [Archive]) -> CheckMValidate ()
+checkPackageAgainstPastPackages opts ((path, main, deps), pastPackages) = do
   case splitPackageVersion id <$> upwnavVersion main of
     Nothing -> pure ()
     Just (Left _) -> pure ()
     Just (Right rawVersion) -> do
       let pastPackageFilterVersion pred = flip mapMaybe pastPackages $ \case
-            (_, pastPkg, pkgDeps) -> do
+            pastPackageTuple@(_, pastPkg, _) -> do
               guard (not (isUtilityPackage (upwnavPkg pastPkg)))
               guard (upwnavName pastPkg == upwnavName main)
               case splitPackageVersion id <$> upwnavVersion pastPkg of
                 Just (Right rawVersion) -> do
                   guard (pred rawVersion)
-                  pure (rawVersion, (pastPkg, pkgDeps))
+                  pure (rawVersion, pastPackageTuple)
                 _ -> Nothing
       let ordFst = compare `on` fst
       case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
         Nothing -> pure ()
-        Just (_, (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps)) -> do
+        Just (_, (closestPastPackageWithLowerVersionPath, closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps)) -> do
           let errs =
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
                   (upwnavPkg main) deps
                   LFV.version2_dev
-                  (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
-                  (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
+                  (UpgradeInfo (Just (fromNormalizedFilePath closestPastPackageWithLowerVersionPath)) True)
+                  (contramap Left (optDamlWarningFlags opts))
                   (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
-          when (not (null errs)) (throwE [CEDiagnostic path errs])
+          when (not (null errs)) (toValidate (throwE [CEDiagnostic path errs]))
       case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
         Nothing -> pure ()
-        Just (_, (closestPastPackageWithHigherVersion, closestPastPackageWithHigherVersionDeps)) -> do
+        Just (_, (closestPastPackageWithHigherVersionPath, closestPastPackageWithHigherVersion, closestPastPackageWithHigherVersionDeps)) -> do
           let errs =
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
                   (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
                   LFV.version2_dev
-                  (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
-                  (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
+                  (UpgradeInfo (Just (fromNormalizedFilePath closestPastPackageWithHigherVersionPath)) True)
+                  (contramap Left (optDamlWarningFlags opts))
                   (Just (main, deps))
-          when (not (null errs)) (throwE [CEDiagnostic path errs])
+          when (not (null errs)) (toValidate (throwE [CEDiagnostic path errs]))
       let upwnavToExternalDep UpgradedPkgWithNameAndVersion { upwnavPkgId, upwnavPkg } = LF.ExternalPackage upwnavPkgId upwnavPkg
       let standaloneErrors =
             extractDiagnostics
               LFV.version2_dev
-              (UpgradeInfo (Just (fromNormalizedFilePath path)) True)
-              (mkDamlWarningFlags damlWarningFlagParserTypeChecker []) $
+              (UpgradeInfo Nothing True)
+              (contramap Left (optDamlWarningFlags opts)) $
                 Upgrade.checkPackageSingle Nothing (upwnavPkg main) (map upwnavToExternalDep deps)
-      when (not (null standaloneErrors)) (throwE [CEDiagnostic path standaloneErrors])
+      when (not (null standaloneErrors)) (toValidate (throwE [CEDiagnostic path standaloneErrors]))
 
-runUpgradeCheck :: [String] -> IO ()
-runUpgradeCheck rawPaths = do
+runUpgradeCheck :: Options -> [String] -> IO ()
+runUpgradeCheck opts rawPaths = do
   let paths = map toNormalizedFilePath' rawPaths
   errsOrUnit <- runExceptT $ do
     packages <- fromValidate $ traverse (toValidate . readPathToArchive) paths
@@ -203,7 +203,7 @@ runUpgradeCheck rawPaths = do
           where
           go [] = Nothing
           go (x:xs) = Just (x, xs)
-    mapM_ checkPackageAgainstPastPackages sortedPackagesWithPastPackages
+    mapM_ (fromValidate . checkPackageAgainstPastPackages opts) sortedPackagesWithPastPackages
   case errsOrUnit of
     Left errs -> do
       hPutStrLn stderr (renderPretty (CheckingErrors errs))
