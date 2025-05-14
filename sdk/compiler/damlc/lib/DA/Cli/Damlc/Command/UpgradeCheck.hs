@@ -29,7 +29,8 @@ import Control.Monad.Trans.Except
 import qualified Data.Validation as Validation
 import Data.Validation (Validation)
 import Data.Functor.Compose
-import Data.Functor.Contravariant
+import Data.Functor.Contravariant (contramap)
+import Data.Foldable (sequenceA_)
 
 -- Monad in which all checking operations run
 -- Occasionally we change to CheckMValidate
@@ -158,7 +159,7 @@ checkPackageAgainstPastPackages opts ((path, main, deps), pastPackages) = do
                   pure (rawVersion, pastPackageTuple)
                 _ -> Nothing
       let ordFst = compare `on` fst
-      sequenceA
+      sequenceA_
         [ case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
             Nothing -> pure ()
             Just (_, (closestPastPackageWithLowerVersionPath, closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps)) -> do
@@ -193,7 +194,6 @@ checkPackageAgainstPastPackages opts ((path, main, deps), pastPackages) = do
           in
           when (not (null standaloneErrors)) (toValidate (throwE [CEDiagnostic path standaloneErrors]))
         ]
-      pure ()
 
 runUpgradeCheck :: Options -> [String] -> IO ()
 runUpgradeCheck opts rawPaths = do
