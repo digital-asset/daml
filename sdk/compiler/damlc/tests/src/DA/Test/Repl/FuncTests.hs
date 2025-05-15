@@ -10,7 +10,6 @@ import Control.Exception
 import Control.Monad.Extra
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import DA.Cli.Damlc.DependencyDb
 import DA.Daml.Compiler.Repl
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.ReplClient as ReplClient
@@ -141,15 +140,9 @@ initPackageConfig options scriptDar dars = do
         , "data-dependencies:"
         , "- " <> show scriptDar
         ] ++ ["- " <> show dar | dar <- dars]
-    withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
-        dir <- getCurrentDirectory
-        installDependencies
-            (toNormalizedFilePath' dir)
-            options
-            (unsafeResolveReleaseVersion pSdkVersion)
-            pDependencies
-            pDataDependencies
-        createProjectPackageDb (toNormalizedFilePath' dir) options pModulePrefixes
+    dir <- getCurrentDirectory
+    withPackageConfig (ProjectPath ".") $
+        setupPackageDbFromPackageConfig (toNormalizedFilePath' dir) options
 
 drainHandle :: Handle -> Chan String -> IO ()
 drainHandle handle chan = forever $ do

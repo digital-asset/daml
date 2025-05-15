@@ -8,6 +8,7 @@ module DA.Cli.Damlc.DependencyDb
     , mainMarker
     , depMarker
     , dataDepMarker
+    , packageDbLockPath
     ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
@@ -94,8 +95,11 @@ dependenciesDir opts projRoot =
     fromNormalizedFilePath projRoot </> projectDependenciesDatabase </>
     lfVersionString (optDamlLfVersion opts)
 
-lockFile :: FilePath
-lockFile = "daml.lock"
+packageDbLockPath :: NormalizedFilePath -> FilePath
+packageDbLockPath projRoot = fromNormalizedFilePath projRoot </> damlArtifactDir </> "setup-package-db.lock"
+
+remotePackagesLockFile :: FilePath
+remotePackagesLockFile = "daml.lock"
 
 fingerprintFile :: FilePath
 fingerprintFile = "fingerprint.json"
@@ -339,11 +343,11 @@ resolvePkgs projRoot opts pkgs
                 | FullPkgName {pkgName, pkgVersion} <- missing
                 ]
             Right result -> do
-              writeLockFile lockFile result
+              writeLockFile remotePackagesLockFile result
               pure result
   where
     depsDir = dependenciesDir opts projRoot
-    lockFp = fromNormalizedFilePath projRoot </> lockFile
+    lockFp = fromNormalizedFilePath projRoot </> remotePackagesLockFile
 
 writeLockFile :: FilePath -> M.Map FullPkgName LF.PackageId -> IO ()
 writeLockFile lockFp resolvedPkgs = do

@@ -93,8 +93,7 @@ import Test.Tasty.Options
 import Test.Tasty.Providers
 import Test.Tasty.Runners (Result(..))
 
-import DA.Cli.Damlc.DependencyDb (installDependencies)
-import DA.Cli.Damlc.Packaging (createProjectPackageDb)
+import DA.Cli.Damlc.Packaging (setupPackageDb)
 import Module (stringToUnitId)
 import SdkVersion (SdkVersioned, withSdkVersions, sdkVersion, sdkPackageVersion)
 
@@ -172,15 +171,12 @@ withVersionedDamlScriptDep packageFlagName darPath mLfVer extraPackages cont = d
 
       extraDars <- traverse (\(name, _) -> locateRunfiles $ mainWorkspace </> "compiler" </> "damlc" </> "tests" </> name <> ".dar") extraPackages
 
-      installDependencies
+      setupPackageDb
         projDir
         (defaultOptions mLfVer)
         (unsafeResolveReleaseVersion (either throw id (parseUnresolvedVersion (T.pack sdkVersion))))
         ["daml-prim", "daml-stdlib"]
         (scriptDar : extraDars)
-      createProjectPackageDb
-        projDir
-        (defaultOptions mLfVer)
         mempty
 
       cont (dir </> projectPackageDatabase, packageFlags)
