@@ -1411,5 +1411,37 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         "Upload of .*package .* contains .*daml-script.* as a dependency.",
       )
     }
+
+    "Fails when upgrading an LF1.15 dependency without using it" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
+          "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+
+    "Fails when upgrading an LF1.15 dependency at a use site" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
+          "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
+            "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
+            Some("The upgraded data type MainD has changed the types of some of its original fields."),
+          )
+        ),
+      )
+    }
   }
 }

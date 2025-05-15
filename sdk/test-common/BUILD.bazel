@@ -647,6 +647,67 @@ da_scala_dar_resources_library(
             },
             None,
         ),
+
+        (
+            "SucceedsWhenUpgradingLF115DepsWithoutSameUseSite",
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar"
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2"
+                },
+            },
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar"
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2"
+                },
+            },
+            None
+        ),
+
+        (
+            "FailsWhenUpgradingLF115DepsAtUseSite",
+            {
+                "data_dependencies": ["//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSiteDep-v1.dar"],
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSiteDep-v2.dar"],
+            },
+            None
+        ),
+    ]
+]
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1".format(name),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(name)]),
+            project_name = "upgrades-example-{}".format(name),
+            target = lf_v1,
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v2".format(name),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(name)]),
+            project_name = "upgrades-example-{}".format(name),
+            target = lf_v2,
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for name, lf_v1, lf_v2 in [
+        ("SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep", "1.15", "1.17"),
+        ("FailsWhenUpgradingLF115DepsAtUseSiteDep", "1.15", "1.15"),
     ]
 ]
 
