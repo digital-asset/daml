@@ -151,8 +151,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord(
           Some("Mod:Record"),
           ImmArray(
-            Some[Ref.Name]("field") -> ValueInt64(33),
-            Some[Ref.Name]("optField") -> ValueNone,
+            Some[Ref.Name]("field") -> ValueInt64(33)
           ),
         ),
       ),
@@ -162,8 +161,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         ValueRecord(
           Some("Mod:Record"),
           ImmArray(
-            Some[Ref.Name]("field") -> ValueInt64(33),
-            Some[Ref.Name]("optField") -> ValueNone,
+            Some[Ref.Name]("field") -> ValueInt64(33)
           ),
         ),
       ),
@@ -295,7 +293,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         )
 
       val outputRecord =
-        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33), "optField" -> ValueNone))
+        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,
