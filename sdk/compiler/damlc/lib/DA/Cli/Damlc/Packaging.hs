@@ -933,6 +933,30 @@ prefixModules prefixes dalfs = do
                 , NM.names . LF.packageModules . LF.extPackagePkg $ LF.dalfPackagePkg pkg
                 )
 
+unsafeSetupPackageDb
+    :: SdkVersioned
+    => NormalizedFilePath
+    -> Options
+    -> ReleaseVersion
+    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+    -> MS.Map UnitId GHC.ModuleName
+    -> IO ()
+unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
+    installDependencies
+        projRoot
+        opts
+        releaseVersion
+        pDependencies
+        pDataDependencies
+    createProjectPackageDb projRoot opts pModulePrefixes
+
+withPkgDbLock :: NormalizedFilePath -> IO a -> IO a
+withPkgDbLock projRoot act = do
+    let packageDbLockFile = packageDbLockPath projRoot
+    createDirectoryIfMissing True $ takeDirectory packageDbLockFile
+    withFileLock packageDbLockFile Exclusive $ const act
+
 -- Installs dependencies and creates package Db ready to be used
 setupPackageDb
     :: SdkVersioned
@@ -943,17 +967,8 @@ setupPackageDb
     -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
     -> MS.Map UnitId GHC.ModuleName
     -> IO ()
-setupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
-    let packageDbLockFile = packageDbLockPath projRoot
-    createDirectoryIfMissing True $ takeDirectory packageDbLockFile
-    withFileLock packageDbLockFile Exclusive $ const $ do
-        installDependencies
-            projRoot
-            opts
-            releaseVersion
-            pDependencies
-            pDataDependencies
-        createProjectPackageDb projRoot opts pModulePrefixes
+setupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
+    withPkgDbLock projRoot $ unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
 
 setupPackageDbFromPackageConfig
     :: SdkVersioned
@@ -961,13 +976,14 @@ setupPackageDbFromPackageConfig
     -> Options
     -> PackageConfigFields
     -> IO ()
-setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} = do
-    damlAssistantIsSet <- damlAssistantIsSet
-    releaseVersion <- if damlAssistantIsSet
-        then do
-          damlPath <- getDamlPath
-          damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-          wrapErr "installing dependencies and initializing package database" $
-            resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
-        else pure (unsafeResolveReleaseVersion pSdkVersion)
-    setupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} =
+    withPkgDbLock projRoot $ do
+        damlAssistantIsSet <- damlAssistantIsSet
+        releaseVersion <- if damlAssistantIsSet
+            then do
+              damlPath <- getDamlPath
+              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+              wrapErr "installing dependencies and initializing package database" $
+                resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
+            else pure (unsafeResolveReleaseVersion pSdkVersion)
+        unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
