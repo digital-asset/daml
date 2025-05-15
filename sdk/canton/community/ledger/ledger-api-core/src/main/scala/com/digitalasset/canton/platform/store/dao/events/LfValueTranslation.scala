@@ -180,17 +180,11 @@ final class LfValueTranslation(
   ): Future[VersionedTransaction] =
     consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
 
-  def enrichCreateNode(node: Node.Create)(implicit
-      ec: ExecutionContext,
-      loggingContext: LoggingContextWithTrace,
-  ): Future[Node.Create] =
-    consumeEnricherResult(enricher.enrichNode(node)).flatMap {
-      case enriched: Node.Create => Future.successful(enriched)
-      case other =>
-        Future.failed(
-          new RuntimeException(s"Node enrichment produced a different node type: $other")
-        )
-    }
+  def enrichContract(contract: FatContractInstance)(implicit
+                                                ec: ExecutionContext,
+                                                loggingContext: LoggingContextWithTrace,
+  ): Future[FatContractInstance] =
+    consumeEnricherResult(enricher.enrichContract(contract))
 
   def toApiValue(
       value: LfValue,

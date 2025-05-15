@@ -183,22 +183,13 @@ class DAMLe(
     EitherT {
       handleResult(
         ContractLookupAndVerification.noContracts(loggerFactory),
-        valueEnricher.enrichNode(createNode),
+        valueEnricher.enrichCreate(createNode),
         // This should not happen as value enrichment should only request lookups
         () =>
           EngineController.EngineAbortStatus(
             Some("Unexpected engine interruption while enriching create node")
           ),
-      ).flatMap {
-        case Right(createNode: LfNodeCreate) => FutureUnlessShutdown.pure(Right(createNode))
-        case Right(otherNode) =>
-          FutureUnlessShutdown.failed(
-            new RuntimeException(
-              s"Enrichment of create node produced another node type: $otherNode"
-            )
-          )
-        case Left(value) => FutureUnlessShutdown.pure(Left(value))
-      }
+      )
     }
   }
 

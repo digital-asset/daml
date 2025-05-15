@@ -261,8 +261,9 @@ private[lf] object IdeLedgerRunner {
       compiledPackages = compiledPackages,
       translateValue = translateValue,
       loadPackage = loadPackage,
-      keepTypeInfo = true,
-      keepFieldName = true,
+      addTypeInfo = true,
+      addFieldName = true,
+      addTrailingNoneFields = false,
     )
     def consume[V](res: Result[V]): V =
       res match {

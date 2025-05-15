@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   Node,
   SubmittedTransaction,
+  TransactionCoder,
   Versioned,
   VersionedTransaction,
   Transaction => Tx,
@@ -424,6 +425,9 @@ class Engine(val config: EngineConfig) {
     }
   }
 
+  private lazy val enricher =
+    new ValueEnricher(this, addTypeInfo = true, addFieldName = true, addTrailingNoneFields = false)
+
   private[engine] def interpretLoop(
       machine: UpdateMachine,
       time: Time.Timestamp,
@@ -439,6 +443,35 @@ class Engine(val config: EngineConfig) {
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
           deps(tx).flatMap { deps =>
+            if (config.paranoid) {
+              (for {
+                encoded <- TransactionCoder
+                  .encodeTransaction(tx)
+                  .left
+                  .map("transaction encoding fails: " + _)
+                decoded <- TransactionCoder
+                  .decodeTransaction(encoded)
+                  .left
+                  .map("transaction decoding fails: " + _)
+                _ <- Either.cond(
+                  tx == decoded,
+                  (),
+                  "transaction encoding/decoding is not idempotent",
+                )
+                rich <- enricher
+                  .enrichVersionedTransaction(tx)
+                  .consume()
+                  .left
+                  .map("transaction enrichment fails: " + _)
+                poor = ValueEnricher.impoverish(rich)
+                _ <- Either.cond(
+                  tx == poor,
+                  (),
+                  "transaction enrichment/impoverishment is not idempotent",
+                )
+              } yield ()).fold(err => throw new java.lang.AssertionError(err), identity)
+            }
+
             val meta = Tx.Metadata(
               submissionSeed = None,
               submissionTime = machine.submissionTime,

@@ -4,15 +4,16 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, QualifiedName, Name, PackageId, PackageRef}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef, QualifiedName}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
   IncompleteTransaction,
-  Transaction,
   Node,
   NodeId,
+  Transaction,
   Versioned,
   VersionedTransaction,
 }
@@ -24,33 +25,179 @@ import com.digitalasset.daml.lf.speedy.SValue
 // - type constructor in records, variants, and enums
 // - Records' field names
 
+object ValueEnricher {
+
+  def impoverish(value: Value): Value = {
+    def go(value0: Value, nesting: Int): Value =
+      if (nesting > Value.MAXIMUM_NESTING) {
+        throw Error.Preprocessing.ValueNesting(value)
+      } else {
+        val newNesting = nesting + 1
+        value0 match {
+          case _: Value.ValueCidlessLeaf | _: Value.ValueContractId => value0
+          case Value.ValueRecord(_, fields) =>
+            Value.ValueRecord(
+              tycon = None,
+              fields = fields.map { case (_, v) => None -> go(v, newNesting) },
+            )
+          case Value.ValueVariant(_, variant, value) =>
+            Value.ValueVariant(
+              tycon = None,
+              variant = variant,
+              value = go(value, newNesting),
+            )
+          case Value.ValueList(values) =>
+            Value.ValueList(
+              values = values.map(go(_, newNesting))
+            )
+          case Value.ValueOptional(value) =>
+            Value.ValueOptional(
+              value = value.map(go(_, newNesting))
+            )
+          case Value.ValueTextMap(value) =>
+            Value.ValueTextMap(
+              value = value.mapValue(go(_, newNesting))
+            )
+          case Value.ValueGenMap(entries) =>
+            Value.ValueGenMap(
+              entries = entries.map { case (k, v) =>
+                go(k, newNesting) -> go(v, newNesting)
+              }
+            )
+        }
+      }
+
+    go(value, 0)
+  }
+
+  private def impoverish(key: GlobalKey): GlobalKey =
+    GlobalKey.assertBuild(
+      templateId = key.templateId,
+      key = impoverish(key.key),
+      key.packageName,
+    )
+
+  private def impoverish(key: GlobalKeyWithMaintainers): GlobalKeyWithMaintainers =
+    GlobalKeyWithMaintainers(
+      globalKey = impoverish(key.globalKey),
+      maintainers = key.maintainers,
+    )
+
+  private def impoverish(create: Node.Create): Node.Create = {
+    import create._
+    Node.Create(
+      coid = coid,
+      packageName = packageName,
+      templateId = templateId,
+      arg = impoverish(arg),
+      signatories = signatories,
+      stakeholders = stakeholders,
+      keyOpt = keyOpt.map(impoverish),
+      version = version,
+    )
+  }
+
+  private def impoverish(node: Node): Node =
+    node match {
+      case create: Node.Create =>
+        impoverish(create)
+      case fetch: Node.Fetch =>
+        import fetch._
+        Node.Fetch(
+          coid = coid,
+          packageName = packageName,
+          templateId = templateId,
+          actingParties = actingParties,
+          signatories = signatories,
+          stakeholders = stakeholders,
+          keyOpt = keyOpt.map(impoverish),
+          byKey = byKey,
+          interfaceId = interfaceId,
+          version = version,
+        )
+      case lookup: Node.LookupByKey =>
+        import lookup._
+        Node.LookupByKey(
+          packageName = packageName,
+          templateId = templateId,
+          key = impoverish(key),
+          result = result,
+          version = version,
+        )
+      case exe: Node.Exercise =>
+        import exe._
+        Node.Exercise(
+          targetCoid = targetCoid,
+          packageName = packageName,
+          templateId = templateId,
+          interfaceId = interfaceId,
+          choiceId = choiceId,
+          consuming = consuming,
+          actingParties = actingParties,
+          chosenValue = impoverish(chosenValue),
+          stakeholders = stakeholders,
+          signatories = signatories,
+          choiceObservers = choiceObservers,
+          choiceAuthorizers = choiceAuthorizers,
+          children = children,
+          exerciseResult = exerciseResult.map(impoverish),
+          keyOpt = keyOpt.map(impoverish),
+          byKey = byKey,
+          version = version,
+        )
+      case rb: Node.Rollback => rb
+    }
+
+  def impoverish(tx: VersionedTransaction): VersionedTransaction =
+    VersionedTransaction(
+      version = tx.version,
+      nodes = tx.nodes.map { case (nid, node) => nid -> impoverish(node) },
+      roots = tx.roots,
+    )
+
+  def impoverish(contract: FatContractInstance): FatContractInstance = {
+    val create = impoverish(contract.toCreateNode)
+    FatContractInstance.fromCreateNode(
+      create = create,
+      createTime = contract.createdAt,
+      cantonData = contract.cantonData,
+    )
+  }
+}
+
 final class ValueEnricher(
     compiledPackages: CompiledPackages,
     translateValue: (Ast.Type, Value) => Result[SValue],
     loadPackage: (PackageId, language.Reference) => Result[Unit],
-    keepTypeInfo: Boolean,
-    keepFieldName: Boolean,
-    keepTrailingNoneFields: Boolean
+    addTypeInfo: Boolean,
+    addFieldName: Boolean,
+    addTrailingNoneFields: Boolean,
 ) {
 
   def this(
       engine: Engine,
-      keepTypeInfo: Boolean = true,
-      keepFieldName: Boolean = true,
-      keepTrailingNoneFields: Boolean = true
-          ) =
+      addTypeInfo: Boolean = true,
+      addFieldName: Boolean = true,
+      addTrailingNoneFields: Boolean = true,
+  ) =
     this(
       engine.compiledPackages(),
       engine.preprocessor.translateValue,
       engine.loadPackage,
-      keepTypeInfo = keepTypeInfo,
-      keepFieldName = keepFieldName,
-      keepTrailingNoneFields = keepTrailingNoneFields,
+      addTypeInfo = addTypeInfo,
+      addFieldName = addFieldName,
+      addTrailingNoneFields = addTrailingNoneFields,
     )
 
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
     translateValue(typ, value)
-      .map(_.toValue(keepTypeInfo = keepTypeInfo, keepFieldName = keepFieldName, keepTrailingNoneFields = keepTrailingNoneFields))
+      .map(
+        _.toValue(
+          keepTypeInfo = addTypeInfo,
+          keepFieldName = addFieldName,
+          keepTrailingNoneFields = addTrailingNoneFields,
+        )
+      )
 
   def enrichVersionedValue(
       typ: Ast.Type,
@@ -66,6 +213,13 @@ final class ValueEnricher(
     for {
       arg <- enrichContract(contract.template, contract.arg)
     } yield contract.copy(arg = arg)
+
+  def enrichContract(
+      contract: FatContractInstance
+  ): Result[FatContractInstance] =
+    enrichCreate(contract.toCreateNode).map(create =>
+      FatContractInstance.fromCreateNode(create, contract.createdAt, contract.cantonData)
+    )
 
   def enrichVersionedContract(
       contract: Value.VersionedThinContractInstance
@@ -200,15 +354,18 @@ final class ValueEnricher(
         ResultNone
     }
 
-  def enrichNode(node: Node): Result[Node] =
+  def enrichCreate(create: Node.Create): Result[Node.Create] =
+    for {
+      arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
+      key <- enrichContractKey(create.keyOpt)
+    } yield create.copy(arg = arg, keyOpt = key)
+
+  private def enrichNode(node: Node): Result[Node] =
     node match {
       case rb @ Node.Rollback(_) =>
         ResultDone(rb)
       case create: Node.Create =>
-        for {
-          arg <- enrichValue(Ast.TTyCon(create.templateId), create.arg)
-          key <- enrichContractKey(create.keyOpt)
-        } yield create.copy(arg = arg, keyOpt = key)
+        enrichCreate(create)
       case fetch: Node.Fetch =>
         for {
           key <- enrichContractKey(fetch.keyOpt)

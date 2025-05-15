@@ -310,7 +310,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "enricher can keep field name without type annotation" in {
-      val enrich = new ValueEnricher(engine, keepTypeInfo = false, keepFieldName = true)
+      val enrich = new ValueEnricher(engine, addTypeInfo = false, addFieldName = true, addTrailingNoneFields = false)
       import enrich.enrichValue
 
       val tRecord = TTyCon("Mod:Record")
