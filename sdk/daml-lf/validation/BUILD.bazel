@@ -404,10 +404,8 @@ da_scala_test_suite(
             "//test-common:upgrades-daml-script-lts-dep-lf15-on-lf15.dar",
             "//test-common:upgrades-daml-script-dep-lf17-on-lf15.dar",
             "//test-common:upgrades-daml-script-lts-dep-lf17-on-lf15.dar",
-
             "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
             "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
-
             "//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
         ],

@@ -647,32 +647,30 @@ da_scala_dar_resources_library(
             },
             None,
         ),
-
         (
             "SucceedsWhenUpgradingLF115DepsWithoutSameUseSite",
             {
                 "data_dependencies": [
                     "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v1.dar",
-                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar"
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar",
                 ],
                 "module_prefixes": {
                     "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-1.0.0": "DepV1",
-                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2"
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2",
                 },
             },
             {
                 "data_dependencies": [
                     "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v1.dar",
-                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar"
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar",
                 ],
                 "module_prefixes": {
                     "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-1.0.0": "DepV1",
-                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2"
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2",
                 },
             },
-            None
+            None,
         ),
-
         (
             "FailsWhenUpgradingLF115DepsAtUseSite",
             {
@@ -681,7 +679,7 @@ da_scala_dar_resources_library(
             {
                 "data_dependencies": ["//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSiteDep-v2.dar"],
             },
-            None
+            None,
         ),
     ]
 ]
