@@ -34,12 +34,11 @@ object UpgradeError {
 
   final case class CannotImplementNonUpgradeableInterface(
       pkg: Ref.PackageId,
-      lfVersion: Option[LanguageVersion],
       iface: Ref.TypeConName,
       tpl: Ref.DottedName,
   ) extends Error {
     override def message: String =
-      s"Template ${tpl} implements interface ${iface} from package ${pkg} which has LF version ${lfVersion.map(_.pretty).getOrElse("<= 1.15")}. It is forbidden for upgradeable templates (LF version >= 1.17) to implement interfaces from non-upgradeable packages (LF version <= 1.15)."
+      s"Template ${tpl} implements interface ${iface} from package ${pkg} which has LF version <= 1.15. It is forbidden for upgradeable templates (LF version >= 1.17) to implement interfaces from non-upgradeable packages (LF version <= 1.15)."
   }
 
   final case class CouldNotResolveUpgradedPackageId(packageId: Upgrading[Ref.PackageId])
@@ -333,25 +332,13 @@ private case class Closure[A](env: Env, value: A)
 abstract class TypecheckUpgradesUtils(
     val packageMap: Map[
       Ref.PackageId,
-      (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+      (Ref.PackageName, Ref.PackageVersion),
     ]
 ) extends NamedLogging {
   protected def getIfUpgradeable(
       pkgId: Ref.PackageId
-  ): Either[Option[LanguageVersion], (Ref.PackageName, Ref.PackageVersion)] = {
-    import Ordering.Implicits._
-
-    packageMap.get(pkgId) match {
-      case Some((name, version, Some(languageVersion))) =>
-        if (languageVersion >= LanguageVersion.Features.smartContractUpgrade)
-          Right((name, version))
-        else
-          Left(Some(languageVersion))
-      case Some((name, version, None)) =>
-        Right((name, version))
-      case None =>
-        Left(None)
-    }
+  ): Option[(Ref.PackageName, Ref.PackageVersion)] = {
+    packageMap.get(pkgId)
   }
 
   protected def failIf(predicate: Boolean, err: => UpgradeError.Error): Try[Unit] =
@@ -456,7 +443,7 @@ case class TypecheckUpgrades(
   private def typecheckUpgradesStandalone(
       packageMap: Map[
         Ref.PackageId,
-        (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+        (Ref.PackageName, Ref.PackageVersion),
       ],
       present: (
           Util.PkgIdWithNameAndVersion,
@@ -469,9 +456,7 @@ case class TypecheckUpgrades(
     val tc =
       TypecheckUpgradesStandalone(
         (presentPackageId.pkgId, presentPkg),
-        packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
-          presentPkg.languageVersion
-        ))),
+        packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version)),
         loggerFactory,
       )
     tc.check()
@@ -480,7 +465,7 @@ case class TypecheckUpgrades(
   private def typecheckUpgradesPair(
       packageMap: Map[
         Ref.PackageId,
-        (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+        (Ref.PackageName, Ref.PackageVersion),
       ],
       past: (
           Util.PkgIdWithNameAndVersion,
@@ -496,12 +481,8 @@ case class TypecheckUpgrades(
     val tc = TypecheckUpgradesPair(
       Upgrading((pastPackageId.pkgId, pastPkg), (presentPackageId.pkgId, presentPkg)),
       packageMap
-        + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version, Some(
-          presentPkg.languageVersion
-        )))
-        + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version, Some(
-          pastPkg.languageVersion
-        ))),
+        + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version))
+        + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version)),
       loggerFactory,
     )
     tc.check()
@@ -510,7 +491,7 @@ case class TypecheckUpgrades(
   def typecheckUpgrades(
       packageMap: Map[
         Ref.PackageId,
-        (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+        (Ref.PackageName, Ref.PackageVersion),
       ],
       phase: TypecheckUpgrades.UploadPhaseCheck[
         (
@@ -536,7 +517,7 @@ case class TypecheckUpgradesStandalone(
     pkg: (Ref.PackageId, Ast.Package),
     override val packageMap: Map[
       Ref.PackageId,
-      (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+      (Ref.PackageName, Ref.PackageVersion),
     ],
     val loggerFactory: NamedLoggerFactory,
 ) extends TypecheckUpgradesUtils(packageMap = packageMap) {
@@ -551,11 +532,10 @@ case class TypecheckUpgradesStandalone(
       ifaceId = instance._2.interfaceId
     } {
       getIfUpgradeable(ifaceId.packageId) match {
-        case Left(mbVersion) =>
+        case None =>
           warn(
             UpgradeError.CannotImplementNonUpgradeableInterface(
               pkg._1,
-              mbVersion,
               ifaceId,
               tplName,
             )
@@ -575,7 +555,7 @@ case class TypecheckUpgradesPair(
     ],
     override val packageMap: Map[
       Ref.PackageId,
-      (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion]),
+      (Ref.PackageName, Ref.PackageVersion),
     ],
     val loggerFactory: NamedLoggerFactory,
 ) extends TypecheckUpgradesUtils(packageMap = packageMap) {
@@ -749,11 +729,11 @@ case class TypecheckUpgradesPair(
       (getIfUpgradeable(past.packageId), getIfUpgradeable(present.packageId)) match {
         // The two packages have LF versions < 1.17.
         // They must be the exact same package as LF < 1.17 don't support upgrades.
-        case (Left(_), Left(_)) => past.packageId == present.packageId
+        case (None, None) => past.packageId == present.packageId
         // The two packages have LF versions >= 1.17.
         // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
         // topological order, the package version ordering is a proxy for the "upgrades" relationship.
-        case (Right((pastName, pastVersion)), Right((presentName, presentVersion))) =>
+        case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
           pastName == presentName && pastVersion <= presentVersion
         // LF versions < 1.17 and >= 1.17 are not comparable.
         case (_, _) => false

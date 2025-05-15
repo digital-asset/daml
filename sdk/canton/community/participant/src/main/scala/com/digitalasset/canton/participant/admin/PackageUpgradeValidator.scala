@@ -28,7 +28,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.math.Ordering.Implicits.infixOrderingOps
 
 object PackageUpgradeValidator {
-  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])]
+  type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
 }
 
 class PackageUpgradeValidator(
@@ -66,7 +66,7 @@ class PackageUpgradeValidator(
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap, upgradingPackagesMap)
               )
               res <- go(if (supportsUpgrades(pkg)) {
-                packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version, Some(pkg.languageVersion))))
+                packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version)))
               } else {
                 packageMap
               }, rest)
@@ -169,16 +169,16 @@ class PackageUpgradeValidator(
 
   private def existingVersionedPackageId(
       packageMetadata: Ast.PackageMetadata,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
   ): Option[Ref.PackageId] = {
     val pkgName = packageMetadata.name
     val pkgVersion = packageMetadata.version
-    packageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`, _)) => pkgId }
+    packageMap.collectFirst { case (pkgId, (`pkgName`, `pkgVersion`)) => pkgId }
   }
 
   private def minimalVersionedDar(
       packageMetadata: Ast.PackageMetadata,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
       upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -186,7 +186,7 @@ class PackageUpgradeValidator(
     val pkgName = packageMetadata.name
     val pkgVersion = packageMetadata.version
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion, _)) =>
+      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
       .filter { case (_, version) => pkgVersion < version }
@@ -205,7 +205,7 @@ class PackageUpgradeValidator(
 
   private def maximalVersionedDar(
       packageMetadata: Ast.PackageMetadata,
-      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion, Option[LanguageVersion])],
+      packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)],
       upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
   )(implicit
       loggingContext: LoggingContextWithTrace
@@ -213,7 +213,7 @@ class PackageUpgradeValidator(
     val pkgName = packageMetadata.name
     val pkgVersion = packageMetadata.version
     packageMap
-      .collect { case (pkgId, (`pkgName`, pkgVersion, _)) =>
+      .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
       .filter { case (_, version) => pkgVersion > version }

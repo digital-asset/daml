@@ -72,7 +72,7 @@ class PackageUploader(
 
   private val loggingSubject = "Upgradable Package Resolution View"
   private[admin] val upgradablePackageResolutionMapRef
-      : AtomicReference[Option[Map[LfPackageId, (LfPackageName, LfPackageVersion, Option[LanguageVersion])]]] =
+      : AtomicReference[Option[Map[LfPackageId, (LfPackageName, LfPackageVersion)]]] =
     new AtomicReference(None)
   private val uploadDarExecutionQueue = new SimpleExecutionQueue(
     "sequential-upload-dar-queue",
@@ -310,7 +310,7 @@ class PackageUploader(
         case None =>
           logger.error(s"Trying to update an uninitialized $loggingSubject")
           None
-        case Some(current) => Some(current + (pkgId -> (pkgName, pkgVersion, None)))
+        case Some(current) => Some(current + (pkgId -> (pkgName, pkgVersion)))
       }.discard
     }
 
@@ -322,9 +322,9 @@ class PackageUploader(
 
       packagesDarsStore
         .listPackages()
-        .map(_.foldLeft(Map.empty[LfPackageId, (LfPackageName, LfPackageVersion, Option[LanguageVersion])]) {
+        .map(_.foldLeft(Map.empty[LfPackageId, (LfPackageName, LfPackageVersion)]) {
           case (acc, PackageDescription(packageId, _, Some(packageName), Some(packageVersion))) =>
-            acc + (packageId -> (packageName, packageVersion, None))
+            acc + (packageId -> (packageName, packageVersion))
           case (acc, _) =>
             // Only upgradable packages (i.e. have language version >= 1.16) are stored with name and version populated
             acc
@@ -348,7 +348,7 @@ class PackageUploader(
 
   private def getSnapshot(implicit
       tc: TraceContext
-  ): Map[LfPackageId, (LfPackageName, LfPackageVersion, Option[LanguageVersion])] =
+  ): Map[LfPackageId, (LfPackageName, LfPackageVersion)] =
     upgradablePackageResolutionMapRef
       .get()
       .getOrElse(
