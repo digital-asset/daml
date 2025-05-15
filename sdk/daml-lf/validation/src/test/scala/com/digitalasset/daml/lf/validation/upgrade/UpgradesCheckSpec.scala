@@ -1438,7 +1438,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           (
             "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
             "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
-            Some("The upgraded data type MainD has changed the types of some of its original fields."),
+            Some(
+              "The upgraded data type MainD has changed the types of some of its original fields."
+            ),
           )
         ),
       )
