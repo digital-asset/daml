@@ -950,7 +950,7 @@ checkQualName deps name =
                   if udPkgName (_present upgradingDep) `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
                   then []
                   else case udMbPackageVersion `traverse` upgradingDep of
-                    Just version -> ifMismatch (_past version > _present version) (PastPackageHasHigherVersion upgradingDep)
+                    Just version -> ifMismatch (_past version < _present version) (PastPackageHasHigherVersion upgradingDep)
                     _ -> [] -- This case should not be possible
                 Upgrading False False ->
                   case udMbPackageVersion <$> upgradingDep of
