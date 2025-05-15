@@ -101,7 +101,7 @@ trait LongTests { this: UpgradesSpec =>
     //
     // TODO: dylant-da: Make this always fail on regression, some existing work
     // lives in `dylant-da/disallow-interface-lf115-upgrades-explicit-ordering`
-    "Succeeds when upgrading an LF1.15 dependency without using it" in {
+    "Succeeds when upgrading an LF1.15 dependency without a shared use site" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
         "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
