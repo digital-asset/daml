@@ -157,7 +157,13 @@ message AllocatePartyRequest {
   // The synchronizer, on which the party should be allocated.
   // For backwards compatibility, this field may be omitted, if the participant is connected to only one synchronizer.
   // Otherwise a synchronizer must be specified.
+  // Optional
   string synchronizer_id = 5;
+
+  // The user who will get the act_as rights to the newly allocated party.
+  // If set to an empty string (the default), no user will get rights to the party.
+  // Optional
+  string user_id = 6;
 }
 
 message AllocatePartyResponse {

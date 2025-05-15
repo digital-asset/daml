@@ -135,12 +135,12 @@ class SynchronizerMigration(
       // check that synchronizer id (in config) matches observed synchronizer id
       _ <- target.unwrap.synchronizerId.traverse_ { expectedSynchronizerId =>
         EitherT.cond[FutureUnlessShutdown](
-          expectedSynchronizerId == targetSynchronizerId.unwrap,
+          expectedSynchronizerId.logical == targetSynchronizerId.unwrap,
           (),
           SynchronizerMigrationError.InvalidArgument
             .ExpectedSynchronizerIdsDiffer(
               target.map(_.synchronizerAlias),
-              expectedSynchronizerId,
+              expectedSynchronizerId.logical,
               targetSynchronizerId,
             ),
         )

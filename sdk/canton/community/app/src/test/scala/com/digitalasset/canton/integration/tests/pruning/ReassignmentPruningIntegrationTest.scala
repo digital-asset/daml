@@ -225,8 +225,8 @@ sealed trait ReassignmentPruningIntegrationTest
 
       participants.all.foreach(_.testing.fetch_synchronizer_times())
 
-      participant1.testing.await_synchronizer_time(daId, newTime0, 5.seconds)
-      participant2.testing.await_synchronizer_time(acmeId, newTime0, 5.seconds)
+      participant1.testing.await_synchronizer_time(daId.toPhysical, newTime0, 5.seconds)
+      participant2.testing.await_synchronizer_time(acmeId.toPhysical, newTime0, 5.seconds)
 
       participant1.health.ping(participantId = participant2, synchronizerId = Some(daId))
       participant1.health.ping(participantId = participant2, synchronizerId = Some(acmeId))
@@ -259,8 +259,8 @@ sealed trait ReassignmentPruningIntegrationTest
 
       participants.all.foreach(_.testing.fetch_synchronizer_times())
 
-      participant1.testing.await_synchronizer_time(daId, newTime2, 5.seconds)
-      participant2.testing.await_synchronizer_time(acmeId, newTime2, 5.seconds)
+      participant1.testing.await_synchronizer_time(daId.toPhysical, newTime2, 5.seconds)
+      participant2.testing.await_synchronizer_time(acmeId.toPhysical, newTime2, 5.seconds)
 
       participant1.health.ping(participantId = participant2, synchronizerId = Some(daId))
       participant1.health.ping(participantId = participant2, synchronizerId = Some(acmeId))
@@ -273,8 +273,8 @@ sealed trait ReassignmentPruningIntegrationTest
 
       participants.all.foreach(_.testing.fetch_synchronizer_times())
 
-      participant1.testing.await_synchronizer_time(daId, newTime3, 5.seconds)
-      participant2.testing.await_synchronizer_time(acmeId, newTime3, 5.seconds)
+      participant1.testing.await_synchronizer_time(daId.toPhysical, newTime3, 5.seconds)
+      participant2.testing.await_synchronizer_time(acmeId.toPhysical, newTime3, 5.seconds)
 
       // Check that the reassignment offset is safe to prune
       ensureOffsetSafeToPrune(assignOffsetP1, clock, participant1)

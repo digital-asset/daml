@@ -249,12 +249,12 @@ class DeclarativeParticipantApi(
             .filter(s =>
               p.synchronizers.isEmpty || p.synchronizers.contains(s.synchronizerAlias.unwrap)
             )
-            .map(s => ((party, s.synchronizerId), p.permission))
+            .map(s => ((party, s.synchronizerId.logical), p.permission))
         }
 
         def fetchAll() =
           // fold synchronizers and found parties and find the ones that are allocated to our node
-          synchronizerIds.map(_.synchronizerId).flatTraverse { synchronizerId =>
+          synchronizerIds.map(_.synchronizerId.logical).flatTraverse { synchronizerId =>
             fetchHosted(filterParty = "", synchronizerId).map(_.flatMap { party2Participant =>
               val maybePermission = party2Participant.item.participants
                 .find(_.participantId == participantId)

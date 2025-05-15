@@ -13,7 +13,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
   JsReassignment,
-  JsReassignmentEvent,
   JsTopologyTransaction,
   JsTransaction,
   JsTransactionTree,
@@ -370,6 +369,7 @@ object JsUpdateServiceCodecs {
   implicit val jsUpdateRW: Codec[JsUpdate.Update] = deriveConfiguredCodec
 
   implicit val jsUpdateOffsetCheckpoint: Codec[JsUpdate.OffsetCheckpoint] = deriveConfiguredCodec
+
   implicit val jsUpdateReassignment: Codec[JsUpdate.Reassignment] = deriveConfiguredCodec
   implicit val jsUpdateTransaction: Codec[JsUpdate.Transaction] = deriveConfiguredCodec
   implicit val jsUpdateTopologyTransaction: Codec[JsUpdate.TopologyTransaction] =
@@ -383,13 +383,12 @@ object JsUpdateServiceCodecs {
   implicit val jsGetUpdateResponse: Codec[JsGetUpdateResponse] = deriveConfiguredCodec
 
   implicit val jsUpdateTree: Codec[JsUpdateTree.Update] = deriveConfiguredCodec
+  implicit val jsUpdateTreeOffsetCheckpoint: Codec[JsUpdateTree.OffsetCheckpoint] =
+    deriveConfiguredCodec
   implicit val jsUpdateTreeReassignment: Codec[JsUpdateTree.Reassignment] = deriveConfiguredCodec
   implicit val jsUpdateTreeTransaction: Codec[JsUpdateTree.TransactionTree] = deriveConfiguredCodec
 
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
-  @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
-  implicit val jsReassignmentEventSchema: Schema[JsReassignmentEvent.JsReassignmentEvent] =
-    Schema.oneOfWrapped
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsUpdateSchema: Schema[JsUpdate.Update] = Schema.oneOfWrapped

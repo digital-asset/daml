@@ -43,7 +43,7 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiParticipantProvider
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.ByteStringStreamObserver
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -197,7 +197,7 @@ private[console] object ParticipantCommands {
         synchronizerAlias: SynchronizerAlias,
         connection: String,
         manualConnect: Boolean = false,
-        synchronizerId: Option[SynchronizerId] = None,
+        synchronizerId: Option[PhysicalSynchronizerId] = None,
         certificatesPath: String = "",
         priority: Int = 0,
         initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -365,7 +365,7 @@ class ParticipantTestingGroup(
 
   @Help.Summary("Fetch the current time from the given synchronizer", FeatureFlag.Testing)
   def fetch_synchronizer_time(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
   ): CantonTimestamp =
     check(FeatureFlag.Testing) {
@@ -409,7 +409,7 @@ class ParticipantTestingGroup(
     FeatureFlag.Testing,
   )
   def await_synchronizer_time(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       time: CantonTimestamp,
       timeout: NonNegativeDuration = consoleEnvironment.commandTimeouts.ledgerCommand,
   ): Unit =
@@ -769,7 +769,7 @@ class LocalCommitmentsAdministrationGroup(
   def buffered(
       synchronizerAlias: SynchronizerAlias,
       endAtOrBefore: Instant,
-  ): Iterable[AcsCommitment] =
+  ): Iterable[BufferedAcsCommitment] =
     access { node =>
       node.sync.stateInspection.bufferedCommitments(
         synchronizerAlias,
@@ -1724,7 +1724,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
   object synchronizers extends Helpful {
 
     @Help.Summary("Returns the id of the given synchronizer alias")
-    def id_of(synchronizerAlias: SynchronizerAlias): SynchronizerId =
+    def id_of(synchronizerAlias: SynchronizerAlias): PhysicalSynchronizerId =
       consoleEnvironment.run {
         adminCommand(
           ParticipantAdminCommands.SynchronizerConnectivity.GetSynchronizerId(synchronizerAlias)
@@ -1743,13 +1743,19 @@ trait ParticipantAdministration extends FeatureFlagFilter {
       list_connected().exists { r =>
         r.synchronizerAlias == synchronizerAlias &&
         r.healthy &&
-        participantIsActiveOnSynchronizer(r.synchronizerId, id)
+        participantIsActiveOnSynchronizer(r.synchronizerId.logical, id)
       }
 
     @Help.Summary(
       "Test whether a participant is connected to a synchronizer"
     )
     def is_connected(synchronizerId: SynchronizerId): Boolean =
+      list_connected().exists(_.synchronizerId.logical == synchronizerId)
+
+    @Help.Summary(
+      "Test whether a participant is connected to physical a synchronizer"
+    )
+    def is_connected(synchronizerId: PhysicalSynchronizerId): Boolean =
       list_connected().exists(_.synchronizerId == synchronizerId)
 
     @Help.Summary(
@@ -1958,7 +1964,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
           synchronizerAlias - The name you will be using to refer to this synchronizer. Cannot be changed anymore.
           connection - The connection string to connect to this synchronizer. I.e. https://url:port
           manualConnect - Whether this connection should be handled manually and also excluded from automatic re-connect.
-          synchronizerId - Optionally the synchronizerId you expect to see on this synchronizer.
+          synchronizerId - Optionally the physical id you expect to see on this synchronizer.
           certificatesPath - Path to TLS certificate files to use as a trust anchor.
           priority - The priority of the synchronizer. The higher the more likely a synchronizer will be used.
           timeTrackerConfig - The configuration for the synchronizer time tracker.
@@ -1969,7 +1975,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         synchronizerAlias: SynchronizerAlias,
         connection: String,
         manualConnect: Boolean = false,
-        synchronizerId: Option[SynchronizerId] = None,
+        synchronizerId: Option[PhysicalSynchronizerId] = None,
         certificatesPath: String = "",
         priority: Int = 0,
         timeTrackerConfig: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
@@ -2360,7 +2366,7 @@ class ParticipantHealthAdministration(
 
     consoleEnvironment.run {
       runner.adminCommand(
-        ParticipantAdminCommands.Inspection.CountInFlight(synchronizerId)
+        ParticipantAdminCommands.Inspection.CountInFlight(synchronizerId.logical)
       )
     }
   }

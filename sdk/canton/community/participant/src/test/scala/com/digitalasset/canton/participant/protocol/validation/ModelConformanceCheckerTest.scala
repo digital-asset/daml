@@ -156,8 +156,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   val transactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
       ExampleTransactionFactory.submittingParticipant,
-      factory.synchronizerId,
-      testedProtocolVersion,
+      factory.physicalSynchronizerId,
       factory.cryptoOps,
       loggerFactory,
     )

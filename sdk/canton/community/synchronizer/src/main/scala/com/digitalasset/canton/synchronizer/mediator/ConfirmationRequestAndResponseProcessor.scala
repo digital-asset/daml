@@ -45,13 +45,13 @@ import scala.concurrent.{ExecutionContext, Future}
   * participants.
   */
 private[mediator] class ConfirmationRequestAndResponseProcessor(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     private val mediatorId: MediatorId,
     verdictSender: VerdictSender,
     crypto: SynchronizerCryptoClient,
     timeTracker: SynchronizerTimeTracker,
     val mediatorState: MediatorState,
-    protocolVersion: ProtocolVersion,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     protected val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(implicit ec: ExecutionContext, tracer: Tracer)

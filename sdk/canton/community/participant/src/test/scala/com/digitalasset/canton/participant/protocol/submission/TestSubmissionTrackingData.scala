@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.DefaultParticipantStateValues
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 
 object TestSubmissionTrackingData {
 
@@ -13,7 +13,10 @@ object TestSubmissionTrackingData {
     TransactionSubmissionTrackingData(
       DefaultParticipantStateValues.completionInfo(List.empty),
       TransactionSubmissionTrackingData.TimeoutCause,
-      SynchronizerId.tryFromString("da::default"),
+      PhysicalSynchronizerId(
+        SynchronizerId.tryFromString("da::default"),
+        BaseTest.testedProtocolVersion,
+      ),
       BaseTest.testedProtocolVersion,
     )
 }

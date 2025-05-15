@@ -32,7 +32,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TestTelemetrySetup, TraceContext}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.{BaseTest, LfKeyResolver, LfPackageId, LfPartyId}
@@ -215,19 +215,19 @@ object ApiPackageManagementServiceSpec {
         routingSynchronizerState: RoutingSynchronizerState,
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
+    ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
       throw new UnsupportedOperationException()
 
     override def computeHighestRankedSynchronizerFromAdmissible(
         submitterInfo: SubmitterInfo,
         transaction: LfSubmittedTransaction,
         transactionMeta: TransactionMeta,
-        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
+        admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]],
         disclosedContractIds: List[LfContractId],
         routingSynchronizerState: RoutingSynchronizerState,
     )(implicit
         traceContext: TraceContext
-    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, PhysicalSynchronizerId] =
       throw new UnsupportedOperationException()
 
     override def selectRoutingSynchronizer(

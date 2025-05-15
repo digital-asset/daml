@@ -18,7 +18,7 @@ import com.digitalasset.canton.time.{
   FetchTimeResponse,
   NonNegativeFiniteDuration,
 }
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -32,8 +32,9 @@ object SynchronizerTimeCommands {
       v30.SynchronizerTimeServiceGrpc.stub(channel)
   }
 
+  // TODO(#25483) All these commands should probably be logical with resolution on the server
   final case class FetchTime(
-      synchronizerIdO: Option[SynchronizerId],
+      synchronizerIdO: Option[PhysicalSynchronizerId],
       freshnessBound: NonNegativeFiniteDuration,
       timeout: NonNegativeDuration,
   ) extends BaseSynchronizerTimeCommand[
@@ -60,7 +61,7 @@ object SynchronizerTimeCommands {
   }
 
   final case class AwaitTime(
-      synchronizerIdO: Option[SynchronizerId],
+      synchronizerIdO: Option[PhysicalSynchronizerId],
       time: CantonTimestamp,
       timeout: NonNegativeDuration,
   ) extends BaseSynchronizerTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {

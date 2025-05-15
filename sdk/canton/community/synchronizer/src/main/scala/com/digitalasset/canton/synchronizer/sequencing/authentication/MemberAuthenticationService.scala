@@ -50,7 +50,7 @@ import scala.concurrent.ExecutionContext
   *   for this member should be terminated.
   */
 class MemberAuthenticationService(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     cryptoApi: SynchronizerCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
@@ -169,7 +169,7 @@ class MemberAuthenticationService(
     * should be informed that this address now hosts a different synchronizer.
     */
   def validateToken(
-      intendedSynchronizerId: SynchronizerId,
+      intendedSynchronizerId: PhysicalSynchronizerId,
       member: Member,
       token: AuthenticationToken,
   ): Either[AuthenticationError, StoredAuthenticationToken] =
@@ -233,7 +233,7 @@ class MemberAuthenticationService(
 
   private def correctSynchronizer(
       member: Member,
-      intendedSynchronizerId: SynchronizerId,
+      intendedSynchronizerId: PhysicalSynchronizerId,
   ): Either[AuthenticationError, Unit] =
     Either.cond(
       intendedSynchronizerId == synchronizerId,
@@ -300,7 +300,7 @@ object MemberAuthenticationService {
 }
 
 class MemberAuthenticationServiceImpl(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     cryptoApi: SynchronizerCryptoClient,
     store: MemberAuthenticationStore,
     clock: Clock,
@@ -384,7 +384,7 @@ trait MemberAuthenticationServiceFactory {
 object MemberAuthenticationServiceFactory {
 
   def apply(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       clock: Clock,
       nonceExpirationInterval: Duration,
       maxTokenExpirationInterval: Duration,

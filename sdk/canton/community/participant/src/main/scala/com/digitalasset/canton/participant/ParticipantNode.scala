@@ -437,7 +437,6 @@ class ParticipantNodeBootstrap(
           storage,
           indexedStringStore,
           persistentState.map(_.acsCounterParticipantConfigStore).value,
-          ips,
           parameters,
           (staticSynchronizerParameters: StaticSynchronizerParameters) =>
             SynchronizerCrypto(crypto, staticSynchronizerParameters),
@@ -476,6 +475,7 @@ class ParticipantNodeBootstrap(
 
         inFlightSubmissionTracker = new InFlightSubmissionTracker(
           persistentState.map(_.inFlightSubmissionStore),
+          synchronizerConnectionConfigStore,
           commandDeduplicator,
           loggerFactory,
         )
@@ -979,7 +979,7 @@ class ParticipantNode(
 
   override def close(): Unit = () // closing is done in the bootstrap class
 
-  def readySynchronizers: Map[SynchronizerId, SubmissionReady] =
+  def readySynchronizers: Map[PhysicalSynchronizerId, SubmissionReady] =
     sync.readySynchronizers.values.toMap
 
   private def supportedProtocolVersions: Seq[ProtocolVersion] = {

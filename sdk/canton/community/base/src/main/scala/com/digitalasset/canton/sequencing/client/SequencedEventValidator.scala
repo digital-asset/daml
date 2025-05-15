@@ -50,7 +50,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
@@ -66,8 +66,10 @@ object SequencedEventValidationError {
       extends SequencedEventValidationError[E] {
     override protected def pretty: Pretty[this.type] = prettyOfParam(_.error)
   }
-  final case class BadSynchronizerId(expected: SynchronizerId, received: SynchronizerId)
-      extends SequencedEventValidationError[Nothing] {
+  final case class BadSynchronizerId(
+      expected: PhysicalSynchronizerId,
+      received: PhysicalSynchronizerId,
+  ) extends SequencedEventValidationError[Nothing] {
     override protected def pretty: Pretty[BadSynchronizerId] = prettyOfClass(
       param("expected", _.expected),
       param("received", _.received),
@@ -238,7 +240,7 @@ object SequencedEventValidator extends HasLoggerName {
     *   whether to log a warning when used
     */
   def noValidation(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       warn: Boolean = true,
   )(implicit
       loggingContext: NamedLoggingContext
@@ -433,7 +435,7 @@ object SequencedEventValidatorFactory {
     *   whether to log a warning
     */
   def noValidation(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       warn: Boolean = true,
   ): SequencedEventValidatorFactory = new SequencedEventValidatorFactory {
     override def create(loggerFactory: NamedLoggerFactory)(implicit
@@ -447,7 +449,7 @@ object SequencedEventValidatorFactory {
 
 /** Validate whether a received event is valid for processing. */
 class SequencedEventValidatorImpl(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     protocolVersion: ProtocolVersion,
     syncCryptoApi: SyncCryptoClient[SyncCryptoApi],
     protected val loggerFactory: NamedLoggerFactory,

@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
   ProtoVersion,
@@ -46,7 +46,7 @@ final case class UnassignmentMediatorMessage(
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  override def synchronizerId: SynchronizerId = commonData.sourceSynchronizerId.unwrap
+  override def synchronizerId: PhysicalSynchronizerId = commonData.sourceSynchronizerId.unwrap
 
   override def mediator: MediatorGroupRecipient = commonData.sourceMediatorGroup
 

@@ -201,7 +201,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       mediatorsD2b.foreach(mediator =>
         mediator.setup
           .assign(
-            synchronizerId2,
+            synchronizerId2.toPhysical,
             SequencerConnections.single(sequencer4.sequencerConnection),
           )
       )
@@ -225,7 +225,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       }
 
       // Obtain a new synchronizer timestamp for the reassignment's synchronizer time proof
-      participant1.testing.fetch_synchronizer_time(synchronizerId2)
+      participant1.testing.fetch_synchronizer_time(synchronizerId2.toPhysical)
 
       val unassigned = clue(s"unassign from $synchronizer1 to $synchronizer2") {
         participant1.ledger_api.commands.submit_unassign(

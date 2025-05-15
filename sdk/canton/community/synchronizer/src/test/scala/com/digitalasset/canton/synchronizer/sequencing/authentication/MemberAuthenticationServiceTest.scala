@@ -45,7 +45,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       store: MemberAuthenticationStore = new MemberAuthenticationStore(),
   ): MemberAuthenticationService =
     new MemberAuthenticationService(
-      synchronizerId,
+      physicalSynchronizerId,
       syncCrypto,
       store,
       clock,
@@ -73,7 +73,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
         challenge <- sut.generateNonce(p1)
         (nonce, fingerprints) = challenge
         signature <- getMemberAuthentication(p1)
-          .signSynchronizerNonce(p1, nonce, synchronizerId, fingerprints, syncCrypto.crypto)
+          .signSynchronizerNonce(p1, nonce, physicalSynchronizerId, fingerprints, syncCrypto.crypto)
         tokenAndExpiry <- sut.validateSignature(p1, signature, nonce)
       } yield tokenAndExpiry
 
@@ -88,7 +88,9 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(synchronizerId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          sut.validateToken(physicalSynchronizerId, p1, token)
+        )
       } yield {
         expiry should be(clock.now.plus(JDuration.ofHours(1)))
       }
@@ -99,7 +101,9 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(synchronizerId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          sut.validateToken(physicalSynchronizerId, p1, token)
+        )
       } yield {
         expiry should be >= clock.now.plus(JDuration.ofMinutes(30))
         expiry should be <= clock.now.plus(JDuration.ofHours(1))
@@ -124,7 +128,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
         )(
           "validateSignature"
         )
-        validateTokenError = leftOrFail(sut.validateToken(synchronizerId, p1, null))(
+        validateTokenError = leftOrFail(sut.validateToken(physicalSynchronizerId, p1, null))(
           "token validation should fail"
         )
       } yield {
@@ -137,7 +141,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
     "check whether the intended synchronizer is the one the participant is connecting to" in {
       val sut = service(participantIsActive = false)
       val wrongSynchronizerId =
-        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong::synchronizer"))
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong::synchronizer")).toPhysical
 
       val error =
         leftOrFail(sut.validateToken(wrongSynchronizerId, p1, null))(
@@ -153,7 +157,9 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest with F
       for {
         tokenAndExpiry <- generateToken(sut)
         AuthenticationTokenWithExpiry(token, _expiry) = tokenAndExpiry
-        _ <- EitherT.fromEither[FutureUnlessShutdown](sut.validateToken(synchronizerId, p1, token))
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          sut.validateToken(physicalSynchronizerId, p1, token)
+        )
         // Generate a second token for p1
         _ <- generateToken(sut)
 

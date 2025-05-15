@@ -24,6 +24,7 @@ import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
   DefaultConsensusQueueMaxSize,
+  DefaultConsensusQueuePerNodeQuota,
   DefaultDelayedInitQueueMaxSize,
   DefaultEpochLength,
   DefaultEpochStateTransferTimeout,
@@ -54,6 +55,9 @@ import scala.concurrent.duration.*
   *   network for the BFT time assumptions to hold. It is validated in runtime.
   * @param consensusQueueMaxSize
   *   A maximum size per consensus-related queue.
+  * @param consensusQueuePerNodeQuota
+  *   A maximum number of messages per node stored in consensus-related queues (quotas are
+  *   maintained separately per queue).
   * @param delayedInitQueueMaxSize
   *   A maximum size per delayed init queue.
   * @param epochStateTransferRetryTimeout
@@ -72,6 +76,7 @@ final case class BftBlockOrdererConfig(
     // TODO(#24184) make a dynamic sequencing parameter
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
+    consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
     delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
@@ -108,7 +113,8 @@ object BftBlockOrdererConfig {
   val DefaultMinRequestsInBatch: Short = 3
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
-  val DefaultConsensusQueueMaxSize: Int = 1024
+  val DefaultConsensusQueueMaxSize: Int = 10 * 1024
+  val DefaultConsensusQueuePerNodeQuota: Int = 1024
   val DefaultDelayedInitQueueMaxSize: Int = 1024
   val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second

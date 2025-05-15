@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.sync.{
 }
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{
@@ -77,6 +77,7 @@ import scala.math.Ordering.Implicits.*
   * @param synchronizerConnectionStatus
   *   helper to determine whether the synchronizer is active or in another state
   */
+// TODO(#24716) This class should be revisited to check physical <> logical
 class PruningProcessor(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     syncPersistentStateManager: SyncPersistentStateManager,
@@ -245,20 +246,22 @@ class PruningProcessor(
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
 
     def firstUnsafeEventFor(
-        synchronizerId: SynchronizerId,
-        persistent: SyncPersistentState,
-    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
+        persistent: SyncPersistentState
+    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
+      val synchronizerId = persistent.physicalSynchronizerId
       for {
         synchronizerIndex <- EitherT
           .right(
             participantNodePersistentState.value.ledgerApiStore
-              .cleanSynchronizerIndex(synchronizerId)
+              .cleanSynchronizerIndex(synchronizerId.logical)
           )
-        _ = logger.debug(s"SynchronizerIndex for synchronizer $synchronizerId: $synchronizerIndex ")
+        _ = logger.debug(
+          s"SynchronizerIndex for synchronizer $synchronizerId: $synchronizerIndex "
+        )
 
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
-            synchronizerId,
+            synchronizerId.logical,
             synchronizerIndex
               .flatMap(_.sequencerIndex)
               .map(_.sequencerTimestamp)
@@ -277,7 +280,7 @@ class PruningProcessor(
               synchronizerId,
               checkForOutstandingCommitments = true,
             ),
-            Pruning.LedgerPruningOffsetUnsafeSynchronizer(synchronizerId),
+            Pruning.LedgerPruningOffsetUnsafeSynchronizer(synchronizerId.logical),
           )
         _ = logger.debug(
           s"Safe commitment tick for synchronizer $synchronizerId at $safeCommitmentTick"
@@ -324,7 +327,7 @@ class PruningProcessor(
         firstUnsafeOffsetO <- EitherT
           .right(
             participantNodePersistentState.value.ledgerApiStore.firstSynchronizerOffsetAfterOrAt(
-              synchronizerId,
+              synchronizerId.logical,
               firstUnsafeRecordTime,
             )
           )
@@ -335,17 +338,19 @@ class PruningProcessor(
         firstUnsafeOffsetO.map(synchronizerOffset =>
           UnsafeOffset(
             offset = synchronizerOffset.offset,
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.logical,
             recordTime = CantonTimestamp(synchronizerOffset.recordTime),
             cause = cause,
           )
         )
       }
+    }
 
     def firstUnsafeReassignmentEventFor(
-        synchronizerId: SynchronizerId,
-        persistent: SyncPersistentState,
-    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
+        persistent: SyncPersistentState
+    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
+      val synchronizerId = persistent.physicalSynchronizerId.logical
+
       for {
         earliestIncompleteReassignmentO <- EitherT
           .right(
@@ -389,6 +394,7 @@ class PruningProcessor(
         )
         unsafeOffset
       }
+    }
 
     // Make sure that we do not prune an offset whose publication time has not been elapsed since the max deduplication duration.
     def firstUnsafeOffsetPublicationTime: FutureUnlessShutdown[Option[UnsafeOffset]] = {
@@ -463,6 +469,7 @@ class PruningProcessor(
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,
       )
       allActiveSynchronizers <- EitherT.fromEither[FutureUnlessShutdown](allActiveSynchronizersE)
+      // TODO(#25483) Do we need the synchronizer id in the tuple knowing it is in the persistent state?
       affectedSynchronizerOffsets <- EitherT
         .right[LedgerPruningError](allActiveSynchronizers.parFilterA {
           case (synchronizerId, _persistent) =>
@@ -477,11 +484,11 @@ class PruningProcessor(
       )
       unsafeSynchronizerOffsets <- affectedSynchronizerOffsets.parTraverseFilter {
         case (synchronizerId, persistent) =>
-          firstUnsafeEventFor(synchronizerId, persistent)
+          firstUnsafeEventFor(persistent)
       }
       unsafeIncompleteReassignmentOffsets <- allSynchronizers.parTraverseFilter {
         case (synchronizerId, persistent) =>
-          firstUnsafeReassignmentEventFor(synchronizerId, persistent)
+          firstUnsafeReassignmentEventFor(persistent)
       }
       unsafeDedupOffset <- EitherT
         .right(firstUnsafeOffsetPublicationTime)
@@ -829,7 +836,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       acsCommitmentStore: AcsCommitmentStore,
       inFlightSubmissionStore: InFlightSubmissionStore,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       checkForOutstandingCommitments: Boolean,
   )(implicit
       ec: ExecutionContext,
@@ -854,7 +861,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       commitmentsPruningBound = commitmentsPruningBound,
       earliestInFlightF,
       sortedReconciliationIntervalsProvider,
-      synchronizerId,
+      synchronizerId.logical,
     )
   }
   private final case class UnsafeOffset(

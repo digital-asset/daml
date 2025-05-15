@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -18,8 +19,9 @@ import org.scalatest.Assertions.fail
 
 class FailingCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
 
-  override def signHash(hash: Hash)(implicit
-      traceContext: TraceContext
+  override def signHash(hash: Hash, operationId: String)(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
     fail("Module should not sign messages")
 
@@ -27,7 +29,8 @@ class FailingCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
       message: MessageT,
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     fail("Module should not sign messages")
 
@@ -35,8 +38,10 @@ class FailingCryptoProvider[E <: Env[E]] extends CryptoProvider[E] {
       hash: Hash,
       node: BftNodeId,
       signature: Signature,
+      operationId: String,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
     fail("Module should not verifySignature messages")
 }

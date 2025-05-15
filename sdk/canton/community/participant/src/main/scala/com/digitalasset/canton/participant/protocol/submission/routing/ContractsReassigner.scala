@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
+import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.ReassignmentSubmitterMetadata
 import com.digitalasset.canton.error.TransactionRoutingError
@@ -13,7 +14,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizersLookup
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -55,21 +56,21 @@ private[routing] class ContractsReassigner(
     }
 
   private def perform(
-      sourceSynchronizerId: Source[SynchronizerId],
-      targetSynchronizerId: Target[SynchronizerId],
+      sourceSynchronizerId: Source[PhysicalSynchronizerId],
+      targetSynchronizerId: Target[PhysicalSynchronizerId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractIds: Seq[LfContractId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     val reassignment = for {
       sourceSynchronizer <- EitherT.fromEither[Future](
         connectedSynchronizers
-          .get(sourceSynchronizerId.unwrap)
+          .get(sourceSynchronizerId.unwrap.logical)
           .toRight("Not connected to the source synchronizer")
       )
 
       targetSynchronizer <- EitherT.fromEither[Future](
         connectedSynchronizers
-          .get(targetSynchronizerId.unwrap)
+          .get(targetSynchronizerId.unwrap.logical)
           .toRight("Not connected to the target synchronizer")
       )
 
@@ -81,12 +82,7 @@ private[routing] class ContractsReassigner(
         )
 
       unassignmentResult <- sourceSynchronizer
-        .submitUnassignments(
-          submitterMetadata,
-          contractIds,
-          targetSynchronizerId,
-          Target(targetSynchronizer.staticSynchronizerParameters.protocolVersion),
-        )
+        .submitUnassignments(submitterMetadata, contractIds, targetSynchronizerId)
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)
         .leftMap(_.toString)

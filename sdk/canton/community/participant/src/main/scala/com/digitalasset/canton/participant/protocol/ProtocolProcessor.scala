@@ -56,7 +56,11 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SubmissionTopologyHelper, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SubmissionTopologyHelper,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
@@ -102,7 +106,7 @@ abstract class ProtocolProcessor[
     ephemeral: SyncEphemeralState,
     crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClientSend,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -722,7 +726,8 @@ abstract class ProtocolProcessor[
               _.leftMap(_ =>
                 steps.embedRequestError(
                   UnableToGetDynamicSynchronizerParameters(
-                    snapshot.synchronizerId,
+                    // TODO(#25467) synchronizerId in the snapshot should be physical
+                    PhysicalSynchronizerId(snapshot.synchronizerId, protocolVersion),
                     snapshot.ipsSnapshot.timestamp,
                   )
                 )
@@ -1895,7 +1900,7 @@ object ProtocolProcessor {
   }
 
   final case class UnableToGetDynamicSynchronizerParameters(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       ts: CantonTimestamp,
   ) extends RequestProcessingError
       with ResultProcessingError {

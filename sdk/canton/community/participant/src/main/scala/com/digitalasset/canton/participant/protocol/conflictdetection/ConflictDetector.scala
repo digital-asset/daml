@@ -406,7 +406,7 @@ private[participant] class ConflictDetector(
             }
             val newStatus = unassignmentO.fold[Status](Archived) { unassignment =>
               ReassignedAway(
-                unassignment.targetSynchronizerId,
+                unassignment.targetSynchronizerId.map(_.logical),
                 unassignment.reassignmentCounter,
               )
             }
@@ -485,7 +485,7 @@ private[participant] class ConflictDetector(
                 .map { case (coid, unassignmentCommit) =>
                   val CommitSet.UnassignmentCommit(targetSynchronizer, _, reassignmentCounter) =
                     unassignmentCommit
-                  (coid, targetSynchronizer, reassignmentCounter, toc)
+                  (coid, targetSynchronizer.map(_.logical), reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )

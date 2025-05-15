@@ -76,7 +76,7 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
 
     sequencer.topology.transactions.load(
       med2Identity,
-      sequencer.synchronizer_id,
+      sequencer.synchronizer_id.logical,
       ForceFlag.AlienMember,
     )
     eventually() {

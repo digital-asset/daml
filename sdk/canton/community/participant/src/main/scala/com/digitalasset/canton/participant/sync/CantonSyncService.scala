@@ -207,8 +207,8 @@ class CantonSyncService(
     * NOT PASS THIS MUTABLE MAP TO OTHER CLASSES THAT ONLY REQUIRE READ ACCESS. USE
     * [[connectedSynchronizersLookup]] INSTEAD
     */
-  private val connectedSynchronizersMap: TrieMap[SynchronizerId, ConnectedSynchronizer] =
-    TrieMap.empty[SynchronizerId, ConnectedSynchronizer]
+  private val connectedSynchronizersMap: TrieMap[PhysicalSynchronizerId, ConnectedSynchronizer] =
+    TrieMap.empty[PhysicalSynchronizerId, ConnectedSynchronizer]
   private val connectedSynchronizersLookup: ConnectedSynchronizersLookup =
     ConnectedSynchronizersLookup.create(connectedSynchronizersMap)
   connectedSynchronizersLookupContainer.registerDelegate(connectedSynchronizersLookup)
@@ -276,16 +276,26 @@ class CantonSyncService(
   private def resolveReconnectAttempts(alias: SynchronizerAlias): Unit =
     attemptReconnect.remove(alias).discard
 
+  // TODO(#25483) Check calls of this method and this resolution
+  private def logicalToPhysical(id: SynchronizerId): Option[PhysicalSynchronizerId] =
+    connectedSynchronizersMap.keys.filter(_.logical == id).maxOption
+
   // A connected synchronizer is ready if recovery has succeeded
   private[canton] def readyConnectedSynchronizerById(
       synchronizerId: SynchronizerId
   ): Option[ConnectedSynchronizer] =
-    connectedSynchronizersMap.get(synchronizerId).filter(_.ready)
+    // TODO(#25483) Check calls of this method and this resolution
+    connectedSynchronizersMap
+      .collect { case (psid, sync) if psid.logical == synchronizerId && sync.ready => sync }
+      .maxByOption(_.synchronizerId)
 
   private[canton] def connectedSynchronizerForAlias(
       alias: SynchronizerAlias
   ): Option[ConnectedSynchronizer] =
-    aliasManager.synchronizerIdForAlias(alias).flatMap(connectedSynchronizersMap.get)
+    aliasManager
+      .synchronizerIdForAlias(alias)
+      .flatMap(logicalToPhysical)
+      .flatMap(connectedSynchronizersMap.get)
 
   private val admissibleSynchronizers =
     new AdmissibleSynchronizersComputation(participantId, loggerFactory)
@@ -316,6 +326,7 @@ class CantonSyncService(
       loggerFactory,
     )(ec)
 
+  // TODO(#25483) This should be physical
   val protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion] =
     (tracedSynchronizerId: Traced[SynchronizerId]) =>
       syncPersistentStateManager.protocolVersionFor(tracedSynchronizerId.value)
@@ -462,15 +473,16 @@ class CantonSyncService(
       override def disable(
           synchronizerId: SynchronizerId
       )(implicit traceContext: TraceContext): Future[Unit] =
-        connectedSynchronizersMap
-          .get(synchronizerId)
+        logicalToPhysical(synchronizerId)
+          .flatMap(connectedSynchronizersMap.get)
           .map(_.addJournalGarageCollectionLock())
           .getOrElse(Future.unit)
+
       override def enable(
           synchronizerId: SynchronizerId
       )(implicit traceContext: TraceContext): Unit =
-        connectedSynchronizersMap
-          .get(synchronizerId)
+        logicalToPhysical(synchronizerId)
+          .flatMap(connectedSynchronizersMap.get)
           .foreach(_.removeJournalGarageCollectionLock())
     },
     connectedSynchronizersLookup,
@@ -676,8 +688,8 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
-    lazy val onlyConnectedSynchronzier = connectedSynchronizersMap.toSeq match {
-      case Seq((synchronizerId, _)) => Right(synchronizerId)
+    lazy val onlyConnectedSynchronizer = connectedSynchronizersMap.toSeq match {
+      case Seq((synchronizerId, _)) => Right(synchronizerId.logical)
       case Seq() =>
         Left(
           SubmissionResult.SynchronousError(
@@ -693,8 +705,9 @@ class CantonSyncService(
           )
         )
     }
+
     val synchronizerIdOrDetectionError =
-      synchronizerIdO.map(Right(_)).getOrElse(onlyConnectedSynchronzier)
+      synchronizerIdO.map(Right(_)).getOrElse(onlyConnectedSynchronizer)
 
     synchronizerIdOrDetectionError
       .map(partyAllocation.allocate(hint, rawSubmissionId, _))
@@ -781,12 +794,14 @@ class CantonSyncService(
   }
 
   /** Returns the ready synchronizers this sync service is connected to. */
-  def readySynchronizers: Map[SynchronizerAlias, (SynchronizerId, SubmissionReady)] =
+  def readySynchronizers: Map[SynchronizerAlias, (PhysicalSynchronizerId, SubmissionReady)] =
     connectedSynchronizersMap
       .to(LazyList)
       .mapFilter {
         case (id, sync) if sync.ready =>
-          aliasManager.aliasForSynchronizerId(id).map(_ -> ((id, sync.readyForSubmission)))
+          aliasManager
+            .aliasForSynchronizerId(id.logical)
+            .map(_ -> ((sync.synchronizerId, sync.readyForSubmission)))
         case _ => None
       }
       .toMap
@@ -804,12 +819,12 @@ class CantonSyncService(
   def lookupSynchronizerTimeTracker(
       synchronizerId: SynchronizerId
   ): Option[SynchronizerTimeTracker] =
-    connectedSynchronizersMap.get(synchronizerId).map(_.timeTracker)
+    logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.get).map(_.timeTracker)
 
   def lookupTopologyClient(
       synchronizerId: SynchronizerId
   ): Option[SynchronizerTopologyClientWithInit] =
-    connectedSynchronizersMap.get(synchronizerId).map(_.topologyClient)
+    logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.get).map(_.topologyClient)
 
   /** Adds a new synchronizer to the sync service's configuration.
     *
@@ -826,13 +841,51 @@ class CantonSyncService(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
       _ <- validateSequencerConnection(config, sequencerConnectionValidation)
-      _ <- synchronizerConnectionConfigStore
-        .put(
-          config,
-          SynchronizerConnectionConfigStore.Active,
-          configuredPSId = UnknownPhysicalSynchronizerId,
+      _ <- EitherT
+        .rightT[FutureUnlessShutdown, SyncServiceError](
+          synchronizerConnectionConfigStore
+            .getAllFor(config.synchronizerAlias)
+            .fold(_ => Seq.empty[StoredSynchronizerConnectionConfig], _.forgetNE)
         )
-        .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError)
+        .flatMap { configs =>
+          val activeForAlias = configs.filter(_.status == SynchronizerConnectionConfigStore.Active)
+          activeForAlias match {
+            case Seq() =>
+              synchronizerConnectionConfigStore
+                .put(
+                  config,
+                  SynchronizerConnectionConfigStore.Active,
+                  configuredPSId = UnknownPhysicalSynchronizerId,
+                )
+                .leftMap(e =>
+                  SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError
+                )
+
+            case Seq(storedConfig) =>
+              EitherT
+                .fromEither[FutureUnlessShutdown](
+                  config
+                    .subsumeMerge(storedConfig.config)
+                    .leftMap(_ =>
+                      SyncServiceError.SyncServiceAlreadyAdded
+                        .Error(config.synchronizerAlias): SyncServiceError
+                    )
+                )
+                .flatMap(
+                  synchronizerConnectionConfigStore
+                    .replace(storedConfig.configuredPSId, _)
+                    .leftMap(_ =>
+                      SyncServiceError.SyncServiceAlreadyAdded
+                        .Error(config.synchronizerAlias): SyncServiceError
+                    )
+                )
+            case many =>
+              EitherT.leftT[FutureUnlessShutdown, Unit](
+                SyncServiceError.SyncServiceAlreadyAdded
+                  .Error(config.synchronizerAlias): SyncServiceError
+              )
+          }
+        }
     } yield ()
 
   private def validateSequencerConnection(
@@ -938,7 +991,7 @@ class CantonSyncService(
             .migrateSynchronizer(
               source,
               target,
-              targetSynchronizerInfo.map(_.physicalSynchronizerId),
+              targetSynchronizerInfo.map(_.synchronizerId),
             )
             .leftMap[SyncServiceError](
               SyncServiceError.SyncServiceMigrationError(source, target.map(_.synchronizerAlias), _)
@@ -1098,6 +1151,7 @@ class CantonSyncService(
     val connectedSynchronizers =
       connectedSynchronizersMap.keys
         .to(LazyList)
+        .map(_.logical)
         .mapFilter(aliasManager.aliasForSynchronizerId)
         .toSet
 
@@ -1322,6 +1376,17 @@ class CantonSyncService(
         filteredConfigs.map(_.maxBy1(_.configuredPSId))
     }
 
+  private def updateSynchronizerConnectionConfig(
+      psid: PhysicalSynchronizerId,
+      config: SynchronizerConnectionConfig,
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
+    synchronizerConnectionConfigStore
+      .replace(KnownPhysicalSynchronizerId(psid), config)
+      .leftMap[SyncServiceError](err =>
+        SyncServiceError.SyncServicePhysicalIdRegistration
+          .Error(config.synchronizerAlias, psid, err.message)
+      )
+
   private def performSynchronizerConnectionOrHandshake(
       synchronizerAlias: SynchronizerAlias,
       connectSynchronizer: ConnectSynchronizer,
@@ -1343,6 +1408,10 @@ class CantonSyncService(
         )
     }
 
+  private def isRegistered(synchronizerAlias: SynchronizerAlias) = aliasManager
+    .synchronizerIdForAlias(synchronizerAlias)
+    .exists(id => connectedSynchronizersMap.keys.map(_.logical).exists(_ == id))
+
   /** Perform handshake with the given synchronizer.
     * @param synchronizerAlias
     *   Alias of the synchronizer
@@ -1356,11 +1425,7 @@ class CantonSyncService(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
-    if (
-      aliasManager
-        .synchronizerIdForAlias(synchronizerAlias)
-        .exists(connectedSynchronizersMap.contains)
-    ) {
+    if (isRegistered(synchronizerAlias)) {
       logger.debug(s"Synchronizer ${synchronizerAlias.unwrap} already registered")
       EitherT.rightT(())
     } else {
@@ -1373,19 +1438,18 @@ class CantonSyncService(
         _ = logger.debug(
           s"Performing handshake with synchronizer with id ${synchronizerConnectionConfig.configuredPSId} and config: ${synchronizerConnectionConfig.config}"
         )
-        synchronizerHandle <- EitherT(
+        synchronizerHandleAndUpdatedConfig <- EitherT(
           synchronizerRegistry.connect(synchronizerConnectionConfig.config)
         )
           .leftMap[SyncServiceError](err =>
             SyncServiceError.SyncServiceFailedSynchronizerConnection(synchronizerAlias, err)
           )
+        (synchronizerHandle, updatedConfig) = synchronizerHandleAndUpdatedConfig
 
-        psid = PhysicalSynchronizerId(
-          synchronizerHandle.synchronizerId,
-          synchronizerHandle.staticParameters.protocolVersion,
+        psid = synchronizerHandle.synchronizerId
+        _ = logger.debug(
+          s"Registering id $psid for synchronizer with alias $synchronizerAlias"
         )
-
-        _ = logger.debug(s"Registering id $psid for synchronizer with alias $synchronizerAlias")
         _ <- synchronizerConnectionConfigStore
           .setPhysicalSynchronizerId(synchronizerAlias, psid)
           .leftMap[SyncServiceError](err =>
@@ -1393,6 +1457,9 @@ class CantonSyncService(
               .Error(synchronizerAlias, psid, err.message)
           )
 
+        _ <- updateSynchronizerConnectionConfig(psid, updatedConfig)
+
+        _ = syncCrypto.remove(psid.logical)
         _ = synchronizerHandle.close()
       } yield ()
     }
@@ -1407,7 +1474,11 @@ class CantonSyncService(
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     def connect(
         config: SynchronizerConnectionConfig
-    ): EitherT[FutureUnlessShutdown, SyncServiceError, SynchronizerHandle] =
+    ): EitherT[
+      FutureUnlessShutdown,
+      SyncServiceFailedSynchronizerConnection,
+      (SynchronizerHandle, SynchronizerConnectionConfig),
+    ] =
       EitherT(synchronizerRegistry.connect(config)).leftMap(err =>
         SyncServiceError.SyncServiceFailedSynchronizerConnection(synchronizerAlias, err)
       )
@@ -1423,11 +1494,7 @@ class CantonSyncService(
         disconnectSynchronizer(synchronizerAlias)
       }
 
-    if (
-      aliasManager
-        .synchronizerIdForAlias(synchronizerAlias)
-        .exists(connectedSynchronizersMap.contains)
-    ) {
+    if (isRegistered(synchronizerAlias)) {
       logger.debug(s"Already connected to synchronizer: ${synchronizerAlias.unwrap}")
       resolveReconnectAttempts(synchronizerAlias)
       EitherT.rightT(())
@@ -1444,27 +1511,26 @@ class CantonSyncService(
         _ = logger.debug(
           s"Connecting to synchronizer with id ${synchronizerConnectionConfig.configuredPSId} config: ${synchronizerConnectionConfig.config}"
         )
-        synchronizerHandle <- connect(synchronizerConnectionConfig.config)
+        synchronizerHandleAndUpdatedConfig <- connect(synchronizerConnectionConfig.config)
+        (synchronizerHandle, updatedConfig) = synchronizerHandleAndUpdatedConfig
+        synchronizerId = synchronizerHandle.synchronizerId
 
-        psid = PhysicalSynchronizerId(
-          synchronizerHandle.synchronizerId,
-          synchronizerHandle.staticParameters.protocolVersion,
+        _ = logger.debug(
+          s"Registering id $synchronizerId for synchronizer with alias $synchronizerAlias"
         )
-
-        _ = logger.debug(s"Registering id $psid for synchronizer with alias $synchronizerAlias")
         _ <- synchronizerConnectionConfigStore
-          .setPhysicalSynchronizerId(synchronizerAlias, psid)
+          .setPhysicalSynchronizerId(synchronizerAlias, synchronizerId)
           .leftMap[SyncServiceError](err =>
             SyncServiceError.SyncServicePhysicalIdRegistration
-              .Error(synchronizerAlias, psid, err.message)
+              .Error(synchronizerAlias, synchronizerId, err.message)
           )
+        _ <- updateSynchronizerConnectionConfig(synchronizerId, updatedConfig)
 
-        synchronizerId = synchronizerHandle.synchronizerId
         synchronizerLoggerFactory = loggerFactory.append("synchronizerId", synchronizerId.toString)
         persistent = synchronizerHandle.syncPersistentState
 
         synchronizerCrypto = syncCrypto.tryForSynchronizer(
-          synchronizerId,
+          synchronizerId.logical,
           synchronizerHandle.staticParameters,
         )
 
@@ -1500,7 +1566,7 @@ class CantonSyncService(
 
         missingKeysAlerter = new MissingKeysAlerter(
           participantId,
-          synchronizerId,
+          synchronizerId.logical,
           synchronizerHandle.topologyClient,
           synchronizerCrypto.crypto.cryptoPrivateStore,
           synchronizerLoggerFactory,
@@ -1508,7 +1574,6 @@ class CantonSyncService(
 
         connectedSynchronizer <- EitherT.right(
           connectedSynchronizerFactory.create(
-            synchronizerId,
             synchronizerHandle,
             participantId,
             engine,
@@ -1665,7 +1730,7 @@ class CantonSyncService(
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
     for {
       synchronizerId <- EitherT.fromOption[FutureUnlessShutdown](
-        aliasManager.synchronizerIdForAlias(synchronizerAlias),
+        aliasManager.synchronizerIdForAlias(synchronizerAlias).flatMap(logicalToPhysical),
         SyncServiceUnknownSynchronizer.Error(synchronizerAlias).asGrpcError.getStatus,
       )
       _ <- connectedSynchronizersMap
@@ -1683,7 +1748,8 @@ class CantonSyncService(
     (for {
       synchronizerId <- aliasManager.synchronizerIdForAlias(synchronizerAlias)
     } yield {
-      connectedSynchronizersMap.remove(synchronizerId) match {
+      syncCrypto.remove(synchronizerId)
+      logicalToPhysical(synchronizerId).flatMap(connectedSynchronizersMap.remove) match {
         case Some(connectedSynchronizer) =>
           Try(LifeCycle.close(connectedSynchronizer)(logger)) match {
             case Success(_) =>
@@ -1708,7 +1774,9 @@ class CantonSyncService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = {
     val connectedSynchronizers =
-      connectedSynchronizersMap.keys.toList.mapFilter(aliasManager.aliasForSynchronizerId).distinct
+      connectedSynchronizersMap.keys.toList
+        .mapFilter(id => aliasManager.aliasForSynchronizerId(id.logical))
+        .distinct
     connectedSynchronizers.parTraverse_(disconnectSynchronizer)
   }
 
@@ -1743,7 +1811,7 @@ class CantonSyncService(
           )
         )
         _ <- repairService
-          .awaitCleanSequencerTimestamp(syncService.synchronizerId, tick)
+          .awaitCleanSequencerTimestamp(syncService.synchronizerId.logical, tick)
           .leftMap(err =>
             SyncServiceError.SyncServiceInternalError.CleanHeadAwaitFailed(alias, tick, err)
           )
@@ -1879,9 +1947,11 @@ class CantonSyncService(
         .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))
         .merge
 
-      def getProtocolVersion(synchronizerId: SynchronizerId): Future[ProtocolVersion] =
-        protocolVersionGetter(Traced(synchronizerId)) match {
-          case Some(protocolVersion) => Future.successful(protocolVersion)
+      def getStaticSynchronizerParameter(
+          synchronizerId: SynchronizerId
+      ): Future[StaticSynchronizerParameters] =
+        syncPersistentStateManager.staticSynchronizerParameters(synchronizerId) match {
+          case Some(p) => Future.successful(p)
           case None =>
             Future.failed(
               RequestValidationErrors.InvalidArgument
@@ -1892,9 +1962,9 @@ class CantonSyncService(
 
       ReassignmentCommandsBatch.create(reassignmentCommands) match {
         case Right(unassigns: ReassignmentCommandsBatch.Unassignments) =>
-          getProtocolVersion(unassigns.target.unwrap)
+          getStaticSynchronizerParameter(unassigns.target.unwrap)
             .map(Target(_))
-            .flatMap { targetProtocolVersion =>
+            .flatMap { staticSynchronizerParameters =>
               doReassignment(
                 synchronizerId = unassigns.source.unwrap
               )(
@@ -1908,8 +1978,8 @@ class CantonSyncService(
                     workflowId = workflowId,
                   ),
                   contractIds = unassigns.contractIds,
-                  targetSynchronizer = unassigns.target,
-                  targetProtocolVersion = targetProtocolVersion,
+                  targetSynchronizer = unassigns.target
+                    .map(PhysicalSynchronizerId(_, staticSynchronizerParameters.unwrap)),
                 )
               )
             }
@@ -1962,7 +2032,7 @@ class CantonSyncService(
       .collect {
         case (synchronizerAlias, (synchronizerId, submissionReady)) if submissionReady.unwrap =>
           for {
-            topology <- getSnapshot(synchronizerAlias, synchronizerId)
+            topology <- getSnapshot(synchronizerAlias, synchronizerId.logical)
             partyWithAttributes <- topology.hostedOn(
               Set(request.party),
               participantId = request.participantId.getOrElse(participantId),
@@ -2037,7 +2107,7 @@ class CantonSyncService(
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
+  ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[LfPackageId]]]] =
     topologyPackageMapBuilder.packageMapFor(
       submitters,
       informees,
@@ -2050,12 +2120,12 @@ class CantonSyncService(
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,
       transactionMeta: TransactionMeta,
-      admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
+      admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]],
       disclosedContractIds: List[LfContractId],
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, PhysicalSynchronizerId] =
     transactionRoutingProcessor
       .computeHighestRankedSynchronizerFromAdmissible(
         submitterInfo,
@@ -2070,7 +2140,6 @@ class CantonSyncService(
       traceContext: TraceContext
   ): RoutingSynchronizerState =
     RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
-
 }
 
 object CantonSyncService {
