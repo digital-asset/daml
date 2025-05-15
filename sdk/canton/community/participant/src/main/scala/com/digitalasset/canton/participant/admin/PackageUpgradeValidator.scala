@@ -46,6 +46,15 @@ class PackageUpgradeValidator(
     val upgradingPackagesMap = upgradingPackages.toMap
     val packagesInTopologicalOrder =
       dependenciesInTopologicalOrder(upgradingPackages.map(_._1), upgradingPackagesMap)
+    validateUpgradeInternal(upgradingPackagesMap, packagesInTopologicalOrder)
+  }
+
+  def validateUpgradeInternal(
+      upgradingPackagesMap: Map[Ref.PackageId, Ast.Package],
+      packagesInTopologicalOrder: List[Ref.PackageId],
+  )(implicit
+      loggingContext: LoggingContextWithTrace
+  ): EitherT[Future, DamlError, Unit] = {
     val packageMap = getPackageMap(loggingContext.traceContext)
 
     def go(
@@ -57,6 +66,7 @@ class PackageUpgradeValidator(
         val pkg = upgradingPackagesMap(pkgId)
         pkg.metadata match {
           case Some(pkgMetadata) =>
+            logger.warn(s"Checking ${pkgId} (${supportsUpgrades(pkg)}, ${pkgMetadata.name}, ${pkgMetadata.version}) against ${packageMap}")
             for {
               _ <- EitherTUtil.ifThenET(supportsUpgrades(pkg))(
                 // This check will look for the closest neighbors of pkgId for the package versioning ordering and

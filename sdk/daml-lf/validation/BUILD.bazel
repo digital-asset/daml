@@ -53,6 +53,7 @@ da_scala_library(
     srcs = glob(["src/main/**/validation/UpgradeCheckMain.scala"]),
     scala_deps = [
         "@maven//:org_typelevel_cats_core",
+        "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
