@@ -293,7 +293,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         )
 
       val outputRecord =
-        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33), "optField" -> ValueNone))
+        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,
