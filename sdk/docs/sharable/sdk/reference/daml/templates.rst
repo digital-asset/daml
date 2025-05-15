@@ -74,10 +74,12 @@ executed). For a contract of template ``T``, the ``self`` binding is of type
 Template-local Definitions (Deprecated)
 ***************************************
 
-.. literalinclude:: code-snippets/Reference.daml
-   :language: daml
-   :start-after: -- start template let snippet
-   :end-before: -- end template let snippet
+.. todo:: Fix or remove this literal include
+.. 'start template let snippet' no longer exists in the daml file
+    .. literalinclude:: code-snippets/Reference.daml
+       :language: daml
+       :start-after: -- start template let snippet
+       :end-before: -- end template let snippet
 
 - ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
 - Template parameters as well as ``this`` are in scope, but ``self`` is not.

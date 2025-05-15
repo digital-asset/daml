@@ -69,10 +69,12 @@ However, as you can see above, this information isn't preserved. Furthermore, pr
 
 For an extension model like this one,``data-dependencies`` are appropriate, so the current project includes :doc:`7_Composing` that way:
 
-.. literalinclude:: daml/daml-intro-9/daml.yaml.template
-  :language: yaml
-  :start-after:   - daml-stdlib
-  :end-before: sandbox-options:
+.. todo:: Fix or remove this literal include
+.. 'sandbox-options:' no longer exists in the template file
+    .. literalinclude:: daml/daml-intro-9/daml.yaml.template
+      :language: yaml
+      :start-after:   - daml-stdlib
+      :end-before: sandbox-options:
 
 You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`7_Composing` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using ``daml ledger fetch-dar`` contains test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
 

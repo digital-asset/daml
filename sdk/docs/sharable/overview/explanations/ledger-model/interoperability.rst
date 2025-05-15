@@ -58,7 +58,7 @@ The following picture shows such a setup.
 
 .. https://app.lucidchart.com/documents/edit/6b818d37-cf4c-4513-9d31-d68acddf4533
 
-.. figure:: ./images/multiple-domains.svg
+.. figure:: ./../images/multiple-domains.svg
    :align: center
    :name: multiple-ledgers
    :alt: A sample topology with two parties, three participant nodes, and two ledgers, described in detail through the remainder of this section.
@@ -235,7 +235,7 @@ Incoming and outgoing ledgers are encoded as colors (green for Ledger 1 and yell
 
 .. _interoperable-causality-graph-linear:
    
-.. figure:: ./images/interoperable-causality-graph-linear.svg
+.. figure:: ./../images/interoperable-causality-graph-linear.svg
    :align: center
    :width: 100%
    :alt: Transactions and their colors in this graph: tx1 is yellow. tf1 is yellow and green. tx2 is green. tf2 is green and yellow. tx3 is yellow. tf3 is yellow and green. tx4 is green.
@@ -253,7 +253,7 @@ The last transaction `tx4` is a cross-ledger transaction because its actions hav
 
 .. _counteroffer-interoperable-causality-graph:
    
-.. figure:: ./images/counteroffer-interoperable-causality-graph.svg
+.. figure:: ./../images/counteroffer-interoperable-causality-graph.svg
    :align: center
    :width: 100%
    :alt: The multi-ledger causality graph for the split paint counteroffer workflow. tx1 and tx3 are yellow. tx2 is green. tx4 is both yellow and green.
@@ -404,7 +404,7 @@ The :ref:`cross-domain transaction in the split paint counteroffer workflow <cou
 Here, the projections on the green ledger include the actions of the yellow ledger because a projection includes the subactions.
 
 .. https://www.lucidchart.com/documents/edit/f8ec5741-7a37-4cf5-92a9-bf7b3132ba8e
-.. image:: ./images/projecting-transactions-paint-offer-ledger-aware.svg
+.. image:: ./../images/projecting-transactions-paint-offer-ledger-aware.svg
    :align: center
    :width: 60%
    :alt: Projections for various parties to the split paint counteroffer workflow. The green ledger projections include the yellow ledger, but the yellow ledger projections do not include the green ledger.
@@ -438,7 +438,7 @@ For example, the :ref:`multi-ledger causality graph for the split paint countero
 
 .. https://app.lucidchart.com/documents/edit/d788b464-d670-4029-b2c0-d537c023052f
    
-.. image:: ./images/counteroffer-causality-ledgeraware-projection.svg
+.. image:: ./../images/counteroffer-causality-ledgeraware-projection.svg
    :align: center
    :width: 100%
    :alt: More projections for various parties to the split paint counteroffer workflow, showing greater detail. Alice and the painter have green and yellow, just green, and just yellow projections; the bank has only a yellow projection.
@@ -462,7 +462,7 @@ That is, a **Leave** action is white on the right hand side and an **Enter** act
 
 .. https://app.lucidchart.com/documents/edit/edbf9aaf-b7da-4e68-b9c9-9e631c3a87bb
 
-.. image:: ./images/transfer-projection.svg
+.. image:: ./../images/transfer-projection.svg
    :align: center
    :width: 100%
    :alt: Causality graphs showing only the green or only the yellow ledger.

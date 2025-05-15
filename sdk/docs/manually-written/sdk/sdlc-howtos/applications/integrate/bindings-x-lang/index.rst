@@ -32,7 +32,7 @@ Create Command
 
 Let's recall an **IOU** example from the :doc:`Quickstart guide </tutorials/quickstart>`, where `Iou` template is defined like this:
 
-.. literalinclude:: /tutorials/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ./../../../../tutorials/quickstart/template-root/daml/Iou.daml
   :language: daml
   :start-after: -- BEGIN_IOU_TEMPLATE_DATATYPE
   :end-before: -- END_IOU_TEMPLATE_DATATYPE
@@ -44,7 +44,7 @@ Exercise Command
 
 To build :ref:`com.daml.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
 
-.. literalinclude:: /tutorials/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ./../../../../tutorials/quickstart/template-root/daml/Iou.daml
   :language: daml
   :start-after: -- BEGIN_IOU_TEMPLATE_TRANSFER
   :end-before: -- END_IOU_TEMPLATE_TRANSFER
