@@ -71,8 +71,7 @@ import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
 import DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck)
 import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
-import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
-import DA.Cli.Damlc.DependencyDb (installDependencies)
+import DA.Cli.Damlc.Packaging (setupPackageDb, setupPackageDbFromPackageConfig, mbErr)
 import DA.Cli.Damlc.Test (CoveragePaths(..),
                           LoadCoverageOnly(..),
                           RunAllTests(..),
@@ -987,22 +986,8 @@ installDepsAndInitPackageDb opts (InitPkgDb shouldInit) =
         isProject <- withPackageConfig defaultProjectPath (const $ pure True) `catch` (\(_ :: ConfigError) -> pure False)
         when isProject $ do
             projRoot <- getCurrentDirectory
-            withPackageConfig defaultProjectPath $ \PackageConfigFields {..} -> do
-              damlAssistantIsSet <- damlAssistantIsSet
-              releaseVersion <- if damlAssistantIsSet
-                  then do
-                    damlPath <- getDamlPath
-                    damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
-                    wrapErr "installing dependencies and initializing package database" $
-                      resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
-                  else pure (unsafeResolveReleaseVersion pSdkVersion)
-              installDependencies
-                  (toNormalizedFilePath' projRoot)
-                  opts
-                  releaseVersion
-                  pDependencies
-                  pDataDependencies
-              createProjectPackageDb (toNormalizedFilePath' projRoot) opts pModulePrefixes
+            withPackageConfig defaultProjectPath $
+              setupPackageDbFromPackageConfig (toNormalizedFilePath' projRoot) opts
 
 getMultiPackagePath :: MultiPackageLocation -> IO (Maybe ProjectPath)
 getMultiPackagePath multiPackageLocation =
@@ -1744,8 +1729,7 @@ execDocTest opts scriptDar (ImportSource importSource) files =
             wrapErr "running doc test" $
               resolveReleaseVersionUnsafe (envUseCache damlEnv) SdkVersion.Class.unresolvedBuiltinSdkVersion
           else pure (unsafeResolveReleaseVersion SdkVersion.Class.unresolvedBuiltinSdkVersion)
-      installDependencies "." opts releaseVersion [] [scriptDar]
-      createProjectPackageDb "." opts mempty
+      setupPackageDb "." opts releaseVersion [] [scriptDar] mempty
 
       opts <- pure opts
         { optPackageDbs = projectPackageDatabase : optPackageDbs opts
