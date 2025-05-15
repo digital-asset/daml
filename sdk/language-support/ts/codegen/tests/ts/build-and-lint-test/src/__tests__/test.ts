@@ -82,7 +82,9 @@ let sandboxPort: number | undefined = undefined;
 const SANDBOX_PORT_FILE = "sandbox.port";
 let jsonApiPort: number | undefined = undefined;
 const JSON_API_PORT_FILE = "json-api.port";
-const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`;
+// Using `127.0.0.1` instead of `localhost`, as `localhost` fails to connect on MacOS in node 18
+// See this comment: https://github.com/node-fetch/node-fetch/issues/1624#issuecomment-1235826631
+const httpBaseUrl: () => string = () => `http://127.0.0.1:${jsonApiPort}/`;
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 let jsonApiProcess: ChildProcess | undefined = undefined;
