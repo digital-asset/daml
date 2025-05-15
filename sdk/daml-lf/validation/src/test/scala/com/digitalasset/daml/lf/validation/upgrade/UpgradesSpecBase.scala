@@ -88,6 +88,36 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    // This test only fails when
+    // 1. The precondition requiring that only >=LF1.17 packages get added to
+    //    the package map
+    // 2. The hash of the v2.dar is greater than the v1.dar, which lets the v2
+    //    DAR get checked after the v1 dar.
+    // This is very not-ideal because it means that the test only occasionally
+    // detects when a regression has occurred, but is the best we can do until
+    // we can force the checks to run in a specific but still
+    // topologically-valid order.
+    //
+    // TODO: dylant-da: Make this always fail on regression, some existing work
+    // lives in `dylant-da/disallow-interface-lf115-upgrades-explicit-ordering`
+    "Succeeds when upgrading an LF1.15 dependency without using it" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
+        "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Fails when upgrading an LF1.15 dependency at a use site" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
+        "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type MainD has changed the types of some of its original fields.")
+        ),
+      )
+    }
   }
 
   s"uploading daml-script in upgrade context gives a warning" in {
