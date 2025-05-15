@@ -94,6 +94,10 @@ if has_regenerate_stackage_trailer; then
   exit 1
 fi
 
+# [acochard] debug remove
+bazel clean --expunge
+rm -rf .bazel-cache/repo
+
 echo "Running 'bazel build //...'"
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
