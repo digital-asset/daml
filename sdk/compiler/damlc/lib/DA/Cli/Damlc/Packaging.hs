@@ -5,6 +5,8 @@
 
 module DA.Cli.Damlc.Packaging
   ( createProjectPackageDb
+  , setupPackageDb
+  , setupPackageDbFromPackageConfig
   , mbErr
   , getUnitId
 
@@ -43,6 +45,7 @@ import qualified Module as GHC
 import qualified "ghc-lib-parser" Packages as GHC
 import System.Directory.Extra (copyFile, createDirectoryIfMissing, listFilesRecursive, removePathForcibly)
 import System.Exit
+import System.FileLock
 import System.FilePath
 import System.IO.Extra (hFlush, hPutStrLn, stderr, writeFileUTF8)
 import System.Info.Extra
@@ -50,20 +53,27 @@ import System.Process (callProcess)
 import "ghc-lib-parser" UniqSet
 
 import DA.Bazel.Runfiles
+import DA.Cli.Damlc.DependencyDb
+import DA.Daml.Assistant.Env (getDamlEnv, getDamlPath, envUseCache)
+import DA.Daml.Assistant.Types (LookForProjectPath (..))
+import DA.Daml.Assistant.Util (wrapErr)
+import DA.Daml.Assistant.Version (resolveReleaseVersionUnsafe)
 import DA.Daml.Compiler.Dar
 import DA.Daml.Compiler.DataDependencies as DataDeps
 import DA.Daml.Compiler.DecodeDar (DecodedDalf(..), decodeDalf)
 import DA.Daml.Compiler.Output
-import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Ast.Optics (packageRefs)
-import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
-import DA.Cli.Damlc.DependencyDb
-import qualified DA.Pretty
-import qualified DA.Service.Logger as Logger
+import DA.Daml.Package.Config (PackageConfigFields (..))
+import DA.Daml.Project.Consts (damlAssistantIsSet)
+import DA.Daml.Project.Types (ReleaseVersion, unsafeResolveReleaseVersion)
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml
+import qualified DA.Daml.LF.Ast as LF
+import qualified DA.Daml.LFConversion.MetadataEncoding as LFC
+import qualified DA.Pretty
+import qualified DA.Service.Logger as Logger
 import SdkVersion.Class (SdkVersioned, damlStdlib)
 
 -- | Create the project package database containing the given dar packages.
@@ -922,3 +932,58 @@ prefixModules prefixes dalfs = do
                 ( prefix
                 , NM.names . LF.packageModules . LF.extPackagePkg $ LF.dalfPackagePkg pkg
                 )
+
+unsafeSetupPackageDb
+    :: SdkVersioned
+    => NormalizedFilePath
+    -> Options
+    -> ReleaseVersion
+    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+    -> MS.Map UnitId GHC.ModuleName
+    -> IO ()
+unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes = do
+    installDependencies
+        projRoot
+        opts
+        releaseVersion
+        pDependencies
+        pDataDependencies
+    createProjectPackageDb projRoot opts pModulePrefixes
+
+withPkgDbLock :: NormalizedFilePath -> IO a -> IO a
+withPkgDbLock projRoot act = do
+    let packageDbLockFile = packageDbLockPath projRoot
+    createDirectoryIfMissing True $ takeDirectory packageDbLockFile
+    withFileLock packageDbLockFile Exclusive $ const act
+
+-- Installs dependencies and creates package Db ready to be used
+setupPackageDb
+    :: SdkVersioned
+    => NormalizedFilePath
+    -> Options
+    -> ReleaseVersion
+    -> [String] -- Package dependencies. Can be base-packages, sdk-packages or filepath.
+    -> [FilePath] -- Data Dependencies. Can be filepath to dars/dalfs.
+    -> MS.Map UnitId GHC.ModuleName
+    -> IO ()
+setupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes =
+    withPkgDbLock projRoot $ unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
+
+setupPackageDbFromPackageConfig
+    :: SdkVersioned
+    => NormalizedFilePath
+    -> Options
+    -> PackageConfigFields
+    -> IO ()
+setupPackageDbFromPackageConfig projRoot opts PackageConfigFields {..} =
+    withPkgDbLock projRoot $ do
+        damlAssistantIsSet <- damlAssistantIsSet
+        releaseVersion <- if damlAssistantIsSet
+            then do
+              damlPath <- getDamlPath
+              damlEnv <- getDamlEnv damlPath (LookForProjectPath False)
+              wrapErr "installing dependencies and initializing package database" $
+                resolveReleaseVersionUnsafe (envUseCache damlEnv) pSdkVersion
+            else pure (unsafeResolveReleaseVersion pSdkVersion)
+        unsafeSetupPackageDb projRoot opts releaseVersion pDependencies pDataDependencies pModulePrefixes
