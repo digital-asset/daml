@@ -8,8 +8,8 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.lf.data.Ref
 import com.daml.lf.engine.*
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
-import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.*
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService
@@ -375,6 +375,7 @@ object ApiServices {
           validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
           enableExplicitDisclosure = enableExplicitDisclosure,
           authenticateSerializableContract = serializableContractAuthenticators.input,
+          stricterPartyValidation = commandConfig.stricterPartyValidation,
         )
         val (apiSubmissionService, commandSubmissionService) =
           CommandSubmissionServiceImpl.createApiService(

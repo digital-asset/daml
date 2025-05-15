@@ -39,11 +39,11 @@ final class CommandsValidator(
     validateDisclosedContracts: ValidateDisclosedContracts,
     validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions =
       ValidateUpgradingPackageResolutions.UpgradingDisabled,
+    valueValidator: ValueValidator = ValueValidator,
 ) {
 
   import FieldValidator.*
   import ValidationErrors.*
-  import ValueValidator.*
 
   def validateCommands(
       commands: V1.Commands,
@@ -154,7 +154,7 @@ final class CommandsValidator(
           typeConRef <- validateTypeConRef(templateId)
           createArguments <- requirePresence(c.value.createArguments, "create_arguments")
           recordId <- createArguments.recordId.traverse(validateIdentifier)
-          validatedRecordField <- validateRecordFields(createArguments.fields)
+          validatedRecordField <- valueValidator.validateRecordFields(createArguments.fields)
         } yield ApiCommand.Create(
           templateRef = typeConRef,
           argument = Lf.ValueRecord(recordId, validatedRecordField),
@@ -167,7 +167,7 @@ final class CommandsValidator(
           contractId <- requireContractId(e.value.contractId, "contract_id")
           choice <- requireName(e.value.choice, "choice")
           value <- requirePresence(e.value.choiceArgument, "value")
-          validatedValue <- validateValue(value)
+          validatedValue <- valueValidator.validateValue(value)
         } yield ApiCommand.Exercise(
           typeRef = templateRef,
           contractId = contractId,
@@ -180,10 +180,10 @@ final class CommandsValidator(
           templateId <- requirePresence(ek.value.templateId, "template_id")
           templateRef <- validateTypeConRef(templateId)
           contractKey <- requirePresence(ek.value.contractKey, "contract_key")
-          validatedContractKey <- validateValue(contractKey)
+          validatedContractKey <- valueValidator.validateValue(contractKey)
           choice <- requireName(ek.value.choice, "choice")
           value <- requirePresence(ek.value.choiceArgument, "value")
-          validatedValue <- validateValue(value)
+          validatedValue <- valueValidator.validateValue(value)
         } yield ApiCommand.ExerciseByKey(
           templateRef = templateRef,
           contractKey = validatedContractKey,
@@ -197,10 +197,10 @@ final class CommandsValidator(
           templateRef <- validateTypeConRef(templateId)
           createArguments <- requirePresence(ce.value.createArguments, "create_arguments")
           recordId <- createArguments.recordId.traverse(validateIdentifier)
-          validatedRecordField <- validateRecordFields(createArguments.fields)
+          validatedRecordField <- valueValidator.validateRecordFields(createArguments.fields)
           choice <- requireName(ce.value.choice, "choice")
           value <- requirePresence(ce.value.choiceArgument, "value")
-          validatedChoiceArgument <- validateValue(value)
+          validatedChoiceArgument <- valueValidator.validateValue(value)
         } yield ApiCommand.CreateAndExercise(
           templateRef = templateRef,
           createArgument = Lf.ValueRecord(recordId, validatedRecordField),
@@ -302,7 +302,7 @@ final class CommandsValidator(
       templateId <- requirePresence(templateIdO, "template_id")
       templateRef <- validateTypeConRef(templateId)
       contractKey <- requirePresence(contractKeyO, "contract_key")
-      validatedKey <- validateValue(contractKey)
+      validatedKey <- valueValidator.validateValue(contractKey)
     } yield ApiContractKey(templateRef, validatedKey)
   }
 
@@ -314,12 +314,14 @@ object CommandsValidator {
       validateUpgradingPackageResolutions: ValidateUpgradingPackageResolutions,
       enableExplicitDisclosure: Boolean,
       authenticateSerializableContract: AuthenticateSerializableContract,
+      stricterPartyValidation: Boolean,
   ) =
     new CommandsValidator(
       ledgerId = ledgerId,
       validateUpgradingPackageResolutions = validateUpgradingPackageResolutions,
       validateDisclosedContracts =
         new ValidateDisclosedContracts(enableExplicitDisclosure, authenticateSerializableContract),
+      valueValidator = if (stricterPartyValidation) StricterPartyValueValidator else ValueValidator,
     )
 
   /** Effective submitters of a command

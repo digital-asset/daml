@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.authentication.grpc
 
 import cats.implicits.*
+import com.digitalasset.canton.auth.AsyncForwardingListener
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.topology.Member

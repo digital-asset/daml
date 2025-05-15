@@ -9,8 +9,8 @@ import com.daml.ledger.api.v1.active_contracts_service.{
   GetActiveContractsRequest,
   GetActiveContractsResponse,
 }
+import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
-import com.digitalasset.canton.ledger.api.auth.Authorizer
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import io.grpc.ServerServiceDefinition
 import io.grpc.stub.StreamObserver

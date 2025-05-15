@@ -446,7 +446,14 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             }
 
             assertRequestLogged
-            capturingLogger.assertNextMessageIs(createExpectedLogMessage("cancelled"), INFO)
+            capturingLogger.assertNextMessage(
+              _ should include(
+                createExpectedLogMessage(
+                  "cancelled. Cancellations can be caused by timeouts, explicit cancellation by the client, network errors, etc."
+                )
+              ),
+              INFO,
+            )
 
             // Wait until the cancellation has arrived at the server.
             eventually() {
@@ -696,7 +703,14 @@ class ApiRequestLoggerTest extends AnyWordSpec with BaseTest with HasExecutionCo
             }
 
             assertRequestAndResponsesLogged
-            capturingLogger.assertNextMessageIs(createExpectedLogMessage("cancelled"), INFO)
+            capturingLogger.assertNextMessage(
+              _ should include(
+                createExpectedLogMessage(
+                  "cancelled. Cancellations can be caused by timeouts, explicit cancellation by the client, network errors, etc."
+                )
+              ),
+              INFO,
+            )
 
             // Wait until the server has received the cancellation
             eventually() {

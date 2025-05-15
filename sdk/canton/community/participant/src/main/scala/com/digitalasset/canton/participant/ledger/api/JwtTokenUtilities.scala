@@ -3,9 +3,16 @@
 
 package com.digitalasset.canton.participant.ledger.api
 
-import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
-import com.digitalasset.canton.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  CustomDamlJWTPayload,
+  DecodedJwt,
+  Jwt,
+  JwtSigner,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
+import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 
 import java.time.Instant
 
@@ -29,6 +36,30 @@ object JwtTokenUtilities {
       admin = admin,
       readAs = readAs,
       actAs = actAs,
+    )
+    // stolen from com.digitalasset.canton.ledger.api.auth.Main
+    val jwtPayload = AuthServiceJWTCodec.compactPrint(payload)
+    val jwtHeader = s"""{"alg": "HS256", "typ": "JWT"}"""
+    val signed: Jwt = JwtSigner.HMAC256
+      .sign(DecodedJwt(jwtHeader, jwtPayload), secret)
+      .valueOr(err => throw new RuntimeException(err.message))
+    signed.value
+  }
+
+  def buildUnsafeStandardToken(
+      secret: String,
+      userId: Option[String] = None,
+      exp: Option[Instant] = None,
+      scope: Option[String] = None,
+  ): String = {
+    val payload = StandardJWTPayload(
+      issuer = None,
+      userId = userId.getOrElse(UserManagementStore.DefaultParticipantAdminUserId),
+      participantId = None,
+      exp = exp,
+      format = StandardJWTTokenFormat.Scope,
+      audiences = List.empty,
+      scope = scope.fold(Some(AuthServiceJWTCodec.scopeLedgerApiFull))(Some(_)),
     )
     // stolen from com.digitalasset.canton.ledger.api.auth.Main
     val jwtPayload = AuthServiceJWTCodec.compactPrint(payload)

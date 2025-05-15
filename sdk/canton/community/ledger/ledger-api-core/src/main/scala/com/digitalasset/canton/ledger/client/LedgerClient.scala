@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.client
 
+import com.daml.grpc.AuthCallCredentials.authorizingStub
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v1.active_contracts_service.ActiveContractsServiceGrpc
 import com.daml.ledger.api.v1.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc
@@ -17,7 +18,6 @@ import com.daml.ledger.api.v1.ledger_identity_service.LedgerIdentityServiceGrpc
 import com.daml.ledger.api.v1.package_service.PackageServiceGrpc
 import com.daml.ledger.api.v1.transaction_service.TransactionServiceGrpc
 import com.daml.ledger.api.v1.version_service.VersionServiceGrpc
-import com.digitalasset.canton.ledger.api.auth.client.LedgerCallCredentials.authenticatingStub
 import com.digitalasset.canton.ledger.api.domain.LedgerId
 import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientChannelConfiguration,
@@ -128,7 +128,7 @@ object LedgerClient {
     } yield new LedgerClient(channel, config, ledgerId, loggerFactory)
 
   private[client] def stub[A <: AbstractStub[A]](stub: A, token: Option[String]): A =
-    token.fold(stub)(authenticatingStub(stub, _))
+    token.fold(stub)(authorizingStub(stub, _))
 
   /** A convenient shortcut to build a [[LedgerClient]], use [[fromBuilder]] for a more
     * flexible alternative.

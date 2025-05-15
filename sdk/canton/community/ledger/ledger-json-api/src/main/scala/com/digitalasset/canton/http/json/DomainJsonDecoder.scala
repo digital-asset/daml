@@ -7,7 +7,7 @@ import com.digitalasset.canton.http.ErrorMessages.cannotResolveTemplateId
 import JsValueToApiValueConverter.mustBeApiRecord
 import com.digitalasset.canton.http.util.FutureUtil.either
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v1 as lav1
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.domain.{ContractTypeId, HasTemplateId}

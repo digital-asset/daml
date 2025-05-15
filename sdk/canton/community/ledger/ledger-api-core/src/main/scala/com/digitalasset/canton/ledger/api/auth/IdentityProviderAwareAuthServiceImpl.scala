@@ -4,8 +4,17 @@
 package com.digitalasset.canton.ledger.api.auth
 
 import com.auth0.jwt.JWT
-import com.daml.jwt.domain.DecodedJwt
-import com.daml.jwt.{Error as JwtError, JwtFromBearerHeader, JwtVerifier}
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  CustomDamlJWTPayload,
+  DecodedJwt,
+  Error as JwtError,
+  JwtFromBearerHeader,
+  JwtVerifier,
+  StandardJWTPayload,
+}
+import com.digitalasset.canton.auth.{AuthService, ClaimSet}
 import com.digitalasset.canton.ledger.api.auth.interceptor.IdentityProviderAwareAuthService
 import com.digitalasset.canton.ledger.api.domain.IdentityProviderId
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
@@ -92,7 +101,7 @@ class IdentityProviderAwareAuthServiceImpl(
     }
 
   private def verifyToken(token: String, verifier: JwtVerifier): Future[DecodedJwt[String]] =
-    toFuture(verifier.verify(com.daml.jwt.domain.Jwt(token)).toEither)
+    toFuture(verifier.verify(com.daml.jwt.Jwt(token)).toEither)
 
   private def toFuture[T](e: Either[JwtError, T]): Future[T] =
     e.fold(err => Future.failed(new Exception(err.message)), Future.successful)
@@ -127,7 +136,7 @@ class IdentityProviderAwareAuthServiceImpl(
 
   private def toAuthenticatedUser(payload: StandardJWTPayload, id: IdentityProviderId.Id) =
     ClaimSet.AuthenticatedUser(
-      identityProviderId = id,
+      identityProviderId = Some(id.value),
       participantId = payload.participantId,
       userId = payload.userId,
       expiration = payload.exp,

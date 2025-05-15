@@ -28,6 +28,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.apiserver.page_tokens.ListPartiesPageTokenPayload
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.tracing.Telemetry
+import com.digitalasset.canton.auth.AuthorizationChecksErrors
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{
@@ -48,7 +49,6 @@ import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.error.groups.{
-  AuthorizationChecksErrors,
   PartyManagementServiceErrors,
   RequestValidationErrors,
 }
