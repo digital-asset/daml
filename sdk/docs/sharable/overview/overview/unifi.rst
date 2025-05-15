@@ -72,7 +72,7 @@ terms of enterprise and non-functional capabilities:
       - Parallel (fast)
       - Sequential (slow)
     * - High Availability
-      - :ref:`Yes <ha_user_manual>`
+      - :externalref:`Yes <ha_user_manual>`
       - No
     * - `Participant Query Store <https://docs.daml.com/query/pqs-user-guide.html>`__
       - Yes
@@ -81,7 +81,7 @@ terms of enterprise and non-functional capabilities:
       - Yes
       - No
     * - High Throughput via Microservices
-      - :ref:`Yes <ha_user_manual>`
+      - :externalref:`Yes <ha_user_manual>`
       - No
     * - Resource Management
       - Yes
@@ -105,12 +105,12 @@ Downloading Unifi
 
 Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
 respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__, or you can use
-our Canton Enterprise Docker images as described in our :ref:`Docker instructions <docker-instructions>`.
+our Canton Enterprise Docker images as described in our :externalref:`Docker instructions <docker-instructions>`.
 
 
 Downloading the Open Source Edition
 ***********************************
 
 The Open Source release is available from `Github <https://github.com/digital-asset/daml/releases/latest>`__.
-You can also use our Canton Docker images by following our :ref:`Docker instructions <docker-instructions>`.
+You can also use our Canton Docker images by following our :externalref:`Docker instructions <docker-instructions>`.
 

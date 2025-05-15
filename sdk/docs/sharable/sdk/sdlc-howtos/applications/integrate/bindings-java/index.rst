@@ -49,7 +49,7 @@ When writing applications for the ledger in Java, you want to work with a repres
 
 To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
-For more information on Java code generation, see :doc:`/app-dev/bindings-java/codegen`.
+For more information on Java code generation, see :ref:`daml-codegen-java`.
 
 Connect to the Ledger: ``LedgerClient``
 =======================================
@@ -84,7 +84,7 @@ To use the Java bindings library, add the following dependencies to your project
 Replace ``x.y.z`` for both dependencies with the version that you want to use. You can find the available versions by checking
 the `Maven Central Repository <https://search.maven.org/artifact/com.daml/bindings-java>`__.
 
-You can also take a look at the ``pom.xml`` file from the :ref:`quickstart project <quickstart>`.
+You can also take a look at the ``pom.xml`` file from the :brokenref:`quickstart project <quickstart>`.
 
 .. _ledger-api-java-binding-connecting:
 
@@ -108,7 +108,7 @@ Perform Authorization
 
 Some ledgers will require you to send an access token along with each request.
 
-To learn more about authorization, read the :doc:`Authorization </app-dev/authorization>` overview.
+To learn more about authorization, read the :ref:`Authorization <authorization>` overview.
 
 To use the same token for all Ledger API requests, the ``DamlLedgerClient`` builders expose a ``withAccessToken`` method. This will allow you to not pass a token explicitly for every call.
 
@@ -144,5 +144,5 @@ Sometimes the default settings for gRPC connections/channels are not suitable fo
 Example Projects
 ****************
 
-Example projects using the Java bindings are available on `GitHub <https://github.com/digital-asset/ex-java-bindings>`__. :doc:`Read more about them here </app-dev/bindings-java/example>`.
+Example projects using the Java bindings are available on `GitHub <https://github.com/digital-asset/ex-java-bindings>`__. :ref:`Read more about them here <bindings-java-example>`.
 

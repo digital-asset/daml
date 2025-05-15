@@ -17,7 +17,7 @@ Stable releases have versions MAJOR.MINOR.PATCH. Segments of the version are inc
 #. MINOR version when functionality is added in a backwards compatible manner, and
 #. PATCH version when there are only backwards compatible bug fixes.
 
-Daml's "public API" is laid out in the :doc:`overview`.
+Daml's "public API" is laid out in the :externalref:`daml-ecosystem-overview`.
 
 Cadence
 *******

@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _canton-ecosystem-overview:
+
 Canton Ecosystem Overview
 ##########################
 
@@ -12,9 +14,9 @@ Canton Ecosystem Overview
 
    status-definitions
 
-This page is intended to give you an overview of the components that constitute the Daml Ecosystem, what status they are in, and how they fit together. It lays out Daml's "public API" in the sense of :ref:`Semantic Versioning <versioning>`, and is a prerequisite to understanding Daml's :doc:`compatibility`.
+This page is intended to give you an overview of the components that constitute the Daml Ecosystem, what status they are in, and how they fit together. It lays out Daml's "public API" in the sense of :ref:`Semantic Versioning <versioning>`, and is a prerequisite to understanding Daml's :ref:`overview-compatibility`.
 
-:doc:`status-definitions` gives a fine-grained view of what labels like "Alpha" and "Beta" mean.
+:ref:`status-definitions` gives a fine-grained view of what labels like "Alpha" and "Beta" mean.
 
 .. _ecosystem-architecture:
 

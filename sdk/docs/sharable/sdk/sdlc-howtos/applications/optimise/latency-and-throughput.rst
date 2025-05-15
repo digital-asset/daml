@@ -240,7 +240,7 @@ This batching approach makes updates in one transaction submission rather than r
     submit p do
     forA_ cids (`exerciseCmd` Foo)
 
-2. CPU and memory issues: Use the :doc:`Daml profiler </tools/profiler>` to analyze Daml code execution.
+2. CPU and memory issues: Use the :ref:`Daml profiler <measure-daml-profiler>` to analyze Daml code execution.
 3. Once you feel interpretation is not the bottleneck, scale up your machine.
 
 .. tip::

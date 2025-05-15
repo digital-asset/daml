@@ -86,3 +86,6 @@ out
 
 /.tmp-pg/
 /.canton
+
+docs/build/
+.python-env/

@@ -84,6 +84,6 @@ A function is *parametrically polymorphic* if it behaves uniformly for all types
 
 where ``a``, ``b``, and ``c`` are any data types. Both ``compose ((+) 4) ((*) 2) 3 == 10`` and ``compose not ((&&) True) False`` evaluate to ``True``. Note that ``((+) 4)`` has type ``Int -> Int``, whereas ``not`` has type ``Bool -> Bool``.
 
-You can find many other generic functions including this one in the :doc:`Daml standard library </daml/stdlib/index>`.
+You can find many other generic functions including this one in the :ref:`Daml standard library <stdlib-reference-base>`.
 
 .. note:: Daml currently does not support generic functions for a specific set of types, such as ``Int`` and ``Decimal`` numbers. For example, ``sum (x: a) (y: a) = x + y`` is undefined when ``a`` equals the type ``Party``. *Bounded polymorphism* might be added to Daml in a later version.

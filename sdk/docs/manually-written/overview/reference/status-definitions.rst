@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _status-definitions:
+
 Status Definitions
 ##################
 
@@ -30,7 +32,7 @@ Beta
 Deprecation
 ***********
 
-In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below. The date of deprecation is documented in :doc:`overview`.
+In addition to being labelled Early Access, features and components can also be labelled "Deprecated". Deprecation follows a deprecation cycle laid out in the table below. The date of deprecation is documented in :externalref:`daml-ecosystem-overview`.
 
 Deprecated features can be relied upon during the deprecation cycle to the same degree as their non-deprecated counterparts, but building on deprecated features may hinder an upgrade to new Daml versions following the deprecation cycle.
 

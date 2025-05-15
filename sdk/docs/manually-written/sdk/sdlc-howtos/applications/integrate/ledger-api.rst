@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _integration-with-ledger-api:
+
 Build Integration with the Ledger API
 #####################################
 
@@ -37,22 +39,22 @@ The Ledger API exposes the following services:
 
   - Use the :ref:`time service <time-service>` to obtain the time as known by the ledger.
 
-For full information on the services see :doc:`/app-dev/services`.
+For full information on the services see :ref:`ledger-api-services`.
 
-You may also want to read the :doc:`protobuf documentation </app-dev/grpc/proto-docs>`, which explains how each service is defined as protobuf messages.
+You may also want to read the :externalref:`protobuf documentation <com/daml/ledger/api/scalapb/package.proto>`, which explains how each service is defined as protobuf messages.
 
 .. _how-to-access-ledger-api:
 
 How to Access the Ledger API
 ****************************
 
-You can access the Ledger API via the :doc:`Java Bindings <bindings-java/index>` or the :doc:`Python Bindings </app-dev/bindings-python>` (formerly known as DAZL).
+You can access the Ledger API via the :brokenref:`Java Bindings <bindings-java/index>` or the :ref:`Python Bindings <python-bindings>` (formerly known as DAZL).
 
 If you don't use a language that targets the JVM or Python, you can use gRPC to generate the code to access the Ledger API in
 several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
 pointers on how you may want to approach this.
 
-You can also use the :doc:`HTTP JSON API Service </json-api/index>` to tap into the Ledger API.
+You can also use the :externalref:`HTTP JSON API Service <json-api>` to tap into the Ledger API.
 
 At its core, this service provides a simplified view of the active contract set and additional primitives to query it and
 exposing it using a well-defined JSON-based encoding over a conventional HTTP connection.
@@ -83,6 +85,6 @@ Otherwise, it can be helpful to know what the types in your Daml code look like 
 
 For example, if you are writing an application that creates some Daml contracts, you need to construct values to pass as parameters to the contract. These values are determined by the Daml-LF types in that contract template. This means you need an idea of how the Daml-LF types correspond to the types in the original Daml model.
 
-For the most part the translation of types from Daml to Daml-LF should not be surprising. :doc:`This page goes through all the cases in detail </app-dev/daml-lf-translation>`.
+For the most part the translation of types from Daml to Daml-LF should not be surprising. :ref:`This page goes through all the cases in detail <daml-lf-translation>`.
 
 For the bindings to your specific programming language, you should refer to the language-specific documentation.

@@ -85,7 +85,7 @@ Formally, an **action** is one of the following:
    The action also contains **actors**, the parties who fetch the contract.
    A **Fetch** behaves like a non-consuming exercise with no consequences, and can be repeated.
 
-#. a **Key assertion**, which records the assertion that the given :doc:`contract key </daml/reference/contract-keys>` is **not** assigned to any unconsumed contract on the ledger.
+#. a **Key assertion**, which records the assertion that the given :externalref:`contract key <contractkeys>` is **not** assigned to any unconsumed contract on the ledger.
 
 An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
 Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
@@ -210,7 +210,7 @@ acceptance, the image below shows all its proper non-empty subtransactions on th
    :width: 100%
    :alt: The paint agreement chart with the following subtransactions listed in boxes alongside it: Box 1 - On the left action Exe A (Iou Bank A) leads to Iou Bank P. On the right there is only PaintAgree P A P123. Box 2 - Iou Bank P on the left, PaintAgree P A P123 on the right. Box 3 - Action Exe A (Iou Bank A) leads to Iou Bank P. Box 4 - Iou Bank P. Box 5 - PaintAgree P A P123.
 
-To illustrate :doc:`contract keys </daml/reference/contract-keys>`, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter.
+To illustrate :externalref:`contract keys <contractkeys>`, suppose that the contract key for a `PaintOffer` consists of the reference number and the painter.
 So Alice can refer to the `PaintOffer` by its key `(P, P123)`.
 To make this explicit, we use the notation `PaintOffer @P A &P123` for contracts, where `@` and `&` mark the parts that belong to a key.
 (The difference between `@` and `&` is explained in the :ref:`integrity section <da-signatories-maintainers>`.)

@@ -123,12 +123,12 @@ createdN offset = CreatedIndex CreatedIndexPayload
     offset
 
 -- | Index for the first exercise of a given choice on a given template
--- e.g. `exercised @MyTemplate "MyChoice"
+-- e.g. `exercised @MyTemplate "MyChoice"`
 exercised : forall t t'. HasTemplateTypeRep t => Text -> TreeIndex t' -> TreeIndex t'
 exercised choice = exercisedN @t choice 0
 
 -- | Index for the Nth exercise of a given choice on a given template
--- e.g. `exercisedN @MyTemplate "MyChoice" 2
+-- e.g. `exercisedN @MyTemplate "MyChoice" 2`
 -- `exercised c = exercisedN c 0`
 exercisedN : forall t t'. HasTemplateTypeRep t => Text -> Int -> TreeIndex t' -> TreeIndex t'
 exercisedN choice offset child = ExercisedIndex ExercisedIndexPayload
