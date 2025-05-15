@@ -927,6 +927,7 @@ checkQualName deps name =
     prioritizeMismatches (namesAreSame `Alpha.andMismatches` qualificationIsSameOrUpgraded)
   where
     nameMismatch' reason = foldU Alpha.nameMismatch name (Just reason)
+    -- if b is False, we emit the mismatch on the right
     ifMismatch b reason = [nameMismatch' reason | not b]
     tryGetPkgId :: LF.PackageId -> Either PackageId UpgradingDep
     tryGetPkgId pkgId =
