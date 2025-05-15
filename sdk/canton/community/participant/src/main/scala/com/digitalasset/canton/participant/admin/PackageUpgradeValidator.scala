@@ -65,7 +65,11 @@ class PackageUpgradeValidator(
                 // by a cache depending on the order in which the packages are uploaded.
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap, upgradingPackagesMap)
               )
-              res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version, Some(pkg.languageVersion)))), rest)
+              res <- go(if (supportsUpgrades(pkg)) {
+                packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version, Some(pkg.languageVersion))))
+              } else {
+                packageMap
+              }, rest)
             } yield res
           case None =>
             logger.debug(
