@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTr
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.daml.lf.language.Util
 
+import cats.implicits._
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
 
@@ -353,10 +354,10 @@ abstract class TypecheckUpgradesUtils(
   protected def warn(err: UpgradeError.Error)(implicit
       loggingContext: LoggingContextWithTrace
   ): Unit =
-    logger.warn(err.message)
+    logger.warn(s"Warning while typechecking upgrades: ${err.message}")
 
   protected def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
-    Try(t.map(f(_).get).toSeq)
+    t.toSeq.traverse(f)
 
   protected def extractDelExistNew[K, V](
       arg: Upgrading[Map[K, V]]
@@ -404,12 +405,12 @@ object TypecheckUpgrades {
   ) {
     def sequenceOptional: Option[UploadPhaseCheck[A]] =
       phase match {
-        case MaximalDarCheck(None, _) | MaximalDarCheck(_, None) => None
         case MaximalDarCheck(Some(oldPkg), Some(newPkg)) => Some(MaximalDarCheck(oldPkg, newPkg))
-        case MinimalDarCheck(None, _) | MinimalDarCheck(_, None) => None
         case MinimalDarCheck(Some(oldPkg), Some(newPkg)) => Some(MinimalDarCheck(oldPkg, newPkg))
-        case StandaloneDarCheck(None) => None
         case StandaloneDarCheck(Some(newPkg)) => Some(StandaloneDarCheck(newPkg))
+        case MaximalDarCheck(_, _) => None
+        case MinimalDarCheck(_, _) => None
+        case StandaloneDarCheck(_) => None
       }
   }
   final case class MinimalDarCheck[A](
@@ -503,12 +504,12 @@ case class TypecheckUpgrades(
       loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
     phase match {
-      case TypecheckUpgrades.MaximalDarCheck(oldPkg, newPkg) =>
-        typecheckUpgradesPair(packageMap, oldPkg, newPkg)
-      case TypecheckUpgrades.MinimalDarCheck(oldPkg, newPkg) =>
-        typecheckUpgradesPair(packageMap, oldPkg, newPkg)
-      case TypecheckUpgrades.StandaloneDarCheck(newPkg) =>
-        typecheckUpgradesStandalone(packageMap, newPkg)
+      case p: TypecheckUpgrades.MaximalDarCheck[_] =>
+        typecheckUpgradesPair(packageMap, p.oldPackage, p.newPackage)
+      case p: TypecheckUpgrades.MinimalDarCheck[_] =>
+        typecheckUpgradesPair(packageMap, p.oldPackage, p.newPackage)
+      case p: TypecheckUpgrades.StandaloneDarCheck[_] =>
+        typecheckUpgradesStandalone(packageMap, p.newPackage)
     }
   }
 }
@@ -531,17 +532,14 @@ case class TypecheckUpgradesStandalone(
       instance <- template.implements
       ifaceId = instance._2.interfaceId
     } {
-      getIfUpgradeable(ifaceId.packageId) match {
-        case None =>
-          warn(
-            UpgradeError.CannotImplementNonUpgradeableInterface(
-              pkg._1,
-              ifaceId,
-              tplName,
-            )
+      if (getIfUpgradeable(ifaceId.packageId).isEmpty) {
+        warn(
+          UpgradeError.CannotImplementNonUpgradeableInterface(
+            pkg._1,
+            ifaceId,
+            tplName,
           )
-        case _ =>
-          ()
+        )
       }
     }
 

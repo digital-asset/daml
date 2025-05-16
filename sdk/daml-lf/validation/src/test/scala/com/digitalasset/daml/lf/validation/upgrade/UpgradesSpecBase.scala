@@ -101,10 +101,18 @@ trait LongTests { this: UpgradesSpec =>
     //
     // TODO: dylant-da: Make this always fail on regression, some existing work
     // lives in `dylant-da/disallow-interface-lf115-upgrades-explicit-ordering`
-    "Succeeds when upgrading an LF1.15 dependency without a shared use site" in {
+    "Succeeds when upgrading an LF1.15 dependency to an LF1.17 dependency without a shared use site" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
-        "test-common/upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
+        "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v1.dar",
+        "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "Succeeds when upgrading an LF1.15 dependency to another LF1.15 dependency without a shared use site" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v1.dar",
+        "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }

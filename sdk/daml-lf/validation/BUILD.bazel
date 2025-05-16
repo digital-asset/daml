@@ -22,6 +22,8 @@ da_scala_library(
     ),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
@@ -404,10 +406,15 @@ da_scala_test_suite(
             "//test-common:upgrades-daml-script-lts-dep-lf15-on-lf15.dar",
             "//test-common:upgrades-daml-script-dep-lf17-on-lf15.dar",
             "//test-common:upgrades-daml-script-lts-dep-lf17-on-lf15.dar",
-            "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v1.dar",
-            "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSite-v2.dar",
+            "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v1.dar",
+            "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v2.dar",
+            "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v1.dar",
+            "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
+
+            "//test-common:upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
+            "//test-common:upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
         ],
         flaky = True,
         scala_deps = [

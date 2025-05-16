@@ -648,25 +648,49 @@ da_scala_dar_resources_library(
             None,
         ),
         (
-            "SucceedsWhenUpgradingLF115DepsWithoutSameUseSite",
+            "SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite",
             {
                 "data_dependencies": [
-                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v1.dar",
-                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v2.dar",
                 ],
                 "module_prefixes": {
-                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-1.0.0": "DepV1",
-                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-2.0.0": "DepV2",
                 },
             },
             {
                 "data_dependencies": [
-                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v1.dar",
-                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-v2.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v2.dar",
                 ],
                 "module_prefixes": {
-                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-1.0.0": "DepV1",
-                    "upgrades-example-SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep-2.0.0": "DepV2",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-2.0.0": "DepV2",
+                },
+            },
+            None,
+        ),
+        (
+            "SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite",
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v2.dar",
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-2.0.0": "DepV2",
+                },
+            },
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v2.dar",
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-2.0.0": "DepV2",
                 },
             },
             None,
@@ -704,7 +728,8 @@ da_scala_dar_resources_library(
         ),
     ]
     for name, lf_v1, lf_v2 in [
-        ("SucceedsWhenUpgradingLF115DepsWithoutSameUseSiteDep", "1.15", "1.17"),
+        ("SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep", "1.15", "1.15"),
+        ("SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep", "1.15", "1.17"),
         ("FailsWhenUpgradingLF115DepsAtUseSiteDep", "1.15", "1.15"),
     ]
 ]

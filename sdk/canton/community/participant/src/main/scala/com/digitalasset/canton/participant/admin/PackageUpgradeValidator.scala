@@ -117,7 +117,7 @@ class PackageUpgradeValidator(
         for {
           _ <- typecheckUpgrades(
             TypecheckUpgrades.StandaloneDarCheck(
-              optUploadedDar,
+              newPackage = optUploadedDar,
             ),
             packageMap,
           )
@@ -126,8 +126,8 @@ class PackageUpgradeValidator(
           )
           _ <- typecheckUpgrades(
             TypecheckUpgrades.MaximalDarCheck(
-              optMaximalDar,
-              optUploadedDar,
+              oldPackage = optMaximalDar,
+              newPackage = optUploadedDar,
             ),
             packageMap,
           )
@@ -136,8 +136,8 @@ class PackageUpgradeValidator(
           )
           r <- typecheckUpgrades(
             TypecheckUpgrades.MinimalDarCheck(
-              optUploadedDar,
-              optMinimalDar,
+              oldPackage = optUploadedDar,
+              newPackage = optMinimalDar,
             ),
             packageMap,
           )
@@ -240,8 +240,8 @@ class PackageUpgradeValidator(
       .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
         implicit loggingContext =>
           phase match {
-            case TypecheckUpgrades.MaximalDarCheck((oldPkgId, _), (newPkgId, _)) => logger.info(s"Package $newPkgId claims to upgrade package id $oldPkgId")
-            case TypecheckUpgrades.MinimalDarCheck((oldPkgId, _), (newPkgId, _)) => logger.info(s"Package $newPkgId claims to upgrade package id $oldPkgId")
+            case p: TypecheckUpgrades.MaximalDarCheck[_] => logger.info(s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}")
+            case p: TypecheckUpgrades.MinimalDarCheck[_] => logger.info(s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}")
             case _ => ()
           }
           EitherT(
