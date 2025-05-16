@@ -43,7 +43,8 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     defaultParserParameters.defaultPackageId
 
   val nonEmptySuffix = Bytes.assertFromString("00")
-  private def cid(key: String): ContractId = ContractId.V1.assertBuild(Hash.hashPrivateKey(key), nonEmptySuffix)
+  private def cid(key: String): ContractId =
+    ContractId.V1.assertBuild(Hash.hashPrivateKey(key), nonEmptySuffix)
 
   val pkg =
     p"""metadata ( 'pkg' : '1.0.0' )

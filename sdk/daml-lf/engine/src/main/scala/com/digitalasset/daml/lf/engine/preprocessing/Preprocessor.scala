@@ -42,8 +42,8 @@ import scala.annotation.tailrec
   *   without suffixed.
   */
 private[engine] final class Preprocessor(
-                                          compiledPackages: CompiledPackages,
-                                          loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
+    compiledPackages: CompiledPackages,
+    loadPackage: (Ref.PackageId, language.Reference) => Result[Unit],
     requireContractIdSuffix: Boolean = true,
 ) {
 
@@ -344,33 +344,39 @@ private[engine] final class Preprocessor(
   }
 }
 
-private[lf]  object Preprocessor {
+private[lf] object Preprocessor {
 
   def forTesting(compilerConfig: speedy.Compiler.Config): Preprocessor =
     forTesting(new ConcurrentCompiledPackages(compilerConfig))
 
   def forTesting(pkgs: MutableCompiledPackages): Preprocessor =
-    new Preprocessor(pkgs,
-      (pkgId, _) => ResultNeedPackage(pkgId,
-        {
-          case Some(pkg) => pkgs.addPackage(pkgId, pkg)
-          case None => ResultError(
-            Error.Preprocessing(
-              Error.Preprocessing.Lookup(LookupError.MissingPackage(pkgId))
-            )
-          )
-        }
-      )
+    new Preprocessor(
+      pkgs,
+      (pkgId, _) =>
+        ResultNeedPackage(
+          pkgId,
+          {
+            case Some(pkg) => pkgs.addPackage(pkgId, pkg)
+            case None =>
+              ResultError(
+                Error.Preprocessing(
+                  Error.Preprocessing.Lookup(LookupError.MissingPackage(pkgId))
+                )
+              )
+          },
+        ),
     )
 
   @throws[Error.Preprocessing.Error]
-  private[preprocessing]  def handleLookup[X](either: Either[LookupError, X]): X = either match {
+  private[preprocessing] def handleLookup[X](either: Either[LookupError, X]): X = either match {
     case Right(v) => v
     case Left(error) => throw Error.Preprocessing.Lookup(error)
   }
 
   @inline
-  private[preprocessing]  def safelyRun[X](handleMissingPackages: => Result[_])(unsafeRun: => X): Result[X] = {
+  private[preprocessing] def safelyRun[X](
+      handleMissingPackages: => Result[_]
+  )(unsafeRun: => X): Result[X] = {
 
     def start(first: Boolean): Result[X] =
       try {
@@ -386,7 +392,7 @@ private[lf]  object Preprocessor {
   }
 
   @inline
-  private[preprocessing]  def safelyRun[X](unsafeRun: => X): Either[Error.Preprocessing.Error, X] =
+  private[preprocessing] def safelyRun[X](unsafeRun: => X): Either[Error.Preprocessing.Error, X] =
     try {
       Right(unsafeRun)
     } catch {

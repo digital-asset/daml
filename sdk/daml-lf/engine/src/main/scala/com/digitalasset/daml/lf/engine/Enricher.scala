@@ -7,7 +7,17 @@ package engine
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef, QualifiedName}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, IncompleteTransaction, Node, NodeId, Transaction, Versioned, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{
+  FatContractInstance,
+  GlobalKey,
+  GlobalKeyWithMaintainers,
+  IncompleteTransaction,
+  Node,
+  NodeId,
+  Transaction,
+  Versioned,
+  VersionedTransaction,
+}
 import com.digitalasset.daml.lf.value.Value
 
 // Provide methods to add missing information in values (and value containers):
@@ -30,7 +40,10 @@ object Enricher {
             val n = fields.reverseIterator.dropWhile(_._2 == Value.ValueNone).size
             Value.ValueRecord(
               tycon = None,
-              fields = fields.iterator.take(n).map { case (_, v) => None -> go(v, newNesting) }.to(ImmArray),
+              fields = fields.iterator
+                .take(n)
+                .map { case (_, v) => None -> go(v, newNesting) }
+                .to(ImmArray),
             )
           case Value.ValueVariant(_, variant, value) =>
             Value.ValueVariant(
@@ -157,7 +170,7 @@ object Enricher {
   }
 }
 
-final class Enricher (
+final class Enricher(
     compiledPackages: CompiledPackages,
     loadPackage: (PackageId, language.Reference) => Result[Unit],
     addTypeInfo: Boolean,
@@ -167,12 +180,12 @@ final class Enricher (
 ) {
 
   def this(
-            engine: Engine,
-            addTypeInfo: Boolean = true,
-            addFieldNames: Boolean = true,
-            addTrailingNoneFields: Boolean = true,
-            requireContractIdSuffix: Boolean = true
-          ) =
+      engine: Engine,
+      addTypeInfo: Boolean = true,
+      addFieldNames: Boolean = true,
+      addTrailingNoneFields: Boolean = true,
+      requireContractIdSuffix: Boolean = true,
+  ) =
     this(
       engine.compiledPackages(),
       engine.loadPackage,
@@ -189,7 +202,8 @@ final class Enricher (
   )
 
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
-    preprocessor.translateValue(typ, value)
+    preprocessor
+      .translateValue(typ, value)
       .map(
         _.toValue(
           keepTypeInfo = addTypeInfo,

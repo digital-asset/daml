@@ -427,13 +427,13 @@ class Engine(val config: EngineConfig) {
   }
 
   private lazy val enricher = new Enricher(
-      compiledPackages,
-      loadPackage,
-      addTypeInfo = true,
-      addFieldNames = true,
-      addTrailingNoneFields = true,
-      requireContractIdSuffix = false,
-    )
+    compiledPackages,
+    loadPackage,
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    requireContractIdSuffix = false,
+  )
 
   private[engine] def interpretLoop(
       machine: UpdateMachine,
@@ -450,7 +450,7 @@ class Engine(val config: EngineConfig) {
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
           deps(tx).flatMap { deps =>
-            if (config.paranoid) {
+            if (config.paranoiacMode) {
               (for {
                 encoded <- TransactionCoder
                   .encodeTransaction(tx)
@@ -473,8 +473,7 @@ class Engine(val config: EngineConfig) {
                 poor = Enricher.impoverish(rich)
                 _ <- Either.cond(
                   tx == poor,
-                  (),
-                  {
+                  (), {
                     remy.log(tx -> poor)
                     "transaction enrichment/impoverishment is not idempotent"
                   },
