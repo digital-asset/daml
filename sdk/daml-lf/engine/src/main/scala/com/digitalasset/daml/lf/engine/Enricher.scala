@@ -26,6 +26,11 @@ import com.digitalasset.daml.lf.value.Value
 
 object Enricher {
 
+
+  // impoverish remove redundant information from a value added by
+  // enrichValue.
+  // we have the following invariant:
+  // impoverish(enrich(type, impoverish(value))) == impoverish(value)
   def impoverish(value: Value): Value = {
     def go(value0: Value, nesting: Int): Value =
       if (nesting > Value.MAXIMUM_NESTING) {

@@ -452,6 +452,7 @@ class Engine(val config: EngineConfig) {
           deps(tx).flatMap { deps =>
             if (config.paranoiacMode) {
               (for {
+                // check the transaction can be serialized and deserialized
                 encoded <- TransactionCoder
                   .encodeTransaction(tx)
                   .left
@@ -465,6 +466,14 @@ class Engine(val config: EngineConfig) {
                   (),
                   "transaction encoding/decoding is not idempotent",
                 )
+                // check that impoverishment is indempotent on engine output
+                poor = Enricher.impoverish(tx)
+                _ <- Either.cond(
+                  tx == poor,
+                  (),
+                  "transaction impoverishment is not idempotent on engine output",
+                )
+                // check that impoverishment remove the data added by enrichement
                 rich <- enricher
                   .enrichVersionedTransaction(tx)
                   .consume()
@@ -473,10 +482,9 @@ class Engine(val config: EngineConfig) {
                 poor = Enricher.impoverish(rich)
                 _ <- Either.cond(
                   tx == poor,
-                  (), {
-                    remy.log(tx -> poor)
-                    "transaction enrichment/impoverishment is not idempotent"
-                  },
+                  (),
+                  "transaction enrichment/impoverishment is not idempotent"
+                  ,
                 )
               } yield ()).fold(err => throw new java.lang.AssertionError(err), identity)
             }
