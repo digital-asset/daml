@@ -1683,7 +1683,7 @@ object UpgradeTest {
 
   val engineConfig: EngineConfig =
     EngineConfig(
-      allowedLanguageVersions = language.LanguageVersion.AllVersions(LanguageMajorVersion.V2),
+      allowedLanguageVersions = language.LanguageVersion.AllVersions(LanguageMajorVersion.V2)
     )
 
   val compiledPackages: PureCompiledPackages =
