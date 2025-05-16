@@ -376,7 +376,9 @@ private[lf] object IdeLedgerRunner {
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
               val suffix = Bytes.fromByteArray(Array(0, 0))
-              val committedTx = CommittedTransaction(enrich(data.assertRight(tx.suffixCid(_ => suffix, _ => suffix))))
+              val committedTx = CommittedTransaction(
+                enrich(data.assertRight(tx.suffixCid(_ => suffix, _ => suffix)))
+              )
               ledger.commit(committers, readAs, location, committedTx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
