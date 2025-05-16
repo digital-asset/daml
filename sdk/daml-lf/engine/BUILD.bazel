@@ -195,6 +195,7 @@ da_scala_test(
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
+        "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

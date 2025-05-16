@@ -70,7 +70,7 @@ class ContractKeySpec(majorLanguageVersion: LanguageMajorVersion)
   private[this] val compiledPackages = ConcurrentCompiledPackages(
     suffixLenientEngine.config.getCompilerConfig
   )
-  private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+  private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))

@@ -23,7 +23,7 @@ import java.time.Instant
   *     record field names.
   *   - If verbose mode is enabled, then type identifiers and record field names are copied from the
   *     input Daml-LF values. The caller is responsible for filling in missing type information
-  *     using [[com.digitalasset.daml.lf.engine.ValueEnricher]], which may involve loading Daml-LF
+  *     using [[com.digitalasset.daml.lf.engine.Enricher]], which may involve loading Daml-LF
   *     packages.
   */
 object LfEngineToApi {
