@@ -109,8 +109,6 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     .left
     .foreach(err => sys.error(err.message))
 
-  private[this] val enricher = new Enricher(engine)
-
   "enrichValue" should {
 
     val testCases = Table[Type, Value, Value](
@@ -178,36 +176,43 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
     "enrich values as expected" in {
+      val enricher = new Enricher(engine)
       forEvery(testCases) { (typ, input, output) =>
         enricher.enrichValue(typ, input) shouldBe ResultDone(output)
       }
     }
-  }
 
-  "enrichValue" should {
-    val alice = Ref.Party.assertFromString("alice")
-    val view = Value.ValueRecord(
-      None,
-      ImmArray(
-        None -> ValueList(FrontStack(ValueParty(alice))),
-        None -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
-      ),
-    )
+    "do not add trailing None fields when instructed" in {
+      val enricher = new Enricher(engine, addTrailingNoneFields = false)
 
-    val enrichedView = Value.ValueRecord(
-      Some("Mod:View": Ref.Identifier),
-      ImmArray(
-        Some("signatory": Ref.Name) -> ValueList(FrontStack(ValueParty(alice))),
-        Some("cids": Ref.Name) -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
-      ),
-    )
-
-    "enrich views as expected" in {
-      enricher.enrichView("Mod:I", view) shouldBe ResultDone(enrichedView)
+      val testCases = Table[Type, Value, Value](
+        ("type", "input", "expected output"),
+        (
+          TTyCon("Mod:Record"),
+          ValueRecord(None, ImmArray(None -> ValueInt64(33), None -> ValueNone)),
+          ValueRecord(
+            Some("Mod:Record"),
+            ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          ),
+        ),
+        (
+          TTyCon("Mod:Record"),
+          ValueRecord(None, ImmArray(None -> ValueInt64(33))),
+          ValueRecord(
+            Some("Mod:Record"),
+            ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          ),
+        ),
+      )
+      forEvery(testCases) { (typ, input, output) =>
+        if (typ == TTyCon("Mod:Record"))
+          enricher.enrichValue(typ, input) shouldBe ResultDone(output)
+      }
     }
   }
 
   "enrichTransaction" should {
+    val enricher = new Enricher(engine)
 
     import TreeTransactionBuilder._
 
