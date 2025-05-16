@@ -211,19 +211,21 @@ da_scala_dar_resources_library(
         daml_compile(
             name = "upgrades-{}-dep".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
-            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-1.17.dar"],
+            data_dependencies = ["//daml-script/daml-lts:daml-script-lts-{}.dar".format(target)],
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             project_name = "upgrades-example-{}-dep".format(identifier),
-            target = "1.17",
+            target = target,
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
     ]
-    for identifier in [
+    for identifier, target in [
         # More more more tests ported from DamlcUpgrades.hs
-        "FailsWhenAnInstanceIsDropped",
-        "FailsWhenAnInstanceIsAddedSeparateDep",
-        "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
+        ("FailsWhenAnInstanceIsDropped", "1.17"),
+        ("FailsWhenAnInstanceIsAddedSeparateDep", "1.17"),
+        ("SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep", "1.17"),
+        ("CannotImplementNonUpgradeableInterface", "1.15"),
+        ("CanImplementUpgradeableInterface", "1.17"),
     ]
 ]
 
@@ -621,6 +623,114 @@ da_scala_dar_resources_library(
             {"lf_version": "1.15"},
             None,
         ),
+        (
+            "CannotImplementNonUpgradeableInterface",
+            {
+                "data_dependencies": ["//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-CannotImplementNonUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+            None,
+        ),
+        (
+            "CanImplementUpgradeableInterface",
+            {
+                "data_dependencies": ["//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar"],
+                "lf_version": "1.dev",
+            },
+            None,
+        ),
+        (
+            "SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite",
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v2.dar",
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-2.0.0": "DepV2",
+                },
+            },
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-v2.dar",
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep-2.0.0": "DepV2",
+                },
+            },
+            None,
+        ),
+        (
+            "SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite",
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v2.dar",
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-2.0.0": "DepV2",
+                },
+            },
+            {
+                "data_dependencies": [
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v1.dar",
+                    "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-v2.dar",
+                ],
+                "module_prefixes": {
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-1.0.0": "DepV1",
+                    "upgrades-example-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep-2.0.0": "DepV2",
+                },
+            },
+            None,
+        ),
+        (
+            "FailsWhenUpgradingLF115DepsAtUseSite",
+            {
+                "data_dependencies": ["//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSiteDep-v1.dar"],
+            },
+            {
+                "data_dependencies": ["//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSiteDep-v2.dar"],
+            },
+            None,
+        ),
+    ]
+]
+
+[
+    [
+        daml_compile(
+            name = "upgrades-{}-v1".format(name),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(name)]),
+            project_name = "upgrades-example-{}".format(name),
+            target = lf_v1,
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v2".format(name),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(name)]),
+            project_name = "upgrades-example-{}".format(name),
+            target = lf_v2,
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for name, lf_v1, lf_v2 in [
+        ("SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSiteDep", "1.15", "1.15"),
+        ("SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSiteDep", "1.15", "1.17"),
+        ("FailsWhenUpgradingLF115DepsAtUseSiteDep", "1.15", "1.15"),
     ]
 ]
 

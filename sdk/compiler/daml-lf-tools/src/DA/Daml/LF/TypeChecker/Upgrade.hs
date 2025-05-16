@@ -153,11 +153,16 @@ checkPackageSingle mbContext pkg externalPkgs = do
       withMbContext :: TcM () -> TcM ()
       withMbContext = maybe id withContext mbContext
   withReaderT (\preEnv -> mkGamma preEnv presentWorld) $
-    withMbContext $ do
-      checkNewInterfacesAreUnused pkg
-      checkInterfacesAndExceptionsHaveNoTemplates
-      forM_ (NM.toList (getModules pkg)) $ \mod ->
-        WarnUpgradedDependencies.checkModule mod
+    withMbContext $
+      checkStandalone pkg
+
+checkStandalone :: HasModules a => a -> TcM ()
+checkStandalone hasModules = do
+  checkNewInterfacesAreUnused hasModules
+  checkInterfacesAndExceptionsHaveNoTemplates
+  checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces hasModules
+  forM_ (NM.toList (getModules hasModules)) $ \mod ->
+    WarnUpgradedDependencies.checkModule mod
 
 checkModule
   :: LF.World -> LF.Module
@@ -169,10 +174,7 @@ checkModule world0 module_ deps version upgradeInfo warningFlags mbUpgradedPkg =
     shouldTypecheck <- shouldTypecheckM
     when shouldTypecheck $ do
       let world = extendWorldSelf module_ world0
-      withReaderT (\preEnv -> mkGamma preEnv world) $ do
-        checkNewInterfacesAreUnused module_
-        checkInterfacesAndExceptionsHaveNoTemplates
-        WarnUpgradedDependencies.checkModule module_
+      withReaderT (\preEnv -> mkGamma preEnv world) $ checkStandalone module_
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkgWithId, upgradingDeps) -> do
@@ -596,6 +598,21 @@ checkInterfacesAndExceptionsHaveNoTemplates = do
         diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
     when (not (null templateDefined) && not (null exceptionDefined)) $
         diagnosticWithContext WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
+
+checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces :: HasModules a => a -> TcM ()
+checkNewInterfaceInstancesAreNotOfNonupgradeableInterfaces hasModules =
+    forM_ (HMS.toList (instantiatedIfaces modules)) $ \(ifaceQualName, modTplImpls) ->
+        case qualPackage ifaceQualName of
+          PRImport pkgId -> do
+            pkg <- inWorld (lookupPackage (PRImport pkgId))
+            when (not (packageLfVersion pkg `supports` featurePackageUpgrades)) $
+              forM_ modTplImpls $ \modTplImpl -> do
+                let (instanceModule, instanceTpl, instanceTplName, instanceImpl) = modTplImpl
+                withContext (ContextTemplate instanceModule instanceTpl (TPInterfaceInstance (InterfaceInstanceHead (tpiInterface instanceImpl) instanceTplName) (tpiLocation instanceImpl))) $
+                    diagnosticWithContext $ WEUpgradeShouldNotImplementNonUpgradeableIfaces (pkgId, packageMetadata pkg) (packageLfVersion pkg) ifaceQualName instanceTplName
+          _ -> pure ()
+    where
+    modules = getModules hasModules
 
 -- Check that any interfaces defined in this package or module do not also have
 -- an instance. Interfaces defined in other packages are allowed to have

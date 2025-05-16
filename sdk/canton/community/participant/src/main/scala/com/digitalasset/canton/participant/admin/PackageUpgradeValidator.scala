@@ -65,7 +65,11 @@ class PackageUpgradeValidator(
                 // by a cache depending on the order in which the packages are uploaded.
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap, upgradingPackagesMap)
               )
-              res <- go(packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version))), rest)
+              res <- go(if (supportsUpgrades(pkg)) {
+                packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version)))
+              } else {
+                packageMap
+              }, rest)
             } yield res
           case None =>
             logger.debug(
@@ -111,23 +115,31 @@ class PackageUpgradeValidator(
 
       case None =>
         for {
+          _ <- typecheckUpgrades(
+            TypecheckUpgrades.StandaloneDarCheck(
+              newPackage = optUploadedDar,
+            ),
+            packageMap,
+          )
           optMaximalDar <- EitherT.right[DamlError](
             maximalVersionedDar(uploadedPackageMetadata, packageMap, upgradingPackagesMap)
           )
           _ <- typecheckUpgrades(
-            TypecheckUpgrades.MaximalDarCheck,
+            TypecheckUpgrades.MaximalDarCheck(
+              oldPackage = optMaximalDar,
+              newPackage = optUploadedDar,
+            ),
             packageMap,
-            optUploadedDar,
-            optMaximalDar,
           )
           optMinimalDar <- EitherT.right[DamlError](
             minimalVersionedDar(uploadedPackageMetadata, packageMap, upgradingPackagesMap)
           )
           r <- typecheckUpgrades(
-            TypecheckUpgrades.MinimalDarCheck,
+            TypecheckUpgrades.MinimalDarCheck(
+              oldPackage = optUploadedDar,
+              newPackage = optMinimalDar,
+            ),
             packageMap,
-            optMinimalDar,
-            optUploadedDar,
           )
           _ = logger.info(s"Typechecking upgrades for $uploadedPackageIdWithMeta succeeded.")
         } yield r
@@ -219,63 +231,54 @@ class PackageUpgradeValidator(
   }
 
   private def strictTypecheckUpgrades(
-      phase: TypecheckUpgrades.UploadPhaseCheck,
+      phase: TypecheckUpgrades.UploadPhaseCheck[(PkgIdWithNameAndVersion, Ast.Package)],
       packageMap: PackageMap,
-      newDar1: (PkgIdWithNameAndVersion, Ast.Package),
-      oldDar2: (PkgIdWithNameAndVersion, Ast.Package),
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] =
     LoggingContextWithTrace
       .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
         implicit loggingContext =>
-          val (newPkgId1WithMeta, newPkg1) = newDar1
-          val (oldPkgId2WithMeta, oldPkg2) = oldDar2
-          logger.info(s"Package $newPkgId1WithMeta claims to upgrade package id $oldPkgId2WithMeta")
+          phase match {
+            case p: TypecheckUpgrades.MaximalDarCheck[_] => logger.info(s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}")
+            case p: TypecheckUpgrades.MinimalDarCheck[_] => logger.info(s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}")
+            case _ => ()
+          }
           EitherT(
             Future(
-              TypecheckUpgrades
+              TypecheckUpgrades(loggerFactory)
                 .typecheckUpgrades(
                   packageMap,
-                  (newPkgId1WithMeta.pkgId, newPkg1),
-                  oldPkgId2WithMeta.pkgId,
-                  Some(oldPkg2),
+                  phase,
                 )
                 .toEither
             )
           ).leftMap[DamlError] {
             case err: UpgradeError =>
               Validation.Upgradeability.Error(
-                newPackage = newPkgId1WithMeta,
-                oldPackage = oldPkgId2WithMeta,
                 upgradeError = err,
-                phase = phase,
+                phase = phase.map(_._1),
               )
             case unhandledErr =>
               InternalError.Unhandled(
                 unhandledErr,
-                Some(s"Typechecking upgrades for $oldPkgId2WithMeta failed with unknown error."),
+                Some(s"Typechecking upgrades for ${phase.uploadedPackage._1} failed with unknown error."),
               )
           }
       }
 
   private def typecheckUpgrades(
-      typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
+      typecheckPhase: TypecheckUpgrades.UploadPhaseCheck[Option[(PkgIdWithNameAndVersion, Ast.Package)]],
       packageMap: PackageMap,
-      optNewDar1: Option[(PkgIdWithNameAndVersion, Ast.Package)],
-      optOldDar2: Option[(PkgIdWithNameAndVersion, Ast.Package)],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): EitherT[Future, DamlError, Unit] =
-    (optNewDar1, optOldDar2) match {
-      case (None, _) | (_, None) => EitherT.rightT(())
-
-      case (Some((newPkgId1, newPkg1)), Some((oldPkgId2, oldPkg2))) =>
+    typecheckPhase.sequenceOptional match {
+      case None => EitherT.rightT(())
+      case Some(phase) =>
         strictTypecheckUpgrades(
-          typecheckPhase,
+          phase,
           packageMap,
-          (newPkgId1, newPkg1),
-          (oldPkgId2, oldPkg2),
         )
     }
 
