@@ -9,6 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
@@ -24,10 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
   TopologyActivationTime,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
-  BftNodeId,
-  *,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
@@ -44,7 +42,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.BlockStored
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
-  PbftNetworkMessage,
   PrePrepare,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
@@ -56,7 +53,6 @@ import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.mutable
 import scala.util.Random
 
 class StateTransferBehaviorTest
@@ -370,9 +366,11 @@ class StateTransferBehaviorTest
           )
         )
         val signedMessage = underlyingMessage.fakeSign
-        stateTransferBehavior.postponedConsensusMessages.enqueue(
-          Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage)
-        )
+        stateTransferBehavior.postponedConsensusMessages
+          .enqueue(
+            otherId,
+            Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(otherId, signedMessage),
+          )
 
         stateTransferBehavior.receive(
           Consensus.NewEpochStored(
@@ -394,7 +392,7 @@ class StateTransferBehaviorTest
               ) =>
         }
 
-        stateTransferBehavior.postponedConsensusMessages shouldBe empty
+        stateTransferBehavior.postponedConsensusMessages.dump shouldBe empty
 
         verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
           eqTo(anEpochInfo.number),
@@ -424,7 +422,11 @@ class StateTransferBehaviorTest
   }
 
   private def createStateTransferBehavior(
-      pbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] = mutable.Queue.empty,
+      pbftMessageQueue: FairBoundedQueue[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
+        new FairBoundedQueue(
+          BftBlockOrdererConfig.DefaultConsensusQueueMaxSize,
+          BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
+        ),
       availabilityModuleRef: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] =
         fakeModuleExpectingSilence,
       outputModuleRef: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] =
@@ -545,8 +547,9 @@ object StateTransferBehaviorTest {
     TestEpochLength,
     TopologyActivationTime(CantonTimestamp.Epoch),
   )
+  private val otherId: BftNodeId = BftNodeId("other")
   private val aMembership =
-    Membership.forTesting(myId, otherNodes = Set(BftNodeId("other")))
+    Membership.forTesting(myId, otherNodes = Set(otherId))
   private val anEpoch = EpochState.Epoch(
     anEpochInfo,
     currentMembership = aMembership,

@@ -106,7 +106,7 @@ class SyncEphemeralStateFactoryImpl(
       inFlightSubmissionSynchronizerTracker <-
         participantNodeEphemeralState.inFlightSubmissionTracker
           .inFlightSubmissionSynchronizerTracker(
-            synchronizerId = persistentState.indexedSynchronizer.synchronizerId,
+            synchronizerId = persistentState.physicalSynchronizerId,
             recordOrderPublisher = recordOrderPublisher,
             timeTracker = timeTracker,
             metrics = metrics,

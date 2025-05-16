@@ -476,7 +476,10 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         eventually() {
           participants.all.foreach(p =>
             p.testing
-              .await_synchronizer_time(daId, firstNoCommTick.forgetRefinement.immediateSuccessor)
+              .await_synchronizer_time(
+                daId.toPhysical,
+                firstNoCommTick.forgetRefinement.immediateSuccessor,
+              )
           )
         }
 

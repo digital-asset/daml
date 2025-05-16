@@ -188,6 +188,7 @@ object RequestId {
   * unassignment request.
   */
 final case class ReassignmentId(
+    // TODO(#25483) This should be physical
     sourceSynchronizer: Source[SynchronizerId],
     unassignmentTs: CantonTimestamp,
 ) extends PrettyPrinting {

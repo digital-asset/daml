@@ -51,7 +51,7 @@ import com.digitalasset.canton.topology.{
   DefaultTestIdentities,
   Member,
   ParticipantId,
-  SynchronizerId,
+  PhysicalSynchronizerId,
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasToByteString
@@ -323,7 +323,7 @@ object TestProcessingSteps {
       rootHash: RootHash,
       informees: Set[LfPartyId] = Set.empty,
       viewPosition: ViewPosition = ViewPosition(List(MerkleSeqIndex(List.empty))),
-      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
       mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero),
   ) extends ViewTree
       with HasToByteString {

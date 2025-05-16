@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.store.memory.InMemoryInFlightSubmissi
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.MessageId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
@@ -50,7 +50,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     * The in-flight submissions are not returned in any specific order.
     */
   def lookupUnsequencedUptoUnordered(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       observedSequencingTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -63,17 +63,17 @@ trait InFlightSubmissionStore extends AutoCloseable {
     * The in-flight submissions are not returned in any specific order.
     */
   def lookupSequencedUptoUnordered(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencingTimeInclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[InFlightSubmission[SequencedSubmission]]]
 
   /** Returns one of the in-flight submissions with the given
-    * [[com.digitalasset.canton.topology.SynchronizerId]] and
+    * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] and
     * [[com.digitalasset.canton.sequencing.protocol.MessageId]], if any.
     */
-  def lookupSomeMessageId(synchronizerId: SynchronizerId, messageId: MessageId)(implicit
+  def lookupSomeMessageId(synchronizerId: PhysicalSynchronizerId, messageId: MessageId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[InFlightSubmission[SubmissionSequencingInfo]]]
 
@@ -82,7 +82,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     * [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]]
     * in the store, if any, for the given synchronizer.
     */
-  def lookupEarliest(synchronizerId: SynchronizerId)(implicit
+  def lookupEarliest(synchronizerId: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
@@ -122,7 +122,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     * [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]].
     */
   def observeSequencing(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       submissions: Map[MessageId, SequencedSubmission],
   )(implicit
       traceContext: TraceContext
@@ -198,7 +198,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def updateUnsequenced(
       changeId: ChangeIdHash,
-      submissionSynchronizerId: SynchronizerId,
+      submissionSynchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
       newSequencingInfo: UnsequencedSubmission,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
@@ -227,7 +227,7 @@ object InFlightSubmissionStore {
 
   /** Reference to an in-flight submission */
   sealed trait InFlightReference extends Product with Serializable with PrettyPrinting {
-    def synchronizerId: SynchronizerId
+    def synchronizerId: PhysicalSynchronizerId
     def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo]
   }
 
@@ -235,7 +235,7 @@ object InFlightSubmissionStore {
     * [[com.digitalasset.canton.sequencing.protocol.MessageId]]
     */
   final case class InFlightByMessageId(
-      override val synchronizerId: SynchronizerId,
+      override val synchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
   ) extends InFlightReference {
     override def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo] = Left(this)
@@ -250,7 +250,7 @@ object InFlightSubmissionStore {
     * [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission]]
     */
   final case class InFlightBySequencingInfo(
-      override val synchronizerId: SynchronizerId,
+      override val synchronizerId: PhysicalSynchronizerId,
       sequenced: SequencedSubmission,
   ) extends InFlightReference {
     override def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo] = Right(this)

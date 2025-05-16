@@ -11,11 +11,9 @@ import com.digitalasset.canton.logging.{LogEntry, NamedLoggerFactory, NamedLoggi
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
-  BftBlockOrdererConfig,
-  FingerprintKeyId,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
   Block,
@@ -45,7 +43,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.top
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
-  BftKeyId,
   BftNodeId,
   BlockNumber,
   EpochLength,
@@ -74,7 +71,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
-  MessageAuthorizer,
   OrderingTopology,
   OrderingTopologyInfo,
 }
@@ -82,7 +78,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.{
   CompleteEpochStored,
   PbftUnverifiedNetworkMessage,
-  PbftVerifiedNetworkMessage,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.{
   NewEpochTopology,
@@ -91,7 +86,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
-  PbftNetworkMessage,
   PrePrepare,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.EpochStatus
@@ -108,7 +102,6 @@ import org.slf4j.event.Level
 import org.slf4j.event.Level.ERROR
 
 import java.time.Instant
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 import scala.util.{Random, Try}
 
@@ -527,9 +520,14 @@ class IssConsensusModuleTest
         )
         when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
 
-        val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
-          new mutable.Queue()
-        val aDummyMessage =
+        val futurePbftMessageQueue
+            : FairBoundedQueue[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
+          new FairBoundedQueue(
+            BftBlockOrdererConfig.DefaultConsensusQueueMaxSize,
+            BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
+          )
+        val aDummyMessage = Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(
+          myId,
           ConsensusSegment.ConsensusMessage.ViewChange
             .create(
               BlockMetadata(EpochNumber.First, BlockNumber.First),
@@ -537,11 +535,15 @@ class IssConsensusModuleTest
               consensusCerts = Seq.empty,
               from = myId,
             )
-            .fakeSign
-        futurePbftMessageQueue.enqueue(aDummyMessage)
+            .fakeSign,
+        )
+        futurePbftMessageQueue.enqueue(myId, aDummyMessage)
         val postponedConsensusMessageQueue =
-          new mutable.Queue[Consensus.Message[ProgrammableUnitTestEnv]]()
-        postponedConsensusMessageQueue.enqueue(PbftVerifiedNetworkMessage(aDummyMessage))
+          new FairBoundedQueue[Consensus.Message[ProgrammableUnitTestEnv]](
+            BftBlockOrdererConfig.DefaultConsensusQueueMaxSize,
+            BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
+          )
+        postponedConsensusMessageQueue.enqueue(otherIds.head, aDummyMessage)
 
         val (context, consensus) =
           createIssConsensusModule(
@@ -574,9 +576,9 @@ class IssConsensusModuleTest
         )
 
         consensus.isInitComplete shouldBe true
-        futurePbftMessageQueue shouldBe empty
-        postponedConsensusMessageQueue shouldBe empty
-        context.extractSelfMessages() should contain only PbftVerifiedNetworkMessage(aDummyMessage)
+        futurePbftMessageQueue.dump shouldBe empty
+        postponedConsensusMessageQueue.dump shouldBe empty
+        context.extractSelfMessages() should contain only aDummyMessage
         verify(epochStore, times(1)).startEpoch(
           latestCompletedEpochFromStore.info.next(epochLength, nextTopologyActivationTime)
         )
@@ -791,6 +793,56 @@ class IssConsensusModuleTest
         succeed
       }
 
+      "refuse messages for future epochs after reaching queue limits" in {
+        val (context, consensus) =
+          createIssConsensusModule(
+            futurePbftMessageQueue = new FairBoundedQueue(
+              maxQueueSize = 2,
+              perNodeQuota = 1,
+            )
+          )
+        implicit val ctx: ContextType = context
+
+        val underlyingMessage = {
+          val msg = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+          when(msg.blockMetadata).thenReturn(BlockMetadata(EpochNumber(10L), BlockNumber.First))
+          when(msg.from) thenReturn myId
+          when(msg.viewNumber).thenReturn(ViewNumber.First)
+          msg
+        }
+
+        consensus.receive(Consensus.Start)
+        consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign))
+
+        // we can only take 1 future messages per node, so the second one is refused
+        assertLogs(
+          consensus.receive(PbftUnverifiedNetworkMessage(myId, underlyingMessage.fakeSign)),
+          (logEntry: LogEntry) => {
+            logEntry.level shouldBe Level.INFO
+            logEntry.message should include("Dropped PBFT message")
+            logEntry.message should include(
+              s"from future epoch 10 as we're still in epoch -1 and the quota for node self for queueing future messages has been reached"
+            )
+          },
+        )
+
+        consensus.receive(PbftUnverifiedNetworkMessage(otherIds(0), underlyingMessage.fakeSign))
+
+        // we can only take 2 future messages in total, so the third one is refused
+        assertLogs(
+          consensus.receive(PbftUnverifiedNetworkMessage(otherIds(1), underlyingMessage.fakeSign)),
+          (logEntry: LogEntry) => {
+            logEntry.level shouldBe Level.INFO
+            logEntry.message should include("Dropped PBFT message")
+            logEntry.message should include(
+              s"from future epoch 10 as we're still in epoch -1 and total capacity for queueing future messages has been reached"
+            )
+          },
+        )
+
+        succeed
+      }
+
       "start onboarding state transfer when a snapshot is provided" in {
         val segmentModuleMock = mock[ModuleRef[ConsensusSegment.Message]]
 
@@ -847,7 +899,8 @@ class IssConsensusModuleTest
       "start catch-up if the detector says so" in {
         Table[ProtocolMessage](
           "message",
-          PbftVerifiedNetworkMessage(
+          PbftUnverifiedNetworkMessage(
+            allIds(1),
             SignedMessage(
               PrePrepare.create( // Just to trigger the catch-up check
                 blockMetadata4Nodes(1),
@@ -857,7 +910,7 @@ class IssConsensusModuleTest
                 allIds(1),
               ),
               Signature.noSignature,
-            )
+            ),
           ),
           RetransmissionsMessage.VerifiedNetworkMessage(
             RetransmissionsMessage.RetransmissionRequest.create(
@@ -914,10 +967,31 @@ class IssConsensusModuleTest
 
       "drop remote PBFT messages" when {
         "unauthorized" in {
-          val mockMessageAuthorizer = mock[MessageAuthorizer]
-          when(mockMessageAuthorizer.isAuthorized(any[BftNodeId], any[BftKeyId])) thenReturn false
+          val epochStore = mock[EpochStore[ProgrammableUnitTestEnv]]
+          val latestCompletedEpochFromStore = EpochStore.Epoch(
+            EpochInfo(
+              EpochNumber.First,
+              BlockNumber.First,
+              epochLength,
+              TopologyActivationTime(aTimestamp),
+            ),
+            Seq.empty,
+          )
+          when(epochStore.latestEpoch(anyBoolean)(any[TraceContext])).thenReturn(() =>
+            latestCompletedEpochFromStore
+          )
+          when(epochStore.startEpoch(latestCompletedEpochFromStore.info)).thenReturn(() => ())
+
           val (context, consensus) =
-            createIssConsensusModule(customMessageAuthorizer = Some(mockMessageAuthorizer))
+            createIssConsensusModule(
+              epochStore = epochStore,
+              preConfiguredInitialEpochState = Some(
+                newEpochState(
+                  latestCompletedEpochFromStore,
+                  _,
+                )
+              ),
+            )
           implicit val ctx: ContextType = context
 
           val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
@@ -934,22 +1008,17 @@ class IssConsensusModuleTest
 
           consensus.receive(Consensus.Start)
 
+          consensus.receive(PbftUnverifiedNetworkMessage(unauthorizedNodeId, signedMessage))
+
           assertLogs(
-            consensus.receive(PbftUnverifiedNetworkMessage(signedMessage)),
+            context.runPipedMessages(),
             (logEntry: LogEntry) => {
-              logEntry.level shouldBe Level.WARN
+              logEntry.level shouldBe Level.INFO
               logEntry.message should include(
-                "it is unauthorized in the current ordering topology"
+                s"Cannot verify signature from node $unauthorizedNodeId, because it is not currently a valid member"
               )
             },
-          )
-
-          verify(mockMessageAuthorizer).isAuthorized(
-            unauthorizedNodeId,
-            FingerprintKeyId.toBftKeyId(signedMessage.signature.signedBy),
-          )
-
-          context.runPipedMessages() shouldBe empty
+          ) shouldBe empty
         }
       }
     }
@@ -1009,11 +1078,17 @@ class IssConsensusModuleTest
       newEpochTopology: Option[NewEpochTopology[ProgrammableUnitTestEnv]] = None,
       completedBlocks: Seq[EpochStore.Block] = Seq.empty,
       resolveAwaits: Boolean = false,
-      customMessageAuthorizer: Option[MessageAuthorizer] = None,
-      futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] =
-        new mutable.Queue(),
-      postponedConsensusMessageQueue: mutable.Queue[Consensus.Message[ProgrammableUnitTestEnv]] =
-        new mutable.Queue[Consensus.Message[ProgrammableUnitTestEnv]](),
+      futurePbftMessageQueue: FairBoundedQueue[
+        Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage
+      ] = new FairBoundedQueue(
+        BftBlockOrdererConfig.DefaultConsensusQueueMaxSize,
+        BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
+      ),
+      postponedConsensusMessageQueue: FairBoundedQueue[Consensus.Message[ProgrammableUnitTestEnv]] =
+        new FairBoundedQueue(
+          BftBlockOrdererConfig.DefaultConsensusQueueMaxSize,
+          BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
+        ),
   ): (ContextType, IssConsensusModule[ProgrammableUnitTestEnv]) = {
     implicit val context: ContextType = new ProgrammableUnitTestContext(resolveAwaits)
 
@@ -1083,6 +1158,7 @@ class IssConsensusModuleTest
             fail(_),
             previousEpochsCommitCerts = Map.empty,
             metrics,
+            clock,
             loggerFactory,
           )
         ),
@@ -1097,9 +1173,6 @@ class IssConsensusModuleTest
           new DefaultCatchupDetector(topologyInfo.currentMembership, loggerFactory)
         ),
         newEpochTopology = newEpochTopology,
-        messageAuthorizer = customMessageAuthorizer.getOrElse(
-          topologyInfo.currentMembership.orderingTopology
-        ),
       )
   }
 }

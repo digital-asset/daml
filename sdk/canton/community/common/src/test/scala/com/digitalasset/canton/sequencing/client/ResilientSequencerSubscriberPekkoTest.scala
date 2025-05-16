@@ -379,7 +379,7 @@ object TestSequencerSubscriptionFactoryPekko {
     val sequencedEvent = Deliver.create(
       pts,
       timestamp,
-      DefaultTestIdentities.synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
       None,
       Batch.empty(BaseTest.testedProtocolVersion),
       None,

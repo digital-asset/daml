@@ -157,7 +157,7 @@ trait MediatorOnboardingTest
 
     // initialize the mediator
     mediator2.setup.assign(
-      daId,
+      daId.toPhysical,
       SequencerConnections.single(sequencer1.sequencerConnection),
     )
     mediator2.health.wait_for_initialized()

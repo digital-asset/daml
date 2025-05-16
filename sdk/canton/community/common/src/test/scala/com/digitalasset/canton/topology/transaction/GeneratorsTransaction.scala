@@ -91,7 +91,8 @@ final class GeneratorsTransaction(
     for {
       pid <- Arbitrary.arbitrary[ParticipantId]
       permission <- Arbitrary.arbitrary[ParticipantPermission]
-    } yield HostingParticipant(pid, permission)
+      onboarding <- Arbitrary.arbBool.arbitrary
+    } yield HostingParticipant(pid, permission, onboarding)
   )
 
   implicit val topologyMappingArb: Arbitrary[TopologyMapping] = genArbitrary

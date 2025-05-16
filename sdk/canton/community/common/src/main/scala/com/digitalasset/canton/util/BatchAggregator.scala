@@ -240,7 +240,7 @@ class BatchAggregatorImpl[A, B](
                     }
                   case Success(UnlessShutdown.AbortedDueToShutdown) =>
                     queueItems.foreach { case (_, promise) =>
-                      promise.shutdown()
+                      promise.shutdown_()
                     }
                   case Failure(ex) =>
                     implicit val prettyItem = processor.prettyItem

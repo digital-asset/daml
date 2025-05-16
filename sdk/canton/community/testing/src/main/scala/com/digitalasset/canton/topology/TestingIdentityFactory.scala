@@ -44,10 +44,7 @@ import com.digitalasset.canton.topology.store.{
   ValidatedTopologyTransaction,
 }
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
-  CanSignAllButNamespaceDelegations,
-  CanSignAllMappings,
-}
+import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllButNamespaceDelegations
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Remove
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
@@ -372,7 +369,7 @@ class TestingIdentityFactory(
       upToInclusive: CantonTimestamp,
       currentSnapshotApproximationTimestamp: CantonTimestamp,
   ): IdentityProvidingServiceClient = {
-    val ips = new IdentityProvidingServiceClient()
+    val ips = new IdentityProvidingServiceClient(loggerFactory)
     synchronizers.foreach(dId =>
       ips.add(new SynchronizerTopologyClient() with HasFutureSupervision with NamedLogging {
 
@@ -396,6 +393,9 @@ class TestingIdentityFactory(
         ): FutureUnlessShutdown[Boolean] = ???
 
         override def synchronizerId: SynchronizerId = dId
+
+        override def physicalSynchronizerId: PhysicalSynchronizerId =
+          PhysicalSynchronizerId(synchronizerId, BaseTest.testedProtocolVersion)
 
         override def trySnapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
@@ -462,7 +462,7 @@ class TestingIdentityFactory(
             traceContext: TraceContext
         ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
           FutureUnlessShutdown.pure(None)
-      })
+      })(TraceContext.empty)
     )
     ips
   }
@@ -812,13 +812,6 @@ class TestingOwnerWithKeys(
     val uid2 = UniqueIdentifier.tryCreate("second", uid.namespace)
     val ts = CantonTimestamp.Epoch
     val ts1 = ts.plusSeconds(1)
-    val ns1k1 = mkAdd(
-      NamespaceDelegation.tryCreate(
-        Namespace(namespaceKey.fingerprint),
-        namespaceKey,
-        CanSignAllMappings,
-      )
-    )
     val ns1k2 = mkAdd(
       NamespaceDelegation.tryCreate(
         Namespace(namespaceKey.fingerprint),
@@ -834,36 +827,17 @@ class TestingOwnerWithKeys(
       OwnerToKeyMapping(mediatorId, NonEmpty(Seq, key3)),
       NonEmpty(Set, namespaceKey, key3),
     )
-    val dtc1m =
-      SynchronizerTrustCertificate(
-        participant1,
-        synchronizerId,
-      )
 
     private val defaultSynchronizerParameters = TestSynchronizerParameters.defaultDynamic
 
     val dpc1 = mkAdd(
       SynchronizerParametersState(
-        SynchronizerId(uid),
+        synchronizerId,
         defaultSynchronizerParameters
           .tryUpdate(confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(1)),
       ),
       namespaceKey,
     )
-    val dpc1Updated = mkAdd(
-      SynchronizerParametersState(
-        SynchronizerId(uid),
-        defaultSynchronizerParameters
-          .tryUpdate(
-            confirmationResponseTimeout = NonNegativeFiniteDuration.tryOfSeconds(2),
-            topologyChangeDelay = NonNegativeFiniteDuration.tryOfMillis(100),
-          ),
-      ),
-      namespaceKey,
-    )
-
-    val dpc2 =
-      mkAdd(SynchronizerParametersState(SynchronizerId(uid2), defaultSynchronizerParameters), key2)
 
     val p1_nsk2 = mkAdd(
       NamespaceDelegation.tryCreate(

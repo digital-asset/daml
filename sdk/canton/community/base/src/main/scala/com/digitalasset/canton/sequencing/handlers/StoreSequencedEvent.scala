@@ -16,7 +16,7 @@ import com.digitalasset.canton.sequencing.{
   SequencedSerializedEvent,
 }
 import com.digitalasset.canton.store.SequencedEventStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.SingletonTraverse.syntax.*
@@ -32,7 +32,7 @@ import scala.concurrent.ExecutionContext
   */
 class StoreSequencedEvent(
     store: SequencedEventStore,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     protected override val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext, closeContext: CloseContext)
     extends NamedLogging {
@@ -83,7 +83,7 @@ class StoreSequencedEvent(
 object StoreSequencedEvent {
   def apply(
       store: SequencedEventStore,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       ec: ExecutionContext,

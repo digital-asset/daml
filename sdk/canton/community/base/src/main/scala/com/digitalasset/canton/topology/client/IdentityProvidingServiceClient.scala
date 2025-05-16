@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{
   DynamicSequencingParametersWithValidity,
   DynamicSynchronizerParameters,
@@ -56,19 +56,25 @@ import scala.concurrent.{ExecutionContext, Future}
   * the layout of the synchronizers, such as party-participant relationships, used encryption and
   * signing keys, package information, participant states, synchronizer parameters, and so on.
   */
-class IdentityProvidingServiceClient {
+class IdentityProvidingServiceClient(protected val loggerFactory: NamedLoggerFactory)
+    extends NamedLogging {
 
   private val synchronizers = TrieMap.empty[SynchronizerId, SynchronizerTopologyClient]
 
-  def add(synchronizerClient: SynchronizerTopologyClient): SynchronizerTopologyClient =
+  def add(
+      synchronizerClient: SynchronizerTopologyClient
+  )(implicit traceContext: TraceContext): Unit =
     synchronizers
-      .putIfAbsent(synchronizerClient.synchronizerId, synchronizerClient)
-      .getOrElse(synchronizerClient)
+      .put(synchronizerClient.synchronizerId, synchronizerClient)
+      .foreach { oldTopologyClient =>
+        logger.warn(
+          s"Synchronizer ${synchronizerClient.synchronizerId} already registered a topology client"
+        )
+        oldTopologyClient.close()
+      }
 
-  def remove(synchronizerId: SynchronizerId): this.type = {
-    synchronizers.remove(synchronizerId).discard
-    this
-  }
+  def remove(synchronizerId: SynchronizerId): Option[SynchronizerTopologyClient] =
+    synchronizers.remove(synchronizerId)
 
   def allSynchronizers: Iterable[SynchronizerTopologyClient] = synchronizers.values
 
@@ -86,6 +92,7 @@ class IdentityProvidingServiceClient {
 trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** The synchronizer this client applies to */
+  def physicalSynchronizerId: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
 
   /** Our current snapshot approximation
@@ -639,6 +646,12 @@ trait MembersTopologySnapshotClient {
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 }
 
+trait SynchronizerMigrationClient {
+  def isSynchronizerMigrationOngoing()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]]
+}
+
 trait TopologySnapshot
     extends PartyTopologySnapshotClient
     with BaseTopologySnapshotClient
@@ -649,7 +662,8 @@ trait TopologySnapshot
     with SequencerSynchronizerStateClient
     with SynchronizerGovernanceSnapshotClient
     with MembersTopologySnapshotClient
-    with PartyKeyTopologySnapshotClient { this: BaseTopologySnapshotClient with NamedLogging => }
+    with PartyKeyTopologySnapshotClient
+    with SynchronizerMigrationClient { this: BaseTopologySnapshotClient with NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
@@ -759,14 +773,16 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
   override def encryptionKey(owner: Member)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[EncryptionPublicKey]] =
-    allKeys(owner).map(keyCollection => PublicKey.getLatestKey(keyCollection.encryptionKeys))
+    allKeys(owner).map(keyCollection =>
+      NonEmpty.from(keyCollection.encryptionKeys).map(PublicKey.getLatestKey)
+    )
 
   /** returns the newest encryption public key */
   def encryptionKey(members: Seq[Member])(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[Member, EncryptionPublicKey]] =
     encryptionKeys(members).map(
-      _.mapFilter(keyCollection => PublicKey.getLatestKey(keyCollection))
+      _.mapFilter(keyCollection => NonEmpty.from(keyCollection).map(PublicKey.getLatestKey))
     )
 
   override def encryptionKeys(owner: Member)(implicit

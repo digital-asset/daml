@@ -63,8 +63,8 @@ object PekkoModuleSystem {
                 if (ready)
                   m.ready(pekkoContext.self)
                 sendsAwaitingAModule.foreach {
-                  case Send(message, traceContext, metricsContext, sendInstant, maybeDelay) =>
-                    sendInstant.foreach(
+                  case Send(message, traceContext, metricsContext, maybeSendInstant, maybeDelay) =>
+                    maybeSendInstant.foreach(
                       moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
                         moduleName,
                         _,
@@ -75,10 +75,16 @@ object PekkoModuleSystem {
                 }
                 sendsAwaitingAModule.clear()
                 Behaviors.same
-              case send @ Send(message, traceContext, metricsContext, sendInstant, maybeDelay) =>
+              case send @ Send(
+                    message,
+                    traceContext,
+                    metricsContext,
+                    maybeSendInstant,
+                    maybeDelay,
+                  ) =>
                 maybeModule match {
                   case Some(module) =>
-                    sendInstant.foreach(
+                    maybeSendInstant.foreach(
                       moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
                         moduleName,
                         _,
@@ -161,10 +167,25 @@ object PekkoModuleSystem {
     ): Unit =
       moduleSystem.setModule(moduleRef, module)
 
-    override def pipeToSelfInternal[X](
+    override protected def pipeToSelfInternal[X](
         futureUnlessShutdown: PekkoFutureUnlessShutdown[X]
     )(
         fun: Try[X] => Option[MessageT]
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = {
+      import moduleSystem.metrics.performance.orderingStageLatency.*
+      pipeToSelfImpl(
+        timeFuture(timer, futureUnlessShutdown)(
+          metricsContext.withExtraLabels(
+            labels.stage.Key -> futureUnlessShutdown.action
+          )
+        ),
+        fun,
+      )
+    }
+
+    private def pipeToSelfImpl[X](
+        futureUnlessShutdown: PekkoFutureUnlessShutdown[X],
+        fun: Try[X] => Option[MessageT],
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       underlying.pipeToSelf(
         toFuture(
@@ -235,7 +256,7 @@ object PekkoModuleSystem {
         f: MessageT => PekkoFutureUnlessShutdown[B]
     )(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[B] =
       PekkoFutureUnlessShutdown(
-        action,
+        s"$action.flatmap(...)",
         () => futureUnlessShutdown().flatMap(x => f(x).futureUnlessShutdown()),
       )
 
@@ -273,13 +294,12 @@ object PekkoModuleSystem {
 
     override def timeFuture[X](timer: Timer, futureUnlessShutdown: => PekkoFutureUnlessShutdown[X])(
         implicit mc: MetricsContext
-    ): PekkoFutureUnlessShutdown[X] = {
-      val handle = timer.startAsync()
-      futureUnlessShutdown.map { x =>
-        handle.stop()
-        x
-      }(executionContext)
-    }
+    ): PekkoFutureUnlessShutdown[X] =
+      PekkoFutureUnlessShutdown(
+        futureUnlessShutdown.action,
+        () =>
+          FutureUnlessShutdown(timer.timeFuture(futureUnlessShutdown.futureUnlessShutdown().unwrap)),
+      )
 
     override def zipFuture[X, Y](
         future1: PekkoFutureUnlessShutdown[X],

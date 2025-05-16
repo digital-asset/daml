@@ -100,6 +100,7 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
           localMetadata = None,
           identityProviderId = "",
           synchronizerId = synchronizerId.getOrElse(""),
+          userId = "",
         )
       )
       .map(_.partyDetails.getOrElse(sys.error("No PartyDetails in response.")))

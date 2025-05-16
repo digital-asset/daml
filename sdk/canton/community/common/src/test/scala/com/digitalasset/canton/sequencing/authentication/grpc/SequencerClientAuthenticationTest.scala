@@ -30,11 +30,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class SequencerClientAuthenticationTest extends FixtureAsyncWordSpec with BaseTest {
 
-  val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("test::synchronizer"))
-  val participantId = DefaultTestIdentities.participant1
-  val crypto = new SymbolicPureCrypto
-  val token1 = AuthenticationToken.generate(crypto)
-  val token2 = AuthenticationToken.generate(crypto)
+  private val synchronizerId = SynchronizerId(
+    UniqueIdentifier.tryFromProtoPrimitive("test::synchronizer")
+  ).toPhysical
+  private val participantId = DefaultTestIdentities.participant1
+  private val crypto = new SymbolicPureCrypto
+  private val token1 = AuthenticationToken.generate(crypto)
+  private val token2 = AuthenticationToken.generate(crypto)
 
   require(token1 != token2, "The generated tokens must be different")
 

@@ -22,7 +22,7 @@ trait MemberAuthentication {
 
   def hashSynchronizerNonce(
       nonce: Nonce,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       pureCrypto: CryptoPureApi,
   ): Hash
 
@@ -31,7 +31,7 @@ trait MemberAuthentication {
   def signSynchronizerNonce(
       member: Member,
       nonce: Nonce,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       possibleSigningKeys: NonEmpty[Seq[Fingerprint]],
       crypto: SynchronizerCrypto,
   )(implicit
@@ -75,7 +75,7 @@ object MemberAuthentication extends MemberAuthentication {
         s"Authentication token for member $member has expired. Please reauthenticate.",
         "MissingToken",
       )
-  final case class NonMatchingSynchronizerId(member: Member, synchronizerId: SynchronizerId)
+  final case class NonMatchingSynchronizerId(member: Member, synchronizerId: PhysicalSynchronizerId)
       extends AuthenticationError(
         show"Synchronizer id $synchronizerId provided by member $member does not match the synchronizer id of the synchronizer the ${member.description} is trying to connect to",
         "NonMatchingSynchronizerId",
@@ -104,7 +104,7 @@ object MemberAuthentication extends MemberAuthentication {
 
   def hashSynchronizerNonce(
       nonce: Nonce,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       pureCrypto: CryptoPureApi,
   ): Hash = {
     val builder = commonNonce(pureCrypto, nonce, synchronizerId)
@@ -114,7 +114,7 @@ object MemberAuthentication extends MemberAuthentication {
   def signSynchronizerNonce(
       member: Member,
       nonce: Nonce,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       possibleSigningKeys: NonEmpty[Seq[Fingerprint]],
       crypto: SynchronizerCrypto,
   )(implicit
@@ -196,7 +196,7 @@ object MemberAuthentication extends MemberAuthentication {
   private def commonNonce(
       pureApi: CryptoPureApi,
       nonce: Nonce,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   ): HashBuilder =
     pureApi
       .build(HashPurpose.AuthenticationToken)

@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentVal
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -26,18 +26,15 @@ import scala.concurrent.ExecutionContext
   * @param targetTimeProof
   *   a sequenced event that the submitter has recently observed on the target synchronizer.
   *   Determines the timestamp of the topology at the target synchronizer.
-  * @param reassignmentCounter
-  *   The new reassignment counter (incremented value compared to the one in the ACS).
   */
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassigningParticipants: Set[ParticipantId],
     contracts: ContractsReassignmentBatch,
-    sourceSynchronizer: Source[SynchronizerId],
+    sourceSynchronizer: Source[PhysicalSynchronizerId],
     sourceProtocolVersion: Source[ProtocolVersion],
     sourceMediator: MediatorGroupRecipient,
-    targetSynchronizer: Target[SynchronizerId],
-    targetProtocolVersion: Target[ProtocolVersion],
+    targetSynchronizer: Target[PhysicalSynchronizerId],
     targetTimeProof: TimeProof,
 ) {
 
@@ -69,7 +66,6 @@ final case class UnassignmentRequest(
         targetSynchronizer,
         targetTimeProof,
         sourceProtocolVersion,
-        targetProtocolVersion,
       )
 
     FullUnassignmentTree(UnassignmentViewTree(commonData, view, sourceProtocolVersion, hashOps))
@@ -83,11 +79,12 @@ object UnassignmentRequest {
       timeProof: TimeProof,
       contracts: ContractsReassignmentBatch,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      sourceSynchronizer: Source[SynchronizerId],
-      sourceProtocolVersion: Source[ProtocolVersion],
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
+      sourceProtocolVersion: Source[
+        ProtocolVersion
+      ], // TODO(#25482) Reduce duplication in parameters
       sourceMediator: MediatorGroupRecipient,
-      targetSynchronizer: Target[SynchronizerId],
-      targetProtocolVersion: Target[ProtocolVersion],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Target[TopologySnapshot],
   )(implicit
@@ -145,7 +142,6 @@ object UnassignmentRequest {
         sourceProtocolVersion,
         sourceMediator,
         targetSynchronizer,
-        targetProtocolVersion,
         timeProof,
       )
 

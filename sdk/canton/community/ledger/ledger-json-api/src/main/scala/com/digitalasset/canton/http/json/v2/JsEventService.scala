@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.daml.ledger.api.v2.event_query_service
+import com.daml.ledger.api.v2.{event, event_query_service}
 import com.digitalasset.canton.http.json.v2.CirceRelaxedCodec.deriveRelaxedCodec
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
@@ -88,6 +88,9 @@ object JsEventServiceCodecs {
 
   implicit val jsCreatedRW: Codec[JsCreated] = deriveConfiguredCodec
   implicit val jsArchivedRW: Codec[JsArchived] = deriveConfiguredCodec
+
+  implicit val archivedEventRW: Codec[event.ArchivedEvent] = deriveRelaxedCodec
+
   implicit val jsGetEventsByContractIdResponseRW: Codec[JsGetEventsByContractIdResponse] =
     deriveConfiguredCodec
 

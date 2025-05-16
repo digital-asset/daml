@@ -18,7 +18,7 @@ import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -43,12 +43,17 @@ final class AdmissibleSynchronizersComputation(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
+    Set[PhysicalSynchronizerId]
+  ]] = {
 
     def queryPartyTopologySnapshotClient(
-        synchronizerPartyTopologySnapshotClient: (SynchronizerId, PartyTopologySnapshotClient)
+        synchronizerPartyTopologySnapshotClient: (
+            PhysicalSynchronizerId,
+            PartyTopologySnapshotClient,
+        )
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[
-      (SynchronizerId, Map[LfPartyId, PartyInfo])
+      (PhysicalSynchronizerId, Map[LfPartyId, PartyInfo])
     ]] = {
       val (synchronizerId, partyTopologySnapshotClient) = synchronizerPartyTopologySnapshotClient
       val allParties = submitters.view ++ informees.view
@@ -70,7 +75,7 @@ final class AdmissibleSynchronizersComputation(
     }
 
     def queryTopology(): EitherT[FutureUnlessShutdown, TransactionRoutingError, Map[
-      SynchronizerId,
+      PhysicalSynchronizerId,
       Map[LfPartyId, PartyInfo],
     ]] =
       synchronizerState.topologySnapshots.toVector
@@ -115,25 +120,25 @@ final class AdmissibleSynchronizersComputation(
       EitherT.fromEither[FutureUnlessShutdown](NonEmpty.from(iterable).toRight(ifEmpty))
 
     def synchronizerWithAll(parties: Set[LfPartyId])(
-        topology: (SynchronizerId, Map[LfPartyId, PartyInfo])
+        topology: (PhysicalSynchronizerId, Map[LfPartyId, PartyInfo])
     ): Boolean =
       parties.subsetOf(topology._2.keySet)
 
     def synchronizersWithAll(
         parties: Set[LfPartyId],
-        topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]],
-        ifEmpty: Set[SynchronizerId] => TransactionRoutingError,
+        topology: Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]],
+        ifEmpty: Set[PhysicalSynchronizerId] => TransactionRoutingError,
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-      Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
+      Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] = {
       val synchronizersWithAllParties = topology.filter(synchronizerWithAll(parties))
       ensureNonEmpty(synchronizersWithAllParties, ifEmpty(topology.keySet))
     }
 
     def synchronizersWithAllSubmitters(
-        topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
+        topology: Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-      Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
+      Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] =
       synchronizersWithAll(
         parties = submitters,
@@ -142,9 +147,9 @@ final class AdmissibleSynchronizersComputation(
       )
 
     def synchronizersWithAllInformees(
-        topology: Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
+        topology: Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]]
     ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
-      Map[SynchronizerId, Map[LfPartyId, PartyInfo]]
+      Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]]
     ]] =
       synchronizersWithAll(
         parties = informees,
@@ -153,15 +158,19 @@ final class AdmissibleSynchronizersComputation(
       )
 
     def suitableSynchronizers(
-        synchronizersWithAllSubmitters: NonEmpty[Map[SynchronizerId, Map[LfPartyId, PartyInfo]]]
-    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
+        synchronizersWithAllSubmitters: NonEmpty[
+          Map[PhysicalSynchronizerId, Map[LfPartyId, PartyInfo]]
+        ]
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
+      Set[PhysicalSynchronizerId]
+    ]] = {
       logger.debug(
         s"Checking whether one synchronizer in ${synchronizersWithAllSubmitters.keys} is suitable for submission"
       )
 
       // Return true if all submitters are locally hosted with correct permissions
       def canUseSynchronizer(
-          synchronizerId: SynchronizerId,
+          synchronizerId: PhysicalSynchronizerId,
           parties: Map[LfPartyId, PartyInfo],
       ): Boolean = {
         // We keep only the relevant topology (submitter on the local participant)
@@ -206,9 +215,11 @@ final class AdmissibleSynchronizersComputation(
     }
 
     def commonSynchronizerIds(
-        submittersSynchronizerIds: Set[SynchronizerId],
-        informeesSynchronizerIds: Set[SynchronizerId],
-    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] =
+        submittersSynchronizerIds: Set[PhysicalSynchronizerId],
+        informeesSynchronizerIds: Set[PhysicalSynchronizerId],
+    ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
+      Set[PhysicalSynchronizerId]
+    ]] =
       ensureNonEmpty(
         submittersSynchronizerIds.intersect(informeesSynchronizerIds),
         TopologyErrors.NoCommonSynchronizer.Error(submitters, informees),

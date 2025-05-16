@@ -182,7 +182,7 @@ class SequencerAggregator(
       val (sequencerIdToNotify, _) = nonEmptyMessages.head1
 
       nextData.promise
-        .outcome(
+        .outcome_(
           addEventToQueue(messagesToCombine).map(_ => sequencerIdToNotify)
         )
     }
@@ -224,7 +224,7 @@ class SequencerAggregator(
     blocking {
       this.synchronized {
         sequenceData.view.values
-          .foreach(_.promise.shutdown())
+          .foreach(_.promise.shutdown_())
       }
     }
 }

@@ -449,7 +449,7 @@ object SimpleExecutionQueue {
 
     def shutdown(): Unit = {
       errorLoggingContext.warn(s"Forcibly completing $description with AbortedDueToShutdown")
-      completionPromise.shutdown()
+      completionPromise.shutdown_()
     }
   }
 
@@ -471,7 +471,7 @@ object SimpleExecutionQueue {
         errorLoggingContext
       )
       cell.predecessorCell.set(None)
-      cell.completionPromise.outcome(Success(UnlessShutdown.Outcome(())))
+      cell.completionPromise.outcome_(Success(UnlessShutdown.Outcome(())))
       cell
     }
   }

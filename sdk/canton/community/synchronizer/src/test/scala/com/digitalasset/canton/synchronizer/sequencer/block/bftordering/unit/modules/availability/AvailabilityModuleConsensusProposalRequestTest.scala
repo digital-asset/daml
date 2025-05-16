@@ -476,10 +476,16 @@ class AvailabilityModuleConsensusProposalRequestTest
             DisseminationProgress
               .reviewReadyForOrdering(
                 BatchReadyForOrderingNode0Vote._2,
+                Node0,
                 OrderingTopologyWithNode0To6,
               )
               .getOrElse(fail("Progress was not updated"))
-          disseminationProtocolState.disseminationProgress should contain only (ABatchId -> reviewedProgress)
+          disseminationProtocolState.disseminationProgress should contain only (ABatchId -> reviewedProgress
+            // Regressions are reset by metrics emission
+            .copy(batchMetadata =
+              reviewedProgress.batchMetadata
+                .copy(regressionsToSigning = 0, disseminationRegressions = 0)
+            ))
           disseminationProtocolState.toBeProvidedToConsensus should contain only AToBeProvidedToConsensus
           disseminationProtocolState.batchesReadyForOrdering should be(empty)
 
@@ -551,10 +557,16 @@ class AvailabilityModuleConsensusProposalRequestTest
               DisseminationProgress
                 .reviewReadyForOrdering(
                   AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes._2,
+                  Node0,
                   OrderingTopologyNodes0To3,
                 )
                 .getOrElse(fail("Progress was not updated"))
-            disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress)
+            disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress
+              // Regressions are reset by metrics emission
+              .copy(batchMetadata =
+                reviewedProgress.batchMetadata
+                  .copy(regressionsToSigning = 0, disseminationRegressions = 0)
+              ))
             disseminationProtocolState.toBeProvidedToConsensus should be(empty)
             disseminationProtocolState.batchesReadyForOrdering.keys should contain only ABatchId
 
@@ -639,11 +651,17 @@ class AvailabilityModuleConsensusProposalRequestTest
             DisseminationProgress
               .reviewReadyForOrdering(
                 AnotherBatchReadyForOrdering6NodesQuorumNodes0And4To6Votes._2,
+                Node0,
                 newTopology,
               )
               .getOrElse(fail("Progress was not updated"))
 
-          disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress)
+          disseminationProtocolState.disseminationProgress should contain only (AnotherBatchId -> reviewedProgress
+            // Regressions are reset by metrics emission
+            .copy(batchMetadata =
+              reviewedProgress.batchMetadata
+                .copy(regressionsToSigning = 0, disseminationRegressions = 0)
+            ))
           disseminationProtocolState.toBeProvidedToConsensus should contain only
             ToBeProvidedToConsensus(16, EpochNumber.First)
           disseminationProtocolState.batchesReadyForOrdering shouldBe empty

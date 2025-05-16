@@ -260,8 +260,8 @@ class StoreBasedTopologySnapshot(
           TopologyMapping.Code.PartyToParticipant,
         ).map { ptp =>
           ptp.partyId -> (ptp.threshold, ptp.participants.map {
-            case HostingParticipant(participantId, partyPermission) =>
-              participantId -> partyPermission
+            case HostingParticipant(participantId, partyPermission, onboarding) =>
+              participantId -> (partyPermission, onboarding)
           }.toMap)
         }.toMap
 
@@ -303,7 +303,7 @@ class StoreBasedTopologySnapshot(
         val p2pMappings = partyToParticipantMap.toSeq.mapFilter {
           case (partyId, (threshold, participantToPermissionsMap)) =>
             val participantIdToAttribs = participantToPermissionsMap.toSeq.mapFilter {
-              case (participantId, partyPermission) =>
+              case (participantId, (partyPermission, onboarding)) =>
                 participantToAttributesMap
                   .get(participantId)
                   .map { participantAttributes =>
@@ -316,6 +316,7 @@ class StoreBasedTopologySnapshot(
                     participantId -> ParticipantAttributes(
                       reducedPermission,
                       participantAttributes.loginAfter,
+                      onboarding,
                     )
                   }
             }.toMap
@@ -533,7 +534,9 @@ class StoreBasedTopologySnapshot(
           TopologyMapping.Code.SynchronizerParametersState,
           transactions.collectOfMapping[SynchronizerParametersState].result,
         ).getOrElse(
-          throw new IllegalStateException("Unable to locate synchronizer parameters state")
+          throw new IllegalStateException(
+            s"Unable to locate synchronizer parameters state at $timestamp"
+          )
         )
       )
       storedTxs <- findTransactions(
@@ -787,4 +790,18 @@ class StoreBasedTopologySnapshot(
         case _ => ErrorUtil.invalidState(s"Too many PartyToKeyMappings for $party: $keys")
       }
     }
+
+  override def isSynchronizerMigrationOngoing()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] =
+    findTransactions(
+      types = Seq(TopologyMapping.Code.SynchronizerMigrationAnnouncement),
+      filterUid = None,
+      filterNamespace = None,
+    ).map(_.collectOfMapping[SynchronizerMigrationAnnouncement].result.toList match {
+      case atMostOne @ (_ :: Nil | Nil) =>
+        atMostOne.map(_.mapping.successorSynchronizerId).headOption
+      case _moreThanOne =>
+        ErrorUtil.invalidState("Found more than one SynchronizerMigrationAnnouncement mapping")
+    })
 }

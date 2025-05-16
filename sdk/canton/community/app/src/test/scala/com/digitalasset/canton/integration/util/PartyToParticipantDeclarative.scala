@@ -312,7 +312,8 @@ class PartiesAllocator(
 
     // synchronization
     participants.toSeq.foreach { p =>
-      val connectedSynchronizers = p.synchronizers.list_connected().map(_.synchronizerId).toSet
+      val connectedSynchronizers =
+        p.synchronizers.list_connected().map(_.synchronizerId.logical).toSet
       val topologyOnConnectedSynchronizers =
         targetTopology.view
           .mapValues(_.view.filterKeys(connectedSynchronizers.contains).toMap)

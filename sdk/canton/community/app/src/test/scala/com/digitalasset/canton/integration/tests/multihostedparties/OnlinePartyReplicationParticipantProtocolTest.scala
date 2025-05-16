@@ -159,6 +159,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
           .propose_delta(
             alice,
             adds = List((targetParticipant.id, ParticipantPermission.Observation)),
+            requiresPartyToBeOnboarded = true,
             store = daId,
             mustFullyAuthorize = participant == targetParticipant,
           )

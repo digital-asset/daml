@@ -332,22 +332,28 @@ class ProgrammableUnitTestEnv extends BaseIgnoringUnitTestEnv[ProgrammableUnitTe
 
 object ProgrammableUnitTestEnv {
   case object noSignatureCryptoProvider extends CryptoProvider[ProgrammableUnitTestEnv] {
-    override def signHash(hash: Hash)(implicit
-        traceContext: TraceContext
+    override def signHash(hash: Hash, operationId: String)(implicit
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): () => Either[SyncCryptoError, Signature] = () => Right(Signature.noSignature)
 
     override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
         message: MessageT,
         authenticatedMessageType: AuthenticatedMessageType,
-    )(implicit traceContext: TraceContext): () => Either[SyncCryptoError, SignedMessage[MessageT]] =
+    )(implicit
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
+    ): () => Either[SyncCryptoError, SignedMessage[MessageT]] =
       () => Right(SignedMessage(message, Signature.noSignature))
 
     override def verifySignature(
         hash: Hash,
         member: BftNodeId,
         signature: Signature,
+        operationId: String,
     )(implicit
-        traceContext: TraceContext
+        traceContext: TraceContext,
+        metricsContext: MetricsContext,
     ): () => Either[SignatureCheckError, Unit] = () => Either.unit
   }
 }

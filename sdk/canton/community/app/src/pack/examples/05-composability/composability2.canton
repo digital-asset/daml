@@ -44,8 +44,10 @@ participant5.synchronizers.connect_local(iou_sequencer, alias = iouAlias)
 
 // create the parties
 val Bank = participant1.parties.enable("Bank")
-val HouseOwner = participant2.parties.enable("House Owner")
-val Painter = participant3.parties.enable("Painter")
+val HouseOwner = participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
+participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
+val Painter = participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
+participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
 
 // Wait until the party enabling has taken effect and has been observed at the participants
 val initialPartyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)
@@ -94,7 +96,7 @@ val createIouCmd = new Iou(
   List.empty.asJava
 ).create.commands.asScala.toSeq
 val Seq(iouContractUnshared) = decodeAllCreated(Iou.COMPANION)(
-  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, synchronizerId =Some(iouId)))
+  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, synchronizerId = Some(iouId)))
 
 // Wait until the house owner sees the IOU in the active contract store
 participant2.ledger_api.state.acs.await_active_contract(HouseOwner, iouContractUnshared.id.toLf)
@@ -124,10 +126,10 @@ participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.t
 // Painter reasigns the paint offer to the IOU synchronizer
 val paintOfferReassignmentId = participant3.ledger_api.commands.submit_unassign(
   Painter,                      // Initiator of the reassignment
-  paintOffer.id.toLf,           // Contract to be reassigned
+  Seq(paintOffer.id.toLf),      // Contract to be reassigned
   paintId,                      // Source synchronizer
   iouId                         // Target synchronizer
-).unassignedEvent.unassignId
+).unassignId
 // architecture-handbook-entry-end: unassignment
 
 // architecture-handbook-entry-begin: assignment
@@ -158,7 +160,7 @@ val paintHouseId = paintHouse.id
 // The house owner moves the PaintHouse agreement back to the Paint synchronizer
 participant2.ledger_api.commands.submit_unassign(
   HouseOwner,
-  paintHouseId.toLf,
+  Seq(paintHouseId.toLf),
   iouId,
   paintId
 )

@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencer.api.v30.{
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Channel
@@ -79,7 +79,11 @@ class GrpcSequencerConnectionXStub(
 
   override def getSynchronizerAndSequencerIds(retryPolicy: GrpcError => Boolean)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, (SynchronizerId, SequencerId)] =
+  ): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    (PhysicalSynchronizerId, SequencerId),
+  ] =
     for {
       synchronizerIdP <- connection
         .sendRequest(
@@ -89,9 +93,9 @@ class GrpcSequencerConnectionXStub(
         )(_.getSynchronizerId(SequencerConnect.GetSynchronizerIdRequest()))
         .leftMap(SequencerConnectionXStubError.ConnectionError.apply)
 
-      synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-        SynchronizerId
-          .fromProtoPrimitive(synchronizerIdP.synchronizerId, "synchronizer_id")
+      psid <- EitherT.fromEither[FutureUnlessShutdown](
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(synchronizerIdP.physicalSynchronizerId, "physical_synchronizer_id")
           .leftMap(err => SequencerConnectionXStubError.DeserializationError(err.message))
       )
 
@@ -103,7 +107,7 @@ class GrpcSequencerConnectionXStub(
             SequencerConnectionXStubError.DeserializationError(err.message)
           )
       )
-    } yield (synchronizerId, sequencerId)
+    } yield (psid, sequencerId)
 
   override def getStaticSynchronizerParameters(retryPolicy: GrpcError => Boolean)(implicit
       traceContext: TraceContext
