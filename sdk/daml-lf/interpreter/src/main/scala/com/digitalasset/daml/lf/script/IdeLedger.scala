@@ -14,7 +14,6 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   Node,
   NodeId,
-  SubmittedTransaction,
   Transaction => Tx,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -90,16 +89,16 @@ object IdeLedger {
         readAs: Set[Party],
         effectiveAt: Time.Timestamp,
         transactionOffset: Long,
-        submittedTransaction: SubmittedTransaction,
+        transaction: CommittedTransaction,
     ): RichTransaction = {
       val blindingInfo =
-        BlindingTransaction.calculateBlindingInfo(submittedTransaction)
+        BlindingTransaction.calculateBlindingInfo(transaction)
       new RichTransaction(
         actAs = actAs,
         readAs = readAs,
         effectiveAt = effectiveAt,
         transactionOffset = transactionOffset,
-        transaction = Tx.commitTransaction(submittedTransaction),
+        transaction = transaction,
         blindingInfo = blindingInfo,
       )
     }
@@ -236,7 +235,7 @@ object IdeLedger {
       readAs: Set[Party],
       effectiveAt: Time.Timestamp,
       optLocation: Option[Location],
-      tx: SubmittedTransaction,
+      tx: CommittedTransaction,
       locationInfo: Map[NodeId, Location],
       l: IdeLedger,
   ): Either[CommitError, CommitResult] = {

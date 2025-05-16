@@ -33,7 +33,9 @@ sealed abstract class SValue {
     */
   def toUnnormalizedValue: V = {
     toValue(
-      normalize = false
+      keepTypeInfo = true,
+      keepFieldName = true,
+      keepTrailingNoneFields = true,
     )
   }
 
@@ -41,16 +43,17 @@ sealed abstract class SValue {
     */
   @scala.annotation.nowarn("cat=unused")
   def toNormalizedValue(version: TransactionVersion): V =
-    toValue(normalize = true)
+    toValue(
+      keepTypeInfo = false,
+      keepFieldName = false,
+      keepTrailingNoneFields = false,
+    )
 
-  private[this] def toValue(normalize: Boolean): V = {
-
-    def maybeEraseTypeInfo[X](x: X): Option[X] =
-      if (normalize) {
-        None
-      } else {
-        Some(x)
-      }
+  private[lf] def toValue(
+      keepTypeInfo: Boolean,
+      keepFieldName: Boolean,
+      keepTrailingNoneFields: Boolean,
+  ): V = {
 
     def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
       if (maxNesting < 0)
@@ -69,18 +72,22 @@ sealed abstract class SValue {
         case SUnit => V.ValueUnit
         case SDate(x) => V.ValueDate(x)
         case SRecord(id, names0, values0) =>
-          // we drop trailing None fields, even for unnormalized values
-          val n = values0.asScala.reverseIterator.dropWhile(_ == SValue.SValue.None).size
+          val n =
+            if (keepTrailingNoneFields)
+              values0.size()
+            else
+              // we drop trailing None fields
+              values0.asScala.reverseIterator.dropWhile(_ == SValue.SValue.None).size
           val values = (names0.toSeq.view.take(n) zip values0.asScala)
             .map { case (name, sv) =>
-              maybeEraseTypeInfo(name) -> go(sv, nextMaxNesting)
+              Option.when(keepFieldName)(name) -> go(sv, nextMaxNesting)
             }
             .to(ImmArray)
-          V.ValueRecord(maybeEraseTypeInfo(id), values)
+          V.ValueRecord(Option.when(keepTypeInfo)(id), values)
         case SVariant(id, variant, _, sv) =>
-          V.ValueVariant(maybeEraseTypeInfo(id), variant, go(sv, nextMaxNesting))
+          V.ValueVariant(Option.when(keepTypeInfo)(id), variant, go(sv, nextMaxNesting))
         case SEnum(id, constructor, _) =>
-          V.ValueEnum(maybeEraseTypeInfo(id), constructor)
+          V.ValueEnum(Option.when(keepTypeInfo)(id), constructor)
         case SList(lst) =>
           V.ValueList(lst.map(go(_, nextMaxNesting)))
         case SOptional(mbV) =>

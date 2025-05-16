@@ -5,18 +5,25 @@ package com.digitalasset.daml.lf
 package script
 
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
+import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.engine.{
+  Engine,
+  Result,
+  ResultDone,
+  ResultError,
+  Enricher => LfEnricher,
+}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
 import com.digitalasset.daml.lf.transaction.{
+  CommittedTransaction,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
   NodeId,
-  SubmittedTransaction,
   TransactionVersion,
   Versioned,
+  VersionedTransaction,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.speedy._
@@ -85,7 +92,7 @@ private[lf] object IdeLedgerRunner {
         committers: Set[Party],
         readAs: Set[Party],
         location: Option[Location],
-        tx: SubmittedTransaction,
+        tx: CommittedTransaction,
         locationInfo: Map[NodeId, Location],
     ): Either[Error, R]
   }
@@ -213,7 +220,7 @@ private[lf] object IdeLedgerRunner {
         committers: Set[Party],
         readAs: Set[Party],
         location: Option[Location],
-        tx: SubmittedTransaction,
+        tx: CommittedTransaction,
         locationInfo: Map[NodeId, Location],
     ): Either[Error, IdeLedger.CommitResult] =
       IdeLedger.commitTransaction(
@@ -233,12 +240,12 @@ private[lf] object IdeLedgerRunner {
   }
 
   private[this] abstract class Enricher {
-    def enrich(tx: SubmittedTransaction): SubmittedTransaction
+    def enrich(tx: VersionedTransaction): VersionedTransaction
     def enrich(tx: IncompleteTransaction): IncompleteTransaction
   }
 
   private[this] object NoEnricher extends Enricher {
-    override def enrich(tx: SubmittedTransaction): SubmittedTransaction = tx
+    override def enrich(tx: VersionedTransaction): VersionedTransaction = tx
     override def enrich(tx: IncompleteTransaction): IncompleteTransaction = tx
   }
 
@@ -257,16 +264,31 @@ private[lf] object IdeLedgerRunner {
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }
-    val enricher = new ValueEnricher(compiledPackages, translateValue, loadPackage)
+    val strictEnricher = new LfEnricher(
+      compiledPackages = compiledPackages,
+      loadPackage = loadPackage,
+      addTypeInfo = true,
+      addFieldNames = true,
+      addTrailingNoneFields = true,
+      requireContractIdSuffix = true,
+    )
+    val lenientEnricher = new LfEnricher(
+      compiledPackages = compiledPackages,
+      loadPackage = loadPackage,
+      addTypeInfo = true,
+      addFieldNames = true,
+      addTrailingNoneFields = true,
+      requireContractIdSuffix = false,
+    )
     def consume[V](res: Result[V]): V =
       res match {
         case ResultDone(x) => x
         case x => crash(s"unexpected Result when enriching value: $x")
       }
-    override def enrich(tx: SubmittedTransaction): SubmittedTransaction =
-      SubmittedTransaction(consume(enricher.enrichVersionedTransaction(tx)))
+    override def enrich(tx: VersionedTransaction): VersionedTransaction =
+      consume(strictEnricher.enrichVersionedTransaction(tx))
     override def enrich(tx: IncompleteTransaction): IncompleteTransaction =
-      consume(enricher.enrichIncompleteTransaction(tx))
+      consume(lenientEnricher.enrichIncompleteTransaction(tx))
   }
 
   def submit[R](
@@ -353,7 +375,11 @@ private[lf] object IdeLedgerRunner {
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
-              ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
+              val suffix = Bytes.fromByteArray(Array(0, 0))
+              val committedTx = CommittedTransaction(
+                enrich(data.assertRight(tx.suffixCid(_ => suffix)))
+              )
+              ledger.commit(committers, readAs, location, committedTx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
