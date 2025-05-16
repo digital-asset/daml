@@ -89,6 +89,10 @@
   type: jar-proto
 - target: //canton:ledger_api_proto_scala
   type: jar-scala
+- target: //canton:community_util-logging
+  type: jar-scala
+- target: //canton:daml-common-staging_daml-errors
+  type: jar-scala
 - target: //libs-scala/rs-grpc-pekko:rs-grpc-pekko
   type: jar-scala
 - target: //libs-scala/rs-grpc-bridge:rs-grpc-bridge

@@ -10,6 +10,8 @@ load(
     "kind_projector_plugin",
     "scala_source_jar",
     "scaladoc_jar",
+    "default_scalacopts",
+    "lf_scalacopts_stricter",
 )
 load("//bazel_tools:java.bzl", "da_java_library")
 load("//bazel_tools/java_testing:java_test_suite.bzl", "java_test_suite")
@@ -67,7 +69,7 @@ scala_library(
 
 ### daml-common-staging/daml-errors ###
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_daml-errors",
     srcs = glob(["daml-common-staging/daml-errors/src/main/**/*.scala"]),
     scalacopts = [
@@ -81,6 +83,9 @@ scala_library(
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+    tags = [
+        "maven_coordinates=com.daml:daml-common-staging_daml-errors:__VERSION__",
     ],
 )
 
@@ -149,12 +154,19 @@ scala_macro_library(
 
 ### community/util-logging ###
 
-scala_library(
+da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
+    ] + [
+        copt
+        for copt in default_scalacopts + lf_scalacopts_stricter
+        if copt not in [
+            "-P:wartremover:traverser:org.wartremover.warts.ExplicitImplicitTypes",
+            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+        ]
     ],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
@@ -189,6 +201,9 @@ scala_library(
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
+    ],
+    tags = [
+        "maven_coordinates=com.daml:community_util-logging:__VERSION__",
     ],
 )
 

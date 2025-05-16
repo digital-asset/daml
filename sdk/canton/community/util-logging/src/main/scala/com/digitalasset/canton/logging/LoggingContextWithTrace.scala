@@ -46,6 +46,7 @@ object LoggingContextWithTrace {
     new LoggingContextWithTrace(createLoggingContext(loggerFactory)(identity).entries, traceContext)
 
   def apply(loggerFactory: NamedLoggerFactory, telemetry: Telemetry): LoggingContextWithTrace = {
+    @SuppressWarnings(Array("org.wartremover.warts.ExplicitImplicitTypes"))
     implicit val traceContext =
       TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
     LoggingContextWithTrace(loggerFactory)
