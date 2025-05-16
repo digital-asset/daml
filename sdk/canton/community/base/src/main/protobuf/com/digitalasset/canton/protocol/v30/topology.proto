@@ -57,7 +57,7 @@ message Enums {
     reserved 16; // was TrafficControlState
     TOPOLOGY_MAPPING_CODE_SEQUENCING_DYNAMIC_PARAMETERS_STATE = 17;
     TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING = 18;
-    TOPOLOGY_MAPPING_CODE_TOPOLOGY_FREEZE = 19;
+    TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT = 19;
   }
 }
 
@@ -235,12 +235,17 @@ message VettedPackages {
 // UNIQUE(party)
 message PartyToParticipant {
   message HostingParticipant {
+    message Onboarding {}
+
     // the target participant that the party should be mapped to
     string participant_uid = 1;
 
     // permission of the participant for this particular party (the actual
     // will be min of ParticipantSynchronizerPermission.ParticipantPermission and this setting)
     Enums.ParticipantPermission permission = 2;
+
+    // optional, present iff the party is being onboarded to the participant
+    Onboarding onboarding = 3;
   }
 
   // the party that is to be represented by the participants
@@ -335,14 +340,17 @@ message PurgeTopologyTransaction {
   repeated TopologyMapping mappings = 2;
 }
 
-// activates a freeze of the topology state of the synchronizer, after which only
-// synchronizer migration specific topology mappings are accepted. removing this mapping
-// unfreezes the topology state again.
+// indicates the beginning of a synchronizer migration and effectuates a topology freeze,
+// after which only synchronizer migration specific topology mappings are accepted.
+// removing this mapping unfreezes the topology state again.
 // authorization: whoever controls the physical synchronizer
 // UNIQUE(physical_synchronizer_id)
-message TopologyFreeze {
-  // the synchronizer id
+message SynchronizerMigrationAnnouncement {
+  // the physical synchronizer id
+  // TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
   string physical_synchronizer_id = 1;
+  // the physical synchronizer id of the successor synchronizer
+  string successor_physical_synchronizer_id = 2;
 }
 
 // [docs-entry-start: topology mapping]
@@ -368,7 +376,7 @@ message TopologyMapping {
 
     PartyToKeyMapping party_to_key_mapping = 16;
 
-    TopologyFreeze topology_freeze = 17;
+    SynchronizerMigrationAnnouncement synchronizer_migration_announcement = 17;
   }
   reserved 2; // was identifier_delegation
   reserved 10; // was authority_of
@@ -440,6 +448,6 @@ message SignedTopologyTransactions {
 message TopologyTransactionsBroadcast {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  string synchronizer_id = 1;
+  string physical_synchronizer_id = 1;
   SignedTopologyTransactions signed_transactions = 2;
 }

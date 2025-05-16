@@ -8,6 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
@@ -16,8 +17,11 @@ final case class PhysicalSynchronizerId(
     logical: SynchronizerId,
     protocolVersion: ProtocolVersion,
     serial: NonNegativeInt = NonNegativeInt.zero,
-) {
+) extends HasUniqueIdentifier
+    with PrettyPrinting {
   def suffix: String = s"$protocolVersion${PhysicalSynchronizerId.secondaryDelimiter}$serial"
+
+  def uid: UniqueIdentifier = logical.uid
 
   def toLengthLimitedString: String300 =
     String300.tryCreate(
@@ -25,11 +29,21 @@ final case class PhysicalSynchronizerId(
     )
 
   def toProtoPrimitive: String = toLengthLimitedString.unwrap
+
+  override protected def pretty: Pretty[PhysicalSynchronizerId.this.type] =
+    prettyOfString(_ => toLengthLimitedString.unwrap)
 }
 
 object PhysicalSynchronizerId {
   private val primaryDelimiter: String = "::" // Between LSId and suffix
   private val secondaryDelimiter: String = "-" // Between components of the suffix
+
+  def apply(
+      synchronizerId: SynchronizerId,
+      staticSynchronizerParameters: StaticSynchronizerParameters,
+  ): PhysicalSynchronizerId =
+    // TODO(#24733) Wire serial
+    PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.protocolVersion)
 
   implicit val physicalSynchronizerIdOrdering: Ordering[PhysicalSynchronizerId] =
     Ordering.by(psid =>

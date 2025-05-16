@@ -111,11 +111,11 @@ final class UnassignmentProcessingStepsTest
   private val testTopologyTimestamp = CantonTimestamp.Epoch
 
   private lazy val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::synchronizer"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("source::synchronizer")).toPhysical
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
   private lazy val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::synchronizer"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("target::synchronizer")).toPhysical
   )
 
   private lazy val submitter: LfPartyId = PartyId(
@@ -201,7 +201,6 @@ final class UnassignmentProcessingStepsTest
     Source(testedProtocolVersion),
     sourceMediator,
     targetSynchronizer,
-    Target(testedProtocolVersion),
     timeProof,
   )
 
@@ -365,7 +364,6 @@ final class UnassignmentProcessingStepsTest
           Source(testedProtocolVersion),
           sourceMediator,
           targetSynchronizer,
-          Target(testedProtocolVersion),
           Source(sourceTopologySnapshot),
           Target(targetTopologySnapshot),
         )
@@ -555,7 +553,6 @@ final class UnassignmentProcessingStepsTest
             sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
-            targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeProof,
           ),
           Set(submittingParticipant, participant1, participant2),
@@ -594,7 +591,6 @@ final class UnassignmentProcessingStepsTest
             sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetSynchronizer = targetSynchronizer,
-            targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeProof,
           ),
           Set(submittingParticipant, participant1, participant2, participant3, participant4),
@@ -627,7 +623,6 @@ final class UnassignmentProcessingStepsTest
           sourceProtocolVersion = Source(testedProtocolVersion),
           sourceMediator = sourceMediator,
           targetSynchronizer = targetSynchronizer,
-          targetProtocolVersion = Target(testedProtocolVersion),
           targetTimeProof = timeProof,
         ),
         Set(submittingParticipant, participant1),
@@ -645,7 +640,6 @@ final class UnassignmentProcessingStepsTest
           submitterMetadata = submitterMetadata(party1),
           Seq(contractId),
           targetSynchronizer,
-          Target(testedProtocolVersion),
         )
 
       for {
@@ -678,7 +672,6 @@ final class UnassignmentProcessingStepsTest
         submitterMetadata = submitterMetadata(party1),
         Seq(contractId),
         Target(sourceSynchronizer.unwrap),
-        Target(testedProtocolVersion),
       )
 
       for {
@@ -746,7 +739,6 @@ final class UnassignmentProcessingStepsTest
         Source(testedProtocolVersion),
         sourceMediator,
         targetSynchronizer,
-        Target(testedProtocolVersion),
         timeProof,
       )
       val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)

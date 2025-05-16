@@ -57,7 +57,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -81,7 +81,7 @@ trait ReassignmentProcessingSteps[
 
   val participantId: ParticipantId
 
-  val synchronizerId: ReassignmentTag[SynchronizerId]
+  val synchronizerId: ReassignmentTag[PhysicalSynchronizerId]
 
   protected def contractAuthenticator: ContractAuthenticator
 
@@ -292,7 +292,7 @@ trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         completionInfo,
         rejection,
-        synchronizerId.unwrap,
+        synchronizerId.unwrap.logical,
         ts,
       )
     )
@@ -323,7 +323,7 @@ trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         info,
         rejection,
-        synchronizerId.unwrap,
+        synchronizerId.unwrap.logical,
         pendingReassignment.requestId.unwrap,
       )
     )
@@ -562,19 +562,24 @@ object ReassignmentProcessingSteps {
     override def message: String = "Application is shutting down"
   }
 
-  final case class SynchronizerNotReady(synchronizerId: SynchronizerId, context: String)
+  final case class SynchronizerNotReady(synchronizerId: PhysicalSynchronizerId, context: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Synchronizer $synchronizerId is not ready when $context"
   }
 
-  final case class ReassignmentParametersError(synchronizerId: SynchronizerId, context: String)
-      extends ReassignmentProcessorError {
+  // TODO(#25483) Errors should be physical
+  final case class ReassignmentParametersError(
+      synchronizerId: SynchronizerId,
+      context: String,
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Unable to compute reassignment parameters for $synchronizerId: $context"
   }
 
-  final case class NoTimeProofFromSynchronizer(synchronizerId: SynchronizerId, reason: String)
-      extends ReassignmentProcessorError {
+  final case class NoTimeProofFromSynchronizer(
+      synchronizerId: PhysicalSynchronizerId,
+      reason: String,
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot fetch time proof for synchronizer `$synchronizerId`: $reason"
   }

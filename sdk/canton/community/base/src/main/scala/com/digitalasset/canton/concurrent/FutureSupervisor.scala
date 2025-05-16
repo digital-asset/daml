@@ -69,7 +69,7 @@ object FutureSupervisor {
   ) extends FutureSupervisor {
     import Impl.ScheduledFuture
 
-    private val scheduled = new AtomicReference[Seq[ScheduledFuture]](Seq())
+    private val scheduled = new AtomicReference[Seq[ScheduledFuture]](Seq.empty)
     private val defaultCheckMs = 1000L
 
     // schedule regular background checks
@@ -122,7 +122,9 @@ object FutureSupervisor {
           errorLoggingContext,
           logLevel,
         )
-        scheduled.updateAndGet(x => x.filter(_.stillRelevantAndIncomplete) :+ itm)
+        // Merely add the new ScheduledFuture to the list and don't filter out no longer relevant items.
+        // Otherwise, this will produce a quadratic runtime if many future supervisions are happening at the same time.
+        scheduled.updateAndGet(itm +: _)
 
         // Use the direct execution context so that the supervision follow-up steps doesn't affect task-based scheduling
         // because the follow-up is run on the future itself.

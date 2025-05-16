@@ -206,7 +206,7 @@ trait RichSequencerClient extends SequencerClient {
 }
 
 abstract class SequencerClientImpl(
-    val synchronizerId: SynchronizerId,
+    val synchronizerId: PhysicalSynchronizerId,
     val member: Member,
     sequencerTransports: SequencerTransports[?],
     val config: SequencerClientConfig,
@@ -797,7 +797,7 @@ object SequencerClientImpl {
   * throughout the participant node.
   */
 class RichSequencerClientImpl(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[?],
     config: SequencerClientConfig,
@@ -1037,7 +1037,7 @@ class RichSequencerClientImpl(
     val eventDelay: DelaySequencedEvent = {
       val first = testingConfig.testSequencerClientFor.find(elem =>
         elem.memberName == member.identifier.unwrap &&
-          elem.synchronizerName == synchronizerId.identifier.unwrap
+          elem.synchronizerName == synchronizerId.logical.identifier.unwrap
       )
 
       first match {
@@ -1504,7 +1504,7 @@ class RichSequencerClientImpl(
 }
 
 class SequencerClientImplPekko[E: Pretty](
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[E],
     config: SequencerClientConfig,

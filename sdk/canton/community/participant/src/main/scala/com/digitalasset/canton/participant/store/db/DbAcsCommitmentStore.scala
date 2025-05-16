@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.set
 import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordTime
@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.store.{
   IncrementalCommitmentStore,
 }
 import com.digitalasset.canton.protocol.StoredParties
+import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -46,7 +47,13 @@ import com.digitalasset.canton.util.collection.IterableUtil.Ops
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
-import slick.jdbc.{GetResult, PositionedParameters, SetParameter, TransactionIsolation}
+import slick.jdbc.{
+  GetResult,
+  GetTupleResult,
+  PositionedParameters,
+  SetParameter,
+  TransactionIsolation,
+}
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext
@@ -457,7 +464,7 @@ class DbAcsCommitmentStore(
     )
 
   override val queue: DbCommitmentQueue =
-    new DbCommitmentQueue(storage, indexedSynchronizer, protocolVersion, timeouts, loggerFactory)
+    new DbCommitmentQueue(storage, indexedSynchronizer, timeouts, loggerFactory)
 
   override def onClosed(): Unit =
     LifeCycle.close(
@@ -610,7 +617,6 @@ class DbIncrementalCommitmentStore(
 class DbCommitmentQueue(
     override protected val storage: DbStorage,
     indexedSynchronizer: IndexedSynchronizer,
-    protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -619,8 +625,21 @@ class DbCommitmentQueue(
 
   import storage.api.*
 
-  private implicit val acsCommitmentReader: GetResult[AcsCommitment] =
-    AcsCommitment.getAcsCommitmentResultReader(indexedSynchronizer.synchronizerId, protocolVersion)
+  private implicit val acsCommitmentReader: GetResult[BufferedAcsCommitment] =
+    new GetTupleResult[(ParticipantId, ParticipantId, CommitmentPeriod, HashedCommitmentType)](
+      GetResult[ParticipantId],
+      GetResult[ParticipantId],
+      GetResult[CommitmentPeriod],
+      GetResult[Hash],
+    ).andThen { case (sender, counterParticipant, period, commitment) =>
+      BufferedAcsCommitment(
+        indexedSynchronizer.synchronizerId,
+        sender,
+        counterParticipant,
+        period,
+        commitment,
+      )
+    }
 
   override def enqueue(
       commitment: AcsCommitment
@@ -640,13 +659,13 @@ class DbCommitmentQueue(
     */
   override def peekThrough(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[List[AcsCommitment]] =
+  ): FutureUnlessShutdown[List[BufferedAcsCommitment]] =
     storage
       .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
              from par_commitment_queue
              where synchronizer_idx = $indexedSynchronizer and to_inclusive <= $timestamp"""
-          .as[AcsCommitment],
+          .as[BufferedAcsCommitment],
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
       .map(_.toList)
@@ -657,13 +676,13 @@ class DbCommitmentQueue(
     */
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
     storage
       .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
                                             from par_commitment_queue
                                             where synchronizer_idx = $indexedSynchronizer and to_inclusive >= $timestamp"""
-          .as[AcsCommitment],
+          .as[BufferedAcsCommitment],
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
 
@@ -672,7 +691,7 @@ class DbCommitmentQueue(
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[AcsCommitment]] =
+  ): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
     storage
       .query(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
@@ -680,7 +699,7 @@ class DbCommitmentQueue(
                  where synchronizer_idx = $indexedSynchronizer and sender = $counterParticipant
                  and to_inclusive > ${period.fromExclusive}
                  and from_exclusive < ${period.toInclusive} """
-          .as[AcsCommitment],
+          .as[BufferedAcsCommitment],
         operationName = NameOf.qualifiedNameOfCurrentFunc,
       )
 

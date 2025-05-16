@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform
 
-import cats.Order.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.PackageReference
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NotFound.PackageNamesNotFound
@@ -12,7 +11,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref.PackageName
 
@@ -53,7 +52,7 @@ class PackagePreferenceBackend(
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]] = {
+  ): FutureUnlessShutdown[Option[(PackageReference, PhysicalSynchronizerId)]] = {
     val routingSynchronizerState = syncService.getRoutingSynchronizerState
     val packageMetadataSnapshot = syncService.getPackageMetadataSnapshot
     val packageIdMapSnapshot = packageMetadataSnapshot.packageIdVersionMap
@@ -73,8 +72,8 @@ class PackagePreferenceBackend(
         .toSet
 
     def computePackagePreference(
-        packageMap: Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]
-    ): Option[(PackageReference, SynchronizerId)] =
+        packageMap: Map[PhysicalSynchronizerId, Map[LfPartyId, Set[LfPackageId]]]
+    ): Option[(PackageReference, PhysicalSynchronizerId)] =
       packageMap.view
         .flatMap { case (syncId, partyPackageMap: Map[LfPartyId, Set[LfPackageId]]) =>
           val uniformlyVettedPackages = partyPackageMap.values
@@ -100,7 +99,7 @@ class PackagePreferenceBackend(
             implicitly[Ordering[PackageReference]],
             // Follow the pattern used for SynchronizerRank ordering,
             // where lexicographic order picks the most preferred synchronizer by id
-            implicitly[Ordering[SynchronizerId]].reverse,
+            implicitly[Ordering[PhysicalSynchronizerId]].reverse,
           )
         )
 

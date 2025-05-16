@@ -10,10 +10,8 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.{
-  BftBlockOrdererConfig,
-  FingerprintKeyId,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.BootstrapDetector.BootstrapKind
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.InitialState
@@ -54,16 +52,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
-  MessageAuthorizer,
   OrderingTopologyInfo,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage.PbftVerifiedNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.NewEpochTopology
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage.headerFromProto
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
-  PbftNetworkMessage,
-  PbftSignedNetworkMessage,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftSignedNetworkMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.EpochStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -79,7 +73,6 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
-import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.{Failure, Random, Success}
 
@@ -96,8 +89,11 @@ final class IssConsensusModule[E <: Env[E]](
     override val dependencies: ConsensusModuleDependencies[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-    private val futurePbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]],
-    private val postponedConsensusMessageQueue: Option[mutable.Queue[Consensus.Message[E]]] = None,
+    private val futurePbftMessageQueue: FairBoundedQueue[
+      Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage
+    ],
+    private val postponedConsensusMessageQueue: Option[FairBoundedQueue[Consensus.Message[E]]] =
+      None,
 )(
     // Only tests pass the state manager as parameter, and it's convenient to have it as an option
     //  to avoid two different constructor calls depending on whether the test want to customize it or not.
@@ -110,8 +106,6 @@ final class IssConsensusModule[E <: Env[E]](
     ),
     // Only passed in tests
     private var newEpochTopology: Option[Consensus.NewEpochTopology[E]] = None,
-    // Only passed in tests
-    private var messageAuthorizer: MessageAuthorizer = activeTopologyInfo.currentTopology,
 )(implicit
     synchronizerProtocolVersion: ProtocolVersion,
     override val config: BftBlockOrdererConfig,
@@ -135,7 +129,7 @@ final class IssConsensusModule[E <: Env[E]](
       )()
     )
 
-  private val signatureVerifier = new IssConsensusSignatureVerifier[E]
+  private val signatureVerifier = new IssConsensusSignatureVerifier[E](metrics)
 
   logger.debug(
     "Starting with " +
@@ -334,12 +328,13 @@ final class IssConsensusModule[E <: Env[E]](
     //  PBFT messages for a future epoch may become stale after a catch-up, so we need to extract and discard them.
     val queuedPbftMessages =
       futurePbftMessageQueue.dequeueAll(
-        _.message.blockMetadata.epochNumber <= epochState.epoch.info.number
+        _.underlyingNetworkMessage.message.blockMetadata.epochNumber <= epochState.epoch.info.number
       )
 
-    queuedPbftMessages.foreach { pbftMessage =>
-      if (pbftMessage.message.blockMetadata.epochNumber == epochState.epoch.info.number)
-        processPbftMessage(pbftMessage)
+    queuedPbftMessages.foreach { msg =>
+      val msgEpochNumber = msg.underlyingNetworkMessage.message.blockMetadata.epochNumber
+      if (msgEpochNumber == epochState.epoch.info.number)
+        processUnverifiedPbftMessageAtCurrentEpoch(msg)
     }
   }
 
@@ -401,58 +396,51 @@ final class IssConsensusModule[E <: Env[E]](
 
     consensusMessage match {
       case Consensus.ConsensusMessage.PbftVerifiedNetworkMessage(pbftEvent) =>
-        processPbftMessage(pbftEvent)
+        processVerifiedPbftMessage(pbftEvent)
 
-      case Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(underlyingNetworkMessage) =>
-        val from = underlyingNetworkMessage.from
-        val keyId = FingerprintKeyId.toBftKeyId(underlyingNetworkMessage.signature.signedBy)
-        val blockMetadata = underlyingNetworkMessage.message.blockMetadata
+      case msg: Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage =>
+        val from = msg.underlyingNetworkMessage.from
+        val blockMetadata = msg.underlyingNetworkMessage.message.blockMetadata
         val epochNumber = blockMetadata.epochNumber
         val blockNumber = blockMetadata.blockNumber
-        val viewNumber = underlyingNetworkMessage.message.viewNumber
 
-        def emitNonComplianceMetric(): Unit =
-          emitNonCompliance(metrics)(
-            from,
-            Some(epochNumber),
-            Some(viewNumber),
-            Some(blockNumber),
-            metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
+        val thisNodeEpochNumber = epochState.epoch.info.number
+
+        val updatedEpoch = catchupDetector.updateLatestKnownNodeEpoch(from, epochNumber)
+        lazy val pbftMessageType = shortType(msg.underlyingNetworkMessage.message)
+
+        if (epochNumber < thisNodeEpochNumber) {
+          logger.info(
+            s"Discarded PBFT message $pbftMessageType about block $blockNumber " +
+              s"at epoch $epochNumber because we're at a later epoch ($thisNodeEpochNumber)"
           )
-
-        if (messageAuthorizer.isAuthorized(from, keyId)) {
-          context.pipeToSelf(
-            signatureVerifier.verify(underlyingNetworkMessage, activeTopologyInfo)
-          ) {
-            case Failure(error) =>
-              logger.warn(
-                s"Message $underlyingNetworkMessage from '$from' could not be validated, dropping",
-                error,
-              )
-              emitNonComplianceMetric()
-              None
-            case Success(Left(errors)) =>
-              // Info because it can also happen at epoch boundaries
-              logger.info(
-                s"Message $underlyingNetworkMessage from '$from' failed validation, dropping: $errors"
-              )
-              emitNonComplianceMetric()
-              None
-
-            case Success(Right(())) =>
+        } else if (epochNumber > thisNodeEpochNumber) {
+          // Messages from future epoch are queued to be processed when we move to that epoch.
+          // Note that we use the actual sender instead of the original sender, so that a node
+          // cannot maliciously retransmit many messages from another node with the intent to
+          // fill up the other node's quota in this queue.
+          futurePbftMessageQueue.enqueue(msg.actualSender, msg) match {
+            case FairBoundedQueue.EnqueueResult.Success =>
               logger.debug(
-                s"Message ${shortType(underlyingNetworkMessage.message)} from $from is valid"
+                s"Queued PBFT message $pbftMessageType from future epoch $epochNumber " +
+                  s"as we're still in epoch $thisNodeEpochNumber"
               )
-              Some(PbftVerifiedNetworkMessage(underlyingNetworkMessage))
+            case FairBoundedQueue.EnqueueResult.TotalCapacityExceeded =>
+              logger.info(
+                s"Dropped PBFT message $pbftMessageType from future epoch $epochNumber " +
+                  s"as we're still in epoch $thisNodeEpochNumber and " +
+                  s"total capacity for queueing future nodes has been reached"
+              )
+            case FairBoundedQueue.EnqueueResult.PerNodeQuotaExceeded(node) =>
+              logger.info(
+                s"Dropped PBFT message $pbftMessageType from future epoch $epochNumber " +
+                  s"as we're still in epoch $thisNodeEpochNumber and " +
+                  s"the quota for node $node for queueing future nodes has been reached"
+              )
           }
-        } else {
-          emitNonComplianceMetric()
-          logger.warn(
-            s"Received a message from '$from' signed with '$keyId' " +
-              "but it is unauthorized in the current ordering topology " +
-              s"${activeTopologyInfo.currentTopology.nodesTopologyInfo}, dropping it"
-          )
-        }
+          startCatchupIfNeeded(updatedEpoch, epochNumber).discard
+        } else
+          processUnverifiedPbftMessageAtCurrentEpoch(msg)
 
       case Consensus.ConsensusMessage.BlockOrdered(
             orderedBlock: OrderedBlock,
@@ -632,7 +620,6 @@ final class IssConsensusModule[E <: Env[E]](
       newEpochInfo.number == currentEpochInfo.number + 1 || currentEpochInfo == GenesisEpochInfo
     ) {
       activeTopologyInfo = activeTopologyInfo.updateMembership(newMembership, newCryptoProvider)
-      messageAuthorizer = activeTopologyInfo.currentTopology
 
       val currentMembership = activeTopologyInfo.currentMembership
       catchupDetector.updateMembership(currentMembership)
@@ -670,68 +657,88 @@ final class IssConsensusModule[E <: Env[E]](
     }
   }
 
-  private def processPbftMessage(
-      pbftMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+  private def processUnverifiedPbftMessageAtCurrentEpoch(
+      message: Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
-    val pbftMessagePayload = pbftMessage.message
-    val pbftMessageBlockMetadata = pbftMessagePayload.blockMetadata
+    val underlyingNetworkMessage = message.underlyingNetworkMessage
+    val from = underlyingNetworkMessage.from
+    val blockMetadata = underlyingNetworkMessage.message.blockMetadata
+    val epochNumber = blockMetadata.epochNumber
+    val blockNumber = blockMetadata.blockNumber
+    val viewNumber = underlyingNetworkMessage.message.viewNumber
+    lazy val messageType = shortType(message)
 
     def emitNonComplianceMetric(): Unit =
       emitNonCompliance(metrics)(
-        pbftMessagePayload.from,
-        Some(pbftMessageBlockMetadata.epochNumber),
-        Some(pbftMessagePayload.viewNumber),
-        Some(pbftMessageBlockMetadata.blockNumber),
+        from,
+        Some(epochNumber),
+        Some(viewNumber),
+        Some(blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
       )
 
-    lazy val messageType = shortType(pbftMessagePayload)
-    logger.debug(
-      s"$messageType: received from ${pbftMessage.from} w/ metadata $pbftMessageBlockMetadata"
-    )
-
-    val pbftMessageEpochNumber = pbftMessageBlockMetadata.epochNumber
-    val thisNodeEpochNumber = epochState.epoch.info.number
-    val updatedEpoch =
-      catchupDetector.updateLatestKnownNodeEpoch(pbftMessage.from, pbftMessageEpochNumber)
-
-    // Messages from stale epochs are discarded.
-    if (pbftMessageEpochNumber < thisNodeEpochNumber) {
-      logger.info(
-        s"Discarded PBFT message $messageType about block ${pbftMessageBlockMetadata.blockNumber} " +
-          s"at epoch $pbftMessageEpochNumber because we're at a later epoch ($thisNodeEpochNumber)"
-      )
-    } else if (pbftMessageEpochNumber > thisNodeEpochNumber) {
-      // Messages from future epoch are queued to be processed when we move to that epoch.
-      futurePbftMessageQueue.enqueue(pbftMessage)
-      logger.debug(
-        s"Queued PBFT message $messageType from future epoch $pbftMessageEpochNumber " +
-          s"as we're still in epoch $thisNodeEpochNumber"
-      )
-
-      startCatchupIfNeeded(updatedEpoch, pbftMessageEpochNumber).discard
-    } else if (
-      pbftMessageBlockMetadata.blockNumber < epochState.epoch.info.startBlockNumber || pbftMessageBlockMetadata.blockNumber > epochState.epoch.info.lastBlockNumber
+    if (
+      blockNumber < epochState.epoch.info.startBlockNumber || blockNumber > epochState.epoch.info.lastBlockNumber
     ) {
       // Messages with block numbers out of bounds of the epoch are discarded.
       val epochInfo = epochState.epoch.info
       logger.warn(
-        s"Discarded PBFT message $messageType about block ${pbftMessageBlockMetadata.blockNumber}" +
-          s"from epoch $pbftMessageEpochNumber (current epoch number = ${epochInfo.number}, " +
+        s"Discarded PBFT message $messageType about block $blockNumber" +
+          s"from epoch $epochNumber (current epoch number = ${epochInfo.number}, " +
           s"first block = ${epochInfo.startBlockNumber}, epoch length = ${epochInfo.length}) " +
           "because the block number is out of bounds of the current epoch"
       )
       emitNonComplianceMetric()
-    } else if (!activeTopologyInfo.currentTopology.contains(pbftMessage.from)) {
-      // Message is for current epoch but is not from a node in this epoch's topology; this is non-compliant
-      //  behavior because correct BFT nodes are supposed not to start consensus for epochs they are not part of.
-      logger.warn(
-        s"Discarded PBFT message $messageType message from '${pbftMessage.from}' not in the current epoch's topology"
+    } else
+      context.pipeToSelf(
+        signatureVerifier.verify(underlyingNetworkMessage, activeTopologyInfo)
+      ) {
+        case Failure(error) =>
+          logger.warn(
+            s"Message $underlyingNetworkMessage from '$from' could not be validated, dropping",
+            error,
+          )
+          emitNonComplianceMetric()
+          None
+        case Success(Left(errors)) =>
+          // Info because it can also happen at epoch boundaries
+          logger.info(
+            s"Message $underlyingNetworkMessage from '$from' failed validation, dropping: $errors"
+          )
+          emitNonComplianceMetric()
+          None
+
+        case Success(Right(())) =>
+          logger.debug(
+            s"Message ${shortType(underlyingNetworkMessage.message)} from $from is valid"
+          )
+          Some(PbftVerifiedNetworkMessage(underlyingNetworkMessage))
+      }
+  }
+
+  private def processVerifiedPbftMessage(
+      pbftMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+  )(implicit traceContext: TraceContext): Unit = {
+    val pbftMessagePayload = pbftMessage.message
+    val pbftMessageBlockMetadata = pbftMessagePayload.blockMetadata
+    val epochNumber = pbftMessageBlockMetadata.epochNumber
+    val thisNodeEpochNumber = epochState.epoch.info.number
+    val blockNumber = pbftMessageBlockMetadata.blockNumber
+
+    lazy val messageType = shortType(pbftMessagePayload)
+    logger.debug(
+      s"$messageType: received verified message from ${pbftMessage.from} w/ metadata $pbftMessageBlockMetadata"
+    )
+
+    // at the time this message started being verified, we were at the same epoch as the message,
+    // but there is a chance we moved to the next epoch since then, so important to re-check
+    if (epochNumber < thisNodeEpochNumber) {
+      logger.info(
+        s"Discarded verified PBFT message $messageType about block $blockNumber " +
+          s"at epoch $epochNumber because we've moved to later epoch ($thisNodeEpochNumber) during signature verification"
       )
-      emitNonComplianceMetric()
-    } else {
+    } else
       epochState.processPbftMessage(PbftSignedNetworkMessage(pbftMessage))
-    }
   }
 
   private def startCatchupIfNeeded(
@@ -830,12 +837,11 @@ object IssConsensusModule {
 
   def parseNetworkMessage(
       protoSignedMessage: v30.SignedMessage
-  ): ParsingResult[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
+  ): ParsingResult[SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]] =
     SignedMessage
       .fromProtoWithNodeId(v30.ConsensusMessage)(from =>
         proto => originalByteString => parseConsensusNetworkMessage(from, proto)(originalByteString)
       )(protoSignedMessage)
-      .map(Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage.apply)
 
   def parseConsensusNetworkMessage(
       from: BftNodeId,
@@ -927,7 +933,7 @@ object IssConsensusModule {
         EpochLength,
         Option[SequencerSnapshotAdditionalInfo],
         OrderingTopologyInfo[?],
-        Seq[SignedMessage[PbftNetworkMessage]],
+        Seq[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage],
         Option[Seq[Consensus.Message[?]]],
     )
   ] =
@@ -936,8 +942,8 @@ object IssConsensusModule {
         issConsensusModule.epochLength,
         issConsensusModule.initialState.sequencerSnapshotAdditionalInfo,
         issConsensusModule.activeTopologyInfo,
-        issConsensusModule.futurePbftMessageQueue.toSeq,
-        issConsensusModule.postponedConsensusMessageQueue.map(_.toSeq),
+        issConsensusModule.futurePbftMessageQueue.dump,
+        issConsensusModule.postponedConsensusMessageQueue.map(_.dump),
       )
     )
 }

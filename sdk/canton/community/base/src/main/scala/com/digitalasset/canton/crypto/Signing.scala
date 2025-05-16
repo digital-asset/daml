@@ -369,6 +369,9 @@ final case class SignatureDelegationValidityPeriod(
       .catchOnly[IllegalArgumentException](fromInclusive + periodLength)
       .getOrElse(CantonTimestamp.MaxValue)
 
+  def covers(timestamp: CantonTimestamp): Boolean =
+    timestamp >= fromInclusive && timestamp < toExclusive
+
   override protected def pretty: Pretty[SignatureDelegationValidityPeriod] =
     prettyOfClass(
       param("fromInclusive", _.fromInclusive),
@@ -421,7 +424,7 @@ final case class SignatureDelegation private[crypto] (
   def delegatingKeyId: Fingerprint = signature.signedBy
 
   def isValidAt(timestamp: CantonTimestamp): Boolean =
-    timestamp >= validityPeriod.fromInclusive && timestamp < validityPeriod.toExclusive
+    validityPeriod.covers(timestamp)
 
   def toProtoV30: v30.SignatureDelegation =
     v30.SignatureDelegation(
@@ -1774,6 +1777,16 @@ object SignatureCheckError {
 
   final case class InvalidSignatureDelegation(message: String) extends SignatureCheckError {
     override protected def pretty: Pretty[InvalidSignatureDelegation] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
+  /** Thrown when verifying a message request that does not support session signing keys, e.g., a
+    * non-protocol message.
+    */
+  final case class UnsupportedDelegationSignatureError(message: String)
+      extends SignatureCheckError {
+    override protected def pretty: Pretty[UnsupportedDelegationSignatureError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }

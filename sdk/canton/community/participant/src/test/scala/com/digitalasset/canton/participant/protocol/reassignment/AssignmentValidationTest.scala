@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
+import cats.syntax.functor.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -52,11 +53,11 @@ class AssignmentValidationTest
     with HasExecutionContext
     with FailOnShutdown {
   private val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source")).toPhysical
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target")).toPhysical
   )
   private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
 
@@ -161,7 +162,7 @@ class AssignmentValidationTest
 
     val reassignmentDataHelpers = ReassignmentDataHelpers(
       contract,
-      reassignmentId.sourceSynchronizer,
+      reassignmentId.sourceSynchronizer.map(_.toPhysical),
       targetSynchronizer,
       identityFactory,
     )
@@ -373,7 +374,7 @@ class AssignmentValidationTest
   }
 
   private def testInstance(
-      synchronizerId: Target[SynchronizerId],
+      synchronizerId: Target[PhysicalSynchronizerId],
       snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
       participantId: ParticipantId,
@@ -402,7 +403,7 @@ class AssignmentValidationTest
       contract: SerializableContract,
       submitter: LfPartyId = signatory,
       uuid: UUID = new UUID(4L, 5L),
-      targetSynchronizer: Target[SynchronizerId] = targetSynchronizer,
+      targetSynchronizer: Target[PhysicalSynchronizerId] = targetSynchronizer,
       targetMediator: MediatorGroupRecipient = targetMediator,
       reassignmentCounter: ReassignmentCounter = ReassignmentCounter(1),
       reassigningParticipants: Set[ParticipantId] = reassigningParticipants,

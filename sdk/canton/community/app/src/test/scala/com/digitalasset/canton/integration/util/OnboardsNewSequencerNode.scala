@@ -26,7 +26,7 @@ trait OnboardsNewSequencerNode {
     import env.*
     BaseTest.eventually() {
       existingSequencer.topology.sequencers
-        .list(existingSequencer.synchronizer_id)
+        .list(existingSequencer.synchronizer_id.logical)
         .loneElement
         .item
         .allSequencers

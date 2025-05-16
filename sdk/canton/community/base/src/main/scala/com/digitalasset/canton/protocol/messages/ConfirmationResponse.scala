@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidCon
 import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.SignedMessageContentCast
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -174,7 +174,7 @@ object ConfirmationResponse {
 final case class ConfirmationResponses private (
     requestId: RequestId,
     rootHash: RootHash,
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     sender: ParticipantId,
     responses: NonEmpty[Seq[ConfirmationResponse]],
 )(
@@ -184,14 +184,14 @@ final case class ConfirmationResponses private (
     override val deserializedFrom: Option[ByteString],
 ) extends SignedProtocolMessageContent
     with HasProtocolVersionedWrapper[ConfirmationResponses]
-    with HasSynchronizerId
+    with HasPhysicalSynchronizerId
     with PrettyPrinting {
 
   // Private copy method used by the lenses
   private def copy(
       requestId: RequestId = requestId,
       rootHash: RootHash = rootHash,
-      synchronizerId: SynchronizerId = synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = synchronizerId,
       sender: ParticipantId = sender,
       responses: NonEmpty[Seq[ConfirmationResponse]] = responses,
   ): ConfirmationResponses = ConfirmationResponses(
@@ -215,7 +215,7 @@ final case class ConfirmationResponses private (
       requestId = requestId.toProtoPrimitive,
       rootHash = rootHash.toProtoPrimitive,
       sender = sender.toProtoPrimitive,
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       responses = responses.map(_.toProtoV30),
     )
 
@@ -249,7 +249,7 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
   def tryCreate(
       requestId: RequestId,
       rootHash: RootHash,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sender: ParticipantId,
       responses: NonEmpty[Seq[ConfirmationResponse]],
       protocolVersion: ProtocolVersion,
@@ -308,7 +308,10 @@ object ConfirmationResponses extends VersioningCompanionMemoization[Confirmation
     for {
       requestId <- RequestId.fromProtoPrimitive(requestIdP)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "physical_synchronizer_id",
+      )
       sender <- ParticipantId.fromProtoPrimitive(senderP, "sender")
       responses <- ProtoConverter.parseRequiredNonEmpty(
         ConfirmationResponse.fromProtoV30,

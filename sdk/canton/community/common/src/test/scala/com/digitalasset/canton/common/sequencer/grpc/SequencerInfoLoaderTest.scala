@@ -20,7 +20,12 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnectionValidation,
   SubmissionRequestAmplification,
 }
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  PhysicalSynchronizerId,
+  SequencerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.{ProtocolVersionCompatibility, ReleaseVersion}
 import com.digitalasset.canton.{
@@ -47,8 +52,8 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
   private lazy val sequencerAlias1 = SequencerAlias.tryCreate("sequencer1")
   private lazy val sequencerAlias2 = SequencerAlias.tryCreate("sequencer2")
   private lazy val sequencerAlias3 = SequencerAlias.tryCreate("sequencer3")
-  private lazy val synchronizerId1 = SynchronizerId.tryFromString("first::namespace")
-  private lazy val synchronizerId2 = SynchronizerId.tryFromString("second::namespace")
+  private lazy val synchronizerId1 = SynchronizerId.tryFromString("first::namespace").toPhysical
+  private lazy val synchronizerId2 = SynchronizerId.tryFromString("second::namespace").toPhysical
   private lazy val endpoint1 = Endpoint("localhost", Port.tryCreate(1001))
   private lazy val endpoint2 = Endpoint("localhost", Port.tryCreate(1002))
   private lazy val endpoint3 = Endpoint("localhost", Port.tryCreate(1003))
@@ -72,6 +77,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
             transportSecurity = false,
             None,
             alias,
+            None,
           ),
           result,
         )
@@ -88,7 +94,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
       }
 
   private def run(
-      expectSynchronizerId: Option[SynchronizerId],
+      expectSynchronizerId: Option[PhysicalSynchronizerId],
       args: List[
         (
             SequencerAlias,
@@ -107,7 +113,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
     )(mapArgs(args))
 
   private def hasError(
-      expectSynchronizerId: Option[SynchronizerId],
+      expectSynchronizerId: Option[PhysicalSynchronizerId],
       args: List[
         (
             SequencerAlias,
@@ -461,6 +467,7 @@ class SequencerInfoLoaderTest extends BaseTestWordSpec with HasExecutionContext 
               transportSecurity = false,
               None,
               SequencerAlias.tryCreate(s"sequencer$i"),
+              None,
             )
           )
       )

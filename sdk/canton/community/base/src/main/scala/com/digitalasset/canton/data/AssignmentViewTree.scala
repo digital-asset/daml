@@ -16,7 +16,12 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
@@ -140,7 +145,7 @@ object AssignmentViewTree
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
-    targetSynchronizerId: Target[SynchronizerId],
+    targetSynchronizerId: Target[PhysicalSynchronizerId],
     targetMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
     uuid: UUID,
@@ -162,7 +167,7 @@ final case class AssignmentCommonData private (
   protected def toProtoV30: v30.AssignmentCommonData =
     v30.AssignmentCommonData(
       salt = Some(salt.toProtoV30),
-      targetSynchronizerId = targetSynchronizerId.unwrap.toProtoPrimitive,
+      targetPhysicalSynchronizerId = targetSynchronizerId.unwrap.toProtoPrimitive,
       targetMediatorGroup = targetMediatorGroup.group.value,
       stakeholders = Some(stakeholders.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -199,12 +204,14 @@ object AssignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      targetSynchronizer: Target[SynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       targetMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      targetProtocolVersion: Target[ProtocolVersion],
+      targetProtocolVersion: Target[
+        ProtocolVersion
+      ], // TODO(#25482) Reduce duplication in parameters
       reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
@@ -234,8 +241,8 @@ object AssignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      targetSynchronizerId <- SynchronizerId
-        .fromProtoPrimitive(targetSynchronizerP, "target_synchronizer")
+      targetSynchronizerId <- PhysicalSynchronizerId
+        .fromProtoPrimitive(targetSynchronizerP, "target_physical_synchronizer_id")
         .map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
@@ -407,8 +414,10 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
 
   // Synchronizers
   override def sourceSynchronizer: Source[SynchronizerId] = reassignmentId.sourceSynchronizer
-  override def targetSynchronizer: Target[SynchronizerId] = commonData.targetSynchronizerId
-  override def synchronizerId: SynchronizerId = commonData.targetSynchronizerId.unwrap
+  override def targetSynchronizer: Target[PhysicalSynchronizerId] =
+    commonData.targetSynchronizerId
+
+  override def synchronizerId: PhysicalSynchronizerId = commonData.targetSynchronizerId.unwrap
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)

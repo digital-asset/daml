@@ -699,15 +699,17 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             Left(s"${instance.id.member} is currently not active")
           case NodeStatus.Success(status: SequencerStatus) =>
             // sequencer is already fully initialized for this synchronizer
+            // TODO(#25483) This comparison should be physical
             Either.cond(
-              status.synchronizerId == synchronizerId,
+              status.synchronizerId.logical == synchronizerId,
               true,
               s"${instance.id.member} has already been initialized for synchronizer ${status.synchronizerId} instead of $synchronizerId.",
             )
           case NodeStatus.Success(status: MediatorStatus) =>
             // mediator is already fully initialized for this synchronizer
+            // TODO(#25483) This comparison should be physical
             Either.cond(
-              status.synchronizerId == synchronizerId,
+              status.synchronizerId.logical == synchronizerId,
               true,
               s"${instance.id.member} has already been initialized for synchronizer ${status.synchronizerId} instead of $synchronizerId",
             )
@@ -859,7 +861,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .filter(!_._1.health.initialized())
         .foreach { case (mediator, (mediatorSequencers, threshold)) =>
           mediator.setup.assign(
-            synchronizerId,
+            PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.toInternal),
             SequencerConnections.tryMany(
               mediatorSequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
@@ -888,6 +890,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |Any participants as synchronizer owners must still manually connect to the synchronizer afterwards.
         """
     )
+    // TODO(#25483) This one should return the physical id
     def synchronizer(
         synchronizerName: String,
         sequencers: Seq[SequencerReference],

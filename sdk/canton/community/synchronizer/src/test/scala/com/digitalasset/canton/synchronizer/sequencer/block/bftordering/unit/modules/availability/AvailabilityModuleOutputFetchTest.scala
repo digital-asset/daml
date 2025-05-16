@@ -615,23 +615,25 @@ class AvailabilityModuleOutputFetchTest
 
         "LocalBatchStored and RemoteBatchStored should be signed" in {
           forAll(
-            Table[Msg, Msg](
-              ("message", "reply"),
+            Table[Msg, Msg, String](
+              ("message", "reply", "crypto operation ID"),
               (
                 Availability.LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)),
                 Availability.LocalDissemination
                   .LocalBatchesStoredSigned(
                     Seq(LocalBatchStoredSigned(ABatchId, ABatch, Some(Signature.noSignature)))
                   ),
+                "availability-sign-local-batchId",
               ),
               (
                 Availability.LocalDissemination
                   .RemoteBatchStored(ABatchId, anEpochNumber, Node0),
                 Availability.LocalDissemination
                   .RemoteBatchStoredSigned(ABatchId, Node0, Signature.noSignature),
+                "availability-sign-remote-batchId",
               ),
             )
-          ) { case (message, reply) =>
+          ) { case (message, reply, cryptoOperationId) =>
             implicit val context
                 : ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
               new ProgrammableUnitTestContext
@@ -644,7 +646,8 @@ class AvailabilityModuleOutputFetchTest
 
             context.runPipedMessages() shouldBe Seq(reply)
             verify(cryptoProvider).signHash(
-              AvailabilityAck.hashFor(ABatchId, anEpochNumber, Node0)
+              AvailabilityAck.hashFor(ABatchId, anEpochNumber, Node0, metrics),
+              cryptoOperationId,
             )
           }
         }

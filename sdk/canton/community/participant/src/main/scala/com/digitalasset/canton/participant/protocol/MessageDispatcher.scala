@@ -44,7 +44,7 @@ import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.topology.processing.{SequencedTime, TopologyTransactionProcessor}
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{Checked, ErrorUtil}
@@ -64,9 +64,10 @@ import scala.concurrent.ExecutionContext
 trait MessageDispatcher { this: NamedLogging =>
   import MessageDispatcher.*
 
+  // TODO(#25482) Reduce duplication in parameters
   protected def protocolVersion: ProtocolVersion
 
-  protected def synchronizerId: SynchronizerId
+  protected def synchronizerId: PhysicalSynchronizerId
 
   protected def participantId: ParticipantId
 
@@ -769,8 +770,9 @@ private[participant] object MessageDispatcher {
 
   trait Factory[+T <: MessageDispatcher] {
     def create(
+        // TODO(#25482) Reduce duplication in parameters
         protocolVersion: ProtocolVersion,
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         requestProcessors: RequestProcessors,
@@ -787,7 +789,7 @@ private[participant] object MessageDispatcher {
 
     def create(
         protocolVersion: ProtocolVersion,
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         transactionProcessor: TransactionProcessor,

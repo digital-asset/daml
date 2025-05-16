@@ -150,6 +150,7 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
               (sourceParticipant, ParticipantPermission.Submission),
               (targetParticipant, ParticipantPermission.Observation),
             ),
+            participantsRequiringPartyToBeOnboarded = Seq(targetParticipant),
             threshold = PositiveInt.one,
             store = daId,
             serial = Some(serial),

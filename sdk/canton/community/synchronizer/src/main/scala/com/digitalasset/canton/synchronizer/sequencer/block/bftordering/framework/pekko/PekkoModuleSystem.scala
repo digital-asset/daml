@@ -161,10 +161,25 @@ object PekkoModuleSystem {
     ): Unit =
       moduleSystem.setModule(moduleRef, module)
 
-    override def pipeToSelfInternal[X](
+    override protected def pipeToSelfInternal[X](
         futureUnlessShutdown: PekkoFutureUnlessShutdown[X]
     )(
         fun: Try[X] => Option[MessageT]
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit = {
+      val latency = moduleSystem.metrics.performance.orderingStageLatency
+      pipeToSelfImpl(
+        timeFuture(latency.timer, futureUnlessShutdown)(
+          metricsContext.withExtraLabels(
+            latency.labels.stages.Key -> futureUnlessShutdown.action
+          )
+        ),
+        fun,
+      )
+    }
+
+    private def pipeToSelfImpl[X](
+        futureUnlessShutdown: PekkoFutureUnlessShutdown[X],
+        fun: Try[X] => Option[MessageT],
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       underlying.pipeToSelf(
         toFuture(
@@ -235,7 +250,7 @@ object PekkoModuleSystem {
         f: MessageT => PekkoFutureUnlessShutdown[B]
     )(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[B] =
       PekkoFutureUnlessShutdown(
-        action,
+        s"$action.flatmap(...)",
         () => futureUnlessShutdown().flatMap(x => f(x).futureUnlessShutdown()),
       )
 
@@ -273,13 +288,12 @@ object PekkoModuleSystem {
 
     override def timeFuture[X](timer: Timer, futureUnlessShutdown: => PekkoFutureUnlessShutdown[X])(
         implicit mc: MetricsContext
-    ): PekkoFutureUnlessShutdown[X] = {
-      val handle = timer.startAsync()
-      futureUnlessShutdown.map { x =>
-        handle.stop()
-        x
-      }(executionContext)
-    }
+    ): PekkoFutureUnlessShutdown[X] =
+      PekkoFutureUnlessShutdown(
+        futureUnlessShutdown.action,
+        () =>
+          FutureUnlessShutdown(timer.timeFuture(futureUnlessShutdown.futureUnlessShutdown().unwrap)),
+      )
 
     override def zipFuture[X, Y](
         future1: PekkoFutureUnlessShutdown[X],

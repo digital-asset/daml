@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
@@ -40,7 +40,7 @@ private[reassignment] class RecentTimeProofProvider(
       exclusivityTimeout / reassignmentTimeProofFreshnessProportion
 
   def get(
-      targetSynchronizerId: Target[SynchronizerId],
+      targetSynchronizerId: Target[PhysicalSynchronizerId],
       staticSynchronizerParameters: Target[StaticSynchronizerParameters],
   )(implicit
       traceContext: TraceContext
@@ -49,14 +49,14 @@ private[reassignment] class RecentTimeProofProvider(
 
     for {
       handle <- EitherT.fromEither[FutureUnlessShutdown](
-        submissionHandles(synchronizer).toRight(
+        submissionHandles(synchronizer.logical).toRight(
           NoTimeProofFromSynchronizer(synchronizer, "unknown synchronizer")
         )
       )
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
-          .forSynchronizer(synchronizer, staticSynchronizerParameters.value)
+          .forSynchronizer(synchronizer.logical, staticSynchronizerParameters.value)
           .toRight(NoTimeProofFromSynchronizer(synchronizer, "getting the crypto client"))
       )
 

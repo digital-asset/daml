@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
@@ -38,7 +38,7 @@ abstract class AbstractMessageProcessor(
     crypto: SynchronizerCryptoClient,
     sequencerClient: SequencerClientSend,
     protocolVersion: ProtocolVersion,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
@@ -61,7 +61,7 @@ abstract class AbstractMessageProcessor(
         // providing directly a SequencerIndexMoved with RequestCounter for the non-submitting participant rejections
         eventO.getOrElse(
           SequencerIndexMoved(
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.logical,
             recordTime = requestTimestamp,
           )
         ),
