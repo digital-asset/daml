@@ -24,9 +24,11 @@ import com.daml.lf.validation.UpgradeCheckMain
 object UpgradesCheckSpec {
   sealed trait LogAssertion
   final case class TwoDarError(dar1: String, dar2: String, msg: String) extends LogAssertion
-  final case class TwoDarSuccess(dar1: String, dar2: String, noWarningsAllowed: Boolean = false) extends LogAssertion
+  final case class TwoDarSuccess(dar1: String, dar2: String, noWarningsAllowed: Boolean = false)
+      extends LogAssertion
   final case class OneDarError(dar1: String, msg: String) extends LogAssertion
-  final case class OneDarSuccess(dar1: String, noWarningsAllowed: Boolean = false) extends LogAssertion
+  final case class OneDarSuccess(dar1: String, noWarningsAllowed: Boolean = false)
+      extends LogAssertion
   final case class OneDarWarning(dar1: String, msg: String) extends LogAssertion
 }
 
@@ -110,7 +112,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           succeed
         }
       case OneDarWarning(_, msg) =>
-        upgradeCheckToolLogs should include regex(msg)
+        upgradeCheckToolLogs should include regex (msg)
     }
   }
 
@@ -1469,12 +1471,12 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     "CannotImplementNonUpgradeableInterface (standalone)" in {
       testPackages(
         Seq(
-          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar"
         ),
         Seq(
           OneDarWarning(
             "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
-            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\)."
+            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).",
           )
         ),
       )
@@ -1483,7 +1485,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     "CanImplementUpgradeableInterface (standalone)" in {
       testPackages(
         Seq(
-          "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+          "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar"
         ),
         Seq(
           OneDarSuccess(
@@ -1507,8 +1509,8 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           ),
           OneDarWarning(
             "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
-            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\)."
-          )
+            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).",
+          ),
         ),
       )
     }
@@ -1527,7 +1529,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           OneDarSuccess(
             "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
             noWarningsAllowed = true,
-          )
+          ),
         ),
       )
     }

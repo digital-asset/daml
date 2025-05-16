@@ -412,7 +412,6 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
-
             "//test-common:upgrades-CanImplementUpgradeableInterface-v1.dar",
             "//test-common:upgrades-CanImplementUpgradeableInterface-v2.dar",
             "//test-common:upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
