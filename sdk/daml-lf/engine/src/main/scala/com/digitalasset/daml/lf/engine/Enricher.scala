@@ -26,7 +26,6 @@ import com.digitalasset.daml.lf.value.Value
 
 object Enricher {
 
-
   // impoverish remove redundant information from a value added by
   // enrichValue.
   // we have the following invariant:

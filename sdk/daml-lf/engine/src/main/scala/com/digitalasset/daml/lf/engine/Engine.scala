@@ -483,8 +483,7 @@ class Engine(val config: EngineConfig) {
                 _ <- Either.cond(
                   tx == poor,
                   (),
-                  "transaction enrichment/impoverishment is not idempotent"
-                  ,
+                  "transaction enrichment/impoverishment is not idempotent",
                 )
               } yield ()).fold(err => throw new java.lang.AssertionError(err), identity)
             }
