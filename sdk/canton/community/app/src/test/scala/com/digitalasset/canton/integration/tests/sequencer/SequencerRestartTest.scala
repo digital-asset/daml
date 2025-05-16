@@ -146,7 +146,7 @@ trait SequencerRestartTest { self: CommunityIntegrationTest =>
       // We check the delivery by looking for the alarms in the logs.
       val rhm = RootHashMessage(
         RootHash(TestHash.digest(1)),
-        daId,
+        daId.toPhysical,
         testedProtocolVersion,
         TransactionViewType,
         CantonTimestamp.Epoch,

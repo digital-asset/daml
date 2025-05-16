@@ -38,7 +38,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
 )(implicit mc: MetricsContext)
     extends NamedLogging {
 
-  private val signatureVerifier = new IssConsensusSignatureVerifier[E]()
+  private val signatureVerifier = new IssConsensusSignatureVerifier[E](metrics)
 
   def validateBlockTransferRequest(
       request: BlockTransferRequest,

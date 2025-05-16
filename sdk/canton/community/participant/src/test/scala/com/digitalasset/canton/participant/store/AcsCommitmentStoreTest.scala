@@ -29,7 +29,12 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.{
   BaseTest,
   CloseableTest,
@@ -51,9 +56,9 @@ trait CommitmentStoreBaseTest
     with CloseableTest
     with HasExecutionContext {
 
-  protected lazy val synchronizerId: SynchronizerId = SynchronizerId(
+  protected lazy val synchronizerId: PhysicalSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer")
-  )
+  ).toPhysical
 
   protected lazy val crypto: SymbolicCrypto = SymbolicCrypto.create(
     testedReleaseProtocolVersion,

@@ -491,7 +491,7 @@ create or replace view debug.par_in_flight_submission as
   select
     change_id_hash,
     submission_id,
-    submission_synchronizer_id,
+    submission_physical_synchronizer_id,
     message_id,
     debug.canton_timestamp(sequencing_timeout) as sequencing_timeout,
     debug.canton_timestamp(sequencing_time) as sequencing_time,

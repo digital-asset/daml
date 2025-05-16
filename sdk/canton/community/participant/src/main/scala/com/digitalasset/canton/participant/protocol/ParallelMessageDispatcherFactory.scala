@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionSynchronizerTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.opentelemetry.api.trace.Tracer
 
@@ -30,7 +30,7 @@ object ParallelMessageDispatcherFactory
 
   override def create(
       protocolVersion: ProtocolVersion,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       participantId: ParticipantId,
       requestTracker: RequestTracker,
       requestProcessors: RequestProcessors,

@@ -21,6 +21,7 @@ import com.digitalasset.canton.protocol.{
   DynamicSynchronizerParametersWithValidity,
 }
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology.NodeTopologyInfo
@@ -118,7 +119,11 @@ class CantonOrderingTopologyProviderTest
                 Some((SequencedTime(aTimestamp), EffectiveTime(maxEffectiveTimestamp)))
               )
             )
-          new CantonOrderingTopologyProvider(cryptoApiMock, loggerFactory)
+          new CantonOrderingTopologyProvider(
+            cryptoApiMock,
+            loggerFactory,
+            SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
+          )
             .getOrderingTopologyAt(TopologyActivationTime(activationTimestamp))
             .futureUnlessShutdown()
             .futureValueUS

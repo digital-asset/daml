@@ -42,7 +42,8 @@ service SynchronizerConnectivityService {
   // list registered synchronizers
   rpc ListRegisteredSynchronizers(ListRegisteredSynchronizersRequest) returns (ListRegisteredSynchronizersResponse);
 
-  // Get the synchronizer id of the given synchronizer alias
+  // Get the physical synchronizer id of the given synchronizer alias
+  // Fail if there is more than one active synchronizer connection for the alias
   rpc GetSynchronizerId(GetSynchronizerIdRequest) returns (GetSynchronizerIdResponse);
 }
 
@@ -53,8 +54,8 @@ message SynchronizerConnectionConfig {
   com.digitalasset.canton.admin.sequencer.v30.SequencerConnections sequencer_connections = 2;
   // if false, then the synchronizer needs to be manually connected to (default false)
   bool manual_connect = 3;
-  // optional synchronizer id (if TLS isn't to be trusted)
-  string synchronizer_id = 4;
+  // optional physical synchronizer id (if TLS isn't to be trusted)
+  string physical_synchronizer_id = 4;
   // optional. Influences whether the participant submits to this synchronizer, if several synchronizers are eligible
   int32 priority = 5;
   // initial delay before an attempt to reconnect to the sequencer
@@ -164,7 +165,7 @@ message ListConnectedSynchronizersRequest {}
 message ListConnectedSynchronizersResponse {
   message Result {
     string synchronizer_alias = 1;
-    string synchronizer_id = 2;
+    string physical_synchronizer_id = 2;
     bool healthy = 3;
   }
   repeated Result connected_synchronizers = 1;
@@ -175,7 +176,7 @@ message GetSynchronizerIdRequest {
 }
 
 message GetSynchronizerIdResponse {
-  string synchronizer_id = 2;
+  string physical_synchronizer_id = 2;
 }
 
 message LogoutRequest {

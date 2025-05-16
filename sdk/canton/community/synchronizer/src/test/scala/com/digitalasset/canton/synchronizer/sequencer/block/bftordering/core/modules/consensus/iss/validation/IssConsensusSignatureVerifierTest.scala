@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.crypto.SignatureCheckError.SignerHasNoValidKeys
 import com.digitalasset.canton.crypto.TestHash
+import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -55,7 +56,9 @@ class IssConsensusSignatureVerifierTest extends AnyWordSpec with BftSequencerBas
       implicit val context: ProgrammableUnitTestContext[Prepare] = new ProgrammableUnitTestContext
       val cryptoProvider = spy(ProgrammableUnitTestEnv.noSignatureCryptoProvider)
 
-      val verifier = new IssConsensusSignatureVerifier[ProgrammableUnitTestEnv]
+      val verifier = new IssConsensusSignatureVerifier[ProgrammableUnitTestEnv](
+        SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+      )
       val hash = TestHash.digest("pre-prepare")
       val prepare = Prepare
         .create(
@@ -77,7 +80,9 @@ class IssConsensusSignatureVerifierTest extends AnyWordSpec with BftSequencerBas
 
     "check if the node is a member before checking signature" in {
       implicit val context: ProgrammableUnitTestContext[Prepare] = new ProgrammableUnitTestContext
-      val verifier = new IssConsensusSignatureVerifier[ProgrammableUnitTestEnv]
+      val verifier = new IssConsensusSignatureVerifier[ProgrammableUnitTestEnv](
+        SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
+      )
       val prepare = Prepare
         .create(
           blockMetadata,

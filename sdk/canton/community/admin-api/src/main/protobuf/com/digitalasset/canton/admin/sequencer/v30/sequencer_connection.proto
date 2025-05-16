@@ -15,6 +15,12 @@ message SequencerConnection {
 
   string alias = 3;
 
+  // The id of the sequencer that serves the sequencer API.
+  // If empty, the node sets it after the first connection.
+  // If set, the node checks that the sequencer id reported by the sequencer
+  // matches this id.
+  optional string sequencer_id = 4;
+
   message Grpc {
     // connection information to sequencer (http[s]://<host>:<port>")
     repeated string connections = 1;

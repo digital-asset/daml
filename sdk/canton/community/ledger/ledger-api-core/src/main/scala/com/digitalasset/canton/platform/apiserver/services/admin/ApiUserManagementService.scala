@@ -16,7 +16,7 @@ import com.daml.platform.v1.page_tokens.ListUsersPageTokenPayload
 import com.daml.tracing.Telemetry
 import com.digitalasset.base.error.ErrorResource
 import com.digitalasset.canton.auth.ClaimSet.Claims
-import com.digitalasset.canton.auth.{AuthInterceptor, AuthorizationChecksErrors, ClaimAdmin}
+import com.digitalasset.canton.auth.{AuthInterceptor, ClaimAdmin}
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, ValueValidator}
 import com.digitalasset.canton.ledger.api.{
@@ -136,7 +136,7 @@ private[apiserver] final class ApiUserManagementService(
               user = user,
               rights = pRights,
             )
-          createdUser <- handleResult("creating user")(result)
+          createdUser <- Utils.handleResult("creating user")(result)
         } yield CreateUserResponse(Some(toProtoUser(createdUser)))
       }
     }
@@ -209,7 +209,7 @@ private[apiserver] final class ApiUserManagementService(
             }
           resp <- userManagementStore
             .updateUser(userUpdate = userUpdate)
-            .flatMap(handleResult("updating user"))
+            .flatMap(Utils.handleResult("updating user"))
             .map { u =>
               UpdateUserResponse(user = Some(toProtoUser(u)))
             }
@@ -257,7 +257,7 @@ private[apiserver] final class ApiUserManagementService(
     } { case (userId, identityProviderId) =>
       userManagementStore
         .getUser(userId, identityProviderId)
-        .flatMap(handleResult("getting user"))
+        .flatMap(Utils.handleResult("getting user"))
         .map(u => GetUserResponse(Some(toProtoUser(u))))
     }
   }
@@ -276,7 +276,7 @@ private[apiserver] final class ApiUserManagementService(
       } { case (userId, identityProviderId) =>
         userManagementStore
           .deleteUser(userId, identityProviderId)
-          .flatMap(handleResult("deleting user"))
+          .flatMap(Utils.handleResult("deleting user"))
           .map(_ => proto.DeleteUserResponse())
       }
     }
@@ -307,7 +307,7 @@ private[apiserver] final class ApiUserManagementService(
     ) { case (fromExcl, pageSize, identityProviderId) =>
       userManagementStore
         .listUsers(fromExcl, pageSize, identityProviderId)
-        .flatMap(handleResult("listing users"))
+        .flatMap(Utils.handleResult("listing users"))
         .map { page =>
           val protoUsers = page.users.map(toProtoUser)
           proto.ListUsersResponse(
@@ -350,7 +350,7 @@ private[apiserver] final class ApiUserManagementService(
               rights = rights,
               identityProviderId = identityProviderId,
             )
-          handledResult <- handleResult("grant user rights")(result)
+          handledResult <- Utils.handleResult("grant user rights")(result)
         } yield proto.GrantUserRightsResponse(handledResult.view.map(toProtoRight).toList)
       }
   }
@@ -386,7 +386,7 @@ private[apiserver] final class ApiUserManagementService(
               rights = rights,
               identityProviderId = identityProviderId,
             )
-          handledResult <- handleResult("revoke user rights")(result)
+          handledResult <- Utils.handleResult("revoke user rights")(result)
         } yield proto.RevokeUserRightsResponse(handledResult.view.map(toProtoRight).toList)
       }
   }
@@ -407,7 +407,7 @@ private[apiserver] final class ApiUserManagementService(
     } { case (userId, identityProviderId) =>
       userManagementStore
         .listUserRights(userId, identityProviderId)
-        .flatMap(handleResult("list user rights"))
+        .flatMap(Utils.handleResult("list user rights"))
         .map(_.view.map(toProtoRight).toList)
         .map(proto.ListUserRightsResponse(_))
     }
@@ -439,7 +439,7 @@ private[apiserver] final class ApiUserManagementService(
             targetIdp = targetIdentityProviderId,
             id = userId,
           )
-          .flatMap(handleResult("update user identity provider"))
+          .flatMap(Utils.handleResult("update user identity provider"))
           .map(_ => proto.UpdateUserIdentityProviderIdResponse())
       } yield result
     }
@@ -667,52 +667,4 @@ object ApiUserManagementService {
     RequestValidationErrors.InvalidArgument
       .Reject("Invalid page token")
       .asGrpcError
-
-  def handleResult[T](operation: String)(
-      result: UserManagementStore.Result[T]
-  )(implicit errorLogger: ErrorLoggingContext): Future[T] =
-    result match {
-      case Left(UserManagementStore.PermissionDenied(id)) =>
-        Future.failed(
-          AuthorizationChecksErrors.PermissionDenied
-            .Reject(s"User $id belongs to another Identity Provider")
-            .asGrpcError
-        )
-      case Left(UserManagementStore.UserNotFound(id)) =>
-        Future.failed(
-          UserManagementServiceErrors.UserNotFound
-            .Reject(operation, id)
-            .asGrpcError
-        )
-
-      case Left(UserManagementStore.UserExists(id)) =>
-        Future.failed(
-          UserManagementServiceErrors.UserAlreadyExists
-            .Reject(operation, id)
-            .asGrpcError
-        )
-
-      case Left(UserManagementStore.TooManyUserRights(id)) =>
-        Future.failed(
-          UserManagementServiceErrors.TooManyUserRights
-            .Reject(operation, id: String)
-            .asGrpcError
-        )
-      case Left(e: UserManagementStore.ConcurrentUserUpdate) =>
-        Future.failed(
-          UserManagementServiceErrors.ConcurrentUserUpdateDetected
-            .Reject(userId = e.userId)
-            .asGrpcError
-        )
-
-      case Left(e: UserManagementStore.MaxAnnotationsSizeExceeded) =>
-        Future.failed(
-          UserManagementServiceErrors.MaxUserAnnotationsSizeExceeded
-            .Reject(userId = e.userId)
-            .asGrpcError
-        )
-
-      case scala.util.Right(t) =>
-        Future.successful(t)
-    }
 }

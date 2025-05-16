@@ -13,7 +13,7 @@ import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContextExecutor
@@ -176,12 +176,12 @@ object InternalSequencerConnectionX {
   /** Attributes of this sequencer connection.
     */
   final case class ConnectionAttributes(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       staticParameters: StaticSynchronizerParameters,
   ) extends PrettyPrinting {
     override protected def pretty: Pretty[ConnectionAttributes] = prettyOfClass(
-      param("synchronizer", _.synchronizerId),
+      param("physical synchronizer id", _.synchronizerId),
       param("sequencer", _.sequencerId),
       param("static parameters", _.staticParameters),
     )

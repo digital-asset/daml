@@ -232,7 +232,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     assertThrowsAndLogsCommandFailures(
       participant1.repair.migrate_synchronizer(
         source = daName,
-        target = config.copy(synchronizerId = Some(daId)),
+        target = config.copy(synchronizerId = Some(daId.toPhysical)),
       ),
       _.shouldBeCantonErrorCode(SynchronizerMigrationError.InvalidArgument),
     )

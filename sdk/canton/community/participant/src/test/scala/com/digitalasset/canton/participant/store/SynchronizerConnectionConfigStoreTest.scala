@@ -4,7 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.networking.Endpoint
@@ -22,7 +22,11 @@ import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerAliasManager,
   SynchronizerConnectionConfig,
 }
-import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
+import com.digitalasset.canton.sequencing.{
+  GrpcSequencerConnection,
+  SequencerConnections,
+  SubmissionRequestAmplification,
+}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -48,12 +52,13 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
     transportSecurity = false,
     Some(ByteString.copyFrom("stuff".getBytes)),
     SequencerAlias.Default,
+    None,
   )
   private val config = SynchronizerConnectionConfig(
     alias,
     SequencerConnections.single(connection),
     manualConnect = false,
-    Some(synchronizerId.logical),
+    Some(synchronizerId),
     42,
     Some(NonNegativeFiniteDuration.tryOfSeconds(1)),
     Some(NonNegativeFiniteDuration.tryOfSeconds(5)),
@@ -62,7 +67,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
 
   protected lazy val synchronizers = {
     val store = new InMemoryRegisteredSynchronizersStore(loggerFactory)
-    store.addMapping(alias, synchronizerId.logical).futureValueUS
+    store.addMapping(alias, synchronizerId).futureValueUS
 
     store
   }
@@ -72,6 +77,51 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
   def synchronizerConnectionConfigStore(
       mk: => FutureUnlessShutdown[SynchronizerConnectionConfigStore]
   ): Unit = {
+
+    "when merging SynchronizerConnectionConfig" should {
+      def addEndpoint(cfg: SynchronizerConnectionConfig) = cfg.copy(
+        sequencerConnections = cfg.sequencerConnections
+          .modify(SequencerAlias.Default, _.addEndpoints("https://host3:700").value)
+      )
+      def withSequencerId(cfg: SynchronizerConnectionConfig) = cfg.copy(
+        sequencerConnections = cfg.sequencerConnections
+          .modify(SequencerAlias.Default, _.withSequencerId(DefaultTestIdentities.sequencerId))
+      )
+      "merge subsumed configs successfully" in {
+        val configWithSequencerId = withSequencerId(config)
+        val configWithEndpoint = addEndpoint(config)
+
+        // test that the subsumed connection has sequencerId set
+        config.subsumeMerge(configWithSequencerId) shouldBe Right(configWithSequencerId)
+        // test that the subsuming connection has sequencerId set
+        configWithSequencerId.subsumeMerge(config) shouldBe Right(configWithSequencerId)
+
+        // test that additional endpoints in the subsuming config are retained
+        configWithEndpoint.subsumeMerge(config) shouldBe Right(configWithEndpoint)
+        // test that additional endpoints in the subsumed config leads to an error
+        config.subsumeMerge(configWithEndpoint).left.value should not be empty
+
+        val configWithTwoSequencers = config.copy(
+          sequencerConnections = SequencerConnections.tryMany(
+            Seq(
+              connection,
+              connection.copy(
+                connection.endpoints.map(e => e.copy(port = e.port + 10)),
+                sequencerAlias = SequencerAlias.create("sequencer2").value,
+              ),
+            ),
+            sequencerTrustThreshold = PositiveInt.one,
+            submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+          )
+        )
+
+        // test that a config with multiple sequencers subsumes the config with just one sequencer with sequencer id
+        configWithTwoSequencers.subsumeMerge(withSequencerId(config)) shouldBe Right(
+          withSequencerId(configWithTwoSequencers)
+        )
+      }
+    }
+
     "when storing connection configs" should {
 
       "be able to store and retrieve a config successfully" in {
@@ -140,6 +190,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
           transportSecurity = false,
           None,
           SequencerAlias.Default,
+          None,
         )
         val secondConfig = SynchronizerConnectionConfig(
           alias,
@@ -221,7 +272,7 @@ trait SynchronizerConnectionConfigStoreTest extends FailOnShutdown {
       val acmeName = SynchronizerAlias.tryCreate("acme")
 
       def getConfig(id: PhysicalSynchronizerId, manualConnect: Boolean = false) = {
-        val alias = SynchronizerAlias.tryCreate(id.logical.uid.identifier.str)
+        val alias = SynchronizerAlias.tryCreate(id.identifier.str)
 
         SynchronizerConnectionConfig(
           alias,

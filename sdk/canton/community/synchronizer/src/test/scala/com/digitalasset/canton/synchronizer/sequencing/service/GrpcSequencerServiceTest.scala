@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencing.service
 
+import cats.data.EitherT
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
@@ -581,8 +582,10 @@ class GrpcSequencerServiceTest
         )
       }
 
-      observer.items.toSeq should matchPattern {
-        case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == INTERNAL =>
+      eventually() {
+        observer.items.toSeq should matchPattern {
+          case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == INTERNAL =>
+        }
       }
     }
 
@@ -596,8 +599,11 @@ class GrpcSequencerServiceTest
         observer,
       )
 
-      observer.items.toSeq should matchPattern {
-        case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == INVALID_ARGUMENT =>
+      eventually() {
+        observer.items.toSeq should matchPattern {
+          case Seq(StreamError(err: StatusException))
+              if err.getStatus.getCode == INVALID_ARGUMENT =>
+        }
       }
     }
 
@@ -613,17 +619,19 @@ class GrpcSequencerServiceTest
       Mockito
         .when(
           env.subscriptionPool.create(
-            ArgumentMatchers.any[() => Subscription](),
+            ArgumentMatchers.any[() => FutureUnlessShutdown[Subscription]](),
             ArgumentMatchers.any[Member](),
           )(anyTraceContext)
         )
-        .thenReturn(Left(PoolClosed))
+        .thenReturn(EitherT.leftT(PoolClosed))
 
       env.service.subscribeV2(requestP, observer)
 
-      inside(observer.items.loneElement) { case StreamError(ex: StatusException) =>
-        ex.getStatus.getCode shouldBe UNAVAILABLE
-        ex.getStatus.getDescription shouldBe "Subscription pool is closed."
+      eventually() {
+        inside(observer.items.loneElement) { case StreamError(ex: StatusException) =>
+          ex.getStatus.getCode shouldBe UNAVAILABLE
+          ex.getStatus.getDescription shouldBe "Subscription pool is closed."
+        }
       }
     }
 
@@ -638,10 +646,12 @@ class GrpcSequencerServiceTest
 
       loggerFactory.suppressWarningsAndErrors {
         env.service.subscribeV2(requestP, observer)
-      }
-
-      observer.items.toSeq should matchPattern {
-        case Seq(StreamError(err: StatusException)) if err.getStatus.getCode == PERMISSION_DENIED =>
+        eventually() {
+          observer.items.toSeq should matchPattern {
+            case Seq(StreamError(err: StatusException))
+                if err.getStatus.getCode == PERMISSION_DENIED =>
+          }
+        }
       }
     }
   }
@@ -748,9 +758,9 @@ private object GrpcSequencerServiceTest {
   class MockServerStreamObserver[T]
       extends ServerCallStreamObserver[T]
       with RecordStreamObserverItems[T] {
-    override def isCancelled: Boolean = ???
+    override def isCancelled: Boolean = false
 
-    override def setOnCancelHandler(onCancelHandler: Runnable): Unit = ???
+    override def setOnCancelHandler(onCancelHandler: Runnable): Unit = ()
 
     override def setCompression(compression: String): Unit = ???
 

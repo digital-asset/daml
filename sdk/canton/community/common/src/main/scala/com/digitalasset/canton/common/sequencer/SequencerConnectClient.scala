@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnection}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{Member, ParticipantId, SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, ParticipantId, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -42,7 +42,7 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
     */
   def getSynchronizerId(synchronizerIdentifier: String)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, Error, SynchronizerId]
+  ): EitherT[FutureUnlessShutdown, Error, PhysicalSynchronizerId]
 
   def handshake(
       synchronizerAlias: SynchronizerAlias,
@@ -119,7 +119,7 @@ object SequencerConnectClient {
     }
 
   final case class SynchronizerClientBootstrapInfo(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
   )
 }

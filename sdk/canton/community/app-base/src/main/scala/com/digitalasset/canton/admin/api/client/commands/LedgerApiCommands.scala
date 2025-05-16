@@ -211,6 +211,7 @@ object LedgerApiCommands {
         annotations: Map[String, String],
         identityProviderId: String,
         synchronizerId: String,
+        userId: String,
     ) extends BaseCommand[AllocatePartyRequest, AllocatePartyResponse, PartyDetails] {
       override protected def createRequest(): Either[String, AllocatePartyRequest] =
         Right(
@@ -219,6 +220,7 @@ object LedgerApiCommands {
             localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
             identityProviderId = identityProviderId,
             synchronizerId = synchronizerId,
+            userId = userId,
           )
         )
       override protected def submitRequest(

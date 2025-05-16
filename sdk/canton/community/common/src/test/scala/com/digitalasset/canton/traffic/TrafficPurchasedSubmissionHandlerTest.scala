@@ -55,7 +55,7 @@ class TrafficPurchasedSubmissionHandlerTest
   private val recipient1 = DefaultTestIdentities.participant1.member
   private val sequencerClient = mock[SequencerClientSend]
   private val synchronizerTimeTracker = mock[SynchronizerTimeTracker]
-  private val synchronizerId = SynchronizerId.tryFromString("da::default")
+  private val synchronizerId = SynchronizerId.tryFromString("da::default").toPhysical
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val trafficParams = TrafficControlParameters()
   private val handler = new TrafficPurchasedSubmissionHandler(clock, loggerFactory)
@@ -70,7 +70,7 @@ class TrafficPurchasedSubmissionHandlerTest
       )
     )
   ).build(loggerFactory)
-    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId.logical)
 
   override def beforeEach(): Unit = {
     super.beforeEach()
@@ -308,7 +308,7 @@ class TrafficPurchasedSubmissionHandlerTest
         Seq(
           (
             _.message should include(
-              s"The traffic balance request submission failed: DeliverError(previous timestamp = None(), timestamp = 1970-01-01T00:00:00Z, synchronizer id = da::default, message id = $messageId, reason = Status(OK, BOOM))"
+              s"The traffic balance request submission failed: DeliverError(previous timestamp = None(), timestamp = 1970-01-01T00:00:00Z, id = $synchronizerId, message id = $messageId, reason = Status(OK, BOOM))"
             ),
             "sequencing failure",
           )

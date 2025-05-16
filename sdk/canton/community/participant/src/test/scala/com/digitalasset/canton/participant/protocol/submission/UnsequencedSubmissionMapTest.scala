@@ -9,7 +9,7 @@ import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.UnsequencedSubmissionMap
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -30,7 +30,8 @@ class UnsequencedSubmissionMapTest extends AnyWordSpec with BaseTest {
   assert(rootHash1 != rootHash2)
   private val messageUuid1: UUID = UUID.randomUUID()
   private val messageId1: MessageId = MessageId.fromUuid(messageUuid1)
-  private val synchronizerId: SynchronizerId = SynchronizerId.tryFromString("x::synchronizer")
+  private val synchronizerId: PhysicalSynchronizerId =
+    SynchronizerId.tryFromString("x::synchronizer").toPhysical
 
   "pushIfNotExists" should {
     "add entry if not present yet" in {

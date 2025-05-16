@@ -62,6 +62,7 @@ trait CommonTestAliases {
 
   // synchronizer1
   lazy val daName: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer1")
+  // TODO(#25483) Such values should be physical
   lazy val daId: SynchronizerId = getInitializedSynchronizer(daName).synchronizerId
   lazy val synchronizer1Id: SynchronizerId = daId
   lazy val staticSynchronizerParameters1: StaticSynchronizerParameters = getInitializedSynchronizer(

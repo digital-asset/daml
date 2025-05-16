@@ -93,11 +93,11 @@ class BlockSequencerTest
     private val actorSystem = ActorSystem()
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    private val synchronizerId = topologyTransactionFactory.synchronizerId1
+    private val synchronizerId = topologyTransactionFactory.synchronizerId1.toPhysical
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
       new InMemoryTopologyStore(
-        SynchronizerStore(synchronizerId),
+        SynchronizerStore(synchronizerId.logical),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -136,7 +136,7 @@ class BlockSequencerTest
     )
     private val cryptoApi = SynchronizerCryptoClient.create(
       member = sequencer1,
-      synchronizerId,
+      synchronizerId.logical,
       topologyClient,
       defaultStaticSynchronizerParameters,
       topologyTransactionFactory.syncCryptoClient.crypto,

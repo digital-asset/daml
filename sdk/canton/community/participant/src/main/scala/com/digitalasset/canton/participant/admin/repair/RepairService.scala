@@ -1263,6 +1263,7 @@ object RepairService {
 
   }
 
+  // TODO(#25483) Should this be physical?
   trait SynchronizerLookup {
     def isConnected(synchronizerId: SynchronizerId): Boolean
 

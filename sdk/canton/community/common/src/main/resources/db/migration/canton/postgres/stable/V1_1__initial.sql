@@ -556,7 +556,7 @@ create table par_in_flight_submission (
 
   submission_id varchar collate "C" null,
 
-  submission_synchronizer_id varchar collate "C" not null,
+  submission_physical_synchronizer_id varchar collate "C" not null,
   message_id varchar collate "C" not null,
 
   -- Sequencer timestamp after which this submission will not be sequenced any more, in microsecond precision relative to EPOCH
@@ -578,9 +578,9 @@ create table par_in_flight_submission (
 );
 
 create index idx_par_in_flight_submission_root_hash on par_in_flight_submission (root_hash_hex);
-create index idx_par_in_flight_submission_timeout on par_in_flight_submission (submission_synchronizer_id, sequencing_timeout);
-create index idx_par_in_flight_submission_sequencing on par_in_flight_submission (submission_synchronizer_id, sequencing_time);
-create index idx_par_in_flight_submission_message_id on par_in_flight_submission (submission_synchronizer_id, message_id);
+create index idx_par_in_flight_submission_timeout on par_in_flight_submission (submission_physical_synchronizer_id, sequencing_timeout);
+create index idx_par_in_flight_submission_sequencing on par_in_flight_submission (submission_physical_synchronizer_id, sequencing_time);
+create index idx_par_in_flight_submission_message_id on par_in_flight_submission (submission_physical_synchronizer_id, message_id);
 
 create table par_settings(
   client integer primary key, -- dummy field to enforce at most one row

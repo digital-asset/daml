@@ -51,6 +51,7 @@ sealed abstract class MaxRequestSizeCrashTest
       overrideMaxRequestSize: NonNegativeInt,
   )(f: TestConsoleEnvironment => Unit): Unit = {
     stop(oldEnv)
+    logger.debug("gerolf: after stop")
     val newEnv = manualCreateEnvironmentWithPreviousState(
       oldEnv.actualConfig,
       _ =>
@@ -91,6 +92,7 @@ sealed abstract class MaxRequestSizeCrashTest
     import env.*
     // user-manual-entry-begin: RestartCanton
     nodes.local.start()
+    logger.debug("Gerolf: after start, before reconnect_all")
     participants.all.synchronizers.reconnect_all()
     // user-manual-entry-end: RestartCanton
   }

@@ -86,6 +86,7 @@ class IdentityProvidingServiceClient {
 trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** The synchronizer this client applies to */
+  def physicalSynchronizerId: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
 
   /** Our current snapshot approximation

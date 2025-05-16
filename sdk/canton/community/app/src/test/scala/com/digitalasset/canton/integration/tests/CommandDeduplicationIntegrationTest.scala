@@ -48,7 +48,12 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Submiss
 }
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, LedgerSubmissionId, config}
 import com.digitalasset.daml.lf.data.Ref
@@ -373,7 +378,7 @@ trait CommandDeduplicationIntegrationTest
       commandId: String,
       submitter: PartyId,
       submissionId: String,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(logEntry: LogEntry): Assertion =
     if (submissionId.nonEmpty) {
       val changeId = ChangeId(
@@ -436,7 +441,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId2,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -455,7 +460,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId3,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -512,7 +517,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId2,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
       simClock.advance(java.time.Duration.ofSeconds(1))
@@ -530,7 +535,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId3,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -666,7 +671,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           emptySubmissionId,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -932,7 +937,7 @@ abstract class CommandDeduplicationPruningIntegrationTest
 
       // After advancing the time a bit, and wait for a timeproof (needed that the participants publication time moves higher) we should be able to prune more and resubmit
       simClock.advance(java.time.Duration.ofMillis(1L))
-      participant1.testing.fetch_synchronizer_time(daId)
+      participant1.testing.fetch_synchronizer_time(daId.toPhysical)
       val safe2 = eventually() {
         val safe = participant1.pruning.find_safe_offset().value
         safe should be >= after2

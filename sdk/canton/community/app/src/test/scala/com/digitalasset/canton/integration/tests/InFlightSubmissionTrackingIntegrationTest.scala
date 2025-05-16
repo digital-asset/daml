@@ -41,6 +41,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendDecision,
   SendPolicy,
 }
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import monocle.macros.syntax.lens.*
 
 import java.util.concurrent.atomic.AtomicReference
@@ -100,8 +101,8 @@ trait InFlightSubmissionTrackingIntegrationTest
   private def traceIdOfCompletion(completion: Completion): String =
     LedgerClient.traceContextFromLedgerApi(completion.traceContext).traceId.value
 
-  private def maxRequestSizeExceededLog: String =
-    s"Failed to submit submission due to Error\\(RequestInvalid\\(Batch size \\(\\d+ bytes\\) is exceeding maximum size \\(MaxRequestSize\\(${overrideMaxRequestSize.unwrap}\\) bytes\\) for synchronizer .*\\)\\)"
+  private def maxRequestSizeExceededLog(id: PhysicalSynchronizerId): String =
+    s"Batch size \\(\\d+ bytes\\) is exceeding maximum size \\(MaxRequestSize\\(${overrideMaxRequestSize.unwrap}\\) bytes\\) for synchronizer $id"
 
   "generate completions for unsequenceable commands before observing the max sequencing time" in {
     implicit env =>
@@ -136,8 +137,8 @@ trait InFlightSubmissionTrackingIntegrationTest
 
               participant1.ledger_api.completions.list(party, 2, ledgerEnd1)
             },
-            _.warningMessage should include regex maxRequestSizeExceededLog,
-            _.warningMessage should include regex maxRequestSizeExceededLog,
+            _.warningMessage should include regex maxRequestSizeExceededLog(daId.toPhysical),
+            _.warningMessage should include regex maxRequestSizeExceededLog(daId.toPhysical),
           )
           completionFailures should have size 2L
 
@@ -234,7 +235,9 @@ trait InFlightSubmissionTrackingIntegrationTest
         observedSomeRequest.future.futureValue
         eventually() {
           val recordedLogEntries = loggerFactory.fetchRecordedLogEntries
-          recordedLogEntries.exists(_.warningMessage.matches(maxRequestSizeExceededLog))
+          recordedLogEntries.exists(
+            _.warningMessage.matches(maxRequestSizeExceededLog(daId.toPhysical))
+          )
         }
 
         participant1.synchronizers.disconnect(daName)
@@ -257,7 +260,10 @@ trait InFlightSubmissionTrackingIntegrationTest
       },
       LogEntry.assertLogSeq(
         mustContainWithClue = Seq(
-          (_.warningMessage should include regex maxRequestSizeExceededLog, "request too large")
+          (
+            _.warningMessage should include regex maxRequestSizeExceededLog(daId.toPhysical),
+            "request too large",
+          )
         ),
         // All the various error codes that we can get back synchronously
         mayContain = Seq(
