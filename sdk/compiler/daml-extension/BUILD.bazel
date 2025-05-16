@@ -69,7 +69,7 @@ genrule(
         cd ..
         # Avoid file path too long errors on Windows of the form
         #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
-        $(execpath //bazel_tools/sh:mktgz) $@ node_modules
+        $(execpath //bazel_tools/sh:mktgz) $@ node_modules --dereference
     """,
     tools = ["//bazel_tools/sh:mktgz"],
 )
