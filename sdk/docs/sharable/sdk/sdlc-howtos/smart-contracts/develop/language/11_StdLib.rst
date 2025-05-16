@@ -4,7 +4,7 @@
 The Daml Standard Library
 =========================
 
-In :doc:`3_Data` and :doc:`10_Functional101` you learned how to define your own data types and functions. However, you don't have to implement everything from scratch. Daml comes with the :doc:`Daml Standard Library </daml/stdlib/index>`, which contains types, functions, and typeclasses that cover a large range of use cases.
+In :doc:`3_Data` and :doc:`10_Functional101` you learned how to define your own data types and functions. However, you don't have to implement everything from scratch. Daml comes with the :ref:`Daml Standard Library <stdlib-reference-base>`, which contains types, functions, and typeclasses that cover a large range of use cases.
 
 In this chapter, you'll get an overview of the essentials and learn how to browse and search the library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
@@ -23,7 +23,7 @@ To go in depth on some of these topics, the literature referenced in :ref:`haske
 The Prelude
 -----------
 
-You've already used a lot of functions, types, and typeclasses without importing anything. Functions like ``create``, ``exercise``, and ``(==)``, types like ``[]``, ``(,)``, ``Optional``, and typeclasses like ``Eq``, ``Show``, and ``Ord``. These all come from the :doc:`Prelude </daml/stdlib/Prelude>`. The Prelude is module that gets implicitly imported into every other Daml module and contains both Daml specific machinery as well as the essentials needed to work with the inbuilt types and typeclasses.
+You've already used a lot of functions, types, and typeclasses without importing anything. Functions like ``create``, ``exercise``, and ``(==)``, types like ``[]``, ``(,)``, ``Optional``, and typeclasses like ``Eq``, ``Show``, and ``Ord``. These all come from the :ref:`Prelude <module-prelude-72703>`. The Prelude is module that gets implicitly imported into every other Daml module and contains both Daml specific machinery as well as the essentials needed to work with the inbuilt types and typeclasses.
 
 Important Types From the Prelude
 --------------------------------
@@ -172,25 +172,25 @@ Important Modules in the Standard Library
 
 For almost all the types and typeclasses presented above, the Standard Library contains a module:
 
-- :doc:`/daml/stdlib/DA-List` for Lists
-- :doc:`/daml/stdlib/DA-Optional` for ``Optional``
-- :doc:`/daml/stdlib/DA-Tuple` for Tuples
-- :doc:`/daml/stdlib/DA-Either` for ``Either``
-- :doc:`/daml/stdlib/DA-Functor` for Functors
-- :doc:`/daml/stdlib/DA-Action` for Actions
-- :doc:`/daml/stdlib/DA-Monoid` and :doc:`/daml/stdlib/DA-Semigroup` for Monoids and Semigroups
-- :doc:`/daml/stdlib/DA-Text` for working with ``Text``
-- :doc:`/daml/stdlib/DA-Time` for working with ``Time``
-- :doc:`/daml/stdlib/DA-Date` for working with ``Date``
+- :ref:`module-da-list-85985` for Lists
+- :ref:`module-da-optional-38505` for ``Optional``
+- :ref:`module-da-tuple-81988` for Tuples
+- :ref:`module-da-either-91022` for ``Either``
+- :ref:`module-da-functor-63823` for Functors
+- :ref:`module-da-action-7169` for Actions
+- :ref:`module-da-functor-63823` and :ref:`module-da-semigroup-27147` for Monoids and Semigroups
+- :ref:`module-da-text-83238` for working with ``Text``
+- :ref:`module-da-time-32716` for working with ``Time``
+- :ref:`module-da-date-80009` for working with ``Date``
 
 You get the idea, the names are fairly descriptive.
 
-Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learned, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :doc:`/daml/stdlib/DA-Traversable`, and :doc:`/daml/stdlib/DA-Foldable`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
+Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learned, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :ref:`module-da-traversable-75075`, and :ref:`module-da-foldable-94882`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
 
 Search the Standard Library
 ---------------------------
 
-Being able to browse the Standard Library starting from :doc:`/daml/stdlib/index` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
+Being able to browse the Standard Library starting from :ref:`stdlib-reference-base` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
 
 Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 

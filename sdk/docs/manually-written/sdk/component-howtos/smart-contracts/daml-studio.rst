@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _write-daml-studio:
+
 Write: Daml Studio
 ##################
 
@@ -9,7 +11,7 @@ Daml Studio is an integrated development environment (IDE) for Daml. It is an ex
 Install
 *******
 
-Daml Studio is included in :doc:`the Daml SDK </getting-started/installation>`.
+Daml Studio is included in :ref:`the Daml SDK <install-the-sdk>`.
 
 Create Your First Daml File
 ***************************
@@ -48,7 +50,7 @@ Your screen should now look like the image below.
 We recommend reviewing the
 `Visual Studio Code documentation <https://code.visualstudio.com/docs/editor/codebasics>`_
 to learn more about how to use it.
-To learn more about Daml, see :doc:`reference/index`.
+To learn more about Daml, see :ref:`language-reference`.
 
 Supported Features
 ******************
@@ -427,7 +429,7 @@ cancellation within a notification.
 Directory Envrionment Tools (direnv)
 ====================================
 Tools like ``direnv`` are commonly used to set up dependencies and import environment variables
-for use with :ref:`environment variable interpolation support <environment-variable-interpolation>`. To make this work in Daml Studio,
+for use with :brokenref:`environment variable interpolation support <environment-variable-interpolation>`. To make this work in Daml Studio,
 you need a VSCode extension that sets this up for other extensions.
 In the case of ``direnv`` specifically (i.e. you have a ``.envrc`` file), we
 recommend using `this direnv extension by Martin Kühl <https://marketplace.visualstudio.com/items?itemName=mkhl.direnv>`__, which we have verified is compatible.

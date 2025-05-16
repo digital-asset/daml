@@ -8,7 +8,7 @@ The Daml Ledger API exposes an append-only ledger model; on the other hand, Daml
 
 In addition, privacy demands [1]_ may require removing Personally Identifiable Information (PII) upon request.
 
-To satisfy these requirements, the :ref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows Daml Participants to support pruning of Daml contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
+To satisfy these requirements, the :brokenref:`Pruning Service <com.daml.ledger.api.v1.admin.ParticipantPruningService>` Ledger API endpoint [2]_ allows Daml Participants to support pruning of Daml contracts and transactions that were respectively archived and submitted before or at a given ledger offset.
 
 Please refer to the specific Daml driver information for details about its pruning support.
 
@@ -27,7 +27,7 @@ Still, Daml applications may be affected in the following ways:
 - Pruning may degrade the behavior of or abort in-progress requests if the pruning offset is too recent. In particular, the system might misbehave if command completions are pruned before the command trackers are able to process the completions.
 - Command deduplication and command tracker retention should always be configured so that the associated windows don't overlap with the pruning window to ensure that their operation is unaffected by pruning.
 - Pruning may affect the behavior of Ledger API calls that allow to read data from the ledger: see the next sub-section for more information about API impacts.
-- Pruning of all divulged contracts (see :ref:`Prune Request <com.daml.ledger.api.v1.admin.PruneRequest>`) does not preserve application visibility over contracts divulged up to the pruning offset, hence applications making use of pruned divulged contracts might start experiencing failed command submissions: see the section below for determining a suitable pruning offset.
+- Pruning of all divulged contracts (see :brokenref:`Prune Request <com.daml.ledger.api.v1.admin.PruneRequest>`) does not preserve application visibility over contracts divulged up to the pruning offset, hence applications making use of pruned divulged contracts might start experiencing failed command submissions: see the section below for determining a suitable pruning offset.
 
 .. warning::
   Participants may know of contracts for which they don't know the current activeness status. This happens through :ref:`divulgence <da-model-divulgence>` where a party learns of the existence of a contract without being guaranteed to ever see its archival. Such contracts are pruned by the feature described on this page as not doing so could easily lead to an ever growing participant state.
@@ -46,4 +46,4 @@ Pruning of old data is not noticed by applications that are up to date. However 
 
 Submission validation and Daml Ledger API endpoints that write to the ledger are generally not affected by pruning; an exception is that in-progress calls could abort while awaiting completion.
 
-Please refer to the :doc:`protobuf documentation of the API </app-dev/grpc/proto-docs>` for details about the ``prune`` operation itself and the behavior of other Daml Ledger API endpoints when pruning is being or has been performed.
+Please refer to the :externalref:`protobuf documentation of the API <com/daml/ledger/api/scalapb/package.proto>` for details about the ``prune`` operation itself and the behavior of other Daml Ledger API endpoints when pruning is being or has been performed.

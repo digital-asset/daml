@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _daml-assistant:
+
 Daml Assistant
 ##############
 
@@ -20,15 +22,15 @@ Daml Assistant
 
 - Launch the tools in the SDK:
 
-  - Launch :doc:`Daml Studio </daml/daml-studio>`: ``daml studio``
-  - Launch :doc:`Sandbox </tools/sandbox>`, :doc:`Navigator </tools/navigator/index>` and the :doc:`/json-api/index`: ``daml start``
+  - Launch :ref:`Daml Studio <write-daml-studio>`: ``daml studio``
+  - Launch :ref:`Sandbox <sandbox-manual>`, :brokenref:`Navigator </tools/navigator/index>` and the :externalref:`json-api`: ``daml start``
     You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
     To specify additional options for sandbox/navigator/the HTTP JSON API you can use
     ``--sandbox-option=opt``, ``--navigator-option=opt`` and ``--json-api-option=opt``.
   - Launch Sandbox: ``daml sandbox``
   - Launch Navigator (Deprecated): ``daml navigator``
-  - Launch the :doc:`/json-api/index`: ``daml json-api``
-  - Run :doc:`Daml codegen </tools/codegen>`: ``daml codegen``
+  - Launch the :externalref:`json-api`: ``daml json-api``
+  - Run :brokenref:`Daml codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
 
@@ -126,9 +128,9 @@ Here is what each field means:
 - ``version``: the project version.
 - ``exposed-modules``: the Daml modules that are exposed by this project, which can be imported in other projects.
   If this field is not specified all modules in the project are exposed.
-- ``dependencies``: library-dependencies of this project. See :doc:`/daml/reference/packages`.
-- ``data-dependencies``: Cross-SDK dependencies of this project See :doc:`/daml/reference/packages`.
-- ``module-prefixes``: Prefixes for all modules in package See :doc:`/daml/reference/packages`.
+- ``dependencies``: library-dependencies of this project. See :ref:`reference-daml-packages`.
+- ``data-dependencies``: Cross-SDK dependencies of this project See :ref:`reference-daml-packages`.
+- ``module-prefixes``: Prefixes for all modules in package See :ref:`reference-daml-packages`.
 - ``script-service``: settings for the script service
 
   - ``grpc-max-message-size``: This option controls the maximum size of gRPC messages.

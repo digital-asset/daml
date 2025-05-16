@@ -25,7 +25,7 @@ Data Types
          - Type
          - Description
        * - contractId
-         - :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+         - AnyContractId
          -
        * - argument
          - `AnyTemplate <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
@@ -35,11 +35,11 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"argument\" `Created <type-daml-script-internal-questions-transactiontree-created-98301_>`_ `AnyTemplate <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractId\" `Created <type-daml-script-internal-questions-transactiontree-created-98301_>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractId\" `Created <type-daml-script-internal-questions-transactiontree-created-98301_>`_ AnyContractId
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"argument\" `Created <type-daml-script-internal-questions-transactiontree-created-98301_>`_ `AnyTemplate <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_
 
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractId\" `Created <type-daml-script-internal-questions-transactiontree-created-98301_>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractId\" `Created <type-daml-script-internal-questions-transactiontree-created-98301_>`_ AnyContractId
 
 .. _type-daml-script-internal-questions-transactiontree-createdindexpayload-52051:
 
@@ -87,7 +87,7 @@ Data Types
          - Type
          - Description
        * - contractId
-         - :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+         - AnyContractId
          -
        * - choice
          - `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
@@ -107,7 +107,7 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"choice\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractId\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"contractId\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ AnyContractId
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"argument\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ `AnyChoice <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anychoice-86490>`_
 
@@ -115,7 +115,7 @@ Data Types
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"choice\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_
 
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractId\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"contractId\" `Exercised <type-daml-script-internal-questions-transactiontree-exercised-22057_>`_ AnyContractId
 
 .. _type-daml-script-internal-questions-transactiontree-exercisedindexpayload-19779:
 
@@ -277,7 +277,7 @@ Functions
   \: `HasTemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t' \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t'
 
   Index for the first exercise of a given choice on a given template
-  e\.g\. \`exercised @MyTemplate \"MyChoice\"
+  e\.g\. ``exercised @MyTemplate "MyChoice"``
 
 .. _function-daml-script-internal-questions-transactiontree-exercisedn-70910:
 
@@ -285,5 +285,6 @@ Functions
   \: `HasTemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t' \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t'
 
   Index for the Nth exercise of a given choice on a given template
-  e\.g\. ``exercisedN @MyTemplate "MyChoice" 2 ``exercised c \= exercisedN c 0\`
+  e\.g\. ``exercisedN @MyTemplate "MyChoice" 2``
+  ``exercised c = exercisedN c 0``
 

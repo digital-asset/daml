@@ -84,7 +84,7 @@ It consists of the following:
    transactions are submitted slightly ahead of their ledger time, with the intention that they arrive at ``lt_TX == rt_TX``.
 
 The ledger time model is part of the ledger configuration and can be changed by ledger operators through the
-:ref:`SetTimeModel <com.daml.ledger.api.v1.admin.SetTimeModelRequest>` config management API.
+:brokenref:`SetTimeModel <com.daml.ledger.api.v1.admin.SetTimeModelRequest>` config management API.
 
 
 .. _assigning-ledger-time:

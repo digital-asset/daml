@@ -35,7 +35,7 @@ ignoring the total ordering coming from the Daml Ledger Model.
 Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as follows.
 
 .. https://www.lucidchart.com/documents/edit/c4df0455-13ab-415f-b457-f5654c2684be
-.. image:: ./ledger-model/images/divulgence-for-disclosure-counteroffer.svg
+.. image:: ./images/divulgence-for-disclosure-counteroffer.svg
    :align: center
    :width: 100%
    :alt: The time sequences for individual parties in the paint counteroffer workflow, with disclosures, as described in the Privacy section linked above.
@@ -79,7 +79,7 @@ In the ledger shown below, the Bank's commit comes before Alice's commit.
    
 .. https://app.lucidchart.com/documents/edit/1923969f-7bf2-45e0-a68d-6a0b2d308883/0_0
    
-.. image:: ./images/counteroffer-double-fetch.svg
+.. image:: ./../images/counteroffer-double-fetch.svg
    :align: center
    :width: 100%
    :alt: The shared ledger view of the time sequence for the paint counteroffer workflow.
@@ -98,7 +98,7 @@ The following examples assume that Alice splits up her commit into two as follow
 
 .. _split-counteroffer-ledger:
    
-.. figure:: ./images/counteroffer-split-commit.svg
+.. figure:: ./../images/counteroffer-split-commit.svg
    :align: center
    :width: 100%
    :alt: A time sequence for a counteroffer workflow with multiple commits: The first from the bank, the second and third by Alice, and the final one by the painter.
@@ -196,7 +196,7 @@ In contrast, the **Create** actions of the `CounterOffer` and Alice's `Iou` are 
 
 .. _causality-graph-counteroffer-split:
 
-.. figure:: ./images/counteroffer-split-action-order.svg
+.. figure:: ./../images/counteroffer-split-action-order.svg
    :align: center
    :width: 100%
    :alt: A causality graph for the counteroffer ledger, as described in the paragraph above.
@@ -272,7 +272,7 @@ The `X`\ -minimal consistent causality graph looks as follows, where the actions
 
 .. _causality-counteroffer-Iou-minimal:
    
-.. figure:: ./images/causality-counteroffer-Iou-minimal.svg
+.. figure:: ./../images/causality-counteroffer-Iou-minimal.svg
    :align: center
    :width: 100%
    :alt: The causality graph for the counteroffer workflow, with the following highlighted in red: Iou $Bank A, Fetch A (Iou $Bank A), Exe A (Iou $Bank A) and Iou $Bank P.
@@ -286,7 +286,7 @@ Then, `tx6` creates an such account with balance 0 and `tx7` deposits the painte
 
 .. https://app.lucidchart.com/documents/edit/b9d84f0f-e459-427c-86b8-c767662af326
    
-.. image:: ./images/causality-consistency-examples.svg
+.. image:: ./../images/causality-consistency-examples.svg
    :align: center
    :width: 100%
    :alt: A minimal causality graph for a workflow in which the painter receives an Iou from Alice and has an Account contract to hold the Iou created automatically, as described above.
@@ -386,7 +386,7 @@ For the :ref:`split counteroffer causality graph <causality-graph-counteroffer-s
 
 .. _counteroffer-causality-projections:
    
-.. figure:: ./images/counteroffer-causality-projection.svg
+.. figure:: ./../images/counteroffer-causality-projection.svg
    :align: center
    :width: 100%
    :alt: The split counteroffer causality graph divided according to the viewpoints of different parties, as described in the paragraph below.

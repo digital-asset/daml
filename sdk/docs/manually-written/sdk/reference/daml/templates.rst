@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _reference-templates:
+
 Reference: Templates
 ####################
 
@@ -74,10 +76,12 @@ executed). For a contract of template ``T``, the ``self`` binding is of type
 Template-local Definitions (Deprecated)
 ***************************************
 
-.. literalinclude:: code-snippets/Reference.daml
-   :language: daml
-   :start-after: -- start template let snippet
-   :end-before: -- end template let snippet
+.. todo:: Fix or remove this literal include
+.. 'start template let snippet' no longer exists in the daml file
+    .. literalinclude:: code-snippets/Reference.daml
+       :language: daml
+       :start-after: -- start template let snippet
+       :end-before: -- end template let snippet
 
 - ``let`` keyword. Starts a block and is followed by any number of definitions, just like any other ``let`` block.
 - Template parameters as well as ``this`` are in scope, but ``self`` is not.
@@ -243,7 +247,7 @@ This does not merely mean "convertible to bytes"; it has a specific meaning in D
 The serializability rule serves three purposes:
 
 1. Offer a stable means to store ledger values permanently.
-2. Provide a sensible encoding of them over :doc:`/app-dev/ledger-api`.
+2. Provide a sensible encoding of them over :ref:`grpc`.
 3. Provide sensible *types* that directly match their Daml counterparts in languages like Java for language codegen.
 
 For example, certain kinds of type parameters Daml offers are compatible with (1) and (2), but have no proper counterpart in (3), so they are disallowed.
@@ -295,7 +299,7 @@ Contract Keys and Maintainers
 - If you specify a ``key``, you must also specify a ``maintainer``. This is a ``Party`` that will ensure the uniqueness of all the keys it is aware of.
 
   Because of this, the ``key`` must include the ``maintainer`` ``Party`` or parties (for example, as part of a tuple or record), and the ``maintainer`` must be a signatory.
-- For a full explanation, see :doc:`/daml/reference/contract-keys`.
+- For a full explanation, see :ref:`contractkeys`.
 
 Interface Instances
 *******************

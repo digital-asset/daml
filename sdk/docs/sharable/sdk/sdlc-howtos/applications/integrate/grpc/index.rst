@@ -19,7 +19,7 @@ You can get the protobufs from a GitHub release (FIX REFERENCE) <protobufs>, or 
 Protobuf Reference Documentation
 ********************************
 
-For full details of all of the Ledger API services and their RPC methods, see  :doc:`/app-dev/grpc/proto-docs`.
+For full details of all of the Ledger API services and their RPC methods, see  :externalref:`com/daml/ledger/api/scalapb/package.proto`.
 
 Example Project
 ***************
@@ -62,7 +62,7 @@ This example subscribes to transactions for a single party, as different parties
 Daml Types and Protobuf
 ***********************
 
-For information on how Daml types and contracts are represented by the Ledger API as protobuf messages, see :doc:`/app-dev/grpc/daml-to-ledger-api`.
+For information on how Daml types and contracts are represented by the Ledger API as protobuf messages, see :ref:`daml-to-ledger-api`.
 
 Error Handling
 **************
@@ -74,7 +74,7 @@ For more details on the gRPC standard status codes, see the `gRPC documentation 
 Generically, on submitted commands the Ledger API responds with the following gRPC status codes:
 
 ABORTED
-   The platform failed to record the result of the command due to a transient server-side error (e.g. backpressure due to high load) or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :ref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
+   The platform failed to record the result of the command due to a transient server-side error (e.g. backpressure due to high load) or a time constraint violation. You can retry the submission. In case of a time constraint violation, please refer to the section :brokenref:`Dealing with time <dealing-with-time>` on how to handle commands with long processing times.
 DEADLINE_EXCEEDED (when returned by the Command Service)
    The request might not have been processed, as its deadline expired before its completion was signalled.
 ALREADY_EXISTS

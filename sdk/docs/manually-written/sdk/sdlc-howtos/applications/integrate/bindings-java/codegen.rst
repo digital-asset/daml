@@ -13,7 +13,7 @@ Introduction
 
 When writing applications for the ledger in Java, you want to work with a representation of Daml templates and data types in Java that closely resemble the original Daml code while still being as true to the native types in Java as possible. To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
-The :doc:`Daml assistant documentation </tools/codegen>` describes how to run and configure the code generator for all supported bindings, including Java.
+The :ref:`Daml assistant documentation <daml-codegen>` describes how to run and configure the code generator for all supported bindings, including Java.
 
 The rest of this page describes Java-specific topics.
 

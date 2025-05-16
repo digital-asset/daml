@@ -4,7 +4,7 @@
 Parties and Users On a Daml Ledger
 ##################################
 
-Identifying parties and users is an important part of building a workable Daml application. Recall these definitions from the :doc:`Getting Started Guide </getting-started/app-architecture>`:
+Identifying parties and users is an important part of building a workable Daml application. Recall these definitions from the :brokenref:`Getting Started Guide </getting-started/app-architecture>`:
 
 - **Parties** are unique across the entire Daml network. These must be allocated before you can use them to log in, and allocation results in a random-looking (but not actually random) string that identifies the party and is used in your Daml code. Parties are a builtin concept.
 

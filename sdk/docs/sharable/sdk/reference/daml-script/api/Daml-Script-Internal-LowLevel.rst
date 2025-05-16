@@ -40,14 +40,6 @@ Typeclasses
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `FailureStatus <https://docs.daml.com/daml/stdlib/DA-Fail.html#type-da-internal-fail-types-failurestatus-69615>`_ x)
 
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListAllPackages <type-daml-script-internal-questions-packages-listallpackages-28931>` \[:ref:`PackageName <type-daml-script-internal-questions-packages-packagename-68696>`\]
-
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListVettedPackages <type-daml-script-internal-questions-packages-listvettedpackages-5133>` \[:ref:`PackageName <type-daml-script-internal-questions-packages-packagename-68696>`\]
-
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`UnvetPackages <type-daml-script-internal-questions-packages-unvetpackages-98510>` ()
-
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`VetPackages <type-daml-script-internal-questions-packages-vetpackages-30455>` ()
-
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`AllocateParty <type-daml-script-internal-questions-partymanagement-allocateparty-41025>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`ListKnownParties <type-daml-script-internal-questions-partymanagement-listknownparties-97656>` \[:ref:`PartyDetails <type-daml-script-internal-questions-partymanagement-partydetails-4369>`\]
@@ -63,8 +55,6 @@ Typeclasses
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`QueryInterfaceContractId <type-daml-script-internal-questions-query-queryinterfacecontractid-74514>` (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`Submit <type-daml-script-internal-questions-submit-submit-31549>` \[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` (\[:ref:`CommandResult <type-daml-script-internal-questions-commands-commandresult-15750>`\], :ref:`TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781>`)\]
-
-  **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`TryCommands <type-daml-script-internal-questions-testing-trycommands-91696>` (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ (`Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_, `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_, `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_) x)
 
   **instance** `IsQuestion <class-daml-script-internal-lowlevel-isquestion-79227_>`_ :ref:`GetTime <type-daml-script-internal-questions-time-gettime-36498>` `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
 
@@ -103,13 +93,9 @@ Data Types
 
   **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"act\" :ref:`TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
 
-  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"act\" :ref:`TryCommands <type-daml-script-internal-questions-testing-trycommands-91696>` `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_
-
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" :ref:`Catch <type-daml-script-internal-questions-exceptions-catch-84605>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" :ref:`TryFailureStatus <type-daml-script-internal-questions-exceptions-tryfailurestatus-59844>` (() \-\> `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_)
-
-  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"act\" :ref:`TryCommands <type-daml-script-internal-questions-testing-trycommands-91696>` `LedgerValue <type-daml-script-internal-lowlevel-ledgervalue-66913_>`_
 
 .. _type-daml-script-internal-lowlevel-question-76582:
 

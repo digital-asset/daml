@@ -9,7 +9,7 @@ The application from :doc:`7_Composing` is a complete and secure model for atomi
 1. Upgrades, which change existing logic. For example, one might want the ``Asset`` template to have multiple signatories.
 2. Extensions, which merely add new functionality through additional templates.
 
-Upgrades are covered in their own section outside this introduction to Daml: :doc:`/upgrade/upgrade` so in this section we will extend the :doc:`7_Composing` model with a simple second workflow: a multi-leg trade. In doing so, you'll learn about:
+Upgrades are covered in their own section outside this introduction to Daml: :ref:`upgrade-overview` so in this section we will extend the :doc:`7_Composing` model with a simple second workflow: a multi-leg trade. In doing so, you'll learn about:
 
 - The software architecture of the Daml Stack
 - Dependencies and Data Dependencies
@@ -69,10 +69,12 @@ However, as you can see above, this information isn't preserved. Furthermore, pr
 
 For an extension model like this one,``data-dependencies`` are appropriate, so the current project includes :doc:`7_Composing` that way:
 
-.. literalinclude:: daml/daml-intro-9/daml.yaml.template
-  :language: yaml
-  :start-after:   - daml-stdlib
-  :end-before: sandbox-options:
+.. todo:: Fix or remove this literal include
+.. 'sandbox-options:' no longer exists in the template file
+    .. literalinclude:: daml/daml-intro-9/daml.yaml.template
+      :language: yaml
+      :start-after:   - daml-stdlib
+      :end-before: sandbox-options:
 
 You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`7_Composing` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using ``daml ledger fetch-dar`` contains test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
 

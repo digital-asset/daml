@@ -213,4 +213,4 @@ Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's auth
 Next Up
 -------
 
-In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :doc:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.
+In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :brokenref:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.

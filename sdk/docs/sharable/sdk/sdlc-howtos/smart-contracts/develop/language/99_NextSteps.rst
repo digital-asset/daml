@@ -11,10 +11,10 @@ where do you go next? It depends on what you would like to do with Daml:
   You can test your skills at `Daml certifications <https://www.digitalasset.com/developers/certifications>`_.
 
 - If you want to improve your understanding of proven design patterns, you can learn more at
-  :doc:`the Patterns </daml/patterns>` page.
+  :ref:`the Patterns <good-design-patterns>` page.
 
 - If you're interested in building off-ledger services that interact and integrate with your
-  on-ledger Daml models, read the :doc:`"Building Applications" section </app-dev/app-arch>`.
+  on-ledger Daml models, read the :brokenref:`"Building Applications" section </app-dev/app-arch>`.
 
 - If you're interested in understanding how to install, operate and maintain a production-grade Daml
   ledger, you can have a look at the `Canton user manual </deploy-daml/intro/index>`_.

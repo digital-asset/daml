@@ -11,7 +11,7 @@ Automating the Upgrade Process
     ZDT upgrades and the MUT upgrade runner
 
 In this section, we are going to automate the upgrade of our carbon certificate
-process using :doc:`Daml Script</daml-script/index>` and
+process using :ref:`Daml Script<daml-script>` and
 DELETED TRIGGERS. Note that automation for upgrades is
 specific to an individual application, just like the upgrade models.
 Nevertheless, we have found that the pattern shown here
