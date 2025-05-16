@@ -48,11 +48,8 @@ private[lf] final class ValueTranslator(
   val validateCid: ContractId => Unit =
     if (requireContractIdSuffix) {
       case cid: ContractId.V1 =>
-        if (cid.suffix.isEmpty) {
-          remy.log("Here")
-          remy.stackTrace(100)
+        if (cid.suffix.isEmpty)
           throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
-        }
       case cid: ContractId.V2 =>
         // We forbid only local contract IDs in Engine commands, but not relative contract IDs
         // because relative contract IDs may appear in reinterpretation of projections
