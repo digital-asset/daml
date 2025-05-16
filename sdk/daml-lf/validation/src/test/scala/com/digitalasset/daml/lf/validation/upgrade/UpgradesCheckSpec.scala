@@ -1466,7 +1466,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
-    "CannotImplementNonUpgradeableInterface" in {
+    "CannotImplementNonUpgradeableInterface (standalone)" in {
       testPackages(
         Seq(
           "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
@@ -1480,7 +1480,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
-    "CanImplementUpgradeableInterface" in {
+    "CanImplementUpgradeableInterface (standalone)" in {
       testPackages(
         Seq(
           "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
@@ -1488,7 +1488,45 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
         Seq(
           OneDarSuccess(
             "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
-            noWarningsAllowed = false,
+            noWarningsAllowed = true,
+          )
+        ),
+      )
+    }
+
+    "CannotImplementNonUpgradeableInterface (during upgrade)" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
+          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+        ),
+        Seq(
+          TwoDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v1.dar",
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+          ),
+          OneDarWarning(
+            "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\)."
+          )
+        ),
+      )
+    }
+
+    "CanImplementUpgradeableInterface (during upgrade)" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-CanImplementUpgradeableInterface-v1.dar",
+          "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+        ),
+        Seq(
+          TwoDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v1.dar",
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+          ),
+          OneDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+            noWarningsAllowed = true,
           )
         ),
       )
