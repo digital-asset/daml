@@ -292,6 +292,12 @@ da_scala_dar_resources_library(
                 "module_prefixes": {"upgrades-example-SucceedsWhenDepIsValidPreviousVersionOfSelf-1.0.0": "V1"},
             },
         ),
+        ("DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifierDep", {}, {}),
+        (
+            "DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier",
+            {"data_dependencies": ["//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifierDep-v1.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifierDep-v2.dar"]},
+        ),
 
         # Ported from DamlcUpgrades.hs
         ("FailsWhenExistingFieldInTemplateChoiceIsChanged", {}, {}),
