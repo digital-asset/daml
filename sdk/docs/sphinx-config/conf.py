@@ -11,11 +11,10 @@ from pygments_daml_lexer import DamlLexer
 from ref import IgnoreRefRole
 
 extensions = [
-    'sphinx.ext.todo',
-    'sphinxext.remoteliteralinclude',
+    'sphinx.ext.todo'
 ]
 
-html_theme = 'sphinx_rtd_theme'
+html_theme = 'default'
 
 def setup(sphinx):
     sphinx.add_lexer('daml', DamlLexer)
