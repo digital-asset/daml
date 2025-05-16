@@ -132,11 +132,7 @@ def daml_deps():
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
             sha256 = rules_nodejs_sha256,
             patches = [
-                # Work around for https://github.com/bazelbuild/rules_nodejs/issues/1565
-                "@daml//bazel_tools:rules_nodejs_npm_cli_path.patch",
-                # Enforces a dependency of the rules_nodejs workspace on the
-                # workspace providing node.
-                "@daml//bazel_tools:rules_nodejs_node_dependency.patch",
+                "@daml//bazel_tools:rules_nodejs_hotfix.patch",
             ],
             patch_args = ["-p1"],
         )

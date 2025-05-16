@@ -44,5 +44,4 @@ $tar c "${@:2}" \
   --no-xattrs \
   --no-selinux \
   --sort="name" \
-  --format=ustar \
   | $gzip -n > "$1"
