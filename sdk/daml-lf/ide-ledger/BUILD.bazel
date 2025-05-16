@@ -34,7 +34,7 @@ da_scala_library(
         "//daml-lf/transaction",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-         "@maven//:com_google_protobuf_protobuf_java",
+        "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
 

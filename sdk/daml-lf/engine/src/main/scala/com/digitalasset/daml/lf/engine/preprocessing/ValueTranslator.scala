@@ -46,11 +46,10 @@ private[lf] final class ValueTranslator(
   }
 
   val validateCid: ContractId => Unit =
-    if (requireV1ContractIdSuffix) {
-      case cid: ContractId.V1 =>
-        if (cid.suffix.isEmpty) {
-          throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
-        }
+    if (requireV1ContractIdSuffix) { case cid: ContractId.V1 =>
+      if (cid.suffix.isEmpty) {
+        throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
+      }
     }
     else { _ => () }
 

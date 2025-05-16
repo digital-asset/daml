@@ -39,17 +39,17 @@ import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
   *     steps needed to produce a Result.
   */
 final case class EngineConfig(
-                               allowedLanguageVersions: VersionRange[language.LanguageVersion],
-                               packageValidation: Boolean = true,
-                               transactionTraceMaxLength: Int = 10,
-                               stackTraceMode: Boolean = false,
-                               profileDir: Option[Path] = None,
-                               contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
-                               requireSuffixedGlobalContractId: Boolean = false,
-                               limits: interpretation.Limits = interpretation.Limits.Lenient,
-                               checkAuthorization: Boolean = true,
-                               iterationsBetweenInterruptions: Long = 10000,
-                               paranoid: Boolean = true,
+    allowedLanguageVersions: VersionRange[language.LanguageVersion],
+    packageValidation: Boolean = true,
+    transactionTraceMaxLength: Int = 10,
+    stackTraceMode: Boolean = false,
+    profileDir: Option[Path] = None,
+    contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
+    requireSuffixedGlobalContractId: Boolean = false,
+    limits: interpretation.Limits = interpretation.Limits.Lenient,
+    checkAuthorization: Boolean = true,
+    iterationsBetweenInterruptions: Long = 10000,
+    paranoid: Boolean = true,
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(

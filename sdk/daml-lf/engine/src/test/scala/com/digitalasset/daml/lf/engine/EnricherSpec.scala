@@ -109,7 +109,6 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     .left
     .foreach(err => sys.error(err.message))
 
-
   "enrichValue" should {
 
     val testCases = Table[Type, Value, Value](
@@ -180,30 +179,30 @@ class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
       val enricher = new Enricher(engine)
       forEvery(testCases) { (typ, input, output) =>
         if (typ == TTyCon("Mod:Record"))
-        enricher.enrichValue(typ, input) shouldBe ResultDone(output)
+          enricher.enrichValue(typ, input) shouldBe ResultDone(output)
       }
     }
 
     "do not add trailing None fields when instructed" in {
-      val enricher = new Enricher(engine,addTrailingNoneFields = false)
+      val enricher = new Enricher(engine, addTrailingNoneFields = false)
       val testCases = Table[Type, Value, Value](
         ("type", "input", "expected output"),
         (
-        TTyCon("Mod:Record"),
-        ValueRecord(None, ImmArray(None -> ValueInt64(33), None -> ValueNone)),
-        ValueRecord(
-          Some("Mod:Record"),
-          ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          TTyCon("Mod:Record"),
+          ValueRecord(None, ImmArray(None -> ValueInt64(33), None -> ValueNone)),
+          ValueRecord(
+            Some("Mod:Record"),
+            ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          ),
         ),
-      ),
-      (
-        TTyCon("Mod:Record"),
-        ValueRecord(None, ImmArray(None -> ValueInt64(33))),
-        ValueRecord(
-          Some("Mod:Record"),
-          ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+        (
+          TTyCon("Mod:Record"),
+          ValueRecord(None, ImmArray(None -> ValueInt64(33))),
+          ValueRecord(
+            Some("Mod:Record"),
+            ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          ),
         ),
-      ),
       )
       forEvery(testCases) { (typ, input, output) =>
         if (typ == TTyCon("Mod:Record"))
