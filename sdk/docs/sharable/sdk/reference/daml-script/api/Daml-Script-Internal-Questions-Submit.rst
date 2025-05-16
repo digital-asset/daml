@@ -288,6 +288,45 @@ Data Types
 
   **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"soReadAs\" `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_ \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\]
 
+.. _type-daml-script-internal-questions-submit-timeboundedresult-96051:
+
+**data** `TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a
+
+  .. _constr-daml-script-internal-questions-submit-timeboundedresult-3036:
+
+  `TimeBoundedResult <constr-daml-script-internal-questions-submit-timeboundedresult-3036_>`_
+
+    .. list-table::
+       :widths: 15 10 30
+       :header-rows: 1
+
+       * - Field
+         - Type
+         - Description
+       * - value
+         - a
+         -
+       * - minLedgerTime
+         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+         -
+       * - maxLedgerTime
+         - `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_
+         -
+
+  **instance** `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ a \=\> `Show <https://docs.daml.com/daml/stdlib/Prelude.html#class-ghc-show-show-65360>`_ (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a)
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"maxLedgerTime\" (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a) (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_)
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"minLedgerTime\" (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a) (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_)
+
+  **instance** `GetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-getfield-53979>`_ \"value\" (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a) a
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"maxLedgerTime\" (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a) (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_)
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"minLedgerTime\" (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a) (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_)
+
+  **instance** `SetField <https://docs.daml.com/daml/stdlib/DA-Record.html#class-da-internal-record-setfield-4311>`_ \"value\" (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a) a
+
 Functions
 ---------
 
@@ -449,7 +488,7 @@ Functions
 `trySubmit <function-daml-script-internal-questions-submit-trysubmit-23693_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> :ref:`Commands <type-daml-script-internal-questions-commands-commands-79301>` a \-\> script (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ :ref:`SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284>` a)
 
-  Submit a transaction and recieve back either the result, or a ``SubmitError``\.
+  Submit a transaction and receive back either the result, or a ``SubmitError``\.
   In the majority of failures, this will not crash at runtime\.
 
 .. _function-daml-script-internal-questions-submit-trysubmittree-68085:
@@ -474,6 +513,14 @@ Functions
 
 `submitMustFailWithOptions <function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> :ref:`Commands <type-daml-script-internal-questions-commands-commands-79301>` a \-\> script ()
+
+.. _function-daml-script-internal-questions-submit-extsubmit-94127:
+
+`extSubmit <function-daml-script-internal-questions-submit-extsubmit-94127_>`_
+  \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options, `Action <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-prelude-action-68790>`_ script) \=\> options \-\> :ref:`Commands <type-daml-script-internal-questions-commands-commands-79301>` a \-\> script (`TimeBoundedResult <type-daml-script-internal-questions-submit-timeboundedresult-96051_>`_ a)
+
+  An extended version of ``submit`` that also returns additional information about the result of the
+  submission, which mirrors the information that would be available on the prepared transaction\.
 
 .. _function-daml-script-internal-questions-submit-submitmulti-45107:
 
