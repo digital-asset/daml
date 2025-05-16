@@ -16,13 +16,14 @@ import com.digitalasset.daml.lf.engine.{
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
 import com.digitalasset.daml.lf.transaction.{
+  CommittedTransaction,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
   NodeId,
-  SubmittedTransaction,
   TransactionVersion,
   Versioned,
+  VersionedTransaction,
 }
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.speedy._
@@ -91,7 +92,7 @@ private[lf] object IdeLedgerRunner {
         committers: Set[Party],
         readAs: Set[Party],
         location: Option[Location],
-        tx: SubmittedTransaction,
+        tx: CommittedTransaction,
         locationInfo: Map[NodeId, Location],
     ): Either[Error, R]
   }
@@ -219,7 +220,7 @@ private[lf] object IdeLedgerRunner {
         committers: Set[Party],
         readAs: Set[Party],
         location: Option[Location],
-        tx: SubmittedTransaction,
+        tx: CommittedTransaction,
         locationInfo: Map[NodeId, Location],
     ): Either[Error, IdeLedger.CommitResult] =
       IdeLedger.commitTransaction(
@@ -239,12 +240,12 @@ private[lf] object IdeLedgerRunner {
   }
 
   private[this] abstract class Enricher {
-    def enrich(tx: SubmittedTransaction): SubmittedTransaction
+    def enrich(tx: VersionedTransaction): VersionedTransaction
     def enrich(tx: IncompleteTransaction): IncompleteTransaction
   }
 
   private[this] object NoEnricher extends Enricher {
-    override def enrich(tx: SubmittedTransaction): SubmittedTransaction = tx
+    override def enrich(tx: VersionedTransaction): VersionedTransaction = tx
     override def enrich(tx: IncompleteTransaction): IncompleteTransaction = tx
   }
 
@@ -263,23 +264,31 @@ private[lf] object IdeLedgerRunner {
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }
-    val enricher = new LfEnricher(
+    val strictEnricher = new LfEnricher(
       compiledPackages = compiledPackages,
       loadPackage = loadPackage,
       addTypeInfo = true,
       addFieldNames = true,
-      addTrailingNoneFields = false,
+      addTrailingNoneFields = true,
       requireContractIdSuffix = true,
+    )
+    val lenientEnricher = new LfEnricher(
+      compiledPackages = compiledPackages,
+      loadPackage = loadPackage,
+      addTypeInfo = true,
+      addFieldNames = true,
+      addTrailingNoneFields = true,
+      requireContractIdSuffix = false,
     )
     def consume[V](res: Result[V]): V =
       res match {
         case ResultDone(x) => x
         case x => crash(s"unexpected Result when enriching value: $x")
       }
-    override def enrich(tx: SubmittedTransaction): SubmittedTransaction =
-      SubmittedTransaction(consume(enricher.enrichVersionedTransaction(tx)))
+    override def enrich(tx: VersionedTransaction): VersionedTransaction =
+      consume(strictEnricher.enrichVersionedTransaction(tx))
     override def enrich(tx: IncompleteTransaction): IncompleteTransaction =
-      consume(enricher.enrichIncompleteTransaction(tx))
+      consume(lenientEnricher.enrichIncompleteTransaction(tx))
   }
 
   def submit[R](
@@ -367,11 +376,8 @@ private[lf] object IdeLedgerRunner {
           ledgerMachine.finish match {
             case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
               val suffix = Bytes.fromByteArray(Array(0, 0))
-              val enrichedTx = enrich(tx).suffixCid(_ => suffix, _ => suffix) match {
-                case Right(enrichedTx) => SubmittedTransaction(enrichedTx)
-                case Left(err) => throw Error.Internal(err)
-              }
-              ledger.commit(committers, readAs, location, enrichedTx, locationInfo) match {
+              val committedTx = CommittedTransaction(enrich(data.assertRight(tx.suffixCid(_ => suffix, _ => suffix))))
+              ledger.commit(committers, readAs, location, committedTx, locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>

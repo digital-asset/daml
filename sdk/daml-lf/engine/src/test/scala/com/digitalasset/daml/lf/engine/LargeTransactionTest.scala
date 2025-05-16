@@ -8,10 +8,11 @@ import java.io.File
 import com.daml.bazeltools.BazelRunfiles
 import com.digitalasset.daml.lf.archive.UniversalArchiveDecoder
 import com.digitalasset.daml.lf.data.Ref._
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.script.IdeLedger
 import com.digitalasset.daml.lf.transaction.{
+  CommittedTransaction,
   FatContractInstance,
   Node,
   SubmittedTransaction,
@@ -52,7 +53,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     def commit(
         submitter: Party,
         effectiveAt: Time.Timestamp,
-        tx: SubmittedTransaction,
+        tx: CommittedTransaction,
     ): VersionedTransaction =
       IdeLedger
         .commitTransaction(
@@ -281,14 +282,16 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
       seed: crypto.Hash,
   ): VersionedTransaction = {
     val effectiveAt = Time.Timestamp.now()
-    def enrich(tx: SubmittedTransaction): SubmittedTransaction = {
+    def enrich(tx: SubmittedTransaction): CommittedTransaction = {
       val enricher = new Enricher(engine, requireContractIdSuffix = false)
+      val suffix = Bytes.fromByteArray(Array(0, 0))
+      val suffixedTx = data.assertRight(tx.suffixCid(_ => suffix, _ => suffix))
       def consume[V](res: Result[V]): V =
         res match {
           case ResultDone(x) => x
           case x => fail(s"unexpected Result when enriching value: $x")
         }
-      SubmittedTransaction(consume(enricher.enrichVersionedTransaction(tx)))
+      CommittedTransaction(consume(enricher.enrichVersionedTransaction(suffixedTx)))
     }
     engine
       .submit(
