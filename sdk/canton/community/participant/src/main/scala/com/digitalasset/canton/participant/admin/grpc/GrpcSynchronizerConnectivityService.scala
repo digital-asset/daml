@@ -196,7 +196,7 @@ class GrpcSynchronizerConnectivityService(
       case (alias, (synchronizerId, healthy)) =>
         new v30.ListConnectedSynchronizersResponse.Result(
           synchronizerAlias = alias.unwrap,
-          synchronizerId = synchronizerId.toProtoPrimitive,
+          physicalSynchronizerId = synchronizerId.toProtoPrimitive,
           healthy = healthy.unwrap,
         )
     }.toSeq))
@@ -280,15 +280,15 @@ class GrpcSynchronizerConnectivityService(
         _ <-
           if (performHandshake) {
             logger.info(s"Performing handshake to synchronizer $config")
-            for {
-              success <-
-                sync.connectSynchronizer(
-                  synchronizerAlias = config.synchronizerAlias,
-                  keepRetrying = false,
-                  connectSynchronizer = ConnectSynchronizer.HandshakeOnly,
-                )
-              _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
-            } yield ()
+            // Since we don't retry, any error is returned as left and therefore will be returned to the caller.
+            // If the connectSynchronizer is successful, it means that the topology has been successfully initalized.
+            sync
+              .connectSynchronizer(
+                synchronizerAlias = config.synchronizerAlias,
+                keepRetrying = false,
+                connectSynchronizer = ConnectSynchronizer.HandshakeOnly,
+              )
+              .leftWiden[CantonBaseError]
           } else EitherT.rightT[FutureUnlessShutdown, CantonBaseError](())
       } yield v30.RegisterSynchronizerResponse()
 
@@ -374,7 +374,9 @@ class GrpcSynchronizerConnectivityService(
         .processHandshake(connectionConfig.synchronizerAlias, result.synchronizerId)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
         .leftWiden[CantonBaseError]
-    } yield v30.GetSynchronizerIdResponse(synchronizerId = result.synchronizerId.toProtoPrimitive)
+    } yield v30.GetSynchronizerIdResponse(physicalSynchronizerId =
+      result.synchronizerId.toProtoPrimitive
+    )
     _mapErrNewEUS(ret)
   }
 

@@ -42,7 +42,7 @@ class ResponseAggregationTest extends PathAnyFunSpec with BaseTest {
 
     def salt(i: Int): Salt = TestSalt.generateSalt(i)
 
-    val synchronizerId = DefaultTestIdentities.synchronizerId
+    val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
     val mediator = MediatorGroupRecipient(MediatorGroupIndex.zero)
     val participantId = DefaultTestIdentities.participant1
 

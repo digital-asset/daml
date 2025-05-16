@@ -40,8 +40,10 @@ participant3.synchronizers.connect_local(paint_sequencer, alias = paintAlias)
 
 // create the parties
 val Bank = participant1.parties.enable("Bank")
-val HouseOwner = participant2.parties.enable("House Owner")
-val Painter = participant3.parties.enable("Painter")
+val HouseOwner = participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
+participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
+val Painter = participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
+participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
 
 // Wait until the party enabling has taken effect and has been observed at the participants
 val partyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)

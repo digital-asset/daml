@@ -14,7 +14,7 @@ import com.digitalasset.canton.health.admin.data.NodeStatus.multiline
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
@@ -24,7 +24,7 @@ final case class ParticipantStatus(
     id: ParticipantId,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedSynchronizers: Map[SynchronizerId, SubmissionReady],
+    connectedSynchronizers: Map[PhysicalSynchronizerId, SubmissionReady],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
@@ -34,12 +34,12 @@ final case class ParticipantStatus(
 
   val uid: UniqueIdentifier = id.uid
 
-  private def connectedHealthySynchronizers: immutable.Iterable[SynchronizerId] =
+  private def connectedHealthySynchronizers: immutable.Iterable[PhysicalSynchronizerId] =
     connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
     }
 
-  private def connectedUnhealthySynchronizers: immutable.Iterable[SynchronizerId] =
+  private def connectedUnhealthySynchronizers: immutable.Iterable[PhysicalSynchronizerId] =
     connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
     }
@@ -67,8 +67,11 @@ object ParticipantStatus {
 
   private def connectedSynchronizerFromProtoV30(
       proto: participantV30.ConnectedSynchronizer
-  ): ParsingResult[(SynchronizerId, SubmissionReady)] = for {
-    synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
+  ): ParsingResult[(PhysicalSynchronizerId, SubmissionReady)] = for {
+    synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+      proto.physicalSynchronizerId,
+      "physical_synchronizer_id",
+    )
     isHealth <- proto.health match {
       case Health.HEALTH_UNSPECIFIED => Left(ProtoDeserializationError.FieldNotSet("health"))
       case Health.HEALTH_HEALTHY => Right(true)

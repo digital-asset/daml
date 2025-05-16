@@ -18,7 +18,6 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.store.PackageDependencyResolverUS
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -46,11 +45,10 @@ final class TransactionTreeFactoryImplTest
       testErrorMessage: String
   ): SerializableContractOfId = id => EitherT.leftT(ContractLookupError(id, testErrorMessage))
 
-  def createTransactionTreeFactory(version: ProtocolVersion): TransactionTreeFactoryImpl =
+  def createTransactionTreeFactory: TransactionTreeFactoryImpl =
     TransactionTreeFactoryImpl(
       ExampleTransactionFactory.submittingParticipant,
-      factory.synchronizerId,
-      version,
+      factory.physicalSynchronizerId,
       factory.cryptoOps,
       loggerFactory,
     )
@@ -91,7 +89,7 @@ final class TransactionTreeFactoryImplTest
 
       "everything is ok" must {
         forEvery(factory.standardHappyCases) { example =>
-          lazy val treeFactory = createTransactionTreeFactory(testedProtocolVersion)
+          lazy val treeFactory = createTransactionTreeFactory
 
           s"create the correct views for: $example" in {
             createTransactionTree(
@@ -106,7 +104,7 @@ final class TransactionTreeFactoryImplTest
 
       "a contract lookup fails" must {
         lazy val errorMessage = "Test error message"
-        lazy val treeFactory = createTransactionTreeFactory(testedProtocolVersion)
+        lazy val treeFactory = createTransactionTreeFactory
 
         lazy val example = factory.SingleExercise(
           factory.deriveNodeSeed(0)
@@ -127,7 +125,7 @@ final class TransactionTreeFactoryImplTest
       }
 
       "empty actAs set is empty" must {
-        lazy val treeFactory = createTransactionTreeFactory(testedProtocolVersion)
+        lazy val treeFactory = createTransactionTreeFactory
 
         "reject the input" in {
           val example = factory.standardHappyCases.headOption.value
@@ -145,7 +143,7 @@ final class TransactionTreeFactoryImplTest
       }
 
       "checking package vettings" must {
-        lazy val treeFactory = createTransactionTreeFactory(testedProtocolVersion)
+        lazy val treeFactory = createTransactionTreeFactory
         "fail if the main package is not vetted" in {
           val example = factory.standardHappyCases(2)
           createTransactionTree(

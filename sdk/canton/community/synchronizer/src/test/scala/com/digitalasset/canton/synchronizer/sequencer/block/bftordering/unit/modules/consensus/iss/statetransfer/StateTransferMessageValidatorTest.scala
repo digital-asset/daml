@@ -116,7 +116,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         EpochNumber.First,
         aMembershipWith2Nodes,
         Left(
-          "received a block transfer response from 'other' containing commit(s) with an unexpected epoch, expected 1"
+          "received a block transfer response from 'other' containing a commit certificate with the following issue: commit certificate for block 0 has the following errors: commits have epoch number 0 but it should be 1, expected at least 2 commits, but only got 1, commit from other has non-matching hash"
         ),
       ),
       // negative: duplicate senders
@@ -128,7 +128,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         GenesisEpochNumber,
         aMembershipWith2Nodes,
         Left(
-          "received a block transfer response from 'other' containing commits with duplicate senders"
+          "received a block transfer response from 'other' containing a commit certificate with the following issue: commit certificate for block 0 has the following errors: there are more than one commits (2) from the same sender other, expected at least 2 commits, but only got 1, commit from other has non-matching hash"
         ),
       ),
       // negative: no strong quorum
@@ -140,8 +140,7 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         GenesisEpochNumber,
         aMembershipWith2Nodes,
         Left(
-          "received a block transfer response from 'other' with insufficient number of commits Some(1), " +
-            "the minimal number is 2 (strong quorum)"
+          "received a block transfer response from 'other' containing a commit certificate with the following issue: commit certificate for block 0 has the following errors: expected at least 2 commits, but only got 1, commit from other has non-matching hash"
         ),
       ),
       // positive

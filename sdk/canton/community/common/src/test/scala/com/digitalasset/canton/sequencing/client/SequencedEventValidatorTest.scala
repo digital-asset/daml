@@ -96,7 +96,7 @@ class SequencedEventValidatorTest
     "check the synchronizer id" in { fixture =>
       import fixture.*
       val incorrectSynchronizerId =
-        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id"))
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id")).toPhysical
       val validator = mkValidator()
       val wrongSynchronizer = createEvent(incorrectSynchronizerId).futureValueUS
       val err = validator
@@ -210,7 +210,7 @@ class SequencedEventValidatorTest
     "reject messages with unexpected synchronizer ids" in { fixture =>
       import fixture.*
       val incorrectSynchronizerId =
-        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id"))
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("wrong-synchronizer::id")).toPhysical
       val event = createEvent(incorrectSynchronizerId, counter = 0L).futureValueUS
       val validator = mkValidator()
       val result = validator
@@ -600,7 +600,7 @@ class SequencedEventValidatorTest
       val syncCryptoApi = TestingIdentityFactory(loggerFactory)
         .forOwnerAndSynchronizer(
           subscriberId,
-          defaultSynchronizerId,
+          defaultSynchronizerId.logical,
           CantonTimestamp.ofEpochSecond(2),
         )
       val validator = mkValidator(syncCryptoApi)

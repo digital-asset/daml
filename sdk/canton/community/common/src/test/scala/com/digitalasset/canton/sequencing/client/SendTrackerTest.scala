@@ -52,7 +52,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       sign(
         SequencerTestUtils.mockDeliver(
           timestamp = timestamp,
-          synchronizerId = DefaultTestIdentities.synchronizerId,
+          synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
         )
       )
     )(
@@ -69,7 +69,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         Deliver.create(
           None,
           timestamp,
-          DefaultTestIdentities.synchronizerId,
+          DefaultTestIdentities.physicalSynchronizerId,
           Some(msgId),
           Batch.empty(testedProtocolVersion),
           None,
@@ -91,7 +91,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         DeliverError.create(
           None,
           timestamp,
-          DefaultTestIdentities.synchronizerId,
+          DefaultTestIdentities.physicalSynchronizerId,
           msgId,
           SequencerErrors.SubmissionRequestRefused("test"),
           testedProtocolVersion,
@@ -158,7 +158,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
       testedProtocolVersion,
       new EventCostCalculator(loggerFactory),
       new TrafficConsumptionMetrics(MetricName("test"), metricsFactory(histogramInventory)),
-      synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
     )
     val tracker =
       new MySendTracker(
@@ -239,7 +239,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         assertInContext(
           "test.event-delivered-cost",
           "synchronizer",
-          synchronizerId.toString,
+          DefaultTestIdentities.physicalSynchronizerId.toString,
         )
         assertInContext(
           "test.event-delivered-cost",
@@ -257,7 +257,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils with
         assertInContext(
           "test.extra-traffic-consumed",
           "synchronizer",
-          synchronizerId.toString,
+          DefaultTestIdentities.physicalSynchronizerId.toString,
         )
         // But not the event agnostic metrics
         assertNotInContext("test.extra-traffic-consumed", "test")

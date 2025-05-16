@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ManagedChannel
@@ -31,7 +31,7 @@ import scala.concurrent.ExecutionContextExecutor
   * transports
   */
 final class SequencerChannelClientFactory(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     synchronizerCryptoApi: SynchronizerCryptoClient,
     crypto: SynchronizerCrypto,
     config: SequencerClientConfig,

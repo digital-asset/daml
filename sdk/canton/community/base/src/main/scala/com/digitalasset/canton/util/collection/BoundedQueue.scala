@@ -12,13 +12,13 @@ import scala.collection.mutable
 class BoundedQueue[A](maxQueueSize: Int, dropStrategy: DropStrategy = DropStrategy.DropOldest)
     extends mutable.Queue[A] {
 
-  override def addOne(elem: A): BoundedQueue.this.type = {
+  override def addOne(elem: A): this.type = {
     val ret = super.addOne(elem)
     trim()
     ret
   }
 
-  override def addAll(elems: IterableOnce[A]): BoundedQueue.this.type = {
+  override def addAll(elems: IterableOnce[A]): this.type = {
     val ret = super.addAll(elems)
     trim()
     ret

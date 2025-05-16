@@ -39,7 +39,7 @@ import com.digitalasset.canton.topology.client.SynchronizerTopologyClientWithIni
 import com.digitalasset.canton.topology.processing.TopologyTransactionProcessor
 import com.digitalasset.canton.topology.{
   MediatorId,
-  SynchronizerId,
+  PhysicalSynchronizerId,
   SynchronizerOutboxHandle,
   TopologyManagerStatus,
 }
@@ -58,7 +58,7 @@ import scala.concurrent.ExecutionContext
   * high-availability, several instances need to be created.
   */
 private[mediator] class Mediator(
-    val synchronizerId: SynchronizerId,
+    val synchronizerId: PhysicalSynchronizerId,
     val mediatorId: MediatorId,
     @VisibleForTesting
     val sequencerClient: RichSequencerClient,
@@ -72,7 +72,7 @@ private[mediator] class Mediator(
     private[canton] val sequencerCounterTrackerStore: SequencerCounterTrackerStore,
     sequencedEventStore: SequencedEventStore,
     parameters: CantonNodeParameters,
-    protocolVersion: ProtocolVersion,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     clock: Clock,
     metrics: MediatorMetrics,
     protected val loggerFactory: NamedLoggerFactory,

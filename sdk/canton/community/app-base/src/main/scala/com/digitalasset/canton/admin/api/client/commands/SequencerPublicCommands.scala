@@ -8,7 +8,7 @@ import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameter
 import com.digitalasset.canton.sequencer.api.v30 as proto
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnect.GetSynchronizerParametersResponse.Parameters
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel
 
@@ -28,7 +28,7 @@ object SequencerPublicCommands {
       extends SequencerConnectServiceCommands[
         Empty,
         proto.SequencerConnect.GetSynchronizerIdResponse,
-        SynchronizerId,
+        PhysicalSynchronizerId,
       ] {
     override protected def createRequest(): Either[String, Empty] = Right(Empty())
 
@@ -40,9 +40,9 @@ object SequencerPublicCommands {
 
     override protected def handleResponse(
         response: proto.SequencerConnect.GetSynchronizerIdResponse
-    ): Either[String, SynchronizerId] =
-      SynchronizerId
-        .fromProtoPrimitive(response.synchronizerId, "synchronizer_id")
+    ): Either[String, PhysicalSynchronizerId] =
+      PhysicalSynchronizerId
+        .fromProtoPrimitive(response.physicalSynchronizerId, "synchronizer_id")
         .leftMap(_.message)
   }
 

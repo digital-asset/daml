@@ -43,6 +43,8 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
   private val otherId = BftNodeId("otherId")
   private val membership = Membership.forTesting(myId, Set(otherId))
   private val epochNumber = EpochNumber(0L)
+  private val epochNumber2 = EpochNumber(1L)
+  private val epochNumber3 = EpochNumber(2L)
   private val blockNumbers = NonEmpty(Seq, 1L, 3L, 5L).map(BlockNumber(_))
   private val wrongHash = Hash.digest(
     HashPurpose.BftOrderingPbftBlock,
@@ -219,6 +221,35 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
 
       result shouldBe Left(
         "prepare certificate for block 1 has the following errors: there are no prepares, commit certificate for block 3 has the following errors: there are no commits"
+      )
+    }
+
+    "error when certificates have messages with epoch numbers different across them or different from the pre-prepare's epoch number" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val pp1 = prePrepare(epochNumber, 1L, view0)
+      val pp3 = prePrepare(epochNumber, 3L, view0)
+
+      val pc = PrepareCertificate(
+        pp1,
+        Seq(
+          prepare(epochNumber2, 1L, pp1.message.hash),
+          prepare(epochNumber3, 1L, pp1.message.hash, from = otherId),
+        ),
+      )
+      val cc = CommitCertificate(
+        pp3,
+        Seq(
+          commit(epochNumber2, 3L, pp3.message.hash),
+          commit(epochNumber2, 3L, pp3.message.hash, from = otherId),
+        ),
+      )
+
+      val result =
+        validator.validateViewChangeMessage(viewChangeMsg(view2, Seq[ConsensusCertificate](pc, cc)))
+
+      result shouldBe Left(
+        "prepare certificate for block 1 has the following errors: all prepares should be of the same epoch number, but they are distributed across multiple epoch numbers (1, 2), commit certificate for block 3 has the following errors: commits have epoch number 1 but it should be 0"
       )
     }
 

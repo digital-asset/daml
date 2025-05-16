@@ -578,7 +578,7 @@ abstract class ParticipantReference(
                 // ensure that vetted packages on the synchronizer match the ones in the authorized store
                 val onSynchronizer = participant.topology.vetted_packages
                   .list(
-                    store = item.synchronizerId,
+                    store = item.synchronizerId.logical,
                     filterParticipant = id.filterString,
                     timeQuery = TimeQuery.HeadState,
                   )
@@ -801,8 +801,8 @@ abstract class SequencerReference(
       : AtomicReference[Option[ConsoleStaticSynchronizerParameters]] =
     new AtomicReference[Option[ConsoleStaticSynchronizerParameters]](None)
 
-  private val synchronizerId: AtomicReference[Option[SynchronizerId]] =
-    new AtomicReference[Option[SynchronizerId]](None)
+  private val synchronizerId: AtomicReference[Option[PhysicalSynchronizerId]] =
+    new AtomicReference[Option[PhysicalSynchronizerId]](None)
 
   @Help.Summary(
     "Yields the globally unique id of this sequencer. " +
@@ -842,7 +842,7 @@ abstract class SequencerReference(
     sequencerTrafficControl
 
   @Help.Summary("Return synchronizer id of the synchronizer")
-  def synchronizer_id: SynchronizerId =
+  def synchronizer_id: PhysicalSynchronizerId =
     synchronizerId.get() match {
       case Some(id) => id
       case None =>
@@ -879,14 +879,14 @@ abstract class SequencerReference(
 
           topology.transactions.load(
             identityState,
-            TopologyStoreId.Synchronizer(synchronizerId),
+            TopologyStoreId.Synchronizer(synchronizerId.logical),
             ForceFlag.AlienMember,
           )
         }
 
         topology.mediators
           .propose(
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.logical,
             threshold = threshold,
             active = active.map(_.id),
             observers = observers.map(_.id),
@@ -918,7 +918,7 @@ abstract class SequencerReference(
         val synchronizerId = synchronizer_id
 
         val currentMediators = topology.mediators
-          .list(synchronizerId, group = Some(group))
+          .list(synchronizerId.logical, group = Some(group))
           .maxByOption(_.context.serial)
           .getOrElse(throw new IllegalArgumentException(s"Unknown mediator group $group"))
 
@@ -935,14 +935,14 @@ abstract class SequencerReference(
 
           topology.transactions.load(
             identityState,
-            TopologyStoreId.Synchronizer(synchronizerId),
+            TopologyStoreId.Synchronizer(synchronizerId.logical),
             ForceFlag.AlienMember,
           )
         }
 
         topology.mediators
           .propose(
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.logical,
             threshold = threshold,
             active = (currentActive ++ additionalActive.map(_.id)).distinct,
             observers = (currentObservers ++ additionalObservers.map(_.id)).distinct,

@@ -11,10 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.{
-  ConsensusCertificateValidator,
-  PbftMessageValidatorImpl,
-}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidatorImpl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -64,9 +61,6 @@ class SegmentState(
   private val epochNumber = epoch.info.number
   private val viewChangeBlockMetadata = BlockMetadata(epochNumber, segment.slotNumbers.head1)
   private val pbftMessageValidator = new PbftMessageValidatorImpl(segment, epoch, metrics)(abort)
-  private val commitCertValidator = new ConsensusCertificateValidator(
-    membership.orderingTopology.strongQuorum
-  )
 
   // Only one view is active at a time, starting at view=0, inViewChange=false
   // - Upon view change start, due to timeout or >= f+1 votes, increment currentView and inViewChange=true
@@ -420,23 +414,16 @@ class SegmentState(
   ): Seq[ProcessResult] = {
     val RetransmittedCommitCertificate(from, cc) = msg
     val blockNumber = cc.blockMetadata.blockNumber
-    var result = Seq.empty[ProcessResult]
 
     if (isBlockComplete(blockNumber)) {
       discardedRetransmittedCommitCertsCount += 1
       logger.debug(
         s"Discarded retransmitted commit cert for block $blockNumber from $from because block is already complete"
       )
+      Seq.empty[ProcessResult]
     } else
-      commitCertValidator.validateConsensusCertificate(cc) match {
-        case Right(_) =>
-          result = segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
-        case Left(error) =>
-          logger.debug(
-            s"Discarded retransmitted commit cert for block $blockNumber from $from because of validation error: $error"
-          )
-      }
-    result
+      // the certificate has been validated previously, so we can just accept it now
+      segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
   }
 
   private def processTimeout(

@@ -15,9 +15,26 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.admin.v30
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 import java.time.Instant
+
+sealed trait TopologyResult[M <: TopologyMapping] {
+  def context: BaseResult
+  def item: M
+
+  /** Convert to a topology transaction TODO(i25529): ideally this would be returned by the gRPC
+    * server and not be done in the console macro
+    */
+  def toTopologyTransaction: TopologyTransaction[TopologyChangeOp, M] =
+    TopologyTransaction[TopologyChangeOp, M](
+      context.operation,
+      context.serial,
+      item,
+      ProtocolVersion.latest,
+    )
+}
 
 final case class BaseResult(
     storeId: TopologyStoreId,
@@ -73,7 +90,7 @@ object BaseResult {
 final case class ListNamespaceDelegationResult(
     context: BaseResult,
     item: NamespaceDelegation,
-)
+) extends TopologyResult[NamespaceDelegation]
 
 object ListNamespaceDelegationResult {
   def fromProtoV30(
@@ -90,7 +107,7 @@ object ListNamespaceDelegationResult {
 final case class ListDecentralizedNamespaceDefinitionResult(
     context: BaseResult,
     item: DecentralizedNamespaceDefinition,
-)
+) extends TopologyResult[DecentralizedNamespaceDefinition]
 
 object ListDecentralizedNamespaceDefinitionResult {
   def fromProtoV30(
@@ -107,7 +124,7 @@ object ListDecentralizedNamespaceDefinitionResult {
 final case class ListOwnerToKeyMappingResult(
     context: BaseResult,
     item: OwnerToKeyMapping,
-)
+) extends TopologyResult[OwnerToKeyMapping]
 
 object ListOwnerToKeyMappingResult {
   def fromProtoV30(
@@ -124,7 +141,7 @@ object ListOwnerToKeyMappingResult {
 final case class ListPartyToKeyMappingResult(
     context: BaseResult,
     item: PartyToKeyMapping,
-)
+) extends TopologyResult[PartyToKeyMapping]
 
 object ListPartyToKeyMappingResult {
   def fromProtoV30(
@@ -141,7 +158,7 @@ object ListPartyToKeyMappingResult {
 final case class ListSynchronizerTrustCertificateResult(
     context: BaseResult,
     item: SynchronizerTrustCertificate,
-)
+) extends TopologyResult[SynchronizerTrustCertificate]
 
 object ListSynchronizerTrustCertificateResult {
   def fromProtoV30(
@@ -158,7 +175,7 @@ object ListSynchronizerTrustCertificateResult {
 final case class ListParticipantSynchronizerPermissionResult(
     context: BaseResult,
     item: ParticipantSynchronizerPermission,
-)
+) extends TopologyResult[ParticipantSynchronizerPermission]
 
 object ListParticipantSynchronizerPermissionResult {
   def fromProtoV30(
@@ -175,7 +192,7 @@ object ListParticipantSynchronizerPermissionResult {
 final case class ListPartyHostingLimitsResult(
     context: BaseResult,
     item: PartyHostingLimits,
-)
+) extends TopologyResult[PartyHostingLimits]
 
 object ListPartyHostingLimitsResult {
   def fromProtoV30(
@@ -192,7 +209,7 @@ object ListPartyHostingLimitsResult {
 final case class ListVettedPackagesResult(
     context: BaseResult,
     item: VettedPackages,
-)
+) extends TopologyResult[VettedPackages]
 
 object ListVettedPackagesResult {
   def fromProtoV30(
@@ -209,7 +226,7 @@ object ListVettedPackagesResult {
 final case class ListPartyToParticipantResult(
     context: BaseResult,
     item: PartyToParticipant,
-)
+) extends TopologyResult[PartyToParticipant]
 
 object ListPartyToParticipantResult {
   def fromProtoV30(
@@ -243,7 +260,7 @@ object ListSynchronizerParametersStateResult {
 final case class ListMediatorSynchronizerStateResult(
     context: BaseResult,
     item: MediatorSynchronizerState,
-)
+) extends TopologyResult[MediatorSynchronizerState]
 
 object ListMediatorSynchronizerStateResult {
   def fromProtoV30(
@@ -260,7 +277,7 @@ object ListMediatorSynchronizerStateResult {
 final case class ListSequencerSynchronizerStateResult(
     context: BaseResult,
     item: SequencerSynchronizerState,
-)
+) extends TopologyResult[SequencerSynchronizerState]
 
 object ListSequencerSynchronizerStateResult {
   def fromProtoV30(
@@ -277,7 +294,7 @@ object ListSequencerSynchronizerStateResult {
 final case class ListPurgeTopologyTransactionResult(
     context: BaseResult,
     item: PurgeTopologyTransaction,
-)
+) extends TopologyResult[PurgeTopologyTransaction]
 
 object ListPurgeTopologyTransactionResult {
   def fromProtoV30(
@@ -291,19 +308,19 @@ object ListPurgeTopologyTransactionResult {
     } yield ListPurgeTopologyTransactionResult(context, item)
 }
 
-final case class ListTopologyFreezeResult(
+final case class ListSynchronizerMigrationAnnouncementResult(
     context: BaseResult,
-    item: TopologyFreeze,
+    item: SynchronizerMigrationAnnouncement,
 )
 
-object ListTopologyFreezeResult {
+object ListSynchronizerMigrationAnnouncementResult {
   def fromProtoV30(
-      value: v30.ListTopologyFreezeResponse.Result
-  ): ParsingResult[ListTopologyFreezeResult] =
+      value: v30.ListSynchronizerMigrationAnnouncementResponse.Result
+  ): ParsingResult[ListSynchronizerMigrationAnnouncementResult] =
     for {
       contextProto <- ProtoConverter.required("context", value.context)
       context <- BaseResult.fromProtoV30(contextProto)
       itemProto <- ProtoConverter.required("item", value.item)
-      item <- TopologyFreeze.fromProtoV30(itemProto)
-    } yield ListTopologyFreezeResult(context, item)
+      item <- SynchronizerMigrationAnnouncement.fromProtoV30(itemProto)
+    } yield ListSynchronizerMigrationAnnouncementResult(context, item)
 }

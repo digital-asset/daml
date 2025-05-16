@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 
 trait UnassignmentProcessorError extends ReassignmentProcessorError
 
@@ -14,7 +14,7 @@ object UnassignmentProcessorError {
 
   final case class UnexpectedSynchronizer(
       reassignmentId: ReassignmentId,
-      receivedOn: SynchronizerId,
+      receivedOn: PhysicalSynchronizerId,
   ) extends UnassignmentProcessorError {
     override def message: String =
       s"Cannot unassign `$reassignmentId`: received reassignment on $receivedOn"

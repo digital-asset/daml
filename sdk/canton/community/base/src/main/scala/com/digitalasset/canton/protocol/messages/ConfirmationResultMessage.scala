@@ -9,7 +9,7 @@ import com.digitalasset.canton.protocol.messages.SignedProtocolMessageContent.Si
 import com.digitalasset.canton.protocol.{RequestId, RootHash, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -29,7 +29,7 @@ import com.google.protobuf.ByteString
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 case class ConfirmationResultMessage private (
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     viewType: ViewType,
     override val requestId: RequestId,
     rootHash: RootHash,
@@ -40,7 +40,7 @@ case class ConfirmationResultMessage private (
     ],
     override val deserializedFrom: Option[ByteString],
 ) extends ProtocolVersionedMemoizedEvidence
-    with HasSynchronizerId
+    with HasPhysicalSynchronizerId
     with HasRequestId
     with SignedProtocolMessageContent
     with HasProtocolVersionedWrapper[ConfirmationResultMessage]
@@ -49,7 +49,7 @@ case class ConfirmationResultMessage private (
   override def signingTimestamp: Option[CantonTimestamp] = Some(requestId.unwrap)
 
   def copy(
-      synchronizerId: SynchronizerId = this.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = this.synchronizerId,
       viewType: ViewType = this.viewType,
       requestId: RequestId = this.requestId,
       rootHash: RootHash = this.rootHash,
@@ -68,7 +68,7 @@ case class ConfirmationResultMessage private (
 
   protected def toProtoV30: v30.ConfirmationResultMessage =
     v30.ConfirmationResultMessage(
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       viewType = viewType.toProtoEnum,
       requestId = requestId.toProtoPrimitive,
       rootHash = rootHash.toProtoPrimitive,
@@ -108,12 +108,12 @@ object ConfirmationResultMessage
   )
 
   def create(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       viewType: ViewType,
       requestId: RequestId,
       rootHash: RootHash,
       verdict: Verdict,
-      protocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
   ): ConfirmationResultMessage =
     ConfirmationResultMessage(synchronizerId, viewType, requestId, rootHash, verdict)(
       protocolVersionRepresentativeFor(protocolVersion),
@@ -132,7 +132,10 @@ object ConfirmationResultMessage
     ) = protoResultMessage
 
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "physical_synchronizer_id",
+      )
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       requestId <- RequestId.fromProtoPrimitive(requestIdP)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)

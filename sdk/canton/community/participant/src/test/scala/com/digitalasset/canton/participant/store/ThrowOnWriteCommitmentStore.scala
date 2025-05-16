@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
@@ -156,11 +156,11 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
     override def peekThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[List[AcsCommitment]] = FutureUnlessShutdown.pure(List.empty)
+    ): FutureUnlessShutdown[List[BufferedAcsCommitment]] = FutureUnlessShutdown.pure(List.empty)
 
     override def peekThroughAtOrAfter(
         timestamp: CantonTimestamp
-    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
+    )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
       FutureUnlessShutdown.pure(List.empty)
 
     def peekOverlapsForCounterParticipant(
@@ -168,7 +168,7 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
         counterParticipant: ParticipantId,
     )(implicit
         traceContext: TraceContext
-    ): FutureUnlessShutdown[Seq[AcsCommitment]] = FutureUnlessShutdown.pure(List.empty)
+    ): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] = FutureUnlessShutdown.pure(List.empty)
 
     override def deleteThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext

@@ -4,9 +4,11 @@
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
 import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
 import com.digitalasset.canton.ledger.participant.state.RoutingSynchronizerState
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -14,7 +16,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.routing.AdmissibleSynchronizersComputation
 import com.digitalasset.canton.participant.sync.SyncServiceInjectionError
 import com.digitalasset.canton.topology.client.TopologySnapshotLoader
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -44,7 +46,7 @@ final class TopologyPackageMapBuilder(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]]] = {
+  ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]]] = {
     def assertSubmittersSubsetOfInformees: FutureUnlessShutdown[Unit] =
       if (submitters.subsetOf(informees)) FutureUnlessShutdown.unit
       else
@@ -76,18 +78,19 @@ final class TopologyPackageMapBuilder(
           }.toMap
         )
 
-    def computeAdmissibleSynchronizers
-        : FutureUnlessShutdown[Map[SynchronizerId, TopologySnapshotLoader]] =
-      prescribedSynchronizerIdO
-        .map(syncId =>
+    def computeAdmissibleSynchronizers(
+        prescribedPSIdO: Option[PhysicalSynchronizerId]
+    ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, TopologySnapshotLoader]] =
+      prescribedPSIdO
+        .map(psid =>
           // Only consider the target synchronizer, if provided
           synchronizerState.topologySnapshots
-            .get(syncId)
-            .map(topologySnapshotLoader => Map(syncId -> topologySnapshotLoader))
+            .get(psid)
+            .map(topologySnapshotLoader => Map(psid -> topologySnapshotLoader))
             .map(FutureUnlessShutdown.pure)
             .getOrElse(
               FutureUnlessShutdown
-                .failed(UnableToQueryTopologySnapshot.Failed(syncId).asGrpcError)
+                .failed(UnableToQueryTopologySnapshot.Failed(psid).asGrpcError)
             )
         )
         .getOrElse(
@@ -117,10 +120,22 @@ final class TopologyPackageMapBuilder(
     for {
       _ <- assertSubmittersSubsetOfInformees
       _ <- validateAnySynchronizerReady
-      admissibleSynchronizersSnapshot <- computeAdmissibleSynchronizers
+      prescribedPSIdO <- prescribedSynchronizerIdO.traverse(id =>
+        synchronizerState
+          .getPhysicalId(id)
+          .map(FutureUnlessShutdown.pure)
+          .getOrElse(
+            FutureUnlessShutdown.failed(
+              InvalidPrescribedSynchronizerId
+                .Generic(id, "cannot resolve to physical synchronizer")
+                .asGrpcError
+            )
+          )
+      )
+      admissibleSynchronizersSnapshot <- computeAdmissibleSynchronizers(prescribedPSIdO)
       // Find on which of a synchronizer's participants are the informees hosted
       filteredTopologyView: Seq[
-        (SynchronizerId, (TopologySnapshotLoader, Map[LfPartyId, Set[ParticipantId]]))
+        (PhysicalSynchronizerId, (TopologySnapshotLoader, Map[LfPartyId, Set[ParticipantId]]))
       ] <-
         admissibleSynchronizersSnapshot.iterator.toList.parTraverse { case (syncId, topoLoader) =>
           topoLoader
@@ -132,7 +147,7 @@ final class TopologyPackageMapBuilder(
       //   Note: a package is vetting-valid if there exists a VettedPackage reference in the VettedPackages topology transaction
       //         for which valid_from < vettingValidityTimestamp <= valid_until OR if the bounds are not defined
       synchronizersParticipantsVettingState: Map[
-        SynchronizerId,
+        PhysicalSynchronizerId,
         Map[ParticipantId, Set[PackageId]],
       ] <-
         filteredTopologyView
@@ -156,9 +171,9 @@ final class TopologyPackageMapBuilder(
   }
 
   private def computeGlobalPackageMap(
-      partyAllocation: View[(SynchronizerId, Map[LfPartyId, Set[ParticipantId]])],
-      participantVettingState: Map[SynchronizerId, Map[ParticipantId, Set[PackageId]]],
-  ): Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]] =
+      partyAllocation: View[(PhysicalSynchronizerId, Map[LfPartyId, Set[ParticipantId]])],
+      participantVettingState: Map[PhysicalSynchronizerId, Map[ParticipantId, Set[PackageId]]],
+  ): Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]] =
     partyAllocation.map { case (synchronizerId, partiesParticipants) =>
       synchronizerId -> partiesParticipants.view.map { case (party, hostingParticipants) =>
         val vettingStateIntersection = hostingParticipants.view

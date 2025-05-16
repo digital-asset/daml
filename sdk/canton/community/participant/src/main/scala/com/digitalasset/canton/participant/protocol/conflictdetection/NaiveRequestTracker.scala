@@ -151,8 +151,8 @@ private[participant] class NaiveRequestTracker(
             RequestFutures(data.activenessResult.futureUS, data.timeoutResult.futureUS)
           }
           .tapOnShutdown {
-            data.activenessResult.shutdown()
-            data.timeoutResult.shutdown()
+            data.activenessResult.shutdown_()
+            data.timeoutResult.shutdown_()
           }
         Right(f)
 
@@ -214,7 +214,7 @@ private[participant] class NaiveRequestTracker(
             logger.debug(
               withRC(rc, s"New result at $resultTimestamp signalled to the request tracker")
             )
-            requestData.timeoutResult outcome NoTimeout
+            requestData.timeoutResult outcome_ NoTimeout
             taskScheduler.scheduleTask(task)
             taskScheduler.addTick(sc, resultTimestamp)
             Either.unit
@@ -359,7 +359,7 @@ private[participant] class NaiveRequestTracker(
         result.map { actRes =>
           logger.trace(withRC(rc, s"Activeness result $actRes"))
         }
-      }.tapOnShutdown(activenessResult.shutdown())
+      }.tapOnShutdown(activenessResult.shutdown_())
 
     override protected def pretty: Pretty[this.type] = prettyOfClass(
       param("timestamp", _.timestamp),
@@ -367,7 +367,7 @@ private[participant] class NaiveRequestTracker(
       param("rc", _.rc),
     )
 
-    override def close(): Unit = activenessResult.shutdown()
+    override def close(): Unit = activenessResult.shutdown_()
   }
 
   /** The action for triggering a timeout.
@@ -410,7 +410,7 @@ private[participant] class NaiveRequestTracker(
            * the promise because this would complete the timeout promise too early, as the conflict detector has
            * not yet released the locks held by the request.
            */
-          timeoutPromise outcome Timeout
+          timeoutPromise outcome_ Timeout
           ()
         }
       } else { FutureUnlessShutdown.unit }
@@ -423,7 +423,7 @@ private[participant] class NaiveRequestTracker(
         param("rc", _.rc),
       )
 
-    override def close(): Unit = timeoutPromise.shutdown()
+    override def close(): Unit = timeoutPromise.shutdown_()
   }
 
   /** The action for finalizing a request by committing and rolling back contract changes.
@@ -476,7 +476,7 @@ private[participant] class NaiveRequestTracker(
                   // Immediately evict the request
                   Success(UnlessShutdown.Outcome(evictRequest(rc)))
                 case Success(UnlessShutdown.AbortedDueToShutdown) =>
-                  finalizationResult.shutdown()
+                  finalizationResult.shutdown_()
                   Success(UnlessShutdown.AbortedDueToShutdown)
                 case Failure(e) =>
                   finalizationResult.tryFailure(e).discard[Boolean]
@@ -485,7 +485,7 @@ private[participant] class NaiveRequestTracker(
 
           case Success(UnlessShutdown.AbortedDueToShutdown) =>
             logger.debug(withRC(rc, s"Aborted finalizing at $commitTime due to shutdown"))
-            finalizationResult.shutdown()
+            finalizationResult.shutdown_()
             FutureUnlessShutdown.abortedDueToShutdown
 
           case Failure(ex) =>
@@ -506,7 +506,7 @@ private[participant] class NaiveRequestTracker(
         param("commitTime", _.commitTime),
       )
 
-    override def close(): Unit = finalizationResult.shutdown()
+    override def close(): Unit = finalizationResult.shutdown_()
   }
 }
 

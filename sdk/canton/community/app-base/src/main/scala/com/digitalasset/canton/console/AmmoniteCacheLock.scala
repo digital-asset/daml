@@ -10,6 +10,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.io.{File, RandomAccessFile}
 import java.nio.channels.OverlappingFileLockException
+import java.nio.file.Files
 import scala.concurrent.blocking
 import scala.util.control.NonFatal
 
@@ -107,8 +108,8 @@ object AmmoniteCacheLock {
                   logger.debug(s"Releasing lock $myLockFile...")
                   lock.release()
                   out.close()
-                  if (!myLockFile.toIO.delete()) {
-                    logger.warn(s"Failed to delete lock file $myLockFile")
+                  if (!Files.deleteIfExists(myLockFile.toNIO)) { // throws when the file cannot be deleted
+                    logger.warn(s"Failed to delete lock file $myLockFile because it did not exist")
                   }
                 } catch {
                   case NonFatal(e) =>

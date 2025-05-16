@@ -129,7 +129,9 @@ trait SequencerOnboardingTombstoneTest
       // fetch synchronizer time to ensure participant1's sequencer client is caught up
       // to just before the long-running transaction held up by mediator1 being down before
       // disconnecting from sequencer1.
-      participant1.testing.fetch_synchronizer_time(initializedSynchronizers(daName).synchronizerId)
+      participant1.testing.fetch_synchronizer_time(
+        initializedSynchronizers(daName).physicalSynchronizerId
+      )
       participant1.synchronizers.disconnect_all()
 
       // Start the mediator so the long-running transaction's accept or reject can be sequenced.

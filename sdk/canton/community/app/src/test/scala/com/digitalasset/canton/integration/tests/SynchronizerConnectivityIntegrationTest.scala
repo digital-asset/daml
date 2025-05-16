@@ -4,9 +4,10 @@
 package com.digitalasset.canton.integration.tests
 
 import com.daml.test.evidence.scalatest.OperabilityTestHelpers
-import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, NonNegativeDuration}
+import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.integration.plugins.{
   UseBftSequencer,
   UseCommunityReferenceBlockSequencer,
@@ -20,16 +21,22 @@ import com.digitalasset.canton.integration.{
   SharedEnvironment,
 }
 import com.digitalasset.canton.logging.SuppressionRule
+import com.digitalasset.canton.participant.sync.SyncServiceError
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceInconsistentConnectivity,
   SyncServiceSynchronizerDisabledUs,
   SyncServiceUnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.NotConnectedToAnySynchronizer
+import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.ConnectionErrors.SynchronizerIsNotAvailable
 import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.InitialOnboardingError
+import com.digitalasset.canton.sequencing.SequencerConnectionValidation.ThresholdActive
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
+import com.digitalasset.canton.sequencing.{SequencerConnections, SubmissionRequestAmplification}
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
+import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
@@ -41,7 +48,7 @@ sealed trait SynchronizerConnectivityIntegrationTest
     with OperabilityTestHelpers {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P3_S1M1_S1M1
+    EnvironmentDefinition.P4_S1M1_S1M1
       .addConfigTransform(
         ConfigTransforms.updateAllSequencerClientConfigs_(
           _.focus(_.maxConnectionRetryDelay).replace(config.NonNegativeFiniteDuration.ofSeconds(1))
@@ -364,6 +371,59 @@ sealed trait SynchronizerConnectivityIntegrationTest
           .isDefined shouldBe true
       }
 
+      def testRegistrationFailsWithSequencerIdMismatch() =
+        loggerFactory.assertThrowsAndLogs[CommandFailure](
+          participant4.synchronizers.register_by_config(
+            SynchronizerConnectionConfig(
+              daName,
+              SequencerConnections.single(
+                sequencer1.sequencerConnection.withSequencerId(sequencerId = sequencer2.id)
+              ),
+            ),
+            validation = ThresholdActive,
+          ),
+          _.shouldBeCantonErrorCode(SyncServiceError.SyncServiceInconsistentConnectivity),
+        )
+
+      def testPartialSequencerIdUpdate() = {
+        // stop sequencer2 so it doesn't respond
+        sequencer2.stop()
+        val seq1Alias = SequencerAlias.tryCreate("sequencer1")
+        val seq2Alias = SequencerAlias.tryCreate("sequencer2")
+        // register 2 sequencer connections with threshold=1
+        participant4.synchronizers.register_by_config(
+          SynchronizerConnectionConfig(
+            daName,
+            SequencerConnections.tryMany(
+              Seq(
+                sequencer1.config.publicApi.clientConfig.asSequencerConnection(seq1Alias),
+                sequencer2.config.publicApi.clientConfig.asSequencerConnection(seq2Alias),
+              ),
+              sequencerTrustThreshold = PositiveInt.one,
+              SubmissionRequestAmplification.NoAmplification,
+            ),
+          ),
+          validation = ThresholdActive,
+        )
+        // now check that the connection for sequencer1 got updated with the sequencer id
+
+        val aliasToConnection =
+          participant4.synchronizers.config(daName).value.sequencerConnections.aliasToConnection
+        aliasToConnection.get(seq1Alias).value.sequencerId shouldBe Some(sequencer1.id)
+        aliasToConnection.get(seq2Alias).value.sequencerId shouldBe None
+      }
+
+      def assertSequencerId(alias: SynchronizerAlias, expectedSequencerId: SequencerId) =
+        participant3.synchronizers
+          .config(alias)
+          .value
+          .sequencerConnections
+          .aliasToConnection
+          .values
+          .loneElement
+          .sequencerId
+          .value shouldBe expectedSequencerId
+
       // No handshake
       testWithoutHandshake()
       testWithoutHandshake() // idempotency
@@ -371,15 +431,25 @@ sealed trait SynchronizerConnectivityIntegrationTest
         sequencer1,
         daName,
       ) // we can connect after registration
+
+      // sequencer id is properly set when connecting after registering without a handshake
+      assertSequencerId(daName, sequencer1.id)
+
       participant3.underlying.value.sync.syncPersistentStateManager
         .get(daId)
         .isDefined shouldBe true
 
       // Handshake
       testWithHandshake()
+      // sequencer id is properly set when registering a connection with a performing a handshake
+      assertSequencerId(acmeName, sequencer2.id)
+
       testWithHandshake() // idempotency
       participant3.synchronizers.connect(sequencer2, acmeName) // we can connect after registration
       participant3.synchronizers.is_connected(acmeName) shouldBe true
+
+      testRegistrationFailsWithSequencerIdMismatch()
+      testPartialSequencerIdUpdate()
     }
   }
 }

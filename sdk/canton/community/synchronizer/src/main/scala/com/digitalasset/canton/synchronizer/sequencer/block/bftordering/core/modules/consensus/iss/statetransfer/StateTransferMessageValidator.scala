@@ -3,12 +3,16 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusSignatureVerifier
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.{
+  ConsensusCertificateValidator,
+  IssConsensusSignatureVerifier,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
@@ -38,7 +42,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
 )(implicit mc: MetricsContext)
     extends NamedLogging {
 
-  private val signatureVerifier = new IssConsensusSignatureVerifier[E]()
+  private val signatureVerifier = new IssConsensusSignatureVerifier[E](metrics)
 
   def validateBlockTransferRequest(
       request: BlockTransferRequest,
@@ -61,7 +65,6 @@ final class StateTransferMessageValidator[E <: Env[E]](
     } yield ()
   }
 
-  // TODO(#23440) validate commit certificates more or less like this everywhere (except for state transfer specifics)
   def validateBlockTransferResponse(
       response: BlockTransferResponse,
       latestLocallyCompletedEpoch: EpochNumber,
@@ -71,14 +74,15 @@ final class StateTransferMessageValidator[E <: Env[E]](
     val nodes = membership.sortedNodes
     val commitCert = response.commitCertificate
     val currentEpoch = latestLocallyCompletedEpoch + 1
-
+    lazy val consensusCertificateValidator = new ConsensusCertificateValidator(
+      membership.orderingTopology.strongQuorum
+    )
     for {
       _ <- Either.cond(
         nodes.contains(from),
         (),
         s"received a block transfer response from '$from' which has not been active, active nodes: $nodes",
       )
-      // TODO(#23440) further validate the pre-prepare
       _ <- Either.cond(
         commitCert.forall(_.prePrepare.message.blockMetadata.epochNumber == currentEpoch),
         (), {
@@ -87,33 +91,13 @@ final class StateTransferMessageValidator[E <: Env[E]](
             s"$unexpectedEpoch, expected $currentEpoch"
         },
       )
-      _ <- Either.cond(
-        commitCert.forall(_.commits.forall(_.message.blockMetadata.epochNumber == currentEpoch)),
-        (),
-        s"received a block transfer response from '$from' containing commit(s) with an unexpected epoch, " +
-          s"expected $currentEpoch",
-      )
-      _ <- Either.cond(
-        commitCert.forall(cert =>
-          cert.commits.view.map(_.message.blockMetadata.blockNumber).distinct.sizeIs == 1
-        ),
-        (),
-        s"received a block transfer response from '$from' containing commit(s) not referring to a single block number",
-      )
-      _ <- Either.cond(
-        commitCert.forall(cert =>
-          cert.commits.sizeIs == cert.commits.view.map(_.from).distinct.size
-        ),
-        (),
-        s"received a block transfer response from '$from' containing commits with duplicate senders",
-      )
-      strongQuorum = membership.orderingTopology.strongQuorum
-      _ <- Either.cond(
-        commitCert.forall(_.commits.sizeIs >= strongQuorum),
-        (),
-        s"received a block transfer response from '$from' with insufficient number of commits " +
-          s"${commitCert.map(_.commits.size)}, the minimal number is $strongQuorum (strong quorum)",
-      )
+      _ <- commitCert
+        .map(cert => consensusCertificateValidator.validateConsensusCertificate(cert))
+        .fold[Either[String, Unit]](Right(())) { validationResult =>
+          validationResult.leftMap(error =>
+            s"received a block transfer response from '$from' containing a commit certificate with the following issue: $error"
+          )
+        }
     } yield ()
   }
 
@@ -173,7 +157,7 @@ final class StateTransferMessageValidator[E <: Env[E]](
         }
     }
 
-  def verifyCommitCertificate(
+  def verifyCommitCertificateSignatures(
       commitCertificate: CommitCertificate,
       from: BftNodeId,
       orderingTopologyInfo: OrderingTopologyInfo[E],

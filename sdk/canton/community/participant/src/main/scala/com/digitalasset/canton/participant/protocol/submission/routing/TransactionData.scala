@@ -17,7 +17,7 @@ import com.digitalasset.canton.protocol.{
   LfVersionedTransaction,
   Stakeholders,
 }
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
@@ -52,7 +52,7 @@ private[routing] final case class TransactionData private (
     readAs: Set[LfPartyId],
     externallySignedSubmissionO: Option[ExternallySignedSubmission],
     inputContractsSynchronizerData: ContractsSynchronizerData,
-    prescribedSynchronizerIdO: Option[SynchronizerId],
+    prescribedSynchronizerIdO: Option[PhysicalSynchronizerId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
   val version: LfLanguageVersion = transaction.version
@@ -69,7 +69,7 @@ private[routing] object TransactionData {
       synchronizerState: RoutingSynchronizerState,
       contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedSynchronizerIdO: Option[SynchronizerId],
+      prescribedSynchronizerIdO: Option[PhysicalSynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -109,7 +109,7 @@ private[routing] object TransactionData {
       synchronizerState: RoutingSynchronizerState,
       inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
-      prescribedSynchronizerO: Option[SynchronizerId],
+      prescribedSynchronizerO: Option[PhysicalSynchronizerId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,

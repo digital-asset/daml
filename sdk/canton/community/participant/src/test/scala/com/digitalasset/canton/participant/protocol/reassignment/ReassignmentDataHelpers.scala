@@ -22,8 +22,8 @@ import java.util.UUID
 
 final case class ReassignmentDataHelpers(
     contract: SerializableContract,
-    sourceSynchronizer: Source[SynchronizerId],
-    targetSynchronizer: Target[SynchronizerId],
+    sourceSynchronizer: Source[PhysicalSynchronizerId],
+    targetSynchronizer: Target[PhysicalSynchronizerId],
     pureCrypto: SynchronizerCryptoPureApi,
     // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
     mediatorCryptoClient: Option[SynchronizerCryptoClient] = None,
@@ -38,8 +38,6 @@ final case class ReassignmentDataHelpers(
 
   private val seedGenerator: SeedGenerator =
     new SeedGenerator(pureCrypto)
-
-  private val protocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion
 
   private def submitterInfo(
       submitter: LfPartyId,
@@ -70,7 +68,6 @@ final case class ReassignmentDataHelpers(
       sourceProtocolVersion = Source(sourceProtocolVersion),
       sourceMediator = sourceMediator,
       targetSynchronizer = targetSynchronizer,
-      targetProtocolVersion = Target(protocolVersion),
       targetTimeProof = targetTimeProof,
     )
 
@@ -100,12 +97,12 @@ object ReassignmentDataHelpers {
 
   def apply(
       contract: SerializableContract,
-      sourceSynchronizer: Source[SynchronizerId],
-      targetSynchronizer: Target[SynchronizerId],
+      sourceSynchronizer: Source[PhysicalSynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       identityFactory: TestingIdentityFactory,
   ) = {
     val pureCrypto = identityFactory
-      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
+      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap.logical)
       .pureCrypto
 
     new ReassignmentDataHelpers(
@@ -115,11 +112,17 @@ object ReassignmentDataHelpers {
       pureCrypto = pureCrypto,
       mediatorCryptoClient = Some(
         identityFactory
-          .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
+          .forOwnerAndSynchronizer(
+            DefaultTestIdentities.mediatorId,
+            sourceSynchronizer.unwrap.logical,
+          )
       ),
       sequencerCryptoClient = Some(
         identityFactory
-          .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, sourceSynchronizer.unwrap)
+          .forOwnerAndSynchronizer(
+            DefaultTestIdentities.sequencerId,
+            sourceSynchronizer.unwrap.logical,
+          )
       ),
     )
   }

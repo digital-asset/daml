@@ -158,9 +158,10 @@ EOF
 build_topology_transaction() {
     local mapping="$1"
     local serial="$2"
+    local operation="${3:-TOPOLOGY_CHANGE_OP_ADD_REPLACE}"
     cat <<EOF
 {
-  "operation": "TOPOLOGY_CHANGE_OP_ADD_REPLACE",
+  "operation": "$operation",
   "serial": $serial,
   "mapping": $mapping
 }

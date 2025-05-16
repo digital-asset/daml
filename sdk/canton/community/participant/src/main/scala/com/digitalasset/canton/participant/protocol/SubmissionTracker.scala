@@ -272,7 +272,7 @@ class SubmissionTrackerImpl private[protocol] (
     val Entry(prevFUS, nextPUS, resultPUS) = tryGetEntry(rootHash, requestId)
 
     // Fail this request
-    resultPUS.outcome(false)
+    resultPUS.outcome_(false)
 
     // Propagate current availability
     nextPUS.completeWithUS(prevFUS.thereafter(_ => cleanup(rootHash, requestId))).discard
@@ -286,7 +286,7 @@ class SubmissionTrackerImpl private[protocol] (
     val Entry(prevFUS, nextPUS, resultPUS) = tryGetEntry(rootHash, requestId)
 
     // No matter what, the slot is no longer available for further requests
-    nextPUS.outcome(false)
+    nextPUS.outcome_(false)
 
     FutureUtil.doNotAwait(
       prevFUS.map { isAvailable =>
@@ -311,7 +311,7 @@ class SubmissionTrackerImpl private[protocol] (
           })
         } else {
           // The slot was already taken -- fail the request
-          resultPUS.outcome(false)
+          resultPUS.outcome_(false)
           cleanup(rootHash, requestId)
         }
       }.unwrap,
@@ -322,8 +322,8 @@ class SubmissionTrackerImpl private[protocol] (
   private def shutdown(): Unit =
     pendingRequests.values.foreach { case RequestList(_, reqMap) =>
       reqMap.values.foreach { case Entry(_, nextPUS, resultPUS) =>
-        nextPUS.shutdown()
-        resultPUS.shutdown()
+        nextPUS.shutdown_()
+        resultPUS.shutdown_()
       }
     }
 

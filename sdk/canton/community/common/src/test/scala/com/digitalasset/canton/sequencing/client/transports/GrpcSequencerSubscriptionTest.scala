@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.option.*
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.v30 as cryptoproto
 import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
@@ -14,7 +15,7 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.sequencer.api.v30 as v30Sequencer
 import com.digitalasset.canton.sequencing.SequencerTestUtils.MockMessageContent
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
@@ -28,9 +29,9 @@ import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Future, Promise}
 
 class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasExecutionContext {
-  private lazy val synchronizerId: SynchronizerId = SynchronizerId(
+  private lazy val synchronizerId: PhysicalSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("da::default")
-  )
+  ).toPhysical
 
   private lazy val emptyEnvelope = v30.Envelope(
     content = MockMessageContent.toByteString,
@@ -42,28 +43,27 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
     .SubscriptionResponse(
       v30
         .SignedContent(
-          Some(
-            v30
-              .SequencedEvent(
-                previousTimestamp = None,
-                timestamp = 0,
-                batch = Some(
-                  v30.CompressedBatch(
-                    algorithm =
-                      v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED,
-                    compressedBatch = ByteStringUtil.compressGzip(
-                      v30.Batch(envelopes = Seq(emptyEnvelope)).toByteString
-                    ),
-                  )
-                ),
-                synchronizerId = synchronizerId.toProtoPrimitive,
-                messageId = None,
-                deliverErrorReason = None,
-                topologyTimestamp = None,
-                trafficReceipt = None,
-              )
-              .toByteString
-          ),
+          v30
+            .SequencedEvent(
+              previousTimestamp = None,
+              timestamp = 0,
+              batch = Some(
+                v30.CompressedBatch(
+                  algorithm =
+                    v30.CompressedBatch.CompressionAlgorithm.COMPRESSION_ALGORITHM_UNSPECIFIED,
+                  compressedBatch = ByteStringUtil.compressGzip(
+                    v30.Batch(envelopes = Seq(emptyEnvelope)).toByteString
+                  ),
+                )
+              ),
+              physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+              messageId = None,
+              deliverErrorReason = None,
+              topologyTimestamp = None,
+              trafficReceipt = None,
+            )
+            .toByteString
+            .some,
           Seq(
             cryptoproto.Signature(
               format = cryptoproto.SignatureFormat.SIGNATURE_FORMAT_RAW,

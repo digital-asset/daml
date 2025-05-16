@@ -34,7 +34,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.InvalidSynchronizer
 import com.digitalasset.canton.topology.{
   ForceFlag,
   ForceFlags,
-  SynchronizerId,
+  PhysicalSynchronizerId,
   TopologyManagerError,
 }
 import monocle.macros.syntax.lens.*
@@ -57,7 +57,7 @@ trait SynchronizerParametersFixture {
       synchronizer: Synchronizer
   ): ConsoleDynamicSynchronizerParameters =
     synchronizer.sequencer.topology.synchronizer_parameters
-      .get_dynamic_synchronizer_parameters(synchronizer.synchronizerId)
+      .get_dynamic_synchronizer_parameters(synchronizer.synchronizerId.logical)
 
   protected def setDynamicSynchronizerParameters(
       synchronizer: Synchronizer,
@@ -65,7 +65,7 @@ trait SynchronizerParametersFixture {
   ): Unit =
     synchronizer.sequencer.topology.synchronizer_parameters
       .propose(
-        synchronizer.synchronizerId,
+        synchronizer.synchronizerId.logical,
         parameters,
         mustFullyAuthorize = true,
       )
@@ -76,7 +76,7 @@ trait SynchronizerParametersFixture {
       update: ConsoleDynamicSynchronizerParameters => ConsoleDynamicSynchronizerParameters,
   ): Unit = synchronizer.sequencer.topology.synchronizer_parameters
     .propose_update(
-      synchronizer.synchronizerId,
+      synchronizer.synchronizerId.logical,
       update,
       mustFullyAuthorize = true,
     )
@@ -89,7 +89,7 @@ object SynchronizerParametersFixture {
   private[dynamicsynchronizerparameters] final case class Synchronizer(
       sequencer: SequencerReference
   ) {
-    val synchronizerId: SynchronizerId = sequencer.synchronizer_id
+    val synchronizerId: PhysicalSynchronizerId = sequencer.synchronizer_id
   }
 }
 
@@ -382,7 +382,7 @@ trait SynchronizerParametersChangeIntegrationTest
           .propose(
             acmeSynchronizer.synchronizerId,
             defaultParameters,
-            store = daSynchronizer.synchronizerId,
+            store = daSynchronizer.synchronizerId.logical,
             // explicitly specifying the desired signing key and force flag to not trigger
             // the error NO_APPROPRIATE_SINGING_KEY_IN_STORE while automatically determining
             // a suitable signing key
@@ -392,7 +392,7 @@ trait SynchronizerParametersChangeIntegrationTest
           ),
         _.shouldBeCommandFailure(
           InvalidSynchronizer,
-          s"Invalid synchronizer ${acmeSynchronizer.synchronizerId}",
+          s"Invalid synchronizer ${acmeSynchronizer.synchronizerId.logical}",
         ),
       )
     }
@@ -502,7 +502,7 @@ trait SynchronizerParametersChangeIntegrationTest
         ConsoleDynamicSynchronizerParameters(
           participant1.topology.synchronizer_parameters
             .list(
-              store = daSynchronizer.synchronizerId
+              store = daSynchronizer.synchronizerId.logical
             )
             .head
             .item

@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature, v30}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -53,13 +55,25 @@ object AvailabilityAck {
       originatingNode = BftNodeId(ack.from)
     } yield AvailabilityAck(originatingNode, sig)
 
-  def hashFor(batchId: BatchId, epoch: EpochNumber, from: BftNodeId): Hash = Hash
-    .build(
-      HashPurpose.BftAvailabilityAck,
-      HashAlgorithm.Sha256,
+  def hashFor(
+      batchId: BatchId,
+      epoch: EpochNumber,
+      from: BftNodeId,
+      metrics: BftOrderingMetrics,
+  )(implicit metricsContext: MetricsContext): Hash =
+    metrics.performance.orderingStageLatency.timer.time(
+      Hash
+        .build(
+          HashPurpose.BftAvailabilityAck,
+          HashAlgorithm.Sha256,
+        )
+        .add(batchId.getCryptographicEvidence)
+        .add(epoch)
+        .add(from)
+        .finish()
+    )(
+      metricsContext.withExtraLabels(
+        metrics.performance.orderingStageLatency.labels.stage.Key -> "availability-hash-batchId"
+      )
     )
-    .add(batchId.getCryptographicEvidence)
-    .add(epoch)
-    .add(from)
-    .finish()
 }

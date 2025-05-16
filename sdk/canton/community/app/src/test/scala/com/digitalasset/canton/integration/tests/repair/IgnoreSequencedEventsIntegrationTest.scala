@@ -307,7 +307,7 @@ trait IgnoreSequencedEventsIntegrationTest extends CommunityIntegrationTest with
         val tamperedEvent = DeliverError.create(
           None,
           lastStoredEvent.timestamp,
-          daId,
+          daId.toPhysical,
           MessageId.tryCreate("schnitzel"),
           SequencerErrors.SubmissionRequestRefused(""),
           testedProtocolVersion,

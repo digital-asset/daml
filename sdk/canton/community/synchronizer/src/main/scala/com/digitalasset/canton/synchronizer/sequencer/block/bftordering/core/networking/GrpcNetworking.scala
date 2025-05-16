@@ -35,7 +35,7 @@ import com.digitalasset.canton.synchronizer.sequencing.sequencer.bftordering.v30
   PingRequest,
 }
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.DelayUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -584,8 +584,8 @@ object GrpcNetworking {
   }
 
   private[bftordering] final case class AuthenticationInitialState(
-      protocolVersion: ProtocolVersion,
-      synchronizerId: SynchronizerId,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
+      synchronizerId: PhysicalSynchronizerId,
       sequencerId: SequencerId,
       authenticationServices: AuthenticationServices,
       authTokenConfig: AuthenticationTokenManagerConfig,

@@ -37,7 +37,7 @@ message RootHashMessage {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StableProtoVersion";
 
   bytes root_hash = 1;
-  string synchronizer_id = 2;
+  string physical_synchronizer_id = 2;
   ViewType view_type = 3;
   int64 submission_topology_time = 4; // in microseconds of UTC time since Unix epoch
   bytes payload = 5; // optional
@@ -119,7 +119,7 @@ message CommonMetadata {
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   // this used to contain a confirmation policy (Signatory or VIP) that no longer exists
   reserved 2;
-  string synchronizer_id = 3;
+  string physical_synchronizer_id = 3;
   string uuid = 4;
   int32 mediator_group = 5;
 }
@@ -149,7 +149,7 @@ message EncryptedViewMessage {
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 3; // optional
   bytes view_hash = 4;
   repeated com.digitalasset.canton.crypto.v30.AsymmetricEncrypted session_key_lookup = 5;
-  string synchronizer_id = 6;
+  string physical_synchronizer_id = 6;
   v30.ViewType view_type = 7;
 }
 

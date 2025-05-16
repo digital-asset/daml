@@ -108,7 +108,7 @@ final class MediatorRuntime(
 object MediatorRuntimeFactory {
   def create(
       mediatorId: MediatorId,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       storage: Storage,
       sequencerCounterTrackerStore: SequencerCounterTrackerStore,
       sequencedEventStore: SequencedEventStore,
@@ -120,7 +120,7 @@ object MediatorRuntimeFactory {
       synchronizerOutboxFactory: SynchronizerOutboxFactory,
       timeTracker: SynchronizerTimeTracker,
       nodeParameters: CantonNodeParameters,
-      protocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
       clock: Clock,
       metrics: MediatorMetrics,
       config: MediatorConfig,
