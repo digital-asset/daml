@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion}
 import com.digitalasset.daml.lf.script.IdeLedger
-import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{Node, SubmittedTransaction, VersionedTransaction, CommittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.digitalasset.daml.lf.command._
@@ -279,7 +279,7 @@ class LargeTransactionTest(majorLanguageVersion: LanguageMajorVersion)
     def enrich(tx: SubmittedTransaction): CommittedTransaction = {
       val enricher = new Enricher(engine, requireContractIdSuffix = false)
       val suffix = Bytes.fromByteArray(Array(0, 0))
-      val suffixedTx = data.assertRight(tx.suffixCid(_ => suffix, _ => suffix))
+      val suffixedTx = data.assertRight(tx.suffixCid(_ => suffix))
       def consume[V](res: Result[V]): V =
         res match {
           case ResultDone(x) => x

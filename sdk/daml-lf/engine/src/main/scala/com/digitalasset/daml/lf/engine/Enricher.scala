@@ -202,7 +202,7 @@ final class Enricher(
   val preprocessor = new preprocessing.Preprocessor(
     compiledPackages,
     loadPackage,
-    requireContractIdSuffix = requireContractIdSuffix,
+    requireV1ContractIdSuffix = requireContractIdSuffix,
   )
 
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =

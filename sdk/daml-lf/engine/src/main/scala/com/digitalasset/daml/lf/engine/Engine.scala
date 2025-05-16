@@ -449,7 +449,7 @@ class Engine(val config: EngineConfig) {
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
           deps(tx).flatMap { deps =>
-            if (config.paranoiacMode) {
+            if (config.paranoid) {
               (for {
                 // check the transaction can be serialized and deserialized
                 encoded <- TransactionCoder
