@@ -38,7 +38,7 @@ import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine as LfEngine
-import com.digitalasset.daml.lf.engine.{Engine, ValueEnricher}
+import com.digitalasset.daml.lf.engine.{Engine, Enricher}
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.VersionedValue
@@ -86,7 +86,7 @@ final class LfValueTranslation(
 ) extends LfValueSerialization
     with NamedLogging {
 
-  private val enricherO = engineO.map(new ValueEnricher(_))
+  private val enricherO = engineO.map(new Enricher(_))
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 
@@ -214,7 +214,7 @@ final class LfValueTranslation(
   private def decompressAndDeserialize(algorithm: Compression.Algorithm, value: Array[Byte]) =
     ValueSerializer.deserializeValue(algorithm.decompress(new ByteArrayInputStream(value)))
 
-  def enricher: ValueEnricher =
+  def enricher: Enricher =
     enricherO.getOrElse(
       sys.error(
         "LfValueTranslation used to deserialize values in verbose mode without an Engine"

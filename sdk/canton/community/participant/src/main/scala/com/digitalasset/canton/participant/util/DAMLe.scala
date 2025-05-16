@@ -28,7 +28,7 @@ import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPar
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.engine.{Enricher => LfEnricher, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -159,7 +159,7 @@ class DAMLe(
   private lazy val engineForEnrichment = new Engine(
     engine.config.copy(requireSuffixedGlobalContractId = false)
   )
-  private lazy val valueEnricher = new ValueEnricher(engineForEnrichment)
+  private lazy val valueEnricher = new LfEnricher(engineForEnrichment)
 
   /** Enrich transaction values by re-hydrating record labels and identifiers
     */

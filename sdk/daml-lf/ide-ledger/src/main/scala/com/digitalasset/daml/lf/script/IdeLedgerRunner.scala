@@ -6,7 +6,7 @@ package script
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, ValueEnricher}
+import com.digitalasset.daml.lf.engine.{Engine, Result, ResultDone, ResultError, Enricher => LfEnricher}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
 import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LookupError}
 import com.digitalasset.daml.lf.transaction.{
@@ -257,13 +257,13 @@ private[lf] object IdeLedgerRunner {
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }
-    val enricher = new ValueEnricher(
+    val enricher = new  LfEnricher(
       compiledPackages = compiledPackages,
-      translateValue = translateValue,
       loadPackage = loadPackage,
       addTypeInfo = true,
-      addFieldName = true,
+      addFieldNames = true,
       addTrailingNoneFields = false,
+      requireContractIdSuffix = true,
     )
     def consume[V](res: Result[V]): V =
       res match {

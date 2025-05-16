@@ -103,6 +103,7 @@ class Engine(val config: EngineConfig) {
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
+      loadPackage = loadPackage,
       requireContractIdSuffix = config.requireSuffixedGlobalContractId,
     )
 
@@ -425,8 +426,14 @@ class Engine(val config: EngineConfig) {
     }
   }
 
-  private lazy val enricher =
-    new ValueEnricher(this, addTypeInfo = true, addFieldName = true, addTrailingNoneFields = false)
+  private lazy val enricher = new Enricher(
+      compiledPackages,
+      loadPackage,
+      addTypeInfo = true,
+      addFieldNames = true,
+      addTrailingNoneFields = true,
+      requireContractIdSuffix = false,
+    )
 
   private[engine] def interpretLoop(
       machine: UpdateMachine,
@@ -463,11 +470,14 @@ class Engine(val config: EngineConfig) {
                   .consume()
                   .left
                   .map("transaction enrichment fails: " + _)
-                poor = ValueEnricher.impoverish(rich)
+                poor = Enricher.impoverish(rich)
                 _ <- Either.cond(
                   tx == poor,
                   (),
-                  "transaction enrichment/impoverishment is not idempotent",
+                  {
+                    remy.log(tx -> poor)
+                    "transaction enrichment/impoverishment is not idempotent"
+                  },
                 )
               } yield ()).fold(err => throw new java.lang.AssertionError(err), identity)
             }

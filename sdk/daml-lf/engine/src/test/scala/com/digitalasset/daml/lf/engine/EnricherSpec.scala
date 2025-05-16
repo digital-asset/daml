@@ -27,9 +27,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
+class EnricherSpecV2 extends EnricherSpec(LanguageMajorVersion.V2)
 
-class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
+class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks {
@@ -42,7 +42,8 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
 
-  private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
+  val nonEmptySuffix = Bytes.assertFromString("00")
+  private def cid(key: String): ContractId = ContractId.V1.assertBuild(Hash.hashPrivateKey(key), nonEmptySuffix)
 
   val pkg =
     p"""metadata ( 'pkg' : '1.0.0' )
@@ -107,7 +108,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     .left
     .foreach(err => sys.error(err.message))
 
-  private[this] val enricher = new ValueEnricher(engine)
+  private[this] val enricher = new Enricher(engine)
 
   "enrichValue" should {
 
@@ -310,10 +311,10 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "enricher can keep field name without type annotation" in {
-      val enrich = new ValueEnricher(
+      val enrich = new Enricher(
         engine,
         addTypeInfo = false,
-        addFieldName = true,
+        addFieldNames = true,
         addTrailingNoneFields = false,
       )
       import enrich.enrichValue

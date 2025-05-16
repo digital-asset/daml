@@ -1681,8 +1681,9 @@ object UpgradeTest {
   val packageMap: Map[PackageId, (PackageName, PackageVersion)] =
     lookupPackage.view.mapValues(pkg => (pkg.pkgName, pkg.metadata.version)).toMap
 
-  val engineConfig: EngineConfig = EngineConfig(allowedLanguageVersions =
-    language.LanguageVersion.AllVersions(LanguageMajorVersion.V2)
+  val engineConfig: EngineConfig = EngineConfig(
+    allowedLanguageVersions = language.LanguageVersion.AllVersions(LanguageMajorVersion.V2),
+      paranoid: Boolean = false,
   )
 
   val compiledPackages: PureCompiledPackages =

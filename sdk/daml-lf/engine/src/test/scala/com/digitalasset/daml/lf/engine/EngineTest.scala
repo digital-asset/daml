@@ -675,16 +675,17 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
     val seed = hash("exercise-by-key")
     val now = Time.Timestamp.now()
 
-    "create a Exercise node with flag byKey without Fetch REMY" in {
+    "create a Exercise node with flag byKey without Fetch" in {
 
       val tmplId = Identifier(basicTestsPkgId, "BasicTests:ExerciseByKey")
+      val sumToKId = Identifier(basicTestsPkgId, "BasicTests:SumTok.SumTok")
       val cmds = ImmArray(
         speedy.Command.CreateAndExercise(
           templateId = tmplId,
           createArgument =
             SRecord(tmplId, ImmArray(Ref.Name.assertFromString("p")), ArrayList(SParty(alice))),
           choiceId = ChoiceName.assertFromString("Exercise"),
-          choiceArgument = SUnit,
+          choiceArgument = SRecord(sumToKId, ImmArray.empty, ArrayList.empty),
         )
       )
       val submitters = Set(alice)
@@ -2633,7 +2634,7 @@ class EngineTestHelpers(
   val suffixStrictEngine: Engine = newEngine(requireCidSuffixes = true)
   val suffixLenientEngine = newEngine()
   val compiledPackages = ConcurrentCompiledPackages(suffixLenientEngine.config.getCompilerConfig)
-  val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+  val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))

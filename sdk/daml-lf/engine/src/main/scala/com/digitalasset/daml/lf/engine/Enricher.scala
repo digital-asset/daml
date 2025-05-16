@@ -4,28 +4,17 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef, QualifiedName}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  GlobalKey,
-  GlobalKeyWithMaintainers,
-  IncompleteTransaction,
-  Node,
-  NodeId,
-  Transaction,
-  Versioned,
-  VersionedTransaction,
-}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKey, GlobalKeyWithMaintainers, IncompleteTransaction, Node, NodeId, Transaction, Versioned, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.VersionedValue
-import com.digitalasset.daml.lf.speedy.SValue
 
 // Provide methods to add missing information in values (and value containers):
 // - type constructor in records, variants, and enums
 // - Records' field names
 
-object ValueEnricher {
+object Enricher {
 
   def impoverish(value: Value): Value = {
     def go(value0: Value, nesting: Int): Value =
@@ -34,11 +23,14 @@ object ValueEnricher {
       } else {
         val newNesting = nesting + 1
         value0 match {
+          case Value.ValueEnum(_, cons) =>
+            Value.ValueEnum(None, cons)
           case _: Value.ValueCidlessLeaf | _: Value.ValueContractId => value0
           case Value.ValueRecord(_, fields) =>
+            val n = fields.reverseIterator.dropWhile(_._2 == Value.ValueNone).size
             Value.ValueRecord(
               tycon = None,
-              fields = fields.map { case (_, v) => None -> go(v, newNesting) },
+              fields = fields.iterator.take(n).map { case (_, v) => None -> go(v, newNesting) }.to(ImmArray),
             )
           case Value.ValueVariant(_, variant, value) =>
             Value.ValueVariant(
@@ -165,44 +157,51 @@ object ValueEnricher {
   }
 }
 
-final class ValueEnricher(
+final class Enricher (
     compiledPackages: CompiledPackages,
-    translateValue: (Ast.Type, Value) => Result[SValue],
     loadPackage: (PackageId, language.Reference) => Result[Unit],
     addTypeInfo: Boolean,
-    addFieldName: Boolean,
+    addFieldNames: Boolean,
     addTrailingNoneFields: Boolean,
+    requireContractIdSuffix: Boolean,
 ) {
 
   def this(
-      engine: Engine,
-      addTypeInfo: Boolean = true,
-      addFieldName: Boolean = true,
-      addTrailingNoneFields: Boolean = true,
-  ) =
+            engine: Engine,
+            addTypeInfo: Boolean = true,
+            addFieldNames: Boolean = true,
+            addTrailingNoneFields: Boolean = true,
+            requireContractIdSuffix: Boolean = true
+          ) =
     this(
       engine.compiledPackages(),
-      engine.preprocessor.translateValue,
       engine.loadPackage,
       addTypeInfo = addTypeInfo,
-      addFieldName = addFieldName,
+      addFieldNames = addFieldNames,
       addTrailingNoneFields = addTrailingNoneFields,
+      requireContractIdSuffix: Boolean,
     )
 
+  val preprocessor = new preprocessing.Preprocessor(
+    compiledPackages,
+    loadPackage,
+    requireContractIdSuffix = requireContractIdSuffix,
+  )
+
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
-    translateValue(typ, value)
+    preprocessor.translateValue(typ, value)
       .map(
         _.toValue(
           keepTypeInfo = addTypeInfo,
-          keepFieldName = addFieldName,
+          keepFieldName = addFieldNames,
           keepTrailingNoneFields = addTrailingNoneFields,
         )
       )
 
   def enrichVersionedValue(
       typ: Ast.Type,
-      versionedValue: VersionedValue,
-  ): Result[VersionedValue] =
+      versionedValue: Value.VersionedValue,
+  ): Result[Value.VersionedValue] =
     for {
       value <- enrichValue(typ, versionedValue.unversioned)
     } yield versionedValue.map(_ => value)
@@ -240,8 +239,8 @@ final class ValueEnricher(
 
   def enrichVersionedView(
       interfaceId: Identifier,
-      viewValue: VersionedValue,
-  ): Result[VersionedValue] = for {
+      viewValue: Value.VersionedValue,
+  ): Result[Value.VersionedValue] = for {
     view <- enrichView(interfaceId, viewValue.unversioned)
   } yield viewValue.copy(unversioned = view)
 
@@ -250,7 +249,7 @@ final class ValueEnricher(
 
   private[this] def pkgInterface = compiledPackages.pkgInterface
 
-  private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
+  private[this] def handleLookup[X](lookup: => Either[LookupError, X]): Result[X] = lookup match {
     case Right(value) => ResultDone(value)
     case Left(LookupError.MissingPackage(PackageRef.Id(pkgId), context)) =>
       loadPackage(pkgId, context)
