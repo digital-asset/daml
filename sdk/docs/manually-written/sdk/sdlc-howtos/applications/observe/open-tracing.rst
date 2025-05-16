@@ -51,9 +51,28 @@ Add Project Dependencies
 
 To use the OpenTelemetry libraries, add the following **Maven** dependencies to your project's ``pom.xml``:
 
-.. remoteliteralinclude:: https://raw.githubusercontent.com/digital-asset/ex-java-bindings-with-opentelemetry/master/pom.xml
-   :language: xml
-   :lines: 33-52
+.. code-block:: java
+
+   <dependency>
+       <groupId>io.opentelemetry</groupId>
+       <artifactId>opentelemetry-api</artifactId>
+       <version>1.29.0</version>
+   </dependency>
+   <dependency>
+       <groupId>io.opentelemetry</groupId>
+       <artifactId>opentelemetry-exporter-jaeger</artifactId>
+       <version>1.29.0</version>
+   </dependency>
+   <dependency>
+       <groupId>io.opentelemetry</groupId>
+       <artifactId>opentelemetry-sdk</artifactId>
+       <version>1.29.0</version>
+   </dependency>
+   <dependency>
+       <groupId>io.opentelemetry.instrumentation</groupId>
+       <artifactId>opentelemetry-grpc-1.6</artifactId>
+       <version>1.29.0-alpha</version>
+   </dependency>
 
 .. note::
     Replace the version number in each dependency with the version you want to use. To find available versions, check the `Maven Central Repository <https://search.maven.org/artifact/io.opentelemetry/opentelemetry-api>`__.
@@ -74,9 +93,14 @@ The example wraps the necessary initialization steps in the constructor of the O
 
 The GRPCTelemetry controller can construct client call interceptors that need to be mounted on top of the **Netty** channels used in the gRPC communication. The example provides a useful helper method called ``withClientInterceptor`` that injects an interceptor at the channel builder level:
 
-.. remoteliteralinclude:: https://raw.githubusercontent.com/digital-asset/ex-java-bindings-with-opentelemetry/master/src/main/java/examples/pingpong/codegen/PingPongMain.java
-   :language: java
-   :lines: 51-56
+.. code-block:: java
+
+   ManagedChannel channel = openTelemetry.withClientInterceptor(
+       ManagedChannelBuilder
+           .forAddress(host, port)
+           .usePlaintext()
+       )
+       .build();
 
 And with that, you are all set to start generating own spans, reporting them to the **Jaeger** server and also propagating them transparently to the **Ledger API**.
 
@@ -85,9 +109,16 @@ Start New Spans
 
 Before making a gRPC call, you must generate a new span to cover the multi-component interaction that is about to be initiated. The example provides a useful combinator called ``runInNewSpan`` that wraps the execution of an arbitrary function in a newly generated span:
 
-.. remoteliteralinclude:: https://raw.githubusercontent.com/digital-asset/ex-java-bindings-with-opentelemetry/master/src/main/java/examples/pingpong/codegen/OpenTelemetryUtil.java
-   :language: java
-   :lines: 153-160
+.. code-block:: java
+
+   public <R> R runInNewSpan(String spanName, Supplier<R> body) {
+       Span span = tracer.spanBuilder(spanName).startSpan();
+       try(Scope ignored = span.makeCurrent()) {
+           return body.get();
+       } finally {
+           span.end();
+       }
+   }
 
 You can use it on a command submission as follows:
 

@@ -211,16 +211,16 @@ How do stakeholders disclose contracts to submitters?
 -----------------------------------------------------
 
 The disclosed contract's details can be fetched by the contract's stakeholder from the contract's
-associated :ref:`CreatedEvent <com.daml.ledger.api.v1.CreatedEvent>`,
+associated :brokenref:`CreatedEvent <com.daml.ledger.api.v1.CreatedEvent>`,
 which can be read from the Ledger API via the active contracts and transactions queries
 (see :ref:`Reading from the ledger <reading-from-the-ledger>`).
 
 The stakeholder can then share the disclosed contract details to the submitter off-ledger (outside of Daml)
-by conventional means, such as HTTPS, SFTP, or e-mail. A :ref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>` can
+by conventional means, such as HTTPS, SFTP, or e-mail. A :brokenref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>` can
 be constructed from the fields of the same name from the original contract's ``CreatedEvent``.
 
 .. note::
-  The ``created_event_blob`` field in ``CreatedEvent`` (used to construct the :ref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>`)
+  The ``created_event_blob`` field in ``CreatedEvent`` (used to construct the :brokenref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>`)
   is populated **only** on demand for ``GetTransactions``, ``GetTransactionTrees``, and ``GetActiveContracts`` streams.
   To learn more, see :ref:`configuring transaction filters <transaction-filter>`.
 
@@ -229,8 +229,8 @@ be constructed from the fields of the same name from the original contract's ``C
 Attaching a disclosed contract to a command submission
 ------------------------------------------------------
 
-A disclosed contract can be attached as part of the ``Command``'s :ref:`disclosed_contracts <com.daml.ledger.api.v1.Commands.disclosed_contracts>`
-and requires the following fields (see :ref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>` for content details) to be populated from
+A disclosed contract can be attached as part of the ``Command``'s :brokenref:`disclosed_contracts <com.daml.ledger.api.v1.Commands.disclosed_contracts>`
+and requires the following fields (see :brokenref:`DisclosedContract <com.daml.ledger.api.v1.DisclosedContract>` for content details) to be populated from
 the original `CreatedEvent` (see above):
 
 - **template_id** - The contract's template id.

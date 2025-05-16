@@ -38,6 +38,17 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/verify-docs-synchronized.sh
 
+- job: validate_docs_sphinx_build
+  pool:
+    name: 'ubuntu_20_04'
+    demands: assignment -equals default
+  steps:
+    - bash: |
+        set -euo pipefail
+        cd sdk
+        eval "$(./dev-env/bin/dade-assist)"
+        ./ci/docs-sphinx-build.sh
+
 - job: Linux
   dependsOn:
     - check_for_release

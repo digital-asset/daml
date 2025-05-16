@@ -35,7 +35,7 @@ point it against an actual ledger. This means that you can use it for
 application scripting, to test automation logic and also for
 :ref:`ledger initialization <script-ledger-initialization>`.
 
-You can also use Daml Script interactively using :doc:`/daml-repl/index`.
+You can also use Daml Script interactively using :brokenref:`/daml-repl/index`.
 
 .. hint::
 
@@ -232,7 +232,7 @@ but for more complex use-cases you may want to vary the inputs of a script and
 inspect its outputs, ideally without having to recompile it. To that end, the
 ``daml script`` command supports the flags ``--input-file`` and
 ``--output-file``. Both flags take a filename, and said file will be
-read/written as JSON, following the :doc:`/json-api/lf-value-specification`.
+read/written as JSON, following the :externalref:`daml-lf-json-encoding`.
 
 The ``--output-file`` option instructs ``daml script`` to write the
 result of the given ``--script-name`` to the given filename (creating
@@ -433,7 +433,7 @@ Run Daml Script Against the HTTP JSON API
 =========================================
 
 In some cases, you only have access to the
-:doc:`HTTP JSON API </json-api/index>` but not to the gRPC of a ledger, e.g., on
+:brokenref:`HTTP JSON API <json-api>` but not to the gRPC of a ledger, e.g., on
 `Daml Hub <https://hub.daml.com>`_. For this use case, Daml
 script can be run against the JSON API. Note that if you do have
 access to the gRPC Ledger API, running Daml script against the JSON API does

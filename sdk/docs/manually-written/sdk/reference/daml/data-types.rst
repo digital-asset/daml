@@ -281,7 +281,7 @@ An example is the built-in data type ``Bool``. This is defined by ``data Bool = 
 Please note that all types which you intend to use as template or choice arguments need to derive at least from `(Eq, Show)`.
 
 A very useful sum type is ``data Optional a = None | Some a deriving (Eq,Show)``. It is part of
-the :doc:`Daml standard library </daml/stdlib/index>`.
+the :ref:`Daml standard library <stdlib-reference-base>`.
 
 ``Optional`` captures the concept of a box, which can be empty or contain a value of type ``a``.
 
@@ -315,4 +315,4 @@ As an example, the following is an expression for a ``Text``:
 
 Notice the use of nested pattern matching above.
 
-.. note:: An underscore was used in place of a variable name. The reason for this is that :doc:`Daml Studio <../daml-studio>` produces a warning for all variables that are not being used. This is useful in detecting unused variables. You can suppress the warning by naming the variable with an initial underscore.
+.. note:: An underscore was used in place of a variable name. The reason for this is that :ref:`Daml Studio <write-daml-studio>` produces a warning for all variables that are not being used. This is useful in detecting unused variables. You can suppress the warning by naming the variable with an initial underscore.

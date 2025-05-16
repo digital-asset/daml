@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _install-the-sdk:
+
 Install the SDK
 ###############
 
@@ -30,7 +32,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - Capability
      - Enterprise
      - Open Source
-   * - :doc:`Sub-Transaction Privacy </concepts/ledger-model/ledger-privacy>`
+   * - :ref:`Sub-Transaction Privacy <da-model-privacy>`
      - Yes
      - Yes
    * - `Transaction Processing <https://docs.daml.com/canton/architecture/overview.html#node-scaling>`_
@@ -63,10 +65,10 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - Fabric driver
      - Yes
      - No
-   * - :doc:`Profiler </tools/profiler>`
+   * - :ref:`Profiler <measure-daml-profiler>`
      - Yes
      - No
-   * - :doc:`Non-repudiation Middleware </tools/non-repudiation>`
+   * - :brokenref:`Non-repudiation Middleware </tools/non-repudiation>`
      - Yes (early access)
      - No
 
@@ -139,9 +141,9 @@ If you want to verify the SDK download for security purposes before installing, 
 Next Steps
 **********
 
-- Follow the :doc:`getting started guide </getting-started/index>`.
+- Follow the :brokenref:`getting started guide </getting-started/index>`.
 - Use ``daml --help`` to see all the commands that the Daml assistant (``daml``) provides.
-- If you run into any other problems, you can use the :doc:`support page </support/support>` to get in touch with us.
+- If you run into any other problems, you can use the :ref:`support page <get-help>` to get in touch with us.
 
 
 

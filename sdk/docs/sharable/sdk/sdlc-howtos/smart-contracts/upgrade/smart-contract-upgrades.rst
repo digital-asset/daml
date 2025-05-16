@@ -20,7 +20,7 @@ updated on Canton transparently, provided some guidelines in making the
 changes are followed. For example, you can fix an application bug by uploading
 the DAR of the fixed package. This feature requires the minimum versions of LF
 1.17 and Canton Protocol version 7. This section provides an overview of
-the SCU feature, while :ref:`The Smart Contract Upgrade Model in Depth
+the SCU feature, while :brokenref:`The Smart Contract Upgrade Model in Depth
 <upgrade-model-reference>` is a concise, technical description of the feature.
 
 Smart Contract Upgrade (SCU) is a feature for Daml
@@ -929,7 +929,7 @@ This operation is also available via the Canton Admin API and Console:
 Upgrading and Package Vetting
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Upgradable packages are also subject to :ref:`package vetting
+Upgradable packages are also subject to :externalref:`package vetting
 restrictions <package_vetting>`:
 in to be able to use a package in Daml transactions with smart
 contract upgrading, it must be vetted by all participants informed about
@@ -1469,7 +1469,7 @@ Dependencies
 
 Package authors may upgrade the dependencies of a package as well as the
 package itself. A new version of a package may add new dependencies, and
-must have all the (non-:ref:`utility-package <upgrades-utility-package>`)
+must have all the (non-:brokenref:`utility-package <upgrades-utility-package>`)
 dependencies of the old version. If these dependencies are used in ways that are
 checked for upgrades, each existing dependency must be either
 unchanged from the old DAR or an upgrade of its previous version.
@@ -1760,7 +1760,7 @@ There are two ways to work around this:
   - restart the participant after each rebuild
   - change the version name of the package before each rebuild
 
-:ref:`Environment variable interpolation <environment-variable-interpolation>`
+:brokenref:`Environment variable interpolation <environment-variable-interpolation>`
 in the Daml Assistant can help with the latter. In the ``daml.yaml`` file of each
 of your packages, append an environment variable to the name of the package:
 
@@ -1798,7 +1798,7 @@ The Upgrade Model in Depth - Reference
 --------------------------------------
 
 You can find the in-depth upgrading model, which can be used as a reference
-for valid upgrades, :ref:`here <upgrade-model-reference>`.
+for valid upgrades, :brokenref:`here <upgrade-model-reference>`.
 
 Package Selection in the Ledger API
 ===================================
@@ -1839,13 +1839,13 @@ The package preference is needed at each command submission time and is assemble
   version is used.
 
 - The package-id selection preference list specified in the submitted command's
-  :ref:`package_id_selection_preference <com.daml.ledger.api.v1.Commands.package_id_selection_preference>` in a command submission.
+  :brokenref:`package_id_selection_preference <com.daml.ledger.api.v1.Commands.package_id_selection_preference>` in a command submission.
   This is package-id resolution list explicitly provided by the client to
   override the default package preference mentioned above.
 
    - See :ref:`here <daml-script-package-preference>` for how to provide this in Daml-Script
 
-   -  **Note:** The :ref:`package_id_selection_preference <com.daml.ledger.api.v1.Commands.package_id_selection_preference>`
+   -  **Note:** The :brokenref:`package_id_selection_preference <com.daml.ledger.api.v1.Commands.package_id_selection_preference>`
       must not lead to ambiguous resolutions for package-names,
       meaning that it must not contain two package-ids pointing to
       packages with the same package-name, as otherwise the submission will fail with
@@ -1867,7 +1867,7 @@ Dynamic package resolution can happen in two cases during command submission:
 
 -  For command submissions that use a `by-package-name template ID`
    in the command’s templateId field (e.g. in a
-   create command :ref:`here <com.daml.ledger.api.v1.CreateCommand>`)
+   create command :brokenref:`here <com.daml.ledger.api.v1.CreateCommand>`)
 
 -  For command submissions whose Daml interpretation requires the execution of
    interface choices or fetch-by-interface actions.
@@ -1878,10 +1878,10 @@ selecting the target implementation package for these interface actions.
 Dynamic Package Resolution in Ledger API Queries
 ------------------------------------------------
 
-When subscribing for :ref:`transaction <transaction-trees>`
+When subscribing for :brokenref:`transaction <transaction-trees>`
 or :ref:`active contract streams <active-contract-service>`,
 users can now use the `by-package-name template ID` format
-in the :ref:`template-id request filter field <com.daml.ledger.api.v1.TemplateFilter.template_id>`.
+in the :brokenref:`template-id request filter field <com.daml.ledger.api.v1.TemplateFilter.template_id>`.
 to specify that they’re interested in fetching events for all templates
 pertaining to the specified package-name. This template selection set is
 dynamic and it widens with each uploaded template/package.
@@ -1922,7 +1922,7 @@ Migrating to SCU
 SCU is only supported on LF1.17, which in turn is only supported on
 Canton Protocol Version 7. Existing deployed contracts
 require migration and redeployment to use this feature.
-See :ref:`here <upgrade_to_2.10>` for the migration guide to 2.10 and Protocol Version 7
+See :brokenref:`here <upgrade_to_2.10>` for the migration guide to 2.10 and Protocol Version 7
 
 First you must migrate your Daml model to be compatible with
 upgrades; see `Best Practices <#best-practices>`__ for what to
@@ -1943,7 +1943,7 @@ packages.
 
 Once you have your new DARs, you need to upgrade your Canton and
 protocol version together, since 2.10 introduces a new protocol version.
-The steps to achieve this are given in the :ref:`Canton Upgrading
+The steps to achieve this are given in the :brokenref:`Canton Upgrading
 manual <one_step_migration>`.
 
 Finally, you can migrate your live data from your previous DARs to the
@@ -2454,7 +2454,7 @@ cannot be fully removed (as with any package), and may not be uploadable to the
 ledger in future versions (Daml 3). More information about this limitation :ref:`here <upgrade-dont-upload-daml-script>`.
 
 Depending on multiple versions of the same package does however face ambiguity issues with
-imports. You can resolve these issues using :ref:`module prefixes <module_prefixes>`:
+imports. You can resolve these issues using :brokenref:`module prefixes <module_prefixes>`:
 
 .. code:: yaml
 

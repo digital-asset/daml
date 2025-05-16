@@ -14,6 +14,6 @@ This introduction is structured such that each section presents a new self-conta
 
 Prerequisites:
 
-- You have installed the :doc:`Daml SDK </getting-started/installation>`
+- You have installed the :brokenref:`Daml SDK </getting-started/installation>`
 
 Next: :doc:`1_Contracts`.

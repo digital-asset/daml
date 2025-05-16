@@ -86,3 +86,5 @@ out
 
 /.tmp-pg/
 /.canton
+
+docs/build/

@@ -191,6 +191,9 @@ in rec {
     openssl = pkgs.openssl.bin;
     tar = bazel_dependencies.gnutar;
 
+    # Sphinx
+    sphinx-build = pkgs.sphinx;
+
     semver = pkgs.semver-tool;
 
     undmg = pkgs.undmg;

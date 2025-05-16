@@ -9,10 +9,10 @@ This page gets you started with creating custom bindings for a Daml Ledger.
 Bindings for a language consist of two main components:
 
 - Ledger API
-    Client "stubs" for the programming language, -- the remote API that allows sending ledger commands and receiving ledger transactions. You have to generate **Ledger API** from `the gRPC protobuf definitions in the daml repository on GitHub <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`_. **Ledger API** is documented on this page: :doc:`/app-dev/grpc/index`. The `gRPC <https://grpc.io/docs/>`_ tutorial explains how to generate client "stubs".
+    Client "stubs" for the programming language, -- the remote API that allows sending ledger commands and receiving ledger transactions. You have to generate **Ledger API** from `the gRPC protobuf definitions in the daml repository on GitHub <https://github.com/digital-asset/daml/tree/main/ledger-api/grpc-definitions>`_. **Ledger API** is documented on this page: :ref:`grpc`. The `gRPC <https://grpc.io/docs/>`_ tutorial explains how to generate client "stubs".
 
 - Codegen
-     A code generator is a program that generates classes representing Daml contract templates in the language. These classes incorporate all boilerplate code for constructing: :ref:`com.daml.ledger.api.v1.CreateCommand` and :ref:`com.daml.ledger.api.v1.ExerciseCommand` corresponding for each Daml contract template.
+     A code generator is a program that generates classes representing Daml contract templates in the language. These classes incorporate all boilerplate code for constructing: :brokenref:`com.daml.ledger.api.v1.CreateCommand` and :brokenref:`com.daml.ledger.api.v1.ExerciseCommand` corresponding for each Daml contract template.
 
 Technically codegen is optional. You can construct the commands manually from the auto-generated **Ledger API** classes. However, it is very tedious and error-prone. If you are creating *ad hoc* bindings for a project with a few contract templates, writing a proper codegen may be overkill. On the other hand, if you have hundreds of contract templates in your project or are planning to build language bindings that you will share across multiple projects, we recommend including a codegen in your bindings. It will save you and your users time in the long run.
 
@@ -30,9 +30,9 @@ No matter what approach you take, either manually building commands or writing a
 Create Command
 --------------
 
-Let's recall an **IOU** example from the :doc:`Quickstart guide </tutorials/quickstart>`, where `Iou` template is defined like this:
+Let's recall an **IOU** example from the :brokenref:`Quickstart guide </tutorials/quickstart>`, where `Iou` template is defined like this:
 
-.. literalinclude:: /tutorials/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ./../../../../tutorials/quickstart/template-root/daml/Iou.daml
   :language: daml
   :start-after: -- BEGIN_IOU_TEMPLATE_DATATYPE
   :end-before: -- END_IOU_TEMPLATE_DATATYPE
@@ -42,9 +42,9 @@ If you do not specify any of the above fields or type their names or values inco
 Exercise Command
 ----------------
 
-To build :ref:`com.daml.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
+To build :brokenref:`com.daml.ledger.api.v1.ExerciseCommand` for `Iou_Transfer`:
 
-.. literalinclude:: /tutorials/quickstart/template-root/daml/Iou.daml
+.. literalinclude:: ./../../../../tutorials/quickstart/template-root/daml/Iou.daml
   :language: daml
   :start-after: -- BEGIN_IOU_TEMPLATE_TRANSFER
   :end-before: -- END_IOU_TEMPLATE_TRANSFER
@@ -58,7 +58,7 @@ When creating custom bindings for Daml Ledgers, you will need to:
 
 - decide whether to write a codegen to generate ledger commands or manually build them for all contracts defined in your Daml model.
 
-The above examples should help you get started. If you are creating custom binding or have any questions, see the :doc:`/support/support` page for how to get in touch with us.
+The above examples should help you get started. If you are creating custom binding or have any questions, see the :ref:`get-help` page for how to get in touch with us.
 
 Links
 =====

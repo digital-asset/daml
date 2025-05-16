@@ -1,13 +1,15 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _daml-to-ledger-api:
+
 How Daml Types are Translated to Protobuf
 #########################################
 
 This page gives an overview and reference on how Daml types and contracts are represented by the Ledger API as protobuf messages, most notably:
 
-- in the stream of transactions from the :ref:`com.daml.ledger.api.v1.transactionservice`
-- as payload for :ref:`com.daml.ledger.api.v1.createcommand` and :ref:`com.daml.ledger.api.v1.exercisecommand` sent to :ref:`com.daml.ledger.api.v1.commandsubmissionservice` and :ref:`com.daml.ledger.api.v1.commandservice`.
+- in the stream of transactions from the :brokenref:`com.daml.ledger.api.v1.transactionservice`
+- as payload for :brokenref:`com.daml.ledger.api.v1.createcommand` and :brokenref:`com.daml.ledger.api.v1.exercisecommand` sent to :brokenref:`com.daml.ledger.api.v1.commandsubmissionservice` and :brokenref:`com.daml.ledger.api.v1.commandservice`.
 
 The Daml code in the examples below is written in Daml *1.1*.
 
@@ -30,7 +32,7 @@ The name of messages is added as a comment after the opening curly brace.
 Records and Primitive Types
 ***************************
 
-Records or product types are translated to :ref:`com.daml.ledger.api.v1.record`. Here's an example Daml record type that contains a field for each primitive type:
+Records or product types are translated to :brokenref:`com.daml.ledger.api.v1.record`. Here's an example Daml record type that contains a field for each primitive type:
 
 .. literalinclude:: code-snippets/Types.daml
 	:language: daml
@@ -92,24 +94,24 @@ This first example template below contains only the signatory party and a simple
 Create a Contract
 =================
 
-Creating contracts is done by sending a :ref:`com.daml.ledger.api.v1.createcommand` to the :ref:`com.daml.ledger.api.v1.commandsubmissionservice` or the :ref:`com.daml.ledger.api.v1.commandservice`. The message to create a `MySimpleTemplate` contract with *Alice* being the owner is shown below:
+Creating contracts is done by sending a :brokenref:`com.daml.ledger.api.v1.createcommand` to the :brokenref:`com.daml.ledger.api.v1.commandsubmissionservice` or the :brokenref:`com.daml.ledger.api.v1.commandservice`. The message to create a `MySimpleTemplate` contract with *Alice* being the owner is shown below:
 
 .. literalinclude:: code-snippets/CreateMySimpleTemplate.payload
 
 Receive a Contract
 ==================
 
-Contracts are received from the :ref:`com.daml.ledger.api.v1.transactionservice` in the form of a :ref:`com.daml.ledger.api.v1.createdevent`. The data contained in the event corresponds to the data that was used to create the contract.
+Contracts are received from the :brokenref:`com.daml.ledger.api.v1.transactionservice` in the form of a :brokenref:`com.daml.ledger.api.v1.createdevent`. The data contained in the event corresponds to the data that was used to create the contract.
 
 .. literalinclude:: code-snippets/CreatedEventMySimpleTemplate.payload
 
 Exercise a Choice
 =================
 
-A choice is exercised by sending an :ref:`com.daml.ledger.api.v1.exercisecommand`. Taking the same contract template again, exercising the choice ``MyChoice`` would result in a command similar to the following:
+A choice is exercised by sending an :brokenref:`com.daml.ledger.api.v1.exercisecommand`. Taking the same contract template again, exercising the choice ``MyChoice`` would result in a command similar to the following:
 
 .. literalinclude:: code-snippets/ExerciseMySimpleTemplate.payload
 
-If the template specifies a key, the :ref:`com.daml.ledger.api.v1.exercisebykeycommand` can be used. It works in a similar way as :ref:`com.daml.ledger.api.v1.exercisecommand`, but instead of specifying the contract identifier you have to provide its key. The example above could be rewritten as follows:
+If the template specifies a key, the :brokenref:`com.daml.ledger.api.v1.exercisebykeycommand` can be used. It works in a similar way as :brokenref:`com.daml.ledger.api.v1.exercisecommand`, but instead of specifying the contract identifier you have to provide its key. The example above could be rewritten as follows:
 
 .. literalinclude:: code-snippets/ExerciseByKeyMySimpleTemplate.payload

@@ -11,7 +11,7 @@ This chapter is all about testing and debugging the Daml contracts you've built 
 - The ``trace`` and ``debug`` functions
 - Contention
 
-Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :doc:`/getting-started/testing`.
+Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :brokenref:`/getting-started/testing`.
 
 If you no longer have your projects set up, load all the code for this parts 1 and 2 of this section into two folders ``intro12-part1`` and ``intro12-part2``, by running ``daml new intro12-part1 --template daml-intro-12-part1`` and ``daml new intro12-part2 --template daml-intro-12-part2``.
 
@@ -20,20 +20,20 @@ Daml Test Tooling
 
 There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The :doc:`9_Dependencies` model lends itself well to being tested using these tools.
 
-:doc:`Daml Script </daml-script/index>`
+:ref:`Daml Script <daml-script>`
 
-   :doc:`Daml Script </daml-script/index>` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
+   :ref:`Daml Script <daml-script>` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
 
    1. Run on a special Script Service in the IDE, providing the Script Views.
    2. Run the Script Service via the CLI, which is useful for quick regression testing.
    3. Start a Sandbox and run against that for regression testing against an actual Ledger API.
    4. Run against any other already running Ledger.
 
-:doc:`Daml Navigator (Deprecated) </tools/navigator/index>`
+:brokenref:`Daml Navigator (Deprecated) </tools/navigator/index>`
 
   Daml Navigator is a UI that runs against a Ledger API and allows interaction with contracts.
 
-:doc:`Daml REPL (Deprecated) </daml-repl/index>`
+:brokenref:`Daml REPL (Deprecated) </daml-repl/index>`
 
   If you want to do things interactively, Daml REPL is the tool to use. The best way to think of Daml REPL is as an interactive version of Daml Script, but it doubles up as a language REPL (Read-Evaluate-Print Loop), allowing you to evaluate pure expressions and inspect the results.
 
@@ -58,7 +58,7 @@ The above demonstrates nicely how to test the happy path, but what if a function
 
 If in doubt, use ``debug``. It's the easier of the two to interpret the results of.
 
-The thing in the square brackets is the last location. It'll tell you the Daml file and line number that triggered the printing, but often no more than that because full stacktraces could violate subtransaction privacy quite easily. If you want to enable stacktraces for some purely functional code in your modules, you can use the machinery in :doc:`/daml/stdlib/DA-Stack` to do so, but we won't cover that any further here.
+The thing in the square brackets is the last location. It'll tell you the Daml file and line number that triggered the printing, but often no more than that because full stacktraces could violate subtransaction privacy quite easily. If you want to enable stacktraces for some purely functional code in your modules, you can use the machinery in :ref:`module-da-stack-24914` to do so, but we won't cover that any further here.
 
 Diagnose Contention Errors
 --------------------------
@@ -142,9 +142,9 @@ Here are a few scenarios and measures you can take to reduce this type of collis
 Collisions Due to Ignorance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :doc:`Daml Ledger Model </concepts/ledger-model/index>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
+The :ref:`Daml Ledger Model <da-ledgers>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
 
-To illustrate the problem, let's assume there is a template ``T`` with a contract key, and Alice has witnessed two ``Create`` nodes of a contract of type ``T`` with key ``k``, but no corresponding archive nodes. Alice may not be able to order these two nodes causally in the sense of "one create came before the other". See :doc:`/concepts/local-ledger` for an in-depth treatment of causality on Daml Ledgers.
+To illustrate the problem, let's assume there is a template ``T`` with a contract key, and Alice has witnessed two ``Create`` nodes of a contract of type ``T`` with key ``k``, but no corresponding archive nodes. Alice may not be able to order these two nodes causally in the sense of "one create came before the other". See :brokenref:`/concepts/local-ledger` for an in-depth treatment of causality on Daml Ledgers.
 
 So what should happen now if Alice's participant encounters a ``fetchByKey @T k`` or ``lookupByKey @T k`` during interpretation? What if it encounters a ``fetch`` node? These decisions are part of the operational semantics, and the decision of what should happen is based on the consideration that the chance of a participant submitting an invalid transaction should be minimized.
 

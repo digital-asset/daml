@@ -24,7 +24,7 @@ of the pitfalls that hinder multi-party application development in other languag
 Daml Ledger
 ===========
 
-A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :doc:`Daml ledger model </concepts/ledger-model/index>` and exposes the Daml Ledger APIs.
+A Daml ledger is a distributed ledger system running `Daml smart contracts <#contract>`__ according to the :externalref:`Daml ledger model <da-ledgers>` and exposes the Daml Ledger APIs.
 All current implementations of Daml ledgers consist of a Daml driver that utilizes an underlying Synchronization Technology to either implement the Daml ledger directly or to run the Canton protocol.
 
 Canton Ledger
@@ -80,7 +80,7 @@ Template
 
 A **template** is a blueprint for creating a `contract <#contract>`__. This is the Daml code you write.
 
-For full documentation on what can be in a template, see :doc:`/daml/reference/templates`.
+For full documentation on what can be in a template, see :ref:`reference-templates`.
 
 Choice
 ======
@@ -91,7 +91,7 @@ Choices give one a way to transform the data in a contract: while the contract i
 
 A choice can only be exercised by its `controller <#controller>`__. Within the choice body, you have the `authorization <#authorization-signing>`__ of all of the contract's `signatories <#signatory>`__.
 
-For full documentation on choices, see :doc:`/daml/reference/choices`.
+For full documentation on choices, see :ref:`reference-choices`.
 
 Consuming Choice
 ----------------
@@ -142,21 +142,21 @@ Signatory
 
 A **signatory** is a `party <#party>`__ on a `contract <#contract>`__. The signatories MUST consent to the `creation <#create>`__ of the contract by `authorizing <#authorization-signing>`__ it: if they don't, contract creation will fail. Once the contract is created, signatories can see the contracts and all exercises of that contract.
 
-For documentation on signatories, see :doc:`/daml/reference/templates`.
+For documentation on signatories, see :ref:`reference-templates`.
 
 Observer
 --------
 
 An **observer** is a `party <#party>`__ on a `contract <#contract>`__. Being an observer allows them to see that instance and all the information about it. They do NOT have to `consent to <#authorization-signing>`__ the creation.
 
-For documentation on observers, see :doc:`/daml/reference/templates`.
+For documentation on observers, see :ref:`reference-templates`.
 
 Controller
 ----------
 
 A **controller** is a `party <#party>`__ that is able to `exercise <#exercise>`__ a particular `choice <#choice>`__ on a particular `contract <#contract>`__.
 
-Controllers must be at least an `observer`_, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`_. this enables the :doc:`propose-accept pattern </daml/patterns/propose-accept>`.
+Controllers must be at least an `observer`_, otherwise they can't see the contract to exercise it on. But they don't have to be a `signatory`_. this enables the :ref:`propose-accept pattern <propose-accept>`.
 
 Choice Observer
 ---------------
@@ -177,12 +177,12 @@ The **maintainer** is a `party <#party>`__ that is part of a `contract key <#con
 
 It's not possible for keys to be globally unique, because there is no party that will necessarily know about every contract. However, by including a party as part of the key, this ensures that the maintainer *will* know about all of the contracts, and so can guarantee the uniqueness of the keys that they know about.
 
-For documentation on contract keys, see :doc:`/daml/reference/contract-keys`.
+For documentation on contract keys, see :ref:`contractkeys`.
 
 Authorization, Signing
 ======================
 
-The Daml runtime checks that every submitted transaction is **well-authorized**, according to the :doc:`authorization rules of the ledger model </concepts/ledger-model/ledger-integrity>`, which guarantee the integrity of the underlying ledger.
+The Daml runtime checks that every submitted transaction is **well-authorized**, according to the :ref:`authorization rules of the ledger model <da-model-integrity>`, which guarantee the integrity of the underlying ledger.
 
 A Daml update is the composition of update actions created with one of the items in the table below. A Daml update is well-authorized when **all** its contained update actions are well-authorized. Each operation has an associated set of parties that need to authorize it:
 
@@ -222,18 +222,18 @@ Standard Library
 
 The **Daml standard library** is a set of `Daml` functions, classes and more that make developing with Daml easier.
 
-For documentation, see :doc:`/daml/stdlib/index`.
+For documentation, see :ref:`stdlib-reference-base`.
 
 Create
 ======
 
 A **create** is an update that creates a `contract <#contract>`__ on the `ledger <#daml-ledger>`__.
 
-Contract creation requires `authorization <#authorization-signing>`__ from all its `signatories <#signatory>`__, or the create will fail. For how to get authorization, see the :doc:`propose-accept </daml/patterns/propose-accept>` and :doc:`multi-party agreement </daml/patterns/multiparty-agreement>` patterns.
+Contract creation requires `authorization <#authorization-signing>`__ from all its `signatories <#signatory>`__, or the create will fail. For how to get authorization, see the :ref:`propose-accept <propose-accept>` and :ref:`multi-party agreement <patterns-multiparty-agreement>` patterns.
 
 A `party <#party>`__ `submits <#submitting-commands-writing-to-the-ledger>`__ a create `command <#commands>`__.
 
-See :doc:`/daml/reference/updates`.
+See :ref:`reference-updates`.
 
 Exercise
 ========
@@ -244,7 +244,7 @@ Exercising a choice requires `authorization <#authorization-signing>`__ from all
 
 A `party <#party>`__ `submits <#submitting-commands-writing-to-the-ledger>`__ an exercise `command <#commands>`__.
 
-See :doc:`/daml/reference/updates`.
+See :ref:`reference-updates`.
 
 Daml Script
 ===========
@@ -273,7 +273,7 @@ A **contract key** allows you to uniquely identify a `contract <#contract>`__ of
 
 A contract key requires a `maintainer <#maintainer>`__: a simple key would be something like a tuple of text and maintainer, like ``(accountId, bank)``.
 
-See :doc:`/daml/reference/contract-keys`.
+See :ref:`contractkeys`.
 
 .. _dar-file-dalf-file:
 
@@ -299,14 +299,14 @@ Assistant
 
 **Daml Assistant** is a command-line tool for many tasks related to Daml. Using it, you can create Daml projects, compile Daml projects into `.dar files <#dar-file-dalf-file>`__, launch other developer tools, and download new SDK versions.
 
-See :doc:`/tools/assistant`.
+See :ref:`daml-assistant`.
 
 Studio
 ======
 
 **Daml Studio** is a plugin for Visual Studio Code, and is the IDE for writing Daml code.
 
-See :doc:`/daml/daml-studio`.
+See :ref:`write-daml-studio`.
 
 Sandbox
 =======
@@ -315,7 +315,7 @@ Sandbox
 
 You can also run the Sandbox connected to a PostgreSQL back end, which gives you persistence and a more production-like experience.
 
-See :doc:`/tools/sandbox`.
+See :ref:`sandbox-manual`.
 
 Navigator (Deprecated)
 ======================
@@ -327,7 +327,7 @@ Navigator GUI
 
 This is the version of Navigator that runs as a web app.
 
-See :doc:`/tools/navigator/index`.
+See :brokenref:`/tools/navigator/index`.
 
 Building Applications
 *********************
@@ -337,7 +337,7 @@ Application, Ledger Client, Integration
 
 **Application**, **ledger client**, and **integration** are all terms for an application that sits on top of the `ledger <#daml-ledger>`__. These usually `read from the ledger <#reading-from-the-ledger>`_, `send commands <#submitting-commands-writing-to-the-ledger>`__ to the ledger, or both.
 
-There's a lot of information available about application development, starting with the :doc:`/app-dev/app-arch` page.
+There's a lot of information available about application development, starting with the :brokenref:`/app-dev/app-arch` page.
 
 .. _ledger-api:
 
@@ -346,8 +346,8 @@ Ledger API
 
 The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the Ledger API.
 An alternative name for the Ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
-See :doc:`/app-dev/ledger-api` page.
-It includes the following :doc:`services </app-dev/services>`.
+See :ref:`integration-with-ledger-api` page.
+It includes the following :ref:`services <ledger-api-services>`.
 
 Command Submission Service
 --------------------------
@@ -397,12 +397,12 @@ The following libraries wrap the `ledger API <#ledger-api>`__ for more native ex
 Java Bindings
 -------------
 
-An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`/app-dev/bindings-java/index`.
+An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`java-bindings`.
 
 Python Bindings
 ---------------
 
-A Python library (formerly known as DAZL) for writing `ledger applications <#application-ledger-client-integration>`__. See :doc:`Python Bindings </app-dev/bindings-python>`.
+A Python library (formerly known as DAZL) for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`Python Bindings <python-bindings>`.
 
 Reading From the Ledger
 =======================
@@ -439,7 +439,7 @@ validation, such that users don't have to deal with cryptographic primitives but
 Sub-transaction Privacy
 =======================
 
-Sub-transaction privacy means that participants in a transaction only :doc:`learn about the subset of the transaction <ledger-model/ledger-privacy>` they are
+Sub-transaction privacy means that participants in a transaction only :externalref:`learn about the subset of the transaction <da-model-privacy>` they are
 directly involved in, but not about any other part of the transaction. This applies to both the content of the transaction as well as other involved participants.
 
 .. _daml-lf:

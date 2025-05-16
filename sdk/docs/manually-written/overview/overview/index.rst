@@ -14,8 +14,7 @@ Briefly intro
 
 * Introduce type of members, multi-party apps, global sync, canton, very briefly daml.
 
-* Introduce how DA's offering fits into all this (Unifi is the enterprise platform built for all enterprises navigating the canton network),
-consisting of ready made solutions and services down to the infrastructure.
+* Introduce how DA's offering fits into all this (Unifi is the enterprise platform built for all enterprises navigating the canton network), consisting of ready made solutions and services down to the infrastructure.
 
 
 
