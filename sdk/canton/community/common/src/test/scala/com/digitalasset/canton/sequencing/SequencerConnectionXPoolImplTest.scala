@@ -33,7 +33,7 @@ class SequencerConnectionXPoolImplTest
         clue("Normal start") {
           listener.shouldStabilizeOn(ComponentHealthState.Ok())
           pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
-          pool.synchronizerId shouldBe Some(testSynchronizerId(1))
+          pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
         }
 
         clue("Stop connections non-fatally") {
@@ -103,12 +103,12 @@ class SequencerConnectionXPoolImplTest
           },
         )
 
-        pool.synchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
 
         // Changing the expected synchronizer is not supported
         inside(
           pool
-            .updateConfig(pool.config.copy(expectedSynchronizerIdO = Some(testSynchronizerId(2))))
+            .updateConfig(pool.config.copy(expectedPSIdO = Some(testSynchronizerId(2))))
         ) { case Left(SequencerConnectionXPoolError.InvalidConfigurationError(error)) =>
           error shouldBe "The expected synchronizer ID can only be changed during a node restart."
         }
@@ -126,7 +126,7 @@ class SequencerConnectionXPoolImplTest
         eventually() {
           pool.nbSequencers shouldBe NonNegativeInt.tryCreate(5)
         }
-        pool.synchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
 
         val initialConnections = createdConnections.snapshotAndClear()
 
@@ -167,7 +167,7 @@ class SequencerConnectionXPoolImplTest
         eventually() {
           pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
         }
-        pool.synchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
 
         val initialConnections = createdConnections.snapshotAndClear()
 
@@ -303,7 +303,7 @@ class SequencerConnectionXPoolImplTest
 
             // Threshold should be reached on sequencer 2
             eventually() {
-              pool.synchronizerId.value shouldBe testSynchronizerId(2)
+              pool.physicalSynchronizerId.value shouldBe testSynchronizerId(2)
               pool.nbSequencers shouldBe NonNegativeInt.tryCreate(5)
             }
           },
@@ -335,7 +335,7 @@ class SequencerConnectionXPoolImplTest
           pool.nbSequencers shouldBe NonNegativeInt.tryCreate(3)
           pool.nbConnections shouldBe NonNegativeInt.tryCreate(6)
         }
-        pool.synchronizerId shouldBe Some(testSynchronizerId(1))
+        pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(1))
 
         val createdConfigs = (0 to 5).map(createdConnections.apply).map(_.config)
 
@@ -415,7 +415,7 @@ class SequencerConnectionXPoolImplTest
               // Wait until the bad bootstrap has been logged
               loggerFactory.numberOfRecordedEntries shouldBe 1
             }
-            pool.synchronizerId shouldBe Some(testSynchronizerId(2))
+            pool.physicalSynchronizerId shouldBe Some(testSynchronizerId(2))
 
             pool.close()
             eventually() {
@@ -452,7 +452,7 @@ class SequencerConnectionXPoolImplTest
     (logEntry: LogEntry) =>
       logEntry.warningMessage should fullyMatch regex
         raw"(?s)Connection internal-sequencer-connection-test-\d+ is not on expected synchronizer:" +
-        raw" expected Some\(test-synchronizer-$goodSynchronizerId::namespace\)," +
+        raw" expected Some\(test-synchronizer-$goodSynchronizerId::namespace::$testedProtocolVersion-0\)," +
         raw" got test-synchronizer-$badSynchronizerId::namespace.*"
 
   private def contentsShouldEqual(

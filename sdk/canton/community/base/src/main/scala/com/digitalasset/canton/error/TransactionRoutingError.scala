@@ -15,7 +15,7 @@ import com.digitalasset.base.error.{
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.RoutingErrorGroup
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 
 sealed trait TransactionRoutingError extends TransactionError with Product with Serializable
 sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingError {
@@ -28,7 +28,7 @@ sealed trait TransactionRoutingErrorWithSynchronizer extends TransactionRoutingE
 object TransactionRoutingError extends RoutingErrorGroup {
 
   final case class SubmissionError[PARENT <: TransactionError](
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       parent: PARENT,
   ) extends TransactionParentError[PARENT]
       with TransactionRoutingError {
@@ -72,7 +72,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "SUBMISSION_SYNCHRONIZER_NOT_READY",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
-      final case class Error(synchronizerId: SynchronizerId)
+      final case class Error(synchronizerId: PhysicalSynchronizerId)
           extends TransactionErrorImpl(
             cause = "Trying to submit to a disconnected or not configured synchronizer."
           )
@@ -87,22 +87,27 @@ object TransactionRoutingError extends RoutingErrorGroup {
         ) {
 
       final case class InputContractsNotOnSynchronizer(
-          synchronizerId: SynchronizerId,
-          inputContractSynchronizerId: SynchronizerId,
+          physicalSynchronizerId: PhysicalSynchronizerId,
+          inputContractPhysicalSynchronizerId: PhysicalSynchronizerId,
       ) extends TransactionErrorImpl(
             cause =
-              s"The needed input contracts are not on $synchronizerId, but on $inputContractSynchronizerId"
+              s"The needed input contracts are not on $physicalSynchronizerId, but on $inputContractPhysicalSynchronizerId"
           )
-          with TransactionRoutingErrorWithSynchronizer
+          with TransactionRoutingErrorWithSynchronizer {
+        override def synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+
+      }
 
       final case class NotAllInformeeAreOnSynchronizer(
-          synchronizerId: SynchronizerId,
-          synchronizersOfAllInformee: NonEmpty[Set[SynchronizerId]],
+          physicalSynchronizerId: PhysicalSynchronizerId,
+          synchronizersOfAllInformee: NonEmpty[Set[PhysicalSynchronizerId]],
       ) extends TransactionErrorImpl(
             cause =
-              s"Not all informee are on the specified synchronizer: $synchronizerId, but on $synchronizersOfAllInformee"
+              s"Not all informee are on the specified synchronizer: $physicalSynchronizerId, but on $synchronizersOfAllInformee"
           )
-          with TransactionRoutingErrorWithSynchronizer
+          with TransactionRoutingErrorWithSynchronizer {
+        override def synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+      }
 
       final case class Generic(synchronizerId: SynchronizerId, reason: String)
           extends TransactionErrorImpl(
@@ -284,7 +289,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "SUBMITTERS_NOT_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(synchronizers: Set[SynchronizerId], informees: Set[LfPartyId])
+      final case class Error(synchronizers: Set[PhysicalSynchronizerId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause = "There is no common synchronizer where all submitters are active"
           )
@@ -301,7 +306,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
           id = "INFORMEES_NOT_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateOther,
         ) {
-      final case class Error(synchronizers: Set[SynchronizerId], informees: Set[LfPartyId])
+      final case class Error(synchronizers: Set[PhysicalSynchronizerId], informees: Set[LfPartyId])
           extends TransactionErrorImpl(
             cause = "There is no common synchronizer where all informees are active"
           )
@@ -360,11 +365,11 @@ object TransactionRoutingError extends RoutingErrorGroup {
       /** @param synchronizersNotUsed
         *   The reason why each synchronizer cannot be used for submission.
         */
-      final case class Error(synchronizersNotUsed: Map[SynchronizerId, String])
+      final case class Error(synchronizersNotUsed: Map[PhysicalSynchronizerId, String])
           extends TransactionErrorImpl(
             cause = "No valid synchronizer for submission found."
           )
-          with TransactionRoutingError {}
+          with TransactionRoutingError
     }
 
     @Explanation(
@@ -460,11 +465,13 @@ object TransactionRoutingError extends RoutingErrorGroup {
         id = "UNABLE_TO_GET_TOPOLOGY_SNAPSHOT",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Failed(synchronizerId: SynchronizerId)
+    final case class Failed(physicalSynchronizerId: PhysicalSynchronizerId)
         extends TransactionErrorImpl(
-          cause = s"Participant is not connected to synchronizer `$synchronizerId`."
+          cause = s"Participant is not connected to synchronizer `$physicalSynchronizerId`."
         )
-        with TransactionRoutingErrorWithSynchronizer
+        with TransactionRoutingErrorWithSynchronizer {
+      override def synchronizerId: SynchronizerId = physicalSynchronizerId.logical
+    }
   }
 
   @Explanation(

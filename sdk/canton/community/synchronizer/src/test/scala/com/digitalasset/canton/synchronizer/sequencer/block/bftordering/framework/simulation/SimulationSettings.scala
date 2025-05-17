@@ -4,6 +4,10 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.TopologySettings.{
+  defaultKeyAdditionDistribution,
+  defaultKeyExpirationDistribution,
+}
 
 import java.util.concurrent.TimeUnit
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -15,11 +19,11 @@ final case class PowerDistribution(low: FiniteDuration, mean: FiniteDuration) {
 
   def generateRandomDuration(rng: Random): FiniteDuration = {
     // the nextDouble function has a range of [0, 1)
-    val synchronizer = rng.nextDouble() + Double.MinPositiveValue
+    val domain = rng.nextDouble() + Double.MinPositiveValue
     // the log function has a range of (-inf, 0] in the synchronizer of (0, 1]
     // so we negate to get the range of [0, inf)
     // 0 is excluded from the synchronizer to eliminate potential inf calculation blowing up FiniteDuration construction
-    val sample = -Math.log(synchronizer)
+    val sample = -Math.log(domain)
     // we adjust the mean, since we will add `low` afterwards
     // to guarantee we are at least `low`
     val adjustedMean = mean.minus(low).max(0.microseconds).toMicros
@@ -114,9 +118,24 @@ object LocalSettings {
     PowerDistribution(1.second, 5.seconds)
 }
 
+final case class TopologySettings(
+    randomSeed: Long,
+    shouldDoKeyRotations: Boolean = false,
+    keyExpirationDistribution: PowerDistribution = defaultKeyExpirationDistribution,
+    keyAdditionDistribution: PowerDistribution = defaultKeyAdditionDistribution,
+)
+
+object TopologySettings {
+  private val defaultKeyExpirationDistribution: PowerDistribution =
+    PowerDistribution(10 seconds, 25 seconds)
+  private val defaultKeyAdditionDistribution: PowerDistribution =
+    PowerDistribution(10 seconds, 25 seconds)
+}
+
 final case class SimulationSettings(
     localSettings: LocalSettings,
     networkSettings: NetworkSettings,
+    topologySettings: TopologySettings,
     durationOfFirstPhaseWithFaults: FiniteDuration,
     durationOfSecondPhaseWithoutFaults: FiniteDuration = 30.seconds,
     clientRequestInterval: Option[FiniteDuration] = Some(1.second),

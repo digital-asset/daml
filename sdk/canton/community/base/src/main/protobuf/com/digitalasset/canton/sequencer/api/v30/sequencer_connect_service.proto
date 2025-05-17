@@ -43,7 +43,7 @@ message SequencerConnect {
   message GetSynchronizerIdRequest {}
 
   message GetSynchronizerIdResponse {
-    string synchronizer_id = 1;
+    string physical_synchronizer_id = 1;
     string sequencer_uid = 2;
   }
 

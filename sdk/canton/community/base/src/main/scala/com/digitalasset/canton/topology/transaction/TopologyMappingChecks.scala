@@ -198,18 +198,19 @@ class ValidatingTopologyMappingChecks(
     for {
       _ <- checkFirstIsNotRemove
       _ <- checkRemoveDoesNotChangeMapping
-      _ <- checkTopologyIsNotFrozenInSynchronizerStore(effective, toValidate, pendingChangesLookup)
+      _ <- checkNoOngoingSynchronizerMigration(effective, toValidate, pendingChangesLookup)
       _ <- checkOpt.getOrElse(EitherTUtil.unitUS)
     } yield ()
 
   }
 
-  private val mappingsAllowedDuringFreeze = Set[Code](Code.TopologyFreeze)
+  private val mappingsAllowedDuringSynchronizerMigration =
+    Set[Code](Code.SynchronizerMigrationAnnouncement)
 
   /** Check that the topology state is not frozen if this store is a synchronizer store. All other
     * stores are not subject to freezing the topology state.
     */
-  private def checkTopologyIsNotFrozenInSynchronizerStore(
+  private def checkNoOngoingSynchronizerMigration(
       effective: EffectiveTime,
       toValidate: GenericSignedTopologyTransaction,
       pendingChangesLookup: PendingChangesLookup,
@@ -219,15 +220,21 @@ class ValidatingTopologyMappingChecks(
     Monad[EitherT[FutureUnlessShutdown, TopologyTransactionRejection, *]].whenA(
       store.storeId.isSynchronizerStore
     )(for {
-      results <- loadFromStore(effective, Set(Code.TopologyFreeze), pendingChangesLookup)
-      freezesO = NonEmpty.from(results.flatMap(_.selectMapping[TopologyFreeze].toList))
-      _ <- freezesO match {
+      results <- loadFromStore(
+        effective,
+        Set(Code.SynchronizerMigrationAnnouncement),
+        pendingChangesLookup,
+      )
+      announcements = NonEmpty.from(
+        results.flatMap(_.selectMapping[SynchronizerMigrationAnnouncement].toList)
+      )
+      _ <- announcements match {
         case None => EitherTUtil.unitUS[TopologyTransactionRejection]
-        case Some(freezes) =>
+        case Some(announcement) =>
           EitherTUtil.condUnitET[FutureUnlessShutdown](
-            mappingsAllowedDuringFreeze.contains(toValidate.mapping.code),
-            TopologyTransactionRejection.TopologyFreezeActive(
-              freezes.head1.mapping.physicalSynchronizerId.logical
+            mappingsAllowedDuringSynchronizerMigration.contains(toValidate.mapping.code),
+            TopologyTransactionRejection.OngoingSynchronizerMigration(
+              announcement.head1.mapping.synchronizerId.logical
             ): TopologyTransactionRejection,
           )
       }

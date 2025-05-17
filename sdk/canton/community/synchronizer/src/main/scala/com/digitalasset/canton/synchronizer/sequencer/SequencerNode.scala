@@ -83,10 +83,7 @@ import com.digitalasset.canton.synchronizer.sequencing.topology.{
 import com.digitalasset.canton.synchronizer.server.DynamicGrpcServer
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.client.{
-  SynchronizerTopologyClient,
-  SynchronizerTopologyClientWithInit,
-}
+import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
   InitialTopologySnapshotValidator,
   TopologyTransactionProcessor,
@@ -458,7 +455,10 @@ class SequencerNodeBootstrap(
       with HasCloseContext {
     override def getAdminToken: Option[String] = Some(adminToken.secret)
     // save one argument and grab the synchronizerId from the store ...
-    private val synchronizerId = synchronizerTopologyManager.synchronizerId
+    private val synchronizerId = PhysicalSynchronizerId(
+      synchronizerTopologyManager.synchronizerId,
+      staticSynchronizerParameters,
+    )
     private val synchronizerLoggerFactory =
       loggerFactory.append("synchronizerId", synchronizerId.toString)
 
@@ -494,7 +494,7 @@ class SequencerNodeBootstrap(
         addCloseable(indexedStringStore)
         for {
           indexedSynchronizer <- EitherT.right[String](
-            IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId)
+            IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId.logical)
           )
           sequencedEventStore = SequencedEventStore(
             storage,
@@ -594,7 +594,6 @@ class SequencerNodeBootstrap(
             .right(
               TopologyTransactionProcessor.createProcessorAndClientForSynchronizer(
                 synchronizerTopologyStore,
-                ips,
                 synchronizerId,
                 crypto.pureCrypto,
                 parameters,
@@ -603,13 +602,11 @@ class SequencerNodeBootstrap(
                 synchronizerLoggerFactory,
               )(topologyHeadInitializer)
             )
-          (topologyProcessor, newTopologyClient) = processorAndClient
+          (topologyProcessor, topologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
-          _ = addCloseable(newTopologyClient)
-          topologyClient = ips.add(newTopologyClient) match {
-            case client: SynchronizerTopologyClientWithInit => client
-            case _ => throw new IllegalStateException("Unknown type for topology client")
-          }
+          _ = addCloseable(topologyClient)
+          _ = ips.add(topologyClient)
+
           _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
             "Unexpected state during initialization: topology client shouldn't have been set before",
@@ -631,7 +628,7 @@ class SequencerNodeBootstrap(
           syncCryptoWithOptionalSessionKeys = SynchronizerCryptoClient
             .createWithOptionalSessionKeys(
               sequencerId,
-              synchronizerId,
+              synchronizerId.logical,
               topologyClient,
               staticSynchronizerParameters,
               crypto,
@@ -649,7 +646,7 @@ class SequencerNodeBootstrap(
           // sequencer authentication uses a different set of signing keys and thus should not use session keys
           syncCryptoForAuthentication = SynchronizerCryptoClient.create(
             sequencerId,
-            synchronizerId,
+            synchronizerId.logical,
             topologyClient,
             staticSynchronizerParameters,
             crypto,
@@ -1007,7 +1004,7 @@ class SequencerNode(
     val ports = Map("public" -> config.publicApi.port, "admin" -> config.adminApi.port)
 
     SequencerNodeStatus(
-      sequencer.synchronizerId.unwrap,
+      sequencer.synchronizerId.logical.unwrap,
       sequencer.synchronizerId,
       uptime(),
       ports,

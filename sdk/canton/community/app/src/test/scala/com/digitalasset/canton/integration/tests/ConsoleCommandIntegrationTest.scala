@@ -207,7 +207,7 @@ trait ConsoleCommandIntegrationTest
         amount: Amount,
     ): EventOuterClass.CreatedEvent =
       participant.ledger_api.javaapi.commands
-        .submit_flat(
+        .submit(
           actAs = Seq(actAs),
           commands = new Iou(
             payer.toProtoPrimitive,

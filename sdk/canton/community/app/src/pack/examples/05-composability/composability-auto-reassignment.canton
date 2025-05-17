@@ -40,8 +40,10 @@ participant3.synchronizers.connect_local(paint_sequencer, alias = paintAlias)
 
 // create the parties
 val Bank = participant1.parties.enable("Bank")
-val HouseOwner = participant2.parties.enable("House Owner")
-val Painter = participant3.parties.enable("Painter")
+val HouseOwner = participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
+participant2.parties.enable("House Owner", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
+val Painter = participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(iouAlias)))
+participant3.parties.enable("Painter", synchronizer = Some(SynchronizerAlias.tryCreate(paintAlias)))
 
 // Wait until the party enabling has taken effect and has been observed at the participants
 val partyAssignment = Set(Bank -> participant1, HouseOwner -> participant2, Painter -> participant3)
@@ -69,14 +71,14 @@ val createIouCmd = new Iou(
   List.empty.asJava
 ).create.commands.asScala.toSeq
 val Seq(iouContractUnshared) = decodeAllCreated(Iou.COMPANION)(
-  participant1.ledger_api.javaapi.commands.submit_flat(Seq(Bank), createIouCmd, synchronizerId =Some(iouId)))
+  participant1.ledger_api.javaapi.commands.submit(Seq(Bank), createIouCmd, synchronizerId =Some(iouId)))
 // Wait until the house owner sees the IOU in the active contract store
 participant2.ledger_api.state.acs.await_active_contract(HouseOwner, iouContractUnshared.id.toLf)
 
 // The house owner adds the Painter as an observer on the IOU
 val showIouCmd = iouContractUnshared.id.exerciseShare(Painter.toProtoPrimitive).commands.asScala.toSeq
 val Seq(iouContract) = decodeAllCreated(Iou.COMPANION)(
-  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), showIouCmd, synchronizerId =Some(iouId)))
+  participant2.ledger_api.javaapi.commands.submit(Seq(HouseOwner), showIouCmd, synchronizerId =Some(iouId)))
 
 // The house owner creates a paint offer using participant 2 and the Paint synchronizer
 val paintOfferCmd = new OfferToPaintHouseByOwner(
@@ -86,7 +88,7 @@ val paintOfferCmd = new OfferToPaintHouseByOwner(
   iouContract.id
 ).create.commands.asScala.toSeq
 val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
-  participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, synchronizerId =Some(paintId)))
+  participant2.ledger_api.javaapi.commands.submit(Seq(HouseOwner), paintOfferCmd, synchronizerId =Some(paintId)))
 // architecture-handbook-entry-end: creation
 
 // architecture-handbook-entry-begin: accept
@@ -95,14 +97,14 @@ participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.t
 
 // Painter accepts the paint offer on the IOU synchronizer
 val acceptCmd = paintOffer.id.exerciseAcceptByPainter().commands.asScala.toSeq
-val acceptTx = participant3.ledger_api.javaapi.commands.submit_flat(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
+val acceptTx = participant3.ledger_api.javaapi.commands.submit(Seq(Painter), acceptCmd, synchronizerId =Some(iouId))
 val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
 
 // architecture-handbook-entry-begin: cash
 // Painter converts the Iou into cash
-participant3.ledger_api.javaapi.commands.submit_flat(
+participant3.ledger_api.javaapi.commands.submit(
   Seq(Painter),
   painterIou.id.exerciseCall().commands.asScala.toSeq,
   synchronizerId =Some(iouId)

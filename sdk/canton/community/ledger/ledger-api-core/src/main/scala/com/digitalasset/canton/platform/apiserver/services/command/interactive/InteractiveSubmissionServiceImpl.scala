@@ -53,7 +53,7 @@ import com.digitalasset.canton.platform.apiserver.services.{
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.protocol.hash.HashTracer
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
@@ -269,7 +269,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(_))
       // Require this participant to be connected to the synchronizer on which the transaction will be run
-      synchronizerId = commandExecutionResult.synchronizerRank.synchronizerId
+      synchronizerId = commandExecutionResult.synchronizerRank.synchronizerId.logical
       protocolVersionForChosenSynchronizer <- EitherT.fromEither[FutureUnlessShutdown](
         protocolVersionForSynchronizerId(synchronizerId)
       )
@@ -482,7 +482,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]] =
+  ): FutureUnlessShutdown[Option[(PackageReference, PhysicalSynchronizerId)]] =
     packagePreferenceService.getPreferredPackageVersion(
       parties = parties,
       packageName = packageName,

@@ -4,8 +4,9 @@
 package com.digitalasset.canton.integration.tests.examples
 
 import com.daml.ledger.api.v2.commands.Command
+import com.daml.ledger.api.v2.completion.Completion
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.digitalasset.canton.BigDecimalImplicits.*
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.*
@@ -48,7 +49,7 @@ object IouSyntax {
   ): Iou.Contract = {
     val createIouCmd = testIou(payer, owner, amount, observers).create().commands().asScala.toSeq
 
-    val tx = participant.ledger_api.javaapi.commands.submit_flat(
+    val tx = participant.ledger_api.javaapi.commands.submit(
       Seq(payer),
       createIouCmd,
       synchronizerId,
@@ -62,7 +63,11 @@ object IouSyntax {
   def createIouComplete(
       participant: ParticipantReference,
       synchronizerId: Option[SynchronizerId] = None,
-  )(payer: PartyId, owner: PartyId, amount: Double = 100.0) = {
+  )(
+      payer: PartyId,
+      owner: PartyId,
+      amount: Double = 100.0,
+  ): (Iou.Contract, Transaction, Completion) = {
     val userId: LedgerUserId =
       LedgerUserId.assertFromString("enterprise-user")
 
@@ -70,7 +75,7 @@ object IouSyntax {
 
     val createIouCmd = IouSyntax.testIou(payer, owner, amount).create().commands().asScala.toSeq
 
-    val tx = participant.ledger_api.javaapi.commands.submit_flat(
+    val tx = participant.ledger_api.javaapi.commands.submit(
       Seq(payer),
       createIouCmd,
       synchronizerId,
@@ -86,19 +91,15 @@ object IouSyntax {
       userId = userId,
     )
 
-    val updates = participant.ledger_api.updates.trees(
+    val transactions = participant.ledger_api.updates.transactions(
       partyIds = Set(payer),
       completeAfter = PositiveInt.one,
       beginOffsetExclusive = ledgerEnd,
     )
 
-    val transactionTree = updates.headOption.value match {
-      case UpdateService.TransactionTreeWrapper(transactionTree) => transactionTree
-      case other =>
-        throw new RuntimeException(s"Expected a transaction tree but got $other")
-    }
+    val transaction = transactions.headOption.value.transaction
 
-    (iou, transactionTree, completions.headOption.value)
+    (iou, transaction, completions.headOption.value)
   }
 
   def archive(participant: ParticipantReference, synchronizerId: Option[SynchronizerId] = None)(

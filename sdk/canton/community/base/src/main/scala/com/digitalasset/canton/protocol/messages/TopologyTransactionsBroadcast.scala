@@ -19,7 +19,7 @@ import com.digitalasset.canton.version.{
 }
 
 final case class TopologyTransactionsBroadcast(
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     transactions: SignedTopologyTransactions[TopologyChangeOp, TopologyMapping],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -50,7 +50,7 @@ object TopologyTransactionsBroadcast
     ] {
 
   def apply(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       transactions: Seq[SignedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
       protocolVersion: ProtocolVersion,
   ): TopologyTransactionsBroadcast =
@@ -87,7 +87,7 @@ object TopologyTransactionsBroadcast
   ): ParsingResult[TopologyTransactionsBroadcast] = {
     val v30.TopologyTransactionsBroadcast(synchronizerP, signedTopologyTransactionsP) = message
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerP, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(synchronizerP, "synchronizer_id")
 
       signedTopologyTransactions <- ProtoConverter.parseRequired(
         SignedTopologyTransactions

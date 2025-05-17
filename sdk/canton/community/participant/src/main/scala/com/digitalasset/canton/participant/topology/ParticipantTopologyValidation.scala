@@ -156,7 +156,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
             }.toMap
 
             nextConfirmingParticipants = nextHostingParticipants
-              .filter(_.permission.canConfirm)
+              .filter(_.canConfirm)
               .map(_.participantId)
 
             // find the first reassignment that has less reassigning participants than the threshold

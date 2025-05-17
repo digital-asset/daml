@@ -91,13 +91,13 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   val sequencer = mock[Sequencer]
   private val participant = ParticipantId("testing")
   val anotherParticipant = ParticipantId("another")
-  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
   private val sequencerId = DefaultTestIdentities.daSequencerId
   private val cryptoApi =
     TestingTopology()
       .withSimpleParticipants(participant, anotherParticipant)
       .build()
-      .forOwnerAndSynchronizer(participant, synchronizerId)
+      .forOwnerAndSynchronizer(participant, synchronizerId.logical)
   private val clock = new SimClock(loggerFactory = loggerFactory)
   private val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
   def timeouts = DefaultProcessingTimeouts.testing
@@ -236,6 +236,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       transportSecurity = false,
       None,
       SequencerAlias.Default,
+      None,
     )
   private val connections = SequencerConnections.single(connection)
   private val expectedSequencers = NonEmpty.mk(Set, SequencerAlias.Default -> sequencerId).toMap
@@ -410,7 +411,8 @@ class GrpcSequencerIntegrationTest
 
     override protected lazy val companionObj = MockProtocolMessage
 
-    override def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
+    override def synchronizerId: PhysicalSynchronizerId =
+      DefaultTestIdentities.physicalSynchronizerId
 
     override def toProtoSomeEnvelopeContentV30: protocolV30.EnvelopeContent.SomeEnvelopeContent =
       protocolV30.EnvelopeContent.SomeEnvelopeContent.Empty

@@ -33,7 +33,7 @@ import com.digitalasset.canton.sequencing.{
   SequencerConnections,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.util.{EitherTUtil, retry}
@@ -160,7 +160,7 @@ object GrpcSequencerConnectionService extends HasLoggerName {
       transportFactory: SequencerClientTransportFactory,
       sequencerInfoLoader: SequencerInfoLoader,
       synchronizerAlias: SynchronizerAlias,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencerClient: SequencerClient,
       loggerFactory: NamedLoggerFactory,
   )(implicit

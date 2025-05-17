@@ -290,10 +290,10 @@ class TaskScheduler[Task <: TimedTask](
           () =>
             FutureUnlessShutdown.lift {
               performUnlessClosing(functionFullName)(
-                barrierPromise.outcome(())
+                barrierPromise.outcome_(())
               ).tapOnShutdown(
                 // the barrierPromise will close anyway eventually, this is just to prevent races
-                barrierPromise.shutdown()
+                barrierPromise.shutdown_()
               )
             },
         )

@@ -43,14 +43,14 @@ trait StaticTimeIntegrationTest extends CommunityIntegrationTest with SharedEnvi
       now.toInstant.plus(12, ChronoUnit.HOURS),
     )
     val passTx = participant1.ledger_api.javaapi.commands
-      .submit_flat(Seq(alice), pass.create.commands.asScala.toSeq)
+      .submit(Seq(alice), pass.create.commands.asScala.toSeq)
     val passId = JavaDecodeUtil.decodeAllCreated(Pass.COMPANION)(passTx).loneElement.id
 
     logger.info("Progress the sim clock by a day")
     clock.advance(Duration.ofDays(1))
 
     participant1.ledger_api.javaapi.commands
-      .submit_flat(Seq(alice), passId.exercisePassTime().commands.asScala.toSeq)
+      .submit(Seq(alice), passId.exercisePassTime().commands.asScala.toSeq)
   }
 
   "advance the static time through the ledger API testing time service" in { implicit env =>

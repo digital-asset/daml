@@ -198,19 +198,6 @@ final case class JsAssignedEvent(
     createdEvent: JsEvent.CreatedEvent,
 )
 
-final case class JsUnassignedEvent(
-    unassignId: String,
-    contractId: String,
-    templateId: String,
-    source: String,
-    target: String,
-    submitter: String,
-    reassignmentCounter: Long,
-    assignmentExclusivity: Option[com.google.protobuf.timestamp.Timestamp],
-    witnessParties: Seq[String],
-    packageName: String,
-)
-
 final case class JsGetActiveContractsResponse(
     workflowId: String,
     contractEntry: JsContractEntry,
@@ -232,7 +219,6 @@ object JsStateServiceCodecs {
   implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveConfiguredCodec
   implicit val jsIncompleteAssignedRW: Codec[JsIncompleteAssigned] = deriveConfiguredCodec
   implicit val jsActiveContractRW: Codec[JsActiveContract] = deriveConfiguredCodec
-  implicit val jsUnassignedEventRW: Codec[JsUnassignedEvent] = deriveConfiguredCodec
   implicit val jsAssignedEventRW: Codec[JsAssignedEvent] = deriveConfiguredCodec
 
   implicit val getConnectedSynchronizersRequestRW

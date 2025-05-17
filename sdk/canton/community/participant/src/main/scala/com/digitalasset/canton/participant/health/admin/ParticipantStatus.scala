@@ -15,7 +15,7 @@ import com.digitalasset.canton.health.admin.data.NodeStatus.{
 import com.digitalasset.canton.health.admin.data.{NodeStatus, TopologyQueueStatus}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
@@ -25,7 +25,7 @@ final case class ParticipantStatus(
     uid: UniqueIdentifier,
     uptime: Duration,
     ports: Map[String, Port],
-    connectedSynchronizers: Map[SynchronizerId, SubmissionReady],
+    connectedSynchronizers: Map[PhysicalSynchronizerId, SubmissionReady],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
@@ -34,12 +34,12 @@ final case class ParticipantStatus(
 ) extends NodeStatus.Status {
   val id: ParticipantId = ParticipantId(uid)
 
-  private def connectedHealthySynchronizers: immutable.Iterable[SynchronizerId] =
+  private def connectedHealthySynchronizers: immutable.Iterable[PhysicalSynchronizerId] =
     connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if submissionReady.unwrap => synchronizerId
     }
 
-  private def connectedUnhealthySynchronizers: immutable.Iterable[SynchronizerId] =
+  private def connectedUnhealthySynchronizers: immutable.Iterable[PhysicalSynchronizerId] =
     connectedSynchronizers.collect {
       case (synchronizerId, submissionReady) if !submissionReady.unwrap => synchronizerId
     }
@@ -67,7 +67,7 @@ final case class ParticipantStatus(
         else participantV30.ConnectedSynchronizer.Health.HEALTH_UNHEALTHY
 
       ConnectedSynchronizer(
-        synchronizerId = synchronizerId.toProtoPrimitive,
+        physicalSynchronizerId = synchronizerId.toProtoPrimitive,
         health = health,
       )
     }.toList

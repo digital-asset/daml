@@ -110,7 +110,7 @@ trait OfflinePartyMigrationIntegrationTest
         // create one contract via create & exercise
         val iou = IouSyntax.createIou(participant, Some(daId))(obligor, obligor)
         participant.ledger_api.javaapi.commands
-          .submit_flat(
+          .submit(
             Seq(obligor),
             iou.id.exerciseTransfer(owner.toProtoPrimitive).commands.asScala.toSeq,
             Some(daId),
@@ -241,7 +241,7 @@ trait OfflinePartyMigrationIntegrationTest
     )
 
     participant3.ledger_api.javaapi.commands
-      .submit_flat(
+      .submit(
         Seq(alice),
         transfer.id.exerciseTransfer(boris.toProtoPrimitive).commands.asScala.toSeq,
         Some(daId),

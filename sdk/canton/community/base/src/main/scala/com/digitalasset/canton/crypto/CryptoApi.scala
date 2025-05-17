@@ -211,6 +211,15 @@ object SyncCryptoError {
       prettyOfClass(unnamedParam(_.error))
   }
 
+  /** Thrown when a sign message request does not support session signing keys, e.g., for a
+    * non-protocol message.
+    */
+  final case class UnsupportedDelegationSignatureError(message: String) extends SyncCryptoError {
+    override protected def pretty: Pretty[UnsupportedDelegationSignatureError] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
+  }
+
   /** Thrown when invariant checks fail during the creation of a signature delegation. This can
     * occur if the session key or the generated signature does not follow the correct format.
     */

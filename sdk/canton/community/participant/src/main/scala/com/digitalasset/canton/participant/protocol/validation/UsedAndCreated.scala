@@ -28,13 +28,20 @@ private[protocol] final case class UsedAndCreatedContracts(
     used: Map[LfContractId, SerializableContract],
     maybeCreated: Map[LfContractId, Option[SerializableContract]],
     transient: Map[LfContractId, Set[LfPartyId]],
+    maybeUnknown: Set[LfContractId],
 ) {
   def activenessCheck: ActivenessCheck[LfContractId] =
     ActivenessCheck.tryCreate(
       checkFresh = maybeCreated.keySet,
       checkFree = Set.empty,
-      checkActive = checkActivenessTxInputs,
-      lock = consumedInputsOfHostedStakeholders.keySet ++ created.keySet,
+      // Don't check legitimately unknown contracts for activeness.
+      checkActive = checkActivenessTxInputs -- maybeUnknown,
+      // Let key locking know not to flag legitimately unknown contracts (such as those associated
+      // with party onboarding) as activeness errors.
+      // Note that created contracts are always locked, even if they are transient.
+      lock = consumedInputsOfHostedStakeholders.keySet -- maybeUnknown ++ created.keySet,
+      lockMaybeUnknown =
+        (consumedInputsOfHostedStakeholders.keySet intersect maybeUnknown) -- created.keySet,
       needPriorState = Set.empty,
     )
 

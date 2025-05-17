@@ -40,6 +40,7 @@ class ConsensusCertificateValidator(strongQuorum: Int) {
   ): Validated[String, Unit] = {
     val prePrepare = consensusCertificate.prePrepare
     val blockNumber = prePrepare.message.blockMetadata.blockNumber
+    val epochNumber = prePrepare.message.blockMetadata.epochNumber
     val (messages, messageName) = consensusCertificate match {
       case prepareCertificate: PrepareCertificate =>
         (
@@ -55,6 +56,23 @@ class ConsensusCertificateValidator(strongQuorum: Int) {
 
     (NonEmpty.from(messages) match {
       case Some(nonEmptyMessages) =>
+        val messagesEpochNumberValidation = {
+          val byEpochNumber = nonEmptyMessages.groupBy(_.message.blockMetadata.epochNumber)
+          if (byEpochNumber.sizeIs > 1)
+            invalid(
+              s"all ${messageName}s should be of the same epoch number, but they are distributed across multiple epoch numbers (${byEpochNumber.keys
+                  .mkString(", ")})"
+            )
+          else {
+            val messagesEpochNumber = byEpochNumber.head1._1
+            if (messagesEpochNumber != epochNumber) {
+              invalid(
+                s"${messageName}s have epoch number $messagesEpochNumber but it should be $epochNumber"
+              )
+            } else valid
+          }
+        }
+
         val messagesViewNumberValidation = {
           val byViewNumber = nonEmptyMessages.groupBy(_.message.viewNumber)
           if (byViewNumber.sizeIs > 1)
@@ -115,6 +133,7 @@ class ConsensusCertificateValidator(strongQuorum: Int) {
         }
 
         List(
+          messagesEpochNumberValidation,
           messagesViewNumberValidation,
           repeatedMessageValidation,
           wrongBlockNumbersValidation,

@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
-import com.daml.ledger.javaapi.data.{Command, Transaction, TransactionTree}
+import com.daml.ledger.javaapi.data.{Command, Transaction}
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
@@ -207,7 +208,7 @@ trait SynchronizerRouterIntegrationTestSetup
   ): Inject.Contract = {
     val cmd = contract.id.exerciseInform(submitter.toProtoPrimitive).commands.asScala.toSeq
     val tree =
-      participant.ledger_api.javaapi.commands.submit_flat(Seq(owner), cmd, targetSynchronizer)
+      participant.ledger_api.javaapi.commands.submit(Seq(owner), cmd, targetSynchronizer)
 
     JavaDecodeUtil
       .decodeAllCreated(Inject.COMPANION)(tree)
@@ -228,7 +229,7 @@ trait SynchronizerRouterIntegrationTestSetup
       dummies: Iterable[Dummy.Contract],
       participant: ParticipantReference,
       targetSynchronizer: Option[SynchronizerId] = None,
-  ): TransactionTree = {
+  ): Transaction = {
     val exerciseCmds =
       dummies.map(dummy => dummy.id.exerciseDummyChoice().commands.asScala.toSeq).toSeq.flatten
     val firstSubmitter = submitters.headOption.value
@@ -239,9 +240,10 @@ trait SynchronizerRouterIntegrationTestSetup
       ).create.commands.asScala.toSeq
 
     participant.ledger_api.javaapi.commands.submit(
-      submitters.toSeq,
-      exerciseCmds ++ createCmd,
-      targetSynchronizer,
+      actAs = submitters.toSeq,
+      commands = exerciseCmds ++ createCmd,
+      synchronizerId = targetSynchronizer,
+      transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
     )
   }
 }
@@ -258,7 +260,7 @@ private[tests] object SynchronizerRouterIntegrationTestSetup {
       commands: JList[Command],
   ): TC = {
     val tree =
-      participant.ledger_api.javaapi.commands.submit_flat(
+      participant.ledger_api.javaapi.commands.submit(
         Seq(owner),
         commands.asScala.toSeq,
         synchronizerId = synchronizerId,
@@ -312,17 +314,15 @@ private[tests] object SynchronizerRouterIntegrationTestSetup {
       optTimeout: Option[NonNegativeDuration] = Some(
         NonNegativeDuration.tryFromDuration(60.seconds)
       ),
-  ): TransactionTree = {
+  ): Transaction = {
     val exerciseCmd =
       contract.id.exerciseCountAll().commands.asScala.toSeq
-    val tree =
-      participant.ledger_api.javaapi.commands.submit(
-        Seq(submitter),
-        exerciseCmd,
-        targetSynchronizer,
-        optTimeout = optTimeout,
-      )
-    tree
+    participant.ledger_api.javaapi.commands.submit(
+      Seq(submitter),
+      exerciseCmd,
+      targetSynchronizer,
+      optTimeout = optTimeout,
+    )
   }
 
   def exerciseCountPublicAll(
@@ -337,7 +337,7 @@ private[tests] object SynchronizerRouterIntegrationTestSetup {
     val exerciseCmd =
       contract.id.exerciseCountPublicAll().commands.asScala.toSeq
     val tree =
-      participant.ledger_api.javaapi.commands.submit_flat(
+      participant.ledger_api.javaapi.commands.submit(
         Seq(submitter),
         exerciseCmd,
         targetSynchronizer,

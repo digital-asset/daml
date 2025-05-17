@@ -87,7 +87,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
@@ -118,7 +118,7 @@ import scala.util.{Failure, Success}
   */
 @nowarn("msg=dead code following this construct")
 class TransactionProcessingSteps(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
     confirmationResponsesFactory: TransactionConfirmationResponsesFactory,
@@ -209,7 +209,7 @@ class TransactionProcessingSteps(
   }
 
   override def embedNoMediatorError(error: NoMediatorError): TransactionSubmissionError =
-    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId)
+    SynchronizerWithoutMediatorError.Error(error.topologySnapshotTimestamp, synchronizerId.logical)
 
   override def getSubmitterInformation(
       views: Seq[DecryptedView]
@@ -657,7 +657,7 @@ class TransactionProcessingSteps(
             .foreach { case ViewHashAndKey(subviewHash, subviewKey) =>
               randomnessMap.get(subviewHash) match {
                 case Some(promise) =>
-                  promise.outcome(addRandomnessToMap(subviewHash, subviewKey))
+                  promise.outcome_(addRandomnessToMap(subviewHash, subviewKey))
                 case None =>
                   // TODO(i12911): make sure to not approve the request
                   SyncServiceAlarm
@@ -1074,7 +1074,7 @@ class TransactionProcessingSteps(
         Update.SequencedCommandRejected(
           completionInfo,
           rejection,
-          synchronizerId,
+          synchronizerId.logical,
           ts,
         )
     } -> None // Transaction processing doesn't use pending submissions
@@ -1115,7 +1115,7 @@ class TransactionProcessingSteps(
       Update.SequencedCommandRejected(
         info,
         rejection,
-        synchronizerId,
+        synchronizerId.logical,
         requestTime,
       )
     )
@@ -1266,7 +1266,7 @@ class TransactionProcessingSteps(
           transaction = LfCommittedTransaction(lfTx.unwrap),
           updateId = lfTxId,
           contractMetadata = contractMetadata,
-          synchronizerId = synchronizerId,
+          synchronizerId = synchronizerId.logical,
           recordTime = requestTime,
         )
     } yield CommitAndStoreContractsAndPublishEvent(

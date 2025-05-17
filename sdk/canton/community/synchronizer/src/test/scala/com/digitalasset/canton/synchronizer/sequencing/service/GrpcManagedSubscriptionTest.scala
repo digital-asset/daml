@@ -35,17 +35,12 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.Null"))
   private class Env {
     val sequencerSubscription = mock[SequencerSubscription[SequencedEventError]]
-    val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+    val synchronizerId = SynchronizerId(
+      UniqueIdentifier.tryFromProtoPrimitive("da::default")
+    ).toPhysical
     var handler: Option[SequencedEventOrErrorHandler[SequencedEventError]] = None
     val member = ParticipantId(DefaultTestIdentities.uid)
     val observer = mock[ServerCallStreamObserver[v30.SubscriptionResponse]]
-    var cancelCallback: Option[Runnable] = None
-
-    when(observer.setOnCancelHandler(any[Runnable]))
-      .thenAnswer[Runnable](handler => cancelCallback = Some(handler))
-
-    def cancel(): Unit =
-      cancelCallback.fold(fail("no cancel handler registered"))(_.run())
 
     def createSequencerSubscription(
         newHandler: SequencedEventOrErrorHandler[SequencedEventError]
@@ -90,8 +85,8 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
         Some(SerializableTraceContext(event.traceContext).toProtoV30),
       )
 
-    def createManagedSubscription() =
-      new GrpcManagedSubscription(
+    def createManagedSubscription() = {
+      val subscription = new GrpcManagedSubscription(
         createSequencerSubscription,
         observer,
         member,
@@ -100,6 +95,9 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
         loggerFactory,
         toSubscriptionResponseV30,
       )
+      subscription.initialize().futureValueUS
+      subscription
+    }
   }
 
   "GrpcManagedSubscription" should {
@@ -107,14 +105,6 @@ class GrpcManagedSubscriptionTest extends AnyWordSpec with BaseTest with HasExec
       createManagedSubscription()
       deliver()
       verify(observer).onNext(any[v30.SubscriptionResponse])
-    }
-
-    "if observer is cancelled then subscription is closed but no response is sent" in new Env {
-      createManagedSubscription()
-      cancel()
-      verify(sequencerSubscription).close()
-      verify(observer, never).onError(any[Throwable])
-      verify(observer, never).onCompleted()
     }
 
     "if closed externally the observer is completed, the subscription is closed, but the closed callback is not called" in new Env {

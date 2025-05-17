@@ -10,21 +10,21 @@ import com.digitalasset.canton.health.ComponentStatus
 import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
 import com.digitalasset.canton.health.admin.data.{NodeStatus, TopologyQueueStatus}
 import com.digitalasset.canton.logging.pretty.Pretty
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
 
 final case class MediatorNodeStatus(
     uid: UniqueIdentifier,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     active: Boolean,
     topologyQueue: TopologyQueueStatus,
     components: Seq[ComponentStatus],
     version: ReleaseVersion,
-    protocolVersion: ProtocolVersion,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
 ) extends NodeStatus.Status {
   override protected def pretty: Pretty[MediatorNodeStatus] =
     prettyOfString(_ =>
@@ -43,7 +43,7 @@ final case class MediatorNodeStatus(
   def toMediatorStatusProto: mediatorV30.MediatorStatusResponse.MediatorStatusResponseStatus =
     mediatorV30.MediatorStatusResponse.MediatorStatusResponseStatus(
       commonStatus = toProtoV30.some,
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       protocolVersion = protocolVersion.toProtoPrimitive,
     )
 }

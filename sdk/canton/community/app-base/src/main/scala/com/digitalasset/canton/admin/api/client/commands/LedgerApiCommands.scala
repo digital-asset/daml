@@ -58,8 +58,6 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForReassignmentResponse,
   SubmitAndWaitForTransactionRequest,
   SubmitAndWaitForTransactionResponse,
-  SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitRequest,
 }
 import com.daml.ledger.api.v2.command_submission_service.CommandSubmissionServiceGrpc.CommandSubmissionServiceStub
 import com.daml.ledger.api.v2.command_submission_service.{
@@ -124,27 +122,22 @@ import com.daml.ledger.api.v2.testing.time_service.{
   TimeServiceGrpc,
 }
 import com.daml.ledger.api.v2.topology_transaction.TopologyTransaction
-import com.daml.ledger.api.v2.transaction.{Transaction, TransactionTree}
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
-import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_ACS_DELTA
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
   EventFormat,
   Filters,
   TemplateFilter,
-  TransactionFilter,
   TransactionFormat,
+  TransactionShape,
   UpdateFormat,
 }
 import com.daml.ledger.api.v2.update_service.UpdateServiceGrpc.UpdateServiceStub
 import com.daml.ledger.api.v2.update_service.{
-  GetTransactionByIdRequest,
-  GetTransactionByOffsetRequest,
-  GetTransactionTreeResponse,
   GetUpdateByIdRequest,
   GetUpdateByOffsetRequest,
   GetUpdateResponse,
-  GetUpdateTreesResponse,
   GetUpdatesRequest,
   GetUpdatesResponse,
   UpdateServiceGrpc,
@@ -211,6 +204,7 @@ object LedgerApiCommands {
         annotations: Map[String, String],
         identityProviderId: String,
         synchronizerId: String,
+        userId: String,
     ) extends BaseCommand[AllocatePartyRequest, AllocatePartyResponse, PartyDetails] {
       override protected def createRequest(): Either[String, AllocatePartyRequest] =
         Right(
@@ -219,6 +213,7 @@ object LedgerApiCommands {
             localMetadata = Some(ObjectMeta(resourceVersion = "", annotations = annotations)),
             identityProviderId = identityProviderId,
             synchronizerId = synchronizerId,
+            userId = userId,
           )
         )
       override protected def submitRequest(
@@ -962,9 +957,6 @@ object LedgerApiCommands {
 
   object UpdateService {
 
-    sealed trait UpdateTreeWrapper {
-      def updateId: String
-    }
     sealed trait UpdateWrapper {
       def updateId: String
       def isUnassignment = this match {
@@ -981,10 +973,6 @@ object LedgerApiCommands {
 
       def synchronizerId: String
     }
-    final case class TransactionTreeWrapper(transactionTree: TransactionTree)
-        extends UpdateTreeWrapper {
-      override def updateId: String = transactionTree.updateId
-    }
     final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
       override def updateId: String = transaction.updateId
 
@@ -996,7 +984,7 @@ object LedgerApiCommands {
 
       override def synchronizerId: String = topologyTransaction.synchronizerId
     }
-    sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
+    sealed trait ReassignmentWrapper extends UpdateWrapper {
       override def updateId: String = reassignment.updateId
 
       def reassignment: Reassignment
@@ -1148,74 +1136,6 @@ object LedgerApiCommands {
         UpdateServiceGrpc.stub(channel)
     }
 
-    trait SubscribeUpdateBase[Resp, Res]
-        extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable]
-        with SubscribeBase[GetUpdatesRequest, Resp, Res] {
-
-      def beginExclusive: Long
-
-      def endInclusive: Option[Long]
-
-      def filter: TransactionFilter
-
-      def verbose: Boolean
-
-      override protected def createRequest(): Either[String, GetUpdatesRequest] = Right {
-        GetUpdatesRequest(
-          beginExclusive = beginExclusive,
-          endInclusive = endInclusive,
-          verbose = verbose,
-          filter = Some(filter),
-          updateFormat = None,
-        )
-      }
-    }
-
-    final case class SubscribeTrees(
-        override val observer: StreamObserver[UpdateTreeWrapper],
-        override val beginExclusive: Long,
-        override val endInclusive: Option[Long],
-        override val filter: TransactionFilter,
-        override val verbose: Boolean,
-    )(override implicit val loggingContext: ErrorLoggingContext)
-        extends SubscribeUpdateBase[GetUpdateTreesResponse, UpdateTreeWrapper] {
-      override def doRequest(
-          service: UpdateServiceStub,
-          request: GetUpdatesRequest,
-          rawObserver: StreamObserver[GetUpdateTreesResponse],
-      ): Unit =
-        service.getUpdateTrees(request, rawObserver)
-
-      override def extractResults(
-          response: GetUpdateTreesResponse
-      ): IterableOnce[UpdateTreeWrapper] =
-        response.update.transactionTree
-          .map[UpdateTreeWrapper](TransactionTreeWrapper.apply)
-          .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
-    }
-
-    final case class SubscribeFlat(
-        override val observer: StreamObserver[UpdateWrapper],
-        override val beginExclusive: Long,
-        override val endInclusive: Option[Long],
-        override val filter: TransactionFilter,
-        override val verbose: Boolean,
-    )(override implicit val loggingContext: ErrorLoggingContext)
-        extends SubscribeUpdateBase[GetUpdatesResponse, UpdateWrapper] {
-      override def doRequest(
-          service: UpdateServiceStub,
-          request: GetUpdatesRequest,
-          rawObserver: StreamObserver[GetUpdatesResponse],
-      ): Unit =
-        service.getUpdates(request, rawObserver)
-
-      override def extractResults(response: GetUpdatesResponse): IterableOnce[UpdateWrapper] =
-        response.update.transaction
-          .map[UpdateWrapper](TransactionWrapper.apply)
-          .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
-          .orElse(response.update.topologyTransaction.map(TopologyTransactionWrapper(_)))
-    }
-
     final case class SubscribeUpdates(
         override val observer: StreamObserver[UpdateWrapper],
         beginExclusive: Long,
@@ -1247,44 +1167,6 @@ object LedgerApiCommands {
         )
       }
 
-    }
-
-    final case class GetTransactionById(parties: Set[LfPartyId], id: String)(implicit
-        ec: ExecutionContext
-    ) extends BaseCommand[GetTransactionByIdRequest, GetTransactionTreeResponse, Option[
-          TransactionTree
-        ]]
-        with PrettyPrinting {
-      override protected def createRequest(): Either[String, GetTransactionByIdRequest] = Right {
-        GetTransactionByIdRequest(
-          updateId = id,
-          requestingParties = parties.toSeq,
-          transactionFormat = None,
-        )
-      }
-
-      override protected def submitRequest(
-          service: UpdateServiceStub,
-          request: GetTransactionByIdRequest,
-      ): Future[GetTransactionTreeResponse] =
-        // The Ledger API will throw an error if it can't find a transaction by ID.
-        // However, as Canton is distributed, a transaction ID might show up later, so we don't treat this as
-        // an error and change it to a None
-        service.getTransactionTreeById(request).recover {
-          case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
-            GetTransactionTreeResponse(None)
-        }
-
-      override protected def handleResponse(
-          response: GetTransactionTreeResponse
-      ): Either[String, Option[TransactionTree]] =
-        Right(response.transaction)
-
-      override protected def pretty: Pretty[GetTransactionById] =
-        prettyOfClass(
-          param("id", _.id.unquoted),
-          param("parties", _.parties),
-        )
     }
 
     final case class GetUpdateById(id: String, updateFormat: UpdateFormat)(implicit
@@ -1319,45 +1201,6 @@ object LedgerApiCommands {
         prettyOfClass(
           param("id", _.id.unquoted),
           param("updateFormat", _.updateFormat.toString.unquoted),
-        )
-    }
-
-    final case class GetTransactionByOffset(parties: Set[LfPartyId], offset: Long)(implicit
-        ec: ExecutionContext
-    ) extends BaseCommand[GetTransactionByOffsetRequest, GetTransactionTreeResponse, Option[
-          TransactionTree
-        ]]
-        with PrettyPrinting {
-      override protected def createRequest(): Either[String, GetTransactionByOffsetRequest] =
-        Right {
-          GetTransactionByOffsetRequest(
-            offset = offset,
-            requestingParties = parties.toSeq,
-            transactionFormat = None,
-          )
-        }
-
-      override protected def submitRequest(
-          service: UpdateServiceStub,
-          request: GetTransactionByOffsetRequest,
-      ): Future[GetTransactionTreeResponse] =
-        // The Ledger API will throw an error if it can't find a transaction by offset.
-        // However, as Canton is distributed, a transaction offset might show up later, so we don't treat this as
-        // an error and change it to a None
-        service.getTransactionTreeByOffset(request).recover {
-          case e: StatusRuntimeException if e.getStatus.getCode == Status.Code.NOT_FOUND =>
-            GetTransactionTreeResponse(None)
-        }
-
-      override protected def handleResponse(
-          response: GetTransactionTreeResponse
-      ): Either[String, Option[TransactionTree]] =
-        Right(response.transaction)
-
-      override protected def pretty: Pretty[GetTransactionByOffset] =
-        prettyOfClass(
-          param("offset", _.offset),
-          param("parties", _.parties),
         )
     }
 
@@ -1768,49 +1611,6 @@ object LedgerApiCommands {
         CommandServiceGrpc.stub(channel)
     }
 
-    final case class SubmitAndWaitTransactionTree(
-        override val actAs: Seq[LfPartyId],
-        override val readAs: Seq[LfPartyId],
-        override val commands: Seq[Command],
-        override val workflowId: String,
-        override val commandId: String,
-        override val deduplicationPeriod: Option[DeduplicationPeriod],
-        override val submissionId: String,
-        override val minLedgerTimeAbs: Option[Instant],
-        override val disclosedContracts: Seq[DisclosedContract],
-        override val synchronizerId: Option[SynchronizerId],
-        override val userId: String,
-        override val packageIdSelectionPreference: Seq[LfPackageId],
-    ) extends SubmitCommand
-        with BaseCommand[
-          SubmitAndWaitRequest,
-          SubmitAndWaitForTransactionTreeResponse,
-          TransactionTree,
-        ] {
-
-      override protected def createRequest(): Either[String, SubmitAndWaitRequest] =
-        try {
-          Right(SubmitAndWaitRequest(commands = Some(mkCommand)))
-        } catch {
-          case t: Throwable =>
-            Left(t.getMessage)
-        }
-
-      override protected def submitRequest(
-          service: CommandServiceStub,
-          request: SubmitAndWaitRequest,
-      ): Future[SubmitAndWaitForTransactionTreeResponse] =
-        service.submitAndWaitForTransactionTree(request)
-
-      override protected def handleResponse(
-          response: SubmitAndWaitForTransactionTreeResponse
-      ): Either[String, TransactionTree] =
-        response.transaction.toRight("Received response without any transaction tree")
-
-      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
-    }
-
     final case class SubmitAndWaitTransaction(
         override val actAs: Seq[LfPartyId],
         override val readAs: Seq[LfPartyId],
@@ -1824,6 +1624,7 @@ object LedgerApiCommands {
         override val synchronizerId: Option[SynchronizerId],
         override val userId: String,
         override val packageIdSelectionPreference: Seq[LfPackageId],
+        transactionShape: TransactionShape,
     ) extends SubmitCommand
         with BaseCommand[
           SubmitAndWaitForTransactionRequest,
@@ -1836,7 +1637,6 @@ object LedgerApiCommands {
           Right(
             SubmitAndWaitForTransactionRequest(
               commands = Some(mkCommand),
-              // TODO(#23504) add transactionFormat argument for the console command
               transactionFormat = Some(
                 TransactionFormat(
                   eventFormat = Some(
@@ -1846,7 +1646,7 @@ object LedgerApiCommands {
                       verbose = true,
                     )
                   ),
-                  transactionShape = TRANSACTION_SHAPE_ACS_DELTA,
+                  transactionShape = transactionShape,
                 )
               ),
             )
@@ -2065,10 +1865,10 @@ object LedgerApiCommands {
           } else Filters.defaultInstance
         Right(
           GetActiveContractsRequest(
-            filter = Some(TransactionFilter(parties.map((_, filter)).toMap, None)),
-            verbose = verbose,
+            filter = None,
+            verbose = false,
             activeAtOffset = activeAtOffset,
-            eventFormat = None,
+            eventFormat = Some(EventFormat(parties.map((_, filter)).toMap, None, verbose)),
           )
         )
       }
@@ -2271,8 +2071,14 @@ object LedgerApiCommands {
       override protected def createRequest(): Either[String, GetEventsByContractIdRequest] = Right(
         GetEventsByContractIdRequest(
           contractId = contractId,
-          requestingParties = requestingParties,
-          eventFormat = None,
+          requestingParties = Seq.empty,
+          eventFormat = Some(
+            EventFormat(
+              filtersByParty = requestingParties.map(_ -> Filters(Nil)).toMap,
+              filtersForAnyParty = None,
+              verbose = true,
+            )
+          ),
         )
       )
 

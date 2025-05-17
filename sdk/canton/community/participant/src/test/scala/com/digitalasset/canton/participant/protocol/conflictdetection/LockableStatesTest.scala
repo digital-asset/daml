@@ -45,6 +45,7 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
   private val evictableActiveId = "EVICTABLE_ACTIVE"
   private val evictableActive2Id = "EVICTABLE_ACTIVE2"
   private val freeNotEvictableId = "FREE_NOT_EVICTABLE"
+  private val unknownId = "UNKNOWN"
   private lazy val preload = Map(
     neitherFreeNorActiveId -> StateChange(Status.neitherFreeNorActive, tor0),
     freeId -> StateChange(Status.free, tor0),
@@ -352,6 +353,22 @@ class LockableStatesTest extends AsyncWordSpec with BaseTest with HasExecutorSer
         )
       }
 
+    }
+
+    "lock maybe unknown keys" in {
+      val sut = mkSut(preload)
+      val check1 = mkActivenessCheck(lockMaybeUnknown = Set(unknownId, freeId))
+      val check2 = mkActivenessCheck(lock = Set(unknownId))
+
+      for {
+        (result1, locked1) <- pendingAndCheck(sut, RequestCounter(2), check1)
+        (result2, _) <- pendingAndCheck(sut, RequestCounter(3), check2)
+      } yield {
+        locked1.toSet shouldBe Set(unknownId, freeId)
+        result1 shouldBe mkActivenessCheckResult(unknown = Set.empty)
+        // unknown key already locked, so complain about unknownId being already locked
+        result2 shouldBe mkActivenessCheckResult(locked = Set(unknownId))
+      }
     }
   }
 

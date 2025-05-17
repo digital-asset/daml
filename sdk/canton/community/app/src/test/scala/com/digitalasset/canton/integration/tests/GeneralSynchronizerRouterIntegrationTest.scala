@@ -365,10 +365,10 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
           events.size shouldBe contractTopology.size + 1
           events
             .take(contractTopology.size)
-            .foreach(ex => assert(ex.toProtoTreeEvent.hasExercised, "expect exercise"))
+            .foreach(ex => assert(ex.toProtoEvent.hasExercised, "expect exercise"))
 
           assert(
-            events.lastOption.value.toProtoTreeEvent.hasCreated,
+            events.lastOption.value.toProtoEvent.hasCreated,
             "expect last event to be creation of Single",
           )
 
@@ -381,7 +381,7 @@ sealed trait GeneralSynchronizerRouterIntegrationTest
             Seq(participant1),
             expectedRoutingSynchronizer,
             LfContractId.assertFromString(
-              events.lastOption.value.toProtoTreeEvent.getCreated.getContractId
+              events.lastOption.value.toProtoEvent.getCreated.getContractId
             ),
           )
         }

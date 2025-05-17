@@ -303,7 +303,7 @@ class StateTransferManager[E <: Env[E]](
             case None =>
               StateTransferMessageResult.NothingToStateTransfer(from)
             case Some(commitCert) =>
-              validator.verifyCommitCertificate(commitCert, from, orderingTopologyInfo)
+              validator.verifyCommitCertificateSignatures(commitCert, from, orderingTopologyInfo)
               StateTransferMessageResult.Continue
           }
         },

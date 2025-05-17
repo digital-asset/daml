@@ -3,8 +3,12 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 
 trait HasSynchronizerId {
   def synchronizerId: SynchronizerId
+}
+
+trait HasPhysicalSynchronizerId {
+  def synchronizerId: PhysicalSynchronizerId
 }

@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.integration
 
-import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.{Created, Exercised}
-import com.daml.ledger.api.v2.transaction.{TransactionTree as TransactionTreeV2, TreeEvent}
+import com.daml.ledger.api.v2.event.Event.Event
+import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Exercised}
+import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.value.Value
+import com.daml.ledger.javaapi.data.Transaction.fromProto
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.console.{InstanceReference, LocalParticipantReference}
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
-import com.digitalasset.canton.ledger.api.util.TransactionTreeOps.*
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.tracing.TraceContext
 import org.scalatest.exceptions.TestFailedException
@@ -91,20 +92,24 @@ object IntegrationTestUtilities {
   def assertIncreasingRecordTime(pr: LocalParticipantReference): Unit =
     pr.testing.state_inspection.verifyLapiStoreIntegrity()(TraceContext.empty)
 
-  def extractSubmissionResult(tree: TransactionTreeV2): Value.Sum = {
+  def extractSubmissionResult(tx: Transaction): Value.Sum = {
     require(
-      tree.rootNodeIds().sizeIs == 1,
-      s"Received transaction with not exactly one root node: $tree",
+      fromProto(Transaction.toJavaProto(tx)).getRootNodeIds.size == 1,
+      s"Received transaction with not exactly one root node: $tx",
     )
-    tree.eventsById(tree.rootNodeIds().head).kind match {
+    tx.events.head.event match {
       case Created(created) => Value.Sum.ContractId(created.contractId)
       case Exercised(exercised) =>
         val Value(result) = exercised.exerciseResult.getOrElse(
           throw new RuntimeException("Unable to exercise choice.")
         )
         result
-      case TreeEvent.Kind.Empty =>
-        throw new IllegalArgumentException(s"Received transaction with empty event kind: $tree")
+      case Archived(_) =>
+        throw new IllegalArgumentException(
+          s"Received transaction with unexpected archived event: $tx"
+        )
+      case Event.Empty =>
+        throw new IllegalArgumentException(s"Received transaction with empty event: $tx")
     }
   }
 

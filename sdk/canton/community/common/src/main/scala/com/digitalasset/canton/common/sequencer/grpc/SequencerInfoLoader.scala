@@ -155,6 +155,20 @@ class SequencerInfoLoader(
           grpc.sequencerAlias,
           client,
         ).thereafter(_ => client.close())
+          .subflatMap { case result @ (bootstrapInfo, _) =>
+            grpc.sequencerId match {
+              case None => Right(result)
+              case Some(expectedSequencerId) =>
+                Either.cond(
+                  (expectedSequencerId == bootstrapInfo.sequencerId),
+                  result,
+                  SequencerInfoLoaderError
+                    .InconsistentConnectivity(
+                      s"Expected sequencerId $expectedSequencerId, but the sequencer itself reported ${bootstrapInfo.sequencerId}."
+                    ),
+                )
+            }
+          }
     }
 
   private def performHandshake(
@@ -189,7 +203,7 @@ class SequencerInfoLoader(
 
   def loadAndAggregateSequencerEndpoints(
       synchronizerAlias: SynchronizerAlias,
-      expectedSynchronizerId: Option[SynchronizerId],
+      expectedSynchronizerId: Option[PhysicalSynchronizerId],
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
@@ -213,7 +227,7 @@ class SequencerInfoLoader(
 
   def validateSequencerConnection(
       alias: SynchronizerAlias,
-      expectedSynchronizerId: Option[SynchronizerId],
+      expectedSynchronizerId: Option[PhysicalSynchronizerId],
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
@@ -418,14 +432,11 @@ object SequencerInfoLoader {
   }
 
   final case class SequencerAggregatedInfo(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
       sequencerConnections: SequencerConnections,
-  ) {
-    def physicalSynchronizerId: PhysicalSynchronizerId =
-      PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.protocolVersion)
-  }
+  )
 
   sealed trait SequencerInfoLoaderError extends Product with Serializable {
     def cause: String
@@ -462,7 +473,7 @@ object SequencerInfoLoader {
     * changes
     */
   def validateNewSequencerConnectionResults(
-      expectedSynchronizerId: Option[SynchronizerId],
+      expectedSynchronizerId: Option[PhysicalSynchronizerId],
       sequencerConnectionValidation: SequencerConnectionValidation,
       sequencerTrustThreshold: PositiveInt,
       logger: TracedLogger,
@@ -515,6 +526,7 @@ object SequencerInfoLoader {
                   .map(_.staticSynchronizerParameters.toString)}"
             ),
           )
+          // TODO(#25433) Validate that (LSId, static synchronizer parameters) yield expected PSId
           // check that synchronizer id matches expected
           _ <- Either.cond(
             expectedSynchronizerId.forall(
@@ -590,7 +602,7 @@ object SequencerInfoLoader {
       sequencerTrustThreshold: PositiveInt,
       submissionRequestAmplification: SubmissionRequestAmplification,
       sequencerConnectionValidation: SequencerConnectionValidation,
-      expectedSynchronizerId: Option[SynchronizerId],
+      expectedSynchronizerId: Option[PhysicalSynchronizerId],
   )(
       fullResult: Seq[LoadSequencerEndpointInformationResult]
   )(implicit
@@ -624,7 +636,9 @@ object SequencerInfoLoader {
           )
           SequencerConnections
             .many(
-              validSequencerConnectionsNE.map(_.connection),
+              validSequencerConnectionsNE.map(valid =>
+                valid.connection.withSequencerId(valid.synchronizerClientBootstrapInfo.sequencerId)
+              ),
               sequencerTrustThreshold,
               submissionRequestAmplification,
             )

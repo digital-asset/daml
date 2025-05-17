@@ -16,7 +16,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.participant.protocol.TransactionProcessor
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.topology.{ForceFlag, SynchronizerId}
+import com.digitalasset.canton.topology.{ForceFlag, PhysicalSynchronizerId}
 import org.scalatest.matchers.{MatchResult, Matcher}
 
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
@@ -27,7 +27,7 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
 
   private val synchronizer: SynchronizerAlias = SynchronizerAlias.tryCreate("bft-synchronizer1")
 
-  private var synchronizerId: SynchronizerId = _
+  private var synchronizerId: PhysicalSynchronizerId = _
   private var synchronizerOwners: Seq[LocalParticipantReference] = _
 
   s"Startup $synchronizer" in { implicit env =>
@@ -49,14 +49,16 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
     // The synchronizer owners are the participants so that we can use their topology dispatcher to push topology changes to the synchronizer
     synchronizerOwners = Seq(participant1, participant2)
 
-    synchronizerId = bootstrap.synchronizer(
-      synchronizer.toProtoPrimitive,
-      sequencers = sequencersAll,
-      mediators = mediatorsAll,
-      synchronizerOwners = synchronizerOwners,
-      synchronizerThreshold = PositiveInt.two,
-      staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
-    )
+    synchronizerId = bootstrap
+      .synchronizer(
+        synchronizer.toProtoPrimitive,
+        sequencers = sequencersAll,
+        mediators = mediatorsAll,
+        synchronizerOwners = synchronizerOwners,
+        synchronizerThreshold = PositiveInt.two,
+        staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
+      )
+      .toPhysical
   }
 
   "Connect synchronizer owners to the synchronizer" in { implicit env =>
@@ -126,7 +128,7 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
     }
     eventually() {
       val mdsSerial = mediator1.topology.mediators
-        .list(synchronizerId = synchronizerId)
+        .list(synchronizerId = synchronizerId.logical)
         .map(_.context.serial)
         .headOption
       mdsSerial shouldBe Some(PositiveInt.tryCreate(3))
@@ -158,13 +160,13 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
     // Ensure that the group threshold is 2 for the test
     eventually() {
       val mediatorState1 =
-        mediator1.topology.mediators.list(synchronizerId = synchronizerId).head
+        mediator1.topology.mediators.list(synchronizerId = synchronizerId.logical).head
       mediatorState1.item.threshold shouldBe PositiveInt.tryCreate(2)
       val mediatorState2 =
-        mediator2.topology.mediators.list(synchronizerId = synchronizerId).head
+        mediator2.topology.mediators.list(synchronizerId = synchronizerId.logical).head
       mediatorState2.item.threshold shouldBe PositiveInt.tryCreate(2)
       val mediatorState3 =
-        mediator3.topology.mediators.list(synchronizerId = synchronizerId).head
+        mediator3.topology.mediators.list(synchronizerId = synchronizerId.logical).head
       mediatorState3.item.threshold shouldBe PositiveInt.tryCreate(2)
     }
 

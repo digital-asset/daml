@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.{
   MediatorId,
   Member,
   ParticipantId,
-  SynchronizerId,
+  PhysicalSynchronizerId,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.util.ShowUtil
@@ -30,7 +30,7 @@ import java.time.Duration
 
 final case class SequencerNodeStatus(
     uid: UniqueIdentifier,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     connectedMembers: Seq[Member],
@@ -39,7 +39,7 @@ final case class SequencerNodeStatus(
     admin: SequencerAdminStatus,
     components: Seq[ComponentStatus],
     version: ReleaseVersion,
-    protocolVersion: ProtocolVersion,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
 ) extends NodeStatus.Status {
   override def active: Boolean = sequencer.isActive
 
@@ -84,7 +84,7 @@ final case class SequencerNodeStatus(
       connectedParticipants = connectedParticipantsP,
       connectedMediators = connectedMediatorsP,
       sequencer = sequencer.toProtoV30.some,
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       admin = admin.toProtoV30.some,
       protocolVersion = protocolVersion.toProtoPrimitive,
     )

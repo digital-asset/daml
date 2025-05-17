@@ -11,29 +11,79 @@ private[availability] object AvailabilityModuleMetrics {
 
   def emitInvalidMessage(metrics: BftOrderingMetrics, from: BftNodeId)(implicit
       mc: MetricsContext
-  ): Unit =
-    metrics.security.noncompliant.behavior.mark()(
+  ): Unit = {
+    import metrics.security.noncompliant.*
+    behavior.mark()(
       mc.withExtraLabels(
-        metrics.security.noncompliant.labels.Sequencer -> from,
-        metrics.security.noncompliant.labels.violationType.Key ->
-          metrics.security.noncompliant.labels.violationType.values.DisseminationInvalidMessage,
+        labels.Sequencer -> from,
+        labels.violationType.Key ->
+          labels.violationType.values.DisseminationInvalidMessage,
       )
     )
+  }
 
   def emitDisseminationStateStats(
       metrics: BftOrderingMetrics,
       state: DisseminationProtocolState,
   )(implicit mc: MetricsContext): Unit = {
-    metrics.availability.requestedProposals.updateValue(state.toBeProvidedToConsensus.size)
-    metrics.availability.requestedBatches.updateValue(
+    import metrics.availability.*
+
+    requested.proposals.updateValue(state.toBeProvidedToConsensus.size)
+    requested.batches.updateValue(
       state.toBeProvidedToConsensus.map(_.maxBatchesPerProposal.toInt).sum
     )
-    metrics.availability.readyBytes.updateValue(
-      state.batchesReadyForOrdering.map(_._2.stats.bytes).sum
+
+    val readyForConsensusMc = mc.withExtraLabels(dissemination.labels.ReadyForConsensus -> "true")
+    locally {
+      implicit val mc: MetricsContext = readyForConsensusMc
+      dissemination.bytes.updateValue(state.batchesReadyForOrdering.values.map(_.stats.bytes).sum)
+      dissemination.requests.updateValue(
+        state.batchesReadyForOrdering.values.map(_.stats.requests).sum
+      )
+      dissemination.batches.updateValue(state.batchesReadyForOrdering.size)
+    }
+    val inProgressMc = mc.withExtraLabels(dissemination.labels.ReadyForConsensus -> "false")
+    locally {
+      implicit val mc: MetricsContext = inProgressMc
+      dissemination.bytes.updateValue(
+        state.disseminationProgress.values.map(_.batchMetadata.stats.bytes).sum
+      )
+      dissemination.requests.updateValue(
+        state.disseminationProgress.values.map(_.batchMetadata.stats.requests).sum
+      )
+      dissemination.batches.updateValue(state.disseminationProgress.size)
+    }
+
+    val regressionsToSigning =
+      state.disseminationProgress.values.map(_.batchMetadata.regressionsToSigning).sum +
+        state.batchesReadyForOrdering.values.map(_.regressionsToSigning).sum
+    val regressedDisseminations =
+      state.disseminationProgress.values.map(_.batchMetadata.disseminationRegressions).sum +
+        state.batchesReadyForOrdering.values.map(_.disseminationRegressions).sum
+    regression.batch.inc(regressionsToSigning.toLong)(
+      mc.withExtraLabels(
+        regression.labels.stage.Key -> regression.labels.stage.values.Signing.toString
+      )
     )
-    metrics.availability.readyRequests.updateValue(
-      state.batchesReadyForOrdering.map(_._2.stats.requests).sum
+    regression.batch.inc(regressedDisseminations.toLong)(
+      mc.withExtraLabels(
+        regression.labels.stage.Key -> regression.labels.stage.values.Dissemination.toString
+      )
     )
-    metrics.availability.readyBatches.updateValue(state.batchesReadyForOrdering.size)
+    // Reset regressions counts to avoid double counting
+    state.disseminationProgress = state.disseminationProgress.map { case (key, value) =>
+      key -> value.copy(
+        batchMetadata = value.batchMetadata.copy(
+          regressionsToSigning = 0,
+          disseminationRegressions = 0,
+        )
+      )
+    }
+    state.batchesReadyForOrdering = state.batchesReadyForOrdering.map { case (key, value) =>
+      key -> value.copy(
+        regressionsToSigning = 0,
+        disseminationRegressions = 0,
+      )
+    }
   }
 }

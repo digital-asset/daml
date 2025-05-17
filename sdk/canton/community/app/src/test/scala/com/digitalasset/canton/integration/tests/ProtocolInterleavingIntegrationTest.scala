@@ -142,13 +142,13 @@ trait ProtocolInterleavingIntegrationTest
         List(alice.toProtoPrimitive).asJava,
       ).create.commands.asScala.toSeq
     val Seq(many) =
-      JavaDecodeUtil.decodeAllCreatedTree(Many.COMPANION)(
+      JavaDecodeUtil.decodeAllCreated(Many.COMPANION)(
         participantBob.ledger_api.javaapi.commands.submit(Seq(bob), bobAlice)
       )
 
     val aliceCreate = new Single(alice.toProtoPrimitive).create.commands.asScala.toSeq
     val Seq(single) =
-      JavaDecodeUtil.decodeAllCreatedTree(Single.COMPANION)(
+      JavaDecodeUtil.decodeAllCreated(Single.COMPANION)(
         participantAlice.ledger_api.javaapi.commands.submit(Seq(alice), aliceCreate)
       )
 
@@ -210,7 +210,7 @@ trait ProtocolInterleavingIntegrationTest
               """Request failed for participant1.
                         |  GrpcRequestRefusedByServer: ABORTED/LOCAL_VERDICT_LOCKED_CONTRACTS""".stripMargin
             )
-          msg should include("Request: SubmitAndWaitTransactionTree")
+          msg should include("Request: SubmitAndWaitTransaction")
         },
       )
     }
@@ -280,7 +280,7 @@ trait ProtocolInterleavingIntegrationTest
     ).create.commands.loneElement
     val manys = JavaDecodeUtil.decodeAllCreated(Many.COMPANION)(
       participantBob.ledger_api.javaapi.commands
-        .submit_flat(Seq(bob), Seq.fill(total)(createBobMany), commandId = "setup")
+        .submit(Seq(bob), Seq.fill(total)(createBobMany), commandId = "setup")
     )
     manys.size shouldBe total
 

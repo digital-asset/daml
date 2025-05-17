@@ -20,6 +20,7 @@ import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.{
   ParticipantId,
+  PhysicalSynchronizerId,
   SynchronizerOutboxQueue,
   SynchronizerTopologyManager,
 }
@@ -52,6 +53,9 @@ trait SyncPersistentState extends NamedLogging with AutoCloseable {
   def topologyManager: SynchronizerTopologyManager
   def synchronizerOutboxQueue: SynchronizerOutboxQueue
   def acsInspection: AcsInspection
+
+  lazy val physicalSynchronizerId: PhysicalSynchronizerId =
+    PhysicalSynchronizerId(indexedSynchronizer.synchronizerId, staticSynchronizerParameters)
 }
 
 object SyncPersistentState {

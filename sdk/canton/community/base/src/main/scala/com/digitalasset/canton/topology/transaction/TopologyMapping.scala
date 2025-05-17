@@ -171,7 +171,8 @@ object TopologyMapping {
     case object PartyToKeyMapping
         extends Code("ptk", v30Code.TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING)
 
-    case object TopologyFreeze extends Code("frz", v30Code.TOPOLOGY_MAPPING_CODE_TOPOLOGY_FREEZE)
+    case object SynchronizerMigrationAnnouncement
+        extends Code("sma", v30Code.TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT)
 
     lazy val all: Seq[Code] = Seq(
       NamespaceDelegation,
@@ -188,7 +189,7 @@ object TopologyMapping {
       PurgeTopologyTransaction,
       SequencingDynamicParametersState,
       PartyToKeyMapping,
-      TopologyFreeze,
+      SynchronizerMigrationAnnouncement,
     )
 
     def fromString(code: String): ParsingResult[Code] =
@@ -323,7 +324,8 @@ object TopologyMapping {
       case Mapping.SequencerSynchronizerState(value) =>
         SequencerSynchronizerState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
-      case Mapping.TopologyFreeze(value) => TopologyFreeze.fromProtoV30(value)
+      case Mapping.SynchronizerMigrationAnnouncement(value) =>
+        SynchronizerMigrationAnnouncement.fromProtoV30(value)
     }
 }
 
@@ -935,23 +937,27 @@ object SynchronizerTrustCertificate extends TopologyMappingCompanion {
   */
 sealed trait ParticipantPermission extends Product with Serializable {
   def toProtoV30: v30.Enums.ParticipantPermission
-  def canConfirm: Boolean
+
+  // For a participant to be able to confirm, having Submission or Confirmation permission
+  // is a necessary, but not sufficient condition (e.g. HostingParticipant.onboarding must
+  // be false). To prevent accidental use of this method, make canConfirm package-private.
+  private[transaction] def canConfirm: Boolean
 }
 object ParticipantPermission {
   case object Submission extends ParticipantPermission {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION
-    def canConfirm: Boolean = true
+    private[transaction] def canConfirm: Boolean = true
   }
   case object Confirmation extends ParticipantPermission {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_CONFIRMATION
-    def canConfirm: Boolean = true
+    private[transaction] def canConfirm: Boolean = true
   }
   case object Observation extends ParticipantPermission {
     lazy val toProtoV30: Enums.ParticipantPermission =
       v30.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_OBSERVATION
-    def canConfirm: Boolean = false
+    private[transaction] def canConfirm: Boolean = false
   }
 
   def fromProtoV30(
@@ -1330,15 +1336,23 @@ object VettedPackages extends TopologyMappingCompanion {
 final case class HostingParticipant(
     participantId: ParticipantId,
     permission: ParticipantPermission,
+    onboarding: Boolean,
 ) {
+  def canConfirm: Boolean = permission.canConfirm && !onboarding
   def toProto: v30.PartyToParticipant.HostingParticipant =
     v30.PartyToParticipant.HostingParticipant(
       participantUid = participantId.uid.toProtoPrimitive,
       permission = permission.toProtoV30,
+      onboarding = Option.when(onboarding)(v30.PartyToParticipant.HostingParticipant.Onboarding()),
     )
 }
 
 object HostingParticipant {
+  // Helper for "normal" HostingParticipant construction (as the onboarding flag is used narrowly
+  // by party replication)
+  def apply(participantId: ParticipantId, permission: ParticipantPermission): HostingParticipant =
+    HostingParticipant(participantId, permission, onboarding = false)
+
   def fromProtoV30(
       value: v30.PartyToParticipant.HostingParticipant
   ): ParsingResult[HostingParticipant] = for {
@@ -1347,7 +1361,7 @@ object HostingParticipant {
       "participant_uid",
     )
     permission <- ParticipantPermission.fromProtoV30(value.permission)
-  } yield HostingParticipant(participantId, permission)
+  } yield HostingParticipant(participantId, permission, value.onboarding.nonEmpty)
 }
 
 final case class PartyToParticipant private (
@@ -1509,7 +1523,8 @@ final case class SynchronizerParametersState(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
-  override def uniqueKey: MappingHash = SynchronizerParametersState.uniqueKey(synchronizerId)
+  override def uniqueKey: MappingHash =
+    SynchronizerParametersState.uniqueKey(synchronizerId)
 }
 
 object SynchronizerParametersState extends TopologyMappingCompanion {
@@ -1524,7 +1539,10 @@ object SynchronizerParametersState extends TopologyMappingCompanion {
   ): ParsingResult[SynchronizerParametersState] = {
     val v30.SynchronizerParametersState(synchronizerIdP, synchronizerParametersP) = value
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- SynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "synchronizer_id",
+      )
       parameters <- ProtoConverter.parseRequired(
         DynamicSynchronizerParameters.fromProtoV30,
         "synchronizer_parameters",
@@ -1854,54 +1872,60 @@ object PurgeTopologyTransaction extends TopologyMappingCompanion {
 
 }
 
-// Indicates a freeze of the topology state. Only topology transactions related to synchronizer migrations are permitted
+// Indicates the beginning of synchronizer migration. Only topology transactions related to synchronizer migrations are permitted
 // after this transaction has become effective. Removing this mapping effectively unfreezes the topology state again.
-final case class TopologyFreeze(
-    physicalSynchronizerId: PhysicalSynchronizerId
+final case class SynchronizerMigrationAnnouncement(
+    synchronizerId: PhysicalSynchronizerId,
+    successorSynchronizerId: PhysicalSynchronizerId,
 ) extends TopologyMapping {
 
-  override def companion: TopologyFreeze.type = TopologyFreeze
+  override def companion: SynchronizerMigrationAnnouncement.type = SynchronizerMigrationAnnouncement
 
-  def toProto: v30.TopologyFreeze =
-    v30.TopologyFreeze(
-      physicalSynchronizerId = physicalSynchronizerId.toProtoPrimitive
+  def toProto: v30.SynchronizerMigrationAnnouncement =
+    v30.SynchronizerMigrationAnnouncement(
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
+      successorPhysicalSynchronizerId = successorSynchronizerId.toProtoPrimitive,
     )
 
   def toProtoV30: v30.TopologyMapping =
     v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.TopologyFreeze(
+      v30.TopologyMapping.Mapping.SynchronizerMigrationAnnouncement(
         toProto
       )
     )
 
-  override def namespace: Namespace = physicalSynchronizerId.logical.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(physicalSynchronizerId.logical.uid)
+  override def namespace: Namespace = synchronizerId.namespace
+  override def maybeUid: Option[UniqueIdentifier] = Some(synchronizerId.uid)
 
   override def restrictedToSynchronizer: Option[SynchronizerId] = Some(
-    physicalSynchronizerId.logical
+    synchronizerId.logical
   )
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredNamespaces(Set(physicalSynchronizerId.logical.namespace))
+  ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
-  override def uniqueKey: MappingHash = TopologyFreeze.uniqueKey(physicalSynchronizerId)
+  override def uniqueKey: MappingHash = SynchronizerMigrationAnnouncement.uniqueKey(synchronizerId)
 }
 
-object TopologyFreeze extends TopologyMappingCompanion {
+object SynchronizerMigrationAnnouncement extends TopologyMappingCompanion {
 
-  def uniqueKey(physicalSynchronizerId: PhysicalSynchronizerId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(physicalSynchronizerId.toProtoPrimitive))
+  def uniqueKey(synchronizerId: PhysicalSynchronizerId): MappingHash =
+    TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
-  override def code: TopologyMapping.Code = Code.TopologyFreeze
+  override def code: TopologyMapping.Code = Code.SynchronizerMigrationAnnouncement
 
   def fromProtoV30(
-      value: v30.TopologyFreeze
-  ): ParsingResult[TopologyFreeze] =
+      value: v30.SynchronizerMigrationAnnouncement
+  ): ParsingResult[SynchronizerMigrationAnnouncement] =
     for {
-      physicalSynchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
         value.physicalSynchronizerId,
         "physical_synchronizer_id",
       )
-    } yield TopologyFreeze(physicalSynchronizerId)
+      successorSynchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        value.successorPhysicalSynchronizerId,
+        "successor_physical_synchronizer_id",
+      )
+    } yield SynchronizerMigrationAnnouncement(synchronizerId, successorSynchronizerId)
 }

@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.implicits.catsSyntaxParallelTraverse_
 import cats.instances.order.*
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
@@ -54,8 +55,9 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      unassignmentData.targetSynchronizer == synchronizer,
-      s"Synchronizer $synchronizer: Reassignment store cannot store reassignment for synchronizer ${unassignmentData.targetSynchronizer}",
+      unassignmentData.targetSynchronizer.map(_.logical) == synchronizer,
+      s"Synchronizer $synchronizer: Reassignment store cannot store reassignment for synchronizer ${unassignmentData.targetSynchronizer
+          .map(_.logical)}",
     )
 
     logger.debug(s"Add reassignment request in the store: ${unassignmentData.reassignmentId}")
@@ -275,7 +277,7 @@ class InMemoryReassignmentStore(
         requestAfter.forall { case (ts, sourceSynchronizerID) =>
           (
             entry.unassignmentTs,
-            entry.unassignmentDataO.map(_.sourceSynchronizer),
+            entry.unassignmentDataO.map(_.sourceSynchronizer.map(_.logical)),
           ) > (ts, Some(sourceSynchronizerID))
         }
 

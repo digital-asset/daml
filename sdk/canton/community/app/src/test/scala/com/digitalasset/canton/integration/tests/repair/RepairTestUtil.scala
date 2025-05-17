@@ -43,7 +43,7 @@ trait RepairTestUtil {
         List.empty.asJava,
       ).create.commands.asScala.toSeq
 
-    val createTx = participant.ledger_api.javaapi.commands.submit_flat(
+    val createTx = participant.ledger_api.javaapi.commands.submit(
       Seq(payer),
       createCmd,
       // do not wait on all participants to observe the transaction (gets confused as we assigned the same id to different participants)
@@ -123,7 +123,7 @@ trait RepairTestUtil {
     val exerciseCmd = cid.exerciseCall().commands.asScala.toSeq
     val exerciseTx =
       participant.ledger_api.javaapi.commands
-        .submit_flat(Seq(owner), exerciseCmd, optTimeout = None)
+        .submit(Seq(owner), exerciseCmd, optTimeout = None)
     val archives = exerciseTx.getEvents.asScala.toSeq.collect {
       case x if x.toProtoEvent.hasArchived =>
         val contractId = x.toProtoEvent.getArchived.getContractId
