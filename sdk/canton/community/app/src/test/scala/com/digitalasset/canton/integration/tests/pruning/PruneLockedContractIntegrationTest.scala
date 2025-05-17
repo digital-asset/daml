@@ -81,7 +81,7 @@ trait PruneLockedContractIntegrationTest
     val delayJ = delay.asJava
 
     val createCmd = new One(alice.toProtoPrimitive).create.commands.loneElement
-    val createTx = participant1.ledger_api.javaapi.commands.submit_flat(
+    val createTx = participant1.ledger_api.javaapi.commands.submit(
       Seq(alice),
       Seq(createCmd),
       commandId = "Creation",
@@ -142,7 +142,7 @@ trait PruneLockedContractIntegrationTest
             // Wrap everything in an Either such that we wait for all futures to complete
             val res = Either.catchOnly[CommandFailure] {
               participant1.ledger_api.javaapi.commands
-                .submit_flat(Seq(alice), Seq(archiveCmd), commandId = f"Archival-$i%02d")
+                .submit(Seq(alice), Seq(archiveCmd), commandId = f"Archival-$i%02d")
             }
             completedRequests.incrementAndGet()
             res

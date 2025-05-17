@@ -54,7 +54,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentProcessingSteps(
-    val synchronizerId: Target[SynchronizerId],
+    val synchronizerId: Target[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
@@ -298,13 +298,14 @@ private[reassignment] class AssignmentProcessingSteps(
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
-    if (parsedRequest.fullViewTree.targetSynchronizer == synchronizerId) {
+    if (Target(parsedRequest.fullViewTree.synchronizerId) == synchronizerId) {
       val contractIds = parsedRequest.fullViewTree.contracts.contractIds.toSet
       val contractCheck = ActivenessCheck.tryCreate(
         checkFresh = Set.empty,
         checkFree = contractIds,
         checkActive = Set.empty,
         lock = contractIds,
+        lockMaybeUnknown = Set.empty,
         needPriorState = Set.empty,
       )
       val activenessSet = ActivenessSet(
@@ -323,6 +324,13 @@ private[reassignment] class AssignmentProcessingSteps(
           receivedOn = synchronizerId.unwrap,
         )
       )
+
+  // assigned contracts should always be "known" as assignments include the contracts
+  protected override def contractsMaybeUnknown(
+      fullView: FullView,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean] =
+    FutureUnlessShutdown.pure(false)
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedRequestType,
@@ -475,12 +483,12 @@ private[reassignment] class AssignmentProcessingSteps(
                 reassignmentCoordination.addAssignmentData(
                   assignmentValidationResult.reassignmentId,
                   contracts = assignmentValidationResult.contracts,
-                  target = synchronizerId,
+                  target = synchronizerId.map(_.logical),
                 )
               } else EitherTUtil.unitUS
             update <- EitherT.fromEither[FutureUnlessShutdown](
               assignmentValidationResult.createReassignmentAccepted(
-                synchronizerId,
+                synchronizerId.map(_.logical),
                 participantId,
                 requestId.unwrap,
               )
@@ -566,7 +574,7 @@ object AssignmentProcessingSteps {
       reassignmentId: ReassignmentId,
       submitterMetadata: ReassignmentSubmitterMetadata,
       contracts: ContractsReassignmentBatch,
-      targetSynchronizer: Target[SynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       targetMediator: MediatorGroupRecipient,
       assignmentUuid: UUID,
       targetProtocolVersion: Target[ProtocolVersion],

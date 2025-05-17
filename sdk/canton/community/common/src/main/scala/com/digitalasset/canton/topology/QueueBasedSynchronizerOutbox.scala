@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Promise}
 
 class QueueBasedSynchronizerOutbox(
     synchronizerAlias: SynchronizerAlias,
-    val synchronizerId: SynchronizerId,
+    val synchronizerId: PhysicalSynchronizerId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,

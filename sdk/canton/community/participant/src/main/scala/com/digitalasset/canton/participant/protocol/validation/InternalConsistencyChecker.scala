@@ -26,6 +26,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.daml.lf.value.Value
@@ -312,7 +313,7 @@ object InternalConsistencyChecker {
   )(implicit
       loggingContext: NamedLoggingContext,
       ec: ExecutionContext,
-  ): FutureUnlessShutdown[Map[LfPartyId, Boolean]] = {
+  ): FutureUnlessShutdown[Map[LfPartyId, Option[ParticipantAttributes]]] = {
     val parties =
       rootViewTrees.forgetNE
         .flatMap(_.view.globalKeyInputs.values.flatMap(_.unversioned.maintainers))

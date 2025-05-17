@@ -142,12 +142,9 @@ class PipeTest extends AnyFlatSpec with BaseTest {
 
   it should "simulation should implement pipeToSelf correctly" in {
     val simSettings = SimulationSettings(
-      localSettings = LocalSettings(
-        randomSeed = 4
-      ),
-      networkSettings = NetworkSettings(
-        randomSeed = 4
-      ),
+      localSettings = LocalSettings(randomSeed = 4),
+      networkSettings = NetworkSettings(randomSeed = 4),
+      topologySettings = TopologySettings(randomSeed = 4),
       durationOfFirstPhaseWithFaults = 2.minutes,
     )
 

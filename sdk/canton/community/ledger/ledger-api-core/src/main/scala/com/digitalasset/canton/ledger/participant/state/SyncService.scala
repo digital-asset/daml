@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.SyncService.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPackageId, LfPartyId, SynchronizerAlias}
@@ -99,7 +99,7 @@ trait SyncService
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Map[SynchronizerId, Map[LfPartyId, Set[LfPackageId]]]]
+  ): FutureUnlessShutdown[Map[PhysicalSynchronizerId, Map[LfPartyId, Set[LfPackageId]]]]
 
   // temporary implementation, will be removed with the refactoring of the SyncService interface
   /** Computes the highest ranked synchronizer from the given admissible synchronizers without
@@ -130,12 +130,12 @@ trait SyncService
       submitterInfo: SubmitterInfo,
       transaction: LfSubmittedTransaction,
       transactionMeta: TransactionMeta,
-      admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
+      admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]],
       disclosedContractIds: List[LfContractId],
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerId]
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, PhysicalSynchronizerId]
 
   // temporary implementation, will be removed with the refactoring of the SyncService interface
   /** Computes the best synchronizer for a submitted transaction by checking the submitted
@@ -191,7 +191,7 @@ object SyncService {
   object ConnectedSynchronizerResponse {
     final case class ConnectedSynchronizer(
         synchronizerAlias: SynchronizerAlias,
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
         permission: ParticipantPermission,
     )
   }

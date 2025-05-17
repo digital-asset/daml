@@ -105,12 +105,12 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest with F
       for {
         yes1 <- client.allHostedOn(Set(party1.toLf), participant1)
         yes2 <- client.allHostedOn(Set(party1.toLf), participant2)
-        no1 <- client.allHostedOn(Set(party1.toLf), participant2, _.permission.canConfirm)
+        no1 <- client.allHostedOn(Set(party1.toLf), participant2, _.canConfirm)
         no2 <- client.allHostedOn(Set(party1.toLf, party3.toLf), participant1)
         no3 <- client.allHostedOn(
           Set(party1.toLf, party2.toLf),
           participant2,
-          _.permission.canConfirm,
+          _.canConfirm,
         )
         yes3 <- client.allHostedOn(
           Set(party1.toLf, party2.toLf),

@@ -34,6 +34,16 @@ object ActivenessSet {
   * [[ActivenessCheck.checkFresh]], [[ActivenessCheck.checkFree]], and
   * [[ActivenessCheck.checkActive]] must be pairwise disjoint.
   *
+  * @param checkFresh
+  *   The keys that are to be checked for being fresh.
+  * @param checkFree
+  *   The keys that are to be checked for being free.
+  * @param checkActive
+  *   The keys that are to be checked for being active.
+  * @param lock
+  *   The keys that are to be locked.
+  * @param lockMaybeUnknown
+  *   The keys that are to be locked while legitimately being potentially unknown.
   * @param needPriorState
   *   The set of `Key`s whose prior state should be returned in
   *   [[ActivenessCheckResult.priorStates]].
@@ -50,6 +60,7 @@ private[participant] final case class ActivenessCheck[Key] private (
     checkFree: Set[Key],
     checkActive: Set[Key],
     lock: Set[Key],
+    lockMaybeUnknown: Set[Key],
     needPriorState: Set[Key],
 )(implicit val prettyK: Pretty[Key])
     extends PrettyPrinting {
@@ -57,35 +68,40 @@ private[participant] final case class ActivenessCheck[Key] private (
   requireDisjoint(checkFresh -> "fresh", checkFree -> "free")
   requireDisjoint(checkFresh -> "fresh", checkActive -> "active")
   requireDisjoint(checkFree -> "free", checkActive -> "active")
+  requireDisjoint(lock -> "lock", lockMaybeUnknown -> "lockMaybeUnknown")
 
   locally {
     val uncovered = needPriorState.filterNot(k =>
-      checkFresh.contains(k) || checkFree.contains(k) || checkActive.contains(k) || lock.contains(k)
+      checkFresh.contains(k) || checkFree.contains(k) || checkActive.contains(k) ||
+        lock.contains(k) || lockMaybeUnknown.contains(k)
     )
     require(uncovered.isEmpty, show"$uncovered are not being checked for activeness")
   }
 
   val lockOnly: Set[Key] = lock -- checkFresh -- checkFree -- checkActive
+  val lockMaybeUnknownOnly: Set[Key] = lockMaybeUnknown -- checkFresh -- checkFree -- checkActive
 
   override protected def pretty: Pretty[ActivenessCheck.this.type] = prettyOfClass(
     paramIfNonEmpty("fresh", _.checkFresh),
     paramIfNonEmpty("free", _.checkFree),
     paramIfNonEmpty("active", _.checkActive),
     paramIfNonEmpty("lock", _.lock),
+    paramIfNonEmpty("lockMaybeKnown", _.lockMaybeUnknown),
     paramIfNonEmpty("need prior state", _.needPriorState),
   )
 }
 
 private[participant] object ActivenessCheck {
   def empty[Key: Pretty]: ActivenessCheck[Key] =
-    ActivenessCheck(Set.empty, Set.empty, Set.empty, Set.empty, Set.empty)
+    ActivenessCheck(Set.empty, Set.empty, Set.empty, Set.empty, Set.empty, Set.empty)
 
   def tryCreate[Key](
       checkFresh: Set[Key],
       checkFree: Set[Key],
       checkActive: Set[Key],
       lock: Set[Key],
+      lockMaybeUnknown: Set[Key],
       needPriorState: Set[Key],
   )(implicit prettyK: Pretty[Key]): ActivenessCheck[Key] =
-    ActivenessCheck(checkFresh, checkFree, checkActive, lock, needPriorState)
+    ActivenessCheck(checkFresh, checkFree, checkActive, lock, lockMaybeUnknown, needPriorState)
 }

@@ -33,8 +33,11 @@ object StateTransferTestHelpers {
 
   def aCommitCert(blockMetadata: BlockMetadata = aBlockMetadata)(implicit
       synchronizerProtocolVersion: ProtocolVersion
-  ): CommitCertificate =
-    CommitCertificate(aPrePrepare(blockMetadata), Seq(aCommit(blockMetadata)))
+  ): CommitCertificate = {
+    val prePreprepare = aPrePrepare(blockMetadata)
+    val hash = prePreprepare.message.hash
+    CommitCertificate(prePreprepare, Seq(aCommit(blockMetadata, hash)))
+  }
 
   def aPrePrepare(
       blockMetadata: BlockMetadata
@@ -50,14 +53,15 @@ object StateTransferTestHelpers {
       .fakeSign
 
   def aCommit(
-      blockMetadata: BlockMetadata = aBlockMetadata
+      blockMetadata: BlockMetadata = aBlockMetadata,
+      hash: Hash = Hash
+        .digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
   )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[Commit] =
     Commit
       .create(
         blockMetadata,
         ViewNumber.First,
-        Hash
-          .digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+        hash,
         CantonTimestamp.Epoch,
         from = otherId,
       )

@@ -12,7 +12,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.admin.v30
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.Status
@@ -21,6 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** Admin service to expose the time of synchronizers to a participant and other nodes */
 private[time] class GrpcSynchronizerTimeService(
+    // TODO(#25483) This should be physical
     lookupTimeTracker: Option[SynchronizerId] => Either[String, SynchronizerTimeTracker],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -35,7 +36,7 @@ private[time] class GrpcSynchronizerTimeService(
           .fromEither[Future](FetchTimeRequest.fromProto(requestP))
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
         timeTracker <- EitherT
-          .fromEither[Future](lookupTimeTracker(request.synchronizerIdO))
+          .fromEither[Future](lookupTimeTracker(request.synchronizerIdO.map(_.logical)))
           .leftMap(Status.INVALID_ARGUMENT.withDescription)
         timestamp <- EitherT(
           timeTracker
@@ -55,7 +56,7 @@ private[time] class GrpcSynchronizerTimeService(
           .fromEither[Future](AwaitTimeRequest.fromProto(requestP))
           .leftMap(err => Status.INVALID_ARGUMENT.withDescription(err.toString))
         timeTracker <- EitherT
-          .fromEither[Future](lookupTimeTracker(request.synchronizerIdO))
+          .fromEither[Future](lookupTimeTracker(request.synchronizerIdO.map(_.logical)))
           .leftMap(Status.INVALID_ARGUMENT.withDescription)
         _ = logger.debug(
           s"Waiting for synchronizer [${request.synchronizerIdO}] to reach time ${request.timestamp} (is at ${timeTracker.latestTime})"
@@ -74,7 +75,7 @@ private[time] class GrpcSynchronizerTimeService(
 }
 
 final case class FetchTimeRequest(
-    synchronizerIdO: Option[SynchronizerId],
+    synchronizerIdO: Option[PhysicalSynchronizerId],
     freshnessBound: NonNegativeFiniteDuration,
 ) {
   def toProtoV30: v30.FetchTimeRequest =
@@ -89,8 +90,8 @@ object FetchTimeRequest {
       requestP: v30.FetchTimeRequest
   ): ParsingResult[FetchTimeRequest] =
     for {
-      synchronizerIdO <- requestP.synchronizerId.traverse(
-        SynchronizerId.fromProtoPrimitive(_, "synchronizerId")
+      synchronizerIdO <- requestP.physicalSynchronizerId.traverse(
+        PhysicalSynchronizerId.fromProtoPrimitive(_, "physical_synchronizerId")
       )
       freshnessBound <- ProtoConverter.parseRequired(
         NonNegativeFiniteDuration.fromProtoPrimitive("freshnessBound"),
@@ -119,7 +120,7 @@ object FetchTimeResponse {
 }
 
 final case class AwaitTimeRequest(
-    synchronizerIdO: Option[SynchronizerId],
+    synchronizerIdO: Option[PhysicalSynchronizerId],
     timestamp: CantonTimestamp,
 ) {
   def toProtoV30: v30.AwaitTimeRequest =
@@ -131,8 +132,8 @@ object AwaitTimeRequest {
       requestP: v30.AwaitTimeRequest
   ): ParsingResult[AwaitTimeRequest] =
     for {
-      synchronizerIdO <- requestP.synchronizerId.traverse(
-        SynchronizerId.fromProtoPrimitive(_, "synchronizerId")
+      synchronizerIdO <- requestP.physicalSynchronizerId.traverse(
+        PhysicalSynchronizerId.fromProtoPrimitive(_, "physical_synchronizer_id")
       )
       timestamp <- ProtoConverter.parseRequired(
         CantonTimestamp.fromProtoTimestamp,
@@ -168,7 +169,7 @@ object GrpcSynchronizerTimeService {
     * cannot fetch another
     */
   def forSynchronizerEntity(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       timeTracker: SynchronizerTimeTracker,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): GrpcSynchronizerTimeService =
@@ -177,7 +178,7 @@ object GrpcSynchronizerTimeService {
       synchronizerIdO =>
         for {
           _ <- Either.cond(
-            synchronizerIdO.forall(_ == synchronizerId),
+            synchronizerIdO.forall(_ == synchronizerId.logical),
             (),
             "Provided synchronizer id does not match running synchronizer",
           )

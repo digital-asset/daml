@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -383,10 +383,12 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
 
   /* Access must be synchronized, since PriorityQueue doesn't support concurrent
     modifications. */
-  private val queue: mutable.PriorityQueue[AcsCommitment] =
+  private val queue: mutable.PriorityQueue[BufferedAcsCommitment] =
     // Queues dequeue in max-first, so make the lowest timestamp the maximum
     mutable.PriorityQueue.empty(
-      Ordering.by[AcsCommitment, CantonTimestampSecond](cmt => cmt.period.toInclusive).reverse
+      Ordering
+        .by[BufferedAcsCommitment, CantonTimestampSecond](cmt => cmt.period.toInclusive)
+        .reverse
     )
 
   private object lock
@@ -399,7 +401,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
   override def enqueue(
       commitment: AcsCommitment
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = sync {
-    queue.enqueue(commitment)
+    queue.enqueue(commitment.toQueuedAcsCommitment)
   }
 
   /** Returns all commitments whose period ends at or before the given timestamp.
@@ -408,7 +410,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     */
   override def peekThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[AcsCommitment]] = sync {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[BufferedAcsCommitment]] = sync {
     queue.takeWhile(_.period.toInclusive <= timestamp).toList
   }
 
@@ -418,7 +420,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     */
   override def peekThroughAtOrAfter(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[AcsCommitment]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
     sync {
       queue.filter(_.period.toInclusive >= timestamp).toSeq
     }
@@ -428,7 +430,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
       counterParticipant: ParticipantId,
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Seq[AcsCommitment]] =
+  ): FutureUnlessShutdown[Seq[BufferedAcsCommitment]] =
     sync {
       queue
         .filter(_.period.overlaps(period))

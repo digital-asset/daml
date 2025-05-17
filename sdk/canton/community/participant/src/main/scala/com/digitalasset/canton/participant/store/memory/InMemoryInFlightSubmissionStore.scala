@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
 }
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.collection.MapsUtil
@@ -49,7 +49,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
     OptionT(FutureUnlessShutdown.pure(inFlights.get(changeIdHash)))
 
   override def lookupEarliest(
-      synchronizerId: SynchronizerId
+      synchronizerId: PhysicalSynchronizerId
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[CantonTimestamp]] =
     FutureUnlessShutdown.pure {
       inFlights.valuesIterator.foldLeft(Option.empty[CantonTimestamp]) { (previousO, entry) =>
@@ -88,7 +88,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   }
 
   override def observeSequencing(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       submissions: Map[MessageId, SequencedSubmission],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     inFlights.mapValuesInPlace { (_, info) =>
@@ -135,7 +135,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
 
   override def updateUnsequenced(
       changeIdHash: ChangeIdHash,
-      submissionSynchronizerId: SynchronizerId,
+      submissionSynchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
       newSequencingInfo: UnsequencedSubmission,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
@@ -167,7 +167,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   }
 
   override def lookupUnsequencedUptoUnordered(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       observedSequencingTime: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -187,7 +187,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
     }
 
   override def lookupSequencedUptoUnordered(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencingTimeInclusive: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
@@ -208,8 +208,8 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       sequenced.result()
     }
 
-  override def lookupSomeMessageId(synchronizerId: SynchronizerId, messageId: MessageId)(implicit
-      traceContext: TraceContext
+  override def lookupSomeMessageId(synchronizerId: PhysicalSynchronizerId, messageId: MessageId)(
+      implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Option[InFlightSubmission[SubmissionSequencingInfo]]] =
     FutureUnlessShutdown.pure {
       inFlights.collectFirst {

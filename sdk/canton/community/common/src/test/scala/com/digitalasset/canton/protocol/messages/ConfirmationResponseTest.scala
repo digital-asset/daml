@@ -20,7 +20,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     ConfirmationResponses.tryCreate(
       RequestId(CantonTimestamp.now()),
       RootHash(TestHash.digest("txid1")),
-      SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+      SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")).toPhysical,
       topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
       NonEmpty.mk(
         Seq,
@@ -36,7 +36,7 @@ class ConfirmationResponseTest extends AnyWordSpec with BaseTest with HasCryptog
     ConfirmationResponses.tryCreate(
       RequestId(CantonTimestamp.now()),
       RootHash(TestHash.digest("txid3")),
-      SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")),
+      SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("da::default")).toPhysical,
       topology.ParticipantId(UniqueIdentifier.tryFromProtoPrimitive("da::p1")),
       NonEmpty.mk(
         Seq,

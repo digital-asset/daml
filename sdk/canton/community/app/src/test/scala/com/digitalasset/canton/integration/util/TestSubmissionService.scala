@@ -9,11 +9,14 @@ import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.api.v2.transaction.TransactionTree
+import com.daml.ledger.api.v2.transaction.Transaction as ApiTransaction
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
+  EventFormat,
   Filters,
-  TransactionFilter,
+  TransactionFormat,
+  UpdateFormat,
   WildcardFilter,
 }
 import com.daml.ledger.javaapi.data.codegen.ContractTypeCompanion
@@ -21,7 +24,7 @@ import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UpdateTreeWrapper
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.UpdateWrapper
 import com.digitalasset.canton.console.{LocalParticipantReference, ParticipantReference}
 import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
@@ -95,31 +98,31 @@ class TestSubmissionService(
   implicit lazy val loggingContext: LoggingContextWithTrace =
     LoggingContextWithTrace.ForTesting
 
-  def submitAndWaitForTransactionTree(
+  def submitAndWaitForTransaction(
       submittingParticipant: ParticipantReference,
       commands: CommandsWithMetadata,
-  )(implicit traceContext: TraceContext): Future[TransactionTree] =
-    waitForTransactionTree(submittingParticipant, commands, submitAsync_(commands))
+  )(implicit traceContext: TraceContext): Future[ApiTransaction] =
+    waitForTransaction(submittingParticipant, commands, submitAsync_(commands))
 
-  def waitForTransactionTree(
+  def waitForTransaction(
       submittingParticipant: ParticipantReference,
       commands: CommandsWithMetadata,
       doSubmit: => Future[Unit],
-  ): Future[TransactionTree] = {
-    val resultP = Promise[UpdateTreeWrapper]()
+  ): Future[ApiTransaction] = {
+    val resultP = Promise[UpdateWrapper]()
 
-    val observer = new CollectFirstObserver[UpdateTreeWrapper]({
-      case UpdateService.TransactionTreeWrapper(transactionTree) =>
-        transactionTree.commandId == commands.commandId
+    val observer = new CollectFirstObserver[UpdateWrapper]({
+      case UpdateService.TransactionWrapper(transaction) =>
+        transaction.commandId == commands.commandId
       case _: UpdateService.ReassignmentWrapper => false
+      case _: UpdateService.TopologyTransactionWrapper => false
     })
     resultP.completeWith(observer.result)
 
-    val closeSubscription = submittingParticipant.ledger_api.updates.subscribe_trees(
+    val closeSubscription = submittingParticipant.ledger_api.updates.subscribe_updates(
       observer,
-      commands.filter,
+      updateFormat = commands.format,
       beginOffsetExclusive = submittingParticipant.ledger_api.state.end(),
-      verbose = false,
     )
     resultP.future.onComplete(_ => closeSubscription.close())
 
@@ -129,7 +132,7 @@ class TestSubmissionService(
     }
 
     resultP.future.map {
-      case UpdateService.TransactionTreeWrapper(transactionTree) => transactionTree
+      case UpdateService.TransactionWrapper(transaction) => transaction
       case other => sys.error(s"Unexpected update: $other")
     }
   }
@@ -616,18 +619,30 @@ object TestSubmissionService {
       )
     }
 
-    def filter: TransactionFilter = TransactionFilter(
-      filtersByParty = (actAs ++ readAs)
-        .map(party =>
-          party.toLf -> Filters(
-            Seq(
-              CumulativeFilter.defaultInstance
-                .withWildcardFilter(WildcardFilter(includeCreatedEventBlob = false))
+    def format: UpdateFormat = UpdateFormat(
+      includeTransactions = Some(
+        TransactionFormat(
+          Some(
+            EventFormat(
+              filtersByParty = (actAs ++ readAs)
+                .map(party =>
+                  party.toLf -> Filters(
+                    Seq(
+                      CumulativeFilter.defaultInstance
+                        .withWildcardFilter(WildcardFilter(includeCreatedEventBlob = false))
+                    )
+                  )
+                )
+                .toMap,
+              filtersForAnyParty = None,
+              verbose = false,
             )
-          )
+          ),
+          TRANSACTION_SHAPE_LEDGER_EFFECTS,
         )
-        .toMap,
-      filtersForAnyParty = None,
+      ),
+      includeReassignments = None,
+      includeTopologyEvents = None,
     )
   }
 }

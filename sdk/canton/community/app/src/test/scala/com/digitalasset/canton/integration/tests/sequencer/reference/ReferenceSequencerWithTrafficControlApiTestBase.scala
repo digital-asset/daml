@@ -346,7 +346,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
     sequencer -> rateLimitManager
   }
 
-  def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
+  def synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId
 
   def mediatorId: MediatorId = DefaultTestIdentities.mediatorId
 

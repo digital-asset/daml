@@ -35,7 +35,7 @@ import com.digitalasset.canton.protocol.ContractIdSyntax._
 import scala.jdk.CollectionConverters._
 
 def createIou(participant: ParticipantReference, payer: PartyId, owner: PartyId, value: Int) =
-  participant.ledger_api.javaapi.commands.submit_flat(Seq(payer), new iou.Iou(payer.toProtoPrimitive,
+  participant.ledger_api.javaapi.commands.submit(Seq(payer), new iou.Iou(payer.toProtoPrimitive,
                                                                          owner.toProtoPrimitive,
                                                                          new iou.Amount(value.toLong.toBigDecimal, "USD"),
                                                                          List.empty.asJava

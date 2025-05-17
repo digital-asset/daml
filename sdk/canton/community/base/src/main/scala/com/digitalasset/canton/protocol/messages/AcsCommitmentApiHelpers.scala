@@ -5,7 +5,7 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.ProtoDeserializationError.UnrecognizedEnum
 import com.digitalasset.canton.admin.participant.v30
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{BufferedAcsCommitment, CantonTimestamp}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.AcsCommitment.HashedCommitmentType
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -184,6 +184,7 @@ object SentAcsCommitment {
   }.toSeq
 }
 
+// TODO(#25483) Physical?
 final case class ReceivedAcsCommitment(
     synchronizerId: SynchronizerId,
     interval: CommitmentPeriod,
@@ -199,7 +200,7 @@ object ReceivedAcsCommitment {
       synchronizerId: SynchronizerId,
       received: Iterable[AcsCommitment],
       computed: Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)],
-      buffering: Iterable[AcsCommitment],
+      buffering: Iterable[BufferedAcsCommitment],
       outstanding: Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)],
       verbose: Boolean,
   ): Iterable[ReceivedAcsCommitment] =

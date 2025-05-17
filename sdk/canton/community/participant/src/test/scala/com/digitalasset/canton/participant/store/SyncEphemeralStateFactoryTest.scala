@@ -22,7 +22,7 @@ import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{SequencedSerializedEvent, SequencerTestUtils}
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -40,10 +40,10 @@ class SyncEphemeralStateFactoryTest
     with CloseableTest
     with FailOnShutdown {
 
-  private lazy val synchronizerId = SynchronizerId.tryFromString("synchronizer::da")
+  private lazy val synchronizerId = SynchronizerId.tryFromString("synchronizer::da").toPhysical
 
   private def dummyEvent(
-      synchronizerId: SynchronizerId
+      synchronizerId: PhysicalSynchronizerId
   )(timestamp: CantonTimestamp): SequencedSerializedEvent =
     SequencedEventWithTraceContext(
       SignedContent(

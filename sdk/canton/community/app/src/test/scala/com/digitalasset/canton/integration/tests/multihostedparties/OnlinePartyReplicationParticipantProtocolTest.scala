@@ -6,16 +6,13 @@ package com.digitalasset.canton.integration.tests.multihostedparties
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, DbConfig}
-import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.examples.java.cycle as M
-import com.digitalasset.canton.integration.bootstrap.{
-  NetworkBootstrapper,
-  NetworkTopologyDescription,
-}
+import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
@@ -38,6 +35,7 @@ import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantProcessor,
   PartyReplicationTargetParticipantProcessor,
 }
+import com.digitalasset.canton.participant.util.JavaCodegenUtil.ContractIdSyntax
 import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.protocol.channel.SequencerChannelId
 import com.digitalasset.canton.topology.PartyId
@@ -50,10 +48,19 @@ import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.blocking
 
-/** Objective: Test the behavior of the [[PartyReplicationSourceParticipantProcessor]] and
-  * [[PartyReplicationTargetParticipantProcessor]] in replicating a party's active contracts via the
-  * online party replication participant protocol. Setup: 2 participants, a source and a target
-  * participant to perform party replication 1 sequencer/mediator
+/** Objectives:
+  *   - Test the behavior of the [[PartyReplicationSourceParticipantProcessor]] and
+  *     [[PartyReplicationTargetParticipantProcessor]] in replicating a party's active contracts via
+  *     the online party replication participant protocol from a source participant SP to a target
+  *     participant TP.
+  *   - Test that TP-side conflict detection properly handles concurrent contract archives and
+  *     unassignments of contracts before they are replicated to the target participant.
+  *
+  * Setup:
+  *   - 2 participants, a source and a target participant to perform party replication
+  *   - 2 synchronizers with 1 sequencer/mediator each: the "da" synchronizer is used for party
+  *     replication while the "acme" synchronizer only exists as a target for an unassignment of a
+  *     contract during party replication.
   */
 @nowarn("msg=match may not be exhaustive")
 sealed trait OnlinePartyReplicationParticipantProtocolTest
@@ -61,14 +68,21 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
     with SharedEnvironment
     with SequencerChannelProtocolTestExecHelpers
     with HasCycleUtils {
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.H2](loggerFactory))
+  registerPlugin(
+    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+      loggerFactory,
+      sequencerGroups = MultiSynchronizer(
+        Seq(Set("sequencer1"), Set("sequencer2")).map(_.map(InstanceName.tryCreate))
+      ),
+    )
+  )
 
   private val aliceName = "Alice"
 
   private var alice: PartyId = _
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2S1M1_Manual
+    EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.parameters.unsafeOnlinePartyReplication)
@@ -92,24 +106,12 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
             .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
         ),
       )
-      .withNetworkBootstrap { implicit env =>
-        import env.*
-        new NetworkBootstrapper(
-          NetworkTopologyDescription(
-            synchronizerAlias = daName,
-            synchronizerOwners = Seq[InstanceReference](mediator1),
-            synchronizerThreshold = PositiveInt.one,
-            sequencers = Seq(sequencer1),
-            mediators = Seq(mediator1),
-          )
-        )
-      }
       .withSetup { implicit env =>
         import env.*
         // Before performing OPR, disable ACS commitments by having a large reconciliation interval
         // because the target participant does not have the onboarding party's active contracts.
         // TODO(#23670): Proper ACS commitment checking during/after OPR
-        mediator1.topology.synchronizer_parameters.propose_update(
+        sequencer1.topology.synchronizer_parameters.propose_update(
           synchronizerId = daId,
           _.update(reconciliationInterval = config.PositiveDurationSeconds.ofDays(365)),
         )
@@ -119,7 +121,10 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         alice = participant1.parties.enable(
           aliceName,
           synchronizeParticipants = Seq(participant2),
+          synchronizer = Some(daName),
         )
+        participant1.synchronizers.connect_local(sequencer2, acmeName)
+        participant1.parties.enable(aliceName, synchronizer = Some(acmeName)).discard
       }
 
   // OnlinePartyReplication messages require dev protocol version for added safety
@@ -130,24 +135,25 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val (sourceParticipant, targetParticipant) = (participant1, participant2)
 
       // Create a handful of contracts on the source participant
-      val numContracts = 17
-      (1 to numContracts).foreach { i =>
-        createCycleContract(
-          sourceParticipant,
-          alice,
-          s"cycle $i",
-          // Only wait for the last contract
-          optTimeout =
-            Option.when(i == numContracts)(ConsoleCommandTimeout.defaultLedgerCommandsTimeout),
-        )
-      }
+      val numContracts = 120
+      createCycleContracts(sourceParticipant, alice, (1 to numContracts).map(i => s"cycle $i"))
       logger.info(s"Created $numContracts contracts on the source participant")
 
-      // Remember one of the contracts so we can archive it later during ACS replication
-      val nLast = 2
-      require(numContracts > nLast)
+      // Remember two of the contracts near the "end" so we can deactivate them later during ACS replication
+      val (nThLastCycleIndexForArchival, nThLastCycleIndexForUnassign) = (2, 3)
+      require(
+        numContracts > nThLastCycleIndexForArchival && numContracts > nThLastCycleIndexForUnassign
+      )
       val cycleToArchive = sourceParticipant.ledger_api.javaapi.state.acs
-        .await(M.Cycle.COMPANION)(alice, cycle => cycle.data.id == s"cycle ${numContracts - nLast}")
+        .await(M.Cycle.COMPANION)(
+          alice,
+          cycle => cycle.data.id == s"cycle ${numContracts - nThLastCycleIndexForArchival}",
+        )
+      val cycleToUnassign = sourceParticipant.ledger_api.javaapi.state.acs
+        .await(M.Cycle.COMPANION)(
+          alice,
+          cycle => cycle.data.id == s"cycle ${numContracts - nThLastCycleIndexForUnassign}",
+        )
 
       // Create one cycle contract on the target participant owner by the admin so that the TP vets the cycle packages
       createCycleContract(targetParticipant, targetParticipant.adminParty, "admin cycle")
@@ -159,6 +165,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
           .propose_delta(
             alice,
             adds = List((targetParticipant.id, ParticipantPermission.Observation)),
+            requiresPartyToBeOnboarded = true,
             store = daId,
             mustFullyAuthorize = participant == targetParticipant,
           )
@@ -179,7 +186,13 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       }
 
       val expectedContractsToReplicate = sourceParticipant.testing.state_inspection
-        .findContracts(daName, None, None, filterTemplate = Some("^Cycle:Cycle"), 100)
+        .findContracts(
+          daName,
+          None,
+          None,
+          filterTemplate = Some("^Cycle:Cycle"),
+          limit = numContracts + 2, // +2 for the two deactivations
+        )
         .collect { case (true, contract) => contract }
 
       // Run a ping to make sure the AcsInspection does not get upset about the timestamp at the end
@@ -214,6 +227,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val connectedSynchronizer =
         targetParticipant.underlying.value.sync.connectedSynchronizerForAlias(daName).value
 
+      // A promise blocks OnPR temporarily until the transactions have been run concurrently to OnPR.
       val promiseWhenConcurrentTransactionsSubmitted = PromiseUnlessShutdown.unsupervised[Unit]()
       val targetProcessor = PartyReplicationTargetParticipantProcessor(
         daId,
@@ -228,7 +242,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
               s"Block replication of $acsChunkId until concurrent transactions are submitted"
             )
             blocking {
-              timeouts.default.awaitUS_("Block Target Participant Processor")(
+              timeouts.default.awaitUS_("Block Target Participant Processor for test")(
                 promiseWhenConcurrentTransactionsSubmitted.futureUS
               )
             }
@@ -270,25 +284,43 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         targetProcessor.hasChannelConnected shouldBe true
       }
 
-      // Archiving a contract that does not yet exist on the TP currently
-      // triggers the alarm: "Request with failed activeness check is approved."
-      // clue("archiving one of the contracts in the replicating ACS") {
-      //   sourceParticipant.ledger_api.javaapi.commands.submit(
-      //     Seq(alice),
-      //     Seq(cycleToArchive.id.exerciseArchive().commands.loneElement),
-      //   )
-      // }
-      cycleToArchive.discard
+      // Check that archiving a contract that is still unknown on the TP
+      // does not cause problem with the conflict detection activeness check
+      // such as the alarm: "Request with failed activeness check is approved."
+      clue("archiving one of the contracts in the replicating ACS") {
+        sourceParticipant.ledger_api.javaapi.commands.submit(
+          Seq(alice),
+          Seq(cycleToArchive.id.exerciseArchive().commands.loneElement),
+          optTimeout = None, // don't wait for response from TP where indexing is paused
+        )
+      }
+
+      // Check that unassigning a contract that does not yet exist on the TP
+      // does not cause problem with the conflict detection activeness check.
+      clue("unassigning one of the contracts in the replicating ACS") {
+        participant1.ledger_api.commands
+          .submit_unassign(
+            alice,
+            Seq(cycleToUnassign.id.toLf),
+            daId,
+            acmeId,
+            timeout = None, // don't wait for response from TP
+          )
+          .unassignId
+      }
 
       // Create a few contracts to buffer and flush without timeout as the TP will not
-      // witness the events until after OPR completes.
+      // witness the events until after OnPR completes.
       val lastContractIndex = 104
       (101 until lastContractIndex).foreach { i =>
         clue(s"Creating contract $i")(
           createCycleContract(sourceParticipant, alice, s"cycle $i", optTimeout = None)
         )
       }
+
+      // Succeed the promise now that concurrent transactions have been submitted.
       promiseWhenConcurrentTransactionsSubmitted.trySuccess(UnlessShutdown.Outcome(()))
+
       clue(s"Creating contract $lastContractIndex")(
         createCycleContract(
           sourceParticipant,
@@ -306,13 +338,19 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       logger.info("Channel completed on SP and TP")
 
       logger.info(s"Check contracts were replicated in ${replicatedContracts.size} ACS chunks")
-      replicatedContracts.flatMap(_._2).toSet shouldBe expectedContractsToReplicate.toSet
+      val replicatedSet = replicatedContracts.flatMap(_._2).toSet
+      expectedContractsToReplicate.toSet -- replicatedSet shouldBe Set.empty
+      replicatedSet -- expectedContractsToReplicate.toSet shouldBe Set.empty
       logger.info("Sanity-check that there were no chunk counter gaps")
       replicatedContracts.map(_._1.unwrap) shouldBe replicatedContracts.indices
 
       logger.info("Also check that the contracts are now visible on TP via the Ledger API")
       val sourceContractIds = sourceParticipant.ledger_api.state.acs
-        .of_party(alice)
+        .of_party(
+          alice,
+          // don't count the IncompleteUnassigned contract
+          resultFilter = _.contractEntry.activeContract.nonEmpty,
+        )
         .map(_.contractId)
         .toSet
       eventually() {
@@ -330,7 +368,13 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
 
       logger.info("Check that the contracts are now visible on TP in the canton-internal stores")
       val targetCantonContracts = targetParticipant.testing.state_inspection
-        .findContracts(daName, None, None, filterTemplate = Some("^Cycle:Cycle"), 100)
+        .findContracts(
+          daName,
+          None,
+          None,
+          filterTemplate = Some("^Cycle:Cycle"),
+          limit = numContracts + 2 + 4, // +2 for deactivations and +4 for creates above
+        )
         .collect {
           case (true, contract) if contract.metadata.stakeholders.contains(alice.toLf) => contract
         }

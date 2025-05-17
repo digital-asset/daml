@@ -65,7 +65,7 @@ class NetworkBootstrapperIntegrationTest extends CommunityIntegrationTest with S
           Seq(
             (
               _.errorMessage should include(
-                s"The synchronizer cannot be bootstrapped: ${sequencer1.id} has already been initialized for synchronizer $daId"
+                s"The synchronizer cannot be bootstrapped: ${sequencer1.id} has already been initialized for synchronizer ${daId.toPhysical}"
               ),
               "error",
             )

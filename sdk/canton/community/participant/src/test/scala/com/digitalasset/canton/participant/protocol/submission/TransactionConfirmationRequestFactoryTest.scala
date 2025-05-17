@@ -333,7 +333,7 @@ class TransactionConfirmationRequestFactoryTest
             tree.viewHash,
             randomnessMapNE,
             encryptedView,
-            transactionFactory.synchronizerId,
+            transactionFactory.physicalSynchronizerId,
             SymmetricKeyScheme.Aes128Gcm,
             testedProtocolVersion,
           )

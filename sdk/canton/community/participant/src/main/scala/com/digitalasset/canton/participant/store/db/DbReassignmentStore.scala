@@ -190,8 +190,9 @@ class DbReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      unassignmentData.targetSynchronizer == targetSynchronizerId,
-      s"Synchronizer $targetSynchronizerId: Reassignment store cannot store reassignment for synchronizer ${unassignmentData.targetSynchronizer}",
+      unassignmentData.targetSynchronizer.map(_.logical) == targetSynchronizerId,
+      s"Synchronizer $targetSynchronizerId: Reassignment store cannot store reassignment for synchronizer ${unassignmentData.targetSynchronizer
+          .map(_.logical)}",
     )
 
     logger.debug(s"Add unassignment request in the store: ${unassignmentData.reassignmentId}")

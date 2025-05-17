@@ -45,7 +45,7 @@ trait NonInformeeStakeholderIntegrationTest
       new Outer(alice.toProtoPrimitive, bob.toProtoPrimitive).create.commands.asScala.toSeq
 
     val createTx =
-      participant1.ledger_api.javaapi.commands.submit_flat(
+      participant1.ledger_api.javaapi.commands.submit(
         Seq(alice),
         createInner ++ createOuter,
       )
@@ -56,7 +56,7 @@ trait NonInformeeStakeholderIntegrationTest
     logger.info("Now sending transaction with a stakeholder witnessing an action")
     val exercise = outer.id.exerciseUseInner(inner.id).commands.asScala.toSeq
     participant1.ledger_api.javaapi.commands
-      .submit_flat(Seq(alice), exercise)
+      .submit(Seq(alice), exercise)
   }
 }
 

@@ -1780,7 +1780,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Number of batches ready to be proposed in blocks by consensus.",
+      "description": "Number of batches that are being disseminated.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -1867,7 +1867,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "daml_sequencer_bftordering_availability_ready_batches{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "daml_sequencer_bftordering_availability_disseminating_batches{reporting_sequencer=\"$reporting_sequencer\", ready_for_consensus=~\"false|true\"}",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -1876,7 +1876,7 @@
           "refId": "A"
         }
       ],
-      "title": "Batches ready for consensus",
+      "title": "Batches being disseminated",
       "type": "timeseries"
     },
     {
@@ -1988,7 +1988,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Total number of requests in batches ready to be proposed in blocks by consensus.",
+      "description": "Number of requests in batches that are being disseminated.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2075,7 +2075,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "daml_sequencer_bftordering_availability_ready_requests{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "daml_sequencer_bftordering_availability_disseminating_requests{reporting_sequencer=\"$reporting_sequencer\", ready_for_consensus=~\"false|true\"}",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -2084,7 +2084,7 @@
           "refId": "A"
         }
       ],
-      "title": "Requests ready for consensus",
+      "title": "Requests being disseminated",
       "type": "timeseries"
     },
     {
@@ -2189,7 +2189,7 @@
         "type": "prometheus",
         "uid": "$DS"
       },
-      "description": "Total number of payload bytes in requests in batches ready to be proposed in blocks by consensus.",
+      "description": "Number of payload bytes in requests within batches that are being disseminated.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2276,7 +2276,7 @@
           },
           "editorMode": "code",
           "exemplar": false,
-          "expr": "daml_sequencer_bftordering_availability_ready_bytes{reporting_sequencer=\"$reporting_sequencer\"}",
+          "expr": "daml_sequencer_bftordering_availability_disseminating_bytes{reporting_sequencer=\"$reporting_sequencer\", ready_for_consensus=~\"false|true\"}",
           "format": "time_series",
           "instant": false,
           "interval": "30s",
@@ -2285,7 +2285,7 @@
           "refId": "A"
         }
       ],
-      "title": "Bytes ready for consensus",
+      "title": "Bytes being disseminated",
       "type": "timeseries"
     },
     {

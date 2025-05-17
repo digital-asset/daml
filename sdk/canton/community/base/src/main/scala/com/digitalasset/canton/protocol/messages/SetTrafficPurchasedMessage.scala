@@ -11,7 +11,7 @@ import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.protocol.v30.TypedSignedProtocolMessageContent
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -19,7 +19,7 @@ final case class SetTrafficPurchasedMessage private (
     member: Member,
     serial: PositiveInt,
     totalTrafficPurchased: NonNegativeLong,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       SetTrafficPurchasedMessage.type
@@ -41,7 +41,7 @@ final case class SetTrafficPurchasedMessage private (
       member = member.toProtoPrimitive,
       serial = serial.value,
       totalTrafficPurchased = totalTrafficPurchased.value,
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -80,8 +80,8 @@ object SetTrafficPurchasedMessage
       member: Member,
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
   ): SetTrafficPurchasedMessage =
     SetTrafficPurchasedMessage(member, serial, totalTrafficPurchased, synchronizerId)(
       protocolVersionRepresentativeFor(protocolVersion),
@@ -98,7 +98,10 @@ object SetTrafficPurchasedMessage
         "total_traffic_purchased",
         proto.totalTrafficPurchased,
       )
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(proto.synchronizerId, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        proto.physicalSynchronizerId,
+        "physical_synchronizer_id",
+      )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(1))
     } yield SetTrafficPurchasedMessage(
       member,

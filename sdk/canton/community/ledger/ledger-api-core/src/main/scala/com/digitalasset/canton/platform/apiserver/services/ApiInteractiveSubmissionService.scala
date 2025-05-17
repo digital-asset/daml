@@ -166,7 +166,7 @@ class ApiInteractiveSubmissionService(
               packageVersion = packageReference.version.toString(),
             )
           ),
-          synchronizerId = synchronizerId.toProtoPrimitive,
+          synchronizerId = synchronizerId.logical.toProtoPrimitive,
         )
       }
     } yield GetPreferredPackageVersionResponse(protoPreference)

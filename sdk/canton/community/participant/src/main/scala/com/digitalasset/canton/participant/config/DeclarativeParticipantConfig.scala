@@ -295,6 +295,7 @@ final case class DeclarativeConnectionConfig(
             transportSecurity = conn.transportSecurity,
             sequencerAlias = SequencerAlias.tryCreate(alias),
             customTrustCertificates = conn.customTrustCertificatesAsByteString.toOption.flatten,
+            sequencerId = None,
           )
         }.toSeq,
         sequencerTrustThreshold = trustThreshold,

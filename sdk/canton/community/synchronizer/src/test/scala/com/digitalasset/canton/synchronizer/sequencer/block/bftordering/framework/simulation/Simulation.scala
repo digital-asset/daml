@@ -313,7 +313,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
       while (continueToRun) {
         val whatToDo = nextThingTodo()
 
-        clock.advanceTo(whatToDo.at, logAdvancement = false)(TraceContext.empty)
+        clock.advanceTo(whatToDo.at, logAdvancementAtInfo = false)(TraceContext.empty)
         local.tick(clock.now)
         network.tick()
         val _ = currentHistory.addOne(whatToDo.command)
@@ -341,7 +341,7 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
               ModuleControl.Send(msg, traceContext, MetricsContext.Empty),
             )
           case ClientTick(machine, _, msg, traceContext) =>
-            logger.info(s"Client for $machine ticks")
+            logger.trace(s"Client for $machine ticks")
             executeClientTick(machine, msg, traceContext)
           case StartMachine(endpoint) =>
             val node = startMachine(endpoint)

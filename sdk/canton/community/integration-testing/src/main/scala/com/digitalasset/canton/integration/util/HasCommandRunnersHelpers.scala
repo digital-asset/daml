@@ -72,7 +72,7 @@ private[integration] trait HasCommandRunnersHelpers {
         s"Retrieving updates stream for party $submittingParty hosted on ${participant.id} with offsets $startOffset/$endOffset"
       )
 
-      val updates = participant.ledger_api.updates.flat(
+      val updates = participant.ledger_api.updates.transactions(
         partyIds = Set(submittingParty),
         completeAfter = 1,
         beginOffsetExclusive = startOffset,

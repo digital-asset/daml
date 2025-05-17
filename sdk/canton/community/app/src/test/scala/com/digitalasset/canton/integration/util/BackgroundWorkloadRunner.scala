@@ -76,7 +76,7 @@ trait BackgroundWorkloadRunner {
       unlessStopped {
         val cid = JavaDecodeUtil
           .decodeAllCreated(Iou.COMPANION)(
-            payer.ledger_api.javaapi.commands.submit_flat(
+            payer.ledger_api.javaapi.commands.submit(
               Seq(payer.id.adminParty),
               new Iou(
                 payer.id.adminParty.toProtoPrimitive,
@@ -92,7 +92,7 @@ trait BackgroundWorkloadRunner {
 
         unlessStopped {
           owner.ledger_api.javaapi.commands
-            .submit_flat(
+            .submit(
               Seq(owner.id.adminParty),
               cid.exerciseCall().commands.asScala.toSeq,
             )

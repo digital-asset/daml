@@ -39,7 +39,7 @@ trait CommandSubmissionIntegrationTest extends CommunityIntegrationTest with Sha
     "be supported in commands.submit" in { implicit env =>
       import env.*
 
-      val tx = participant1.ledger_api.javaapi.commands.submit_flat(
+      val tx = participant1.ledger_api.javaapi.commands.submit(
         Seq(alice),
         new DivulgeIouByExercise(
           alice.toProtoPrimitive,

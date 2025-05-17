@@ -4,7 +4,7 @@
 package com.digitalasset.canton.demo
 
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
-import com.daml.ledger.javaapi.data.{Template, TransactionTree}
+import com.daml.ledger.javaapi.data.{Template, Transaction}
 import com.digitalasset.canton.admin.api.client.data.StaticSynchronizerParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -402,7 +402,7 @@ class ReferenceDemoScript(
             insuranceLookup(M.bank.Cash.COMPANION).id.exerciseSplit(15).commands
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), withdraw, optTimeout = syncTimeout)
-            .discard[TransactionTree]
+            .discard[Transaction]
 
           def findCashCid =
             participant3.ledger_api.javaapi.state.acs
@@ -415,7 +415,7 @@ class ReferenceDemoScript(
               .commands
           participant3.ledger_api.javaapi.commands
             .submit(Seq(insurance), settleClaim, optTimeout = syncTimeout)
-            .discard[TransactionTree]
+            .discard[Transaction]
         },
       ),
       Noop,
@@ -429,7 +429,7 @@ class ReferenceDemoScript(
             .commands
           participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), archiveRequest, optTimeout = syncTimeout)
-            .discard[TransactionTree]
+            .discard[Transaction]
           // wait until the acs of the registry is empty
           ConsoleMacros.utils.retry_until_true(lookupTimeout) {
             participant5.ledger_api.state.acs.of_party(registry).isEmpty
@@ -486,7 +486,11 @@ class ReferenceDemoScript(
             if (additionalChecks) {
               val transactions =
                 participant5.ledger_api.updates
-                  .flat(Set(registry), completeAfter = 5, beginOffsetExclusive = prunedOffset)
+                  .transactions(
+                    Set(registry),
+                    completeAfter = 5,
+                    beginOffsetExclusive = prunedOffset,
+                  )
               // ensure we don't see any transactions
               require(transactions.isEmpty, s"transactions should be empty but was $transactions")
             }
@@ -547,7 +551,7 @@ class ReferenceDemoScript(
             ).create.commands
             participant5.ledger_api.javaapi.commands
               .submit(Seq(registry), offer, optTimeout = syncTimeout)
-              .discard[TransactionTree]
+              .discard[Transaction]
           })).discard
         },
       ),
@@ -562,7 +566,7 @@ class ReferenceDemoScript(
             .commands
           participant1.ledger_api.javaapi.commands
             .submit(Seq(alice), accept, optTimeout = syncTimeout)
-            .discard[TransactionTree]
+            .discard[Transaction]
         },
       ),
       Action(
@@ -576,7 +580,7 @@ class ReferenceDemoScript(
 
           participant6.ledger_api.javaapi.commands
             .submit(Seq(processor), processingDone, optTimeout = syncTimeout)
-            .discard[TransactionTree]
+            .discard[Transaction]
 
           val resultId = registryLookup(ME.aianalysis.AnalysisResult.COMPANION)
           val recordedResult = registryLookup(ME.aianalysis.PendingAnalysis.COMPANION).id
@@ -585,7 +589,7 @@ class ReferenceDemoScript(
 
           participant5.ledger_api.javaapi.commands
             .submit(Seq(registry), recordedResult, optTimeout = syncTimeout)
-            .discard[TransactionTree]
+            .discard[Transaction]
         },
       ),
     )

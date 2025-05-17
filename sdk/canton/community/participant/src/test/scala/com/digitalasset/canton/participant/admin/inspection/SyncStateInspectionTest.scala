@@ -35,7 +35,12 @@ import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.{DbTest, PostgresTest}
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
   BaseTest,
@@ -89,16 +94,16 @@ sealed trait SyncStateInspectionTest
   lazy val remoteId2NESet: NonEmpty[Set[ParticipantId]] = NonEmptyUtil.fromElement(remoteId2).toSet
 
   // values for synchronizer1
-  lazy val synchronizerId: SynchronizerId = SynchronizerId(
+  lazy val synchronizerId: PhysicalSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer")
-  )
+  ).toPhysical
   lazy val synchronizerIdAlias: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer")
   lazy val indexedSynchronizer: IndexedSynchronizer =
     IndexedSynchronizer.tryCreate(synchronizerId, 1)
   // values for synchronizer2
-  lazy val synchronizerId2: SynchronizerId = SynchronizerId(
+  lazy val synchronizerId2: PhysicalSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer2")
-  )
+  ).toPhysical
   lazy val synchronizerId2Alias: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer2")
   lazy val indexedSynchronizer2: IndexedSynchronizer =
     IndexedSynchronizer.tryCreate(synchronizerId2, 2)
@@ -191,7 +196,7 @@ sealed trait SyncStateInspectionTest
     * ReceivedAcsCommitment is in state Outstanding.
     */
   def createDummyReceivedCommitment(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       remoteParticipant: ParticipantId,
       commitmentPeriod: CommitmentPeriod,
       hashingState: HashingState = new HashingState(),

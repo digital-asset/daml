@@ -33,7 +33,7 @@ import com.digitalasset.canton.sequencer.api.v30.SequencerAuthentication.{
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry.ErrorKind.{FatalErrorKind, TransientErrorKind}
 import com.digitalasset.canton.util.retry.{ErrorKind, ExceptionRetryPolicy, Pause}
@@ -53,6 +53,7 @@ final case class AuthenticationTokenManagerConfig(
     retries: NonNegativeInt = AuthenticationTokenManagerConfig.defaultRetries,
     pauseRetries: NonNegativeFiniteDuration = AuthenticationTokenManagerConfig.defaultPauseRetries,
 ) extends UniformCantonConfigValidation
+
 object AuthenticationTokenManagerConfig {
   implicit val authenticationTokenManagerConfigCantonConfigValidator
       : CantonConfigValidator[AuthenticationTokenManagerConfig] = {
@@ -68,7 +69,7 @@ object AuthenticationTokenManagerConfig {
 /** Fetch an authentication token from the sequencer by using the sequencer authentication service
   */
 class AuthenticationTokenProvider(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     member: Member,
     crypto: SynchronizerCrypto,
     supportedProtocolVersions: Seq[ProtocolVersion],

@@ -4,14 +4,9 @@
 package com.digitalasset.canton.integration.tests.release
 
 import better.files.File
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.buildinfo.BuildInfo
-import com.digitalasset.canton.config.NonNegativeDuration
-import com.digitalasset.canton.console.BufferedProcessLogger
-import com.digitalasset.canton.console.ConsoleMacros.utils
 import com.digitalasset.canton.logging.LogEntry
-import org.scalatest.wordspec.FixtureAnyWordSpec
-import org.scalatest.{Assertion, Outcome, SuiteMixin}
+import org.scalatest.Assertion
 
 import java.io.ByteArrayInputStream
 import scala.sys.process.*
@@ -20,35 +15,16 @@ import scala.sys.process.*
   * new process with the to-be-tested CLI options as arguments. Before being able to run these tests
   * locally, you need to execute `sbt bundle` and `sbt package`.
   */
-class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixin {
-
-  override protected def withFixture(test: OneArgTest): Outcome = test(new BufferedProcessLogger)
-
-  override type FixtureParam = BufferedProcessLogger
-
-  private lazy val cantonDir = "enterprise/app/target/release/canton"
-  private lazy val repositoryRootFromCantonDir = "../../../../.."
-  private lazy val cantonBin = s"$cantonDir/bin/canton"
-  private lazy val resourceDir = "community/app/src/test/resources"
-
+abstract class CliIntegrationTest extends ReleaseArtifactIntegrationTestUtils {
   // turn off cache-dir to avoid compilation errors due to concurrent cache access
-  private lazy val cacheTurnOff =
+  protected lazy val cacheTurnOff =
     s"$resourceDir/config-snippets/disable-ammonite-cache.conf"
 
-  private lazy val simpleConf =
+  protected lazy val simpleConf =
     "community/app/src/pack/examples/01-simple-topology/simple-topology.conf"
-  private lazy val unsupportedProtocolVersionConfig =
-    "enterprise/app/src/test/resources/unsupported-minimum-protocol-version.conf"
-  // this warning is potentially thrown when starting Canton with --no-tty
-  private lazy val ttyWarning =
-    "WARN  org.jline - Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)"
-  private lazy val jsonTtyWarning =
-    "\"message\":\"Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)\",\"logger_name\":\"org.jline\",\"thread_name\":\"main\",\"level\":\"WARN\""
-  private lazy val regexpCommitmentCatchUpWarning =
-    "WARN  c\\.d\\.c\\.p\\.p\\.AcsCommitmentProcessor:(.)*ACS_COMMITMENT_DEGRADATION(.)*The participant has activated ACS catchup mode to combat computation problem.(.)*"
 
   // Message printed out by the bootstrap script if Canton is started successfully
-  private lazy val successMsg = "The last emperor is always the worst."
+  protected lazy val successMsg = "The last emperor is always the worst."
   private lazy val cantonShouldStartFlags =
     s"--verbose --no-tty --config $cacheTurnOff --bootstrap $resourceDir/scripts/bootstrap.canton"
 
@@ -95,47 +71,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       checkOutput(processLogger, shouldContain = Seq("Canton sandbox is ready"))
     }
 
-    "successfully initialize participant with offline root namespace key" in { processLogger =>
-      val offlineExampleDir = File(s"$cantonDir/examples/10-offline-root-namespace-init")
-      val cantonBinRel = offlineExampleDir.relativize(File(cantonBin))
-      Process(
-        s"$cantonBinRel run --config external-init-example.conf bootstrap.canton",
-        cwd = offlineExampleDir.toJava,
-      ).!(processLogger) shouldBe 0
-      checkOutput(
-        processLogger,
-        shouldContain = Seq(
-          "participant initialization completed successfully"
-        ),
-      )
-    }
-
-    "successfully run the interactive topology example" in { processLogger =>
-      val interactiveTopologyDir = File(s"$cantonDir/examples/08-interactive-submission")
-      val cantonBinRel = interactiveTopologyDir.relativize(File(cantonBin))
-
-      var cantonProcess: Option[Process] = None
-
-      try {
-        cantonProcess = Some(
-          Process(
-            s"$cantonBinRel --no-tty --config interactive-submission.conf --bootstrap bootstrap.canton",
-            cwd = interactiveTopologyDir.toJava,
-          ).run(processLogger)
-        )
-
-        val portsFile = interactiveTopologyDir / "canton_ports.json"
-        utils.retry_until_true(NonNegativeDuration.ofSeconds(60))(portsFile.exists)
-
-        Process(
-          "./interactive_topology_example.sh",
-          cwd = interactiveTopologyDir.toJava,
-        ).!(processLogger) shouldBe 0
-      } finally {
-        cantonProcess.foreach(_.destroy())
-      }
-    }
-
     "successfully start canton sandbox on bespoke ports" in { processLogger =>
       val portNames = List(
         "ledger-api-port",
@@ -170,15 +105,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
           | -C canton.sequencers.sequencer1.storage.type=memory
           | $cantonShouldStartFlags""".stripMargin ! processLogger
       checkOutput(processLogger, shouldContain = Seq(successMsg))
-    }
-
-    "return an appropriate error when an invalid config is used" in { processLogger =>
-      s"$cantonBin --config $simpleConf --config $unsupportedProtocolVersionConfig" ! processLogger
-      checkOutput(
-        processLogger,
-        shouldContain = Seq("unsupported-minimum-protocol-version.conf", "42"),
-        shouldSucceed = false,
-      )
     }
 
     "not shadow bootstrap script variables with the bootstrap script file name" in {
@@ -293,31 +219,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       }
     }
 
-    "let the demo run in the enterprise release" in { processLogger =>
-      val exitCode = Process(
-        Seq(
-          "bin/canton",
-          "-Ddemo-test=2",
-          "run",
-          "demo/demo.sc",
-          "--debug",
-          "--log-file-name=log/demo.log",
-          "-c",
-          s"$repositoryRootFromCantonDir/$cacheTurnOff",
-          "-c",
-          "demo/demo.conf",
-        ),
-        Some(new java.io.File(cantonDir)),
-      ) ! processLogger
-      logger.debug(s"The process has ended now with $exitCode")
-      // slow participants might activate ACS commitment catch-up mode, and we want to filter out the resulting
-      // ACS commitment degradation warnings, otherwise the CI complains
-      val out = processLogger.output().replaceAll(regexpCommitmentCatchUpWarning, "")
-      logger.debug("Stdout is\n" + out)
-      exitCode shouldBe 0
-      out should include(successMsg)
-    }
-
     "return failure exit code on script failure" when {
       def test(
           scriptFirstLine: String,
@@ -411,34 +312,6 @@ class CliIntegrationTest extends FixtureAnyWordSpec with BaseTest with SuiteMixi
       }
     }
   }
-
-  private def checkOutput(
-      logger: BufferedProcessLogger,
-      shouldContain: Seq[String] = Seq(),
-      shouldNotContain: Seq[String] = Seq(),
-      shouldSucceed: Boolean = true,
-  ): Unit = {
-    // Filter out false positives in help message for last-errors option
-    val filters = List(
-      jsonTtyWarning,
-      ttyWarning,
-      "last_errors",
-      "last-errors",
-      // slow ExecutionContextMonitor warnings
-      "WARN  c.d.c.c.ExecutionContextMonitor - Execution context",
-    )
-    val log = filters
-      .foldLeft(logger.output()) { case (log, filter) =>
-        log.replace(filter, "")
-      }
-      .toLowerCase
-      // slow participants might activate ACS commitment catch-up mode
-      .replaceAll(regexpCommitmentCatchUpWarning, "")
-
-    shouldContain.foreach(str => assert(log.contains(str.toLowerCase())))
-    shouldNotContain.foreach(str => assert(!log.contains(str.toLowerCase())))
-    val undesirables = Seq("warn", "error", "exception")
-    if (shouldSucceed) undesirables.foreach(str => assert(!log.contains(str.toLowerCase())))
-  }
-
 }
+
+class CommunityCliIntegrationTest extends CliIntegrationTest with CommunityReleaseTest

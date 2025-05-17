@@ -11,6 +11,7 @@ import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCre
   ViewData,
 }
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.{BaseTestWordSpec, HasExecutionContext, LfPartyId}
 
 class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContext {
@@ -24,6 +25,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
     used = Map.empty[LfContractId, SerializableContract],
     maybeCreated = Map.empty[LfContractId, Option[SerializableContract]],
     transient = Map.empty[LfContractId, Set[LfPartyId]],
+    maybeUnknown = Set.empty[LfContractId],
   )
 
   private val singleExercise = etf.SingleExercise(etf.deriveNodeSeed(1))
@@ -31,14 +33,17 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
 
   private val informeeParties: Set[LfPartyId] = singleCreate.signatories ++ singleCreate.observers
 
-  private def buildUnderTest(hostedParties: Map[LfPartyId, Boolean]): ExtractUsedAndCreated =
+  private def buildUnderTest(
+      hostedParties: Map[LfPartyId, Option[ParticipantAttributes]]
+  ): ExtractUsedAndCreated =
     new ExtractUsedAndCreated(
       hostedParties = hostedParties,
       loggerFactory = loggerFactory,
     )
 
   private val underTest = buildUnderTest(
-    hostedParties = informeeParties.map(_ -> true).toMap
+    hostedParties =
+      informeeParties.map(_ -> Some(ParticipantAttributes(ParticipantPermission.Observation))).toMap
   )
 
   "Build used and created" should {
@@ -81,6 +86,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
             informeeParties
         ),
         contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
+        contractIdsAllowedToBeUnknown = Set.empty,
       )
 
       actual shouldBe expected
@@ -89,7 +95,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
     "Extract divulged contracts" in {
 
       val underTestWithNoHostedParties = buildUnderTest(
-        hostedParties = informeeParties.map(_ -> false).toMap
+        hostedParties = informeeParties.map(_ -> None).toMap
       )
 
       val viewData = ViewData(
@@ -106,9 +112,63 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
         divulged = Map(singleExercise.contractId -> serializedContract),
         consumedOfHostedStakeholders = Map.empty,
         contractIdsOfHostedInformeeStakeholder = Set.empty,
+        contractIdsAllowedToBeUnknown = Set.empty,
       )
 
       actual shouldBe expected
+    }
+
+    "Onboarding" should {
+
+      val viewData = ViewData(
+        singleExercise.view0.viewParticipantData.tryUnwrap,
+        singleExercise.view0.viewCommonData.tryUnwrap,
+      )
+      val serializedContract = singleExercise.used.head
+      val signatories = singleExercise.node.signatories
+      val observers = singleExercise.node.stakeholders -- signatories
+
+      "identify potentially unknown contracts" in {
+        val underTestOnlyOnboardingHostedParties = buildUnderTest(
+          hostedParties = (signatories.map(_ -> None) ++ observers.map(
+            _ -> Some(ParticipantAttributes(ParticipantPermission.Confirmation, onboarding = true))
+          )).toMap
+        )
+
+        val actual = underTestOnlyOnboardingHostedParties.inputContractPrep(Seq(viewData))
+
+        val expected = InputContractPrep(
+          used = Map(singleExercise.contractId -> serializedContract),
+          divulged = Map.empty,
+          consumedOfHostedStakeholders = Map(singleExercise.contractId -> informeeParties),
+          contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
+          contractIdsAllowedToBeUnknown = Set(singleExercise.contractId),
+        )
+
+        actual shouldBe expected
+      }
+
+      "not mark unknown contracts if not all hosted stakeholders onboarding" in {
+        val underTestOnlyOnboardingHostedParties = buildUnderTest(
+          hostedParties = (signatories.map(
+            _ -> Some(ParticipantAttributes(ParticipantPermission.Observation))
+          ) ++ observers.map(
+            _ -> Some(ParticipantAttributes(ParticipantPermission.Confirmation, onboarding = true))
+          )).toMap
+        )
+
+        val actual = underTestOnlyOnboardingHostedParties.inputContractPrep(Seq(viewData))
+
+        val expected = InputContractPrep(
+          used = Map(singleExercise.contractId -> serializedContract),
+          divulged = Map.empty,
+          consumedOfHostedStakeholders = Map(singleExercise.contractId -> informeeParties),
+          contractIdsOfHostedInformeeStakeholder = Set(singleExercise.contractId),
+          contractIdsAllowedToBeUnknown = Set.empty,
+        )
+
+        actual shouldBe expected
+      }
     }
   }
 
@@ -135,7 +195,7 @@ class ExtractUsedAndCreatedTest extends BaseTestWordSpec with HasExecutionContex
     "Extract witnessed contracts" in {
 
       val underTestWithNoHostedParties = buildUnderTest(
-        hostedParties = informeeParties.map(_ -> false).toMap
+        hostedParties = informeeParties.map(_ -> None).toMap
       )
 
       val viewData = ViewData(

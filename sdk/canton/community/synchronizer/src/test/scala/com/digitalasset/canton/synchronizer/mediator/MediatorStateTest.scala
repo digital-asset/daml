@@ -48,7 +48,7 @@ class MediatorStateTest
   "MediatorState" when {
     val requestId = RequestId(CantonTimestamp.Epoch)
     val fullInformeeTree = {
-      val synchronizerId = DefaultTestIdentities.synchronizerId
+      val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
       val participantId = DefaultTestIdentities.participant1
       val alice = LfPartyId.assertFromString("alice")
       val bob = LfPartyId.assertFromString("bob")

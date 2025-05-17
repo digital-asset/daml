@@ -17,6 +17,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   ConfigAlreadyExists,
   MissingConfigForSynchronizer,
   UnknownAlias,
+  UnknownPSId,
 }
 import com.digitalasset.canton.participant.store.{
   StoredSynchronizerConnectionConfig,
@@ -102,6 +103,15 @@ class InMemorySynchronizerConnectionConfigStore(
     configuredSynchronizerMap
       .get((alias, configuredPSId))
       .toRight(MissingConfigForSynchronizer(alias, configuredPSId))
+
+  override def get(
+      synchronizerId: PhysicalSynchronizerId
+  ): Either[UnknownPSId, StoredSynchronizerConnectionConfig] = {
+    val id = KnownPhysicalSynchronizerId(synchronizerId)
+    configuredSynchronizerMap
+      .collectFirst { case ((_, `id`), config) => config }
+      .toRight(UnknownPSId(synchronizerId))
+  }
 
   override def getAll(): Seq[StoredSynchronizerConnectionConfig] =
     configuredSynchronizerMap.values.toSeq

@@ -99,8 +99,9 @@ abstract class RepairServiceIntegrationTest
 
         eventually() {
           val afterRepair = participant1.ledger_api.state.end()
-          val updates = participant1.ledger_api.updates.flat(
+          val updates = participant1.ledger_api.updates.reassignments(
             partyIds = Set(payer),
+            filterTemplates = Seq.empty,
             completeAfter = Int.MaxValue,
             beginOffsetExclusive = beforeRepair,
             endOffsetInclusive = Some(afterRepair),

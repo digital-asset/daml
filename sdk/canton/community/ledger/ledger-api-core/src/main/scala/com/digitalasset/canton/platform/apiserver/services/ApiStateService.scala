@@ -158,7 +158,8 @@ final class ApiStateService(
                   permissions.map(permission =>
                     GetConnectedSynchronizersResponse.ConnectedSynchronizer(
                       synchronizerAlias = connectedSynchronizer.synchronizerAlias.toProtoPrimitive,
-                      synchronizerId = connectedSynchronizer.synchronizerId.toProtoPrimitive,
+                      synchronizerId =
+                        connectedSynchronizer.synchronizerId.logical.toProtoPrimitive,
                       permission = permission,
                     )
                   )

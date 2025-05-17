@@ -6,7 +6,7 @@ package com.digitalasset.canton.integration.tests
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.ledger.api.v2.completion.Completion
-import com.daml.ledger.javaapi.data.TransactionTree
+import com.daml.ledger.javaapi.data.Transaction
 import com.digitalasset.base
 import com.digitalasset.base.error.GrpcStatuses
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands
@@ -48,7 +48,12 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.Submiss
 }
 import com.digitalasset.canton.synchronizer.sequencer.{HasProgrammableSequencer, SendDecision}
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{BaseTest, LedgerSubmissionId, config}
 import com.digitalasset.daml.lf.data.Ref
@@ -133,7 +138,7 @@ trait CommandDeduplicationIntegrationTest
       val dedupPeriod1 = DeduplicationDuration(java.time.Duration.ofHours(1))
       val submissionId1 = "first-submission"
 
-      def submit(submissionId: String, dedupPeriod: DeduplicationPeriod): TransactionTree =
+      def submit(submissionId: String, dedupPeriod: DeduplicationPeriod): Transaction =
         participant1.ledger_api.javaapi.commands.submit(
           Seq(alice),
           Seq(createCycleContract),
@@ -373,7 +378,7 @@ trait CommandDeduplicationIntegrationTest
       commandId: String,
       submitter: PartyId,
       submissionId: String,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(logEntry: LogEntry): Assertion =
     if (submissionId.nonEmpty) {
       val changeId = ChangeId(
@@ -436,7 +441,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId2,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -455,7 +460,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId3,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -512,7 +517,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId2,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
       simClock.advance(java.time.Duration.ofSeconds(1))
@@ -530,7 +535,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           submissionId3,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -642,7 +647,7 @@ trait CommandDeduplicationIntegrationTest
       val completionEnd = participant1.ledger_api.state.end()
       logger.debug("Submit first command via the command service")
       val submitF = Future {
-        participant1.ledger_api.javaapi.commands.submit_flat(
+        participant1.ledger_api.javaapi.commands.submit(
           Seq(alice),
           Seq(createCycleContract),
           synchronizerId = Some(daId),
@@ -666,7 +671,7 @@ trait CommandDeduplicationIntegrationTest
           commandId,
           alice,
           emptySubmissionId,
-          initializedSynchronizers(daName).synchronizerId,
+          initializedSynchronizers(daName).physicalSynchronizerId,
         ),
       )
 
@@ -932,7 +937,7 @@ abstract class CommandDeduplicationPruningIntegrationTest
 
       // After advancing the time a bit, and wait for a timeproof (needed that the participants publication time moves higher) we should be able to prune more and resubmit
       simClock.advance(java.time.Duration.ofMillis(1L))
-      participant1.testing.fetch_synchronizer_time(daId)
+      participant1.testing.fetch_synchronizer_time(daId.toPhysical)
       val safe2 = eventually() {
         val safe = participant1.pruning.find_safe_offset().value
         safe should be >= after2

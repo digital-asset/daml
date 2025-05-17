@@ -1133,8 +1133,13 @@ object ParticipantAdminCommands {
 
     }
 
+    // TODO(#25483) Check usage and see whether automatic resolution is fine
     final case class GetSynchronizerId(synchronizerAlias: SynchronizerAlias)
-        extends Base[v30.GetSynchronizerIdRequest, v30.GetSynchronizerIdResponse, SynchronizerId] {
+        extends Base[
+          v30.GetSynchronizerIdRequest,
+          v30.GetSynchronizerIdResponse,
+          PhysicalSynchronizerId,
+        ] {
 
       override protected def createRequest(): Either[String, v30.GetSynchronizerIdRequest] =
         Right(v30.GetSynchronizerIdRequest(synchronizerAlias.toProtoPrimitive))
@@ -1147,9 +1152,9 @@ object ParticipantAdminCommands {
 
       override protected def handleResponse(
           response: v30.GetSynchronizerIdResponse
-      ): Either[String, SynchronizerId] =
-        SynchronizerId
-          .fromProtoPrimitive(response.synchronizerId, "synchronizer_id")
+      ): Either[String, PhysicalSynchronizerId] =
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(response.physicalSynchronizerId, "synchronizer_id")
           .leftMap(_.toString)
     }
 

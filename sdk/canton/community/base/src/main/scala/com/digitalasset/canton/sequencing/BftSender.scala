@@ -119,7 +119,7 @@ object BftSender {
               logger.info(
                 s"Cannot reach threshold for $description. Threshold = ${threshold.value}, failed results: $failedResults, successful results: $successfulResults"
               )
-              promise.outcome(
+              promise.outcome_(
                 Left(FailedToReachThreshold[K, I, E](successfulResults.toMap, failedResults.toMap))
               )
             }
@@ -138,13 +138,14 @@ object BftSender {
                 case None => Some(Set(operatorId))
               }
               // If we've reached the threshold we can stop
-              if (updated.map(_.size).getOrElse(0) >= threshold.value) promise.outcome(Right(value))
+              if (updated.map(_.size).getOrElse(0) >= threshold.value)
+                promise.outcome_(Right(value))
             case Success(Outcome(Left(error))) =>
               failedResults.put(operatorId, Right(error)).discard
             case Failure(ex) =>
               failedResults.put(operatorId, Left(ex)).discard
             case Success(AbortedDueToShutdown) =>
-              promise.shutdown()
+              promise.shutdown_()
           }
 
           if (!promise.isCompleted) checkIfStillPossibleToReachThreshold()

@@ -83,7 +83,8 @@ class LedgerTimeAwareCommandExecutorSpec
       version = LfTransactionVersion.minVersion,
     )
   )
-  private val synchronizerRank = SynchronizerRank.single(SynchronizerId.tryFromString("some::sync"))
+  private val synchronizerRank =
+    SynchronizerRank.single(SynchronizerId.tryFromString("some::sync").toPhysical)
   private val routingSynchronizerState = mock[RoutingSynchronizerState]
   private def runExecutionTest(
       dependsOnLedgerTime: Boolean,
@@ -120,7 +121,8 @@ class LedgerTimeAwareCommandExecutorSpec
         processedDisclosedContracts,
         None,
       ),
-      synchronizerRank = SynchronizerRank.single(SynchronizerId.tryFromString("some::sync")),
+      synchronizerRank =
+        SynchronizerRank.single(SynchronizerId.tryFromString("some::sync").toPhysical),
       routingSynchronizerState = routingSynchronizerState,
     )
 

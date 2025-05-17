@@ -1677,6 +1677,7 @@ components:
       - partyIdHint
       - identityProviderId
       - synchronizerId
+      - userId
       properties:
         partyIdHint:
           description: |-
@@ -1701,6 +1702,13 @@ components:
             The synchronizer, on which the party should be allocated.
             For backwards compatibility, this field may be omitted, if the participant is connected to only one synchronizer.
             Otherwise a synchronizer must be specified.
+            Optional
+          type: string
+        userId:
+          description: |-
+            The user who will get the act_as rights to the newly allocated party.
+            If set to an empty string (the default), no user will get rights to the party.
+            Optional
           type: string
     AllocatePartyResponse:
       title: AllocatePartyResponse
@@ -1709,20 +1717,6 @@ components:
         partyDetails:
           $ref: '#/components/schemas/PartyDetails'
           description: ''
-    Any:
-      title: Any
-      type: object
-      required:
-      - typeUrl
-      - value
-      - unknownFields
-      properties:
-        typeUrl:
-          type: string
-        value:
-          type: string
-        unknownFields:
-          type: string
     ArchivedEvent:
       title: ArchivedEvent
       description: Records that a contract has been archived, and choices may no longer
@@ -2512,9 +2506,9 @@ components:
           type: integer
           format: int32
         unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
           description: This field is automatically added as part of protobuf to json
             mapping
-          type: string
     Empty:
       title: Empty
       type: object
@@ -2571,23 +2565,6 @@ components:
         properties:
           ExercisedEvent:
             $ref: '#/components/schemas/ExercisedEvent'
-    Event1:
-      title: Event
-      description: |-
-        Events in transactions can have two primary shapes:
-
-        - ACS delta: events can be CreatedEvent or ArchivedEvent
-        - ledger effects: events can be CreatedEvent or ExercisedEvent
-
-        In the update service the events are restricted to the events
-        visible for the parties specified in the transaction filter. Each
-        event message type below contains a ``witness_parties`` field which
-        indicates the subset of the requested parties that can see the event
-        in question.
-      oneOf:
-      - $ref: '#/components/schemas/ParticipantAuthorizationAdded'
-      - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
-      - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
     EventFormat:
       title: EventFormat
       description: |-
@@ -2882,6 +2859,29 @@ components:
           $ref: '#/components/schemas/OffsetCheckpointFeature'
           description: It contains the timeouts related to the periodic offset checkpoint
             emission
+    Field:
+      title: Field
+      type: object
+      properties:
+        varint:
+          type: array
+          items:
+            type: integer
+            format: int64
+        fixed64:
+          type: array
+          items:
+            type: integer
+            format: int64
+        fixed32:
+          type: array
+          items:
+            type: integer
+            format: int32
+        lengthDelimited:
+          type: array
+          items:
+            type: string
     FieldMask:
       title: FieldMask
       type: object
@@ -2893,7 +2893,7 @@ components:
           items:
             type: string
         unknownFields:
-          type: string
+          $ref: '#/components/schemas/UnknownFieldSet'
     Filters:
       title: Filters
       description: The union of a set of template filters, interface filters, or a
@@ -2906,10 +2906,10 @@ components:
             template or wildcard filter means additional events that will match the query.
             The impact of include_interface_view and include_created_event_blob fields in the filters will
             also be accumulated.
-            At least one cumulative filter MUST be specified.
             A template or an interface SHOULD NOT appear twice in the accumulative field.
             A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
-            Optional
+            Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
+            include_created_event_blob unset is used.
           type: array
           items:
             $ref: '#/components/schemas/CumulativeFilter'
@@ -4121,8 +4121,18 @@ components:
     JsReassignmentEvent:
       title: JsReassignmentEvent
       oneOf:
-      - $ref: '#/components/schemas/JsAssignmentEvent'
-      - $ref: '#/components/schemas/JsUnassignedEvent'
+      - type: object
+        required:
+        - JsAssignmentEvent
+        properties:
+          JsAssignmentEvent:
+            $ref: '#/components/schemas/JsAssignmentEvent'
+      - type: object
+        required:
+        - JsUnassignedEvent
+        properties:
+          JsUnassignedEvent:
+            $ref: '#/components/schemas/JsUnassignedEvent'
     JsStatus:
       title: JsStatus
       type: object
@@ -4138,7 +4148,7 @@ components:
         details:
           type: array
           items:
-            $ref: '#/components/schemas/Any'
+            $ref: '#/components/schemas/ProtoAny'
     JsSubmitAndWaitForReassignmentResponse:
       title: JsSubmitAndWaitForReassignmentResponse
       type: object
@@ -4213,7 +4223,7 @@ components:
             Required
           type: array
           items:
-            $ref: '#/components/schemas/Event1'
+            $ref: '#/components/schemas/TopologyEvent'
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -4518,6 +4528,11 @@ components:
       type: object
       additionalProperties:
         $ref: '#/components/schemas/Filters'
+    Map_Int_Field:
+      title: Map_Int_Field
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/Field'
     Map_Int_TreeEvent:
       title: Map_Int_TreeEvent
       type: object
@@ -4835,6 +4850,20 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SinglePartySignatures'
+    ProtoAny:
+      title: ProtoAny
+      type: object
+      required:
+      - typeUrl
+      - value
+      - unknownFields
+      properties:
+        typeUrl:
+          type: string
+        value:
+          type: string
+        unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
     Reassignment:
       title: Reassignment
       description: Complete view of an on-ledger reassignment.
@@ -5014,9 +5043,9 @@ components:
         details:
           type: array
           items:
-            $ref: '#/components/schemas/Any'
+            $ref: '#/components/schemas/ProtoAny'
         unknownFields:
-          type: string
+          $ref: '#/components/schemas/UnknownFieldSet'
     SubmitAndWaitForReassignmentRequest:
       title: SubmitAndWaitForReassignmentRequest
       description: This reassignment is executed as a single atomic update.
@@ -5137,6 +5166,27 @@ components:
         properties:
           MinLedgerTimeRel:
             $ref: '#/components/schemas/MinLedgerTimeRel'
+    TopologyEvent:
+      title: TopologyEvent
+      oneOf:
+      - type: object
+        required:
+        - ParticipantAuthorizationAdded
+        properties:
+          ParticipantAuthorizationAdded:
+            $ref: '#/components/schemas/ParticipantAuthorizationAdded'
+      - type: object
+        required:
+        - ParticipantAuthorizationChanged
+        properties:
+          ParticipantAuthorizationChanged:
+            $ref: '#/components/schemas/ParticipantAuthorizationChanged'
+      - type: object
+        required:
+        - ParticipantAuthorizationRevoked
+        properties:
+          ParticipantAuthorizationRevoked:
+            $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
     TopologyFormat:
       title: TopologyFormat
       description: A format specifying which topology transactions to include and
@@ -5399,6 +5449,14 @@ components:
             Required, must be valid node ID (non-negative integer)
           type: integer
           format: int32
+    UnknownFieldSet:
+      title: UnknownFieldSet
+      type: object
+      required:
+      - fields
+      properties:
+        fields:
+          $ref: '#/components/schemas/Map_Int_Field'
     Update:
       title: Update
       oneOf:

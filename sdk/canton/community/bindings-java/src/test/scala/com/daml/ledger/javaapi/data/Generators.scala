@@ -9,6 +9,7 @@ import com.daml.ledger.api.v2.{
   StateServiceOuterClass,
   TransactionFilterOuterClass,
 }
+import com.daml.ledger.javaapi.data.Event.fromProtoEvent
 import com.google.protobuf.{ByteString, Empty, Timestamp}
 import org.scalacheck.Arbitrary.arbitrary
 import org.scalacheck.{Arbitrary, Gen}
@@ -842,32 +843,6 @@ object Generators {
       .build()
   }
 
-  def transactionGen: Gen[v2.TransactionOuterClass.Transaction] = {
-    import v2.TransactionOuterClass.Transaction
-    for {
-      updateId <- Arbitrary.arbString.arbitrary
-      commandId <- Arbitrary.arbString.arbitrary
-      workflowId <- Arbitrary.arbString.arbitrary
-      effectiveAt <- instantGen
-      events <- Gen.listOf(eventGen)
-      offset <- Arbitrary.arbLong.arbitrary
-      synchronizerId <- Arbitrary.arbString.arbitrary
-      traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
-      recordTime <- instantGen
-    } yield Transaction
-      .newBuilder()
-      .setUpdateId(updateId)
-      .setCommandId(commandId)
-      .setWorkflowId(workflowId)
-      .setEffectiveAt(Utils.instantToProto(effectiveAt))
-      .addAllEvents(events.asJava)
-      .setOffset(offset)
-      .setSynchronizerId(synchronizerId)
-      .setTraceContext(traceContext)
-      .setRecordTime(Utils.instantToProto(recordTime))
-      .build()
-  }
-
   final case class Node(children: Seq[Node])
 
   def genNodeTree(maxDepth: Int, maxChildren: Int): Gen[Node] = {
@@ -952,7 +927,7 @@ object Generators {
       .build()
   }
 
-  def transactionGenWithIdsInPreOrder: Gen[v2.TransactionOuterClass.Transaction] = {
+  def transactionGen: Gen[v2.TransactionOuterClass.Transaction] = {
     import v2.TransactionOuterClass.Transaction
     import v2.EventOuterClass.Event
     def eventGen(nodeId: Int, lastDescendantNodeId: Int): Gen[Event] =
@@ -1001,6 +976,17 @@ object Generators {
       .setRecordTime(Utils.instantToProto(recordTime))
       .build()
   }
+
+  def transactionGenFilteredEvents: Gen[v2.TransactionOuterClass.Transaction] =
+    for {
+      transaction <- transactionGen
+      events = transaction.getEventsList
+      // keep only a random number of events to simulate filtering of transactions
+      eventsSize <- Gen.chooseNum(1, events.size)
+      eventsFiltered <- Gen
+        .pick(eventsSize, events.asScala)
+        .map(_.sortBy(e => fromProtoEvent(e).getNodeId))
+    } yield transaction.toBuilder.clearEvents().addAllEvents(eventsFiltered.asJava).build()
 
   def transactionTreeGen: Gen[v2.TransactionOuterClass.TransactionTree] = {
     import v2.TransactionOuterClass.{TransactionTree, TreeEvent}

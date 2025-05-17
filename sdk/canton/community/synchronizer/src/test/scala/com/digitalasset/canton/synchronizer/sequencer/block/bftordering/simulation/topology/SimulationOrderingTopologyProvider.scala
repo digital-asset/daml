@@ -28,7 +28,7 @@ import scala.util.Success
 
 class SimulationOrderingTopologyProvider(
     thisNode: BftNodeId,
-    getEndpointsToTopologyData: () => Map[P2PEndpoint, SimulationTopologyData],
+    getEndpointsToTopologyData: () => Map[P2PEndpoint, NodeSimulationTopologyData],
     loggerFactory: NamedLoggerFactory,
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
@@ -51,7 +51,11 @@ class SimulationOrderingTopologyProvider(
           activeSequencerTopologyData.view.mapValues { simulationTopologyData =>
             NodeTopologyInfo(
               activationTime = simulationTopologyData.onboardingTime,
-              keyIds = Set(FingerprintKeyId.toBftKeyId(simulationTopologyData.signingPublicKey.id)),
+              keyIds = simulationTopologyData
+                .keysForTimestamp(activationTime.value)
+                .view
+                .map(keyPair => FingerprintKeyId.toBftKeyId(keyPair.publicKey.id))
+                .toSet,
             )
           }.toMap,
           SequencingParameters.Default,
