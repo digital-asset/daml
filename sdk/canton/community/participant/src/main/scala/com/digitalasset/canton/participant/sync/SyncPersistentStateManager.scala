@@ -28,7 +28,6 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.StampedLockWithHandle
@@ -56,7 +55,6 @@ class SyncPersistentStateManager(
     storage: Storage,
     val indexedStringStore: IndexedStringStore,
     acsCounterParticipantConfigStore: AcsCounterParticipantConfigStore,
-    ips: IdentityProvidingServiceClient,
     parameters: ParticipantNodeParameters,
     synchronizerCryptoFactory: StaticSynchronizerParameters => SynchronizerCrypto,
     clock: Clock,
@@ -190,7 +188,7 @@ class SyncPersistentStateManager(
       }
     } yield ()
 
-  // TODO(#25388): This should be per PSId
+  // TODO(#25483): This should be per PSId
   def staticSynchronizerParameters(
       synchronizerId: SynchronizerId
   ): Option[StaticSynchronizerParameters] =
@@ -202,6 +200,7 @@ class SyncPersistentStateManager(
   private val persistentStates: concurrent.Map[SynchronizerId, SyncPersistentState] =
     TrieMap[SynchronizerId, SyncPersistentState]()
 
+  // TODO(#25483) This should be physical
   def get(synchronizerId: SynchronizerId): Option[SyncPersistentState] =
     lock.withReadLock[Option[SyncPersistentState]](persistentStates.get(synchronizerId))
 
@@ -252,7 +251,6 @@ class SyncPersistentStateManager(
         protocolVersion,
         synchronizerCryptoFactory(state.staticSynchronizerParameters),
         clock,
-        ips,
         parameters.processingTimeouts,
         futureSupervisor,
         parameters.cachingConfigs,

@@ -15,7 +15,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{EnvelopeBox, RawSignedContentEnvelopeBox}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.util.NoCopy
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
@@ -55,7 +55,7 @@ sealed trait SequencedEvent[+Env <: Envelope[?]]
   val timestamp: CantonTimestamp
 
   /** The synchronizer which this deliver event belongs to */
-  val synchronizerId: SynchronizerId
+  val synchronizerId: PhysicalSynchronizerId
 
   protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
@@ -103,9 +103,9 @@ object SequencedEvent
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       previousTimestamp <- previousTimestampP.traverse(CantonTimestamp.fromProtoPrimitive)
       timestamp <- CantonTimestamp.fromProtoPrimitive(tsP)
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(
+      psid <- PhysicalSynchronizerId.fromProtoPrimitive(
         synchronizerIdP,
-        "SequencedEvent.synchronizerId",
+        "SequencedEvent.physical_synchronizer_id",
       )
       mbBatch <- mbBatchP.traverse(
         // TODO(i10428) Prevent zip bombing when decompressing the request
@@ -131,7 +131,7 @@ object SequencedEvent
           } yield new DeliverError(
             previousTimestamp,
             timestamp,
-            synchronizerId,
+            psid,
             msgId,
             deliverErrorReason,
             trafficConsumed,
@@ -143,7 +143,7 @@ object SequencedEvent
           } yield Deliver(
             previousTimestamp,
             timestamp,
-            synchronizerId,
+            psid,
             msgIdO,
             batch,
             topologyTimestampO,
@@ -196,7 +196,7 @@ object SequencedEvent
 sealed abstract case class DeliverError private[sequencing] (
     override val previousTimestamp: Option[CantonTimestamp],
     override val timestamp: CantonTimestamp,
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     messageId: MessageId,
     reason: Status,
     trafficReceipt: Option[TrafficReceipt],
@@ -209,7 +209,7 @@ sealed abstract case class DeliverError private[sequencing] (
   def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     previousTimestamp = previousTimestamp.map(_.toProtoPrimitive),
     timestamp = timestamp.toProtoPrimitive,
-    synchronizerId = synchronizerId.toProtoPrimitive,
+    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
     messageId = Some(messageId.toProtoPrimitive),
     batch = None,
     deliverErrorReason = Some(reason),
@@ -236,7 +236,7 @@ sealed abstract case class DeliverError private[sequencing] (
   override protected def pretty: Pretty[DeliverError] = prettyOfClass(
     param("previous timestamp", _.previousTimestamp),
     param("timestamp", _.timestamp),
-    param("synchronizer id", _.synchronizerId),
+    param("id", _.synchronizerId),
     param("message id", _.messageId),
     param("reason", _.reason),
     paramIfDefined("traffic receipt", _.trafficReceipt),
@@ -263,7 +263,7 @@ object DeliverError {
   def create(
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
       sequencerError: SequencerDeliverError,
       protocolVersion: ProtocolVersion,
@@ -284,7 +284,7 @@ object DeliverError {
   def create(
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       messageId: MessageId,
       status: Status,
       protocolVersion: ProtocolVersion,
@@ -323,7 +323,7 @@ object DeliverError {
 case class Deliver[+Env <: Envelope[_]] private[sequencing] (
     override val previousTimestamp: Option[CantonTimestamp],
     override val timestamp: CantonTimestamp,
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     messageIdO: Option[MessageId],
     batch: Batch[Env],
     topologyTimestampO: Option[CantonTimestamp],
@@ -341,7 +341,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
   protected[sequencing] def toProtoV30: v30.SequencedEvent = v30.SequencedEvent(
     previousTimestamp = previousTimestamp.map(_.toProtoPrimitive),
     timestamp = timestamp.toProtoPrimitive,
-    synchronizerId = synchronizerId.toProtoPrimitive,
+    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
     messageId = messageIdO.map(_.toProtoPrimitive),
     batch = Some(batch.toProtoV30),
     deliverErrorReason = None,
@@ -371,7 +371,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
   private[canton] def copy[Env2 <: Envelope[?]](
       previousTimestamp: Option[CantonTimestamp] = this.previousTimestamp,
       timestamp: CantonTimestamp = this.timestamp,
-      synchronizerId: SynchronizerId = this.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = this.synchronizerId,
       messageIdO: Option[MessageId] = this.messageIdO,
       batch: Batch[Env2] = this.batch,
       topologyTimestampO: Option[CantonTimestamp] = this.topologyTimestampO,
@@ -414,7 +414,7 @@ object Deliver {
   def create[Env <: Envelope[_]](
       previousTimestamp: Option[CantonTimestamp],
       timestamp: CantonTimestamp,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       messageIdO: Option[MessageId],
       batch: Batch[Env],
       topologyTimestampO: Option[CantonTimestamp],

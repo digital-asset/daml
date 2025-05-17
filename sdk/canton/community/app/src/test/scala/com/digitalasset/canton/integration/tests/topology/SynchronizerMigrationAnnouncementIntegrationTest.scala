@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests.topology
 
 import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.console.CommandFailure
 import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.integration.plugins.{
@@ -18,7 +19,9 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.CanSignAllMappings
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, TopologyManagerError}
 
-sealed trait TopologyFreezeIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
+sealed trait SynchronizerMigrationAnnouncementIntegrationTest
+    extends CommunityIntegrationTest
+    with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P0_S1M1
@@ -27,8 +30,9 @@ sealed trait TopologyFreezeIntegrationTest extends CommunityIntegrationTest with
     import env.*
 
     synchronizerOwners1.foreach { owner =>
-      owner.topology.synchronizer_migration.topology_freezes.propose_freeze(
-        PhysicalSynchronizerId(daId, testedProtocolVersion)
+      owner.topology.synchronizer_migration.announcement.propose(
+        daId.toPhysical,
+        PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
       )
     }
 
@@ -38,15 +42,17 @@ sealed trait TopologyFreezeIntegrationTest extends CommunityIntegrationTest with
     loggerFactory.assertThrowsAndLogs[CommandFailure](
       owner1.topology.namespace_delegations
         .propose_delegation(owner1.namespace, targetKey, CanSignAllMappings, daId),
-      _ shouldBeCantonErrorCode (TopologyManagerError.TopologyFreezeActive),
+      _ shouldBeCantonErrorCode (TopologyManagerError.OngoingSynchronizerMigration),
     )
   }
 
   "the topology state can be unfrozen again" in { implicit env =>
     import env.*
     synchronizerOwners1.foreach(
-      _.topology.synchronizer_migration.topology_freezes
-        .propose_unfreeze(PhysicalSynchronizerId(daId, testedProtocolVersion))
+      _.topology.synchronizer_migration.announcement.revoke(
+        daId.toPhysical,
+        PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
+      )
     )
 
     val owner1 = synchronizerOwners1.headOption.value
@@ -61,7 +67,8 @@ sealed trait TopologyFreezeIntegrationTest extends CommunityIntegrationTest with
   }
 }
 
-class TopologyFreezeIntegrationTestPostgres extends TopologyFreezeIntegrationTest {
+class SynchronizerMigrationAnnouncementIntegrationTestPostgres
+    extends SynchronizerMigrationAnnouncementIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

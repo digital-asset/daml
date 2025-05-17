@@ -466,34 +466,35 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
-    final case class ListTopologyFreeze(
+    final case class ListSynchronizerMigrationAnnouncement(
         query: BaseQuery,
-        filterPhysicalSynchronizerId: String,
+        filterSynchronizerId: String,
     ) extends BaseCommand[
-          v30.ListTopologyFreezeRequest,
-          v30.ListTopologyFreezeResponse,
-          Seq[ListTopologyFreezeResult],
+          v30.ListSynchronizerMigrationAnnouncementRequest,
+          v30.ListSynchronizerMigrationAnnouncementResponse,
+          Seq[ListSynchronizerMigrationAnnouncementResult],
         ] {
 
-      override protected def createRequest(): Either[String, v30.ListTopologyFreezeRequest] =
+      override protected def createRequest()
+          : Either[String, v30.ListSynchronizerMigrationAnnouncementRequest] =
         Right(
-          new ListTopologyFreezeRequest(
+          new ListSynchronizerMigrationAnnouncementRequest(
             baseQuery = Some(query.toProtoV1),
-            filterPhysicalSynchronizerId = filterPhysicalSynchronizerId,
+            filterSynchronizerId = filterSynchronizerId,
           )
         )
 
       override protected def submitRequest(
           service: TopologyManagerReadServiceStub,
-          request: v30.ListTopologyFreezeRequest,
-      ): Future[v30.ListTopologyFreezeResponse] =
-        service.listTopologyFreeze(request)
+          request: v30.ListSynchronizerMigrationAnnouncementRequest,
+      ): Future[v30.ListSynchronizerMigrationAnnouncementResponse] =
+        service.listSynchronizerMigrationAnnouncement(request)
 
       override protected def handleResponse(
-          response: v30.ListTopologyFreezeResponse
-      ): Either[String, Seq[ListTopologyFreezeResult]] =
+          response: v30.ListSynchronizerMigrationAnnouncementResponse
+      ): Either[String, Seq[ListSynchronizerMigrationAnnouncementResult]] =
         response.results
-          .traverse(ListTopologyFreezeResult.fromProtoV30)
+          .traverse(ListSynchronizerMigrationAnnouncementResult.fromProtoV30)
           .leftMap(_.toString)
     }
 

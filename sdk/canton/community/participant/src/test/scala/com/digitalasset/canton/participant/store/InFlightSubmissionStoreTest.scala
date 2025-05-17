@@ -27,38 +27,37 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
 
   def mkChangeIdHash(index: Int) = ChangeIdHash(DefaultDamlValues.lfhash(index))
 
-  lazy val changeId1 = mkChangeIdHash(1)
-  lazy val changeId2 = mkChangeIdHash(2)
-  lazy val changeId3 = mkChangeIdHash(3)
-  lazy val changeId4 = mkChangeIdHash(4)
-  lazy val submissionId1 = DefaultDamlValues.submissionId(1).some
-  lazy val submissionId2 = DefaultDamlValues.submissionId(2).some
-  lazy val synchronizerId1 = SynchronizerId.tryFromString("synchronizer1::id")
-  lazy val synchronizerId2 = SynchronizerId.tryFromString("synchronizer2::id")
-  lazy val messageId1 = new UUID(0, 1)
-  lazy val messageId2 = new UUID(0, 2)
-  lazy val messageId3 = new UUID(0, 3)
-  lazy val messageId4 = new UUID(0, 4)
-  lazy val traceContext1 = TraceContext.withNewTraceContext(Predef.identity)
-  lazy val completionInfo = DefaultParticipantStateValues.completionInfo(List.empty)
-  lazy val trackingData1 =
+  private lazy val changeId1 = mkChangeIdHash(1)
+  private lazy val changeId2 = mkChangeIdHash(2)
+  private lazy val changeId3 = mkChangeIdHash(3)
+  private lazy val submissionId1 = DefaultDamlValues.submissionId(1).some
+  private lazy val submissionId2 = DefaultDamlValues.submissionId(2).some
+  private lazy val synchronizerId1 = SynchronizerId.tryFromString("synchronizer1::id").toPhysical
+  private lazy val synchronizerId2 = SynchronizerId.tryFromString("synchronizer2::id").toPhysical
+  private lazy val messageId1 = new UUID(0, 1)
+  private lazy val messageId2 = new UUID(0, 2)
+  private lazy val messageId3 = new UUID(0, 3)
+  private lazy val messageId4 = new UUID(0, 4)
+  private lazy val traceContext1 = TraceContext.withNewTraceContext(Predef.identity)
+  private lazy val completionInfo = DefaultParticipantStateValues.completionInfo(List.empty)
+  private lazy val trackingData1 =
     TransactionSubmissionTrackingData(
       completionInfo,
       TransactionSubmissionTrackingData.TimeoutCause,
-      SynchronizerId.tryFromString("da::default"),
+      SynchronizerId.tryFromString("da::default").toPhysical,
       testedProtocolVersion,
     )
-  lazy val trackingData3 = TransactionSubmissionTrackingData(
+  private lazy val trackingData3 = TransactionSubmissionTrackingData(
     completionInfo,
     TransactionSubmissionTrackingData.CauseWithTemplate(
       SequencerErrors
         .SubmissionRequestRefused("Some invalid batch")
         .rpcStatusWithoutLoggingContext()
     ),
-    SynchronizerId.tryFromString("da::default"),
+    SynchronizerId.tryFromString("da::default").toPhysical,
     testedProtocolVersion,
   )
-  lazy val submission1 = InFlightSubmission(
+  private lazy val submission1 = InFlightSubmission(
     changeId1,
     submissionId1,
     synchronizerId1,
@@ -67,7 +66,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
     UnsequencedSubmission(CantonTimestamp.Epoch, trackingData1),
     traceContext1,
   )
-  lazy val submission2 = InFlightSubmission(
+  private lazy val submission2 = InFlightSubmission(
     changeId2,
     submissionId2,
     synchronizerId1,
@@ -79,7 +78,7 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
     ),
     TraceContext.empty,
   )
-  lazy val submission3 = InFlightSubmission(
+  private lazy val submission3 = InFlightSubmission(
     changeId3,
     submissionId1,
     synchronizerId2,
@@ -88,9 +87,9 @@ trait InFlightSubmissionStoreTest extends AsyncWordSpec with BaseTest {
     UnsequencedSubmission(CantonTimestamp.Epoch.plusSeconds(30), trackingData3),
     TraceContext.empty,
   )
-  lazy val sequencedSubmission1 =
+  private lazy val sequencedSubmission1 =
     SequencedSubmission(CantonTimestamp.Epoch.plusSeconds(1))
-  lazy val sequencedSubmission2 =
+  private lazy val sequencedSubmission2 =
     SequencedSubmission(CantonTimestamp.Epoch.plusSeconds(11))
 
   def inFlightSubmissionStore(mk: () => InFlightSubmissionStore): Unit = {

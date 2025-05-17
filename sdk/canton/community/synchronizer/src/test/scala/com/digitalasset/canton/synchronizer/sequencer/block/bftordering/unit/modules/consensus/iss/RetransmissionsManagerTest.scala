@@ -34,7 +34,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockMetadata,
   EpochInfo,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  Membership,
+  OrderingTopology,
+  OrderingTopologyInfo,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus.BlockStatus
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
@@ -46,6 +50,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
   ProgrammableUnitTestContext,
   ProgrammableUnitTestEnv,
 }
+import com.digitalasset.canton.time.SimClock
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -53,6 +58,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   private val self = BftNodeId("self")
   private val other1 = BftNodeId("other1")
   private val others = Set(other1)
+  private val allIds: Seq[BftNodeId] = (self +: others.toSeq).sorted
 
   private val membership = Membership.forTesting(self, others)
   private val epoch = EpochState.Epoch(
@@ -65,6 +71,21 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     membership,
     membership,
   )
+
+  private def orderingTopologyInfo(
+      cryptoProvider: CryptoProvider[ProgrammableUnitTestEnv]
+  ): OrderingTopologyInfo[ProgrammableUnitTestEnv] = {
+    val topology = OrderingTopology.forTesting(allIds.toSet)
+    OrderingTopologyInfo[ProgrammableUnitTestEnv](
+      self,
+      topology,
+      cryptoProvider,
+      allIds,
+      topology,
+      cryptoProvider,
+      allIds,
+    )
+  }
 
   private val segmentStatus0 = Consensus.RetransmissionsMessage.SegmentStatus(
     EpochNumber.First,
@@ -154,12 +175,12 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       val cryptoProvider = spy(ProgrammableUnitTestEnv.noSignatureCryptoProvider)
 
-      manager.handleMessage(cryptoProvider, segmentStatus0)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus0)
 
       context.runPipedMessages() shouldBe List()
       verifyZeroInteractions(cryptoProvider)
 
-      manager.handleMessage(cryptoProvider, segmentStatus1)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus1)
 
       context.runPipedMessages() shouldBe List()
 
@@ -214,7 +235,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         ).thenReturn(() => Right(()))
 
         manager.handleMessage(
-          cryptoProvider,
+          orderingTopologyInfo(cryptoProvider),
           Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
         )
 
@@ -235,7 +256,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
         val message = retransmissionRequest
 
         manager.handleMessage(
-          cryptoProvider,
+          orderingTopologyInfo(cryptoProvider),
           Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
         )
 
@@ -267,7 +288,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       ).thenReturn(() => Left(SignatureCheckError.InvalidKeyError("failed to verify")))
 
       manager.handleMessage(
-        cryptoProvider,
+        orderingTopologyInfo(cryptoProvider),
         Consensus.RetransmissionsMessage.UnverifiedNetworkMessage(message.fakeSign),
       )
 
@@ -294,13 +315,13 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       manager.startEpoch(epochState)
 
-      manager.handleMessage(cryptoProvider, segmentStatus0)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus0)
 
       // since epoch ended, segment status for the current epoch will not be broadcast
       manager.epochEnded(Seq.empty)
 
-      manager.handleMessage(cryptoProvider, segmentStatus1)
-      manager.handleMessage(cryptoProvider, segmentStatus0)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus1)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus0)
 
       context.runPipedMessages() shouldBe List()
       verifyZeroInteractions(cryptoProvider)
@@ -327,8 +348,8 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       context.lastDelayedMessage shouldBe empty
 
-      manager.handleMessage(cryptoProvider, segmentStatus0)
-      manager.handleMessage(cryptoProvider, segmentStatus1)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus0)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus1)
       context.runPipedMessages() shouldBe List()
 
       verifySentRequestNRetransmissionRequests(
@@ -341,9 +362,9 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       context.lastDelayedMessage should contain((1, periodicMsg))
 
-      manager.handleMessage(cryptoProvider, periodicMsg)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), periodicMsg)
 
-      manager.handleMessage(cryptoProvider, segmentStatus0)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus0)
 
       context.runPipedMessages() shouldBe List()
       verifySentRequestNRetransmissionRequests(
@@ -354,7 +375,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       context.lastCancelledEvent shouldBe empty
 
-      manager.handleMessage(cryptoProvider, segmentStatus1)
+      manager.handleMessage(orderingTopologyInfo(cryptoProvider), segmentStatus1)
 
       context.runPipedMessages() shouldBe List()
       verifySentRequestNRetransmissionRequests(
@@ -387,7 +408,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       manager.startEpoch(epochState)
 
       manager.handleMessage(
-        cryptoProvider,
+        orderingTopologyInfo(cryptoProvider),
         Consensus.RetransmissionsMessage.VerifiedNetworkMessage(
           Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus)
         ),
@@ -425,7 +446,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       manager.epochEnded(Seq(commitCertificate))
 
       manager.handleMessage(
-        cryptoProvider,
+        orderingTopologyInfo(cryptoProvider),
         Consensus.RetransmissionsMessage.VerifiedNetworkMessage(
           Consensus.RetransmissionsMessage.RetransmissionRequest.create(epochStatus)
         ),
@@ -464,6 +485,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       fail(_),
       previousEpochsCommitCerts = Map.empty,
       metrics,
+      new SimClock(loggerFactory = loggerFactory),
       loggerFactory,
     )
   }

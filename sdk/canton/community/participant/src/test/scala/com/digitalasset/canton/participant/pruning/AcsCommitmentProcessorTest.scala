@@ -105,7 +105,7 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected lazy val interval = PositiveSeconds.tryOfSeconds(5)
   protected lazy val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::da")
-  )
+  ).toPhysical
   protected lazy val localId = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("localParticipant::synchronizer")
   )

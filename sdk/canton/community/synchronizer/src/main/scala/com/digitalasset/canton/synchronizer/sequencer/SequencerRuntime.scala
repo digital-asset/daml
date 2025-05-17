@@ -122,7 +122,8 @@ class SequencerRuntime(
 
   override protected def timeouts: ProcessingTimeout = localNodeParameters.processingTimeouts
 
-  def synchronizerId: SynchronizerId = indexedSynchronizer.synchronizerId
+  def synchronizerId: PhysicalSynchronizerId =
+    PhysicalSynchronizerId(indexedSynchronizer.synchronizerId, staticSynchronizerParameters)
 
   def initialize()(implicit
       traceContext: TraceContext
@@ -374,7 +375,7 @@ class SequencerRuntime(
         .getOrElse(EitherT.rightT[FutureUnlessShutdown, String](()))
     } yield {
       logger.info("Sequencer runtime initialized")
-      runtimeReadyPromise.outcome(())
+      runtimeReadyPromise.outcome_(())
     }
 
   override def onClosed(): Unit =

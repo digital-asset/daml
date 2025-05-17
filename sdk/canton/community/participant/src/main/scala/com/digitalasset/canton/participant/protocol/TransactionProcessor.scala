@@ -54,7 +54,7 @@ import com.digitalasset.canton.protocol.hash.HashTracer.NoOp
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -66,7 +66,7 @@ import scala.concurrent.ExecutionContext
 class TransactionProcessor(
     override val participantId: ParticipantId,
     confirmationRequestFactory: TransactionConfirmationRequestFactory,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     damle: DAMLe,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     crypto: SynchronizerCryptoClient,
@@ -179,7 +179,7 @@ class TransactionProcessor(
             commandId = submitterInfo.commandId,
             transactionUUID = externallySignedSubmission.transactionUUID,
             mediatorGroup = externallySignedSubmission.mediatorGroup.value,
-            synchronizerId = synchronizerId,
+            synchronizerId = synchronizerId.logical,
             timeBoundaries = timeBoundaries,
             submissionTime = wfTransaction.metadata.submissionTime.toLf,
             disclosedContracts = disclosedContracts,
@@ -361,7 +361,7 @@ object TransactionProcessor {
     final case class SubmissionAlreadyInFlight(
         changeId: ChangeId,
         existingSubmissionId: Option[LedgerSubmissionId],
-        existingSubmissionSynchronizerId: SynchronizerId,
+        existingSubmissionSynchronizerId: PhysicalSynchronizerId,
     ) extends TransactionErrorImpl(cause = "The submission is already in-flight")(
           ConsistencyErrors.SubmissionAlreadyInFlight.code
         )
@@ -540,8 +540,10 @@ object TransactionProcessor {
     }
   }
 
-  final case class SynchronizerParametersError(synchronizerId: SynchronizerId, context: String)
-      extends TransactionProcessorError {
+  final case class SynchronizerParametersError(
+      synchronizerId: PhysicalSynchronizerId,
+      context: String,
+  ) extends TransactionProcessorError {
     override protected def pretty: Pretty[SynchronizerParametersError] = prettyOfClass(
       param("synchronizer", _.synchronizerId),
       param("context", _.context.unquoted),

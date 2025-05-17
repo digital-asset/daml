@@ -79,8 +79,9 @@ sealed trait RollbackUnassignmentIntegrationTest
       .unassignId
 
     participant2.ledger_api.updates
-      .flat(
+      .reassignments(
         partyIds = Set(bob),
+        filterTemplates = Seq.empty,
         completeAfter = 1,
         resultFilter = _.isUnassignment,
       )
@@ -103,8 +104,9 @@ sealed trait RollbackUnassignmentIntegrationTest
 
     contractEntry.map(_.reassignmentCounter).loneElement shouldBe 2 // increased by two
 
-    val updates = participant1.ledger_api.updates.flat(
+    val updates = participant1.ledger_api.updates.reassignments(
       partyIds = Set(alice),
+      filterTemplates = Seq.empty,
       completeAfter = 4,
       beginOffsetExclusive = ledgerEnd,
     )

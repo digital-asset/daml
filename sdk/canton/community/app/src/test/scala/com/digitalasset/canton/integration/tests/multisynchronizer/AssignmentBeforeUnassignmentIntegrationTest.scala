@@ -110,8 +110,9 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
     val begin = participant2.ledger_api.state.end()
     participant2.synchronizers.reconnect_local(daName)
 
-    val updates = participant2.ledger_api.updates.flat(
+    val updates = participant2.ledger_api.updates.reassignments(
       partyIds = Set(aliceId),
+      filterTemplates = Seq.empty,
       completeAfter = 1,
       beginOffsetExclusive = begin,
       synchronizerFilter = Some(daId),
@@ -157,8 +158,9 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
 
     until.trySuccess(())
 
-    val updates = participant1.ledger_api.updates.flat(
+    val updates = participant1.ledger_api.updates.reassignments(
       partyIds = Set(aliceId),
+      filterTemplates = Seq.empty,
       completeAfter = 1,
       beginOffsetExclusive = begin,
       resultFilter = _.isUnassignment,
@@ -169,7 +171,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
       case unassigned: UpdateService.UnassignedWrapper =>
         unassigned.unassignId
       case other =>
-        fail(s"Expected a reassignment event but got $other")
+        fail(s"Expected an unassignment event but got $other")
     }
 
     participant1.ledger_api.commands

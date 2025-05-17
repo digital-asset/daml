@@ -244,6 +244,43 @@ trait TopologyStoreTest extends AsyncWordSpec with TopologyStoreTestBase with Fa
         }
       }
 
+      "properly evolve party participant hosting" in {
+        val store = mk(synchronizer1_p1p2_synchronizerId)
+        def ptpFred(
+            participants: HostingParticipant*
+        ) =
+          makeSignedTx(
+            PartyToParticipant.tryCreate(
+              partyId = `fred::p2Namepsace`,
+              threshold = PositiveInt.one,
+              participants = participants,
+            )
+          )(p1Key)
+        val ptp1 = ptpFred(
+          HostingParticipant(p1Id, ParticipantPermission.Submission)
+        )
+        val ptp2 = ptpFred(
+          HostingParticipant(p1Id, ParticipantPermission.Submission),
+          HostingParticipant(p2Id, ParticipantPermission.Confirmation, onboarding = true),
+        )
+        val ptp3 = ptpFred(
+          HostingParticipant(p1Id, ParticipantPermission.Submission),
+          HostingParticipant(p2Id, ParticipantPermission.Confirmation, onboarding = false),
+        )
+        for {
+          _ <- update(store, ts1, add = Seq(ptp1))
+          _ <- update(store, ts2, add = Seq(ptp2), removeTxs = Set(ptp1.transaction.hash))
+          _ <- update(store, ts3, add = Seq(ptp3), removeTxs = Set(ptp2.transaction.hash))
+          snapshot1 <- inspect(store, TimeQuery.Snapshot(ts1.immediateSuccessor))
+          snapshot2 <- inspect(store, TimeQuery.Snapshot(ts2.immediateSuccessor))
+          snapshot3 <- inspect(store, TimeQuery.Snapshot(ts3.immediateSuccessor))
+        } yield {
+          expectTransactions(snapshot1, Seq(ptp1))
+          expectTransactions(snapshot2, Seq(ptp2))
+          expectTransactions(snapshot3, Seq(ptp3))
+        }
+      }
+
       "deal with authorized transactions" when {
         "handle simple operations" in {
           val store = mk(synchronizer1_p1p2_synchronizerId)

@@ -13,7 +13,7 @@ import com.digitalasset.canton.ledger.participant.state.{RoutingSynchronizerStat
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.UsableSynchronizers
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
@@ -25,7 +25,7 @@ import TransactionRoutingError.TopologyErrors.NoSynchronizerForSubmission
 
 private[routing] class SynchronizerSelectorFactory(
     admissibleSynchronizersComputation: AdmissibleSynchronizersComputation,
-    priorityOfSynchronizer: SynchronizerId => Int,
+    priorityOfSynchronizer: PhysicalSynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext) {
@@ -71,8 +71,8 @@ private[routing] class SynchronizerSelectorFactory(
   */
 private[routing] class SynchronizerSelector(
     val transactionData: TransactionData,
-    admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
-    priorityOfSynchronizer: SynchronizerId => Int,
+    admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]],
+    priorityOfSynchronizer: PhysicalSynchronizerId => Int,
     synchronizerRankComputation: SynchronizerRankComputation,
     val synchronizerState: RoutingSynchronizerState,
     protected val loggerFactory: NamedLoggerFactory,
@@ -157,17 +157,16 @@ private[routing] class SynchronizerSelector(
     } yield SynchronizerRank(Map.empty, priorityOfSynchronizer(synchronizerId), synchronizerId)
 
   private def filterSynchronizers(
-      admissibleSynchronizers: NonEmpty[Set[SynchronizerId]]
+      admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[Set[SynchronizerId]]] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, NonEmpty[
+    Set[PhysicalSynchronizerId]
+  ]] = {
 
     val (unableToFetchStateSynchronizers, synchronizerStates) =
       admissibleSynchronizers.forgetNE.toList.map { synchronizerId =>
-        synchronizerState.getTopologySnapshotAndPVFor(synchronizerId).map {
-          case (snapshot, protocolVersion) =>
-            (synchronizerId, protocolVersion, snapshot)
-        }
+        synchronizerState.getTopologySnapshotFor(synchronizerId).map((synchronizerId, _))
       }.separate
 
     for {
@@ -182,7 +181,7 @@ private[routing] class SynchronizerSelector(
       (unusableSynchronizers, usableSynchronizers) = synchronizers
       allUnusableSynchronizers =
         unusableSynchronizers.map(d => d.synchronizerId -> d.toString).toMap ++
-          unableToFetchStateSynchronizers.map(d => d.synchronizerId -> d.toString).toMap
+          unableToFetchStateSynchronizers.map(d => d.physicalSynchronizerId -> d.toString).toMap
 
       _ = logger.debug(
         s"Not considering the following synchronizers for routing: $allUnusableSynchronizers"
@@ -202,8 +201,8 @@ private[routing] class SynchronizerSelector(
   }
 
   private def singleSynchronizerValidatePrescribedSynchronizer(
-      synchronizerId: SynchronizerId,
-      inputContractsSynchronizerIdO: Option[SynchronizerId],
+      synchronizerId: PhysicalSynchronizerId,
+      inputContractsSynchronizerIdO: Option[PhysicalSynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] = {
@@ -238,14 +237,13 @@ private[routing] class SynchronizerSelector(
     *
     *   - List `synchronizersOfSubmittersAndInformees` contains `synchronizerId`
     */
-  private def validatePrescribedSynchronizer(synchronizerId: SynchronizerId)(implicit
+  private def validatePrescribedSynchronizer(synchronizerId: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, Unit] =
     for {
-      synchronizerState <- EitherT.fromEither[FutureUnlessShutdown](
-        synchronizerState.getTopologySnapshotAndPVFor(synchronizerId)
+      snapshot <- EitherT.fromEither[FutureUnlessShutdown](
+        synchronizerState.getTopologySnapshotFor(synchronizerId)
       )
-      (snapshot, protocolVersion) = synchronizerState
 
       // Informees and submitters should reside on the selected synchronizer
       _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
@@ -261,7 +259,6 @@ private[routing] class SynchronizerSelector(
       _ <- UsableSynchronizers
         .check(
           synchronizerId = synchronizerId,
-          protocolVersion = protocolVersion,
           snapshot = snapshot,
           transaction = transactionData.transaction,
           ledgerTime = transactionData.ledgerTime,
@@ -269,13 +266,13 @@ private[routing] class SynchronizerSelector(
         )
         .leftMap[TransactionRoutingError] { err =>
           TransactionRoutingError.ConfigurationErrors.InvalidPrescribedSynchronizerId
-            .Generic(synchronizerId, err.toString)
+            .Generic(synchronizerId.logical, err.toString)
         }
 
     } yield ()
 
   private def getSynchronizerOfInputContracts
-      : EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[SynchronizerId]] = {
+      : EitherT[FutureUnlessShutdown, TransactionRoutingError, Option[PhysicalSynchronizerId]] = {
     val inputContractsSynchronizerData = transactionData.inputContractsSynchronizerData
 
     inputContractsSynchronizerData.synchronizers.size match {
@@ -283,9 +280,10 @@ private[routing] class SynchronizerSelector(
       // Input contracts reside on different synchronizers
       // Fail..
       case _ =>
-        EitherT.leftT[FutureUnlessShutdown, Option[SynchronizerId]](
-          RoutingInternalError
-            .InputContractsOnDifferentSynchronizers(inputContractsSynchronizerData.synchronizers)
+        EitherT.leftT[FutureUnlessShutdown, Option[PhysicalSynchronizerId]](
+          RoutingInternalError.InputContractsOnDifferentSynchronizers(
+            inputContractsSynchronizerData.synchronizers.map(_.logical)
+          )
         )
     }
   }

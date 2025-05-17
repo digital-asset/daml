@@ -81,7 +81,7 @@ class SequencedEventStoreBasedTopologyHeadInitializerTest
                       Deliver.create(
                         None,
                         timestamp,
-                        SynchronizerId.tryFromString("namespace::id"),
+                        SynchronizerId.tryFromString("namespace::id").toPhysical,
                         None,
                         Batch.empty(testedProtocolVersion),
                         None,

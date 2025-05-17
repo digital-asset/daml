@@ -30,13 +30,13 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
   )(implicit materializer: Materializer): CantonSequencer =
     createSequencerWithSnapshot(None)
 
-  val crypto = TestingIdentityFactory(
+  private val crypto = TestingIdentityFactory(
     TestingTopology(),
     loggerFactory,
     DynamicSynchronizerParameters.initialValues(clock, testedProtocolVersion),
-  ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId)
+  ).forOwnerAndSynchronizer(owner = mediatorId, synchronizerId.logical)
 
-  val requestSigner = RequestSigner(crypto, testedProtocolVersion, loggerFactory)
+  private val requestSigner = RequestSigner(crypto, testedProtocolVersion, loggerFactory)
 
   def createSequencerWithSnapshot(
       initialState: Option[SequencerInitialState]

@@ -111,7 +111,7 @@ message SequencedEvent {
   int64 timestamp = 2;
 
   // The synchronizer on which the event has been sequenced.
-  string synchronizer_id = 3;
+  string physical_synchronizer_id = 3;
 
   // The message_id of the request.
   // Optional, but will be defined iff the request sender is the subscriber.

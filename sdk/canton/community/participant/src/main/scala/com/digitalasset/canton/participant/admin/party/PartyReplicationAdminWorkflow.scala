@@ -303,6 +303,7 @@ class PartyReplicationAdminWorkflow(
 object PartyReplicationAdminWorkflow {
   final case class PartyReplicationArguments(
       partyId: PartyId,
+      // TODO(#25483) This should be physical
       synchronizerId: SynchronizerId,
       sourceParticipantId: ParticipantId,
       serial: PositiveInt,

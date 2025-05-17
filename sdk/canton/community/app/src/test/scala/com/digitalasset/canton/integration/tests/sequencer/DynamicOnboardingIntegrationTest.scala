@@ -133,7 +133,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         testedProtocolVersion,
         RootHashMessage(
           RootHash(TestHash.digest(1)),
-          daId,
+          daId.toPhysical,
           testedProtocolVersion,
           TransactionViewType,
           CantonTimestamp.Epoch,
@@ -521,6 +521,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
           transportSecurity = false,
           None,
           SequencerAlias.Default,
+          None,
         )
 
       val conn = mediator1.sequencer_connection.get()

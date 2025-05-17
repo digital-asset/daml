@@ -91,7 +91,7 @@ trait MediatorOnboardingTest
     val alice = AliceName.toPartyId(participant1)
 
     // create an Iou contract, for which we later exercise the Cal choice
-    participant3.ledger_api.javaapi.commands.submit_flat(
+    participant3.ledger_api.javaapi.commands.submit(
       Seq(participant3.id.adminParty),
       new Iou(
         participant3.id.adminParty.toProtoPrimitive,
@@ -157,7 +157,7 @@ trait MediatorOnboardingTest
 
     // initialize the mediator
     mediator2.setup.assign(
-      daId,
+      daId.toPhysical,
       SequencerConnections.single(sequencer1.sequencerConnection),
     )
     mediator2.health.wait_for_initialized()

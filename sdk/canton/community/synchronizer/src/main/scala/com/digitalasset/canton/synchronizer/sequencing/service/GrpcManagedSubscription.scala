@@ -5,6 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencing.service
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.functor.*
+import cats.syntax.traverse.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -34,6 +36,11 @@ trait ManagedSubscription extends FlagCloseable with CloseNotification {
     * left running indefinitely.
     */
   val expireAt: Option[CantonTimestamp]
+
+  /** To be used to indicate when e.g. the grpc request is cancelled
+    * @return
+    */
+  def isCancelled: Boolean
 }
 
 /** Creates and manages a SequencerSubscription for the given grpc response observer. The sequencer
@@ -76,10 +83,6 @@ private[service] class GrpcManagedSubscription[T](
     close()
   }
 
-  // if the underlying grpc call is cancelled then close the subscription
-  // as the underlying channel is cancelled we can no longer send a response
-  observer.setOnCancelHandler(() => signalAndClose(NoSignal))
-
   private val handler: SequencedEventOrErrorHandler[SequencedEventError] = {
     case Right(event) =>
       implicit val traceContext: TraceContext = event.traceContext
@@ -111,44 +114,37 @@ private[service] class GrpcManagedSubscription[T](
       FutureUnlessShutdown.pure(Left(error))
   }
 
-  // TODO(#5705) Redo this when revisiting the subscription pool
-  withNewTraceContext { implicit traceContext =>
-    val shouldClose = performUnlessClosing("grpc-managed-subscription-handler") {
-      val createSub = Try({
-        val subscription = createSubscription(handler)
-        timeouts.unbounded.awaitUS(s"Creation of subscription handler")(
-          subscription.value
-        )
-      })
-      createSub match {
-        case Failure(exception) =>
-          logger.warn("Creating sequencer subscription failed", exception)
-          setCloseSignal(ErrorSignal(exception))
-          true
-        case Success(UnlessShutdown.Outcome(Left(err))) =>
-          logger.warn(s"Creating sequencer subscription returned error: $err")
-          setCloseSignal(
-            ErrorSignal(Status.FAILED_PRECONDITION.withDescription(err.toString).asException())
-          )
-          true
-        case Success(UnlessShutdown.Outcome(Right(subscription))) =>
-          subscriptionRef.set(Some(subscription))
-          logger.debug(
-            "Underlying subscription has been successfully created (may still be starting)"
-          )
-          false
-        case Success(UnlessShutdown.AbortedDueToShutdown) =>
-          setCloseSignal(CompleteSignal)
-          logger.debug(
-            "Received shutdown signal"
-          )
-          true
+  def initialize(): FutureUnlessShutdown[Unit] =
+    // TODO(#5705) Redo this when revisiting the subscription pool
+    withNewTraceContext { implicit traceContext =>
+      performUnlessClosingUSF("grpc-managed-subscription-handler") {
+        val createSub =
+          // wrap in a Try to catch any exception in the creation of the EitherT itself
+          Try(createSubscription(handler)).sequence.semiflatMap(FutureUnlessShutdown.fromTry)
+        createSub.value.onComplete {
+          case Failure(exception) =>
+            logger.warn("Creating sequencer subscription failed", exception)
+            signalAndClose(ErrorSignal(exception))
+          case Success(UnlessShutdown.Outcome(Left(err))) =>
+            logger.warn(s"Creating sequencer subscription returned error: $err")
+            signalAndClose(
+              ErrorSignal(Status.FAILED_PRECONDITION.withDescription(err.toString).asException())
+            )
+          case Success(UnlessShutdown.Outcome(Right(subscription))) =>
+            subscriptionRef.set(Some(subscription))
+            logger.debug(
+              "Underlying subscription has been successfully created (may still be starting)"
+            )
+          case Success(UnlessShutdown.AbortedDueToShutdown) =>
+            logger.debug(
+              "Received shutdown signal"
+            )
+            signalAndClose(CompleteSignal)
+        }
+        // discard the actual result, since we've dealt with it already in the onComplete block
+        createSub.value.void
       }
-    } onShutdown false
-
-    // if we have set a signal value then immediately close the subscription
-    if (shouldClose) close()
-  }
+    }
 
   /** Close the subscription.
     */
@@ -175,6 +171,7 @@ private[service] class GrpcManagedSubscription[T](
     } finally notifyClosed()
   }
 
+  override def isCancelled: Boolean = observer.isCancelled
 }
 
 private object GrpcManagedSubscription {

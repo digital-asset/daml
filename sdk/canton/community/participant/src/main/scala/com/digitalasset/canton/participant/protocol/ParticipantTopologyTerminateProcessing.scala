@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminate
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.TopologyStore.EffectiveStateChange
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -33,8 +33,8 @@ object ParticipantTopologyTerminateProcessing {
 }
 
 class ParticipantTopologyTerminateProcessing(
-    synchronizerId: SynchronizerId,
-    protocolVersion: ProtocolVersion,
+    synchronizerId: PhysicalSynchronizerId,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     recordOrderPublisher: RecordOrderPublisher,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     initialRecordTime: CantonTimestamp,
@@ -248,7 +248,7 @@ class ParticipantTopologyTerminateProcessing(
       traceContext: TraceContext
   ): Option[EventInfo] =
     TopologyTransactionDiff(
-      synchronizerId = synchronizerId,
+      synchronizerId = synchronizerId.logical,
       oldRelevantState = effectiveStateChange.before.signedTransactions,
       currentRelevantState = effectiveStateChange.after.signedTransactions,
       localParticipantId = participantId,
@@ -258,7 +258,7 @@ class ParticipantTopologyTerminateProcessing(
         Update.TopologyTransactionEffective(
           updateId = updateId,
           events = events,
-          synchronizerId = synchronizerId,
+          synchronizerId = synchronizerId.logical,
           effectiveTime = effectiveStateChange.effectiveTime.value,
         ),
         requiresLocalPartyReplication,

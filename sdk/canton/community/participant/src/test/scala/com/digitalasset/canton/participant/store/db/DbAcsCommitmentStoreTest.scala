@@ -94,7 +94,6 @@ trait DbCommitmentQueueTest extends CommitmentQueueTest { this: DbTest =>
       new DbCommitmentQueue(
         storage,
         IndexedSynchronizer.tryCreate(synchronizerId, 1),
-        testedProtocolVersion,
         timeouts,
         loggerFactory,
       )(ec)

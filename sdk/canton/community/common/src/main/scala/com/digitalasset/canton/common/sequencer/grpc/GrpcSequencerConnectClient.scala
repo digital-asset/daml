@@ -78,14 +78,14 @@ class GrpcSequencerConnectClient(
         )(_.getSynchronizerId(v30.SequencerConnect.GetSynchronizerIdRequest()))
         .leftMap(err => Error.Transport(err.toString))
 
-      synchronizerId = SynchronizerId
-        .fromProtoPrimitive(response.synchronizerId, "synchronizerId")
+      synchronizerId = PhysicalSynchronizerId
+        .fromProtoPrimitive(response.physicalSynchronizerId, "physical_synchronizer_id")
         .leftMap[Error](err => Error.DeserializationFailure(err.toString))
 
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](synchronizerId)
 
       sequencerId = UniqueIdentifier
-        .fromProtoPrimitive(response.sequencerUid, "sequencerUid")
+        .fromProtoPrimitive(response.sequencerUid, "sequencer_uid")
         .leftMap[Error](err => Error.DeserializationFailure(err.toString))
         .map(SequencerId(_))
 
@@ -122,7 +122,9 @@ class GrpcSequencerConnectClient(
 
   override def getSynchronizerId(
       synchronizerIdentifier: String
-  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Error, SynchronizerId] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Error, PhysicalSynchronizerId] =
     for {
       responseP <- CantonGrpcUtil
         .sendSingleGrpcRequest(
@@ -140,8 +142,8 @@ class GrpcSequencerConnectClient(
         .leftMap(err => Error.Transport(err.toString))
 
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-        SynchronizerId
-          .fromProtoPrimitive(responseP.synchronizerId, "synchronizer_id")
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(responseP.physicalSynchronizerId, "physical_synchronizer_id")
           .leftMap[Error](err => Error.DeserializationFailure(err.toString))
       )
     } yield synchronizerId

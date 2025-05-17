@@ -34,7 +34,7 @@ class ConnectionValidationLimiterTest extends AnyWordSpec with BaseTest with Has
       val fut = (1 to 42).toList.map(_ => validator.maybeValidate()(TraceContext.createNew()))
 
       // Complete all validations
-      promises.foreach(_.outcome(()))
+      promises.foreach(_.outcome_(()))
 
       // Wait for all validation requests to complete
       fut.parSequence.futureValueUS
@@ -86,7 +86,7 @@ class ConnectionValidationLimiterTest extends AnyWordSpec with BaseTest with Has
       val fut = (1 to 2).toList.map(_ => validator.maybeValidate()(TraceContext.createNew()))
 
       // Shutdown the first validation
-      promises(0).shutdown()
+      promises(0).shutdown_()
 
       // All validation requests should be shutdown
       forAll(fut.map(_.unwrap.futureValue))(_ shouldBe UnlessShutdown.AbortedDueToShutdown)

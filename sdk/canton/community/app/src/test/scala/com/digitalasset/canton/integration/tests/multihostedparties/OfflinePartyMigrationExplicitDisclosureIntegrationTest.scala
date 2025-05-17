@@ -8,9 +8,11 @@ import com.daml.ledger.javaapi.data.codegen.HasCommands
 import com.daml.ledger.javaapi.data.{
   Command,
   CumulativeFilter,
+  EventFormat,
   Filter,
   Identifier,
-  TransactionFilter,
+  TransactionFormat,
+  TransactionShape,
 }
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
@@ -80,8 +82,8 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
         commands = quote.create,
       )
       val tx = participant1.ledger_api.javaapi.updates
-        .flat_with_tx_filter(
-          filter = filter(alice -> PriceQuotation.TEMPLATE_ID),
+        .transactions_with_tx_format(
+          transactionFormat = transactionFormat(alice -> PriceQuotation.TEMPLATE_ID),
           completeAfter = 1,
         )
         .loneElement
@@ -129,19 +131,23 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
     )
   }
 
-  private def filter(f: (PartyId, Identifier)): TransactionFilter = {
+  private def transactionFormat(f: (PartyId, Identifier)): TransactionFormat = {
     import scala.jdk.CollectionConverters.MapHasAsJava
     import scala.jdk.OptionConverters.RichOption
     val (party, templateId) = f
-    new TransactionFilter(
-      Map(
-        party.toProtoPrimitive -> (new CumulativeFilter(
-          Collections.emptyMap[Identifier, Filter.Interface](),
-          Map(templateId -> Filter.Template.INCLUDE_CREATED_EVENT_BLOB).asJava,
-          None.toJava,
-        ): Filter)
-      ).asJava,
-      None.toJava,
+    new TransactionFormat(
+      new EventFormat(
+        Map(
+          party.toProtoPrimitive -> (new CumulativeFilter(
+            Collections.emptyMap[Identifier, Filter.Interface](),
+            Map(templateId -> Filter.Template.INCLUDE_CREATED_EVENT_BLOB).asJava,
+            None.toJava,
+          ): Filter)
+        ).asJava,
+        None.toJava,
+        false,
+      ),
+      TransactionShape.ACS_DELTA,
     )
   }
 

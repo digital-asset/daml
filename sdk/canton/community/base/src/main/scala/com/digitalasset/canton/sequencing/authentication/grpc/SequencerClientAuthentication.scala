@@ -18,7 +18,7 @@ import com.digitalasset.canton.sequencing.authentication.{
 }
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.TokenFetcher
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.*
@@ -41,7 +41,7 @@ trait SequencerClientAuthentication {
   * response is returned.
   */
 private[grpc] class SequencerClientTokenAuthentication(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     member: Member,
     tokenManagerPerEndpoint: NonEmpty[Map[Endpoint, AuthenticationTokenManager]],
     protected val loggerFactory: NamedLoggerFactory,
@@ -103,7 +103,7 @@ private[grpc] class SequencerClientTokenAuthentication(
 object SequencerClientTokenAuthentication {
 
   def apply(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       member: Member,
       obtainTokenPerEndpoint: NonEmpty[Map[Endpoint, TokenFetcher]],
       isClosed: => Boolean,
@@ -171,7 +171,7 @@ object SequencerClientTokenAuthentication {
   }
 
   def authenticationMetadata(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       member: Member,
       token: AuthenticationToken,
       maybeEndpoint: Option[Endpoint] = None,

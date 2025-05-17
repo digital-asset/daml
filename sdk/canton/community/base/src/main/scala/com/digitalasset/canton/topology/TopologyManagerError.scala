@@ -775,18 +775,21 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
 
   // TODO(#25467): use PhysicalSynchronizerId
   @Explanation(
-    "This error indicates that a topology freeze is active and only mapping related to synchronizer migration are permitted."
+    "This error indicates that a synchronizer migration is ongoing and only mapping related to synchronizer migration are permitted."
   )
   @Resolution(
-    "Contact the owners of the synchronizer about the ongoing topology freeze."
+    "Contact the owners of the synchronizer about the ongoing synchronizer migration."
   )
-  object TopologyFreezeActive
-      extends ErrorCode(id = "TOPOLOGY_FREEZE_ACTIVE", InvalidGivenCurrentSystemStateOther) {
+  object OngoingSynchronizerMigration
+      extends ErrorCode(
+        id = "TOPOLOGY_ONGOING_SYNCHRONIZER_MIGRATION",
+        InvalidGivenCurrentSystemStateOther,
+      ) {
     final case class Reject(synchronizerId: SynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The topology state of synchronizer $synchronizerId is frozen and no more topology changes are allowed."
+            s"The topology state of synchronizer $synchronizerId is frozen due to an ongoing synchronizer migration and no more topology changes are allowed."
         )
         with TopologyManagerError
   }

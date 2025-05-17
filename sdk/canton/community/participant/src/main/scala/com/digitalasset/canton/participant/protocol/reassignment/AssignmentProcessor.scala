@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, Prot
 import com.digitalasset.canton.participant.sync.SyncEphemeralState
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
@@ -28,7 +28,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import scala.concurrent.ExecutionContext
 
 class AssignmentProcessor(
-    synchronizerId: Target[SynchronizerId],
+    synchronizerId: Target[PhysicalSynchronizerId],
     override val participantId: ParticipantId,
     staticSynchronizerParameters: Target[StaticSynchronizerParameters],
     reassignmentCoordination: ReassignmentCoordination,

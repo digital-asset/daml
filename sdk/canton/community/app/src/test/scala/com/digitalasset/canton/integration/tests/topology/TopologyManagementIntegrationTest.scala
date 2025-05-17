@@ -9,7 +9,7 @@ import com.daml.test.evidence.scalatest.ScalaTestSupport.Implicits.*
 import com.daml.test.evidence.tag.Security.SecurityTest.Property.*
 import com.daml.test.evidence.tag.Security.{Attack, SecurityTest, SecurityTestSuite}
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.config.{DbConfig, PositiveDurationSeconds}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
 import com.digitalasset.canton.crypto.*
@@ -1039,13 +1039,14 @@ trait TopologyManagementIntegrationTest
 
     }
 
-    "query topology freeze" in { implicit env =>
+    "query migration announcements" in { implicit env =>
       import env.*
 
-      val freezeMapping = synchronizerOwners1
+      val announcementMapping = synchronizerOwners1
         .map { owner =>
-          owner.topology.synchronizer_migration.topology_freezes.propose_freeze(
-            PhysicalSynchronizerId(daId, testedProtocolVersion)
+          owner.topology.synchronizer_migration.announcement.propose(
+            daId.toPhysical,
+            PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
           )
         }
         .headOption
@@ -1055,16 +1056,17 @@ trait TopologyManagementIntegrationTest
       eventually() {
         forAll(
           synchronizerOwners1.map(
-            _.topology.synchronizer_migration.topology_freezes
+            _.topology.synchronizer_migration.announcement
               .list(daId)
               .loneElement
               .item
           )
-        )(result => result shouldBe freezeMapping)
+        )(result => result shouldBe announcementMapping)
       }
       synchronizerOwners1.foreach(
-        _.topology.synchronizer_migration.topology_freezes.propose_unfreeze(
-          PhysicalSynchronizerId(daId, testedProtocolVersion)
+        _.topology.synchronizer_migration.announcement.revoke(
+          daId.toPhysical,
+          PhysicalSynchronizerId(daId, testedProtocolVersion, serial = NonNegativeInt.two),
         )
       )
     }

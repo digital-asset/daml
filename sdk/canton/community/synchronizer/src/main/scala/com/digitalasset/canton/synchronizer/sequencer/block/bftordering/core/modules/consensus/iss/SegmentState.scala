@@ -9,12 +9,23 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.{
-  ConsensusCertificateValidator,
-  PbftMessageValidatorImpl,
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue.{
+  DeduplicationStrategy,
+  EnqueueResult,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
+  Epoch,
+  Segment,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.SegmentState.{
+  RetransmissionResult,
+  computeLeaderOfView,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidatorImpl
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -28,16 +39,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.collection.BoundedQueue
 import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.mutable
-
-import SegmentState.{RetransmissionResult, computeLeaderOfView}
-import EpochState.{Epoch, Segment}
-import PbftBlockState.*
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class SegmentState(
@@ -64,9 +70,6 @@ class SegmentState(
   private val epochNumber = epoch.info.number
   private val viewChangeBlockMetadata = BlockMetadata(epochNumber, segment.slotNumbers.head1)
   private val pbftMessageValidator = new PbftMessageValidatorImpl(segment, epoch, metrics)(abort)
-  private val commitCertValidator = new ConsensusCertificateValidator(
-    membership.orderingTopology.strongQuorum
-  )
 
   // Only one view is active at a time, starting at view=0, inViewChange=false
   // - Upon view change start, due to timeout or >= f+1 votes, increment currentView and inViewChange=true
@@ -77,10 +80,15 @@ class SegmentState(
   private var inViewChange: Boolean = false
   private var strongQuorumReachedForCurrentView: Boolean = false
 
-  // TODO(#23484): implement per-node quotas
-  // Drop newest to preserve continuity of messages
-  private val futureViewMessagesQueue: mutable.Queue[SignedMessage[PbftNormalCaseMessage]] =
-    new BoundedQueue(config.consensusQueueMaxSize, DropStrategy.DropNewest)
+  private val futureViewMessagesQueue =
+    new FairBoundedQueue[SignedMessage[PbftNormalCaseMessage]](
+      config.consensusQueueMaxSize,
+      config.consensusQueuePerNodeQuota,
+      // Drop newest to preserve continuity of messages
+      DropStrategy.DropNewest,
+      // We need to deduplicate to protect against nodes spamming with others' messages
+      DeduplicationStrategy.PerNode,
+    )
   private val viewChangeState = new mutable.HashMap[ViewNumber, PbftViewChangeState]
   private var discardedViewMessagesCount = 0
   private var discardedRetransmittedCommitCertsCount = 0
@@ -304,8 +312,6 @@ class SegmentState(
       .toMap
 
   // Normal Case: PrePrepare, Prepare, Commit
-  // Note: We may want to limit the number of messages in the future queue, per node
-  //       When capacity is reached, we can (a) drop new messages, or (b) evict older for newer
   private def processNormalCaseMessage(
       msg: SignedMessage[PbftNormalCaseMessage]
   )(implicit traceContext: TraceContext): Seq[ProcessResult] = {
@@ -317,11 +323,20 @@ class SegmentState(
       )
       discardedViewMessagesCount += 1
     } else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
-      futureViewMessagesQueue.enqueue(msg)
       logger.info(
         s"Segment received early PbftNormalCaseMessage; message view = ${msg.message.viewNumber}, " +
           s"current view = $currentViewNumber, inViewChange = $inViewChange"
       )
+      futureViewMessagesQueue.enqueue(msg.from, msg) match {
+        case EnqueueResult.PerNodeQuotaExceeded(nodeId) =>
+          logger.info(s"Node `$nodeId` exceeded its future view message queue quota")
+        case EnqueueResult.TotalCapacityExceeded =>
+          logger.info("Future view message queue total capacity has been exceeded")
+        case EnqueueResult.Duplicate(nodeId) =>
+          logger.info(s"Duplicate future view message for node `$nodeId` has been dropped")
+        case EnqueueResult.Success =>
+          logger.trace("Successfully postponed PbftNormalCaseMessage")
+      }
     } else
       result = processPbftNormalCaseMessage(msg, msg.message.blockMetadata.blockNumber)
     result
@@ -420,23 +435,16 @@ class SegmentState(
   ): Seq[ProcessResult] = {
     val RetransmittedCommitCertificate(from, cc) = msg
     val blockNumber = cc.blockMetadata.blockNumber
-    var result = Seq.empty[ProcessResult]
 
     if (isBlockComplete(blockNumber)) {
       discardedRetransmittedCommitCertsCount += 1
       logger.debug(
         s"Discarded retransmitted commit cert for block $blockNumber from $from because block is already complete"
       )
+      Seq.empty[ProcessResult]
     } else
-      commitCertValidator.validateConsensusCertificate(cc) match {
-        case Right(_) =>
-          result = segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
-        case Left(error) =>
-          logger.debug(
-            s"Discarded retransmitted commit cert for block $blockNumber from $from because of validation error: $error"
-          )
-      }
-    result
+      // the certificate has been validated previously, so we can just accept it now
+      segmentBlocks(segment.relativeBlockIndex(blockNumber)).completeBlock(cc)
   }
 
   private def processTimeout(

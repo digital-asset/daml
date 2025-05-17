@@ -19,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
-import com.digitalasset.canton.topology.{DefaultTestIdentities, SynchronizerId}
+import com.digitalasset.canton.topology.{DefaultTestIdentities, PhysicalSynchronizerId}
 import com.google.protobuf.ByteString
 
 object SequencerTestUtils extends BaseTest {
@@ -35,7 +35,7 @@ object SequencerTestUtils extends BaseTest {
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   def mockDeliverClosedEnvelope(
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
-      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
       deserializedFrom: Option[ByteString] = None,
       messageId: Option[MessageId] = Some(MessageId.tryCreate("mock-deliver")),
       topologyTimestampO: Option[CantonTimestamp] = None,
@@ -69,7 +69,7 @@ object SequencerTestUtils extends BaseTest {
   def mockDeliver(
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
       previousTimestamp: Option[CantonTimestamp] = None,
-      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
       messageId: Option[MessageId] = Some(MessageId.tryCreate("mock-deliver")),
       topologyTimestampO: Option[CantonTimestamp] = None,
       trafficReceipt: Option[TrafficReceipt] = None,
@@ -89,7 +89,7 @@ object SequencerTestUtils extends BaseTest {
 
   def mockDeliverError(
       timestamp: CantonTimestamp = CantonTimestamp.Epoch,
-      synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = DefaultTestIdentities.physicalSynchronizerId,
       messageId: MessageId = MessageId.tryCreate("mock-deliver"),
       sequencerError: SequencerDeliverError = SubmissionRequestRefused("mock-submission-refused"),
       trafficReceipt: Option[TrafficReceipt] = None,

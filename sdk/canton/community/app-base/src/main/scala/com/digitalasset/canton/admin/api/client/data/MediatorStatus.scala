@@ -10,14 +10,14 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
 import java.time.Duration
 
 final case class MediatorStatus(
     uid: UniqueIdentifier,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     active: Boolean,
@@ -57,9 +57,9 @@ object MediatorStatus {
             mediatorStatusP.commonStatus,
           )
           status <- SimpleStatus.fromProtoV30(statusP)
-          synchronizerId <- SynchronizerId.fromProtoPrimitive(
-            mediatorStatusP.synchronizerId,
-            "MediatorStatusResponse.synchronizer_id",
+          synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+            mediatorStatusP.physicalSynchronizerId,
+            "MediatorStatusResponse.physical_synchronizer_id",
           )
           protocolVersion <- ProtocolVersion.fromProtoPrimitive(
             mediatorStatusP.protocolVersion,

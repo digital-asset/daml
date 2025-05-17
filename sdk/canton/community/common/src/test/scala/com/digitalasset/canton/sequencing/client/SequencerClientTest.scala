@@ -82,7 +82,6 @@ import com.digitalasset.canton.topology.DefaultTestIdentities.{
   daSequencerId,
   mediatorId,
   participant1,
-  synchronizerId,
 }
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.tracing.TraceContext
@@ -116,7 +115,7 @@ class SequencerClientTest
   private lazy val deliver: Deliver[Nothing] =
     SequencerTestUtils.mockDeliver(
       CantonTimestamp.Epoch,
-      synchronizerId = DefaultTestIdentities.synchronizerId,
+      synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
     )
   private lazy val signedDeliver: SequencedEventWithTraceContext[ClosedEnvelope] =
     SequencedEventWithTraceContext(SequencerTestUtils.sign(deliver))(traceContext)
@@ -124,34 +123,35 @@ class SequencerClientTest
   private lazy val nextDeliver: Deliver[Nothing] = SequencerTestUtils.mockDeliver(
     timestamp = CantonTimestamp.ofEpochSecond(1),
     previousTimestamp = Some(CantonTimestamp.Epoch),
-    synchronizerId = DefaultTestIdentities.synchronizerId,
+    synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
   )
   private lazy val deliver44: Deliver[Nothing] = SequencerTestUtils.mockDeliver(
     timestamp = CantonTimestamp.ofEpochSecond(2),
     previousTimestamp = Some(CantonTimestamp.ofEpochSecond(1)),
-    synchronizerId = DefaultTestIdentities.synchronizerId,
+    synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
   )
   private lazy val deliver45: Deliver[Nothing] = SequencerTestUtils.mockDeliver(
     timestamp = CantonTimestamp.ofEpochSecond(3),
     previousTimestamp = Some(CantonTimestamp.ofEpochSecond(2)),
-    synchronizerId = DefaultTestIdentities.synchronizerId,
+    synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
   )
 
   private var actorSystem: ActorSystem = _
   private lazy val materializer: Materializer = Materializer(actorSystem)
-  private lazy val topologyWithTrafficControl = TestingTopology(Set(synchronizerId))
-    .withDynamicSynchronizerParameters(
-      DefaultTestIdentities.defaultDynamicSynchronizerParameters.tryUpdate(
-        trafficControlParameters = Some(
-          TrafficControlParameters(
-            maxBaseTrafficAmount = NonNegativeLong.zero
+  private lazy val topologyWithTrafficControl =
+    TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+      .withDynamicSynchronizerParameters(
+        DefaultTestIdentities.defaultDynamicSynchronizerParameters.tryUpdate(
+          trafficControlParameters = Some(
+            TrafficControlParameters(
+              maxBaseTrafficAmount = NonNegativeLong.zero
+            )
           )
-        )
-      ),
-      validFrom = CantonTimestamp.MinValue,
-    )
-    .build()
-    .forOwnerAndSynchronizer(participant1, synchronizerId)
+        ),
+        validFrom = CantonTimestamp.MinValue,
+      )
+      .build()
+      .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -166,7 +166,7 @@ class SequencerClientTest
   def deliver(i: Long): Deliver[Nothing] = SequencerTestUtils.mockDeliver(
     timestamp = CantonTimestamp.Epoch.plusSeconds(i),
     previousTimestamp = if (i > 1) Some(CantonTimestamp.Epoch.plusSeconds(i - 1)) else None,
-    DefaultTestIdentities.synchronizerId,
+    DefaultTestIdentities.physicalSynchronizerId,
   )
 
   private lazy val alwaysSuccessfulHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope] =
@@ -916,7 +916,7 @@ class SequencerClientTest
               SequencerTestUtils.sign(
                 SequencerTestUtils.mockDeliver(
                   CantonTimestamp.MinValue.immediateSuccessor,
-                  synchronizerId = DefaultTestIdentities.synchronizerId,
+                  synchronizerId = DefaultTestIdentities.physicalSynchronizerId,
                   messageId = Some(messageId),
                   trafficReceipt = Some(trafficReceipt),
                 )
@@ -966,7 +966,7 @@ class SequencerClientTest
               SequencerTestUtils.sign(
                 SequencerTestUtils.mockDeliverError(
                   CantonTimestamp.MinValue.immediateSuccessor,
-                  DefaultTestIdentities.synchronizerId,
+                  DefaultTestIdentities.physicalSynchronizerId,
                   messageId = messageId,
                   trafficReceipt = Some(trafficReceipt),
                 )
@@ -1421,7 +1421,7 @@ class SequencerClientTest
   }
 
   private val eventAlwaysValid: SequencedEventValidator = SequencedEventValidator.noValidation(
-    DefaultTestIdentities.synchronizerId,
+    DefaultTestIdentities.physicalSynchronizerId,
     warn = false,
   )
 
@@ -1511,7 +1511,7 @@ class SequencerClientTest
 
   private object TestProtocolMessage
   private class TestProtocolMessage() extends ProtocolMessage with UnsignedProtocolMessage {
-    override def synchronizerId: SynchronizerId = fail("shouldn't be used")
+    override def synchronizerId: PhysicalSynchronizerId = fail("shouldn't be used")
 
     override def representativeProtocolVersion: RepresentativeProtocolVersion[companionObj.type] =
       fail("shouldn't be used")
@@ -1556,7 +1556,7 @@ class SequencerClientTest
         topologyO.getOrElse(
           TestingTopology(Set(DefaultTestIdentities.synchronizerId))
             .build(loggerFactory)
-            .forOwnerAndSynchronizer(mediatorId, synchronizerId)
+            .forOwnerAndSynchronizer(mediatorId, DefaultTestIdentities.synchronizerId)
         )
       val trafficStateController = new TrafficStateController(
         mediatorId,
@@ -1566,7 +1566,7 @@ class SequencerClientTest
         testedProtocolVersion,
         new EventCostCalculator(loggerFactory),
         TrafficConsumptionMetrics.noop,
-        synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
       )
       val sendTracker =
         new SendTracker(
@@ -1579,7 +1579,7 @@ class SequencerClientTest
         )
 
       val client = new RichSequencerClientImpl(
-        DefaultTestIdentities.synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         mediatorId,
         SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,
@@ -1658,7 +1658,9 @@ class SequencerClientTest
       )
       val eventValidatorFactory = new ConstantSequencedEventValidatorFactory(eventValidator)
       val topologyClient = topologyO.getOrElse(
-        TestingTopology().build(loggerFactory).forOwnerAndSynchronizer(participant1, synchronizerId)
+        TestingTopology()
+          .build(loggerFactory)
+          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
       )
       val trafficStateController = new TrafficStateController(
         participant1,
@@ -1668,7 +1670,7 @@ class SequencerClientTest
         testedProtocolVersion,
         new EventCostCalculator(loggerFactory),
         TrafficConsumptionMetrics.noop,
-        synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
       )
       val sendTracker =
         new SendTracker(
@@ -1681,7 +1683,7 @@ class SequencerClientTest
         )
 
       val client = new SequencerClientImplPekko(
-        DefaultTestIdentities.synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         participant1,
         SequencerTransports.default(DefaultTestIdentities.daSequencerId, transport),
         options,

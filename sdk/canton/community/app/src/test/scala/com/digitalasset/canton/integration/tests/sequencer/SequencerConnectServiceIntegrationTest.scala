@@ -156,7 +156,7 @@ trait SequencerConnectServiceIntegrationTest
         .getSynchronizerClientBootstrapInfo(alias)
         .futureValueUS
         .value
-      bi shouldBe SynchronizerClientBootstrapInfo(daId, sequencer1.id)
+      bi shouldBe SynchronizerClientBootstrapInfo(daId.toPhysical, sequencer1.id)
     }
 
     "respond to GetSynchronizerId requests" in { implicit env =>
@@ -164,7 +164,10 @@ trait SequencerConnectServiceIntegrationTest
 
       val grpcSequencerConnectClient = getSequencerConnectClient()
 
-      grpcSequencerConnectClient.getSynchronizerId(daName.unwrap).futureValueUS.value shouldBe daId
+      grpcSequencerConnectClient
+        .getSynchronizerId(daName.unwrap)
+        .futureValueUS
+        .value shouldBe daId.toPhysical
     }
 
     "respond to is active requests" in { implicit env =>
@@ -202,6 +205,7 @@ trait GrpcSequencerConnectServiceIntegrationTest extends SequencerConnectService
         transportSecurity = false,
         customTrustCertificates = None,
         SequencerAlias.Default,
+        None,
       )
 
     new GrpcSequencerConnectClient(

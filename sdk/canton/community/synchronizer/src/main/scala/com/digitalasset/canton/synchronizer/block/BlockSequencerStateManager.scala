@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SequencerIntegration,
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficConsumedStore
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
@@ -408,7 +408,7 @@ class BlockSequencerStateManager(
 object BlockSequencerStateManager {
 
   def create(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       store: SequencerBlockStore,
       trafficConsumedStore: TrafficConsumedStore,
       enableInvariantCheck: Boolean,

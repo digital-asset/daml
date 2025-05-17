@@ -5,14 +5,6 @@ package com.digitalasset.canton.integration.tests.multisynchronizer
 
 import com.daml.ledger.api.v2.commands.Command
 import com.daml.ledger.api.v2.reassignment.Reassignment
-import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
-import com.daml.ledger.api.v2.transaction_filter.{
-  CumulativeFilter,
-  EventFormat,
-  Filters,
-  TemplateFilter,
-  UpdateFormat,
-}
 import com.daml.ledger.javaapi.data.Identifier
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.ReassignmentWrapper
 import com.digitalasset.canton.admin.api.client.data.TemplateId
@@ -28,6 +20,7 @@ import com.digitalasset.canton.integration.plugins.{
   UsePostgres,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
+import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.util.{
   HasCommandRunnersHelpers,
   HasReassignmentCommandsHelpers,
@@ -111,7 +104,7 @@ abstract class UpdateServiceIntegrationTest
 
     val ledgerEndAfterCommands = participant1.ledger_api.state.end()
 
-    val receivedUpdates = participant1.ledger_api.updates.flat(
+    val receivedUpdates = participant1.ledger_api.updates.transactions(
       partyIds = Set(party.toLf),
       completeAfter = Int.MaxValue,
       beginOffsetExclusive = ledgerEndBeforeCommands,
@@ -351,7 +344,11 @@ abstract class UpdateServiceIntegrationTest
   ): Unit = {
     import env.*
 
-    val updateFormat = getUpdateFormat(partyIds, templateIds.map(TemplateId.fromJavaIdentifier))
+    val updateFormat = getUpdateFormat(
+      partyIds = partyIds,
+      filterTemplates = templateIds.map(TemplateId.fromJavaIdentifier),
+      includeReassignments = true,
+    ).clearIncludeTransactions
 
     val reassignmentsById =
       reassignments flatMap { reassignment =>
@@ -386,7 +383,7 @@ abstract class UpdateServiceIntegrationTest
   ): Dummy.Contract = {
     val createDummyCmd = new Dummy(party.toProtoPrimitive).create().commands().asScala.toSeq
 
-    val tx = participant.ledger_api.javaapi.commands.submit_flat(
+    val tx = participant.ledger_api.javaapi.commands.submit(
       Seq(party),
       createDummyCmd,
       synchronizerId,
@@ -414,44 +411,6 @@ abstract class UpdateServiceIntegrationTest
         synchronizerId,
       )
       .discard
-
-  private def getUpdateFormat(
-      partyIds: Set[PartyId],
-      filterTemplates: Seq[TemplateId],
-  ): UpdateFormat = {
-    val filters: Filters = Filters(
-      filterTemplates.map(templateId =>
-        CumulativeFilter(
-          IdentifierFilter.TemplateFilter(
-            TemplateFilter(Some(templateId.toIdentifier), includeCreatedEventBlob = false)
-          )
-        )
-      )
-    )
-
-    UpdateFormat(
-      includeReassignments =
-        if (partyIds.isEmpty)
-          Some(
-            EventFormat(
-              filtersByParty = Map.empty,
-              filtersForAnyParty = Some(filters),
-              verbose = false,
-            )
-          )
-        else
-          Some(
-            EventFormat(
-              filtersByParty = partyIds.map(_.toLf -> filters).toMap,
-              filtersForAnyParty = None,
-              verbose = false,
-            )
-          ),
-      includeTransactions = None,
-      includeTopologyEvents = None,
-    )
-
-  }
 }
 
 class ReferenceUpdateServiceIntegrationTest extends UpdateServiceIntegrationTest

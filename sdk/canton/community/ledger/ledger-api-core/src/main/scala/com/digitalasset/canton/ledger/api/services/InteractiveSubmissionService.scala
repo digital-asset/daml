@@ -18,7 +18,7 @@ import com.digitalasset.canton.ledger.api.{Commands, PackageReference}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.{LfPartyId, LfTimestamp}
 import com.digitalasset.daml.lf.data.Ref.{PackageName, SubmissionId, UserId}
@@ -66,5 +66,5 @@ trait InteractiveSubmissionService {
       vettingValidAt: Option[CantonTimestamp],
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): FutureUnlessShutdown[Option[(PackageReference, SynchronizerId)]]
+  ): FutureUnlessShutdown[Option[(PackageReference, PhysicalSynchronizerId)]]
 }

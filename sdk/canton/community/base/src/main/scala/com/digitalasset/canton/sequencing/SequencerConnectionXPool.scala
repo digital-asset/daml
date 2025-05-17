@@ -15,7 +15,7 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{Member, SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.google.common.annotations.VisibleForTesting
@@ -57,7 +57,7 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
   /** Return the synchronizer ID to which the connections in the pool are connected. Empty if the
     * pool has not yet reached enough validated connections to initialize.
     */
-  def synchronizerId: Option[SynchronizerId]
+  def physicalSynchronizerId: Option[PhysicalSynchronizerId]
 
   def start()(implicit traceContext: TraceContext): Unit
 
@@ -115,7 +115,7 @@ object SequencerConnectionXPool {
     *   transition to `degraded` (or `failed` if it reaches 0).
     * @param restartConnectionDelay
     *   The duration after which a failed connection is restarted.
-    * @param expectedSynchronizerIdO
+    * @param expectedPSIdO
     *   If provided, defines the synchronizer to which the connections are expected to connect. If
     *   empty, the synchronizer will be determined as soon as [[trustThreshold]]-many connections
     *   are validated and agree on bootstrap information.
@@ -124,7 +124,7 @@ object SequencerConnectionXPool {
       connections: NonEmpty[Seq[ConnectionXConfig]],
       trustThreshold: PositiveInt,
       restartConnectionDelay: Duration = Duration.ofMillis(500),
-      expectedSynchronizerIdO: Option[SynchronizerId] = None,
+      expectedPSIdO: Option[PhysicalSynchronizerId] = None,
   ) {
     // TODO(i24780): when persisting, use com.digitalasset.canton.version.Invariant machinery for validation
     import SequencerConnectionXPoolConfig.*

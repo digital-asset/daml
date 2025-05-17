@@ -11,10 +11,9 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.sequencing.{GrpcSequencerConnection, SequencerConnections}
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, SequencerAlias}
-import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.{AsyncWordSpec, AsyncWordSpecLike}
 
 trait MediatorSynchronizerConfigurationStoreTest {
@@ -38,6 +37,7 @@ trait MediatorSynchronizerConfigurationStoreTest {
         transportSecurity = true,
         None,
         SequencerAlias.Default,
+        None,
       )
       val originalConfig = MediatorSynchronizerConfiguration(
         DefaultTestIdentities.synchronizerId,
@@ -54,7 +54,7 @@ trait MediatorSynchronizerConfigurationStoreTest {
     "supports updating the config" in {
       val store = mkStore
       val defaultParams = defaultStaticSynchronizerParameters
-      val connection = GrpcSequencerConnection(
+      def connection(sequencerId: Option[SequencerId] = None) = GrpcSequencerConnection(
         NonEmpty(
           Seq,
           Endpoint("sequencer", Port.tryCreate(200)),
@@ -63,17 +63,19 @@ trait MediatorSynchronizerConfigurationStoreTest {
         transportSecurity = true,
         None,
         SequencerAlias.Default,
+        sequencerId,
       )
       val originalConfig = MediatorSynchronizerConfiguration(
         DefaultTestIdentities.synchronizerId,
         defaultParams,
-        SequencerConnections.single(connection),
+        SequencerConnections.single(connection()),
       )
 
-      val updatedConfig = originalConfig
-        .focus(_.synchronizerParameters)
-        .replace(
-          BaseTest.defaultStaticSynchronizerParameters
+      val updatedConfig =
+        MediatorSynchronizerConfiguration(
+          DefaultTestIdentities.synchronizerId,
+          BaseTest.defaultStaticSynchronizerParameters,
+          SequencerConnections.single(connection(Some(DefaultTestIdentities.sequencerId))),
         )
 
       for {

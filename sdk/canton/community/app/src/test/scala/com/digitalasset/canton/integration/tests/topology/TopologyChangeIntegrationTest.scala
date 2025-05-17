@@ -300,6 +300,7 @@ class TopologyChangeIntegrationTest extends CommunityIntegrationTest with Shared
       .headOption
       .valueOrFail("must be there")
       .synchronizerId
+      .logical
 
     compare(_.topology.decentralized_namespaces.list(store = fs).map(_.item))
     compare(_.topology.namespace_delegations.list(store = fs).map(_.item))

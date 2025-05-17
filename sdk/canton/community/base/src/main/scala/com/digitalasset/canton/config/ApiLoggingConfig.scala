@@ -42,7 +42,7 @@ final case class ApiLoggingConfig(
 }
 
 object ApiLoggingConfig {
-  implicit val apiLoggingConfigCanontConfigValidator: CantonConfigValidator[ApiLoggingConfig] =
+  implicit val apiLoggingConfigCantonConfigValidator: CantonConfigValidator[ApiLoggingConfig] =
     CantonConfigValidatorDerivation[ApiLoggingConfig]
 
   val defaultMaxMethodLength: Int = 30

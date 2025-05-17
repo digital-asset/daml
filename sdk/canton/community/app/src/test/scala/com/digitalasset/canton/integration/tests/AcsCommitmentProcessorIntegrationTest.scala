@@ -476,7 +476,10 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         eventually() {
           participants.all.foreach(p =>
             p.testing
-              .await_synchronizer_time(daId, firstNoCommTick.forgetRefinement.immediateSuccessor)
+              .await_synchronizer_time(
+                daId.toPhysical,
+                firstNoCommTick.forgetRefinement.immediateSuccessor,
+              )
           )
         }
 
@@ -829,7 +832,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         // archive one of these created contracts
         logger.info("Archive one of these contaracts")
         val archivedCid = createdCidsDa.headOption.getOrElse(fail("No created contract found")).id
-        participant1.ledger_api.javaapi.commands.submit_flat(
+        participant1.ledger_api.javaapi.commands.submit(
           Seq(participant1.id.adminParty),
           archivedCid.exerciseArchive().commands.asScala.toSeq,
           Some(daId),
@@ -1109,7 +1112,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         new Amount(3.50.toBigDecimal, "CHF"),
         List().asJava,
       ).create.commands.asScala.toSeq
-    participant1.ledger_api.javaapi.commands.submit_flat(
+    participant1.ledger_api.javaapi.commands.submit(
       Seq(participant1.id.adminParty),
       cmd,
       Some(daId),

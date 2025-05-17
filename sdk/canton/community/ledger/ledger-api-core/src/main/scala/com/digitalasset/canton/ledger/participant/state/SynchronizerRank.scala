@@ -6,15 +6,15 @@ package com.digitalasset.canton.ledger.participant.state
 import cats.Order.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 final case class SynchronizerRank(
     reassignments: Map[
       LfContractId,
-      (LfPartyId, SynchronizerId),
+      (LfPartyId, PhysicalSynchronizerId),
     ], // (cid, (submitter, current synchronizer))
     priority: Int,
-    synchronizerId: SynchronizerId, // synchronizer for submission
+    synchronizerId: PhysicalSynchronizerId, // synchronizer for submission
 )
 
 object SynchronizerRank {
@@ -22,6 +22,6 @@ object SynchronizerRank {
   implicit val synchronizerRanking: Ordering[SynchronizerRank] =
     Ordering.by(x => (-x.priority, x.reassignments.size, x.synchronizerId))
 
-  def single(synchronizerId: SynchronizerId): SynchronizerRank =
+  def single(synchronizerId: PhysicalSynchronizerId): SynchronizerRank =
     SynchronizerRank(Map.empty, 0, synchronizerId)
 }

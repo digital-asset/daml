@@ -63,13 +63,15 @@ sealed abstract class OpenSslOfflineRootKeyDemoExampleIntegrationTest
       participant1.id.fingerprint
     ) shouldBe DelegationRestriction.CanSignAllMappings
 
+    val namespaceDelegationFingerprint = participant1.keys.public
+      .list()
+      .find(_.name.map(_.unwrap).contains("IntermediateKey"))
+      .value
+      .id
+
     // Check intermediate key restrictions
     delegationRestrictions(
-      participant1.keys.public
-        .list()
-        .find(_.name.map(_.unwrap).contains("IntermediateKey"))
-        .value
-        .id
+      namespaceDelegationFingerprint
     ) shouldBe DelegationRestriction.CanSignAllButNamespaceDelegations
 
     // Run the script adding a key with signing restrictions
@@ -89,6 +91,16 @@ sealed abstract class OpenSslOfflineRootKeyDemoExampleIntegrationTest
         TopologyMapping.Code.PartyToKeyMapping,
       )
     )
+
+    // Run the script revoking the delegation
+    runScript(demoFolder / "revoke-namespace-delegation.canton")(environment)
+
+    // Check the delegation is gone
+    participant1.topology.namespace_delegations
+      .list(
+        store = Authorized,
+        filterTargetKey = Some(namespaceDelegationFingerprint),
+      ) shouldBe empty
   }
 }
 

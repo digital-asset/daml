@@ -39,8 +39,9 @@ class SyncCryptoSignerWithLongTermKeys(
       existingKeys <- signingKeys.toList
         .parFilterA(pk => cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
-      kk <- PublicKey
-        .getLatestKey(existingKeys)
+      kk <- NonEmpty
+        .from(existingKeys)
+        .map(PublicKey.getLatestKey)
         .toRight[SyncCryptoError](
           SyncCryptoError
             .KeyNotAvailable(

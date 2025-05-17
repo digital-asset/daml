@@ -95,6 +95,24 @@ object JavaDecodeUtil {
       decoded <- decodeArchived(companion)(archive).toList
     } yield decoded
 
+  def decodeAllArchivedLedgerEffectsEvents[TCid](
+      companion: ContractCompanion[?, TCid, ?]
+  )(transaction: JavaTransaction): Seq[TCid] =
+    decodeAllArchivedFromLedgerEffectsEvents(companion)(transaction.getEvents.asScala.toSeq)
+
+  def decodeAllArchivedFromLedgerEffectsEvents[TCid](
+      companion: ContractCompanion[?, TCid, ?]
+  )(events: Seq[Event]): Seq[TCid] =
+    for {
+      event <- events.toList
+      archive = event.toProtoEvent.getExercised
+      if archive.getConsuming && matchesTemplate(
+        Identifier.fromProto(archive.getTemplateId),
+        archive.getPackageName,
+        companion.TEMPLATE_ID,
+      )
+    } yield companion.toContractId(new ContractId(archive.getContractId))
+
   def decodeArchived[T](
       companion: ContractCompanion[?, ?, T]
   )(event: ArchivedEvent): Option[ContractId[T]] =

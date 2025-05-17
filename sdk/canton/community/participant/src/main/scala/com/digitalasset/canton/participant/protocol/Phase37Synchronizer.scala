@@ -150,7 +150,7 @@ class Phase37Synchronizer(
                 (2) the request was marked as a timeout
              */
             case Success(Outcome(None)) =>
-              promise.outcome(RequestOutcome.AlreadyServedOrTimeout)
+              promise.outcome_(RequestOutcome.AlreadyServedOrTimeout)
               FutureUnlessShutdown.pure(None)
             case Success(Outcome(Some(pData))) =>
               filter(pData).transform {
@@ -160,16 +160,16 @@ class Phase37Synchronizer(
                     // the entry is removed when the first awaitConfirmed with a satisfied predicate is there
                     pendingRequests.remove_(ts)
                   })
-                  promise.outcome(RequestOutcome.Success(pData))
+                  promise.outcome_(RequestOutcome.Success(pData))
                   Success(Outcome(None))
                 case Success(Outcome(false)) =>
-                  promise.outcome(RequestOutcome.Invalid)
+                  promise.outcome_(RequestOutcome.Invalid)
                   Success(Outcome(Some(pData)))
                 case Failure(exception) =>
                   promise.tryFailure(exception).discard[Boolean]
                   Failure(exception)
                 case Success(AbortedDueToShutdown) =>
-                  promise.shutdown()
+                  promise.shutdown_()
                   Success(AbortedDueToShutdown)
               }
             case Success(AbortedDueToShutdown) =>
@@ -240,11 +240,11 @@ object Phase37Synchronizer {
       private val handle: PromiseUnlessShutdown[Option[ReplayDataOr[T]]]
   ) {
     def complete(pendingData: Option[ReplayDataOr[T]]): Unit =
-      handle.outcome(pendingData)
+      handle.outcome_(pendingData)
     def failed(exception: Throwable): Unit =
       handle.tryFailure(exception).discard
     def shutdown(): Unit =
-      handle.shutdown()
+      handle.shutdown_()
   }
 
   /** Final outcome of a request outputted by awaitConfirmed.

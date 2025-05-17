@@ -38,7 +38,7 @@ trait PermissionedSynchronizerTest
       .propose_update(sequencer1.synchronizer_id, _.update(onboardingRestriction = restriction))
     eventually() {
       val params = sequencer1.topology.synchronizer_parameters
-        .list(store = sequencer1.synchronizer_id)
+        .list(store = sequencer1.synchronizer_id.logical)
       params.loneElement.item.onboardingRestriction
         .transformInto[OnboardingRestriction] shouldBe restriction
     }

@@ -7,7 +7,7 @@ import cats.implicits.*
 import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.AuthenticationError
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
-import com.digitalasset.canton.topology.{Member, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import io.grpc.Metadata
 
 object MemberAuthenticator {
@@ -63,10 +63,9 @@ object MemberAuthenticator {
 
   private def parseSynchronizerId(
       intendedSynchronizer: String
-  ): Either[VerifyTokenError.ParseError, SynchronizerId] =
-    UniqueIdentifier
-      .fromProtoPrimitive_(intendedSynchronizer)
-      .map(SynchronizerId(_))
+  ): Either[VerifyTokenError.ParseError, PhysicalSynchronizerId] =
+    PhysicalSynchronizerId
+      .fromProtoPrimitive(intendedSynchronizer, "AuthenticationCredentials.intendedSynchronizer")
       .leftMap(err => VerifyTokenError.ParseError(err.message))
 
   private def parseMemberHeader(memberId: String): Either[VerifyTokenError.ParseError, Member] =
@@ -80,7 +79,7 @@ object MemberAuthenticator {
       tokenValidator: MemberAuthenticationService,
       token: AuthenticationToken,
       member: Member,
-      intendedSynchronizerId: SynchronizerId,
+      intendedSynchronizerId: PhysicalSynchronizerId,
   ): Either[VerifyTokenError, StoredAuthenticationToken] =
     tokenValidator
       .validateToken(intendedSynchronizerId, member, token)

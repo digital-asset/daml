@@ -134,7 +134,7 @@ class UnicumGenerator(cryptoOps: HashOps & HmacOps) {
     *   UnicumGenerator for the construction details and the security properties
     */
   def generateSaltAndUnicum(
-      synchronizerId: SynchronizerId,
+      synchronizerId: SynchronizerId, // TODO(#25483) It should be physical
       mediator: MediatorGroupRecipient,
       transactionUuid: UUID,
       viewPosition: ViewPosition,

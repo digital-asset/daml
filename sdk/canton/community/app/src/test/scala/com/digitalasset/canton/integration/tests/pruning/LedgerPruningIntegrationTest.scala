@@ -489,7 +489,7 @@ abstract class LedgerPruningIntegrationTest
           new Amount(3.50.toBigDecimal, "CHF"),
           List().asJava,
         ).create.commands.asScala.toSeq
-      participant1.ledger_api.javaapi.commands.submit_flat(
+      participant1.ledger_api.javaapi.commands.submit(
         Seq(participant1.id.adminParty),
         cmd,
         Some(daId),

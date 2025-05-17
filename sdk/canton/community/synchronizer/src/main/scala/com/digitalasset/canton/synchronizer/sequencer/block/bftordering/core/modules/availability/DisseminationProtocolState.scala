@@ -17,8 +17,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   ProofOfAvailability,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import com.digitalasset.canton.util.BooleanUtil.implicits.*
 
+import java.time.Instant
 import scala.collection.mutable
+
+final case class InitialSaveInProgress(
+    // The following fields are only used for metrics
+    availabilityEnterInstant: Option[Instant] = None
+)
 
 final case class DisseminationProgress(
     orderingTopology: OrderingTopology,
@@ -41,19 +48,36 @@ final case class DisseminationProgress(
   }
 
   def voteOf(nodeId: BftNodeId): Option[AvailabilityAck] =
-    acks.find(_.from == nodeId)
+    DisseminationProgress.voteOf(nodeId, acks)
 
-  def review(currentOrderingTopology: OrderingTopology): DisseminationProgress =
+  def review(
+      thisNodeId: BftNodeId,
+      newOrderingTopology: OrderingTopology,
+  ): DisseminationProgress = {
+    val reviewedAcks = reviewAcks(acks, newOrderingTopology)
+    lazy val lostAcks =
+      math.max(0, acks.size - reviewedAcks.size)
+    lazy val weakQuorumDecrease =
+      math.max(0, orderingTopology.weakQuorum - newOrderingTopology.weakQuorum)
+    val regressedToSigning = DisseminationProgress.voteOf(thisNodeId, reviewedAcks).isEmpty
+    val disseminationRegressed = !regressedToSigning && lostAcks > weakQuorumDecrease
     copy(
-      orderingTopology = currentOrderingTopology,
-      acks = reviewAcks(acks, currentOrderingTopology),
+      orderingTopology = newOrderingTopology,
+      acks = reviewedAcks,
+      batchMetadata = batchMetadata.copy(
+        regressionsToSigning = batchMetadata.regressionsToSigning + regressedToSigning.toInt,
+        disseminationRegressions =
+          batchMetadata.disseminationRegressions + disseminationRegressed.toInt,
+      ),
     )
+  }
 }
 
 object DisseminationProgress {
 
   def reviewReadyForOrdering(
       batchMetadata: DisseminatedBatchMetadata,
+      thisNodeId: BftNodeId,
       orderingTopology: OrderingTopology,
   ): Option[DisseminationProgress] = {
     val reviewedAcks = reviewAcks(batchMetadata.proofOfAvailability.acks, orderingTopology)
@@ -63,11 +87,14 @@ object DisseminationProgress {
     )(
       DisseminationProgress(
         orderingTopology,
-        batchMetadata.regress(),
+        batchMetadata.regress(toSigning = voteOf(thisNodeId, reviewedAcks).isEmpty),
         reviewedAcks,
       )
     )
   }
+
+  private def voteOf(nodeId: BftNodeId, acks: Set[AvailabilityAck]): Option[AvailabilityAck] =
+    acks.find(_.from == nodeId)
 
   private def reviewAcks(
       acks: Iterable[AvailabilityAck],
@@ -78,6 +105,7 @@ object DisseminationProgress {
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 final class DisseminationProtocolState(
+    val beingFirstSaved: mutable.Map[BatchId, InitialSaveInProgress] = mutable.Map.empty,
     var disseminationProgress: mutable.SortedMap[BatchId, DisseminationProgress] =
       mutable.SortedMap.empty,
     var batchesReadyForOrdering: mutable.LinkedHashMap[BatchId, DisseminatedBatchMetadata] =

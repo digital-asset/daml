@@ -22,7 +22,6 @@ import com.digitalasset.canton.protocol.messages.TopologyTransactionsBroadcast.S
 import com.digitalasset.canton.time.WallClock
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{
-  IdentityProvidingServiceClient,
   StoreBasedSynchronizerTopologyClient,
   SynchronizerTopologyClientWithInit,
 }
@@ -114,10 +113,9 @@ class StoreBasedSynchronizerOutboxTest
     )
     val client = new StoreBasedSynchronizerTopologyClient(
       clock,
-      synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
       store = target,
       packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
-      ips = new IdentityProvidingServiceClient(),
       timeouts = timeouts,
       futureSupervisor = futureSupervisor,
       loggerFactory = loggerFactory,
@@ -245,7 +243,7 @@ class StoreBasedSynchronizerOutboxTest
   ): FutureUnlessShutdown[StoreBasedSynchronizerOutbox] = {
     val synchronizerOutbox = new StoreBasedSynchronizerOutbox(
       synchronizer,
-      synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
       participant1,
       testedProtocolVersion,
       handle,
