@@ -519,23 +519,20 @@ case class TypecheckUpgradesStandalone(
 
   def check(): Try[Unit] = {
     for {
-      mod <- pkg._2.modules.values
-      (tplName, template) <- mod.templates
-      instance <- template.implements
-      ifaceId = instance._2.interfaceId
-    } {
-      if (getIfUpgradeable(ifaceId.packageId).isEmpty) {
-        warn(
-          UpgradeError.CannotImplementNonUpgradeableInterface(
+      _ <- (for {
+        mod <- pkg._2.modules.values
+        (tplName, template) <- mod.templates
+        instance <- template.implements
+        ifaceId = instance._2.interfaceId
+        _ = if (getIfUpgradeable(ifaceId.packageId).isEmpty) {
+          warn(UpgradeError.CannotImplementNonUpgradeableInterface(
             pkg._1,
             ifaceId,
             tplName,
-          )
-        )
-      }
-    }
-
-    Try(())
+          ))
+        } else ()
+      } yield Try(())).toSeq.traverse(identity)
+    } yield ()
   }
 }
 
