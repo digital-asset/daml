@@ -53,6 +53,7 @@ final case class EngineConfig(
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
     createContractsWithContractIdVersion: ContractIdVersion = ContractIdVersion.V1,
+    paranoid: Boolean = false,
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(

@@ -27,9 +27,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
+class EnricherSpecV2 extends EnricherSpec(LanguageMajorVersion.V2)
 
-class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
+class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks {
@@ -42,7 +42,9 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
 
-  private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
+  val nonEmptySuffix = Bytes.assertFromString("00")
+  private def cid(key: String): ContractId =
+    ContractId.V1.assertBuild(Hash.hashPrivateKey(key), nonEmptySuffix)
 
   val pkg =
     p"""metadata ( 'pkg' : '1.0.0' )
@@ -106,8 +108,6 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     .consume()
     .left
     .foreach(err => sys.error(err.message))
-
-  private[this] val enricher = new ValueEnricher(engine)
 
   "enrichValue" should {
 
@@ -176,36 +176,43 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     )
 
     "enrich values as expected" in {
+      val enricher = new Enricher(engine)
       forEvery(testCases) { (typ, input, output) =>
         enricher.enrichValue(typ, input) shouldBe ResultDone(output)
       }
     }
-  }
 
-  "enrichValue" should {
-    val alice = Ref.Party.assertFromString("alice")
-    val view = Value.ValueRecord(
-      None,
-      ImmArray(
-        None -> ValueList(FrontStack(ValueParty(alice))),
-        None -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
-      ),
-    )
+    "do not add trailing None fields when instructed" in {
+      val enricher = new Enricher(engine, addTrailingNoneFields = false)
 
-    val enrichedView = Value.ValueRecord(
-      Some("Mod:View": Ref.Identifier),
-      ImmArray(
-        Some("signatory": Ref.Name) -> ValueList(FrontStack(ValueParty(alice))),
-        Some("cids": Ref.Name) -> ValueList(FrontStack(ValueContractId(cid("#contractId").coid))),
-      ),
-    )
-
-    "enrich views as expected" in {
-      enricher.enrichView("Mod:I", view) shouldBe ResultDone(enrichedView)
+      val testCases = Table[Type, Value, Value](
+        ("type", "input", "expected output"),
+        (
+          TTyCon("Mod:Record"),
+          ValueRecord(None, ImmArray(None -> ValueInt64(33), None -> ValueNone)),
+          ValueRecord(
+            Some("Mod:Record"),
+            ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          ),
+        ),
+        (
+          TTyCon("Mod:Record"),
+          ValueRecord(None, ImmArray(None -> ValueInt64(33))),
+          ValueRecord(
+            Some("Mod:Record"),
+            ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)),
+          ),
+        ),
+      )
+      forEvery(testCases) { (typ, input, output) =>
+        if (typ == TTyCon("Mod:Record"))
+          enricher.enrichValue(typ, input) shouldBe ResultDone(output)
+      }
     }
   }
 
   "enrichTransaction" should {
+    val enricher = new Enricher(engine)
 
     import TreeTransactionBuilder._
 
@@ -307,6 +314,28 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         be(ResultDone(inputTransaction))
       enricher.enrichVersionedTransaction(inputTransaction) shouldBe ResultDone(outputTransaction)
 
+    }
+
+    "enricher can keep field name without type annotation" in {
+      val enrich = new Enricher(
+        engine,
+        addTypeInfo = false,
+        addFieldNames = true,
+        addTrailingNoneFields = false,
+      )
+      import enrich.enrichValue
+
+      val tRecord = TTyCon("Mod:Record")
+      val normalizedRecord = ValueRecord(None, ImmArray(None -> ValueInt64(33)))
+      val enrichedRecord = ValueRecord(None, ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)))
+      val tVariant = TTyCon("Mod:Variant")
+      val normalizedVariant = ValueVariant(None, "variant1", ValueText("some test"))
+      val tEnum = TTyCon("Mod:Enum")
+      val normalizedEnum = ValueEnum(None, "value1")
+
+      enrichValue(tRecord, normalizedRecord) shouldBe ResultDone(enrichedRecord)
+      enrichValue(tVariant, normalizedVariant) shouldBe ResultDone(normalizedVariant)
+      enrichValue(tEnum, normalizedEnum) shouldBe ResultDone(normalizedEnum)
     }
   }
 
