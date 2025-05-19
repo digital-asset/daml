@@ -352,7 +352,7 @@ instance FromJSON ParsedSdkVersion where
       isPrerelease <- (v .: "prerelease" :: Parser Bool)
       mbRawSdkVersion <- releaseResponseSubsetSdkVersion <$> parseJSON (Object v)
       sdkVersion <- case mbRawSdkVersion of
-        Nothing -> fail $ "Couldn't find Linux SDK in release version: '" <> T.unpack rawTagName <> "'"
+        Nothing -> fail $ "Couldn't find SDK for " <> T.unpack (osName System.Info.os) <> " in release version: '" <> T.unpack rawTagName <> "'"
         Just rawSdkVersion -> handleInvalidVersion "sdk version" (parseSdkVersion rawSdkVersion)
       pure ParsedSdkVersion
         { unParsedSdkVersion = mkReleaseVersion releaseVersion sdkVersion
@@ -480,23 +480,36 @@ instance FromJSON GithubReleaseResponseSubset where
 
 releaseResponseSubsetSdkVersion :: GithubReleaseResponseSubset -> Maybe T.Text
 releaseResponseSubsetSdkVersion responseSubset =
-  let extractMatchingName :: T.Text -> Maybe T.Text
+  let actualOs = if System.Info.os == "darwin" && System.Info.arch == "aarch64" then "linux" else System.Info.os -- macos-aarch64 is released as linux-aarch64
+      currentOs = osName actualOs  
+      currentArch = archName System.Info.arch
+      extension = if currentOs == "windows" then ".exe" else ".tar.gz"
+      
+      -- Try different patterns that have been used in releases
+      patterns = 
+        [ "-" <> currentOs <> "-" <> currentArch <> extension  -- e.g., -linux-aarch64.tar.gz
+        , "-" <> currentOs <> extension                        -- e.g., -linux.tar.gz  
+        ]
+      
+      extractMatchingName :: T.Text -> Maybe T.Text
       extractMatchingName name = do
-        withoutExt <- T.stripSuffix "-linux.tar.gz" name
-        T.stripPrefix "daml-sdk-" withoutExt
+        -- First strip the prefix
+        withoutPrefix <- T.stripPrefix "daml-sdk-" name
+        -- Try to strip each possible suffix
+        listToMaybe $ mapMaybe (flip T.stripSuffix withoutPrefix) patterns
   in
   listToMaybe $ mapMaybe extractMatchingName (githubAssetNames responseSubset)
 
 data ResolveReleaseError
-  = FailedToFindLinuxSdkInRelease String
+  = FailedToFindSdkInRelease String
   | Couldn'tParseSdkVersion String InvalidVersion
   | Couldn'tParseJSON String
   | Couldn'tConnect (Maybe Int) String
   deriving (Show, Eq)
 
 instance Exception ResolveReleaseError where
-  displayException (FailedToFindLinuxSdkInRelease url) =
-    "Couldn't find Linux SDK in release at url: '" <> url <> "'"
+  displayException (FailedToFindSdkInRelease url) =
+    "Couldn't find SDK for " <> T.unpack (osName System.Info.os) <> " in release at url: '" <> url <> "'"
   displayException (Couldn'tParseSdkVersion url v) =
     "Couldn't parse SDK in release at url '" <> url <> "': " <> displayException v
   displayException (Couldn'tParseJSON url) =
@@ -526,10 +539,10 @@ resolveReleaseVersionFromGithub unresolvedVersion = do
             case parseSdkVersion sdkVersionStr of
               Left issue -> Left (Couldn'tParseSdkVersion url issue)
               Right sdkVersion -> Right (mkReleaseVersion unresolvedVersion sdkVersion)
-          Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+          Right Nothing -> Left (FailedToFindSdkInRelease url)
           Left _err
             | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
-            | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
+            | getResponseStatusCode res == 404 -> Left (FailedToFindSdkInRelease url)
             | otherwise -> Left (Couldn'tConnect (Just (getResponseStatusCode res)) url)
       Left SomeException{} -> Left (Couldn'tConnect Nothing url)
 
@@ -579,10 +592,10 @@ resolveReleaseVersionFromArtifactory (Just damlPath) unresolvedVersion = do
                 case parseSdkVersion sdkVersionStr of
                   Left issue -> Left (Couldn'tParseSdkVersion url issue)
                   Right sdkVersion -> Right (Just (mkReleaseVersion unresolvedVersion sdkVersion))
-              Right Nothing -> Left (FailedToFindLinuxSdkInRelease url)
+              Right Nothing -> Left (FailedToFindSdkInRelease url)
               Left _err
                 | getResponseStatusCode res == 200 -> Left (Couldn'tParseJSON url)
-                | getResponseStatusCode res == 404 -> Left (FailedToFindLinuxSdkInRelease url)
+                | getResponseStatusCode res == 404 -> Left (FailedToFindSdkInRelease url)
                 | otherwise -> Left (Couldn'tConnect (Just (getResponseStatusCode res)) url)
           Left SomeException{} ->
             Left (Couldn'tConnect Nothing url)
@@ -630,6 +643,7 @@ artifactoryVersionLocation releaseVersion apiKey =
     let textShow = T.pack . show
         majorVersion = view V.major (releaseVersionFromReleaseVersion releaseVersion)
         minorVersion = view V.minor (releaseVersionFromReleaseVersion releaseVersion)
+        actualOs = if System.Info.os == "darwin" && System.Info.arch == "aarch64" then "linux" else System.Info.os
     in
     HttpInstallLocations $
         HttpInstallLocation
@@ -641,7 +655,7 @@ artifactoryVersionLocation releaseVersion apiKey =
                 , "/daml-sdk-"
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
-                , osName System.Info.os
+                , osName actualOs
                 , archSuffix releaseVersion System.Info.arch
                 , "-ee.tar.gz"
                 ]
@@ -657,7 +671,7 @@ artifactoryVersionLocation releaseVersion apiKey =
                 , "/daml-sdk-"
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
-                , osName System.Info.os
+                , osName actualOs
                 , archSuffix releaseVersion System.Info.arch
                 , "-ee.tar.gz" 
                 ]
@@ -700,14 +714,15 @@ renderVersionLocation releaseVersion prefix =
 
 renderVersionLocationOverrideOsArch :: ReleaseVersion -> Text -> String -> String -> Text
 renderVersionLocationOverrideOsArch releaseVersion prefix os arch =
-    T.concat
+    let actualOs = if os == "darwin" && arch == "aarch64" then "linux" else os
+    in T.concat
       [ prefix
       , "/"
       , rawVersionToTextWithV (releaseVersionFromReleaseVersion releaseVersion)
       , "/daml-sdk-"
       , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
       , "-"
-      , osName os
+      , osName actualOs
       , archSuffix releaseVersion arch
       , ".tar.gz"
       ]
