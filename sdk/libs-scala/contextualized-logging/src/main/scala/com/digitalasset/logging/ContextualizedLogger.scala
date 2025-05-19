@@ -15,8 +15,8 @@ object ContextualizedLogger {
   // Replicates the behavior of the underlying Slf4j logger factory
   private[this] val cache = TrieMap.empty[String, ContextualizedLogger]
 
-  // Allows to explicitly pass a logger, should be used for testing only
-  private[logging] def createFor(withoutContext: Logger): ContextualizedLogger =
+  // Allows to explicitly pass a logger
+  def createFor(withoutContext: Logger): ContextualizedLogger =
     new ContextualizedLogger(withoutContext)
 
   // Slf4j handles the caching of the underlying logger itself
