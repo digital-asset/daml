@@ -9,7 +9,7 @@ import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.http.util.ProtobufByteStrings
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 

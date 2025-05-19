@@ -8,7 +8,7 @@ import com.daml.http.Endpoints.ET
 import com.daml.http.EndpointsCompanion.{Error, ServerError}
 import com.daml.http.endpoints.MeteringReportEndpoint.{MeteringReportDateRequest, toPbRequest}
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v1.admin.metering_report_service
 import com.daml.lf.data.Ref.ApplicationId
 import com.daml.lf.data.Time.Timestamp

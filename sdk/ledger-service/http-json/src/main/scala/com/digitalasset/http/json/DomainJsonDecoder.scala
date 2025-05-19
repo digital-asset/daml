@@ -9,7 +9,7 @@ import com.daml.http.json.JsValueToApiValueConverter.mustBeApiRecord
 import com.daml.http.util.FutureUtil.either
 import com.daml.http.util.Logging.InstanceUUID
 import com.daml.http.{PackageService, domain}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf

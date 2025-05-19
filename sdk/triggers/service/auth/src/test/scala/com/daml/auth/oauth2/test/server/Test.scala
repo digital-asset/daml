@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.headers.Location
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshal
 import com.daml.jwt.JwtDecoder
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.auth.{
   AuthServiceJWTCodec,
   CustomDamlJWTPayload,

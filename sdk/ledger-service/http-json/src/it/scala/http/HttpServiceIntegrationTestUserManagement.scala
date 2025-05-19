@@ -10,7 +10,7 @@ import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}
 import com.daml.http.dbbackend.JdbcConfig
 import com.daml.http.domain.UserDetails
 import com.daml.http.json.JsonProtocol._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.domain.UserRight.{CanActAs, ParticipantAdmin}
 import com.daml.lf.data.Ref

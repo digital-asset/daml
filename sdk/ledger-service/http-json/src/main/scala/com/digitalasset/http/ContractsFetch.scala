@@ -27,7 +27,7 @@ import com.daml.http.metrics.HttpJsonApiMetrics
 import com.daml.scalautil.ExceptionOps._
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import doobie.free.{connection => fconn}

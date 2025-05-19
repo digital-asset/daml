@@ -59,6 +59,7 @@ da_scala_library(
     tags = ["maven_coordinates=com.daml:daml-script-runner:__VERSION__"],
     visibility = ["//visibility:public"],
     deps = [
+        "//canton:daml-common-staging_daml-jwt",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
@@ -81,7 +82,6 @@ da_scala_library(
         "//ledger/participant-local-store",
         "//libs-scala/auth-utils",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/jwt",
         "//libs-scala/nonempty",
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
@@ -141,6 +141,7 @@ da_scala_test(
     deps = [
         ":test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:daml-common-staging_daml-jwt",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -151,7 +152,6 @@ da_scala_test(
         "//ledger/ledger-api-client",
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",

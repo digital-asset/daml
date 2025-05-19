@@ -17,7 +17,7 @@ import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.{HttpService, StartSettings, nonrepudiation}
 import com.daml.integrationtest._
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.DecodedJwt
 import com.daml.ledger.api.auth.{AuthServiceJWTCodec, CustomDamlJWTPayload}
 import com.daml.ledger.api.domain.{User, UserRight}
 import com.daml.ledger.api.testing.utils.{

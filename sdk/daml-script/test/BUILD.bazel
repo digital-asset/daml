@@ -296,6 +296,7 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:daml-common-staging_daml-jwt",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -316,7 +317,6 @@ da_scala_test_suite(
         "//ledger/ledger-api-domain",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/resources",
@@ -439,6 +439,7 @@ da_scala_test_suite(
     deps = [
         ":test-utils",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:daml-common-staging_daml-jwt",
         "//daml-lf/api-type-signature",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -461,7 +462,6 @@ da_scala_test_suite(
         "//libs-scala/caching",
         "//libs-scala/contextualized-logging",
         "//libs-scala/fs-utils",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",
