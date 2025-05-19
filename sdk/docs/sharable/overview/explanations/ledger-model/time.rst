@@ -14,7 +14,7 @@
 Time on Daml Ledgers
 ####################
 
-The Daml language contains a function :ref:`getTime <daml-ref-gettime>` which returns the “current time”.
+The Daml language contains a function :externalref:`getTime <daml-ref-gettime>` which returns the “current time”.
 However, the concept of a “current time” can be challenging in a distributed setting.
 
 This document describes the detailed semantics of time on Daml ledgers,
@@ -28,7 +28,7 @@ Ledger Time
 ***********
 
 The *ledger time* ``lt_TX`` is a property of a transaction.
-It is a timestamp that defines the value of all :ref:`getTime <daml-ref-gettime>` calls in the given transaction,
+It is a timestamp that defines the value of all :externalref:`getTime <daml-ref-gettime>` calls in the given transaction,
 and has microsecond resolution.
 The ledger time is assigned by the submitting participant as part of the Daml command interpretation.
 
@@ -65,7 +65,7 @@ Apart from that, no other guarantees are given on the ledger time.
 In particular, neither the ledger time nor the record time need to be monotonically increasing.
 
 Time has therefore to be considered slightly fuzzy in Daml, with the fuzziness depending on the skew parameters.
-Daml applications should not interpret the value returned by :ref:`getTime <daml-ref-gettime>` as a precise timestamp.
+Daml applications should not interpret the value returned by :externalref:`getTime <daml-ref-gettime>` as a precise timestamp.
 
 
 .. _ledger-time-model:
