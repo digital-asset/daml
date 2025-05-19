@@ -525,11 +525,13 @@ case class TypecheckUpgradesStandalone(
         instance <- template.implements
         ifaceId = instance._2.interfaceId
         _ = if (getIfUpgradeable(ifaceId.packageId).isEmpty) {
-          warn(UpgradeError.CannotImplementNonUpgradeableInterface(
-            pkg._1,
-            ifaceId,
-            tplName,
-          ))
+          warn(
+            UpgradeError.CannotImplementNonUpgradeableInterface(
+              pkg._1,
+              ifaceId,
+              tplName,
+            )
+          )
         } else ()
       } yield Try(())).toSeq.traverse(identity)
     } yield ()
