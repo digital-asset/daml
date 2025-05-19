@@ -50,7 +50,7 @@ repos:
       name: platform-independence-check
       language: system
       pass_filenames: false
-      entry: "sdk/pre-commit/platform-independence-check.sh"
+      entry: "bash -c 'cd sdk && pre-commit/platform-independence-check.sh'"
     - id: mainonly
       name: main only
       description: Check for changes under packages with targets tagged with main-only
