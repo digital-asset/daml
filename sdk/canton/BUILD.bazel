@@ -940,6 +940,7 @@ scala_library(
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/validation",
         # "//daml-lf/validation",
+        "//ledger/error",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/jwt",
