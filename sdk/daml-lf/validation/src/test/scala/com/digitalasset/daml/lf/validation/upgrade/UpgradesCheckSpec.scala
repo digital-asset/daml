@@ -21,7 +21,20 @@ import com.daml.lf.validation.upgrade.{StringLoggerFactory}
 
 import com.daml.lf.validation.UpgradeCheckMain
 
+object UpgradesCheckSpec {
+  sealed trait LogAssertion
+  final case class TwoDarError(dar1: String, dar2: String, msg: String) extends LogAssertion
+  final case class TwoDarSuccess(dar1: String, dar2: String, noWarningsAllowed: Boolean = false)
+      extends LogAssertion
+  final case class OneDarError(dar1: String, msg: String) extends LogAssertion
+  final case class OneDarSuccess(dar1: String, noWarningsAllowed: Boolean = false)
+      extends LogAssertion
+  final case class OneDarWarning(dar1: String, msg: String) extends LogAssertion
+}
+
 final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
+  import UpgradesCheckSpec._
+
   protected def loadPackageId(path: Path): PackageId = {
     val dar = DarReader.assertReadArchiveFromFile(new File(path.toString))
     assert(dar != null, s"Unable to load test package resource '$path'")
@@ -43,12 +56,12 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
 
   def testPackages(
       rawPaths: Seq[String],
-      uploadAssertions: Seq[(String, String, Option[String])],
+      uploadAssertions: Seq[LogAssertion],
   ): Assertion = {
     val out = logsFromPaths(rawPaths)
 
     forEvery(uploadAssertions) { uploadAssertion =>
-      checkTwo(uploadAssertion)(out)
+      checkLogAssertion(uploadAssertion)(out)
     }
   }
 
@@ -61,17 +74,45 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     upgradeCheckToolLogs should include regex (failureMessage)
   }
 
-  def checkTwo(assertion: (String, String, Option[String]))(
-      upgradeCheckToolLogs: String
-  ): Assertion = {
-    val (firstIdx: String, secondIdx: String, failureMessage: Option[String]) = assertion
+  def oneDarHeader(firstIdx: String) = {
+    val testPackageFirstId: PackageId = loadPackageId(Paths.get(firstIdx))
+    s"Error while checking DARs:\nThe uploaded DAR contains a package $testPackageFirstId \\(.*\\), but upgrade checks indicate that it cannot be upgraded"
+  }
+
+  def twoDarHeader(firstIdx: String, secondIdx: String) = {
     val testPackageFirstId: PackageId = loadPackageId(Paths.get(firstIdx))
     val testPackageSecondId: PackageId = loadPackageId(Paths.get(secondIdx))
-    val header =
-      s"Error while checking two DARs:\nThe uploaded DAR contains a package ($testPackageSecondId|$testPackageFirstId) \\(.*\\), but upgrade checks indicate that (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\)"
-    failureMessage match {
-      case None => upgradeCheckToolLogs should not include regex(header)
-      case Some(msg) => upgradeCheckToolLogs should include regex (s"$header. Reason: $msg")
+    s"Error while checking DARs:\nThe uploaded DAR contains a package ($testPackageSecondId|$testPackageFirstId) \\(.*\\), but upgrade checks indicate that (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\)"
+  }
+
+  def checkLogAssertion(assertion: LogAssertion)(
+      upgradeCheckToolLogs: String
+  ): Assertion = {
+    assertion match {
+      case TwoDarError(firstIdx, secondIdx, msg) =>
+        val header = twoDarHeader(firstIdx, secondIdx)
+        upgradeCheckToolLogs should include regex (s"$header. Reason: $msg")
+      case TwoDarSuccess(firstIdx, secondIdx, noWarningsAllowed) =>
+        val header = twoDarHeader(firstIdx, secondIdx)
+        upgradeCheckToolLogs should not include regex(header)
+        if (noWarningsAllowed) {
+          upgradeCheckToolLogs should not include regex("Warning while typechecking upgrades")
+        } else {
+          succeed
+        }
+      case OneDarError(firstIdx, msg) =>
+        val header = oneDarHeader(firstIdx)
+        upgradeCheckToolLogs should not include regex(s"$header. Reason: $msg")
+      case OneDarSuccess(firstIdx, noWarningsAllowed) =>
+        val header = oneDarHeader(firstIdx)
+        upgradeCheckToolLogs should not include regex(header)
+        if (noWarningsAllowed) {
+          upgradeCheckToolLogs should not include regex("Warning while typechecking upgrades")
+        } else {
+          succeed
+        }
+      case OneDarWarning(_, msg) =>
+        upgradeCheckToolLogs should include regex (msg)
     }
   }
 
@@ -83,10 +124,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v1.dar",
             "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v2.dar",
-            None,
           )
         ),
       )
@@ -99,10 +139,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
-            None,
           )
         ),
       )
@@ -115,10 +154,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
             "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
-            None,
           )
         ),
       )
@@ -131,7 +169,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
             // TODO (dylant-da): Re-enable this line if the -Wupgrade-exceptions
@@ -140,7 +178,6 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             // Some(
             //  "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
             // ),
-            None,
           )
         ),
       )
@@ -153,10 +190,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
             "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
-            Some("The upgraded package uses an older LF version"),
+            "The upgraded package uses an older LF version",
           )
         ),
       )
@@ -169,10 +206,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
             "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
-            None,
           )
         ),
       )
@@ -185,10 +221,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
             "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
-            Some("The upgraded template A has changed the types of some of its original fields."),
+            "The upgraded template A has changed the types of some of its original fields.",
           )
         ),
       )
@@ -200,12 +236,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar"
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v1.dar",
             "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar",
-            Some(
-              "The upgraded data type T has added new fields, but those fields are not Optional."
-            ),
+            "The upgraded data type T has added new fields, but those fields are not Optional.",
           )
         ),
       )
@@ -215,12 +249,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       testPackages(
         Seq("test-common/upgrades-FailsWhenDepsAreIncompatible-v1.dar"),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenDepsAreIncompatible-dep-v1.dar",
             "test-common/upgrades-FailsWhenDepsAreIncompatible-dep-v2.dar",
-            Some(
-              "The upgraded data type Dep has added new fields, but those fields are not Optional"
-            ),
+            "The upgraded data type Dep has added new fields, but those fields are not Optional",
           )
         ),
       )
@@ -230,10 +262,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       testPackages(
         Seq("test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v1.dar",
             "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar",
-            None,
           )
         ),
       )
@@ -246,15 +277,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenUpgradingADependency-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenUpgradingADependency-dep-v1.dar",
             "test-common/upgrades-SucceedsWhenUpgradingADependency-dep-v2.dar",
-            None,
           ),
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenUpgradingADependency-v1.dar",
             "test-common/upgrades-SucceedsWhenUpgradingADependency-v2.dar",
-            None,
           ),
         ),
       )
@@ -267,20 +296,17 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-dep-v1.dar",
             "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-dep-v2.dar",
-            None,
           ),
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-v1.dar",
             "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-dep-v2.dar",
-            None,
           ),
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v1.dar",
             "test-common/upgrades-SucceedsWhenUpgradingADependencyOfAnUpgradedDependency-v2.dar",
-            None,
           ),
         ),
       )
@@ -293,12 +319,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-dep-v1.dar",
             "test-common/upgrades-FailsWhenUpgradingAnUnupgradeableDependencyOfAnUpgradedDependency-dep-dep-v2.dar",
-            Some(
-              "The upgraded data type D has added new fields, but those fields are not Optional."
-            ),
+            "The upgraded data type D has added new fields, but those fields are not Optional.",
           )
         ),
       )
@@ -315,15 +339,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             s"test-common/upgrades-SuccessUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
           ),
           Seq(
-            (
+            TwoDarSuccess(
               s"test-common/upgrades-SuccessUpgradingV2ThenV3-v1-${lfVersion.pretty}.dar",
               s"test-common/upgrades-SuccessUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
-              None,
             ),
-            (
+            TwoDarSuccess(
               s"test-common/upgrades-SuccessUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
               s"test-common/upgrades-SuccessUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
-              None,
             ),
           ),
         )
@@ -337,15 +359,13 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             s"test-common/upgrades-SuccessUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
           ),
           Seq(
-            (
+            TwoDarSuccess(
               s"test-common/upgrades-SuccessUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
               s"test-common/upgrades-SuccessUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
-              None,
             ),
-            (
+            TwoDarSuccess(
               s"test-common/upgrades-SuccessUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
               s"test-common/upgrades-SuccessUpgradingV3ThenV2-v3-${lfVersion.pretty}.dar",
-              None,
             ),
           ),
         )
@@ -359,15 +379,14 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
           ),
           Seq(
-            (
+            TwoDarSuccess(
               s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1-${lfVersion.pretty}.dar",
               s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
-              None,
             ),
-            (
+            TwoDarError(
               s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2-${lfVersion.pretty}.dar",
               s"test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3-${lfVersion.pretty}.dar",
-              Some("The upgraded template T is missing some of its original fields."),
+              "The upgraded template T is missing some of its original fields.",
             ),
           ),
         )
@@ -381,15 +400,14 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
           ),
           Seq(
-            (
+            TwoDarSuccess(
               s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1-${lfVersion.pretty}.dar",
               s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
-              None,
             ),
-            (
+            TwoDarError(
               s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3-${lfVersion.pretty}.dar",
               s"test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2-${lfVersion.pretty}.dar",
-              Some("The upgraded template T is missing some of its original fields."),
+              "The upgraded template T is missing some of its original fields.",
             ),
           ),
         )
@@ -404,12 +422,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
             "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
-            Some(
-              "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
-            ),
+            "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package.",
           )
         ),
       )
@@ -423,12 +439,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
             "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
-            Some(
-              "Implementation of interface .*:Dep:I by template T appears in this package, but does not appear in package that is being upgraded."
-            ),
+            "Implementation of interface .*:Dep:I by template T appears in this package, but does not appear in package that is being upgraded.",
           )
         ),
       )
@@ -438,10 +452,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       testPackages(
         Seq("test-common/upgrades-ValidUpgrade-v1.dar", "test-common/upgrades-ValidUpgrade-v2.dar"),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-ValidUpgrade-v1.dar",
             "test-common/upgrades-ValidUpgrade-v2.dar",
-            None,
           )
         ),
       )
@@ -453,10 +466,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-ValidParameterizedTypesUpgrade-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-ValidParameterizedTypesUpgrade-v1.dar",
             "test-common/upgrades-ValidParameterizedTypesUpgrade-v2.dar",
-            None,
           )
         ),
       )
@@ -468,10 +480,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-ValidKeyTypeEquality-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-ValidKeyTypeEquality-v1.dar",
             "test-common/upgrades-ValidKeyTypeEquality-v2.dar",
-            None,
           )
         ),
       )
@@ -483,12 +494,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-MissingModule-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-MissingModule-v1.dar",
             "test-common/upgrades-MissingModule-v2.dar",
-            Some(
-              "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
-            ),
+            "Module Other appears in package that is being upgraded, but does not appear in the upgrading package.",
           )
         ),
       )
@@ -500,12 +509,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-MissingTemplate-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-MissingTemplate-v1.dar",
             "test-common/upgrades-MissingTemplate-v2.dar",
-            Some(
-              "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
-            ),
+            "Template U appears in package that is being upgraded, but does not appear in the upgrading package.",
           )
         ),
       )
@@ -517,10 +524,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-MissingTemplateDifferentPackageName.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-MissingTemplate-v1.dar",
             "test-common/upgrades-MissingTemplateDifferentPackageName.dar",
-            None,
           )
         ),
       )
@@ -532,12 +538,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-MissingDataCon-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-MissingDataCon-v1.dar",
             "test-common/upgrades-MissingDataCon-v2.dar",
-            Some(
-              "Data type U appears in package that is being upgraded, but does not appear in the upgrading package."
-            ),
+            "Data type U appears in package that is being upgraded, but does not appear in the upgrading package.",
           )
         ),
       )
@@ -549,12 +553,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-MissingChoice-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-MissingChoice-v1.dar",
             "test-common/upgrades-MissingChoice-v2.dar",
-            Some(
-              "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
-            ),
+            "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package.",
           )
         ),
       )
@@ -566,10 +568,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-TemplateAddedChoice-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-TemplateAddedChoice-v1.dar",
             "test-common/upgrades-TemplateAddedChoice-v2.dar",
-            None,
           )
         ),
       )
@@ -581,10 +582,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-TemplateChangedKeyType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-TemplateChangedKeyType-v1.dar",
             "test-common/upgrades-TemplateChangedKeyType-v2.dar",
-            Some("The upgraded template T cannot change its key type."),
+            "The upgraded template T cannot change its key type.",
           )
         ),
       )
@@ -596,12 +597,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
             "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
-            Some(
-              "The upgraded data type Struct has added new fields, but those fields are not Optional."
-            ),
+            "The upgraded data type Struct has added new fields, but those fields are not Optional.",
           )
         ),
       )
@@ -615,10 +614,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
             "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
-            Some("The upgraded template A cannot change its key type."),
+            "The upgraded template A cannot change its key type.",
           )
         ),
       )
@@ -630,10 +629,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
             "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
-            Some("The upgraded template A cannot remove its key."),
+            "The upgraded template A cannot remove its key.",
           )
         ),
       )
@@ -645,10 +644,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
             "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
-            Some("The upgraded template A cannot add a key."),
+            "The upgraded template A cannot add a key.",
           )
         ),
       )
@@ -660,10 +659,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
             "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
-            Some("The upgraded template A has added new fields, but those fields are not Optional."),
+            "The upgraded template A has added new fields, but those fields are not Optional.",
           )
         ),
       )
@@ -675,10 +674,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
             "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
-            Some("The upgraded template A is missing some of its original fields."),
+            "The upgraded template A is missing some of its original fields.",
           )
         ),
       )
@@ -690,10 +689,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
             "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
-            Some("The upgraded template A has changed the types of some of its original fields."),
+            "The upgraded template A has changed the types of some of its original fields.",
           )
         ),
       )
@@ -705,10 +704,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
             "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
-            None,
           )
         ),
       )
@@ -720,12 +718,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
             "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
-            Some(
-              "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional."
-            ),
+            "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.",
           )
         ),
       )
@@ -737,12 +733,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
             "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
-            Some(
-              "The upgraded input type of choice C on template A is missing some of its original fields."
-            ),
+            "The upgraded input type of choice C on template A is missing some of its original fields.",
           )
         ),
       )
@@ -754,12 +748,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
             "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
-            Some(
-              "The upgraded input type of choice C on template A has changed the types of some of its original fields."
-            ),
+            "The upgraded input type of choice C on template A has changed the types of some of its original fields.",
           )
         ),
       )
@@ -771,10 +763,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
             "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
-            Some("The upgraded choice C cannot change its return type."),
+            "The upgraded choice C cannot change its return type.",
           )
         ),
       )
@@ -786,10 +778,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
-            None,
           )
         ),
       )
@@ -801,10 +792,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentTemplateHasChanged-v2.dar",
-            None,
           )
         ),
       )
@@ -816,10 +806,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentEnumHasChanged-v2.dar",
-            None,
           )
         ),
       )
@@ -831,10 +820,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentStructHasChanged-v2.dar",
-            None,
           )
         ),
       )
@@ -846,10 +834,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v1.dar",
             "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentVariantHasChanged-v2.dar",
-            None,
           )
         ),
       )
@@ -861,10 +848,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
             "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
-            None,
           )
         ),
       )
@@ -877,12 +863,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v1.dar",
             "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
-            Some(
-              "The upgraded data type A has added new fields, but those fields are not Optional."
-            ),
+            "The upgraded data type A has added new fields, but those fields are not Optional.",
           )
         ),
       )
@@ -895,10 +879,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar",
             "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
-            None,
           )
         ),
       )
@@ -911,12 +894,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v1.dar",
             "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
-            Some(
-              "The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record."
-            ),
+            "The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.",
           )
         ),
       )
@@ -929,10 +910,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v1.dar",
             "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v2.dar",
-            None,
           )
         ),
       )
@@ -945,12 +925,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v1.dar",
             "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v2.dar",
-            Some(
-              "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
-            ),
+            "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package.",
           )
         ),
       )
@@ -963,12 +941,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v1.dar",
             "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v2.dar",
-            Some(
-              "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
-            ),
+            "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.",
           )
         ),
       )
@@ -981,10 +957,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v1.dar",
             "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v2.dar",
-            Some("The upgraded variant constructor A.Y from variant A has added a field."),
+            "The upgraded variant constructor A.Y from variant A has added a field.",
           )
         ),
       )
@@ -997,10 +973,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v1.dar",
             "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v2.dar",
-            None,
           )
         ),
       )
@@ -1013,10 +988,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v1.dar",
             "test-common/upgrades-FailsWhenAnEnumDropsAConstructor-v2.dar",
-            Some("The upgraded data type MyEnum has removed an existing variant."),
+            "The upgraded data type MyEnum has removed an existing variant.",
           )
         ),
       )
@@ -1029,10 +1004,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v1.dar",
             "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v2.dar",
-            None,
           )
         ),
       )
@@ -1045,12 +1019,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v1.dar",
             "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
-            Some(
-              "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
-            ),
+            "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.",
           )
         ),
       )
@@ -1063,10 +1035,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v1.dar",
             "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
-            None,
           )
         ),
       )
@@ -1079,10 +1050,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
             "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
-            None,
           )
         ),
       )
@@ -1095,10 +1065,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v1.dar",
             "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
-            Some("The upgraded template A has changed the types of some of its original fields."),
+            "The upgraded template A has changed the types of some of its original fields.",
           )
         ),
       )
@@ -1111,10 +1081,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
             "test-common/upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
-            Some("The upgraded data type RecordToEnum has changed from a record to a enum."),
+            "The upgraded data type RecordToEnum has changed from a record to a enum.",
           )
         ),
       )
@@ -1127,10 +1097,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v1.dar",
             "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
-            None,
           )
         ),
       )
@@ -1143,10 +1112,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v1.dar",
             "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v2.dar",
-            None,
           )
         ),
       )
@@ -1159,10 +1127,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v1.dar",
             "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
-            None,
           )
         ),
       )
@@ -1175,12 +1142,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenMakingTypeUnserializable-v1.dar",
             "test-common/upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
-            Some(
-              "The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
-            ),
+            "The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.",
           )
         ),
       )
@@ -1194,10 +1159,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v1.dar",
             "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
-            None,
           )
         ),
       )
@@ -1210,7 +1174,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
             "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
             // TODO (dylant-da): Re-enable this line if the -Wupgrade-interfaces
@@ -1219,7 +1183,6 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
             // Some(
             //  "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
             // ),
-            None,
           )
         ),
       )
@@ -1232,12 +1195,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
             "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
-            Some(
-              "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
-            ),
+            "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded.",
           )
         ),
       )
@@ -1250,12 +1211,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v1.dar",
             "test-common/upgrades-FailsWhenAnInstanceIsReplacedWithADifferentInstanceOfAnIdenticallyNamedInterface-v2.dar",
-            Some(
-              "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."
-            ),
+            "Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package.",
           )
         ),
       )
@@ -1268,10 +1227,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
             "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v2.dar",
-            None,
           )
         ),
       )
@@ -1284,10 +1242,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v1.dar",
             "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v2.dar",
-            None,
           )
         ),
       )
@@ -1300,10 +1257,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
             "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
-            None,
           )
         ),
       )
@@ -1316,10 +1272,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
             "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
-            Some("The upgraded data type A has changed the types of some of its original fields."),
+            "The upgraded data type A has changed the types of some of its original fields.",
           )
         ),
       )
@@ -1332,10 +1288,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
             "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
-            Some("The upgraded data type T has changed the types of some of its original fields."),
+            "The upgraded data type T has changed the types of some of its original fields.",
           )
         ),
       )
@@ -1348,12 +1304,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-FailWhenParamCountChanges-v2.dar",
         ),
         Seq(
-          (
+          TwoDarError(
             "test-common/upgrades-FailWhenParamCountChanges-v1.dar",
             "test-common/upgrades-FailWhenParamCountChanges-v2.dar",
-            Some(
-              "The upgraded data type MyStruct has changed the number of type variables it has."
-            ),
+            "The upgraded data type MyStruct has changed the number of type variables it has.",
           )
         ),
       )
@@ -1366,10 +1320,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedWhenParamNameChanges-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedWhenParamNameChanges-v1.dar",
             "test-common/upgrades-SucceedWhenParamNameChanges-v2.dar",
-            None,
           )
         ),
       )
@@ -1382,10 +1335,9 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
           "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
         ),
         Seq(
-          (
+          TwoDarSuccess(
             "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
             "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
-            None,
           )
         ),
       )
@@ -1409,6 +1361,130 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       testPackage(
         "test-common/upgrades-daml-script-lts-dep-lf17-on-lf17.dar",
         "Upload of .*package .* contains .*daml-script.* as a dependency.",
+      )
+    }
+
+    // This test only fails when
+    // 1. The precondition requiring that only >=LF1.17 packages get added to
+    //    the package map
+    // 2. The hash of the v2.dar is greater than the v1.dar, which lets the v2
+    //    DAR get checked after the v1 dar.
+    // This is very not-ideal because it means that the test only occasionally
+    // detects when a regression has occurred, but is the best we can do until
+    // we can force the checks to run in a specific but still
+    // topologically-valid order.
+    //
+    // TODO: dylant-da: Make this always fail on regression, some existing work
+    // lives in `dylant-da/disallow-interface-lf115-upgrades-explicit-ordering`
+    "Succeeds when upgrading an LF1.15 dependency to an LF1.17 dependency without a shared use site" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v1.dar",
+          "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v2.dar",
+        ),
+        Seq(
+          TwoDarSuccess(
+            "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v2.dar",
+          )
+        ),
+      )
+    }
+
+    "Succeeds when upgrading an LF1.15 dependency to another LF1.15 dependency without a shared use site" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v1.dar",
+          "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v2.dar",
+        ),
+        Seq(
+          TwoDarSuccess(
+            "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v1.dar",
+            "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v2.dar",
+          )
+        ),
+      )
+    }
+
+    "Fails when upgrading an LF1.15 dependency at a use site" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
+          "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
+        ),
+        Seq(
+          TwoDarError(
+            "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
+            "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
+            "The upgraded data type MainD has changed the types of some of its original fields.",
+          )
+        ),
+      )
+    }
+
+    "CannotImplementNonUpgradeableInterface (standalone)" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar"
+        ),
+        Seq(
+          OneDarWarning(
+            "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).",
+          )
+        ),
+      )
+    }
+
+    "CanImplementUpgradeableInterface (standalone)" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar"
+        ),
+        Seq(
+          OneDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+            noWarningsAllowed = true,
+          )
+        ),
+      )
+    }
+
+    "CannotImplementNonUpgradeableInterface (during upgrade)" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
+          "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+        ),
+        Seq(
+          TwoDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v1.dar",
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+          ),
+          OneDarWarning(
+            "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).",
+          ),
+        ),
+      )
+    }
+
+    "CanImplementUpgradeableInterface (during upgrade)" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-CanImplementUpgradeableInterface-v1.dar",
+          "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+        ),
+        Seq(
+          TwoDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v1.dar",
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+          ),
+          OneDarSuccess(
+            "test-common/upgrades-CanImplementUpgradeableInterface-v2.dar",
+            noWarningsAllowed = true,
+          ),
+        ),
       )
     }
   }

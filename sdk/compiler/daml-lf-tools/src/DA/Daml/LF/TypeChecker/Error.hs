@@ -260,6 +260,7 @@ data ErrorOrWarning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
+  | WEUpgradeShouldNotImplementNonUpgradeableIfaces (PackageId, Maybe PackageMetadata) Version !(Qualified TypeConName) !(Qualified TypeConName)
   deriving (Eq, Show)
 
 instance Pretty ErrorOrWarning where
@@ -311,6 +312,11 @@ instance Pretty ErrorOrWarning where
     WEUpgradedTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WEUpgradedTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WECouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
+    WEUpgradeShouldNotImplementNonUpgradeableIfaces dep depLfVersion iface tpl ->
+      vsep
+        [ "Template " <> pPrint tpl <> " implements interface " <> pPrint iface <> " from package " <> pprintDep dep <> " which has LF version " <> pPrint depLfVersion <> "."
+        , "It is forbidden for upgradeable templates (LF version >= 1.17) to implement interfaces from non-upgradeable packages (LF version <= 1.15)."
+        ]
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -340,6 +346,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       , (upgradedTemplateChangedName, upgradedTemplateChangedFlag)
       , (upgradedChoiceChangedName, upgradedChoiceChangedFlag)
       , (couldNotExtractUpgradedExpressionName, couldNotExtractUpgradedExpressionFlag)
+      , (upgradeImplementNonUpgradeableInterfacesName, upgradeImplementNonUpgradeableInterfacesFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -360,6 +367,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEUpgradedTemplateChangedKeyExpression {} -> AsWarning
       WEUpgradedTemplateChangedKeyMaintainers {} -> AsWarning
       WECouldNotExtractForUpgradeChecking {} -> AsWarning
+      WEUpgradeShouldNotImplementNonUpgradeableIfaces {} -> AsError
   }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
@@ -477,6 +485,18 @@ upgradeDependencyMetadataFilter =
     \case
         WEDependencyHasUnparseableVersion {} -> True
         WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
+        _ -> False
+
+upgradeImplementNonUpgradeableInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeImplementNonUpgradeableInterfacesFlag status = RawDamlWarningFlag upgradeImplementNonUpgradeableInterfacesName status upgradeImplementNonUpgradeableInterfacesFilter
+
+upgradeImplementNonUpgradeableInterfacesName :: String
+upgradeImplementNonUpgradeableInterfacesName = "internal-upgrade-implement-non-upgradeable-interfaces"
+
+upgradeImplementNonUpgradeableInterfacesFilter :: ErrorOrWarning -> Bool
+upgradeImplementNonUpgradeableInterfacesFilter =
+    \case
+        WEUpgradeShouldNotImplementNonUpgradeableIfaces {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage

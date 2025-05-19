@@ -7,7 +7,9 @@ load(
     "//bazel_tools:scala.bzl",
     "da_scala_library",
     "da_scala_test_suite",
+    "default_scalacopts",
     "kind_projector_plugin",
+    "lf_scalacopts_stricter",
     "scala_source_jar",
     "scaladoc_jar",
 )
@@ -67,12 +69,15 @@ scala_library(
 
 ### daml-common-staging/daml-errors ###
 
-scala_library(
+da_scala_library(
     name = "daml-common-staging_daml-errors",
     srcs = glob(["daml-common-staging/daml-errors/src/main/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
+    ],
+    tags = [
+        "maven_coordinates=com.daml:daml-common-staging_daml-errors:__VERSION__",
     ],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
@@ -149,12 +154,22 @@ scala_macro_library(
 
 ### community/util-logging ###
 
-scala_library(
+da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
+    ] + [
+        copt
+        for copt in default_scalacopts + lf_scalacopts_stricter
+        if copt not in [
+            "-P:wartremover:traverser:org.wartremover.warts.ExplicitImplicitTypes",
+            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+        ]
+    ],
+    tags = [
+        "maven_coordinates=com.daml:community_util-logging:__VERSION__",
     ],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
