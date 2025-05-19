@@ -179,6 +179,6 @@ Next Steps
 
 The suggested next steps are:
 
-* Learn about the Daml language and the Daml Ledger Model. :externalref:`Writing Daml <intro-to-daml>` will introduce you to the basics of a Daml contract, the Daml Ledger model, and the core features of the Daml language. You’ll notice that testing your contracts, including :ref:`testing for failures <intro_2_failure>`, is presented very early in this introduction. We strongly recommend that you write tests as part of the initial development of every Daml project.
+* Learn about the Daml language and the Daml Ledger Model. :externalref:`Writing Daml <intro-to-daml>` will introduce you to the basics of a Daml contract, the Daml Ledger model, and the core features of the Daml language. You’ll notice that testing your contracts, including :externalref:`testing for failures <intro_2_failure>`, is presented very early in this introduction. We strongly recommend that you write tests as part of the initial development of every Daml project.
 * Learn about operating a Daml application with the :brokenref:`Ledger Administration Introduction <ledger-administration-introduction>`.
 

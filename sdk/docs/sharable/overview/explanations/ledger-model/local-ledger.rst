@@ -13,13 +13,13 @@ Causality
 
 
 Daml ledgers do not totally order all transactions.
-So different parties may observe two transactions on different Participant Nodes in different orders via the :ref:`Ledger API <ledger-api-services>`.
+So different parties may observe two transactions on different Participant Nodes in different orders via the :externalref:`Ledger API <ledger-api-services>`.
 Moreover, different Participant Nodes may output two transactions for the same party in different orders.
 This document explains the ordering guarantees that Daml ledgers do provide, by :ref:`example <causality-examples>` and formally via the concept of :ref:`causality graphs <causality-graph>` and :ref:`local ledgers <local-ledger-structure>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
-* The :ref:`Ledger API <ledger-api-services>`
+* The :externalref:`Ledger API <ledger-api-services>`
 
 * The :ref:`Daml Ledger Model <da-ledgers>`
 
@@ -407,8 +407,8 @@ This difference explains the :ref:`divulgence causality example <causality-divul
 Ledger API Ordering Guarantees
 ==============================
 
-The :ref:`Transaction Service <transaction-service>` provides the updates as a stream of Daml transactions
-and the :ref:`Active Contract Service <active-contract-service>` summarizes all the updates up to a given point
+The :externalref:`Transaction Service <transaction-service>` provides the updates as a stream of Daml transactions
+and the :externalref:`Active Contract Service <active-contract-service>` summarizes all the updates up to a given point
 by the contracts that are active at this point.
 Conceptually, both services are derived from the local ledger that the Participant Node manages for each hosted party.
 That is, the transaction tree stream for a party is a topological sort of the party's local ledger.
@@ -416,9 +416,9 @@ The flat transaction stream contains precisely the ``CreatedEvent``\ s and ``Arc
 that correspond to **Create** and consuming **Exercise** actions in transaction trees on the transaction tree stream where the party is a stakeholder of the affected contract.
 
 .. note::
-   The transaction trees of the :ref:`Transaction Service <transaction-service>` omit **Fetch** and **NoSuchKey** actions
+   The transaction trees of the :externalref:`Transaction Service <transaction-service>` omit **Fetch** and **NoSuchKey** actions
    that are part of the transactions in the local ledger.
-   The **Fetch** and **NoSuchKey** actions are thus removed before the :ref:`Transaction Service <transaction-service>` outputs the transaction trees.
+   The **Fetch** and **NoSuchKey** actions are thus removed before the :externalref:`Transaction Service <transaction-service>` outputs the transaction trees.
 
 Similarly, the active contract service provides the set of contracts that are active at the returned offset according to the Transaction Service streams.
 That is, the contract state changes of all events from the transaction event stream are taken into account in the provided set of contracts.

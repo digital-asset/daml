@@ -21,3 +21,4 @@ def setup(sphinx):
 
     sphinx.add_role('externalref', IgnoreRefRole())
     sphinx.add_role('brokenref', IgnoreRefRole())
+    sphinx.add_role('subsiteref', IgnoreRefRole())
