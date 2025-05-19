@@ -10,7 +10,7 @@ private[lf] object InternalError {
 
   def log(location: String, message: String, cause: Option[Throwable] = None): Unit = {
     logger.error(s"LF internal error in $location: $message")
-    cause.foreach(err => logger.error("root cause", err))
+    cause.foreach(err => logger.error("root causee", err))
   }
 
   @throws[IllegalArgumentException]
