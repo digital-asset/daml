@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref
 import com.daml.lf.typesig

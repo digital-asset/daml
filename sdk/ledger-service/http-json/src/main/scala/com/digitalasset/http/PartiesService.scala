@@ -7,7 +7,7 @@ import com.daml.lf.data.Ref
 import com.daml.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}
 import com.daml.http.util.FutureUtil._
 import com.daml.nonempty._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api
 import LedgerClientJwt.Grpc
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}

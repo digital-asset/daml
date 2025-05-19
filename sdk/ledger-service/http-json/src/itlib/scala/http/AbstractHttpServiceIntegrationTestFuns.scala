@@ -20,7 +20,7 @@ import com.daml.http.json._
 import com.daml.http.util.ClientUtil.boxedRecord
 import com.daml.http.util.FutureUtil.toFuture
 import com.daml.http.util.{FutureUtil, SandboxTestLedger}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.{value => v}
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}

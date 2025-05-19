@@ -127,7 +127,7 @@ abstract class HttpServiceIntegrationTest
   ): Future[Assertion] = instanceUUIDLogCtx { implicit lc =>
     import fixture.{uri, encoder, decoder}
     import util.ErrorOps._
-    import com.daml.jwt.domain.Jwt
+    import com.daml.jwt.Jwt
 
     val command0: domain.CreateCommand[v.Record, domain.ContractTypeId.Template.RequiredPkg] =
       iouCreateCommand(domain.Party("Alice"))

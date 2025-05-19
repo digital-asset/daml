@@ -9,7 +9,7 @@ import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFac
 import com.daml.http.HttpServiceTestFixture.UseTls
 import com.daml.http.util.Logging.{InstanceUUID, instanceUUIDLogCtx}
 import com.daml.http.util.SandboxTestLedger
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.client.withoutledgerid.{LedgerClient => DamlLedgerClient}

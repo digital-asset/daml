@@ -6,7 +6,7 @@ package com.daml.http
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api
 import com.daml.ledger.api.v1.package_service
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse

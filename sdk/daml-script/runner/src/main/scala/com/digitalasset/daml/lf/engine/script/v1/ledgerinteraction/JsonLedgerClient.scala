@@ -16,7 +16,7 @@ import org.apache.pekko.http.scaladsl.unmarshalling._
 import org.apache.pekko.stream.Materializer
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.JwtDecoder
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.auth.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,

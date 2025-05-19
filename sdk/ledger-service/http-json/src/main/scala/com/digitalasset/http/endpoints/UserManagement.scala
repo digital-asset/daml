@@ -10,7 +10,7 @@ import EndpointsCompanion._
 import Endpoints.ET
 import com.daml.http.EndpointsCompanion.CreateFromUserToken.userIdFromToken
 import util.FutureUtil.either
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.auth.StandardJWTPayload
 import scalaz.std.scalaFuture._
 import scalaz.syntax.traverse._

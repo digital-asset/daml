@@ -14,6 +14,7 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.language.Ast
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AdminWorkflowServicesErrorGroup
@@ -27,7 +28,6 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowServices.AbortedDueToShutdownException
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
-import com.digitalasset.canton.participant.ledger.api.CantonAdminToken
 import com.digitalasset.canton.participant.ledger.api.client.{LedgerConnection, LedgerSubscription}
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.sync.SyncServiceInjectionError.PassiveReplica

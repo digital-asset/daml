@@ -10,7 +10,7 @@ import domain.{Choice, ContractTypeId, ContractTypeRef}
 import ContractTypeId.ResolvedOf
 import com.daml.http.util.IdentifierConverters
 import com.daml.http.util.Logging.InstanceUUID
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.service.LedgerReader.PackageStore
 import com.daml.ledger.service.{LedgerReader, TemplateIds}
 import com.daml.logging.{ContextualizedLogger, LoggingContextOf}

@@ -10,6 +10,7 @@ import cats.syntax.option.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.lf.engine.Engine
 import com.digitalasset.canton.LedgerParticipantId
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,

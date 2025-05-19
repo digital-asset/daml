@@ -17,7 +17,7 @@ import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
 import util.toLedgerId
 import util.JwtParties._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf.withEnrichedLoggingContext
 import scalaz.std.scalaFuture._
 import scalaz.syntax.std.option._

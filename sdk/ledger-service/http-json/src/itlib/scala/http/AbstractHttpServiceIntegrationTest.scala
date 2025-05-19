@@ -15,7 +15,7 @@ import com.daml.http.endpoints.MeteringReportEndpoint.MeteringReportDateRequest
 import com.daml.http.json.SprayJson.objectField
 import com.daml.http.json._
 import com.daml.http.util.ClientUtil.{boxedRecord, uniqueCommandId, uniqueId}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.{ApiTypes => lar}
 import com.daml.ledger.api.v1.transaction_filter.{

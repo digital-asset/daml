@@ -99,6 +99,8 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
   val consoleEnvironment: ConsoleEnvironment
   private[console] val nodes: Nodes.GenericNodes
 
+  def adminToken: Option[String] = None
+
   @Help.Summary("Database related operations")
   @Help.Group("Database")
   object db extends Helpful {
@@ -197,7 +199,7 @@ trait LocalInstanceReferenceCommon extends InstanceReferenceCommon with NoTracin
   ): ConsoleCommandResult[Result] =
     runCommandIfRunning(
       consoleEnvironment.grpcAdminCommandRunner
-        .runCommand(name, grpcCommand, config.clientAdminApi, None)
+        .runCommand(name, grpcCommand, config.clientAdminApi, adminToken)
     )
 
 }
@@ -215,6 +217,8 @@ trait GrpcRemoteInstanceReference extends RemoteInstanceReference {
 
   def config: NodeConfig
 
+  def adminToken: Option[String] = None
+
   override protected[console] def adminCommand[Result](
       grpcCommand: GrpcAdminCommand[_, _, Result]
   ): ConsoleCommandResult[Result] =
@@ -222,7 +226,7 @@ trait GrpcRemoteInstanceReference extends RemoteInstanceReference {
       name,
       grpcCommand,
       config.clientAdminApi,
-      None,
+      adminToken,
     )
 }
 
@@ -569,6 +573,8 @@ class RemoteParticipantReference(environment: ConsoleEnvironment, override val n
     with GrpcRemoteInstanceReference
     with RemoteParticipantReferenceCommon {
 
+  override def adminToken: Option[String] = config.token
+
   @Help.Summary("Inspect and manage parties")
   @Help.Group("Parties")
   def parties: ParticipantPartiesAdministrationGroup = partiesGroup
@@ -596,8 +602,6 @@ sealed trait LocalParticipantReferenceCommon
     with LocalInstanceReferenceCommon {
 
   def config: LocalParticipantConfig
-
-  def adminToken: Option[String]
 
   override protected[console] def ledgerApiCommand[Result](
       command: GrpcAdminCommand[_, _, Result]
@@ -656,7 +660,7 @@ class LocalParticipantReference(
     new LocalParticipantPartiesAdministrationGroup(this, this, consoleEnvironment, loggerFactory)
 
   /** secret, not publicly documented way to get the admin token */
-  def adminToken: Option[String] = underlying.map(_.adminToken.secret)
+  override def adminToken: Option[String] = underlying.map(_.adminToken.secret)
 
   override def equals(obj: Any): Boolean =
     obj match {

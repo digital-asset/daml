@@ -18,6 +18,7 @@ import com.daml.ledger.api.v1.value.{
   Value,
 }
 import com.daml.lf.value.Value.ContractId
+import com.daml.lf.value.Value.ContractId.V1
 import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
   ContractData,
@@ -25,8 +26,8 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.{
 }
 import com.digitalasset.canton.admin.api.client.data.{ListPartiesResult, TemplateId}
 import com.digitalasset.canton.concurrent.Threading
-import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{AuthServiceConfig, NonNegativeDuration}
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -34,7 +35,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLo
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.admin.v0
-import com.digitalasset.canton.participant.config.{AuthServiceConfig, BaseParticipantConfig}
+import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.JwtTokenUtilities
 import com.digitalasset.canton.participant.ledger.api.client.ValueRemapper
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -367,7 +368,9 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |namespace). This function also requires the selection of a specific ledger create time
         |according to the domain's clock. It is also possible to modify the domain and protocol version for
         |those contracts, which can be useful when contracts are being migrated to a participant
-        |connected to a domain and/or protocol version."""
+        |connected to a domain and/or protocol version. If `withContractIdRemap` is enabled, all contracts are converted
+        |to a non-authenticated form. This process involves replacing the suffix of each contract ID with the
+        |non-authenticated marker and rewriting all contract IDs accordingly."""
     )
     def change_contracts_party_ids(
         partiesOldToPartiesNew: Map[PartyId, PartyId],
@@ -375,10 +378,27 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         domainId: DomainId,
         ledgerCreateTime: Instant,
         targetProtocolVersion: ProtocolVersion,
-    )(implicit env: ConsoleEnvironment) =
+        withContractIdRemap: Boolean,
+    )(implicit env: ConsoleEnvironment) = {
+      def remapContractID(id: String): String = {
+        // the id is in hex format
+        val contractId = ContractId.V1.assertFromString(id)
+        val prefix = V1.prefix
+        val discriminator = contractId.discriminator
+        val suffixHex = contractId.suffix.toHexString
+
+        // we replace the first two bytes with 0xCA00 so the contract is recognized as non-authenticated
+        val newSuffixHex =
+          if (suffixHex.length >= 4)
+            NonAuthenticatedContractId.versionPrefixBytes.toHexString + suffixHex.drop(4)
+          else suffixHex
+
+        prefix.toHexString + discriminator.toHexString + newSuffixHex
+      }
+
       acs.map { event =>
         val converted = ValueRemapper.convertEvent(
-          identity,
+          if (withContractIdRemap) remapContractID else identity,
           partiesOldToPartiesNew.map { case (oldId, newId) =>
             oldId.toProtoPrimitive -> newId.toProtoPrimitive
           }(_),
@@ -396,6 +416,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           targetProtocolVersion.v,
         )
       }
+    }
 
     @Help.Summary("Recompute authenticated contract ids.")
     @Help.Description(
@@ -664,7 +685,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           applicationId: String,
       ): Map[PartyId, String] = {
         val secret = participant.config.ledgerApi.authServices
-          .collectFirst { case AuthServiceConfig.UnsafeJwtHmac256(secret, _, _) =>
+          .collectFirst { case AuthServiceConfig.UnsafeJwtHmac256(secret, _, _, _, _, _) =>
             secret.unwrap
           }
           .getOrElse("notasecret")

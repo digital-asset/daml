@@ -9,7 +9,7 @@ import com.daml.http.HttpServiceTestFixture.{authorizationHeader, postRequest}
 import com.daml.http.util.ClientUtil.uniqueId
 import com.daml.integrationtest.CantonRunner
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{DecodedJwt, Jwt}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.scalautil.ImplicitPreference
 import org.scalatest.OptionValues._

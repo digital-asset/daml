@@ -7,8 +7,10 @@ import cats.data.EitherT
 import cats.syntax.functorFilter.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
+import com.daml.tracing.DefaultOpenTelemetry
 import com.digitalasset.canton
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -108,6 +110,7 @@ abstract class CantonNodeBootstrapBase[
 
   protected val cryptoConfig = config.crypto
   protected val adminApiConfig = config.adminApi
+  protected def adminToken: Option[CantonAdminToken] = None
   protected val initConfig = config.init
   protected val tracerProvider = arguments.tracerProvider
   protected implicit val tracer: Tracer = tracerProvider.tracer
@@ -176,6 +179,8 @@ abstract class CantonNodeBootstrapBase[
         .valueOr(err => throw new RuntimeException(s"Failed to initialize crypto: $err"))
     )
 
+  protected val fallbackAdminToken: CantonAdminToken = CantonAdminToken.create(crypto.pureCrypto)
+
   // This absolutely must be a "def", because it is used during class initialization.
   protected def connectionPoolForParticipant: Boolean = false
 
@@ -197,6 +202,7 @@ abstract class CantonNodeBootstrapBase[
 
   // The admin-API services
   logger.info(s"Starting admin-api services on $adminApiConfig")
+  val openTelemetry = new DefaultOpenTelemetry(tracerProvider.openTelemetry)
   protected val (adminServer, adminServerRegistry) = {
     val builder = CantonServerBuilder
       .forConfig(
@@ -208,6 +214,8 @@ abstract class CantonNodeBootstrapBase[
         parameterConfig.loggingConfig.api,
         parameterConfig.tracing,
         arguments.metrics.grpcMetrics,
+        adminToken,
+        openTelemetry,
       )
 
     val registry = builder.mutableHandlerRegistry()

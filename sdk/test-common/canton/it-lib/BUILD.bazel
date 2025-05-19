@@ -28,6 +28,7 @@ da_scala_library(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:bindings-java",
+        "//canton:daml-common-staging_daml-jwt",
         "//canton:ledger_api_proto_scala",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
@@ -36,7 +37,6 @@ da_scala_library(
         "//ledger/ledger-api-common",
         "//ledger/ledger-api-domain",
         "//libs-scala/fs-utils",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/ports",
         "//libs-scala/ports:ports-testing",

@@ -24,7 +24,7 @@ import domain.{JwtPayloadG, JwtPayloadLedgerIdOnly, JwtPayloadTag, JwtWritePaylo
 import json._
 import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue}
 import scalaz.std.scalaFuture._

@@ -6,7 +6,7 @@ package com.daml.ledger.client
 import com.daml.grpc.GrpcException
 import com.daml.integrationtest.CantonFixture
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.DecodedJwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.auth.CustomDamlJWTPayload
 import com.daml.ledger.client.configuration.{

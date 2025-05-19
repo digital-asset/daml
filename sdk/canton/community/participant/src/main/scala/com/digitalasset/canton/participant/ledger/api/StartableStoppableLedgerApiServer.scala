@@ -12,9 +12,11 @@ import com.daml.ledger.api.v1.experimental_features.{
   ExperimentalExplicitDisclosure,
 }
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.lf.data.Ref
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.auth.CantonAdminTokenAuthService
 import com.digitalasset.canton.concurrent.{
   ExecutionContextIdlenessExecutorService,
   FutureSupervisor,
@@ -25,6 +27,7 @@ import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.http.HttpApiServer
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, UserRight}
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state.v2.metrics.{
@@ -50,6 +53,7 @@ import com.digitalasset.canton.platform.apiserver.ratelimiting.{
   RateLimitingInterceptor,
   ThreadpoolCheck,
 }
+import com.digitalasset.canton.platform.apiserver.services.admin.ApiUserManagementService
 import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, LedgerFeatures}
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.index.IndexServiceOwner
@@ -196,7 +200,7 @@ class StartableStoppableLedgerApiServer(
     val indexServiceConfig = config.serverConfig.indexService
 
     val authService = new CantonAdminTokenAuthService(
-      config.adminToken,
+      Some(config.adminToken),
       parent = config.serverConfig.authServices.map(
         _.create(
           config.cantonParameterConfig.ledgerApiServerParameters.jwtTimestampLeeway,
@@ -370,14 +374,13 @@ class StartableStoppableLedgerApiServer(
         keepAlive = config.serverConfig.keepAliveServer,
       )
       _ <- startHttpApiIfEnabled
-      _ <- {
-        config.serverConfig.userManagementService.additionalAdminUserId.fold(ResourceOwner.unit) {
-          rawUserId =>
-            ResourceOwner.forFuture { () =>
-              userManagementStore.createExtraAdminUser(rawUserId)
-            }
+      _ <- config.serverConfig.userManagementService.additionalAdminUserId
+        .fold(ResourceOwner.unit) { rawUserId =>
+          ResourceOwner.forFuture { () =>
+            createExtraAdminUser(rawUserId, userManagementStore)
+          }
         }
-      }
+
     } yield ()
   }
 
@@ -407,6 +410,31 @@ class StartableStoppableLedgerApiServer(
       maxRightsPerUser = config.serverConfig.userManagementService.maxRightsPerUser,
       loggerFactory = loggerFactory,
     )(executionContext, traceContext)
+
+  private def createExtraAdminUser(rawUserId: String, userManagementStore: UserManagementStore)(
+      implicit loggingContext: LoggingContextWithTrace
+  ): Future[Unit] = {
+    import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
+    val userId = Ref.UserId.assertFromString(rawUserId)
+    userManagementStore
+      .createUser(
+        user = domain.User(
+          id = userId,
+          primaryParty = None,
+          identityProviderId = IdentityProviderId.Default,
+        ),
+        rights = Set(UserRight.ParticipantAdmin),
+      )
+      .flatMap {
+        case Left(UserManagementStore.UserExists(_)) =>
+          logger.info(
+            s"Creating admin user with id $userId failed. User with this id already exists"
+          )
+          Future.successful(())
+        case other =>
+          ApiUserManagementService.handleResult("creating extra admin user")(other).map(_ => ())
+      }
+  }
 
   private def getInterceptors(
       indexerExecutor: QueueAwareExecutor & NamedExecutor
