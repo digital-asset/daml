@@ -105,12 +105,12 @@ Downloading Unifi
 
 Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
 respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__, or you can use
-our Canton Enterprise Docker images as described in our :externalref:`Docker instructions <docker-instructions>`.
+our Canton Enterprise Docker images as described in our :brokenref:`Docker instructions <docker-instructions>`.
 
 
 Downloading the Open Source Edition
 ***********************************
 
 The Open Source release is available from `Github <https://github.com/digital-asset/daml/releases/latest>`__.
-You can also use our Canton Docker images by following our :externalref:`Docker instructions <docker-instructions>`.
+You can also use our Canton Docker images by following our :brokenref:`Docker instructions <docker-instructions>`.
 

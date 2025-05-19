@@ -21,7 +21,7 @@ Synchronizer-aware projection
 
 Certain Daml ledgers can interoperate with other Daml ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
-Some Participant Nodes can connect to multiple ledgers and provide their parties unified access to those ledgers via the :ref:`Ledger API <ledger-api-services>`.
+Some Participant Nodes can connect to multiple ledgers and provide their parties unified access to those ledgers via the :externalref:`Ledger API <ledger-api-services>`.
 For example, when an organization initially deploys two workflows to two Daml ledgers, it can later compose those workflows into a larger workflow that spans both ledgers.
 
 Interoperability may limit the visibility a Participant Node has into a party's ledger projection, i.e., its :ref:`local ledger <local-ledger>`, when the party is hosted on multiple Participant Nodes.
@@ -31,7 +31,7 @@ This document explains the visibility limitations due to interoperability and th
 
 The presentation assumes that you are familiar with the following concepts:
 
-* The :ref:`Ledger API <ledger-api-services>`
+* The :externalref:`Ledger API <ledger-api-services>`
 
 * The :ref:`Daml Ledger Model <da-ledgers>`
 
