@@ -165,7 +165,7 @@ jobs:
           fi
 
   - job: update_canton
-    condition: not(eq(variables['Build.SourceBranchName'], 'not-main'))
+    condition: false # not(eq(variables['Build.SourceBranchName'], 'not-main'))
     timeoutInMinutes: 60
     pool:
       name: ubuntu_20_04
