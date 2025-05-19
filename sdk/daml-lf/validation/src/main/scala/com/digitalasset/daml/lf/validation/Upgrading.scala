@@ -8,13 +8,12 @@ import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion}
-import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.daml.lf.language.Util
 
 import cats.implicits._
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
+import com.daml.error.{ContextualizedErrorLogger}
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -334,8 +333,9 @@ abstract class TypecheckUpgradesUtils(
     val packageMap: Map[
       Ref.PackageId,
       (Ref.PackageName, Ref.PackageVersion),
-    ]
-) extends NamedLogging {
+    ],
+    val logger: ContextualizedErrorLogger,
+) {
   protected def getIfUpgradeable(
       pkgId: Ref.PackageId
   ): Option[(Ref.PackageName, Ref.PackageVersion)] = {
@@ -351,9 +351,7 @@ abstract class TypecheckUpgradesUtils(
   protected def fail[A](err: UpgradeError.Error): Try[A] =
     Failure(UpgradeError(err))
 
-  protected def warn(err: UpgradeError.Error)(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Unit =
+  protected def warn(err: UpgradeError.Error): Unit =
     logger.warn(s"Warning while typechecking upgrades: ${err.message}")
 
   protected def tryAll[A, B](t: Iterable[A], f: A => Try[B]): Try[Seq[B]] =
@@ -439,7 +437,7 @@ object TypecheckUpgrades {
 }
 
 case class TypecheckUpgrades(
-    val loggerFactory: NamedLoggerFactory
+    val logger: ContextualizedErrorLogger
 ) {
   private def typecheckUpgradesStandalone(
       packageMap: Map[
@@ -450,15 +448,13 @@ case class TypecheckUpgrades(
           Util.PkgIdWithNameAndVersion,
           Ast.Package,
       ),
-  )(implicit
-      loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
     val (presentPackageId, presentPkg) = present
     val tc =
       TypecheckUpgradesStandalone(
         (presentPackageId.pkgId, presentPkg),
         packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version)),
-        loggerFactory,
+        logger,
       )
     tc.check()
   }
@@ -484,7 +480,7 @@ case class TypecheckUpgrades(
       packageMap
         + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version))
         + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version)),
-      loggerFactory,
+      logger,
     )
     tc.check()
   }
@@ -500,8 +496,6 @@ case class TypecheckUpgrades(
             Ast.Package,
         )
       ],
-  )(implicit
-      loggingContext: LoggingContextWithTrace
   ): Try[Unit] = {
     phase match {
       case p: TypecheckUpgrades.MaximalDarCheck[_] =>
@@ -520,12 +514,10 @@ case class TypecheckUpgradesStandalone(
       Ref.PackageId,
       (Ref.PackageName, Ref.PackageVersion),
     ],
-    val loggerFactory: NamedLoggerFactory,
-) extends TypecheckUpgradesUtils(packageMap = packageMap) {
+    override val logger: ContextualizedErrorLogger,
+) extends TypecheckUpgradesUtils(packageMap = packageMap, logger = logger) {
 
-  def check()(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Try[Unit] = {
+  def check(): Try[Unit] = {
     for {
       mod <- pkg._2.modules.values
       (tplName, template) <- mod.templates
@@ -555,8 +547,8 @@ case class TypecheckUpgradesPair(
       Ref.PackageId,
       (Ref.PackageName, Ref.PackageVersion),
     ],
-    val loggerFactory: NamedLoggerFactory,
-) extends TypecheckUpgradesUtils(packageMap = packageMap) {
+    override val logger: ContextualizedErrorLogger,
+) extends TypecheckUpgradesUtils(packageMap = packageMap, logger = logger) {
   private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
 
   def check(): Try[Unit] = {

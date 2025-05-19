@@ -5,7 +5,8 @@ package com.digitalasset.canton.participant.admin
 
 import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf.Archive
-import com.daml.error.DamlError
+import com.daml.error.{DamlError, DamlContextualizedErrorLogger}
+import com.daml.logging.{ContextualizedLogger}
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Util.{PkgIdWithNameAndVersion, dependenciesInTopologicalOrder}
@@ -246,7 +247,7 @@ class PackageUpgradeValidator(
           }
           EitherT(
             Future(
-              TypecheckUpgrades(loggerFactory)
+              TypecheckUpgrades(new DamlContextualizedErrorLogger(ContextualizedLogger.createFor(logger.underlying.getName), loggingContext, None))
                 .typecheckUpgrades(
                   packageMap,
                   phase,
