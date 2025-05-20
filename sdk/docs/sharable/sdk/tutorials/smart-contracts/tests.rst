@@ -18,7 +18,7 @@ If you no longer have your projects set up, load all the code for this parts 1 a
 Daml Test Tooling
 -----------------
 
-There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The :doc:`9_Dependencies` model lends itself well to being tested using these tools.
+There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The :doc:`dependencies` model lends itself well to being tested using these tools.
 
 :ref:`Daml Script <daml-script>`
 
@@ -168,7 +168,7 @@ When ``daml test`` runs a set of tests, it analyzes the ledger record from those
 
 You can also save the resulting coverage results for the test set to a file and then read them back into a future report. In an invocation of ``daml test``, you can both read results in and run tests simultaneously in order to generate a final report which aggregates them. More details on the workflows that this enables are detailed in `Serializing Results Workflows`_.
 
-.. figure:: images/12_Testing/coverage_workflow.png
+.. figure:: images/tests/coverage_workflow.png
    :alt: Flow chart visually explaining sources and sinks for coverage results.
 
 Flags Controlling Test Set
@@ -644,7 +644,3 @@ Excluding Choices from Serialized Reports
 
 To ensure that serialized data always reflects full coverage information, the flag does **not** eliminate the choices from serialization using the ``--save-coverage`` flag. Serialized reports saved to a file always contain all information collected. The ``--coverage-ignore-choice`` flag only excludes choices from the printed report. For any text report generated from serialized data, you must specify ``--coverage-ignore-choice`` every time it is generated.
 
-Next Up
--------
-
-There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. In section 13, :doc:`Interfaces <13_Interfaces>` we will cover the use of interfaces, a feature which aids code reuse across your Daml programs.

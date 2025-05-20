@@ -4,7 +4,7 @@
 The Daml Standard Library
 =========================
 
-In :doc:`3_Data` and :doc:`10_Functional101` you learned how to define your own data types and functions. However, you don't have to implement everything from scratch. Daml comes with the :ref:`Daml Standard Library <stdlib-reference-base>`, which contains types, functions, and typeclasses that cover a large range of use cases.
+In :doc:`data` and :doc:`functional-101` you learned how to define your own data types and functions. However, you don't have to implement everything from scratch. Daml comes with the :ref:`Daml Standard Library <stdlib-reference-base>`, which contains types, functions, and typeclasses that cover a large range of use cases.
 
 In this chapter, you'll get an overview of the essentials and learn how to browse and search the library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
@@ -41,7 +41,7 @@ Tuples
 In addition to the 2-tuple you have already seen, the Prelude contains definitions for tuples of size up to 15.
 Tuples allow you to store mixed data in an ad-hoc fashion. Common use-cases are return values from functions
 consisting of several pieces or passing around data in folds, as you saw in :ref:`folds`. 
-An example of a relatively wide Tuple can be found in the test modules of the :doc:`8_Exceptions` project.
+An example of a relatively wide Tuple can be found in the test modules of the :doc:`exceptions` project.
 ``Test.Intro.Asset.TradeSetup.tradeSetup`` returns the allocated parties and active contracts in a long tuple.
 ``Test.Intro.Asset.MultiTrade.testMultiTrade`` puts them back into scope using pattern matching:
 
@@ -100,7 +100,7 @@ Either
 Typeclasses
 -----------
 
-You've seen typeclasses in use all the way from :doc:`3_Data`. It's now time to look under the hood.
+You've seen typeclasses in use all the way from :doc:`data`. It's now time to look under the hood.
 
 Typeclasses are declared using the ``class`` keyword:
 
@@ -124,7 +124,7 @@ Important Typeclasses From the Prelude
 Eq
 ...
 
-The ``Eq`` typeclass allows values of a type to be compared for (in)-equality. It makes available two function: ``==`` and ``/=``. Most data types from the Standard Library have an instance of ``Eq``. As you already learned in :doc:`3_Data`, you can let the compiler automatically derive instances of ``Eq`` for you using the ``deriving`` keyword.
+The ``Eq`` typeclass allows values of a type to be compared for (in)-equality. It makes available two function: ``==`` and ``/=``. Most data types from the Standard Library have an instance of ``Eq``. As you already learned in :doc:`data`, you can let the compiler automatically derive instances of ``Eq`` for you using the ``deriving`` keyword.
 
 Templates always have an ``Eq`` instance, and all types stored on a template need to have one.
 
@@ -148,12 +148,12 @@ Other classic examples of Functors are Sets, Maps, Trees, etc.
 Applicative Functor
 ...................
 
-:ref:`Applicative Functors <class-da-internal-prelude-applicative-9257>` are a bit like Actions, which you met in :doc:`5_Constraints`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in Daml is the ``Commands`` type submitted in a ``submit`` block in Daml Script. That's why in order to use ``do`` notation in Daml Script, you have to enable the ``ApplicativeDo`` language extension.
+:ref:`Applicative Functors <class-da-internal-prelude-applicative-9257>` are a bit like Actions, which you met in :doc:`constraints`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in Daml is the ``Commands`` type submitted in a ``submit`` block in Daml Script. That's why in order to use ``do`` notation in Daml Script, you have to enable the ``ApplicativeDo`` language extension.
 
 Actions
 .......
 
-:ref:`Actions <class-da-internal-prelude-action-68790>` were already covered in :doc:`5_Constraints`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
+:ref:`Actions <class-da-internal-prelude-action-68790>` were already covered in :doc:`constraints`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
 
 The really important Actions in Daml are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
 
@@ -237,7 +237,7 @@ You may notice that in the search results you also get some hits that don't ment
 
 The reason is that there is an instance for ``Foldable [a]``.
 
-Let's try another search. Suppose you didn't want the first element, but the one at index ``n``. Remember that ``(!!)`` operator from :doc:`10_Functional101`? There are now two possible signatures we could search for:  ``[a] -> Int -> a`` and ``Int -> [a] -> a``. Try searching for both. You'll see that the search returns ``(!!)`` in both cases. You don't have to worry about the order of arguments.
+Let's try another search. Suppose you didn't want the first element, but the one at index ``n``. Remember that ``(!!)`` operator from :doc:`functional-101`? There are now two possible signatures we could search for:  ``[a] -> Int -> a`` and ``Int -> [a] -> a``. Try searching for both. You'll see that the search returns ``(!!)`` in both cases. You don't have to worry about the order of arguments.
 
 Next Up
 -------

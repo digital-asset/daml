@@ -9,7 +9,7 @@ In this chapter, you will learn more about expressing complex logic in a functio
 - Function signatures and functions
 - Advanced control flow (``if...else``, folds, recursion, ``when``)
 
-If you no longer have your :doc:`7_Composing` and :doc:`9_Dependencies` projects set up, and want to look back at the code, please follow the setup instructions in :doc:`9_Dependencies` to get hold of the code for this chapter.
+If you no longer have your :doc:`compose` and :doc:`dependencies` projects set up, and want to look back at the code, please follow the setup instructions in :doc:`dependencies` to get hold of the code for this chapter.
 
 .. note::
 
@@ -39,7 +39,7 @@ When comparing Daml to Haskell it's worth noting:
 Functions
 ---------
 
-In :doc:`3_Data` you learnt about one half of Daml's type system: Data types. It's now time to learn about the other, which are Function types. Function types in Daml can be spotted by looking for ``->`` which can be read as "maps to".
+In :doc:`data` you learnt about one half of Daml's type system: Data types. It's now time to learn about the other, which are Function types. Function types in Daml can be spotted by looking for ``->`` which can be read as "maps to".
 
 For example, the function signature ``Int -> Int`` maps an integer to another integer. There are many such functions, but one would be:
 
@@ -59,7 +59,7 @@ In the case of ``increment`` it could have been omitted. Similarly, we could def
 
 If you do this, and wonder what type the compiler has inferred, you can hover over the function name in the IDE:
 
-.. figure:: images/9_Functional101/signature.png
+.. figure:: images/functional-101/signature.png
    :alt: The user has hovered over the function "add", displaying its type and information on where to find the definition.
 
 What you see here is a slightly more complex signature:
@@ -121,7 +121,7 @@ If we want to partially apply an infix operation we can also do that as follows:
 Type Constraints
 ................
 
-The ``Additive a =>`` part of the signature of ``add`` is a type constraint on the type parameter ``a``. ``Additive`` here is a typeclass. You already met typeclasses like ``Eq`` and ``Show`` in :doc:`3_Data`. The ``Additive`` typeclass says that you can add a thing, i.e. there is a function ``(+) : a -> a -> a``. Now the way to read the full signature of ``add`` is "Given that ``a`` has an instance for the ``Additive`` typeclass, ``a`` maps to a function which maps ``a`` to ``a``".
+The ``Additive a =>`` part of the signature of ``add`` is a type constraint on the type parameter ``a``. ``Additive`` here is a typeclass. You already met typeclasses like ``Eq`` and ``Show`` in :doc:`data`. The ``Additive`` typeclass says that you can add a thing, i.e. there is a function ``(+) : a -> a -> a``. Now the way to read the full signature of ``add`` is "Given that ``a`` has an instance for the ``Additive`` typeclass, ``a`` maps to a function which maps ``a`` to ``a``".
 
 Typeclasses in Daml are a bit like interfaces in other languages. To be able to add two things using the ``+`` function, those things need to "expose" (have an instance for) the ``Additive`` interface (typeclass).
 
@@ -145,7 +145,7 @@ Using single letters, while common, is not mandatory. The above may be made a li
 Pattern Matching in Arguments
 .............................
 
-You met pattern matching in :doc:`3_Data`, using ``case`` expressions which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
+You met pattern matching in :doc:`data`, using ``case`` expressions which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
@@ -176,7 +176,7 @@ The above will give you a warning:
 
 A function that does not cover all its cases, like ``fromSome`` here, is called a *partial* function. ``fromSome None`` will cause a runtime error.
 
-We can use function level pattern matching together with a feature called *Record Wildcards* to write the function ``issueAsset`` in :doc:`9_Dependencies`:
+We can use function level pattern matching together with a feature called *Record Wildcards* to write the function ``issueAsset`` in :doc:`dependencies`:
 
 .. literalinclude:: daml/daml-intro-9/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
@@ -203,7 +203,7 @@ You have probably already guessed it: Anywhere you can put a value in Daml you c
   :start-after: -- FUNCTION_IN_DATA_BEGIN
   :end-before: -- FUNCTION_IN_DATA_END
 
-More often it makes sense to define functions locally, inside a ``let`` clause or similar. Good examples of this are the ``validate`` and ``transfer`` functions defined locally in the ``Trade_Settle`` choice of the  model from :doc:`9_Dependencies`:
+More often it makes sense to define functions locally, inside a ``let`` clause or similar. Good examples of this are the ``validate`` and ``transfer`` functions defined locally in the ``Trade_Settle`` choice of the  model from :doc:`dependencies`:
 
 .. literalinclude:: daml/daml-intro-9/daml/Intro/Asset/MultiTrade.daml
   :language: daml
@@ -235,12 +235,12 @@ In this section, we will cover branching and looping, and look at a few common p
 Branching
 .........
 
-Until :doc:`7_Composing` the only real kind of control flow introduced has been ``case``, which is a powerful tool for branching.
+Until :doc:`compose` the only real kind of control flow introduced has been ``case``, which is a powerful tool for branching.
 
 If ... Else
 ~~~~~~~~~~~
 
-:doc:`5_Constraints` also showed a seemingly self-explanatory ``if ... else`` expression, but didn't explain it further. Let's implement the function ``boolToInt : Bool -> Int`` which in typical fashion maps ``True`` to ``1`` and ``False`` to ``0``. Here is an implementation using ``case``:
+:doc:`constraints` also showed a seemingly self-explanatory ``if ... else`` expression, but didn't explain it further. Let's implement the function ``boolToInt : Bool -> Int`` which in typical fashion maps ``True`` to ``1`` and ``False`` to ``0``. Here is an implementation using ``case``:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
@@ -476,7 +476,7 @@ You may be tempted to make ``reverseWorker`` a local definition inside ``reverse
 Folds and Maps in Action Contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The folds and ``map`` function above are pure in the sense introduced in :doc:`5_Constraints`: The functions used to map or process items have no side effects. If you have looked at the :doc:`9_Dependencies` models, you'll have noticed ``mapA``, ``mapA_``, and ``forA``, which seem to serve a similar role but within ``Action``\ s . A good example is the ``mapA`` call in the ``testMultiTrade`` script:
+The folds and ``map`` function above are pure in the sense introduced in :doc:`constraints`: The functions used to map or process items have no side effects. If you have looked at the :doc:`dependencies` models, you'll have noticed ``mapA``, ``mapA_``, and ``forA``, which seem to serve a similar role but within ``Action``\ s . A good example is the ``mapA`` call in the ``testMultiTrade`` script:
 
 .. literalinclude:: daml/daml-intro-9/daml/Test/Intro/Asset/MultiTrade.daml
   :language: daml
@@ -513,4 +513,4 @@ Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. 
 Next Up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`9_Dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`11_StdLib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.

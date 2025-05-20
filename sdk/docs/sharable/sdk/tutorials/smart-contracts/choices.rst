@@ -41,7 +41,7 @@ Let's unpack the code snippet above:
 
 There is nothing here explicitly saying that the current ``Contact`` should be archived. That's because choices are *consuming* by default. That means when the above choice is exercised on a contract, that contract is archived.
 
-As mentioned in :doc:`3_Data`, within a choice we use ``create``
+As mentioned in :doc:`data`, within a choice we use ``create``
 instead of ``createCmd``. Whereas ``createCmd`` builds up a list of
 commands to be sent to the ledger, ``create`` builds up a more
 flexible ``Update`` that is executed directly by the ledger. You might
@@ -101,7 +101,7 @@ If you open the script view in the IDE, you will notice that Bob sees the ``Cont
 Choices In the Ledger Model
 ---------------------------
 
-In :doc:`1_Contracts` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
+In :doc:`contracts` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
 A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch`` and ``key assertion``.
 
@@ -176,7 +176,7 @@ You may have noticed that there is no archive action. That's because ``archive c
 A Simple Cash Model
 -------------------
 
-With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`3_Data` as it's not concerned with the location of the physical cash, but merely with liabilities:
+With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`data` as it's not concerned with the location of the physical cash, but merely with liabilities:
 
 .. literalinclude:: daml/daml-intro-4/daml/SimpleIou.daml
   :language: daml
@@ -188,4 +188,4 @@ Next Up
 
 You can now store and transform data on the ledger, even giving other parties specific write access through choices.
 
-In :doc:`5_Constraints`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on Daml ledgers, ``do`` blocks and ``<-`` notation within those.
+In :doc:`constraints`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on Daml ledgers, ``do`` blocks and ``<-`` notation within those.

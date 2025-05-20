@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _basic-contracts:
+
 Basic Contracts
 ===============
 
@@ -74,4 +76,4 @@ Furthermore, Daml ledgers *guarantee* that parties see all transactions where th
 Next Up
 -------
 
-In :doc:`2_DamlScript`, you'll learn about how to try out the ``Token`` contract template in Daml's inbuilt Daml Script testing language.
+In :doc:`daml-scripts`, you'll learn about how to try out the ``Token`` contract template in Daml's inbuilt Daml Script testing language.
