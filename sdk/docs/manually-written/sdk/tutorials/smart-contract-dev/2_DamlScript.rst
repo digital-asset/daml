@@ -65,12 +65,12 @@ There are a few ways to run Daml Scripts:
 
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on that text to display the outcome of the script.
 
-.. figure:: images/2_Scenario/scenario_results1.png
+.. figure:: images/2_DamlScript/scenario_results1.png
    :alt: Script results indicating that a token has been created for Alice.
 
 This opens the script view in a separate column in VS Code. The default view is a tabular representation of the final state of the ledger:
 
-.. figure:: images/2_Scenario/tabular_view1.png
+.. figure:: images/2_DamlScript/tabular_view1.png
    :alt: The script view as a separate column, with a table that shows Alice's token. Full display explained immediately below.
 
 What this display means:
@@ -101,7 +101,7 @@ In :doc:`1_Contracts` you learned that creating a ``Token`` requires the authori
 
 However, if you open the script view for that script, you see the following message:
 
-.. figure:: images/2_Scenario/failure.png
+.. figure:: images/2_DamlScript/failure.png
    :alt: Script failure message indicating that the script failed due to a missing authorization from Bob.
 
 The script failed, as expected, but scripts abort at the first failure. This means that it only tested that Alice cannot create a token for Bob; the second ``submit`` statement was never reached.
@@ -115,7 +115,7 @@ To test for failing submits and keep the script running thereafter, or fail if t
 
 ``submitMustFail`` never has an impact on the ledger, so the resulting tabular script view only shows the two tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' tokens.
 
-.. figure:: images/2_Scenario/failuretable.png
+.. figure:: images/2_DamlScript/failuretable.png
    :alt: The script view as a separate column with table again. This time there is a column and a row for Bob, as well as Alice. Alice cannot see Bob's tokens and Bob cannot see Alice's tokens, but each can see their own tokens.
 
 .. _archiving:
@@ -148,14 +148,14 @@ View the Ledger and Ledger History
 
 Once you archive the contract the resulting script view is empty; there are no contracts left on the ledger. If you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
-.. figure:: images/2_Scenario/archived.png
+.. figure:: images/2_DamlScript/archived.png
    :alt: The script view as a separate column, with the Show Archived checkbox selected.
 
 You can see that there was a ``Token`` contract, which is now archived, indicated both by the "archived" value in the ``status`` column as well as by a strikethrough.
 
 Click on the adjacent "Show transaction view" button to see the entire transaction graph:
 
-.. figure:: images/2_Scenario/tx_graph.png
+.. figure:: images/2_DamlScript/tx_graph.png
    :alt: The transaction view with the transaction's information from the point of its creation to exercise.
 
 In the Daml Studio script runner, committed transactions are numbered sequentially. In the image above, the lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
