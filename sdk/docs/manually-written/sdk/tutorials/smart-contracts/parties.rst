@@ -19,7 +19,7 @@ In this section you will learn about Daml's authorization rules and how to devel
 Preventing IOU Revocation
 -------------------------
 
-The ``SimpleIou`` contract from :doc:`transformations` and :doc:`constraints` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back:
+The ``SimpleIou`` contract from :doc:`choices` and :doc:`constraints` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
