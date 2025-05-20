@@ -644,7 +644,3 @@ Excluding Choices from Serialized Reports
 
 To ensure that serialized data always reflects full coverage information, the flag does **not** eliminate the choices from serialization using the ``--save-coverage`` flag. Serialized reports saved to a file always contain all information collected. The ``--coverage-ignore-choice`` flag only excludes choices from the printed report. For any text report generated from serialized data, you must specify ``--coverage-ignore-choice`` every time it is generated.
 
-Next Up
--------
-
-There's little more to learn about writing Daml at this point that isn't best learned by practice and consulting reference material for both Daml and Haskell. In section 13, :doc:`Interfaces <13_Interfaces>` we will cover the use of interfaces, a feature which aids code reuse across your Daml programs.
