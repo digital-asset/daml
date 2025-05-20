@@ -4,9 +4,9 @@
 Data Types
 ==========
 
-In :doc:`1_Contracts`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
+In :doc:`contracts`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
 
-In :doc:`2_DamlScript`, you learnt about the script view in Daml Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
+In :doc:`daml-scripts`, you learnt about the script view in Daml Studio, which displays the current ledger state. It shows one table per template, with one row per contract of that type and one column per field in the arguments.
 
 This actually provides a useful way of thinking about templates: like tables in databases. Templates specify a data schema for the ledger:
 
@@ -34,7 +34,7 @@ After this section, you should be able to use a Daml ledger as a simple database
 Native Types
 ------------
 
-You have already encountered a few native Daml types: ``Party`` in :doc:`1_Contracts`, and ``Text`` and ``ContractId`` in :doc:`2_DamlScript`. Here are those native types and more:
+You have already encountered a few native Daml types: ``Party`` in :doc:`contracts`, and ``Text`` and ``ContractId`` in :doc:`daml-scripts`. Here are those native types and more:
 
 - ``Party``
   Stores the identity of an entity that is able to act on the ledger, in the sense that they can sign contracts and submit transactions. In general, ``Party`` is opaque.
@@ -226,7 +226,7 @@ You have already met the type ``ContractId a``, which references a contract of t
 
 The script above uses the ``queryContractId`` function, which retrieves the arguments of an active contract using its contract ID. If there is no active contract with the given identifier visible to the given party, ``queryContractId`` returns ``None``. Here, we use a pattern match on ``Some`` which will abort the script if ``queryContractId`` returns ``None``.
 
-Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`7_Composing`.
+Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`composing`.
 
 You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time:
 
@@ -247,4 +247,4 @@ Next Up
 
 You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.
 
-In :doc:`4_Transformations` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.
+In :doc:`transformations` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.

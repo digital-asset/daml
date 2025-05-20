@@ -6,7 +6,7 @@
 Test Templates Using Daml Script
 ================================
 
-In this section we test the ``Token`` model from :doc:`1_Contracts` using the :ref:`Daml Script <daml-script>` integration in :ref:`Daml Studio <script-results>`. This includes:
+In this section we test the ``Token`` model from :doc:`contracts` using the :ref:`Daml Script <daml-script>` integration in :ref:`Daml Studio <script-results>`. This includes:
 
 - Script basics
 - Running scripts
@@ -39,7 +39,7 @@ Before you can create any ``Token`` contracts, you need some parties on the test
 
 - Use of ``<-`` instead of ``=``.
 
-  The reason for this is that ``allocateParty`` is an ``Action`` that can only be performed once the ``Script`` is run in the context of a ledger. ``<-`` means "run the action and bind the result". It can only be run in that context because, depending on the ledger state, ``allocateParty`` gives you back a party with the name you specified or appends a suffix to that name if such a party has already been allocated. You can read more about ``Actions`` and ``do`` blocks in :doc:`5_Constraints`.
+  The reason for this is that ``allocateParty`` is an ``Action`` that can only be performed once the ``Script`` is run in the context of a ledger. ``<-`` means "run the action and bind the result". It can only be run in that context because, depending on the ledger state, ``allocateParty`` gives you back a party with the name you specified or appends a suffix to that name if such a party has already been allocated. You can read more about ``Actions`` and ``do`` blocks in :doc:`constraints`.
 
 
   If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
@@ -49,7 +49,7 @@ With a variable ``alice`` of type ``Party`` in hand, you can submit your first t
 
 Just like ``Script`` is a recipe for a test, ``Commands`` is a recipe for a transaction. ``createCmd Token with owner = alice`` is a ``Commands``, which translates to a list of commands to be submitted to the ledger. These commands create a transaction which in turns creates a ``Token`` with owner Alice.
 
-You'll learn all about the syntax ``Token with owner = alice`` in :doc:`3_Data`.
+You'll learn all about the syntax ``Token with owner = alice`` in :doc:`data`.
 
 You could write this as ``submit alice (createCmd Token with owner = alice)``, but as with scripts, you can assemble commands using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the commands above gives the same result, whilst being easier to read. Note, however, that the commands submitted as part of a transaction are not allowed to depend on each other.
 
@@ -65,12 +65,12 @@ There are a few ways to run Daml Scripts:
 
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on that text to display the outcome of the script.
 
-.. figure:: images/2_DamlScript/scenario_results1.png
+.. figure:: images/daml-scripts/scenario_results1.png
    :alt: Script results indicating that a token has been created for Alice.
 
 This opens the script view in a separate column in VS Code. The default view is a tabular representation of the final state of the ledger:
 
-.. figure:: images/2_DamlScript/tabular_view1.png
+.. figure:: images/daml-scripts/tabular_view1.png
    :alt: The script view as a separate column, with a table that shows Alice's token. Full display explained immediately below.
 
 What this display means:
@@ -92,7 +92,7 @@ To run the same test from the command line, save your module in a file ``Token_T
 Test for Failure
 ----------------
 
-In :doc:`1_Contracts` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a token for another party, e.g. Bob, or vice versa. A reasonable attempt to test that would be:
+In :doc:`contracts` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a token for another party, e.g. Bob, or vice versa. A reasonable attempt to test that would be:
 
 .. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
   :language: daml
@@ -101,7 +101,7 @@ In :doc:`1_Contracts` you learned that creating a ``Token`` requires the authori
 
 However, if you open the script view for that script, you see the following message:
 
-.. figure:: images/2_DamlScript/failure.png
+.. figure:: images/daml-scripts/failure.png
    :alt: Script failure message indicating that the script failed due to a missing authorization from Bob.
 
 The script failed, as expected, but scripts abort at the first failure. This means that it only tested that Alice cannot create a token for Bob; the second ``submit`` statement was never reached.
@@ -115,7 +115,7 @@ To test for failing submits and keep the script running thereafter, or fail if t
 
 ``submitMustFail`` never has an impact on the ledger, so the resulting tabular script view only shows the two tokens resulting from the successful ``submit`` statements. Note the new column for Bob as well as the visibilities. Alice and Bob cannot see each others' tokens.
 
-.. figure:: images/2_DamlScript/failuretable.png
+.. figure:: images/daml-scripts/failuretable.png
    :alt: The script view as a separate column with table again. This time there is a column and a row for Bob, as well as Alice. Alice cannot see Bob's tokens and Bob cannot see Alice's tokens, but each can see their own tokens.
 
 .. _archiving:
@@ -127,14 +127,14 @@ Archiving contracts is the counterpart to creating contracts. Contracts are immu
 
 To archive a contract, use ``archiveCmd`` instead of ``createCmd``. Whereas ``createCmd`` takes an instance of a template, ``archiveCmd`` takes a reference to a created contract. Archiving requires authorization from controllers.
 
-Contracts are also archived whenever a `consuming choice </daml/intro/4_Transformations.html#choices-in-the-ledger-model>`_ is exercised.
+Contracts are also archived whenever a `consuming choice </daml/intro/transformations.html#choices-in-the-ledger-model>`_ is exercised.
 
 .. important::
     Archive choices are present on all templates and cannot be removed.
 
 References to contracts have the type ``ContractId a``, where ``a`` is a *type parameter* representing the template type of the contract that the id refers to. For example, a reference to a ``Token`` would be a ``ContractId Token``.
 
-To ``archiveCmd`` the token Alice has created, you need the contract id. Retrieve the contract id from the ledger with the ``<-`` notation. How this works is discussed in :doc:`5_Constraints`.
+To ``archiveCmd`` the token Alice has created, you need the contract id. Retrieve the contract id from the ledger with the ``<-`` notation. How this works is discussed in :doc:`constraints`.
 
 This script first checks that Bob cannot archive Alice's token. Then Alice successfully archives it:
 
@@ -148,14 +148,14 @@ View the Ledger and Ledger History
 
 Once you archive the contract the resulting script view is empty; there are no contracts left on the ledger. If you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
-.. figure:: images/2_DamlScript/archived.png
+.. figure:: images/daml-scripts/archived.png
    :alt: The script view as a separate column, with the Show Archived checkbox selected.
 
 You can see that there was a ``Token`` contract, which is now archived, indicated both by the "archived" value in the ``status`` column as well as by a strikethrough.
 
 Click on the adjacent "Show transaction view" button to see the entire transaction graph:
 
-.. figure:: images/2_DamlScript/tx_graph.png
+.. figure:: images/daml-scripts/tx_graph.png
    :alt: The transaction view with the transaction's information from the point of its creation to exercise.
 
 In the Daml Studio script runner, committed transactions are numbered sequentially. In the image above, the lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
@@ -185,4 +185,4 @@ To get a better understanding of script, try the following exercises:
 Next Up
 -------
 
-In :doc:`3_Data` you will learn about Daml's type system, and how you can think of templates as tables and contracts as database rows.
+In :doc:`data` you will learn about Daml's type system, and how you can think of templates as tables and contracts as database rows.

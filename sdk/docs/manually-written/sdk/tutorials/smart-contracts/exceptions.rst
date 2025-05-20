@@ -10,7 +10,7 @@ is not always appropriate. In some cases, it makes sense to recover
 from an error and continue the transaction instead of aborting it.
 
 One option for doing that is to represent errors explicitly via
-``Either`` or ``Option`` as shown in :doc:`3_Data`. This approach has
+``Either`` or ``Option`` as shown in :doc:`data`. This approach has
 the advantage that it is very explicit about which operations are
 allowed to fail without aborting the entire transaction. However, it
 also has two major downsides. First, it can
@@ -163,7 +163,7 @@ Next Up
 
 We have now seen how to develop safe models and how we can handle
 errors in those models in a robust and simple way. But the journey
-doesn't stop there. In :doc:`9_Dependencies` you will learn how to
+doesn't stop there. In :doc:`dependencies` you will learn how to
 extend an already running application to enhance it with new
 features. In that context you'll learn a bit more about the
 architecture of Daml, about dependencies, and about identifiers.

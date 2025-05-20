@@ -19,7 +19,7 @@ In this section you will learn about Daml's authorization rules and how to devel
 Preventing IOU Revocation
 -------------------------
 
-The ``SimpleIou`` contract from :doc:`4_Transformations` and :doc:`5_Constraints` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back:
+The ``SimpleIou`` contract from :doc:`transformations` and :doc:`constraints` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
@@ -103,7 +103,7 @@ Use Role Contracts for Ongoing Authorization
 
 Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in Daml through relationship or role contracts.
 
-Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`7_Composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
+Jointly, an ``owner`` and ``newOwner`` can transfer an asset, as demonstrated in the script above. In :doc:`composing`, you will see how to compose the ``ProposeTransfer`` and ``IouTransferProposal_Accept`` choices into a single new choice, but for now, here is a different way. You can give them the joint right to transfer an IOU:
 
 .. literalinclude:: daml/daml-intro-6/daml/Parties.daml
   :language: daml
@@ -213,4 +213,4 @@ Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's auth
 Next Up
 -------
 
-In :doc:`7_Composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :brokenref:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.
+In :doc:`composing` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :brokenref:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.

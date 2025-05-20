@@ -9,7 +9,7 @@ You will often want to constrain the data stored or the allowed data transformat
 - The ``ensure`` keyword.
 - The ``assert``, ``abort`` and ``error`` keywords.
 
-To make sense of the latter, you'll also learn more about the ``Update`` and ``Script`` types and ``do`` blocks, which will be good preparation for :doc:`7_Composing`, where you will use ``do`` blocks to compose choices into complex transactions.
+To make sense of the latter, you'll also learn more about the ``Update`` and ``Script`` types and ``do`` blocks, which will be good preparation for :doc:`composing`, where you will use ``do`` blocks to compose choices into complex transactions.
 
 Lastly, you will learn about time on the ledger and in Daml Script.
 
@@ -275,4 +275,4 @@ The big downside to this is that even unused errors cause failures. The followin
 Next Up
 -------
 
-You can now specify a precise data and data-transformation model for Daml ledgers. In :doc:`6_Parties`, you will learn how to properly involve multiple parties in contracts, how authority works in Daml, and how to build contract models with strong guarantees in contexts with mutually distrusting entities.
+You can now specify a precise data and data-transformation model for Daml ledgers. In :doc:`parties`, you will learn how to properly involve multiple parties in contracts, how authority works in Daml, and how to build contract models with strong guarantees in contexts with mutually distrusting entities.

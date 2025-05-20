@@ -74,4 +74,4 @@ Furthermore, Daml ledgers *guarantee* that parties see all transactions where th
 Next Up
 -------
 
-In :doc:`2_DamlScript`, you'll learn about how to try out the ``Token`` contract template in Daml's inbuilt Daml Script testing language.
+In :doc:`daml-scripts`, you'll learn about how to try out the ``Token`` contract template in Daml's inbuilt Daml Script testing language.

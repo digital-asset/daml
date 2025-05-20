@@ -16,4 +16,4 @@ Prerequisites:
 
 - You have installed the :brokenref:`Daml SDK </getting-started/installation>`
 
-Next: :doc:`1_Contracts`.
+Next: :doc:`contracts`.

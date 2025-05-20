@@ -32,7 +32,7 @@ You can start a new project with a skeleton structure using ``daml new project-n
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and Daml Runtime, the latter gives access to the Daml Standard Library. ``daml-script`` contains the types and standard library for Daml Script.
 
-You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/${project_name}-${project_version}.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`9_Dependencies`.
+You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/${project_name}-${project_version}.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`dependencies`.
 
 Project Structure
 -----------------
@@ -92,7 +92,7 @@ corresponding functionality:
 Project Overview
 ----------------
 
-The project both changes and adds to the ``Iou`` model presented in :doc:`6_Parties`:
+The project both changes and adds to the ``Iou`` model presented in :doc:`parties`:
 
 - Assets are fungible in the sense that they have ``Merge`` and ``Split`` choices that allow the ``owner`` to manage their holdings.
 - Transfer proposals now need the authorities of both ``issuer`` and ``newOwner`` to accept. This makes ``Asset`` safer than ``Iou`` from the issuer's point of view.
@@ -103,7 +103,7 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`6_Part
 Composed Choices and Scripts
 ----------------------------
 
-This project showcases how you can put the ``Update`` and ``Script`` actions you learned about in :doc:`6_Parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
+This project showcases how you can put the ``Update`` and ``Script`` actions you learned about in :doc:`parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
 
 - Two create actions in case of ``Split``
 - One create and one archive action in case of ``Merge``
@@ -300,7 +300,7 @@ Divulgence
 
 Note that principle 2 of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
 
-.. figure:: images/7_Composing/divulgence.png
+.. figure:: images/composing/divulgence.png
    :alt: The table as described above.
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing Daml models for privacy sensitive applications.
@@ -308,4 +308,4 @@ This is because the ``create`` action of these contracts are in the transitive c
 Next Up
 -------
 
-In :doc:`8_Exceptions`, we will learn about how errors in your model can be handled in Daml.
+In :doc:`exceptions`, we will learn about how errors in your model can be handled in Daml.
