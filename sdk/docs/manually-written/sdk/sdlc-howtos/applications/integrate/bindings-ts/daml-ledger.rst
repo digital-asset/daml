@@ -4,5 +4,6 @@
 @daml/ledger
 ############
 
-.. `@daml/ledger documentation <ts-daml-ledger_>`_
+.. todo:: Find a way to avoid hardcoding version
 
+`@daml/ledger documentation </typedocs/3.3/daml-ledger/index.html>`_

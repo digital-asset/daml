@@ -4,5 +4,7 @@
 @daml/react
 ###########
 
-..  `@daml/react documentation <ts-daml-react_>`_
+.. todo:: Find a way to avoid hardcoding version
+
+`@daml/react documentation </typedocs/3.3/daml-react/index.html>`_
 

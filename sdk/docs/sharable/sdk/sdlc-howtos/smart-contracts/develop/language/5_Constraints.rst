@@ -97,7 +97,7 @@ Each Daml ledger has a policy on the allowed difference between LT and RT called
 
 Returning to the theme of *business hours*, consider the following example: Suppose that the ledger had a skew of 10 seconds. At 17:59:55, just before the end of business hours, Alice submits a transaction to redeem an Iou. One second later, the transaction is assigned an LT of 17:59:56. However, there still may be a few seconds before the transaction is persisted to the underlying storage. For example, the transaction might be written in the underlying backing store at 18:00:06, *after business hours*. Because LT is within business hours and LT - RT <= 10 seconds, the transaction will not be rejected.
 
-For details, see :ref:`Background concepts - time <time>`.
+For details, see :externalref:`Background concepts - time <time>`.
 
 Time in Test Scripts
 ~~~~~~~~~~~~~~~~~~~~

@@ -32,7 +32,7 @@ applications in production, but they differ in terms of enterprise and non-funct
    * - Capability
      - Enterprise
      - Open Source
-   * - :ref:`Sub-Transaction Privacy <da-model-privacy>`
+   * - :externalref:`Sub-Transaction Privacy <da-model-privacy>`
      - Yes
      - Yes
    * - `Transaction Processing <https://docs.daml.com/canton/architecture/overview.html#node-scaling>`_
@@ -143,7 +143,7 @@ Next Steps
 
 - Follow the :brokenref:`getting started guide </getting-started/index>`.
 - Use ``daml --help`` to see all the commands that the Daml assistant (``daml``) provides.
-- If you run into any other problems, you can use the :ref:`support page <get-help>` to get in touch with us.
+- If you run into any other problems, you can use the :externalref:`support page <get-help>` to get in touch with us.
 
 
 
