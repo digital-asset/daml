@@ -41,6 +41,14 @@ steps:
 
   - powershell: |
       cd sdk
+      .\ci\create-dotnetrc.ps1
+    displayName: 'Create .netrc file'
+    condition: succeeded()
+    env:
+      GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+
+  - powershell: |
+      cd sdk
       .\build.ps1
     displayName: 'Build'
     condition: and(succeeded(), ne('true', ${{parameters.is_release}}))

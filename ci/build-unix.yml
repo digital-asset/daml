@@ -75,6 +75,15 @@ steps:
   - bash: |
       set -euo pipefail
       cd sdk
+      ci/create-dotnetrc.sh
+    displayName: 'Create .netrc file'
+    condition: succeeded()
+    env:
+      GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+
+  - bash: |
+      set -euo pipefail
+      cd sdk
       eval "$(dev-env/bin/dade-assist)"
       p="_${{parameters.name_str}}"
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
