@@ -779,11 +779,6 @@ getting-started/installation.htm -> /getting-started/installation.html
 gsg.html -> /getting-started/installation.html
 getting-started/quickstart.html -> /getting-started/index.html
 app-dev/authentication.html -> /app-dev/authorization.html
-daml/intro/2_Scenario.html -> /daml/intro/2_DamlScript.html
-daml/intro/8_Dependencies.html -> /daml/intro/9_Dependencies.html
-daml/intro/9_Functional101.html -> /daml/intro/10_Functional101.html
-daml/intro/10_StdLib.html -> /daml/intro/11_StdLib.html
-daml/intro/11_Testing.html -> /daml/intro/12_Testing.html
 daml-script/daml-script-docs.html -> /daml-script/api/index.html
 support.html -> /support/support.html
 release-notes.html -> /support/releases.html#release-notes
