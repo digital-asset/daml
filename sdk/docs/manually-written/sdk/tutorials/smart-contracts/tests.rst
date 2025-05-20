@@ -168,7 +168,7 @@ When ``daml test`` runs a set of tests, it analyzes the ledger record from those
 
 You can also save the resulting coverage results for the test set to a file and then read them back into a future report. In an invocation of ``daml test``, you can both read results in and run tests simultaneously in order to generate a final report which aggregates them. More details on the workflows that this enables are detailed in `Serializing Results Workflows`_.
 
-.. figure:: images/testing/coverage_workflow.png
+.. figure:: images/tests/coverage_workflow.png
    :alt: Flow chart visually explaining sources and sinks for coverage results.
 
 Flags Controlling Test Set
