@@ -13,7 +13,9 @@ import com.daml.lf.language.Util
 import cats.implicits._
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
-import com.daml.error.{ContextualizedErrorLogger}
+import com.daml.error.{DamlContextualizedErrorLogger, ContextualizedErrorLogger}
+import org.slf4j.{Logger}
+import com.daml.logging.{LoggingContext, ContextualizedLogger}
 
 case class Upgrading[A](past: A, present: A) {
   def map[B](f: A => B): Upgrading[B] = Upgrading(f(past), f(present))
@@ -437,7 +439,8 @@ object TypecheckUpgrades {
 }
 
 case class TypecheckUpgrades(
-    val logger: ContextualizedErrorLogger
+    val logger: Logger,
+    val loggingContext: LoggingContext
 ) {
   private def typecheckUpgradesStandalone(
       packageMap: Map[
@@ -454,7 +457,7 @@ case class TypecheckUpgrades(
       TypecheckUpgradesStandalone(
         (presentPackageId.pkgId, presentPkg),
         packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version)),
-        logger,
+        new DamlContextualizedErrorLogger(ContextualizedLogger.createFor(logger), loggingContext, None)
       )
     tc.check()
   }
@@ -480,7 +483,7 @@ case class TypecheckUpgrades(
       packageMap
         + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version))
         + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version)),
-      logger,
+      new DamlContextualizedErrorLogger(ContextualizedLogger.createFor(logger), loggingContext, None)
     )
     tc.check()
   }

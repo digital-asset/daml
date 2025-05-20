@@ -247,7 +247,7 @@ class PackageUpgradeValidator(
           }
           EitherT(
             Future(
-              TypecheckUpgrades(new DamlContextualizedErrorLogger(ContextualizedLogger.createFor(logger.underlying), loggingContext, None))
+              TypecheckUpgrades(logger.underlying, loggingContext)
                 .typecheckUpgrades(
                   packageMap,
                   phase,
