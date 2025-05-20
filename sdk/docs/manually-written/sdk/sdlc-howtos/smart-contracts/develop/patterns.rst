@@ -20,6 +20,8 @@ You can checkout the examples locally via ``daml new daml-patterns --template da
     The Authorization pattern demonstrates how to make sure a controlling party is authorized before they take certain actions.
 :doc:`patterns/locking`
     The Locking pattern exhibits how to achieve locking safely and efficiently in Daml. Only the specified locking party can lock the asset through an active and authorized action. When a contract is locked, some or all choices specified on that contract may not be exercised.
+:doc:`patterns/implementing-time-constraints`
+    Patterns for implementing time constraints.
 
 .. .. toctree::
    :hidden:
