@@ -490,14 +490,14 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-test-excl-8-9-10-12-13",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/**/*.daml"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/**/*.daml"],
         exclude = [
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-8/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-9/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-10/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part1/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part2/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-13/**",
+            "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-8/**",
+            "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-9/**",
+            "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-10/**",
+            "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-12-part1/**",
+            "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-12-part2/**",
+            "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-13/**",
         ],
     ),
     # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
@@ -509,7 +509,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-13-test",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-13/**/*.daml"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-13/**/*.daml"],
     ),
     additional_compiler_flags = ["-Wupgrade-interfaces"],
     enable_interfaces = True,
@@ -520,7 +520,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-12-part1-test",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part1/**/*.daml"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-12-part1/**/*.daml"],
     ),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -534,7 +534,7 @@ daml_test(
 daml_compile(
     name = "daml-intro12-part1",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part1/**/*.daml"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-12-part1/**/*.daml"],
     ),
     dependencies = ["//daml-script/daml:daml-script-2.1.dar"],
     enable_interfaces = True,
@@ -544,7 +544,7 @@ daml_compile(
 daml_test(
     name = "daml-intro-daml-12-part2-test",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part2/**/*.daml"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-12-part2/**/*.daml"],
     ),
     additional_compiler_flags = [
         "-Wupgrade-interfaces",
@@ -559,7 +559,7 @@ daml_test(
 daml_test(
     name = "daml-intro-daml-10-test",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-10/**/*.daml"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-10/**/*.daml"],
     ),
     additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
     deps = ["//daml-script/daml:daml-script.dar"],
@@ -567,7 +567,7 @@ daml_test(
 
 daml_test(
     name = "daml-intro-9-daml-test",
-    srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-9/**/*.daml"]),
+    srcs = glob(["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-9/**/*.daml"]),
     data_deps = [":daml-intro-7.dar"],
     deps = ["//daml-script/daml:daml-script.dar"],
 )
@@ -575,7 +575,7 @@ daml_test(
 [
     daml_test(
         name = "daml-intro-8-daml-test-{}".format(version),
-        srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-8/**/*.daml"]),
+        srcs = glob(["source/sdk/tutorials/smart-contract-dev/daml/daml-intro-8/**/*.daml"]),
         additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
@@ -589,7 +589,7 @@ daml_build_test(
     dar_dict = {
         "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
-    project_dir = "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-7",
+    project_dir = "source/sdk/tutorials/smart-contract-dev/daml/daml-intro-7",
 )
 
 daml_build_test(
@@ -642,7 +642,7 @@ daml_build_test(
 filegroup(
     name = "daml-intro-1",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/1_Token/**/*"],
+        ["source/sdk/tutorials/smart-contract-dev/daml/1_Token/**/*"],
         # excluding quickstart-java stuff
         exclude = [
             "source/sdk/tutorials/quickstart/template-root/src",
@@ -655,8 +655,8 @@ filegroup(
 
 pkg_tar(
     name = "daml-intro-templates",
-    srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/**"]),
-    strip_prefix = "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml",
+    srcs = glob(["source/sdk/tutorials/smart-contract-dev/daml/**"]),
+    strip_prefix = "source/sdk/tutorials/smart-contract-dev/daml",
     visibility = ["//visibility:public"],
 )
 
