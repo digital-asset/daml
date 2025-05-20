@@ -34,7 +34,7 @@ The participants validate the received transaction views by re-computing them wi
 
 - `Transaction processing in Canton <../canton/architecture/overview.html#transaction-processing-in-canton>`__
 - :ref:`execution_model`
-- :ref:`da-model-projections`
+- :externalref:`da-model-projections`
 
 How does Canton ensure privacy?
 ///////////////////////////////

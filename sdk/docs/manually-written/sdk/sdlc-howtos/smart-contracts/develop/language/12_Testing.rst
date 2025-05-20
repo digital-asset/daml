@@ -142,7 +142,7 @@ Here are a few scenarios and measures you can take to reduce this type of collis
 Collisions Due to Ignorance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :ref:`Daml Ledger Model <da-ledgers>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
+The :externalref:`Daml Ledger Model <da-ledgers>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
 
 To illustrate the problem, let's assume there is a template ``T`` with a contract key, and Alice has witnessed two ``Create`` nodes of a contract of type ``T`` with key ``k``, but no corresponding archive nodes. Alice may not be able to order these two nodes causally in the sense of "one create came before the other". See :brokenref:`/concepts/local-ledger` for an in-depth treatment of causality on Daml Ledgers.
 

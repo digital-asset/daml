@@ -182,7 +182,7 @@ For documentation on contract keys, see :ref:`contractkeys`.
 Authorization, Signing
 ======================
 
-The Daml runtime checks that every submitted transaction is **well-authorized**, according to the :ref:`authorization rules of the ledger model <da-model-integrity>`, which guarantee the integrity of the underlying ledger.
+The Daml runtime checks that every submitted transaction is **well-authorized**, according to the :externalref:`authorization rules of the ledger model <da-model-integrity>`, which guarantee the integrity of the underlying ledger.
 
 A Daml update is the composition of update actions created with one of the items in the table below. A Daml update is well-authorized when **all** its contained update actions are well-authorized. Each operation has an associated set of parties that need to authorize it:
 
