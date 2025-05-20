@@ -440,7 +440,7 @@ object TypecheckUpgrades {
 
 case class TypecheckUpgrades(
     val logger: Logger,
-    val loggingContext: LoggingContext
+    val loggingContext: LoggingContext,
 ) {
   private def typecheckUpgradesStandalone(
       packageMap: Map[
@@ -457,7 +457,11 @@ case class TypecheckUpgrades(
       TypecheckUpgradesStandalone(
         (presentPackageId.pkgId, presentPkg),
         packageMap + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version)),
-        new DamlContextualizedErrorLogger(ContextualizedLogger.createFor(logger), loggingContext, None)
+        new DamlContextualizedErrorLogger(
+          ContextualizedLogger.createFor(logger),
+          loggingContext,
+          None,
+        ),
       )
     tc.check()
   }
@@ -483,7 +487,11 @@ case class TypecheckUpgrades(
       packageMap
         + (presentPackageId.pkgId -> (presentPkg.name.get, presentPkg.metadata.get.version))
         + (pastPackageId.pkgId -> (pastPkg.name.get, pastPkg.metadata.get.version)),
-      new DamlContextualizedErrorLogger(ContextualizedLogger.createFor(logger), loggingContext, None)
+      new DamlContextualizedErrorLogger(
+        ContextualizedLogger.createFor(logger),
+        loggingContext,
+        None,
+      ),
     )
     tc.check()
   }

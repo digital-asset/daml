@@ -17,7 +17,8 @@ import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 
 final case class CouldNotReadDarOrDalf(path: String, darErr: ArchiveError, dalfErr: ArchiveError) {
-  val message: String = s"Error reading ${path}: file is neither a DAR nor a DALF.\nError when trying to read as DAR: ${darErr}\nError when trying to read as DALF: ${dalfErr}"
+  val message: String =
+    s"Error reading ${path}: file is neither a DAR nor a DALF.\nError when trying to read as DAR: ${darErr}\nError when trying to read as DALF: ${dalfErr}"
 }
 
 case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
@@ -33,10 +34,11 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
     logger.debug(s)
     val result = DarDecoder.readArchiveFromFile(new File(path))
     result match {
-      case Left(darErr) => ArchiveDecoder.fromFile(new File(path)) match {
-        case Left(dalfErr) => Left(CouldNotReadDarOrDalf(path, darErr, dalfErr))
-        case Right(x) => Right(Dar(x, List()))
-      }
+      case Left(darErr) =>
+        ArchiveDecoder.fromFile(new File(path)) match {
+          case Left(dalfErr) => Left(CouldNotReadDarOrDalf(path, darErr, dalfErr))
+          case Right(x) => Right(Dar(x, List()))
+        }
       case Right(x) => Right(x)
     }
   }
