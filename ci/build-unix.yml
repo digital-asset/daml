@@ -79,7 +79,7 @@ steps:
     displayName: 'Create .netrc file'
     condition: succeeded()
     env:
-      GITHUB_TOKEN: $(CANTON_READONLY_TOKEN)
+      GITHUB_TOKEN: $(GH_DAML_READONLY)
 
   - bash: |
       set -euo pipefail
