@@ -226,7 +226,7 @@ You have already met the type ``ContractId a``, which references a contract of t
 
 The script above uses the ``queryContractId`` function, which retrieves the arguments of an active contract using its contract ID. If there is no active contract with the given identifier visible to the given party, ``queryContractId`` returns ``None``. Here, we use a pattern match on ``Some`` which will abort the script if ``queryContractId`` returns ``None``.
 
-Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`composing`.
+Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`compose`.
 
 You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time:
 

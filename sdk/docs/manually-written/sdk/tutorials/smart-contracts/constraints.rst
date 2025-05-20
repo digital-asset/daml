@@ -9,7 +9,7 @@ You will often want to constrain the data stored or the allowed data transformat
 - The ``ensure`` keyword.
 - The ``assert``, ``abort`` and ``error`` keywords.
 
-To make sense of the latter, you'll also learn more about the ``Update`` and ``Script`` types and ``do`` blocks, which will be good preparation for :doc:`composing`, where you will use ``do`` blocks to compose choices into complex transactions.
+To make sense of the latter, you'll also learn more about the ``Update`` and ``Script`` types and ``do`` blocks, which will be good preparation for :doc:`compose`, where you will use ``do`` blocks to compose choices into complex transactions.
 
 Lastly, you will learn about time on the ledger and in Daml Script.
 

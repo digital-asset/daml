@@ -300,7 +300,7 @@ Divulgence
 
 Note that principle 2 of the privacy model means that sometimes parties see contracts that they are not signatories or observers on. If you look at the final ledger state of the ``test_trade`` script, for example, you may notice that both Alice and Bob now see both assets, as indicated by the Xs in their respective columns:
 
-.. figure:: images/composing/divulgence.png
+.. figure:: images/compose/divulgence.png
    :alt: The table as described above.
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing Daml models for privacy sensitive applications.

@@ -9,7 +9,7 @@ In this chapter, you will learn more about expressing complex logic in a functio
 - Function signatures and functions
 - Advanced control flow (``if...else``, folds, recursion, ``when``)
 
-If you no longer have your :doc:`composing` and :doc:`dependencies` projects set up, and want to look back at the code, please follow the setup instructions in :doc:`dependencies` to get hold of the code for this chapter.
+If you no longer have your :doc:`compose` and :doc:`dependencies` projects set up, and want to look back at the code, please follow the setup instructions in :doc:`dependencies` to get hold of the code for this chapter.
 
 .. note::
 
@@ -235,7 +235,7 @@ In this section, we will cover branching and looping, and look at a few common p
 Branching
 .........
 
-Until :doc:`composing` the only real kind of control flow introduced has been ``case``, which is a powerful tool for branching.
+Until :doc:`compose` the only real kind of control flow introduced has been ``case``, which is a powerful tool for branching.
 
 If ... Else
 ~~~~~~~~~~~
