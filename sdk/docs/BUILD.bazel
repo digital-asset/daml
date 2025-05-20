@@ -627,20 +627,6 @@ daml_build_test(
     project_dir = "source/sdk/sdlc-howtos/smart-contracts/upgrade/example/carbon-initiate-upgrade",
 )
 
-filegroup(
-    name = "daml-intro-1",
-    srcs = glob(
-        ["source/sdk/tutorials/smart-contract-dev/daml/1_Token/**/*"],
-        # excluding quickstart-java stuff
-        exclude = [
-            "source/sdk/tutorials/quickstart/template-root/src",
-            "source/sdk/tutorials/quickstart/template-root/pom.xml",
-        ],
-        exclude_directories = 0,
-    ),
-    visibility = ["//visibility:public"],
-)
-
 pkg_tar(
     name = "daml-intro-templates",
     srcs = glob(["source/sdk/tutorials/smart-contract-dev/daml/**"]),
