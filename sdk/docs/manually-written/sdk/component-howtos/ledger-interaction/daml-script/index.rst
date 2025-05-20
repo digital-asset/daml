@@ -232,7 +232,7 @@ but for more complex use-cases you may want to vary the inputs of a script and
 inspect its outputs, ideally without having to recompile it. To that end, the
 ``daml script`` command supports the flags ``--input-file`` and
 ``--output-file``. Both flags take a filename, and said file will be
-read/written as JSON, following the :externalref:`daml-lf-json-encoding`.
+read/written as JSON, following the :brokenref:`daml-lf-json-encoding`.
 
 The ``--output-file`` option instructs ``daml script`` to write the
 result of the given ``--script-name`` to the given filename (creating

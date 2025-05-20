@@ -4,5 +4,7 @@
 @daml/types
 ###########
 
-.. `@daml/types documentation <ts-daml-types_>`_
+.. todo:: Find a way to avoid hardcoding version
+
+`@daml/types documentation </typedocs/3.3/daml-types/index.html>`_
 

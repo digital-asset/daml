@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+_bindings-x-lang-index:
+
 Create Your Own Bindings
 ########################
 
@@ -58,7 +60,7 @@ When creating custom bindings for Daml Ledgers, you will need to:
 
 - decide whether to write a codegen to generate ledger commands or manually build them for all contracts defined in your Daml model.
 
-The above examples should help you get started. If you are creating custom binding or have any questions, see the :ref:`get-help` page for how to get in touch with us.
+The above examples should help you get started. If you are creating custom binding or have any questions, see the :externalref:`get-help` page for how to get in touch with us.
 
 Links
 =====

@@ -31,7 +31,7 @@ Your Daml application sends requests to the :ref:`Ledger API <integration-with-l
 Your application might send these requests via a middleware like the :externalref:`JSON API <json-api>`.
 
 Whether a participant node *can* serve such a request depends on whether the participant node hosts the respective parties, and
-whether the request is valid according to the :ref:`Daml Ledger Model <da-ledgers>`.
+whether the request is valid according to the :externalref:`Daml Ledger Model <da-ledgers>`.
 Whether a participant node *will* serve such a request to a Daml application depends on whether the
 request includes an access token that is valid and sufficient to authorize the request for this participant node.
 

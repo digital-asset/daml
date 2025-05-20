@@ -134,7 +134,7 @@ which displays why the contract is visible to each party, based on four categori
    because they witnessed an exercise that resulted in a ``fetch`` of this contract.
 
 For details on the meaning of those four categories, refer to the
-:ref:`Daml Ledger Model<da-model-privacy>`.
+:externalref:`Daml Ledger Model<da-model-privacy>`.
 For the example above, the resulting table looks as follows. You can see the
 archived ``Bank`` contract and the active ``Bank`` contract whose creation
 ``Alice`` has witnessed by virtue of being an actor on the ``exercise`` that
