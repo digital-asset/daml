@@ -185,4 +185,5 @@ To get a better understanding of script, try the following exercises:
 Next Up
 -------
 
-In :doc:`data` you will learn about Daml's type system, and how you can think of templates as tables and contracts as database rows.
+In :doc:`archive` you will build a Daml archive, that you can upload to a Canton participant node to interact with its ledger.
+
