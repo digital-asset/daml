@@ -1,0 +1,119 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module LimitedTimeCoinTransfer where
+
+import Daml.Script
+import DA.Assert (assertWithinDeadline)
+import DA.Time (addRelTime, minutes)
+import Utilities
+
+template Coin
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    signatory owner
+
+    ensure amount > 0.0
+
+-- BEGIN_LIMITED_TIME_COIN_TRANSFER
+    choice Transfer : ContractId TransferProposal
+      with
+        newOwner: Party
+        deadline: Time
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner; deadline
+-- END_LIMITED_TIME_COIN_TRANSFER
+
+-- original contract with no changes needed.
+template CoinProposal
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    observer owner
+
+    choice AcceptProposal
+      : ContractId Coin
+      controller owner
+      do create Coin with issuer; owner; amount
+
+-- original contract with no changes needed.
+template CoinOwnerAuthorization
+  with
+    owner: Party
+    issuer: Party
+  where
+    signatory issuer
+    observer owner
+
+    choice WithdrawAuthorization
+      : ()
+      controller issuer
+      do return ()
+
+-- TransferProposal contract needs additional logic to time limit when transfers are accepted
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+    deadline: Time
+  where
+    signatory coin.owner
+    signatory coin.issuer
+    observer newOwner
+
+    choice WithdrawTransfer : ContractId Coin
+      controller coin.owner
+      do
+        create coin
+
+-- BEGIN_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+    choice AcceptTransfer : ContractId Coin
+      with
+        token: ContractId CoinOwnerAuthorization
+      controller newOwner
+      do
+        assertWithinDeadline "within-transfer-deadline" deadline
+        t <- fetch token
+        assert (coin.issuer == t.issuer)
+        assert (newOwner == t.owner)
+        create coin with owner = newOwner
+-- END_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+
+limitedTimeTokenAccept : Script ()  -- test
+limitedTimeTokenAccept =
+  script do
+
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
+
+    --test 1: token is active, allowing new owner to accept within a 5 minute deadline
+
+    createProposal <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinId <- owner `submit` do exerciseCmd createProposal AcceptProposal
+    t0 <- getTime
+    coinProposal <- owner `submit` do exerciseCmd coinId Transfer with newOwner; deadline=addRelTime t0 (minutes 5)
+
+    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
+    newOwner `submit` do exerciseCmd coinProposal AcceptTransfer with token = tokenId
+
+    --test 2: token is active, but owner **fails** to accept within a 5 minute deadline
+
+    createProposal <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
+    coinId <- owner `submit` do exerciseCmd createProposal AcceptProposal
+    t1 <- getTime
+    coinProposal <- owner `submit` do exerciseCmd coinId Transfer with newOwner; deadline=addRelTime t1 (minutes 5)
+
+    -- simulate waiting for over 5 minutes
+    _ <- passTime (minutes 6)
+
+    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
+    newOwner `submitMustFail` do exerciseCmd coinProposal AcceptTransfer with token = tokenId
