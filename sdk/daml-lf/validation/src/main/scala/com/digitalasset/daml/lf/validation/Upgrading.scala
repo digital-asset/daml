@@ -427,6 +427,30 @@ object TypecheckUpgrades {
       }
   }
 
+  implicit class UploadPhaseMessages(
+      phase: UploadPhaseCheck[Util.PkgIdWithNameAndVersion]
+  ) {
+    def errorMessage(err: UpgradeError) =
+      phase match {
+        case TypecheckUpgrades.MaximalDarCheck(oldPackage, newPackage) =>
+          s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${err.prettyInternal}"
+        case TypecheckUpgrades.MinimalDarCheck(oldPackage, newPackage) =>
+          s"The uploaded DAR contains a package $oldPackage, but upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${err.prettyInternal}"
+        case TypecheckUpgrades.StandaloneDarCheck(newPackage) =>
+          s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that it cannot be upgraded. Reason: ${err.prettyInternal}"
+      }
+
+    def warningMessage(err: UpgradeError) =
+      phase match {
+        case TypecheckUpgrades.MaximalDarCheck(oldPackage, newPackage) =>
+          s"The uploaded DAR contains a package $newPackage, a warning occurred while verifying that new package $newPackage is a valid upgrade of existing package $oldPackage. Reason: ${err.prettyInternal}"
+        case TypecheckUpgrades.MinimalDarCheck(oldPackage, newPackage) =>
+          s"The uploaded DAR contains a package $oldPackage, a warning occurred while verifying that existing package $newPackage is a valid upgrade of new package $oldPackage. Reason: ${err.prettyInternal}"
+        case TypecheckUpgrades.StandaloneDarCheck(newPackage) =>
+          s"The uploaded DAR contains a package $newPackage, a warning occurred while verifying that it can be upgraded. Reason: ${err.prettyInternal}"
+      }
+  }
+
   final case class MinimalDarCheck[A](
       oldPackage: A,
       newPackage: A,

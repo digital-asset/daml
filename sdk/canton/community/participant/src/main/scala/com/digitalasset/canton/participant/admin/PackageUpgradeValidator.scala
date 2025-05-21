@@ -261,7 +261,8 @@ class PackageUpgradeValidator(
               )
           }.map[Unit] {
             case (warnings, ()) =>
-              warnings.foreach((err: UpgradeError) => logger.warn(s"Warning while typechecking upgrades: ${err.err.message}"))
+              warnings.foreach((err: UpgradeError) =>
+                logger.warn(phase.map(_._1).warningMessage(err)))
           }
       }
 
