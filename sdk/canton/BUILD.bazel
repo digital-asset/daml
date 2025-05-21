@@ -214,7 +214,7 @@ scala_macro_library(
 da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    override_scaladocopts = [
+    override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ] + [
@@ -225,7 +225,7 @@ da_scala_library(
             "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
         ]
     ],
-    override_scalacopts = [
+    override_scaladocopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ] + [
