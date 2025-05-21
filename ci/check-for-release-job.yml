@@ -17,6 +17,15 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
+        
+        error_handler() {
+          local exit_code="$1"
+          local line_number="$2"
+          local command="$3"
+          echo "Error: Command '$command' on line $line_number exited with status $exit_code" >&2
+        }
+        trap 'error_handler $? $LINENO "$BASH_COMMAND"' ERR 
+        
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
