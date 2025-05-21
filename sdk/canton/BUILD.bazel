@@ -214,7 +214,6 @@ scala_macro_library(
 da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    override_scaladoc_opts = True,
     override_scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
@@ -226,6 +225,7 @@ da_scala_library(
             "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
         ]
     ],
+    override_scaladoc_opts = True,
     tags = [
         "maven_coordinates=com.daml:community_util-logging:__VERSION__",
     ],
