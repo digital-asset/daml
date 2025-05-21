@@ -1,0 +1,6 @@
+boolean
+enum
+CPUs
+shar[d|ed|ing]
+informe[e|es]
+[nonc|c]onsuming

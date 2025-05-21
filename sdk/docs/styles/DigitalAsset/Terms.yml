@@ -1,0 +1,20 @@
+# cspell: disable 
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: false
+action:
+  name: replace
+swap:
+  daml|DAML: Daml
+  hoogle: Hoogle
+  '[Hh]osted [Uu]tilit[y|ies]': Canton Network Portfolio
+  GS|Global[Ss]ync|[Gg][Ss]ync: Global Synchronizer
+  '[Pp]articipant node': Participant Node
+  '[Pp]articipant nodes': Participant Nodes
+  '[Ss]uper validator': Super Validator
+  '[Ss]uper validators': Super Validators
+  '[Ss]ync [Dd]omain|synchronizer': Synchronizer
+  '[Ss]ync [Dd]omains|synchronizers': Synchronizers
+  '\b[Vv]alidator\b(?! [Nn]odes?)': Validator Node
+  '[Vv]alidators|[Vv]alidator nodes': Validator Nodes
