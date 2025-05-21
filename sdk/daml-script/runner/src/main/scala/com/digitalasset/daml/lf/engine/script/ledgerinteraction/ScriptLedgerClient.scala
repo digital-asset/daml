@@ -9,7 +9,7 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.AdminLedgerClient
 import com.daml.lf.speedy.{TraceLog, WarningLog}
 import org.apache.pekko.http.scaladsl.model._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.lf.typesig.EnvironmentSignature
 import org.apache.pekko.actor.ActorSystem
 

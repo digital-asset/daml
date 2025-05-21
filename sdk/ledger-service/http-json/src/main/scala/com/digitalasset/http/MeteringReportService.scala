@@ -4,7 +4,7 @@
 package com.daml.http
 
 import com.daml.http.util.Logging.{InstanceUUID, RequestID}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v1.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,

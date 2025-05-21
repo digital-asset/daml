@@ -75,6 +75,8 @@ object CommunityConfigValidations
       warnIfUnsafeMinProtocolVersion,
       warnIfDeprecatedProtocolVersionEmbeddedDomain,
       adminTokenSafetyCheckParticipants,
+      adminTokensMatchOnParticipants,
+      eitherUserListsOrPrivilegedTokensOnParticipants,
     )
 
   /** Group node configs by db access to find matching db storage configs.
@@ -350,4 +352,42 @@ object CommunityConfigValidations
     }
   }
 
+  private def adminTokensMatchOnParticipants(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.participants.toSeq.mapFilter { case (name, participantConfig) =>
+      Option.when(
+        participantConfig.ledgerApi.adminToken.exists(la =>
+          participantConfig.adminApi.adminToken.exists(_ != la)
+        )
+      )(
+        s"if both ledger-api.admin-token and admin-api.admin-token provided, they must match for participant ${name.unwrap}"
+      )
+    }
+    NonEmpty
+      .from(errors)
+      .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
+      .getOrElse(Validated.Valid(()))
+  }
+
+  private def eitherUserListsOrPrivilegedTokensOnParticipants(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] = {
+    val errors = config.participants.toSeq
+      .flatMap { case (name, participantConfig) =>
+        participantConfig.adminApi.authServices.map(name -> _) ++
+          participantConfig.ledgerApi.authServices.map(name -> _)
+      }
+      .mapFilter { case (name, authService) =>
+        Option.when(
+          authService.privileged && authService.users.nonEmpty
+        )(
+          s"authorization service cannot be configured to accept both privileged tokens and tokens for a user-lists in ${name.unwrap}"
+        )
+      }
+    NonEmpty
+      .from(errors)
+      .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
+      .getOrElse(Validated.Valid(()))
+  }
 }

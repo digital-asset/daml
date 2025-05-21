@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.endpoints
 
 import com.digitalasset.canton.http.Endpoints.ET
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.digitalasset.canton.http.util.Collections.toNonEmptySet
 import com.digitalasset.canton.http.util.FutureUtil.eitherT
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}

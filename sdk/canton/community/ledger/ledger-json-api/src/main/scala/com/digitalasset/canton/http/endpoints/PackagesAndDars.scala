@@ -9,7 +9,7 @@ import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.util.FutureUtil.{eitherT, rightT}
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.{ProtobufByteStrings, toLedgerId}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import scalaz.EitherT
 import scalaz.std.scalaFuture.*
 

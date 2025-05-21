@@ -7,7 +7,7 @@ import org.apache.pekko.http.scaladsl.model.HttpMethods._
 import org.apache.pekko.http.scaladsl.model._
 import org.apache.pekko.http.scaladsl.model.ws.{Message, WebSocketUpgrade}
 import org.apache.pekko.stream.scaladsl.Flow
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import scalaz.syntax.std.boolean._
 import scalaz.syntax.std.option._
 import scalaz.{EitherT, \/}

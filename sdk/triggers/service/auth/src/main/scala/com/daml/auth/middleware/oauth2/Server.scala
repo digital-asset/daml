@@ -23,7 +23,7 @@ import com.typesafe.scalalogging.StrictLogging
 import java.util.UUID
 import com.daml.auth.middleware.api.{Request, RequestStore, Response}
 import com.daml.jwt.{JwtDecoder, JwtVerifierBase}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.ports.{Port, PortFiles}
 import scalaz.{-\/, \/-}

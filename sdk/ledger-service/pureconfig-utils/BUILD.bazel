@@ -29,9 +29,9 @@ da_scala_library(
         "@maven//:ch_qos_logback_logback_classic",
     ],
     deps = [
+        "//canton:daml-common-staging_daml-jwt",
         "//ledger/ledger-api-common",
         "//libs-scala/db-utils",
-        "//libs-scala/jwt",
         "//observability/metrics",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
@@ -55,7 +55,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":pureconfig-utils",
-        "//libs-scala/jwt",
+        "//canton:daml-common-staging_daml-jwt",
         "//observability/metrics",
         "@maven//:org_scalatest_scalatest_compatible",
     ],

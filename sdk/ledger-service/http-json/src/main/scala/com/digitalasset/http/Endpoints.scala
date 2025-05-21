@@ -33,7 +33,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContextOf}
 import com.daml.metrics.Timed
 import org.apache.pekko.http.scaladsl.server.Directives._
 import com.daml.http.endpoints.{MeteringReportEndpoint, RouteSetup}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.client.services.admin.UserManagementClient
 import com.daml.ledger.client.services.identity.LedgerIdentityClient

@@ -52,6 +52,7 @@ private[domain] class GrpcDomainServiceClient(
           Duration(20, TimeUnit.SECONDS),
           logger,
           retryPolicy = _ => false,
+          token = None,
         )(_.getServiceAgreement(GetServiceAgreementRequest()))(loggingContext.traceContext)
         .leftMap(e => Error.GetServiceAgreementError(e.toString))
       optAgreement <- EitherT.fromEither[Future](

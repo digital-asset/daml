@@ -14,7 +14,7 @@ import com.daml.auth.middleware.api.{Client, Request, Response}
 import com.daml.auth.middleware.api.Request.Claims
 import com.daml.auth.middleware.api.Tagged.{AccessToken, RefreshToken}
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.DecodedJwt
 import com.daml.ledger.api.auth.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,

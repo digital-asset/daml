@@ -15,7 +15,7 @@ import org.apache.pekko.http.scaladsl.server.Directives._
 import org.apache.pekko.http.scaladsl.unmarshalling.Unmarshaller
 import com.daml.auth.oauth2.api.{Request, Response}
 import com.daml.jwt.JwtSigner
-import com.daml.jwt.domain.DecodedJwt
+import com.daml.jwt.DecodedJwt
 import com.daml.ledger.api.auth.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,

@@ -81,7 +81,11 @@ class ApiRequestLogger(
 
     /** Called when the client cancels the call. */
     override def onCancel(): Unit = {
-      logger.info(createLogMessage("cancelled"))(requestTraceContext)
+      logger.info(
+        createLogMessage(
+          "cancelled. Cancellations can be caused by timeouts, explicit cancellation by the client, network errors, etc."
+        )
+      )(requestTraceContext)
       logThrowable(delegate.onCancel())(createLogMessage, requestTraceContext)
       cancelled.set(true)
     }

@@ -10,7 +10,7 @@ import org.apache.pekko.http.scaladsl.server.RouteResult.{Complete, Rejected}
 import org.apache.pekko.http.scaladsl.server.{Rejection, RequestContext, Route, RouteResult}
 import org.apache.pekko.stream.scaladsl.Flow
 import com.digitalasset.canton.http.domain.{ContractKeyStreamRequest, JwtPayload, SearchForeverRequest}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.{MetricLabelsExtractor, WebSocketMetricsInterceptor}
 import com.daml.metrics.api.MetricsContext
