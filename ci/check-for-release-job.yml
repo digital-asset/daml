@@ -17,7 +17,7 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        set -x
+        #set -x
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
