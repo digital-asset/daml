@@ -53,7 +53,7 @@ Grant time-limited writes to parties
 
 TODO: https://github.com/DACH-NY/docs-website/issues/317
 
-How to simplify automation using getTime
-****************************************
+Where to use getTime
+********************
 
 TODO: https://github.com/DACH-NY/docs-website/issues/328
