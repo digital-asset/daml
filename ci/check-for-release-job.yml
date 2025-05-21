@@ -17,8 +17,18 @@ jobs:
         var_name: bash-lib
     - bash: |
         set -euo pipefail
-        export BASH_XTRACEFD=1
+        
+        # Log commands to some temp logfile and display it on stdout at the end
+        LOGFILE=$(mktemp)
+        function display_debug_log() {
+          echo "LOG FILE:"
+          cat "$LOGFILE"
+        }
+        trap display_debug_log EXIT
+        exec 7>"$LOGFILE"
+        export BASH_XTRACEFD=7
         set -x
+        
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
@@ -72,5 +82,8 @@ jobs:
         else
             setvar scala_2_13 false
         fi
+
+        # close the file descriptor
+        exec 7>&-
       name: out
 
