@@ -563,7 +563,7 @@ def _create_scala_repl(
     tags = tags + ["manual"]
     _wrap_rule(scala_repl, name = name, runtime_deps = runtime_deps, tags = tags, **kwargs)
 
-def da_scala_library(name, scaladoc = True, override_scaladoc_opts = False, override_scalacopts = None, **kwargs):
+def da_scala_library(name, scaladoc = True, override_scaladocopts = None, override_scalacopts = None, **kwargs):
     """
     Define a Scala library.
 
@@ -580,7 +580,7 @@ def da_scala_library(name, scaladoc = True, override_scaladoc_opts = False, over
     _wrap_rule(scala_library, name, override_scalacopts = override_scalacopts, **arguments)
     _create_scala_source_jar(name = name, **arguments)
     if scaladoc == True:
-        _create_scaladoc_jar(name = name, override_scalacopts = override_scalacopts if override_scaladoc_opts else None, **arguments)
+        _create_scaladoc_jar(name = name, override_scalacopts = override_scaladocopts, **arguments)
     _create_scala_repl(name = name, **kwargs)
 
     if "tags" in arguments:
