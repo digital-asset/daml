@@ -18,16 +18,13 @@ jobs:
     - bash: |
         set -euo pipefail
         
-        # Log commands to some temp logfile and display it on stdout at the end
-        LOGFILE=$(mktemp)
-        function display_debug_log() {
-          echo "LOG FILE:"
-          cat "$LOGFILE"
+        error_handler() {
+          local exit_code="$1"
+          local line_number="$2"
+          local command="$3"
+          echo "Error: Command '$command' on line $line_number exited with status $exit_code" >&2
         }
-        trap display_debug_log EXIT
-        exec 7>"$LOGFILE"
-        export BASH_XTRACEFD=7
-        set -x
+        trap 'error_handler $? $LINENO "$BASH_COMMAND"' ERR 
         
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
@@ -82,8 +79,5 @@ jobs:
         else
             setvar scala_2_13 false
         fi
-
-        # close the file descriptor
-        exec 7>&-
       name: out
 
