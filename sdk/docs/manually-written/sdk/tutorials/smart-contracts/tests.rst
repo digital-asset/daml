@@ -93,7 +93,7 @@ ContractId not found during interpretation
 
 .. code-block:: none
 
-  Command interpretation error in LF-Damle: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
+  Command interpretation error in the Daml engine: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
 
 ContractId not found during validation
 ......................................
@@ -107,7 +107,7 @@ fetchByKey error during interpretation
 
 .. code-block:: none
 
-  Command interpretation error in LF-Damle: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
+  Command interpretation error in the Daml engine: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
 
 fetchByKey dispute during validation
 ....................................
