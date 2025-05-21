@@ -22,7 +22,7 @@ Since we are extending :doc:`compose`, the setup for this chapter is slightly mo
 
 ``Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 
-DAR, DALF, Daml-LF, and the engine
+DAR files, Daml-LF, and the engine
 ----------------------------------
 
 In :doc:`compose` you already learnt a little about projects, Daml-LF, DAR files, and dependencies. In this chapter we will actually need to have dependencies from the current project to the :doc:`compose` project so it's time to learn a little more about all this.
