@@ -9,7 +9,7 @@ import com.daml.lf.language.Ast._
 import com.daml.nameof.NameOf
 
 import scala.annotation.tailrec
-import scala.collection.immutable.HashMap
+import scala.collection.immutable.SortedMap
 
 object Util {
 
@@ -171,7 +171,7 @@ object Util {
         case Nil => graph0
       }
 
-    Graphs.topoSort(buildGraph(pkgIds, pkgIds.toSet, HashMap.empty)) match {
+    Graphs.topoSort(buildGraph(pkgIds, pkgIds.toSet, SortedMap.empty)) match {
       case Right(value) =>
         value
       case Left(cycle) =>
