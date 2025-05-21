@@ -569,7 +569,7 @@ case class TypecheckUpgradesStandalone(
             tplName,
           )
         )
-      } else succeed(())).toSeq.traverse(identity).map(_ => ())
+      } else succeed(())).toSeq.sequence[UpgradeM, Unit].void
   }
 }
 
