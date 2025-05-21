@@ -39,13 +39,9 @@ da_scala_library(
         "//ledger/ledger-api-errors:__subpackages__",
     ],
     deps = [
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//ledger/error",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
