@@ -5,7 +5,7 @@ package com.daml.lf.validation
 
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import java.io.File
-import com.daml.lf.archive.{DarDecoder, ArchiveDecoder}
+import com.daml.lf.archive.DarDecoder
 import com.daml.lf.archive.Dar
 import com.daml.lf.archive.{Error => ArchiveError}
 import com.daml.lf.data.Ref
@@ -16,9 +16,8 @@ import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 
-final case class CouldNotReadDarOrDalf(path: String, darErr: ArchiveError, dalfErr: ArchiveError) {
-  val message: String =
-    s"Error reading ${path}: file is neither a DAR nor a DALF.\nError when trying to read as DAR: ${darErr}\nError when trying to read as DALF: ${dalfErr}"
+final case class CouldNotReadDar(path: String, err: ArchiveError) {
+  val message: String = s"Error reading DAR from ${path}: ${err.msg}"
 }
 
 case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
@@ -27,20 +26,13 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
   implicit val ec: ExecutionContext = ExecutionContext.global
   implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.empty
 
-  private def decodeDarOrDalf(
+  private def decodeDar(
       path: String
-  ): Either[CouldNotReadDarOrDalf, Dar[(Ref.PackageId, Ast.Package)]] = {
+  ): Either[CouldNotReadDar, Dar[(Ref.PackageId, Ast.Package)]] = {
     val s: String = s"Decoding DAR from ${path}"
     logger.debug(s)
     val result = DarDecoder.readArchiveFromFile(new File(path))
-    result match {
-      case Left(darErr) =>
-        ArchiveDecoder.fromFile(new File(path)) match {
-          case Left(dalfErr) => Left(CouldNotReadDarOrDalf(path, darErr, dalfErr))
-          case Right(x) => Right(Dar(x, List()))
-        }
-      case Right(x) => Right(x)
-    }
+    result.left.map(CouldNotReadDar(path, _))
   }
 
   val validator = new PackageUpgradeValidator(
@@ -52,9 +44,9 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
   def check(paths: Array[String]): Int = {
     logger.debug(s"Called UpgradeCheckMain with paths: ${paths.toSeq.mkString("\n")}")
 
-    val (failures, dars) = paths.partitionMap(decodeDarOrDalf(_))
+    val (failures, dars) = paths.partitionMap(decodeDar(_))
     if (failures.nonEmpty) {
-      failures.foreach((e: CouldNotReadDarOrDalf) => logger.error(e.message))
+      failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
       1
     } else {
       val archives = for { dar <- dars; archive <- dar.all.toSeq } yield {
