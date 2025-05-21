@@ -34,7 +34,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
   private[metrics] val dbStorage = new DbStorageHistograms(parent)
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class PerformanceMetrics private[BftOrderingHistograms] {
+  private[metrics] final class PerformanceHistograms private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "performance"
 
     private[metrics] val orderingStageLatency: Item = Item(
@@ -46,10 +46,10 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Latency,
     )
   }
-  private[metrics] val performance = new PerformanceMetrics
+  private[metrics] val performance = new PerformanceHistograms
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class GlobalMetrics private[BftOrderingHistograms] {
+  private[metrics] final class GlobalHistograms private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "global"
 
     private[metrics] val requestsOrderingLatency: Item = Item(
@@ -62,10 +62,10 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Latency,
     )
   }
-  private[metrics] val global = new GlobalMetrics
+  private[metrics] val global = new GlobalHistograms
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class IngressMetrics private[BftOrderingHistograms] {
+  private[metrics] final class IngressHistograms private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "ingress"
 
     private[metrics] val requestsSize: Item = Item(
@@ -75,10 +75,10 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Traffic,
     )
   }
-  private[metrics] val ingress = new IngressMetrics
+  private[metrics] val ingress = new IngressHistograms
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class ConsensusMetrics private[BftOrderingHistograms] {
+  private[metrics] final class ConsensusHistograms private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "consensus"
 
     private[metrics] val consensusCommitLatency: Item = Item(
@@ -89,10 +89,10 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Latency,
     )
   }
-  private[metrics] val consensus = new ConsensusMetrics
+  private[metrics] val consensus = new ConsensusHistograms
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class OutputMetrics private[BftOrderingHistograms] {
+  private[metrics] final class OutputHistograms private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "output"
 
     private[metrics] val blockSizeBytes: Item = Item(
@@ -124,10 +124,10 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Latency,
     )
   }
-  private[metrics] val output = new OutputMetrics
+  private[metrics] val output = new OutputHistograms
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class TopologyMetrics private[BftOrderingHistograms] {
+  private[metrics] final class TopologyHistograms private[BftOrderingHistograms] {
     private[metrics] val prefix = BftOrderingHistograms.this.prefix :+ "topology"
 
     private[metrics] val queryLatency: Item = Item(
@@ -137,14 +137,14 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
       qualification = MetricQualification.Latency,
     )
   }
-  private[metrics] val topology = new TopologyMetrics
+  private[metrics] val topology = new TopologyHistograms
 
   // Private constructor to avoid being instantiated multiple times by accident
-  private[metrics] final class P2PMetrics private[BftOrderingHistograms] {
+  private[metrics] final class P2PHistograms private[BftOrderingHistograms] {
     val p2pPrefix: MetricName = BftOrderingHistograms.this.prefix :+ "p2p"
 
     // Private constructor to avoid being instantiated multiple times by accident
-    private[metrics] class SendMetrics private[P2PMetrics] {
+    private[metrics] class SendMetrics private[P2PHistograms] {
       val prefix: MetricName = p2pPrefix :+ "send"
 
       private[metrics] val networkWriteLatency: Item = Item(
@@ -164,7 +164,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
     private[metrics] val send = new SendMetrics
 
     // Private constructor to avoid being instantiated multiple times by accident
-    private[metrics] final class ReceiveMetrics private[P2PMetrics] {
+    private[metrics] final class ReceiveMetrics private[P2PHistograms] {
       val prefix: MetricName = p2pPrefix :+ "receive"
 
       private[metrics] val processingLatency: Item = Item(
@@ -176,7 +176,7 @@ private[metrics] final class BftOrderingHistograms(val parent: MetricName)(impli
     }
     private[metrics] val receive = new ReceiveMetrics
   }
-  private[metrics] val p2p = new P2PMetrics
+  private[metrics] val p2p = new P2PHistograms
 }
 
 class BftOrderingMetrics private[metrics] (
@@ -204,8 +204,40 @@ class BftOrderingMetrics private[metrics] (
     final class OrderingStageLatencyMetrics private[BftOrderingMetrics] {
       object labels {
 
-        object stages {
+        object stage {
           val Key: String = "ordering-stage"
+
+          object values {
+
+            object mempool {
+              // Insertion in batch queue until extraction and batch send to availability
+              val RequestQueuedForBatchInclusion = "request-queued-for-batch-inclusion"
+            }
+
+            val BatchAvailabilityTotal = "batch-availability-total"
+
+            object availability {
+              // Time waited for a batch while there are outstanding consensus proposal requests and no dissemination is in progress
+              val BatchWait = "batch-wait"
+
+              // Cumulative latency of a batch dissemination until a PoA is formed and
+              //  it can be present multiple times for a given batch if it regresses due to topology changes
+              val BatchDissemination = "batch-dissemination-total"
+
+              object dissemination {
+                // The following latencies can be present multiple times for a given batch
+                //  in case of multiple ack collections and regressions due to topology changes
+
+                // Duration of batch validation when a node receives a batch store
+                //  request (emitted 0 or more times per batch)
+                val BatchValidation = "batch-validation"
+
+                // Insertion in proposal queue until next event, like re-sign, re-dissemination, [re-]proposal
+                //  or batch ordered (emitted 1 or more times per batch)
+                val BatchQueuedForBlockInclusion = "batch-queued-for-block-inclusion"
+              }
+            }
+          }
         }
       }
 
@@ -220,9 +252,48 @@ class BftOrderingMetrics private[metrics] (
         val latency =
           Duration.between(sendInstant, Instant.now).minus(maybeDelay.fold(Duration.ZERO)(_.toJava))
         timer.update(latency)(
-          metricsContext.withExtraLabels(labels.stages.Key -> s"module-queue-${moduleName.name}")
+          metricsContext.withExtraLabels(labels.stage.Key -> s"module-queue-${moduleName.name}")
         )
       }
+
+      def emitOrderingStageLatency[R](
+          stage: String,
+          op: () => R,
+      )(implicit
+          mc: MetricsContext
+      ): R = {
+        val startInstant = Instant.now()
+        val result = op()
+        val duration = Duration.between(startInstant, Instant.now())
+        emitOrderingStageLatency(stage, duration)
+        result
+      }
+
+      def emitOrderingStageLatency(
+          stage: String,
+          startInstant: Instant,
+          endInstant: Instant,
+      )(implicit
+          mc: MetricsContext
+      ): Unit =
+        emitOrderingStageLatency(
+          stage,
+          Duration.between(startInstant, endInstant),
+        )
+
+      def emitOrderingStageLatency(
+          stage: String,
+          duration: Duration,
+      )(implicit
+          mc: MetricsContext
+      ): Unit =
+        performance.orderingStageLatency.timer
+          .update(duration)(
+            mc.withExtraLabels(
+              performance.orderingStageLatency.labels.stage.Key ->
+                stage
+            )
+          )
     }
     val orderingStageLatency = new OrderingStageLatencyMetrics
   }
@@ -341,59 +412,88 @@ class BftOrderingMetrics private[metrics] (
   final class AvailabilityMetrics private[BftOrderingMetrics] {
     private val prefix = BftOrderingMetrics.this.prefix :+ "availability"
 
-    val requestedProposals: Gauge[Int] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "requested-proposals",
-        summary = "Requested proposals",
-        description = "Number of proposals requested from availability by the consensus module.",
-        qualification = MetricQualification.Saturation,
-      ),
-      0,
-    )
+    object requested {
+      val proposals: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "requested-proposals",
+          summary = "Requested proposals",
+          description = "Number of proposals requested from availability by the consensus module.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
 
-    val requestedBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "requested-batches",
-        summary = "Requested batches",
-        description =
-          "Maximum number of batches requested from availability by the consensus module.",
-        qualification = MetricQualification.Saturation,
-      ),
-      0,
-    )
+      val batches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "requested-batches",
+          summary = "Requested batches",
+          description =
+            "Maximum number of batches requested from availability by the consensus module.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+    }
 
-    val readyBytes: Gauge[Int] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "ready-bytes",
-        summary = "Bytes ready for consensus",
-        description =
-          "Number of bytes disseminated, provably highly available and ready for consensus.",
-        qualification = MetricQualification.Saturation,
-      ),
-      0,
-    )
+    object dissemination {
 
-    val readyRequests: Gauge[Int] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "ready-requests",
-        summary = "Requests ready for consensus",
-        description =
-          "Number of requests disseminated, provably highly available and ready for consensus.",
-        qualification = MetricQualification.Saturation,
-      ),
-      0,
-    )
+      object labels {
+        val ReadyForConsensus = "ready-for-consensus" // true or false
+      }
 
-    val readyBatches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
-      MetricInfo(
-        prefix :+ "ready-batches",
-        summary = "Batches ready for consensus",
-        description =
-          "Number of batches disseminated, provably highly available and ready for consensus.",
-        qualification = MetricQualification.Saturation,
-      ),
-      0,
-    )
+      val bytes: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "disseminating-bytes",
+          summary = "Bytes being disseminated",
+          description = "Number of bytes being disseminated.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+
+      val requests: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "disseminating-requests",
+          summary = "Requests being disseminated",
+          description = "Number of requests being disseminated.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+
+      val batches: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+        MetricInfo(
+          prefix :+ "disseminating-batches",
+          summary = "Batches being disseminated",
+          description = "Number of batches being disseminated.",
+          qualification = MetricQualification.Saturation,
+        ),
+        0,
+      )
+    }
+
+    object regression {
+      object labels {
+        object stage {
+          val Key = "stage"
+
+          object values {
+            sealed trait RegressionStageValue extends PrettyNameOnlyCase
+            case object Signing extends RegressionStageValue
+            case object Dissemination extends RegressionStageValue
+          }
+        }
+      }
+
+      val batch: Counter = openTelemetryMetricsFactory.counter(
+        MetricInfo(
+          prefix :+ "batch-regressions",
+          summary = "Batch regressions",
+          description = "Count of regressions of a single batch due to topology changes",
+          qualification = MetricQualification.Saturation,
+        )
+      )
+    }
   }
   val availability = new AvailabilityMetrics
 
@@ -512,6 +612,15 @@ class BftOrderingMetrics private[metrics] (
           summary = "Discarded retransmission response messages",
           description =
             "Discarded retransmission response messages for epoch different than current one",
+          qualification = MetricQualification.Traffic,
+        )
+      )
+
+      val discardedRateLimitedRetransmissionRequestMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "discarded-rate-limited-retransmission-requests",
+          summary = "Discarded rate limited retransmission requests",
+          description = "Discarded retransmission requests messages due to rate limiting",
           qualification = MetricQualification.Traffic,
         )
       )

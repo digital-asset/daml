@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
 import com.digitalasset.canton.ledger.participant.state.{
@@ -111,7 +112,7 @@ final case class UnassignmentValidationResult(
       updateId = updateId,
       reassignmentInfo = ReassignmentInfo(
         sourceSynchronizer = reassignmentId.sourceSynchronizer,
-        targetSynchronizer = targetSynchronizer,
+        targetSynchronizer = targetSynchronizer.map(_.logical),
         submitter = Option(submitterMetadata.submitter),
         unassignId = reassignmentId.unassignmentTs,
         isReassigningParticipant = isReassigningParticipant,

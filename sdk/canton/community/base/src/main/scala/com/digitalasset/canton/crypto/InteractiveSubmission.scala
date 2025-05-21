@@ -56,7 +56,7 @@ object InteractiveSubmission {
         commandId: Ref.CommandId,
         transactionUUID: UUID,
         mediatorGroup: Int,
-        synchronizerId: SynchronizerId,
+        synchronizerId: SynchronizerId, // TODO(#25483) Should that be physical?
         timeBoundaries: LedgerTimeBoundaries,
         submissionTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, FatContractInstance],
@@ -112,6 +112,7 @@ object InteractiveSubmission {
       commandId: Ref.CommandId,
       transactionUUID: UUID,
       mediatorGroup: Int,
+      // TODO(#25483) Should this be physical?
       synchronizerId: SynchronizerId,
       timeBoundaries: LedgerTimeBoundaries,
       submissionTime: Time.Timestamp,

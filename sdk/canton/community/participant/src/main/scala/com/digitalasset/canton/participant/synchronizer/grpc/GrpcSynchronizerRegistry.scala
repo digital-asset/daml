@@ -3,13 +3,18 @@
 
 package com.digitalasset.canton.participant.synchronizer.grpc
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout, TestingConfigInternal}
-import com.digitalasset.canton.crypto.{CryptoHandshakeValidator, SyncCryptoApiParticipantProvider}
+import com.digitalasset.canton.crypto.{
+  CryptoHandshakeValidator,
+  SyncCryptoApiParticipantProvider,
+  SynchronizerCryptoClient,
+}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
@@ -17,6 +22,7 @@ import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.*
+import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.SynchronizerRegistryInternalError
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
   ParticipantTopologyDispatcher,
@@ -82,7 +88,7 @@ class GrpcSynchronizerRegistry(
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
   private class GrpcSynchronizerHandle(
-      override val synchronizerId: SynchronizerId,
+      override val synchronizerId: PhysicalSynchronizerId,
       override val synchronizerAlias: SynchronizerAlias,
       override val staticParameters: StaticSynchronizerParameters,
       sequencer: RichSequencerClient,
@@ -90,6 +96,7 @@ class GrpcSynchronizerRegistry(
       override val topologyClient: SynchronizerTopologyClientWithInit,
       override val topologyFactory: TopologyComponentFactory,
       override val syncPersistentState: SyncPersistentState,
+      override val syncCrypto: SynchronizerCryptoClient,
       override protected val timeouts: ProcessingTimeout,
   ) extends SynchronizerHandle
       with FlagCloseableAsync
@@ -101,10 +108,14 @@ class GrpcSynchronizerRegistry(
     override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
       import TraceContext.Implicits.Empty.*
       List[AsyncOrSyncCloseable](
+        // Close the synchronizer crypto client first to stop waiting for snapshots that may block the sequencer subscription
+        SyncCloseable("SyncCryptoClient", syncCrypto.close()),
         SyncCloseable(
           "topologyOutbox",
           topologyDispatcher.synchronizerDisconnected(synchronizerAlias),
         ),
+        // Close the sequencer client so that the processors won't receive or handle events when
+        // their shutdown is initiated.
         SyncCloseable("sequencerClient", sequencerClient.close()),
         SyncCloseable("sequencerChannelClient", sequencerChannelClientO.foreach(_.close())),
       )
@@ -115,7 +126,9 @@ class GrpcSynchronizerRegistry(
       config: SynchronizerConnectionConfig
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Either[SynchronizerRegistryError, SynchronizerHandle]] = {
+  ): FutureUnlessShutdown[
+    Either[SynchronizerRegistryError, (SynchronizerHandle, SynchronizerConnectionConfig)]
+  ] = {
 
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
@@ -141,6 +154,29 @@ class GrpcSynchronizerRegistry(
         .processHandshake(config.synchronizerAlias, info.synchronizerId)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
 
+      updatedConfigE = {
+        val connectionsWithSequencerId = info.sequencerConnections.aliasToConnection
+        val updatedConnections = config.sequencerConnections.aliasToConnection.map {
+          case (_, connection) =>
+            val potentiallyUpdatedConnection =
+              connectionsWithSequencerId.getOrElse(connection.sequencerAlias, connection)
+            val updatedConnection = potentiallyUpdatedConnection.sequencerId
+              .map(connection.withSequencerId)
+              .getOrElse(connection)
+            updatedConnection
+        }.toSeq
+        SequencerConnections
+          .many(
+            updatedConnections,
+            config.sequencerConnections.sequencerTrustThreshold,
+            config.sequencerConnections.submissionRequestAmplification,
+          )
+          .map(connections => config.copy(sequencerConnections = connections))
+
+      }
+      updatedConfig <- EitherT
+        .fromEither[FutureUnlessShutdown](updatedConfigE)
+        .leftMap(SynchronizerRegistryInternalError.InvalidState(_))
       synchronizerHandle <- getSynchronizerHandle(
         config,
         syncPersistentStateManager,
@@ -156,17 +192,21 @@ class GrpcSynchronizerRegistry(
         partyNotifier,
         metrics,
       )
-    } yield new GrpcSynchronizerHandle(
-      synchronizerHandle.synchronizerId,
-      synchronizerHandle.alias,
-      synchronizerHandle.staticParameters,
-      synchronizerHandle.sequencer,
-      synchronizerHandle.channelSequencerClientO,
-      synchronizerHandle.topologyClient,
-      synchronizerHandle.topologyFactory,
-      synchronizerHandle.persistentState,
-      synchronizerHandle.timeouts,
-    )
+    } yield {
+      val grpcHandle = new GrpcSynchronizerHandle(
+        synchronizerHandle.synchronizerId,
+        synchronizerHandle.alias,
+        synchronizerHandle.staticParameters,
+        synchronizerHandle.sequencer,
+        synchronizerHandle.channelSequencerClientO,
+        synchronizerHandle.topologyClient,
+        synchronizerHandle.topologyFactory,
+        synchronizerHandle.persistentState,
+        synchronizerHandle.syncCryptoApi,
+        synchronizerHandle.timeouts,
+      )
+      (grpcHandle, updatedConfig)
+    }
 
     runE.value
   }

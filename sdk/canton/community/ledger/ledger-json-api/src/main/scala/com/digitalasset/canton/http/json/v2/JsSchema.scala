@@ -20,8 +20,9 @@ import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.deriveConfiguredCodec
 import io.circe.generic.semiauto.deriveCodec
 import io.circe.{Codec, Decoder, Encoder, Json}
-import scalapb.GeneratedEnumCompanion
+import scalapb.{GeneratedEnumCompanion, UnknownFieldSet}
 import sttp.tapir.CodecFormat.TextPlain
+import sttp.tapir.Schema.SName
 import sttp.tapir.generic.Derived
 import sttp.tapir.generic.auto.*
 import sttp.tapir.{DecodeResult, Schema, SchemaType}
@@ -78,7 +79,7 @@ object JsSchema {
 
   final case class JsTopologyTransaction(
       updateId: String,
-      events: Seq[JsTopologyEvent.Event],
+      events: Seq[JsTopologyEvent.TopologyEvent],
       offset: Long,
       synchronizerId: String,
       traceContext: Option[TraceContext],
@@ -194,6 +195,10 @@ object JsSchema {
     implicit val eventFormatSchema: Schema[transaction_filter.EventFormat] =
       Schema.derived
 
+    @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+    implicit val jsReassignmentEventSchema: Schema[JsReassignmentEvent.JsReassignmentEvent] =
+      Schema.oneOfWrapped
+
   }
 
   object JsEvent {
@@ -244,24 +249,24 @@ object JsSchema {
   }
 
   object JsTopologyEvent {
-    sealed trait Event
+    sealed trait TopologyEvent
 
     final case class ParticipantAuthorizationAdded(
         partyId: String,
         participantId: String,
         participantPermission: Int,
-    ) extends Event
+    ) extends TopologyEvent
 
     final case class ParticipantAuthorizationChanged(
         partyId: String,
         participantId: String,
         participantPermission: Int,
-    ) extends Event
+    ) extends TopologyEvent
 
     final case class ParticipantAuthorizationRevoked(
         partyId: String,
         participantId: String,
-    ) extends Event
+    ) extends TopologyEvent
   }
 
   object JsTreeEvent {
@@ -405,7 +410,9 @@ object JsSchema {
     implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveConfiguredCodec
     implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveConfiguredCodec
     implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveConfiguredCodec
-    implicit val jsTopologyEvent: Codec[JsTopologyEvent.Event] = deriveConfiguredCodec
+    implicit val jsTopologyEventRW: Codec[JsTopologyEvent.TopologyEvent] = deriveConfiguredCodec
+    implicit val jsTopologyEventParticipantAuthorizationAddedRW
+        : Codec[JsTopologyEvent.ParticipantAuthorizationAdded] = deriveConfiguredCodec
     implicit val jsParticipantAuthorizationChanged
         : Codec[JsTopologyEvent.ParticipantAuthorizationChanged] = deriveConfiguredCodec
     implicit val jsParticipantAuthorizationRevoked
@@ -420,9 +427,14 @@ object JsSchema {
     ] = deriveConfiguredCodec
 
     // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+    implicit val byteStringSchema: Schema[protobuf.ByteString] = Schema(
+      SchemaType.SString()
+    )
 
+    implicit val unknownFieldSetMapSchema: Schema[Map[Int, UnknownFieldSet.Field]] =
+      Schema.schemaForMap[Int, UnknownFieldSet.Field](_.toString)
     implicit val unknownFieldSetSchema: Schema[scalapb.UnknownFieldSet] =
-      Schema.string[scalapb.UnknownFieldSet]
+      Schema.derived[scalapb.UnknownFieldSet]
 
     implicit val identifierSchema: Schema[com.daml.ledger.api.v2.value.Identifier] = Schema.string
 
@@ -436,11 +448,10 @@ object JsSchema {
 
     implicit val timestampSchema: Schema[protobuf.timestamp.Timestamp] = Schema.string
 
-    implicit val byteStringSchema: Schema[protobuf.ByteString] = Schema(
-      SchemaType.SString()
-    )
-
     implicit val structSchema: Schema[protobuf.struct.Struct] = Schema.any
+
+    implicit val anySchema: Schema[com.google.protobuf.any.Any] =
+      Schema.derived.name(Some(SName("ProtoAny")))
 
     implicit val jsEventCreatedSchema: Schema[JsEvent.CreatedEvent] = Schema.derived
 
@@ -460,6 +471,10 @@ object JsSchema {
 
     implicit val identifierFilterSchema
         : Schema[transaction_filter.CumulativeFilter.IdentifierFilter] =
+      Schema.oneOfWrapped
+
+    @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
+    implicit val jsTopologyEventEventSchema: Schema[JsTopologyEvent.TopologyEvent] =
       Schema.oneOfWrapped
 
     implicit val valueSchema: Schema[com.google.protobuf.struct.Value] = Schema.any

@@ -119,7 +119,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
           "reassign-contract",
           participant1.adminParty.toProtoPrimitive,
         ).create.commands.loneElement
-      val tx = participant1.ledger_api.javaapi.commands.submit_flat(
+      val tx = participant1.ledger_api.javaapi.commands.submit(
         Seq(participant1.adminParty),
         Seq(cycle),
         synchronizerId = Some(synchronizer1Id),
@@ -135,7 +135,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
         mediator2,
         participant1,
       ) { () =>
-        participant1.testing.fetch_synchronizer_time(synchronizer2Id)
+        participant1.testing.fetch_synchronizer_time(synchronizer2Id.toPhysical)
 
         a[CommandFailure] shouldBe thrownBy {
           participant1.ledger_api.commands.submit_unassign(

@@ -10,7 +10,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   GetTrafficStateForMemberResponse,
   TrafficState,
 }
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.Arbitrary
 
@@ -26,7 +26,7 @@ final class GeneratorsTrafficData(
       member <- Arbitrary.arbitrary[Member]
       serial <- Arbitrary.arbitrary[PositiveInt]
       trafficPurchased <- Arbitrary.arbitrary[NonNegativeLong]
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
     } yield SetTrafficPurchasedMessage.apply(
       member,
       serial,

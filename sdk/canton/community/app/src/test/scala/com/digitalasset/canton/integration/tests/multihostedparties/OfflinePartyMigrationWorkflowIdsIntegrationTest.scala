@@ -63,7 +63,7 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
 
       // Check that the transactions generated for the migration are actually grouped as
       // expected and that their workflow IDs can be used to correlate those transactions
-      val txs = participant2.ledger_api.javaapi.updates.flat(Set(alice), completeAfter = 4)
+      val txs = participant2.ledger_api.javaapi.updates.transactions(Set(alice), completeAfter = 4)
       withClue("Transactions should be grouped by ledger time") {
         txs.map(_.getTransaction.get().getEffectiveAt.toEpochMilli).distinct should have size 4
       }
@@ -112,7 +112,7 @@ sealed trait OfflinePartyMigrationWorkflowIdsIntegrationTest
     )
 
     // Check that the workflow ID prefix is set as specified
-    val txs = participant3.ledger_api.javaapi.updates.flat(Set(bob), completeAfter = 2)
+    val txs = participant3.ledger_api.javaapi.updates.transactions(Set(bob), completeAfter = 2)
     inside(txs) { case Seq(tx1, tx2) =>
       tx1.getTransaction.get().getWorkflowId shouldBe s"$workflowIdPrefix-1-2"
       tx2.getTransaction.get().getWorkflowId shouldBe s"$workflowIdPrefix-2-2"

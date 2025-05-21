@@ -24,7 +24,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficPurchasedStore
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.scalalogging.LazyLogging
 import io.opentelemetry.api.trace.Tracer
@@ -66,7 +66,7 @@ class BftSequencerFactory(
 
   override protected final def createBlockSequencer(
       name: String,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       cryptoApi: SynchronizerCryptoClient,
       stateManager: BlockSequencerStateManager,
       store: SequencerBlockStore,
@@ -76,7 +76,7 @@ class BftSequencerFactory(
       health: Option[SequencerHealthConfig],
       clock: Clock,
       driverClock: Clock,
-      protocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
       initialBlockHeight: Option[Long],
@@ -98,7 +98,7 @@ class BftSequencerFactory(
         sequencerId,
         protocolVersion,
         driverClock,
-        new CantonOrderingTopologyProvider(cryptoApi, loggerFactory),
+        new CantonOrderingTopologyProvider(cryptoApi, loggerFactory, metrics.bftOrdering),
         authenticationServices,
         nodeParameters,
         initialHeight,
@@ -137,6 +137,5 @@ class BftSequencerFactory(
 }
 
 object BftSequencerFactory extends LazyLogging {
-
   val ShortName: String = "BFT"
 }

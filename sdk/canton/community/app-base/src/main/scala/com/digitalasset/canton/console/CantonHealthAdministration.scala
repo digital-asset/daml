@@ -11,7 +11,7 @@ import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
 import io.circe.{Encoder, Json, KeyEncoder, jawn}
@@ -54,8 +54,13 @@ object CantonHealthAdministrationEncoders {
     Encoder.encodeString.contramap(_.toString)
   implicit val threadKeyEncoder: KeyEncoder[Thread] = (thread: Thread) => thread.getName
 
-  implicit val synchronizerIdEncoder: KeyEncoder[SynchronizerId] = (ref: SynchronizerId) =>
+  implicit val physicalSynchronizerIdEncoder: Encoder[PhysicalSynchronizerId] =
+    Encoder.encodeString.contramap(_.toString)
+
+  implicit val synchronizerIdKeyEncoder: KeyEncoder[SynchronizerId] = (ref: SynchronizerId) =>
     ref.toString
+  implicit val physicalSynchronizerIdKeyEncoder: KeyEncoder[PhysicalSynchronizerId] =
+    (ref: PhysicalSynchronizerId) => ref.toString
 
   implicit val encodePort: Encoder[Port] = Encoder.encodeInt.contramap[Port](_.unwrap)
 

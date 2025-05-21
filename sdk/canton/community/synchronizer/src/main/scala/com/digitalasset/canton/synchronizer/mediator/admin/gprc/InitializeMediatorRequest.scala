@@ -7,10 +7,10 @@ import com.digitalasset.canton.mediator.admin.v30
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 final case class InitializeMediatorRequest(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     sequencerConnections: SequencerConnections,
     sequencerConnectionValidation: SequencerConnectionValidation,
 ) {
@@ -32,7 +32,10 @@ object InitializeMediatorRequest {
       sequencerConnectionValidationPO,
     ) = requestP
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "physical_synchronizer_id",
+      )
       sequencerConnections <- ProtoConverter
         .required("sequencerConnections", sequencerConnectionsPO)
         .flatMap(SequencerConnections.fromProtoV30)

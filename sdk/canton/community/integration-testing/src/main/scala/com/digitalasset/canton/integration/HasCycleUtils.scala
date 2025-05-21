@@ -74,4 +74,21 @@ trait HasCycleUtils {
     participant.ledger_api.javaapi.commands
       .submit(Seq(partyId), Seq(cycle), commandId = commandId, optTimeout = optTimeout)
   }
+
+  def createCycleContracts(
+      participant: ParticipantReference,
+      partyId: PartyId,
+      ids: Seq[String],
+      commandId: String = "",
+      optTimeout: Option[config.NonNegativeDuration] = Some(
+        ConsoleCommandTimeout.defaultLedgerCommandsTimeout
+      ),
+  ): Unit = {
+    if (participant.packages.find_by_module("Cycle").isEmpty) {
+      participant.dars.upload(CantonExamplesPath)
+    }
+    val cycles = ids.map(new M.Cycle(_, partyId.toProtoPrimitive).create.commands.loneElement)
+    participant.ledger_api.javaapi.commands
+      .submit(Seq(partyId), cycles, commandId = commandId, optTimeout = optTimeout)
+  }
 }

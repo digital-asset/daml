@@ -147,7 +147,7 @@ class ActiveContractsIntegrationTest
     val (contract, createUpdate, _) =
       IouSyntax.createIouComplete(participant1, Some(synchronizerId))(signatory, observer)
 
-    val createdEvent = createUpdate.eventsById.values.head.getCreated
+    val createdEvent = createUpdate.events.head.getCreated
 
     ContractData(contract, createdEvent)
 
@@ -251,7 +251,7 @@ class ActiveContractsIntegrationTest
     participant1.synchronizers.reconnect_all()
     val createdEvent = eventually() {
       val endOffset = participant1.ledger_api.state.end()
-      val updates = participant1.ledger_api.updates.flat(
+      val updates = participant1.ledger_api.updates.transactions(
         partyIds = Set(signatory),
         completeAfter = Int.MaxValue,
         beginOffsetExclusive = startOffset,
@@ -848,8 +848,9 @@ class ActiveContractsIntegrationTest
       startFromExclusive: Long,
   ) = {
     val unassignedUniqueId = participant.ledger_api.updates
-      .flat(
-        Set(observer),
+      .reassignments(
+        partyIds = Set(observer),
+        filterTemplates = Seq.empty,
         beginOffsetExclusive = startFromExclusive,
         completeAfter = PositiveInt.one,
         resultFilter = _.isUnassignment,

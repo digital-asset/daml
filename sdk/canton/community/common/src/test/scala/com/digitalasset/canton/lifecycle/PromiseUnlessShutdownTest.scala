@@ -23,17 +23,17 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
 
     "complete a promise with an outcome" in {
       val p = PromiseUnlessShutdown.unsupervised[Int]()
-      p.outcome(42)
+      p.outcome_(42)
 
       // Ignore second outcome
-      p.outcome(23)
+      p.outcome_(23)
 
       p.future.futureValue shouldBe UnlessShutdown.Outcome(42)
     }
 
     "complete a promise due to shutdown" in {
       val p = PromiseUnlessShutdown.unsupervised[Int]()
-      p.shutdown()
+      p.shutdown_()
       p.future.futureValue shouldBe UnlessShutdown.AbortedDueToShutdown
     }
 
@@ -54,7 +54,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
           Threading.sleep(3.second.toMillis)
 
           // Eventually complete the promise
-          p.outcome(42)
+          p.outcome_(42)
           f.futureValue shouldBe UnlessShutdown.Outcome(42)
         },
         entries => {
@@ -92,7 +92,7 @@ class PromiseUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExec
           p
         }
       )
-      promise.outcome(1)
+      promise.outcome_(1)
       promise.futureUS.futureValueUS shouldBe 1
     }
 

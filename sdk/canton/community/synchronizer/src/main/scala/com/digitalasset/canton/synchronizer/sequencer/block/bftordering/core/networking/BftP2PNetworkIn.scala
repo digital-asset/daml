@@ -101,6 +101,7 @@ class BftP2PNetworkIn[E <: Env[E]](
       case Message.ConsensusMessage(consensusMessage) =>
         IssConsensusModule
           .parseNetworkMessage(consensusMessage)
+          .map(msg => Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(from, msg))
           .fold(
             errorMessage =>
               logger.warn(

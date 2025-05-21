@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.integration.tests
 
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.damltests.java.transientcontracts.TransientContractsTest
 import com.digitalasset.canton.integration.plugins.{
@@ -49,7 +50,7 @@ trait TransientContractIntegrationTest extends CommunityIntegrationTest with Sha
         Some(bob.toProtoPrimitive).toJava,
       ).create.commands.asScala.toSeq
     val aliceAndBobCreateTx =
-      participant1.ledger_api.javaapi.commands.submit_flat(Seq(alice), aliceAndBobCreateCmd)
+      participant1.ledger_api.javaapi.commands.submit(Seq(alice), aliceAndBobCreateCmd)
     val Seq(aliceAndBobContract) =
       JavaDecodeUtil.decodeAllCreated(TransientContractsTest.COMPANION)(aliceAndBobCreateTx)
 
@@ -59,11 +60,12 @@ trait TransientContractIntegrationTest extends CommunityIntegrationTest with Sha
         .commands
         .asScala
         .toSeq
-    // use `submit` here because the flat stream omits transient contracts
-    val transientTx = participant1.ledger_api.javaapi.commands.submit(Seq(alice), transientCmd)
+    // use `submit` with TRANSACTION_SHAPE_LEDGER_EFFECTS here because the AcsDelta omits transient contracts
+    val transientTx = participant1.ledger_api.javaapi.commands
+      .submit(Seq(alice), transientCmd, transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS)
     val transientIds =
       JavaDecodeUtil
-        .decodeAllCreatedTree(TransientContractsTest.COMPANION)(transientTx)
+        .decodeAllCreated(TransientContractsTest.COMPANION)(transientTx)
         .map(_.id.toLf)
     val archivedContracts = aliceAndBobContract.id.toLf +: transientIds
 

@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 
 trait SynchronizerOutboxDispatchHelper extends NamedLogging {
-  protected def synchronizerId: SynchronizerId
+  protected def synchronizerId: PhysicalSynchronizerId
 
   protected def memberId: Member
 
@@ -59,7 +59,9 @@ trait SynchronizerOutboxDispatchHelper extends NamedLogging {
       transactions: Seq[GenericSignedTopologyTransaction]
   ): FutureUnlessShutdown[Seq[GenericSignedTopologyTransaction]] =
     FutureUnlessShutdown.pure(
-      transactions.filter(x => x.mapping.restrictedToSynchronizer.forall(_ == synchronizerId))
+      transactions.filter(x =>
+        x.mapping.restrictedToSynchronizer.forall(_ == synchronizerId.logical)
+      )
     )
 
   protected def isFailedState(response: TopologyTransactionsBroadcast.State): Boolean =

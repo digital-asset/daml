@@ -18,6 +18,7 @@ import com.digitalasset.canton.participant.protocol.validation.ExtractUsedAndCre
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.transaction.ParticipantAttributes
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.transaction.Versioned
 
@@ -91,10 +92,10 @@ object ExtractUsedAndCreated {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): FutureUnlessShutdown[Map[LfPartyId, Boolean]] =
+  ): FutureUnlessShutdown[Map[LfPartyId, Option[ParticipantAttributes]]] =
     topologySnapshot.hostedOn(parties, participantId).map { partyWithAttributes =>
       parties
-        .map(partyId => partyId -> partyWithAttributes.contains(partyId))
+        .map(partyId => partyId -> partyWithAttributes.get(partyId))
         .toMap
     }
 
@@ -130,12 +131,13 @@ object ExtractUsedAndCreated {
       divulged: Map[LfContractId, SerializableContract],
       consumedOfHostedStakeholders: Map[LfContractId, Set[LfPartyId]],
       contractIdsOfHostedInformeeStakeholder: Set[LfContractId],
+      contractIdsAllowedToBeUnknown: Set[LfContractId],
   )
 
 }
 
 private[validation] class ExtractUsedAndCreated(
-    hostedParties: Map[LfPartyId, Boolean],
+    hostedParties: Map[LfPartyId, Option[ParticipantAttributes]],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit traceContext: TraceContext)
     extends NamedLogging {
@@ -152,7 +154,7 @@ private[validation] class ExtractUsedAndCreated(
 
     UsedAndCreated(
       contracts = usedAndCreatedContracts(createdContracts, inputContracts, transientContracts),
-      hostedWitnesses = hostedParties.filter(_._2).keySet,
+      hostedWitnesses = hostedParties.filter(_._2.nonEmpty).keySet,
     )
   }
 
@@ -163,6 +165,7 @@ private[validation] class ExtractUsedAndCreated(
     val usedB =
       Map.newBuilder[LfContractId, SerializableContract]
     val contractIdsOfHostedInformeeStakeholderB = Set.newBuilder[LfContractId]
+    val contractIdsAllowedToBeUnknownB = Set.newBuilder[LfContractId]
     val consumedOfHostedStakeholdersB =
       Map.newBuilder[LfContractId, Set[LfPartyId]]
     val divulgedB =
@@ -192,6 +195,10 @@ private[validation] class ExtractUsedAndCreated(
               contract.contractId -> stakeholders
           }
         }
+        // Track input contracts that might legitimately be unknown (due to party onboarding).
+        if (areAllHostedStakeholdersOnboarding(stakeholders)) {
+          contractIdsAllowedToBeUnknownB += contract.contractId
+        }
       } else {
         divulgedB += (contract.contractId -> contract)
       }
@@ -202,6 +209,7 @@ private[validation] class ExtractUsedAndCreated(
       divulged = divulgedB.result(),
       consumedOfHostedStakeholders = consumedOfHostedStakeholdersB.result(),
       contractIdsOfHostedInformeeStakeholder = contractIdsOfHostedInformeeStakeholderB.result(),
+      contractIdsAllowedToBeUnknown = contractIdsAllowedToBeUnknownB.result(),
     )
   }
 
@@ -288,21 +296,29 @@ private[validation] class ExtractUsedAndCreated(
       maybeCreated = maybeCreated,
       transient = transient,
       used = inputContracts.used,
+      maybeUnknown = inputContracts.contractIdsAllowedToBeUnknown,
     )
   }
 
-  private def hostsAny(
-      parties: IterableOnce[LfPartyId]
-  )(implicit loggingContext: ErrorLoggingContext): Boolean =
-    parties.iterator.exists { party =>
-      hostedParties.getOrElse(
+  private def hostsAny(parties: IterableOnce[LfPartyId]): Boolean =
+    parties.iterator.exists(lookupParty(_).nonEmpty)
+
+  private def lookupParty(
+      party: LfPartyId
+  )(implicit loggingContext: ErrorLoggingContext): Option[ParticipantAttributes] =
+    hostedParties
+      .getOrElse(
         party, {
           loggingContext.error(
             s"Prefetch of parties is wrong and missed to load data for party $party"
           )
-          false
+          None
         },
       )
-    }
 
+  /** Indicate whether all (non-empty) hosted parties are onboarding. */
+  private def areAllHostedStakeholdersOnboarding(parties: IterableOnce[LfPartyId]): Boolean = {
+    val hostedPartyParticipantAttribs = parties.iterator.flatMap(lookupParty(_))
+    hostedPartyParticipantAttribs.nonEmpty && hostedPartyParticipantAttribs.forall(_.onboarding)
+  }
 }

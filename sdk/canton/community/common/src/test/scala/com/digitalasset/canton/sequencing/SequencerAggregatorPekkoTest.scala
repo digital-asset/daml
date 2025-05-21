@@ -63,11 +63,13 @@ class SequencerAggregatorPekkoTest
       )
     )(env => withFixture(test.toNoArgTest(env)))
 
-  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
 
   private def mkAggregatorPekko(
-      validator: SequencedEventValidator =
-        SequencedEventValidator.noValidation(DefaultTestIdentities.synchronizerId, warn = false)
+      validator: SequencedEventValidator = SequencedEventValidator.noValidation(
+        DefaultTestIdentities.physicalSynchronizerId,
+        warn = false,
+      )
   )(implicit fixture: FixtureParam): SequencerAggregatorPekko =
     new SequencerAggregatorPekko(
       synchronizerId,
@@ -323,7 +325,7 @@ class SequencerAggregatorPekkoTest
       import fixture.*
 
       val validator = new SequencedEventValidatorImpl(
-        defaultSynchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         testedProtocolVersion,
         subscriberCryptoApi,
         loggerFactory,

@@ -60,7 +60,7 @@ class SequencerReaderTestV2
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
   private val ts0 = CantonTimestamp.Epoch
-  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
   private val topologyClientMember = SequencerId(synchronizerId.uid)
   private val crypto = TestingTopology(
     sequencerGroup = SequencerGroup(
@@ -76,7 +76,7 @@ class SequencerReaderTestV2
   private val cryptoD =
     valueOrFail(
       crypto
-        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
+        .forSynchronizer(synchronizerId.logical, defaultStaticSynchronizerParameters)
         .toRight("no crypto api")
     )(
       "synchronizer crypto"

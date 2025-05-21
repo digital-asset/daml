@@ -3,12 +3,13 @@
 
 package com.digitalasset.canton.integration.tests.multihostedparties
 
-import com.daml.ledger.api.v2.event.CreatedEvent
-import com.daml.ledger.api.v2.transaction.TreeEvent.Kind.{Created, Exercised}
-import com.daml.ledger.api.v2.transaction.{TransactionTree, TreeEvent}
+import com.daml.ledger.api.v2.event.Event.Event.{Created, Exercised}
+import com.daml.ledger.api.v2.event.{CreatedEvent, Event}
+import com.daml.ledger.api.v2.transaction.Transaction
+import com.daml.ledger.api.v2.transaction_filter.TransactionShape.TRANSACTION_SHAPE_LEDGER_EFFECTS
 import com.daml.ledger.api.v2.value.Value.Sum.Party
 import com.daml.ledger.api.v2.value.{RecordField, Value}
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionTreeWrapper
+import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService.TransactionWrapper
 import com.digitalasset.canton.admin.api.client.data.{AddPartyStatus, TemplateId}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{DbConfig, SynchronizerTimeTrackerConfig}
@@ -188,6 +189,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
               (sourceParticipant, ParticipantPermission.Submission),
               (targetParticipant, ParticipantPermission.Observation),
             ),
+            participantsRequiringPartyToBeOnboarded = Seq(targetParticipant),
             threshold = PositiveInt.one,
             store = daId,
             serial = Some(serial),
@@ -224,25 +226,23 @@ sealed trait OnlinePartyReplicationNegotiationTest
           Seq(sourceParticipant, targetParticipant).foreach { participant =>
             clue(s"Checking participant ${participant.name}: ") {
               eventually() {
-                val trees = participant.ledger_api.updates.trees(
+                val txs = participant.ledger_api.updates.transactions(
                   Set(sourceParticipant.adminParty),
                   completeAfter = 10,
                   timeout = config.NonNegativeDuration.ofSeconds(1),
+                  transactionShape = TRANSACTION_SHAPE_LEDGER_EFFECTS,
                 )
 
                 // The TP asks the SP to replicate Alice via proposal
-                val createProposal = trees
-                  .collect { case TransactionTreeWrapper(tree: TransactionTree) =>
-                    tree.eventsById.values.collect {
-                      case TreeEvent(Created(event))
-                          if event.templateId.contains(
-                            PartyReplicationAdminWorkflow.proposalTemplate
-                          ) =>
-                        event
-                    }
+                val createProposal = txs.flatMap { case TransactionWrapper(tx: Transaction) =>
+                  tx.events.collect {
+                    case Event(Created(event))
+                        if event.templateId.contains(
+                          PartyReplicationAdminWorkflow.proposalTemplate
+                        ) =>
+                      event
                   }
-                  .flatten
-                  .loneElement
+                }.loneElement
                 val party = partyToReplicate(createProposal)
                 createProposal.signatories shouldBe Seq(
                   targetParticipant.adminParty.toProtoPrimitive
@@ -250,10 +250,10 @@ sealed trait OnlinePartyReplicationNegotiationTest
                 party shouldBe alice.toProtoPrimitive
 
                 // The SP accepts the party replication proposal
-                val accept = trees
-                  .collect { case TransactionTreeWrapper(tree: TransactionTree) =>
-                    tree.eventsById.values.collect {
-                      case TreeEvent(Exercised(event))
+                val accept = txs
+                  .collect { case TransactionWrapper(tx: Transaction) =>
+                    tx.events.collect {
+                      case Event(Exercised(event))
                           if event.templateId.contains(
                             PartyReplicationAdminWorkflow.proposalTemplate
                           ) =>

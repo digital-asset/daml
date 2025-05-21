@@ -85,11 +85,10 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionProcessor,
 }
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -115,7 +114,6 @@ import scala.concurrent.{ExecutionContext, Future}
   *   Synchronisation crypto utility combining IPS and Crypto operations for a single synchronizer.
   */
 class ConnectedSynchronizer(
-    val synchronizerId: SynchronizerId,
     val synchronizerHandle: SynchronizerHandle,
     participantId: ParticipantId,
     engine: Engine,
@@ -146,6 +144,8 @@ class ConnectedSynchronizer(
     with CloseableHealthComponent
     with AtomicHealthComponent {
 
+  val synchronizerId: PhysicalSynchronizerId = synchronizerHandle.synchronizerId
+
   val topologyClient: SynchronizerTopologyClientWithInit = synchronizerHandle.topologyClient
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
@@ -169,7 +169,6 @@ class ConnectedSynchronizer(
     TransactionConfirmationRequestFactory(
       participantId,
       synchronizerId,
-      staticSynchronizerParameters.protocolVersion,
     )(
       synchronizerCrypto.crypto.pureCrypto,
       seedGenerator,
@@ -631,7 +630,7 @@ class ConnectedSynchronizer(
               ephemeral.timeTracker,
               tc =>
                 participantNodePersistentState.value.ledgerApiStore
-                  .cleanSynchronizerIndex(synchronizerId)(tc, ec)
+                  .cleanSynchronizerIndex(synchronizerId.logical)(tc, ec)
                   .map(_.flatMap(_.sequencerIndex).map(_.sequencerTimestamp)),
             )(initializationTraceContext)
           )
@@ -705,7 +704,7 @@ class ConnectedSynchronizer(
         }
 
         pendingReassignments.lastOption.map(t =>
-          t.reassignmentId.unassignmentTs -> t.sourceSynchronizer
+          t.reassignmentId.unassignmentTs -> t.sourceSynchronizer.map(_.logical)
         )
       }
 
@@ -800,8 +799,7 @@ class ConnectedSynchronizer(
   override def submitUnassignments(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractIds: Seq[LfContractId],
-      targetSynchronizer: Target[SynchronizerId],
-      targetProtocolVersion: Target[ProtocolVersion],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
@@ -830,7 +828,6 @@ class ConnectedSynchronizer(
                 submitterMetadata,
                 contractIds,
                 targetSynchronizer,
-                targetProtocolVersion,
               ),
             synchronizerCrypto.currentSnapshotApproximation.ipsSnapshot,
           )
@@ -888,11 +885,6 @@ class ConnectedSynchronizer(
       SyncCloseable(
         "connected-synchronizer",
         LifeCycle.close(
-          // Close the synchronizer crypto client first to stop waiting for snapshots that may block the sequencer subscription
-          synchronizerCrypto,
-          // Close the sequencer client so that the processors won't receive or handle events when
-          // their shutdown is initiated.
-          sequencerClient,
           journalGarbageCollector,
           acsCommitmentProcessor,
           transactionProcessor,
@@ -960,7 +952,6 @@ object ConnectedSynchronizer {
   trait Factory[+T <: ConnectedSynchronizer] {
 
     def create(
-        synchronizerId: SynchronizerId,
         synchronizerHandle: SynchronizerHandle,
         participantId: ParticipantId,
         engine: Engine,
@@ -986,7 +977,6 @@ object ConnectedSynchronizer {
 
   object DefaultFactory extends Factory[ConnectedSynchronizer] {
     override def create(
-        synchronizerId: SynchronizerId,
         synchronizerHandle: SynchronizerHandle,
         participantId: ParticipantId,
         engine: Engine,
@@ -1022,20 +1012,20 @@ object ConnectedSynchronizer {
         persistentState.requestJournalStore,
         tc =>
           ephemeralState.ledgerApiIndexer.ledgerApiStore.value
-            .cleanSynchronizerIndex(synchronizerId)(tc, ec),
+            .cleanSynchronizerIndex(synchronizerHandle.synchronizerId.logical)(tc, ec),
         sortedReconciliationIntervalsProvider,
         persistentState.acsCommitmentStore,
         persistentState.activeContractStore,
         persistentState.submissionTrackerStore,
         participantNodePersistentState.map(_.inFlightSubmissionStore),
-        synchronizerId,
+        synchronizerHandle.synchronizerId,
         parameters.journalGarbageCollectionDelay,
         parameters.processingTimeouts,
         loggerFactory,
       )
       for {
         acsCommitmentProcessor <- AcsCommitmentProcessor(
-          synchronizerId,
+          synchronizerHandle.synchronizerId,
           participantId,
           synchronizerHandle.sequencerClient,
           synchronizerCrypto,
@@ -1060,7 +1050,6 @@ object ConnectedSynchronizer {
           acsCommitmentProcessor.scheduleTopologyTick
         )
       } yield new ConnectedSynchronizer(
-        synchronizerId,
         synchronizerHandle,
         participantId,
         engine,

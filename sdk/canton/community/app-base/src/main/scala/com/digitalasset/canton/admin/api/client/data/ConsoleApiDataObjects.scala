@@ -4,6 +4,7 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.traverse.*
+import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.admin.participant.v30 as participantAdminV30
 import com.digitalasset.canton.data.CantonTimestamp
@@ -15,7 +16,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 final case class ListConnectedSynchronizersResult(
     synchronizerAlias: SynchronizerAlias,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     healthy: Boolean,
 )
 
@@ -27,16 +28,33 @@ object ListConnectedSynchronizersResult {
     val participantAdminV30.ListConnectedSynchronizersResponse.Result(
       synchronizerAlias,
       synchronizerId,
+      physicalSynchronizerId,
       healthy,
     ) =
       value
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerId, "synchronizerId")
+      psid <- PhysicalSynchronizerId.fromProtoPrimitive(
+        physicalSynchronizerId,
+        "physical_synchronizer_id",
+      )
+      lsid <- SynchronizerId.fromProtoPrimitive(
+        synchronizerId,
+        "synchronizer_id",
+      )
+
+      _ <- Either.cond(
+        lsid == psid.logical,
+        (),
+        InvariantViolation(
+          None,
+          s"Found incompatible physical synchronizer id ($psid) and synchronizer id ($lsid)",
+        ),
+      )
       synchronizerAlias <- SynchronizerAlias.fromProtoPrimitive(synchronizerAlias)
 
     } yield ListConnectedSynchronizersResult(
       synchronizerAlias = synchronizerAlias,
-      synchronizerId = synchronizerId,
+      synchronizerId = psid,
       healthy = healthy,
     )
   }

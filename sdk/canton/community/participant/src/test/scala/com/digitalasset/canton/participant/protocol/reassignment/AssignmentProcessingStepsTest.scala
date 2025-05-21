@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.Eval
 import cats.data.EitherT
-import cats.implicits.*
+import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -93,16 +93,16 @@ class AssignmentProcessingStepsTest
     with HasExecutionContext
     with FailOnShutdown {
   private lazy val sourceSynchronizer = Source(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::source")).toPhysical
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val targetSynchronizer = Target(
-    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target"))
+    SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("synchronizer::target")).toPhysical
   )
   private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val anotherSynchronizer = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::another")
-  )
+  ).toPhysical
   private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(1))
   private lazy val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
@@ -225,7 +225,7 @@ class AssignmentProcessingStepsTest
 
   private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
-    reassignmentId.sourceSynchronizer,
+    reassignmentId.sourceSynchronizer.map(_.toPhysical),
     targetSynchronizer,
     identityFactory,
   )
@@ -257,6 +257,7 @@ class AssignmentProcessingStepsTest
       Some(signature),
       None,
       isFreshOwnTimelyRequest = true,
+      areContractsUnknown = false,
       Seq.empty,
       targetMediator,
       cryptoSnapshot,
@@ -856,7 +857,7 @@ class AssignmentProcessingStepsTest
   }
 
   private def testInstance(
-      targetSynchronizer: Target[SynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       snapshotOverride: SynchronizerSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
   ) = {
@@ -886,7 +887,7 @@ class AssignmentProcessingStepsTest
       reassignmentId: ReassignmentId = reassignment10,
       submitter: LfPartyId = party1,
       contract: SerializableContract = contract,
-      targetSynchronizer: Target[SynchronizerId] = targetSynchronizer,
+      targetSynchronizer: Target[PhysicalSynchronizerId] = targetSynchronizer,
       targetMediator: MediatorGroupRecipient = targetMediator,
       uuid: UUID = new UUID(4L, 5L),
       reassigningParticipants: Set[ParticipantId] = Set.empty,

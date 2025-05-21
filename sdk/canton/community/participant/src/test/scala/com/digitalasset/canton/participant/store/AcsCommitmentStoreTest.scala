@@ -29,7 +29,12 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.pruning.ConfigForNoWaitCounterParticipants
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  ParticipantId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.{
   BaseTest,
   CloseableTest,
@@ -51,9 +56,9 @@ trait CommitmentStoreBaseTest
     with CloseableTest
     with HasExecutionContext {
 
-  protected lazy val synchronizerId: SynchronizerId = SynchronizerId(
+  protected lazy val synchronizerId: PhysicalSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizer::synchronizer")
-  )
+  ).toPhysical
 
   protected lazy val crypto: SymbolicCrypto = SymbolicCrypto.create(
     testedReleaseProtocolVersion,
@@ -1092,15 +1097,15 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         at20with41 <- queue.peekThrough(ts(20))
       } yield {
         // We don't really care how the priority queue breaks the ties, so just use sets here
-        at5.toSet shouldBe Set(c11, c12)
-        at10.toSet shouldBe Set(c11, c12, c21)
-        at10with22.toSet shouldBe Set(c11, c12, c21, c22)
-        at10with32.toSet shouldBe Set(c11, c12, c21, c22)
-        at15.toSet shouldBe Set(c11, c12, c21, c22, c32)
-        at15AfterDelete.toSet shouldBe Set(c21, c22, c32)
-        at15with31.toSet shouldBe Set(c21, c22, c32, c31)
+        at5.toSet shouldBe Set(c11, c12).map(_.toQueuedAcsCommitment)
+        at10.toSet shouldBe Set(c11, c12, c21).map(_.toQueuedAcsCommitment)
+        at10with22.toSet shouldBe Set(c11, c12, c21, c22).map(_.toQueuedAcsCommitment)
+        at10with32.toSet shouldBe Set(c11, c12, c21, c22).map(_.toQueuedAcsCommitment)
+        at15.toSet shouldBe Set(c11, c12, c21, c22, c32).map(_.toQueuedAcsCommitment)
+        at15AfterDelete.toSet shouldBe Set(c21, c22, c32).map(_.toQueuedAcsCommitment)
+        at15with31.toSet shouldBe Set(c21, c22, c32, c31).map(_.toQueuedAcsCommitment)
         at20AfterDelete shouldBe List.empty
-        at20with41 shouldBe List(c41)
+        at20with41 shouldBe List(c41).map(_.toQueuedAcsCommitment)
       }).failOnShutdown
     }
 
@@ -1137,16 +1142,16 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         at20with41 <- queue.peekThroughAtOrAfter(ts(20))
       } yield {
         // We don't really care how the priority queue breaks the ties, so just use sets here
-        at5.toSet shouldBe Set(c11, c12, c21)
-        at10.toSet shouldBe Set(c21)
-        at10with22.toSet shouldBe Set(c21, c22)
+        at5.toSet shouldBe Set(c11, c12, c21).map(_.toQueuedAcsCommitment)
+        at10.toSet shouldBe Set(c21).map(_.toQueuedAcsCommitment)
+        at10with22.toSet shouldBe Set(c21, c22).map(_.toQueuedAcsCommitment)
         at15.toSet shouldBe empty
-        at10with32.toSet shouldBe Set(c21, c22, c32)
-        at15with32.toSet shouldBe Set(c32)
-        at15AfterDelete.toSet shouldBe Set(c32)
-        at15with31.toSet shouldBe Set(c32, c31)
+        at10with32.toSet shouldBe Set(c21, c22, c32).map(_.toQueuedAcsCommitment)
+        at15with32.toSet shouldBe Set(c32).map(_.toQueuedAcsCommitment)
+        at15AfterDelete.toSet shouldBe Set(c32).map(_.toQueuedAcsCommitment)
+        at15with31.toSet shouldBe Set(c32, c31).map(_.toQueuedAcsCommitment)
         at20AfterDelete shouldBe List.empty
-        at20with41 shouldBe List(c41)
+        at20with41 shouldBe List(c41).map(_.toQueuedAcsCommitment)
       }
     }
 
@@ -1242,14 +1247,21 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         )
       } yield {
         // We don't really care how the priority queue breaks the ties, so just use sets here
-        at05.toSet shouldBe Set(dummyCommitmentMsg, dummyCommitmentMsg3)
-        at010.toSet shouldBe Set(dummyCommitmentMsg, dummyCommitmentMsg3)
-        at510.toSet shouldBe Set(dummyCommitmentMsg3)
+        at05.toSet shouldBe Set(dummyCommitmentMsg, dummyCommitmentMsg3).map(
+          _.toQueuedAcsCommitment
+        )
+        at010.toSet shouldBe Set(dummyCommitmentMsg, dummyCommitmentMsg3).map(
+          _.toQueuedAcsCommitment
+        )
+        at510.toSet shouldBe Set(dummyCommitmentMsg3).map(_.toQueuedAcsCommitment)
         at1015 shouldBe empty
-        at1015after.toSet shouldBe Set(dummyCommitmentMsg2)
-        at510after.toSet shouldBe Set(dummyCommitmentMsg3)
-        at515after.toSet shouldBe Set(dummyCommitmentMsg3, dummyCommitmentMsg2)
+        at1015after.toSet shouldBe Set(dummyCommitmentMsg2).map(_.toQueuedAcsCommitment)
+        at510after.toSet shouldBe Set(dummyCommitmentMsg3).map(_.toQueuedAcsCommitment)
+        at515after.toSet shouldBe Set(dummyCommitmentMsg3, dummyCommitmentMsg2).map(
+          _.toQueuedAcsCommitment
+        )
         at015after.toSet shouldBe Set(dummyCommitmentMsg3, dummyCommitmentMsg2, dummyCommitmentMsg)
+          .map(_.toQueuedAcsCommitment)
       }
     }
 

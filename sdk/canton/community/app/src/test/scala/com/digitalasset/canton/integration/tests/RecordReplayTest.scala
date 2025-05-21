@@ -151,7 +151,11 @@ final class RecordReplayIntegrationTest
       // Wait until all sequencer events have been output as transactions through the ledger API.
       eventually() {
         participant1.ledger_api.updates
-          .flat(Set(participant1.adminParty), 2 * NumberOfRecordedWorkflows, txOffsetBeforeReplay)
+          .transactions(
+            partyIds = Set(participant1.adminParty),
+            completeAfter = 2 * NumberOfRecordedWorkflows,
+            beginOffsetExclusive = txOffsetBeforeReplay,
+          )
           .size should be >= 2 * NumberOfRecordedWorkflows
       }
 

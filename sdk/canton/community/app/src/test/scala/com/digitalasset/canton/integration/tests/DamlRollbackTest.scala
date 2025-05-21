@@ -182,7 +182,7 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
         .asScala
         .toSeq
 
-    val createTx = participant.ledger_api.javaapi.commands.submit_flat(
+    val createTx = participant.ledger_api.javaapi.commands.submit(
       Seq(signatory),
       createCmd,
     )
@@ -203,7 +203,7 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
         observers.map(_.toProtoPrimitive).asJava,
       ).create.commands.asScala.toSeq
 
-    val createTx = participant.ledger_api.javaapi.commands.submit_flat(
+    val createTx = participant.ledger_api.javaapi.commands.submit(
       signatories,
       createCmd,
     )
@@ -220,7 +220,7 @@ trait DamlRollbackTestStableLf extends DamlRollbackTest {
   ): exceptionstester.Informees.ContractId = {
     val cmdSignOn = informees.exerciseSignOn(observer.toProtoPrimitive).commands.asScala.toSeq
     val createTx =
-      participant.ledger_api.javaapi.commands.submit_flat(Seq(observer), cmdSignOn)
+      participant.ledger_api.javaapi.commands.submit(Seq(observer), cmdSignOn)
     JavaDecodeUtil
       .decodeAllCreated(exceptionstester.Informees.COMPANION)(createTx)
       .loneElement
@@ -651,7 +651,7 @@ trait DamlRollbackTestDevLf extends DamlRollbackTest {
         .asScala
         .toSeq
 
-    val createTx = participant.ledger_api.javaapi.commands.submit_flat(
+    val createTx = participant.ledger_api.javaapi.commands.submit(
       Seq(signatory),
       createCmd,
     )

@@ -10,7 +10,6 @@ import com.daml.ledger.javaapi.data
 import com.daml.test.evidence.tag.Reliability.ReliabilityTestSuite
 import com.digitalasset.canton.BigDecimalImplicits.*
 import com.digitalasset.canton.SequencerAlias
-import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.UpdateService
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig.Postgres
@@ -21,6 +20,7 @@ import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
   UsePostgres,
 }
+import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   ConfigTransforms,
@@ -168,15 +168,12 @@ abstract class RehydrationIntegrationTest
     )
 
     observedTx = participant1.ledger_api.updates
-      .flat(
+      .transactions(
         partyIds = Set(alice),
         completeAfter = transactionLimit + 10,
         timeout = 5.seconds,
       )
-      .flatMap {
-        case UpdateService.TransactionWrapper(transaction) => Some(transaction)
-        case _ => None
-      }
+      .map(_.transaction)
     observedAcs = acsAsMap(
       participant1.ledger_api.state.acs
         .of_all(acsLimit + 10)
@@ -322,15 +319,12 @@ abstract class RehydrationIntegrationTest
     val participantToCheck = participant2
 
     val reconstructedTx = participantToCheck.ledger_api.updates
-      .flat(
+      .transactions(
         partyIds = Set(alice),
         completeAfter = transactionLimit + 10,
         timeout = 5.seconds,
       )
-      .flatMap {
-        case UpdateService.TransactionWrapper(transaction) => Some(transaction)
-        case _ => None
-      }
+      .map(_.transaction)
     def stripParticipantSpecificFields(tx: Transaction): Transaction =
       tx
         .copy(offset = 0L, traceContext = None)
@@ -391,7 +385,7 @@ abstract class RehydrationIntegrationTest
     val cycle = new C.Cycle(id, party.toProtoPrimitive).create.commands.loneElement
 
     val transaction: data.Transaction =
-      initiatorParticipant.ledger_api.javaapi.commands.submit_flat(
+      initiatorParticipant.ledger_api.javaapi.commands.submit(
         Seq(party),
         Seq(cycle),
         commandId = commandId,
@@ -401,13 +395,14 @@ abstract class RehydrationIntegrationTest
 
     // Wait until the transaction was observed on the responder participant
     val cycleTxId = transaction.getUpdateId
+    val updateFormat = getUpdateFormat(Set(party))
     eventually() {
-      responderParticipant.ledger_api.updates.by_id(Set(party), cycleTxId) shouldBe
+      responderParticipant.ledger_api.updates.update_by_id(cycleTxId, updateFormat) shouldBe
         Symbol("defined")
     }
 
     val cycleEx = cycleContract.id.exerciseArchive().commands.asScala.toSeq
-    responderParticipant.ledger_api.javaapi.commands.submit_flat(
+    responderParticipant.ledger_api.javaapi.commands.submit(
       Seq(party),
       cycleEx,
       commandId = if (commandId.isEmpty) "" else s"$commandId-response",

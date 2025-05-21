@@ -57,7 +57,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -81,7 +81,7 @@ trait ReassignmentProcessingSteps[
 
   val participantId: ParticipantId
 
-  val synchronizerId: ReassignmentTag[SynchronizerId]
+  val synchronizerId: ReassignmentTag[PhysicalSynchronizerId]
 
   protected def contractAuthenticator: ContractAuthenticator
 
@@ -238,7 +238,7 @@ trait ReassignmentProcessingSteps[
 
     val (WithRecipients(viewTree, recipients), signature) = rootViewsWithMetadata.head1
 
-    FutureUnlessShutdown.pure(
+    contractsMaybeUnknown(viewTree, snapshot).map(contractsMaybeUnknown =>
       ParsedReassignmentRequest(
         rc,
         ts,
@@ -248,6 +248,7 @@ trait ReassignmentProcessingSteps[
         signature,
         submitterMetadataO,
         isFreshOwnTimelyRequest,
+        contractsMaybeUnknown,
         malformedPayloads,
         mediator,
         snapshot,
@@ -255,6 +256,13 @@ trait ReassignmentProcessingSteps[
       )
     )
   }
+
+  protected def contractsMaybeUnknown(
+      fullView: FullView,
+      snapshot: SynchronizerSnapshotSyncCryptoApi,
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean]
 
   override def constructResponsesForMalformedPayloads(
       requestId: RequestId,
@@ -292,7 +300,7 @@ trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         completionInfo,
         rejection,
-        synchronizerId.unwrap,
+        synchronizerId.unwrap.logical,
         ts,
       )
     )
@@ -323,7 +331,7 @@ trait ReassignmentProcessingSteps[
       Update.SequencedCommandRejected(
         info,
         rejection,
-        synchronizerId.unwrap,
+        synchronizerId.unwrap.logical,
         pendingReassignment.requestId.unwrap,
       )
     )
@@ -498,6 +506,7 @@ object ReassignmentProcessingSteps {
       signatureO: Option[Signature],
       override val submitterMetadataO: Option[ReassignmentSubmitterMetadata],
       override val isFreshOwnTimelyRequest: Boolean,
+      areContractsUnknown: Boolean,
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
       override val snapshot: SynchronizerSnapshotSyncCryptoApi,
@@ -562,19 +571,24 @@ object ReassignmentProcessingSteps {
     override def message: String = "Application is shutting down"
   }
 
-  final case class SynchronizerNotReady(synchronizerId: SynchronizerId, context: String)
+  final case class SynchronizerNotReady(synchronizerId: PhysicalSynchronizerId, context: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Synchronizer $synchronizerId is not ready when $context"
   }
 
-  final case class ReassignmentParametersError(synchronizerId: SynchronizerId, context: String)
-      extends ReassignmentProcessorError {
+  // TODO(#25483) Errors should be physical
+  final case class ReassignmentParametersError(
+      synchronizerId: SynchronizerId,
+      context: String,
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Unable to compute reassignment parameters for $synchronizerId: $context"
   }
 
-  final case class NoTimeProofFromSynchronizer(synchronizerId: SynchronizerId, reason: String)
-      extends ReassignmentProcessorError {
+  final case class NoTimeProofFromSynchronizer(
+      synchronizerId: PhysicalSynchronizerId,
+      reason: String,
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot fetch time proof for synchronizer `$synchronizerId`: $reason"
   }

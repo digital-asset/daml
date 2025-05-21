@@ -31,7 +31,7 @@ import com.digitalasset.canton.mediator.admin.v30.Verdict
 import com.digitalasset.canton.networking.grpc.RecordingStreamObserver
 import com.digitalasset.canton.sequencing.{SequencerConnectionValidation, SequencerConnections}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.NoTracing
 
 import scala.concurrent.duration.FiniteDuration
@@ -135,7 +135,7 @@ class MediatorPruningAdministrationGroup(
 class MediatorSetupGroup(node: MediatorReference) extends ConsoleCommandGroup.Impl(node) {
   @Help.Summary("Assign a mediator to a synchronizer")
   def assign(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencerConnections: SequencerConnections,
       sequencerConnectionValidation: SequencerConnectionValidation =
         SequencerConnectionValidation.All,

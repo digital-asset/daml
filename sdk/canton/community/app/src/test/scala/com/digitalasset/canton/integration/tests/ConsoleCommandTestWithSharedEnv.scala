@@ -193,7 +193,7 @@ sealed trait ConsoleCommandIntegrationTestWithSharedEnv
       commands: Seq[Command],
   ): Seq[Iou.Contract] =
     JavaDecodeUtil
-      .decodeAllCreatedTree(Iou.COMPANION)(
+      .decodeAllCreated(Iou.COMPANION)(
         participantRef.ledger_api.javaapi.commands.submit(Seq(submitter), commands)
       )
 }

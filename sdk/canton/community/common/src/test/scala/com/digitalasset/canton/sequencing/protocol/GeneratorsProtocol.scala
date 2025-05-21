@@ -28,7 +28,7 @@ import com.digitalasset.canton.serialization.{
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
@@ -215,7 +215,7 @@ final class GeneratorsProtocol(
     for {
       pts <- Arbitrary.arbitrary[Option[CantonTimestamp]]
       ts <- Arbitrary.arbitrary[CantonTimestamp]
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
       messageId <- Arbitrary.arbitrary[MessageId]
       error <- sequencerDeliverErrorArb.arbitrary
     } yield DeliverError.create(
@@ -230,7 +230,7 @@ final class GeneratorsProtocol(
   )
   private implicit val deliverArbitrary: Arbitrary[Deliver[Envelope[?]]] = Arbitrary(
     for {
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
       batch <- batchArb.arbitrary
       deliver <- Arbitrary(deliverGen(synchronizerId, batch, protocolVersion)).arbitrary
     } yield deliver
@@ -303,7 +303,7 @@ object GeneratorsProtocol {
     }
   }
   def deliverGen[Env <: Envelope[?]](
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       batch: Batch[Env],
       protocolVersion: ProtocolVersion,
   ): Gen[Deliver[Env]] = for {
@@ -328,7 +328,7 @@ object GeneratorsProtocol {
       timestamp <- Arbitrary.arbitrary[CantonTimestamp]
       previousEventTimestamp <- Arbitrary.arbitrary[Option[CantonTimestamp]]
       counter <- nonNegativeLongArb.arbitrary.map(_.unwrap)
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
+      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
     } yield TimeProofTestUtil.mkTimeProof(
       timestamp,
       previousEventTimestamp,
