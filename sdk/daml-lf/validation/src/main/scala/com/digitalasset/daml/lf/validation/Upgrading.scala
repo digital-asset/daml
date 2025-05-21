@@ -410,7 +410,7 @@ object TypecheckUpgrades {
   type UpgradeM[A] = WriterT[
     PartialEither, // The error
     Chain[UpgradeError], // Any warnings produced during execution
-    A
+    A,
   ]
 
   sealed abstract class UploadPhaseCheck[A] {
