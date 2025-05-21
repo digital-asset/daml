@@ -1,37 +1,134 @@
-.. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-.. SPDX-License-Identifier: Apache-2.0
-
 .. _daml-codegen-java:
 
+Daml Codegen for Java
+=====================
+
+This tool is part of the Daml Assistant and is used to generate Java classes for Daml data types.
+
+Overview
+-------------
+You can use the Daml codegen to generate Java classes representing Daml contract templates.
+These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``,
+``com.daml.ledger.api.v1.ExerciseCommand``, ``com.daml.ledger.api.v1.ExerciseByKeyCommand``, and ``com.daml.ledger.api.v1.CreateAndExerciseCommand``.
+
+Download
+-------------
+
+The Daml codegen is part of the Daml Assistant. :ref:`Download the Daml Assistant <assistant-manual-managing-releases>`.
+
+.. TODO(#347) Fix the link to link to Download the Daml Assistant of "Daml Assistant"
+
+Install
+-------------
+
+The Daml codegen is part of the Daml Assistant.
+
+.. TODO(#347) Add link "Download the Daml Assistant" to point to download section of "Daml Assistant"
+
+Configure
+-------------
+
+There are two modes to configure the Daml codegen:
+
+- Command line configuration, specifying **all** settings in the command line.
+
+- Project file configuration, specifying **all** settings in the ``daml.yaml``.
+
+Command line configuration
+--------------------------
+
+Help for Daml codegen for Java::
+
+  $ daml codegen java --help
+
+Codegen command line configuration settings::
+
+      <DAR-file[=package-prefix]>...
+                               DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources.
+      -o, --output-directory <value>
+                               Output directory for the generated sources
+      -d, --decoderClass <value>
+                               Fully Qualified Class Name of the optional Decoder utility
+      -V, --verbosity <value>  Verbosity between 0 (only show errors) and 4 (show all messages) -- defaults to 0
+      -r, --root <value>       Regular expression for fully-qualified names of templates to generate -- defaults to .*
+      --help                   This help text
+
+Project file configuration
+--------------------------
+
+The above settings can be configured in the ``codegen`` element of the Daml project file ``daml.yaml``.
+
+Here is an example::
+
+    sdk-version: 2.0.0
+    name: quickstart
+    source: daml
+    init-script: Main:initialize
+    parties:
+      - Alice
+      - Bob
+      - USD_Bank
+      - EUR_Bank
+    version: 0.0.1
+    exposed-modules:
+      - Main
+    dependencies:
+      - daml-prim
+      - daml-stdlib
+    codegen:
+      java:
+        package-prefix: com.daml.quickstart.iou
+        output-directory: java-codegen/src/main/java
+        verbosity: 2
+
+Operate
+-------------
+
+Run the Daml codegen using project file configuration with::
+
+    $ daml codegen java
+
+or using command line configuration with::
+
+    $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
+
+Observe
+-------------
+
+The Daml codegen generates the Java classes in a directory tree under the output directory specified on the command line.
+
+Upgrade
+-------------
+
+The Daml codegen is part of the Daml Assistant. :ref:`Upgrade the Daml Assistant <assistant-manual-managing-releases>`.
+
+.. TODO(#347) Fix the link to link to Upgrade the Daml Assistant of "Daml Assistant"
 
 
-Generate Java Code from Daml
-############################
+Contribute
+-------------
 
-Introduction
-============
+.. TODO(#347) Add link "Contribute to Daml Assistant" to point to contribute section of "Daml Assistant" ? otherwise remveo
+.. remove this section
 
-When writing applications for the ledger in Java, you want to work with a representation of Daml templates and data types in Java that closely resemble the original Daml code while still being as true to the native types in Java as possible. To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
+References
+-------------
 
-The :ref:`Daml assistant documentation <daml-codegen>` describes how to run and configure the code generator for all supported bindings, including Java.
+.. _daml-codegen-java-generated-code:
 
-The rest of this page describes Java-specific topics.
-
-Understand the Generated Java Model
-===================================
-
-The Java codegen generates source files in a directory tree under the output directory specified on the command line.
+Generated Java code
+^^^^^^^^^^^^^^^^^^^
 
 .. _daml-codegen-java-primitive-types:
 
-Map Daml Primitives to Java Types
----------------------------------
+Daml primitives to Java types
+"""""""""""""""""""""""""""""
 
 Daml built-in types are translated to the following equivalent types in Java:
 
 +--------------------------------+--------------------------------------------+------------------------+
 | Daml type                      | Java type                                  | Java Bindings          |
-|                                |                                            | Value Type             |
+|                                |                                            | Value type             |
 +================================+============================================+========================+
 | ``Int``                        | ``java.lang.Long``                         | `Int64`_               |
 +--------------------------------+--------------------------------------------+------------------------+
@@ -54,7 +151,7 @@ Daml built-in types are translated to the following equivalent types in Java:
 +--------------------------------+--------------------------------------------+------------------------+
 | ``Optional``                   | ``java.util.Optional``                     | `DamlOptional`_        |
 +--------------------------------+--------------------------------------------+------------------------+
-| ``()`` (Unit)                  | **None** since the Java language doesn’t   | `Unit`_                |
+| ``()`` (Unit)                  | **None** since the Java language does not  | `Unit`_                |
 |                                | have a direct equivalent of Daml’s Unit    |                        |
 |                                | type ``()``, the generated code uses the   |                        |
 |                                | Java Bindings value type.                  |                        |
@@ -65,10 +162,10 @@ Daml built-in types are translated to the following equivalent types in Java:
 +--------------------------------+--------------------------------------------+------------------------+
 
 
-Understand Escaping Rules
--------------------------
+Escaping rules
+""""""""""""""
 
-To avoid clashes with Java keywords, the Java codegen applies escaping rules to the following Daml identifiers:
+To avoid clashes with Java keywords, the Daml codegen applies escaping rules to the following Daml identifiers:
 
 * Type names (except the already mapped :ref:`built-in types <daml-codegen-java-primitive-types>`)
 * Constructor names
@@ -76,10 +173,10 @@ To avoid clashes with Java keywords, the Java codegen applies escaping rules to 
 * Module names
 * Field names
 
-If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Java codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
+If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Daml codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
 
-Understand the Generated Classes
---------------------------------
+Generated classes
+"""""""""""""""""
 
 Every user-defined data type in Daml (template, record, and variant) is represented by one or more Java classes as described in this section.
 
@@ -95,8 +192,8 @@ The Java package for the generated classes is the equivalent of the lowercase Da
 
   package foo.bar.baz;
 
-Records (a.k.a Product Types)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Records (a.k.a product types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`Daml record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the Daml record fields. A Daml field having the type of another record is represented as a field having the type of the generated class for that record.
 
@@ -106,7 +203,7 @@ A :ref:`Daml record <daml-ref-record-types>` is represented by a Java class with
    :end-before: -- end snippet: product types example
    :caption: Com/Acme/ProductTypes.daml
 
-A Java file is generated that defines the class for the type ``Person``:
+A Java file that defines the class for the type ``Person`` is generated:
 
 .. code-block:: java
   :caption: com/acme/producttypes/Person.java
@@ -123,7 +220,7 @@ A Java file is generated that defines the class for the type ``Person``:
     public DamlRecord toValue() { /* ... */ }
   }
 
-A Java file is generated that defines the class for the type ``Name``:
+A Java file that defines the class for the type ``Name`` is generated:
 
   .. code-block:: java
     :caption: com/acme/producttypes/Name.java
@@ -143,9 +240,9 @@ A Java file is generated that defines the class for the type ``Name``:
 .. _daml-codegen-java-templates:
 
 Templates
-^^^^^^^^^
+~~~~~~~~~
 
-The Java codegen generates three classes for a Daml template:
+The Daml codegen generates the following classes for a Daml template:
 
   **TemplateName**
       Represents the contract data or the template fields.
@@ -163,7 +260,7 @@ The Java codegen generates three classes for a Daml template:
      :end-before: -- end snippet: template example
      :caption: Com/Acme/Templates.daml
 
-A file is generated that defines five Java classes and an interface:
+In particular, a file that defines five Java classes and an interface is generated:
 
 #. ``Bar``
 #. ``Bar.ContractId``
@@ -185,7 +282,7 @@ A file is generated that defines five Java classes and an interface:
     public static final Choice<Bar, Archive, Unit> CHOICE_Archive =
       Choice.create(/* ... */);
 
-    public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION = 
+    public static final ContractCompanion.WithKey<Contract, ContractId, Bar, BarKey> COMPANION =
         new ContractCompanion.WithKey<>("com.acme.templates.Bar",
           TEMPLATE_ID, ContractId::new, Bar::fromValue, Contract::new, e -> BarKey.fromValue(e), List.of(CHOICE_Archive));
 
@@ -229,8 +326,8 @@ A file is generated that defines five Java classes and an interface:
 
 Note that ``byKey`` and ``ByKey`` will only be generated for templates that define a key.
 
-Variants (a.k.a Sum Types)
-^^^^^^^^^^^^^^^^^^^^^^^^^^
+Variants (a.k.a sum types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 
@@ -313,7 +410,7 @@ The Java code generated for this variant is:
   }
 
 Enums
-^^^^^
+~~~~~
 
 An enum type is a simplified :ref:`sum type <daml-ref-sum-types>` with multiple
 constructors but without argument nor type parameters. The generated code is
@@ -343,14 +440,14 @@ The Java code generated for this variant is:
     public final DamlEnum toValue() { /* ... */ }
   }
 
-Parameterized Types
-^^^^^^^^^^^^^^^^^^^
+Parameterized types
+~~~~~~~~~~~~~~~~~~~
 
 .. note::
 
-   This section is only included for completeness. The ``fromValue`` and ``toValue`` methods would typically come from a template that doesn't have any unbound type parameters.
+   This section is only included for completeness. The ``fromValue`` and ``toValue`` methods would typically come from a template that does not have any unbound type parameters.
 
-The Java codegen uses Java Generic types to represent :ref:`Daml parameterized types <daml-ref-parameterized-types>`.
+The Daml codegen uses Java Generic types to represent :ref:`Daml parameterized types <daml-ref-parameterized-types>`.
 
 This Daml fragment defines the parameterized type ``Attribute``, used by the ``BookAttribute`` type for modeling the characteristics of the book:
 
@@ -360,7 +457,7 @@ This Daml fragment defines the parameterized type ``Attribute``, used by the ``B
    :end-before: -- end snippet: parameterized types example
    :caption: Com/Acme/ParameterizedTypes.daml
 
-The Java codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
+The Daml codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
 .. code-block:: java
   :caption: com/acme/parameterizedtypes/Attribute.java
@@ -379,8 +476,8 @@ The Java codegen generates a Java file with a generic class for  the ``Attribute
   }
 
 
-Convert a Value of a Generated Type to a Java Bindings Value
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+Convert a value of a generated type to a Java Bindings Value
+............................................................
 
 To convert an instance of the generic type ``Attribute<a>`` to a Java Bindings `Value`_, call the ``toValue`` method and pass a function as the ``toValuea`` argument for converting the field of type ``a`` to the respective Java Bindings `Value`_. The name of the parameter consists of ``toValue`` and the name of the type parameter, in this case ``a``, to form the name ``toValuea``.
 
@@ -394,10 +491,12 @@ Below is a Java fragment that converts an attribute with a ``java.lang.Long`` va
 
 See :ref:`Daml To Java Type Mapping <daml-codegen-java-primitive-types>` for an overview of the Java Bindings `Value`_ types.
 
-Note: If the Daml type is a record or variant with more than one type parameter, you need to pass a conversion function to the ``toValue`` method for each type parameter.
+.. note::
 
-Create a Value of a Generated Type from a Java Bindings Value
-"""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+    If the Daml type is a record or variant with more than one type parameter, you need to pass a conversion function to the ``toValue`` method for each type parameter.
+
+Create a Value of a generated type from a Java Bindings Value
+.............................................................
 
 Analogous to the ``toValue`` method, to create a value of a generated type, call the method ``fromValue`` and pass conversion functions from a Java Bindings `Value`_ type to the expected Java type.
 
@@ -409,14 +508,14 @@ Analogous to the ``toValue`` method, to create a value of a generated type, call
 See Java Bindings `Value`_ class for the methods to transform the Java Bindings types into corresponding Java types.
 
 
-Non-exposed Parameterized Types
-"""""""""""""""""""""""""""""""
+Non-exposed parameterized types
+...............................
 
 If the parameterized type is contained in a type where the *actual* type is specified (as in the ``BookAttributes`` type above), then the conversion methods of the enclosing type provides the required conversion function parameters automatically.
 
 
-Convert Optional Values
-"""""""""""""""""""""""
+Convert optional values
+.......................
 
 The conversion of the Java ``Optional`` requires two steps. The
 ``Optional`` must be mapped in order to convert its contains before
@@ -437,8 +536,8 @@ convert back the value possibly contains in the container.
   Attribute<Optional<Long>> idAttribute2 =
     serializedId.toOptional(v -> v.asInt64().orElseThrow(() -> new IllegalArgumentException("Expected Int64 element")));
 
-Convert Collection Values
-"""""""""""""""""""""""""
+Convert collection values
+.........................
 
 `DamlCollectors`_ provides collectors to converted Java collection
 containers such as ``List`` and ``Map`` to DamlValues in one pass. The
@@ -470,10 +569,10 @@ functions to convert back the container's entries.
       );
 
 
-Daml Interfaces
-^^^^^^^^^^^^^^^
+Daml interfaces
+~~~~~~~~~~~~~~~
 
-From this daml definition:
+From this Daml definition:
 
 
 .. literalinclude:: ./code-snippets/Interfaces.daml
@@ -491,7 +590,7 @@ Effectively it is a class that contains only the inner type ContractId because o
   package interfaces
 
   /* imports */
-  
+
   public final class TIf {
     public static final Identifier TEMPLATE_ID = new Identifier("94fb4fa48cef1ec7d474ff3d6883a00b2f337666c302ec5e2b87e986da5c27a3", "Interfaces", "TIf");
 
@@ -527,7 +626,7 @@ Effectively it is a class that contains only the inner type ContractId because o
 
 For templates the code generation will be slightly different if a template implements interfaces.
 To allow converting the ContractId of a template to an interface ContractId, an additional conversion method called `toInterface` is generated.
-An ``unsafeFromInterface`` is also generated to make the [unchecked] conversion in the other direction.
+An ``unsafeFromInterface`` is also generated to make the unchecked conversion in the other direction.
 
 .. code-block:: java
   :caption: interfaces/Child.java

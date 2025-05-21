@@ -1,6 +1,9 @@
 Component Template
 ==================
 
+Overview
+-------------
+
 Download
 -------------
 
@@ -16,13 +19,10 @@ Secure
 Operate
 -------------
 
-Observe
--------------
-
-Harden
--------------
-
 Optimize
+-------------
+
+Observe
 -------------
 
 Upgrade
@@ -35,4 +35,10 @@ Decommission
 -------------
 
 Troubleshoot
+-------------
+
+Contribute
+-------------
+
+References
 -------------
