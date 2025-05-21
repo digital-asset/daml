@@ -160,7 +160,7 @@ Click on the adjacent "Show transaction view" button to see the entire transacti
 
 In the Daml Studio script runner, committed transactions are numbered sequentially. In the image above, the lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
 
-Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` mean ``commit X, sub-transaction Y``. All transactions have this format in the script runner. However, this format is a testing feature. In general, you should consider Transaction and Contract IDs to be opaque.
+Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` mean ``commit X, sub-transaction Y``. All transactions have this format in the script runner. However, this format is a testing feature. In general, you should consider transaction and contract IDs to be opaque.
 
 The lines above and below ``create Token_Test:Token`` give additional information:
 

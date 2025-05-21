@@ -24,10 +24,10 @@ There are three primary tools available in the SDK to test and interact with Dam
 
    :ref:`daml-scripts` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
 
-   1. Run on a special Script Service in the IDE, providing the Script Views.
-   2. Run the Script Service via the CLI, which is useful for quick regression testing.
-   3. Start a Sandbox and run against that for regression testing against an actual Ledger API.
-   4. Run against any other already running Ledger.
+   1. Run on a special script service in the IDE, providing the script views.
+   2. Run the script service via the CLI, which is useful for quick regression testing.
+   3. Start a sandbox and run against that for regression testing against an actual Ledger API.
+   4. Run against any other already running ledger.
 
 :brokenref:`Daml Navigator (Deprecated) </tools/navigator/index>`
 
@@ -130,14 +130,14 @@ The first thing to avoid is write-write or write-read contention on contracts. I
 
 Here are a few scenarios and measures you can take to reduce this type of collision:
 
-1. Shard data. Imagine you want to store a user directory on the Ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
+1. Shard data. Imagine you want to store a user directory on the ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
 
    The Analogy to keep in mind when structuring your data is that a template defines a table, and a contract is a row in that table. Keeping large pieces of data on a contract is like storing big blobs in a database row. If these blobs can change through different actions, you get write conflicts.
 2. Use nonconsuming choices if you can. Nonconsuming exercises have the same contention properties as fetches: they don't collide with each other.
 
-   Contract keys can seem like a way out, but they are not. Contract keys are resolved to Contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
+   Contract keys can seem like a way out, but they are not. Contract keys are resolved to contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
 3. Avoid workflows that encourage multiple parties to simultaneously try to exercise a consuming choice on the same contract. For example, imagine an ``Auction`` contract containing a field ``highestBid : (Party, Decimal)``. If Alice tries to bid $100 at the same time that Bob tries to bid $90, it doesn't matter that Alice's bid is higher. The second transaction to be sequenced will be rejected as it has a write collision with the first. It's better to record the bids in separate ``Bid`` contracts, which can be written to independently. Again, think about how you would structure this data in a relational database to avoid data loss due to race conditions.
-4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in Daml. If you need to be able to make this link inside Daml, Contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in Daml at all.
+4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in Daml. If you need to be able to make this link inside Daml, contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in Daml at all.
 
 Collisions due to ignorance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -148,7 +148,7 @@ To illustrate the problem, let's assume there is a template ``T`` with a contrac
 
 So what should happen now if Alice's participant encounters a ``fetchByKey @T k`` or ``lookupByKey @T k`` during interpretation? What if it encounters a ``fetch`` node? These decisions are part of the operational semantics, and the decision of what should happen is based on the consideration that the chance of a participant submitting an invalid transaction should be minimized.
 
-If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, Contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
+If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
 
 If a ``fetchByKey`` or ``lookupByKey`` node is encountered, the contract is only resolved if the requester is a stakeholder on an active contract with the given key. If that's not the case, there is no reason to believe that the key still resolves to some contract that was witnessed earlier. Thus, when using contract keys, make sure you make the likely requesters of transactions observers on your contracts. If you don't, ``fetchByKey`` will always fail, and ``lookupByKey`` will always return ``None``.
 
