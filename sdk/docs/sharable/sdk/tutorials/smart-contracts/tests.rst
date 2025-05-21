@@ -6,8 +6,8 @@ Test Daml contracts
 
 This chapter is all about testing and debugging the Daml contracts you've built using the tools from earlier chapters. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
 
-- Daml Test tooling - Script, REPL, and Navigator
-- Checking choice coverage
+- Daml test tooling - Script, REPL, and Navigator
+- The choice coverage
 - The ``trace`` and ``debug`` functions
 - Contention
 
@@ -20,14 +20,14 @@ Daml test tooling
 
 There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The :doc:`dependencies` model lends itself well to being tested using these tools.
 
-:ref:`Daml Script <daml-script>`
+:ref:`daml-script`
 
-   :ref:`Daml Script <daml-script>` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
+   :ref:`daml-scripts` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
 
-   1. Run on a special Script Service in the IDE, providing the Script Views.
-   2. Run the Script Service via the CLI, which is useful for quick regression testing.
-   3. Start a Sandbox and run against that for regression testing against an actual Ledger API.
-   4. Run against any other already running Ledger.
+   1. Run on a special script service in the IDE, providing the script views.
+   2. Run the script service via the Daml assistant, which is useful for quick regression testing.
+   3. Start a sandbox and run against that for regression testing against an actual Ledger API.
+   4. Run against any other already running ledger.
 
 :brokenref:`Daml Navigator (Deprecated) </tools/navigator/index>`
 
@@ -67,7 +67,7 @@ The above tools and functions allow you to diagnose most problems with Daml code
 
 Contention refers to conflicts over access to contracts. Daml guarantees that there can only be one consuming choice exercised per contract so what if two parties simultaneously submit an exercise command on the same contract? Only one can succeed. Contention can also occur due to incomplete or stale knowledge. Maybe a contract was archived a little while ago, but due to latencies, a client hasn't found out yet, or maybe due to the privacy model, they never will. What all these cases have in common is that someone has incomplete knowledge of the state the ledger will be in at the time a transaction will be processed and/or committed.
 
-For in-depth information, see the section on `Avoiding Contention <../resource-management/contention-avoiding.html>`__.
+For in-depth information, see the section on :doc:`Avoiding contention <../../sdlc-howtos/applications/optimise/contention-avoiding.html>`__.
 
 If we look back at :ref:`execution_model` we'll see there are three places where ledger state is read:
 
@@ -82,41 +82,41 @@ Common errors
 
 The most common error messages you'll see are listed below. All of them can be due to one of three reasons.
 
-1. Race Conditions - knowledge of a state change is not yet known during command submission
-2. Stale References - the state change is known, but contracts have stale references to keys or ContractIds
+1. Race conditions - knowledge of a state change is not yet known during command submission
+2. Stale references - the state change is known, but contracts have stale references to keys or ContractIds
 3. Ignorance - due to privacy or operational semantics, the requester doesn't know the current state
 
 Following the possible error messages, we'll discuss a few possible causes and remedies.
 
-ContractId Not Found During Interpretation
+ContractId not found during interpretation
 ..........................................
 
 .. code-block:: none
 
-  Command interpretation error in LF-Damle: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
+  Command interpretation error in the Daml engine: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
 
-ContractId Not Found During Validation
+ContractId not found during validation
 ......................................
 
 .. code-block:: none
 
   Disputed: dependency error: couldn't find contract ContractId (00c06fa370f8858b20fd100423d928b1d200d8e3c9975600b9c038307ed6e25d6f).
 
-fetchByKey Error During Interpretation
+fetchByKey error during interpretation
 ......................................
 
 .. code-block:: none
 
-  Command interpretation error in LF-Damle: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
+  Command interpretation error in the Daml engine: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
 
-fetchByKey Dispute During Validation
+fetchByKey dispute during validation
 ....................................
 
 .. code-block:: none
 
   Disputed: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d
 
-lookupByKey Dispute During Validation
+lookupByKey dispute during validation
 ......................................
 
 .. code-block:: none
@@ -130,25 +130,25 @@ The first thing to avoid is write-write or write-read contention on contracts. I
 
 Here are a few scenarios and measures you can take to reduce this type of collision:
 
-1. Shard data. Imagine you want to store a user directory on the Ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
+1. Shard data. Imagine you want to store a user directory on the ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
 
    The Analogy to keep in mind when structuring your data is that a template defines a table, and a contract is a row in that table. Keeping large pieces of data on a contract is like storing big blobs in a database row. If these blobs can change through different actions, you get write conflicts.
 2. Use nonconsuming choices if you can. Nonconsuming exercises have the same contention properties as fetches: they don't collide with each other.
 
-   Contract keys can seem like a way out, but they are not. Contract keys are resolved to Contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
+   Contract keys can seem like a way out, but they are not. Contract keys are resolved to contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
 3. Avoid workflows that encourage multiple parties to simultaneously try to exercise a consuming choice on the same contract. For example, imagine an ``Auction`` contract containing a field ``highestBid : (Party, Decimal)``. If Alice tries to bid $100 at the same time that Bob tries to bid $90, it doesn't matter that Alice's bid is higher. The second transaction to be sequenced will be rejected as it has a write collision with the first. It's better to record the bids in separate ``Bid`` contracts, which can be written to independently. Again, think about how you would structure this data in a relational database to avoid data loss due to race conditions.
-4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in Daml. If you need to be able to make this link inside Daml, Contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in Daml at all.
+4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in Daml. If you need to be able to make this link inside Daml, contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in Daml at all.
 
 Collisions due to ignorance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The :externalref:`Daml Ledger Model <da-ledgers>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
+The :externalref:`Daml ledger model <da-ledgers>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
 
 To illustrate the problem, let's assume there is a template ``T`` with a contract key, and Alice has witnessed two ``Create`` nodes of a contract of type ``T`` with key ``k``, but no corresponding archive nodes. Alice may not be able to order these two nodes causally in the sense of "one create came before the other". See :brokenref:`/concepts/local-ledger` for an in-depth treatment of causality on Daml Ledgers.
 
 So what should happen now if Alice's participant encounters a ``fetchByKey @T k`` or ``lookupByKey @T k`` during interpretation? What if it encounters a ``fetch`` node? These decisions are part of the operational semantics, and the decision of what should happen is based on the consideration that the chance of a participant submitting an invalid transaction should be minimized.
 
-If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, Contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
+If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
 
 If a ``fetchByKey`` or ``lookupByKey`` node is encountered, the contract is only resolved if the requester is a stakeholder on an active contract with the given key. If that's not the case, there is no reason to believe that the key still resolves to some contract that was witnessed earlier. Thus, when using contract keys, make sure you make the likely requesters of transactions observers on your contracts. If you don't, ``fetchByKey`` will always fail, and ``lookupByKey`` will always return ``None``.
 
@@ -166,7 +166,7 @@ Check coverage
 
 When ``daml test`` runs a set of tests, it analyzes the ledger record from those tests to report template and choice coverage. It calculates what percentage of templates defined in the package were created and what percentage of choices defined in the package were exercised.
 
-You can also save the resulting coverage results for the test set to a file and then read them back into a future report. In an invocation of ``daml test``, you can both read results in and run tests simultaneously in order to generate a final report which aggregates them. More details on the workflows that this enables are detailed in `Serializing Results Workflows`_.
+You can also save the resulting coverage results for the test set to a file and then read them back into a future report. In an invocation of ``daml test``, you can both read results in and run tests simultaneously in order to generate a final report which aggregates them. More details on the workflows that this enables are detailed in :ref:`save-results-workflows`.
 
 .. figure:: images/tests/coverage_workflow.png
    :alt: Flow chart visually explaining sources and sinks for coverage results.
@@ -194,7 +194,7 @@ Flags controlling report
 
 Enabling ``--show-coverage`` tells the final printed report to include the names of any templates, choices, and interfaces which are not covered. By default, the report only reports the percentage of coverage.
 
-You can remove choices from the rendered coverage report with ``--coverage-ignore-choice PATTERN``. This flag's behavior is further documented in `Excluding Choices from the Coverage Report`_.
+You can remove choices from the rendered coverage report with ``--coverage-ignore-choice PATTERN``. This flag's behavior is further documented in :ref:`exclude-choices`.
 
 Define templates, choices, and interfaces
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -514,6 +514,8 @@ If we define a different local test, ``testT1AndT2``, which creates ``T1`` and `
 
 External template choices and interface instance choices are also reported with "any", internal, and external coverage - we will not cover them here.
 
+.. _save-result-workflows:
+
 Save results workflows
 ~~~~~~~~~~~~~~~~~~~~~~
 
@@ -588,7 +590,7 @@ If a test failure causes one ``daml test`` to fail, other coverage results from 
       --load-coverage test2-results \
       --load-coverage test3-results
 
-.. _Excluding Choices from the Coverage Report:
+.. _exclude-choices:
 
 Exclude choices from the coverage report
 ----------------------------------------

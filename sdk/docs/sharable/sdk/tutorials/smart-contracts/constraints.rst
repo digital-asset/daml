@@ -39,7 +39,7 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you want t
 
 .. hint::
 
-  The ``T`` here stands for the ``DA.Text`` standard library which has been imported using ``import DA.Text as T``:
+  The ``T`` here stands for the ``DA.Text`` which has been imported from the Daml standard library using ``import DA.Text as T``:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
@@ -256,7 +256,7 @@ One option is to make the function explicitly partial by returning an ``Optional
   :start-after: -- OPTIONAL_POW_BEGIN
   :end-before: -- OPTIONAL_POW_END
 
-This is a useful pattern if we need to be able to handle the error case, but it also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on convenience in the definition of the above function.  In cases, like division by zero or the above function, it can therefore be preferable to fail catastrophically instead:
+This is a useful pattern if we need to be able to handle the error case, but it also forces us to always handle it as we need to extract the result from an ``Optional``. We can see the impact on convenience in the definition of the above function. In cases, like division by zero or the above function, it can therefore be preferable to fail catastrophically instead:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml

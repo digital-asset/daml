@@ -1,20 +1,20 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-The Daml Standard Library
+The Daml standard library
 =========================
 
-In :doc:`data` and :doc:`functional-101` you learned how to define your own data types and functions. However, you don't have to implement everything from scratch. Daml comes with the :ref:`Daml Standard Library <stdlib-reference-base>`, which contains types, functions, and typeclasses that cover a large range of use cases.
+In :doc:`data` and :doc:`functional-101` you learned how to define your own data types and functions. However, you don't have to implement everything from scratch. Daml comes with the :ref:`Daml standard library <stdlib-reference-base>`, which contains types, functions, and typeclasses that cover a large range of use cases.
 
-In this chapter, you'll get an overview of the essentials and learn how to browse and search the library to find functions. Being proficient with the Standard Library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
+In this chapter, you'll get an overview of the essentials and learn how to browse and search the library to find functions. Being proficient with the standard library will make you considerably more efficient writing Daml code. Specifically, this chapter covers:
 
 - The Prelude
-- Important types from the Standard Library, and associated functions and typeclasses
+- Important types from the standard library, and associated functions and typeclasses
 - Typeclasses
 - Important typeclasses like ``Functor``, ``Foldable``, and ``Traversable``
-- How to search the Standard Library
+- How to search the standard library
 
-To go in depth on some of these topics, the literature referenced in :ref:`haskell-connection` covers them in much greater detail. The Standard Library typeclasses like ``Applicative``, ``Foldable``, ``Traversable``, ``Action`` (called ``Monad`` in Haskell), and many more, are the bread and butter of Haskell programmers.
+To go in depth on some of these topics, the literature referenced in :ref:`haskell-connection` covers them in much greater detail. The standard library typeclasses like ``Applicative``, ``Foldable``, ``Traversable``, ``Action`` (called ``Monad`` in Haskell), and many more, are the bread and butter of Haskell programmers.
 
 .. note::
 
@@ -124,7 +124,7 @@ Important typeclasses from the Prelude
 Eq
 ...
 
-The ``Eq`` typeclass allows values of a type to be compared for (in)-equality. It makes available two function: ``==`` and ``/=``. Most data types from the Standard Library have an instance of ``Eq``. As you already learned in :doc:`data`, you can let the compiler automatically derive instances of ``Eq`` for you using the ``deriving`` keyword.
+The ``Eq`` typeclass allows values of a type to be compared for (in)-equality. It makes available two function: ``==`` and ``/=``. Most data types from the standard library have an instance of ``Eq``. As you already learned in :doc:`data`, you can let the compiler automatically derive instances of ``Eq`` for you using the ``deriving`` keyword.
 
 Templates always have an ``Eq`` instance, and all types stored on a template need to have one.
 
@@ -167,10 +167,10 @@ Additive and Multiplicative
 
 :ref:`Additive and Multiplicative <class-ghc-num-additive-25881>` abstract out arithmetic operations, so that ``(+)``, ``(-)``, ``(*)``, and some other functions can be used uniformly between ``Decimal`` and ``Int``.
 
-Important modules in the Standard Library
+Important modules in the standard library
 -----------------------------------------
 
-For almost all the types and typeclasses presented above, the Standard Library contains a module:
+For almost all the types and typeclasses presented above, the standard library contains a module:
 
 - :ref:`module-da-list-85985` for Lists
 - :ref:`module-da-optional-38505` for ``Optional``
@@ -187,12 +187,12 @@ You get the idea, the names are fairly descriptive.
 
 Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learned, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`loops` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :ref:`module-da-traversable-75075`, and :ref:`module-da-foldable-94882`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
 
-Search the Standard Library
+Search the standard library
 ---------------------------
 
-Being able to browse the Standard Library starting from :ref:`stdlib-reference-base` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
+Being able to browse the standard library starting from :ref:`stdlib-reference-base` is a start, and the module naming helps, but it's not an efficient process for finding out what a function you've encountered does, even less so for finding a function that does a thing you need to do.
 
-Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
+Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure standard library search, it's also available on `<https://hoogle.daml.com>`__.
 
 Search for functions by name
 ............................
@@ -204,7 +204,7 @@ Say you come across some functions you haven't seen before, like the ones in the
   :start-after: -- ENSURE_BEGIN
   :end-before: -- ENSURE_END
 
-You may be able to guess what ``not`` and ``null`` do, but try searching those names in the documentation search. Search results from the Standard Library will show on top. ``not``, for example, gives
+You may be able to guess what ``not`` and ``null`` do, but try searching those names in the documentation search. Search results from the standard library will show on top. ``not``, for example, gives
 
 .. code-block:: none
 
@@ -221,7 +221,7 @@ Search for functions by signature
 
 The other very common use case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. On the ``MultiTrade`` template we have a list ``baseAssets``, and thanks to your ensure clause we know it's non-empty. In the original ``Trade`` we used ``baseAsset.owner`` as the signatory. How do you get the first element of this list to extract the ``owner`` without going through the motions of a complete pattern match using ``case``?
 
-The trick is to think about the signature of the function that's needed, and then to search for that signature. In this case, we want a single distinguished element from a list so the signature should be ``[a] -> a``. If you search for that, you'll get a whole range of results, but again, Standard Library results are shown at the top.
+The trick is to think about the signature of the function that's needed, and then to search for that signature. In this case, we want a single distinguished element from a list so the signature should be ``[a] -> a``. If you search for that, you'll get a whole range of results, but again, standard library results are shown at the top.
 
 Scanning the descriptions, ``head`` is the obvious choice, as used in the ``let`` of the ``MultiTrade`` template.
 

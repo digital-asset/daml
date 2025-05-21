@@ -9,7 +9,7 @@ Basic contracts
 To begin with, you're going to write a very small Daml template, which represents a self-issued, non-transferable token. Because it's a minimal template, it isn't actually useful on its own - you'll make it more useful later - but it's enough that it can show you the most basic concepts:
 
 - Transactions
-- Daml Modules and Files
+- Daml modules and files
 - Templates
 - Contracts
 - Signatories

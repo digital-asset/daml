@@ -22,7 +22,7 @@ The Haskell connection
 
 The previous chapters of this introduction to Daml have mostly covered the structure of templates, and their connection to the :externalref:`Daml Ledger Model <da-ledgers>`. The logic of what happens within the ``do`` blocks of choices has been kept relatively simple. In this chapter, we will dive deeper into Daml's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. Daml borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
 
-- `Finding Success and Failure in Haskell (Julie Maronuki, Chris Martin) <https://joyofhaskell.com/>`__
+- `Finding Success and Failure in Haskell (Julie Moronuki, Chris Martin) <https://joyofhaskell.com/>`__
 - `Haskell Programming from first principles (Christopher Allen, Julie Moronuki) <http://haskellbook.com/>`__
 - `Learn You a Haskell for Great Good! (Miran Lipovača) <http://learnyouahaskell.com/>`__
 - `Programming in Haskell (Graham Hutton) <http://www.cs.nott.ac.uk/~pszgmh/pih.html>`__
@@ -513,4 +513,4 @@ Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. 
 Next up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml standard library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.

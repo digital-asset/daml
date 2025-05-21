@@ -1,8 +1,8 @@
 .. Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Build the Daml archive (.dar)
-=============================
+Build the Daml Archive (.dar) file
+==================================
 
 TODO: https://github.com/DACH-NY/docs-website/issues/313
 

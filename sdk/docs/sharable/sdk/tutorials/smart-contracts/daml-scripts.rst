@@ -149,7 +149,7 @@ View the ledger and its history
 Once you archive the contract the resulting script view is empty; there are no contracts left on the ledger. If you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
 .. figure:: images/daml-scripts/archived.png
-   :alt: The script view as a separate column, with the Show Archived checkbox selected.
+   :alt: The script view as a separate column, with the ``Show Archived`` checkbox selected.
 
 You can see that there was a ``Token`` contract, which is now archived, indicated both by the "archived" value in the ``status`` column as well as by a strikethrough.
 
@@ -160,7 +160,7 @@ Click on the adjacent "Show transaction view" button to see the entire transacti
 
 In the Daml Studio script runner, committed transactions are numbered sequentially. In the image above, the lines starting with ``TX`` indicate that there are three committed transactions, with ids ``#0``, ``#1``, and ``#2``. These correspond to the three ``submit`` and ``submitMustFail`` statements in the script.
 
-Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` mean ``commit X, sub-transaction Y``. All transactions have this format in the script runner. However, this format is a testing feature. In general, you should consider Transaction and Contract IDs to be opaque.
+Transaction ``#0`` has one *sub-transaction* ``#0:0``, which the arrow indicates is a ``create`` of a ``Token``. Identifiers ``#X:Y`` mean ``commit X, sub-transaction Y``. All transactions have this format in the script runner. However, this format is a testing feature. In general, you should consider transaction and contract IDs to be opaque.
 
 The lines above and below ``create Token_Test:Token`` give additional information:
 
