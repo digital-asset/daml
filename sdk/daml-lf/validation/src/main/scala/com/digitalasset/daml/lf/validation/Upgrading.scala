@@ -576,7 +576,7 @@ case class TypecheckUpgradesStandalone(
             tplName,
           )
         )
-      } else succeed(())).toSeq.sequence[UpgradeM, Unit].void
+      } else succeed(())).toSeq.sequence_
   }
 }
 
