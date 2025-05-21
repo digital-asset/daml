@@ -330,8 +330,8 @@ private case class Closure[A](env: Env, value: A)
 
 object TypecheckUpgradesUtils {
   final case class CheckDeleted[K, V](
-    existingV: Map[K, Upgrading[V]],
-    newV: Map[K, V],
+      existingV: Map[K, Upgrading[V]],
+      newV: Map[K, V],
   )
 }
 
@@ -339,7 +339,7 @@ abstract class TypecheckUpgradesUtils(
     val packageMap: Map[
       Ref.PackageId,
       (Ref.PackageName, Ref.PackageVersion),
-    ],
+    ]
 ) {
   import TypecheckUpgradesUtils._
   import TypecheckUpgrades._
@@ -544,8 +544,7 @@ case class TypecheckUpgradesStandalone(
             tplName,
           )
         )
-      } else succeed(())
-    ).toSeq.traverse(identity).map(_ => ())
+      } else succeed(())).toSeq.traverse(identity).map(_ => ())
   }
 }
 
