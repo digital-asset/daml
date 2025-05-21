@@ -25,7 +25,7 @@ There are three primary tools available in the SDK to test and interact with Dam
    :ref:`daml-scripts` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
 
    1. Run on a special script service in the IDE, providing the script views.
-   2. Run the script service via the CLI, which is useful for quick regression testing.
+   2. Run the script service via the Daml assistant, which is useful for quick regression testing.
    3. Start a sandbox and run against that for regression testing against an actual Ledger API.
    4. Run against any other already running ledger.
 
