@@ -22,7 +22,7 @@ The Haskell connection
 
 The previous chapters of this introduction to Daml have mostly covered the structure of templates, and their connection to the :externalref:`Daml Ledger Model <da-ledgers>`. The logic of what happens within the ``do`` blocks of choices has been kept relatively simple. In this chapter, we will dive deeper into Daml's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. Daml borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
 
-- `Finding Success and Failure in Haskell (Julie Maronuki, Chris Martin) <https://joyofhaskell.com/>`__
+- `Finding Success and Failure in Haskell (Julie Moronuki, Chris Martin) <https://joyofhaskell.com/>`__
 - `Haskell Programming from first principles (Christopher Allen, Julie Moronuki) <http://haskellbook.com/>`__
 - `Learn You a Haskell for Great Good! (Miran Lipovača) <http://learnyouahaskell.com/>`__
 - `Programming in Haskell (Graham Hutton) <http://www.cs.nott.ac.uk/~pszgmh/pih.html>`__
