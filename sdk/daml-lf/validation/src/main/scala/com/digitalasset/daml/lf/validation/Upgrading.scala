@@ -407,7 +407,11 @@ abstract class TypecheckUpgradesUtils(
 
 object TypecheckUpgrades {
   type PartialEither[X] = Either[UpgradeError, X]
-  type UpgradeM[A] = WriterT[PartialEither, Chain[UpgradeError], A]
+  type UpgradeM[A] = WriterT[
+    PartialEither, // The error
+    Chain[UpgradeError], // Any warnings produced during execution
+    A
+  ]
 
   sealed abstract class UploadPhaseCheck[A] {
     def uploadedPackage: A
@@ -522,6 +526,9 @@ object TypecheckUpgrades {
     tc.check()
   }
 
+  // Produces UpgradeM[Unit], which can be .run to produce Either[UpgradeError, (Seq[UpgradeError], Unit)]
+  // If a Left(err) is produced, the upgrade check failed with that error
+  // If a Right((warns, result)) is produced, the upgrade check succeeded, and any warnings produced during the upgrade check are listed in `warns`
   def typecheckUpgrades(
       packageMap: Map[
         Ref.PackageId,
