@@ -32,95 +32,268 @@ STAGING_DIR=$1
 RELEASE_TAG=$2
 REGISTRY=$3
 
-on_exit() {
-  info "Cleanup...\t\t\t"
-  rm -rf "${STAGING_DIR}"/{dist,output.log} && info_done
+declare -A publish=(
+  [damlc]=publish_damlc
+  [daml-script]=publish_daml_script
+  [daml2js]=publish_daml2js
+  [codegen]=publish_codegen
+)
+
+if [[ x"$DEBUG" != x ]]; then
+  unarchive="tar -x -v -z -f"
+  copy="cp -v"
+  makedir="mkdir -p -v"
+else
+  unarchive="tar -x -z -f"
+  copy="cp -f"
+  makedir="mkdir -p"
+fi
+logs="${STAGING_DIR}/logs"
+${makedir} "${logs}"
+
+function on_exit() {
+  info "Cleanup...\t\t\t\t"
+  rm -rf "${STAGING_DIR}"/dist && info_done
 }
 
-trap on_exit EXIT
+trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
 
 gen_manifest() {
-local component=$1
-if [[ "${component}" == "damlc" ]]; then
-echo '
+  local commands="commands"
+  if [[ "$artifact_path" =~ ".jar" ]]; then
+    commands="jar-commands"
+  fi
+  echo '
 apiVersion: digitalasset.com/v1
 kind: Component
 spec:
-  commands:
-  - path: damlc
-    name: damlc
-    desc: "Compiler and IDE backend for the Daml programming language"
-'
-elif [[ "${component}" == "daml-script" ]]; then
-echo '
-apiVersion: digitalasset.com/v1
-kind: Component
-spec:
-  jar-commands:
-    - path: daml-script-'"${RELEASE_TAG}"'.jar
-      name: daml-script
-      desc: "Daml Script Binary"
-'
-fi
+  '"${commands}"':
+    - path: '"${artifact_path}"'
+      name: '"${artifact_name}"'
+      desc: '"${artifact_desc}"'
+  '
 }
+
+###
+# Publish component 'daml-script'
+# target: //daml-script/runner:daml-script-binary_distribute.jar 
+###
+function publish_daml_script {
+  local artifact_name="daml-script"
+  local artifact_path="${artifact_name}-${RELEASE_TAG}.jar"
+  local artifact_desc="Daml Script Binary"
+  local artifact
 
 cd "${STAGING_DIR}" || exit 1
 (
-  info "Create directory structure...\t"  
-  mkdir -p dist/{linux,darwin}/{arm64,amd64} && info_done
+  info "Create directory structure...\t\t"
+  ${makedir} dist/generic/daml-script && info_done
 
-  info "Proccesing damlc for linux/arm64..."
+  info "Processing daml-script for generic...\t"
   (
-    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-linux-arm.tar.gz | head -1)"
-    tar xzf "${artifact}" -C dist/linux/arm64
-    gen_manifest damlc > dist/linux/arm64/damlc/component.yaml
+    artifact="$(find . -type f -name daml-script-"${RELEASE_TAG}".jar | head -1 )"
+    if [ -f "${artifact}" ]; then
+      ${copy} "${artifact}" dist/generic/daml-script
+      gen_manifest > dist/generic/daml-script/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
   ) && info_done
 
-  info "Proccesing damlc for linux/amd64..."
-  (
-    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-linux-intel.tar.gz | head -1)"
-    tar xzf "${artifact}" -C dist/linux/amd64
-    gen_manifest damlc > dist/linux/amd64/damlc/component.yaml
-  ) && info_done
-
-  info "Proccesing damlc for darwin/arm64..."
-  (
-    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-macos.tar.gz | head -1 )"
-    tar xzf "${artifact}" -C dist/darwin/arm64
-    gen_manifest damlc > dist/darwin/arm64/damlc/component.yaml
-  ) && info_done
-
-  info "Proccesing damlc for darwin/amd64..."
-  (
-    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-macos.tar.gz | head -1 )"
-    tar xzf "${artifact}" -C dist/darwin/amd64
-    gen_manifest damlc > dist/darwin/amd64/damlc/component.yaml
-  ) && info_done
-
-  info "Uploading to oci registry...\t"
+  info "Uploading daml-script to oci registry..."
   "${HOME}"/.unifi/bin/unifi \
     repo publish-component \
-      damlc "${RELEASE_TAG}" \
+      "${artifact_name}" "${RELEASE_TAG}" \
+      --platform generic=dist/generic/daml-script \
+      --registry "${REGISTRY}" 1>&2 > "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+) && info_done || info_fail
+}
+
+###
+# Publish component "codegen"
+# target: "//language-support/java/codegen:binary"
+###
+function publish_codegen {
+  local artifact_name="codegen"
+  local artifact_path="${artifact_name}-${RELEASE_TAG}.jar"
+  local artifact_desc="Daml Codegen"
+  local artifact
+
+cd "${STAGING_DIR}" || exit 1
+(
+  info "Create directory structure...\t\t"
+  ${makedir} dist/generic/codegen && info_done
+
+  info "Processing codegen for generic...\t"
+  (
+    artifact="$(find . -type f -name codegen-"${RELEASE_TAG}".jar | head -1 )"
+    if [ -f "${artifact}" ]; then
+      ${copy} "${artifact}" dist/generic/codegen
+      gen_manifest > dist/generic/codegen/component.yaml
+   else
+     info "Artifact not found: ${artifact}"
+   fi
+  ) && info_done
+
+  info "Uploading codegen to oci registry..."
+  "${HOME}"/.unifi/bin/unifi \
+    repo publish-component \
+      ${artifact_name} "${RELEASE_TAG}" \
+      --platform generic=dist/generic/codegen \
+      --registry "${REGISTRY}" 1>&2 > "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+) && info_done || info_fail
+}
+
+###
+# Publish component 'damlc'
+# target:  //compiler/damlc:damlc-dist.tar.gz
+###
+function publish_damlc {
+  local artifact_name="damlc"
+  local artifact_path="damlc"
+  local artifact_desc="Compiler and IDE backend for the Daml programming language"
+  local artifact
+
+cd "${STAGING_DIR}" || exit 1
+ (
+  info "Create directory structure...\t"  
+  ${makedir} dist/{linux,darwin}/{arm64,amd64} && info_done
+
+  info "Processing damlc for linux/arm64..."
+  (
+    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-linux-arm.tar.gz | head -1)"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/linux/arm64
+      gen_manifest > dist/linux/arm64/damlc/component.yaml
+    else 
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done
+
+  info "Processing damlc for linux/amd64..."
+  (
+    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-linux-intel.tar.gz | head -1)"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/linux/amd64
+      gen_manifest > dist/linux/amd64/damlc/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done
+
+  info "Processing damlc for darwin/arm64..."
+  (
+    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-macos.tar.gz | head -1 )"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/darwin/arm64
+      gen_manifest > dist/darwin/arm64/damlc/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done
+
+  info "Processing damlc for darwin/amd64..."
+  (
+    artifact="$(find . -type f -name damlc-"${RELEASE_TAG}"-macos.tar.gz | head -1 )"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/darwin/amd64
+      gen_manifest > dist/darwin/amd64/damlc/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done
+
+  info "Uploading damlc to oci registry..."
+  "${HOME}"/.unifi/bin/unifi \
+    repo publish-component \
+      "${artifact_name}" "${RELEASE_TAG}" \
       --platform linux/arm64=dist/linux/arm64/damlc \
       --platform linux/amd64=dist/linux/amd64/damlc \
       --platform darwin/arm64=dist/darwin/arm64/damlc \
       --platform darwin/amd64=dist/darwin/amd64/damlc \
-      --registry "${REGISTRY}" && info_done || info_fail
+      --registry "${REGISTRY}" 1>&2 > "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+ ) && info_done || info_fail
+}
 
+###
+# Publish component 'daml2js'
+# target: "//language-support/ts/codegen:daml2js-dist"
+###
+function publish_daml2js {
+  local artifact_name="daml2js"
+  local artifact_path="daml2js"
+  local artifact_desc="Daml to JavaScript compiler"
+  local artifact
+
+cd "${STAGING_DIR}" || exit 1
+ (
   info "Create directory structure...\t"
-  mkdir -p dist/generic/daml-script && info_done
+  ${makedir} dist/{linux,darwin}/{arm64,amd64} && info_done
 
-  info "Proccesing daml-script for generic..."
+  info "Processing daml2js for linux/arm64..."
   (
-    artifact="$(find . -type f -name daml-script-"${RELEASE_TAG}".jar | head -1 )"
-    cp "${artifact}" dist/generic/daml-script
-    gen_manifest daml-script > dist/generic/daml-script/component.yaml
+    artifact="$(find . -type f -name daml2js-"${RELEASE_TAG}"-linux-arm.tar.gz | head -1)"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/linux/arm64
+      gen_manifest > dist/linux/arm64/daml2js/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
   ) && info_done
 
-  info "Uploading daml-script to oci registry...\t"
-  "${HOME}"/.unifi/bin/unifi \
-    repo publish-component \
-      daml-script "${RELEASE_TAG}" \
-      --platform generic=dist/generic/daml-script \
-      --registry "${REGISTRY}" && info_done || info_fail
-)
+  info "Processing daml2js for linux/amd64..."
+  (
+    artifact="$(find . -type f -name daml2js-"${RELEASE_TAG}"-linux-intel.tar.gz | head -1)"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/linux/amd64
+      gen_manifest > dist/linux/amd64/daml2js/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done
+  
+  info "Processing daml2js for darwin/arm64..."
+  (
+    artifact="$(find . -type f -name daml2js-"${RELEASE_TAG}"-macos.tar.gz | head -1 )"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/darwin/arm64
+      gen_manifest > dist/darwin/arm64/daml2js/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done 
+  
+  info "Processing daml2js for darwin/amd64..."
+  (
+    artifact="$(find . -type f -name daml2js-"${RELEASE_TAG}"-macos.tar.gz | head -1 )"
+    if [ -f "${artifact}" ]; then
+      ${unarchive} "${artifact}" -C dist/darwin/amd64
+      gen_manifest > dist/darwin/amd64/daml2js/component.yaml
+    else
+      info "Artifact not found: ${artifact}"
+    fi
+  ) && info_done
+  
+  info "Uploading daml2js to oci registry..."
+    "${HOME}"/.unifi/bin/unifi \
+      repo publish-component \
+        "${artifact_name}" "${RELEASE_TAG}" \
+        --platform linux/arm64=dist/linux/arm64/daml2js \
+        --platform linux/amd64=dist/linux/amd64/daml2js \
+        --platform darwin/arm64=dist/darwin/arm64/daml2js \
+        --platform darwin/amd64=dist/darwin/amd64/daml2js \
+        --registry "${REGISTRY}" 1>&2 > "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+ ) && info_done || info_fail
+}
+
+
+###
+# Publish component "daml-bundled.vsix"
+# target: "//compiler/daml-extension:vsix"
+###
+
+
+# __main__
+for component in "${!publish[@]}"; do
+ "${publish[$component]}"
+done
