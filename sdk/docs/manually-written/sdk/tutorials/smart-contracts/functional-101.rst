@@ -513,4 +513,4 @@ Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. 
 Next up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml standard library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.

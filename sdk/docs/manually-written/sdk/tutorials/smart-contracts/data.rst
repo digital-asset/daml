@@ -64,7 +64,7 @@ The below script instantiates each one of these types, manipulates it where appr
 
 Despite its simplicity, there are quite a few things to note in this script:
 
-- The ``import`` statements at the top import two packages from the Daml Standard Library, which contain all the date and time related functions we use here as well as the functions used in Daml Scripts. More on packages, imports and the standard library later.
+- The ``import`` statements at the top import two packages from the Daml standard library, which contain all the date and time related functions we use here as well as the functions used in Daml Scripts. More on packages, imports and the standard library later.
 - Most of the variables are declared inside a ``let`` block.
 
   That's because the ``script do`` block expects script actions like ``submit`` or ``allocateParty``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.

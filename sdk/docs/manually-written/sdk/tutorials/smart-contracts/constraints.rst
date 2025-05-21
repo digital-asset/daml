@@ -39,7 +39,7 @@ The ``ensure`` keyword takes a single expression of type ``Bool``. If you want t
 
 .. hint::
 
-  The ``T`` here stands for the ``DA.Text`` standard library which has been imported using ``import DA.Text as T``:
+  The ``T`` here stands for the ``DA.Text`` which has been imported from the Daml standard library using ``import DA.Text as T``:
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
   :language: daml
