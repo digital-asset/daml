@@ -122,7 +122,9 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
         "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
         assertPackageUpgradeCheck(
-          UpgradesSpec.ExpectFailure("The upgraded data type MainD has changed the types of some of its original fields.")
+          UpgradesSpec.ExpectFailure(
+            "The upgraded data type MainD has changed the types of some of its original fields."
+          )
         ),
       )
     }
@@ -132,9 +134,11 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
         "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
         assertPackageUpgradeCheckSecondOnly(
-          UpgradesSpec.ExpectSuccess(Some(
-            "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\).",
-          )),
+          UpgradesSpec.ExpectSuccess(
+            Some(
+              "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\)."
+            )
+          )
         ),
       )
     }
@@ -220,7 +224,7 @@ abstract class UpgradesSpec(val suffix: String)
   }
 
   def assertPackageUpgradeCheckSecondOnly(
-      failureMessage: UpgradeExpectation,
+      failureMessage: UpgradeExpectation
   )(
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
@@ -253,7 +257,7 @@ abstract class UpgradesSpec(val suffix: String)
   }
 
   def assertPackageUpgradeCheckGeneral(
-      failureMessage: UpgradeExpectation,
+      failureMessage: UpgradeExpectation
   )(
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
