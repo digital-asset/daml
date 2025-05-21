@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Add Constraints to a Contract
+Add constraints to a contract
 =============================
 
 You will often want to constrain the data stored or the allowed data transformations in your contract models. In this section, you will learn about the two main mechanisms provided in Daml:
@@ -17,7 +17,7 @@ Lastly, you will learn about time on the ledger and in Daml Script.
 
   Remember that you can load all the code for this section into a folder called ``intro5`` by running ``daml new intro5 --template daml-intro-5``
 
-Template Preconditions
+Template preconditions
 ----------------------
 
 The first kind of restriction you may want to put on the contract model are called *template pre-conditions*. These are simply restrictions on the data that can be stored on a contract from that template.
@@ -84,7 +84,7 @@ The following example shows how the ``Redeem`` choice is exercised in a script:
 
 For the purposes of testing the ``Redeem`` choice, the above code sets and advances the ledger time with the ``setTime`` and ``passTime`` functions respectively. Exercising the choice should fail or should not fail depending on the day of week and the time of day. While that is straightforward, the issue of time on a Daml ledger is worthy of more discussion.
 
-Time on Daml Ledgers
+Time on Daml ledgers
 --------------------
 
 Each transaction on a Daml ledger has two timestamps:  the *ledger time (LT)* and the *record time (RT)*.
@@ -99,7 +99,7 @@ Returning to the theme of *business hours*, consider the following example: Supp
 
 For details, see :externalref:`Background concepts - time <time>`.
 
-Time in Test Scripts
+Time in test scripts
 ~~~~~~~~~~~~~~~~~~~~
 
 For tests, you can set time using the following functions:
@@ -116,14 +116,14 @@ The following script illustrates that idea by moving the logical time back by th
   :start-after: -- CAUSALITY_TEST_BEGIN
   :end-before: -- CAUSALITY_TEST_END
 
-Actions and ``do`` Blocks
+Actions and ``do`` blocks
 -------------------------
 
 You have come across ``do`` blocks and ``<-`` notations in two contexts by now: ``Script`` and ``Update``. Both of these are examples of an ``Action``, also called a *Monad* in functional programming. You can construct ``Actions`` conveniently using ``do`` notation.
 
 Understanding ``Actions`` and ``do`` blocks is therefore crucial to being able to construct correct contract models and test them, so this section will explain them in some detail.
 
-Pure Expressions Compared to Actions
+Pure expressions compared to actions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Expressions in Daml are pure in the sense that they have no side-effects: they neither read nor modify any external state. If you know the value of all variables in scope and write an expression, you can work out the value of that expression on pen and paper.
@@ -138,8 +138,8 @@ You cannot work out the value of ``now`` based on any variable in scope. To put 
 
 Similarly, you've come across ``fetch``. If you have ``cid : ContractId Account`` in scope and you come across the expression ``fetch cid``, you can't evaluate that to an ``Account`` so you can't write ``account = fetch cid``. To do so, you'd have to have a ledger you can look that contract ID up on.
 
-Actions and Impurity
-~~~~~~~~~~~~~~~~~~~~~
+Actions and impurity
+~~~~~~~~~~~~~~~~~~~~
 
 Actions are a way to handle such "impure" expressions. ``Action a`` is a type class with a single parameter ``a``, and ``Update`` and ``Script`` are instances of ``Action``. A value of such a type ``m a`` where ``m`` is an instance of ``Action`` can be interpreted as "a recipe for an action of type ``m``, which, when executed, returns a value ``a``".
 
@@ -175,7 +175,7 @@ same transaction, you can make multiple calls to ``submit``:
   :start-after: -- BEGIN_EXT
   :end-before: -- END_EXT
 
-Chain Actions With ``do`` Blocks
+Chain actions with ``do`` blocks
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 An action followed by another action, possibly depending on the result of the first action, is just another action. Specifically:
@@ -192,12 +192,12 @@ This is where ``do`` blocks come in. ``do`` blocks allow you to build complex ac
 
 Above, we see ``do`` blocks in action for both ``Script`` and ``Update``.
 
-Wrap Values in Actions
+Wrap values in actions
 ~~~~~~~~~~~~~~~~~~~~~~
 
 You may already have noticed the use of ``return`` in the redeem choice. ``return x`` is a no-op action which returns value ``x`` so ``return 42 : Update Int``. Since ``do`` blocks always return the value of their last action, ``sub_script2 : Script Int``.
 
-Failing Actions
+Failing actions
 ---------------
 
 Not only are ``Update`` and ``Script`` examples of ``Action``, they are both examples of actions that can fail, e.g. because a transaction is illegal or the party retrieved via ``allocateParty`` doesn't exist on the ledger.
@@ -208,7 +208,7 @@ Transactions succeed or fail *atomically* as a whole. Scripts on the other hand 
 
 The last expression in the ``do`` block of the ``Redeem`` choice is a pattern matching expression on ``dow``. It has type ``Update ()`` and is either an ``abort`` or ``return`` depending on the day of week. So during the week, it's a no-op and on weekends, it's the special failure action. Thanks to the atomicity of transactions, no transaction can ever make use of the ``Redeem`` choice on weekends, because it fails the entire transaction.
 
-A Sample Action
+A sample action
 ---------------
 
 If the above didn't make complete sense, here's another example to explain what actions are more generally, by creating a new type that is also an action. ``CoinGame a`` is an ``Action a`` in which a ``Coin`` is flipped. The ``Coin`` is a pseudo-random number generator and each flip has the effect of changing the random number generator's state. Based on the ``Heads`` and ``Tails`` results, a return value of type ``a`` is calculated:
@@ -272,7 +272,7 @@ The big downside to this is that even unused errors cause failures. The followin
 
 ``error`` should therefore only be used in cases where the error case is unlikely to be encountered, and where explicit partiality would unduly impact usability of the function.
 
-Next Up
+Next up
 -------
 
 You can now specify a precise data and data-transformation model for Daml ledgers. In :doc:`parties`, you will learn how to properly involve multiple parties in contracts, how authority works in Daml, and how to build contract models with strong guarantees in contexts with mutually distrusting entities.

@@ -1,8 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Transform Data Using Choices
-============================
+Transform contracts using choices
+=================================
 
 In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
 
@@ -14,7 +14,7 @@ In this section you will learn about how to define simple data transformations u
 
   Remember that you can load all the code for this section into a folder called ``intro4`` by running ``daml new intro4 --template daml-intro-4``
 
-Choices as Methods
+Choices as methods
 ------------------
 
 If you think of templates as classes and contracts as objects, where are the methods?
@@ -77,7 +77,7 @@ contract with the given arguments and immediately exercise a choice on
 it. For a consuming choice, this archives the contract so the contract
 is created and archived within the same transaction.
 
-Choices as Delegation
+Choices as delegation
 ---------------------
 
 Up to this point all the contracts only involved one party. ``party`` may have been stored as ``Party`` field in the above, which suggests they are actors on the ledger, but they couldn't see the contracts, nor change them in any way. It would be reasonable for the party for which a ``Contact`` is stored to be able to update their own address and telephone number. In other words, the ``owner`` of a ``Contact`` should be able to *delegate* the right to perform a certain kind of data transformation to ``party``.
@@ -98,7 +98,7 @@ If you open the script view in the IDE, you will notice that Bob sees the ``Cont
 
 .. _choices:
 
-Choices In the Ledger Model
+Choices in the ledger model
 ---------------------------
 
 In :doc:`contracts` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
@@ -166,14 +166,14 @@ There are four commits corresponding to the four ``submit`` statements in the sc
 
 So commits ``#2`` and ``#3`` contain ``exercise`` actions with IDs ``#2:0`` and ``#3:0``. The ``create`` actions of the updated ``Contact`` contracts,  ``#2:1`` and ``#3:1``, are indented and found below a line reading ``children:``, making the tree structure apparent.
 
-The Archive Choice
+The archive choice
 ~~~~~~~~~~~~~~~~~~
 
 You may have noticed that there is no archive action. That's because ``archive cid`` is just shorthand for ``exercise cid Archive``, where ``Archive`` is a choice implicitly added to every template, with the signatories as controllers.
 
 .. _simple_iou:
 
-A Simple Cash Model
+A simple cash model
 -------------------
 
 With the power of choices, you can build your first interesting model: issuance of cash IOUs (I owe you). The model presented here is simpler than the one in :doc:`data` as it's not concerned with the location of the physical cash, but merely with liabilities:
@@ -183,7 +183,7 @@ With the power of choices, you can build your first interesting model: issuance 
 
 The above model is fine as long as everyone trusts Dora. Dora could revoke the `SimpleIou` at any point by archiving it. However, the provenance of all transactions would be on the ledger so the owner could *prove* that Dora was dishonest and cancelled her debt.
 
-Next Up
+Next up
 -------
 
 You can now store and transform data on the ledger, even giving other parties specific write access through choices.

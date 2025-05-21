@@ -3,8 +3,8 @@
 
 .. _testing-using-script:
 
-Test Templates Using Daml Script
-================================
+Test templates using Daml scripts
+=================================
 
 In this section we test the ``Token`` model from :doc:`contracts` using the :ref:`Daml Script <daml-script>` integration in :ref:`Daml Studio <script-results>`. This includes:
 
@@ -21,7 +21,7 @@ In this section we test the ``Token`` model from :doc:`contracts` using the :ref
 
 .. script_basics:
 
-Script Basics
+Script basics
 -------------
 
 A ``Script`` is like a recipe for a test, letting you create a scenario where different parties submit a series of transactions to check that your templates behave as you expect. You can also script some external information like party identities and ledger time.
@@ -53,7 +53,7 @@ You'll learn all about the syntax ``Token with owner = alice`` in :doc:`data`.
 
 You could write this as ``submit alice (createCmd Token with owner = alice)``, but as with scripts, you can assemble commands using ``do`` blocks. A ``do`` block always takes the value of the last statement within it so the syntax shown in the commands above gives the same result, whilst being easier to read. Note, however, that the commands submitted as part of a transaction are not allowed to depend on each other.
 
-Run the Scripts
+Run the scripts
 ---------------
 
 There are a few ways to run Daml Scripts:
@@ -89,7 +89,7 @@ To run the same test from the command line, save your module in a file ``Token_T
 
 .. _intro_2_failure:
 
-Test for Failure
+Test for failure
 ----------------
 
 In :doc:`contracts` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a token for another party, e.g. Bob, or vice versa. A reasonable attempt to test that would be:
@@ -120,7 +120,7 @@ To test for failing submits and keep the script running thereafter, or fail if t
 
 .. _archiving:
 
-Archive Contracts
+Archive contracts
 -----------------
 
 Archiving contracts is the counterpart to creating contracts. Contracts are immutable, so whenever you want to update one (loosely: change its state) you must archive the current contract residing on the ledger and create a new one.
@@ -143,13 +143,13 @@ This script first checks that Bob cannot archive Alice's token. Then Alice succe
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
 
-View the Ledger and Ledger History
-----------------------------------
+View the ledger and its history
+-------------------------------
 
 Once you archive the contract the resulting script view is empty; there are no contracts left on the ledger. If you want to see the history of the ledger, e.g. to see how you got to that state, tick the "Show archived" box at the top of the ledger view:
 
 .. figure:: images/daml-scripts/archived.png
-   :alt: The script view as a separate column, with the Show Archived checkbox selected.
+   :alt: The script view as a separate column, with the ``Show Archived`` checkbox selected.
 
 You can see that there was a ``Token`` contract, which is now archived, indicated both by the "archived" value in the ``status`` column as well as by a strikethrough.
 
@@ -182,7 +182,7 @@ To get a better understanding of script, try the following exercises:
 
     Remember that in :ref:`intro_2_failure` we saw a proper error message for a failing submit.
 
-Next Up
+Next up
 -------
 
 In :doc:`archive` you will build a Daml archive, that you can upload to a Canton participant node to interact with its ledger.

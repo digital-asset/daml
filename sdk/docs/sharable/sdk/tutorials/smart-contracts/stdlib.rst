@@ -25,7 +25,7 @@ The Prelude
 
 You've already used a lot of functions, types, and typeclasses without importing anything. Functions like ``create``, ``exercise``, and ``(==)``, types like ``[]``, ``(,)``, ``Optional``, and typeclasses like ``Eq``, ``Show``, and ``Ord``. These all come from the :ref:`Prelude <module-prelude-72703>`. The Prelude is module that gets implicitly imported into every other Daml module and contains both Daml specific machinery as well as the essentials needed to work with the inbuilt types and typeclasses.
 
-Important Types From the Prelude
+Important types from the Prelude
 --------------------------------
 
 In addition to the :ref:`native-types`, the Prelude defines a number of common types:
@@ -118,7 +118,7 @@ This is akin to an interface declaration of an interface with a getter and sette
 
 Typeclasses can have constraints like functions. For example: ``class Eq a => Ord a`` means "everything that is orderable can also be compared for equality". And that's almost all there's to it. 
 
-Important Typeclasses From the Prelude
+Important typeclasses from the Prelude
 --------------------------------------
 
 Eq
@@ -150,14 +150,14 @@ Applicative Functor
 
 :ref:`Applicative Functors <class-da-internal-prelude-applicative-9257>` are a bit like Actions, which you met in :doc:`constraints`, except that you can't use the result of one action as the input to another action. The only important Applicative Functor that isn't an action in Daml is the ``Commands`` type submitted in a ``submit`` block in Daml Script. That's why in order to use ``do`` notation in Daml Script, you have to enable the ``ApplicativeDo`` language extension.
 
-Actions
+Action
 .......
 
 :ref:`Actions <class-da-internal-prelude-action-68790>` were already covered in :doc:`constraints`. One way to think of them is as "recipes" for a value, which need to be "executed to get at that value. Actions are always Functors (and Applicative Functors). The intuition for that is simply that ``fmap f x`` is the recipe in ``x`` with the extra instruction to apply the pure function ``f`` to the result.
 
 The really important Actions in Daml are ``Update`` and ``Script``, but there are many others, like ``[]``, ``Optional``, and ``Either a``.
 
-Semigroups and Monoids
+Semigroup and Monoid
 ......................
 
 :ref:`Semigroups and monoids <class-da-internal-prelude-semigroup-78998>` are about binary operations, but in practice, their important use is for ``Text`` and ``[]``, where they allow concatenation using the ``{<>}`` operator.
@@ -167,7 +167,7 @@ Additive and Multiplicative
 
 :ref:`Additive and Multiplicative <class-ghc-num-additive-25881>` abstract out arithmetic operations, so that ``(+)``, ``(-)``, ``(*)``, and some other functions can be used uniformly between ``Decimal`` and ``Int``.
 
-Important Modules in the Standard Library
+Important modules in the Standard Library
 -----------------------------------------
 
 For almost all the types and typeclasses presented above, the Standard Library contains a module:
@@ -185,7 +185,7 @@ For almost all the types and typeclasses presented above, the Standard Library c
 
 You get the idea, the names are fairly descriptive.
 
-Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learned, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`looping` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :ref:`module-da-traversable-75075`, and :ref:`module-da-foldable-94882`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
+Other than the typeclasses defined in Prelude, there are two modules generalizing concepts you've already learned, which are worth knowing about: ``Foldable`` and ``Traversable``. In :ref:`loops` you learned all about folds and their Action equivalents. All the examples there were based on lists, but there are many other possible iterators. This is expressed in two additional typeclasses: :ref:`module-da-traversable-75075`, and :ref:`module-da-foldable-94882`. For more detail on these concepts, please refer to the literature in :ref:`haskell-connection`, or `https://wiki.haskell.org/Foldable_and_Traversable <https://wiki.haskell.org/Foldable_and_Traversable>`__.
 
 Search the Standard Library
 ---------------------------
@@ -194,7 +194,7 @@ Being able to browse the Standard Library starting from :ref:`stdlib-reference-b
 
 Daml has its own version of the `Hoogle <https://hoogle.haskell.org/>`__ search engine, which offers search both by name and by signature. This function is fully integrated into the search bar on `https://docs.daml.com/ <https://docs.daml.com/>`__, but for those wanting a pure Standard Library search, it's also available on `<https://hoogle.daml.com>`__.
 
-Search for Functions by Name
+Search for functions by name
 ............................
 
 Say you come across some functions you haven't seen before, like the ones in the ``ensure`` clause of the ``MultiTrade``.
@@ -216,7 +216,7 @@ You may be able to guess what ``not`` and ``null`` do, but try searching those n
 
 Signature (including type constraints) and description usually give a pretty clear picture of what a function does.
 
-Search for Functions by Signature
+Search for functions by signature
 .................................
 
 The other very common use case for the search is that you have some values that you want to do something with, but don't know the standard library function you need. On the ``MultiTrade`` template we have a list ``baseAssets``, and thanks to your ensure clause we know it's non-empty. In the original ``Trade`` we used ``baseAsset.owner`` as the signatory. How do you get the first element of this list to extract the ``owner`` without going through the motions of a complete pattern match using ``case``?
@@ -239,7 +239,7 @@ The reason is that there is an instance for ``Foldable [a]``.
 
 Let's try another search. Suppose you didn't want the first element, but the one at index ``n``. Remember that ``(!!)`` operator from :doc:`functional-101`? There are now two possible signatures we could search for:  ``[a] -> Int -> a`` and ``Int -> [a] -> a``. Try searching for both. You'll see that the search returns ``(!!)`` in both cases. You don't have to worry about the order of arguments.
 
-Next Up
+Next up
 -------
 
 In the following section, you'll find options for testing and interacting with Daml code. We also talk about the operational semantics of some keywords and their commonly associated failures, and a little bit about how coverage reports work in Daml testing.
