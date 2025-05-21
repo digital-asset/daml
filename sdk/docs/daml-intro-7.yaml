@@ -3,7 +3,7 @@
 
 sdk-version: __VERSION__
 name: Dependencies7
-source: source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-7/daml/
+source: source/sdk/tutorials/smart-contracts/daml/daml-intro-7/daml/
 version: 1.0.0
 dependencies:
   - daml-prim

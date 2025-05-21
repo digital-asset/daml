@@ -13,7 +13,7 @@ The Active Contract Set (ACS) size makes up the load related to the number of ac
 
 .. tip::
 
-    See the documentation on `Daml contracts <../intro/1_Token.html#basic-contracts>`__ for more information.
+    See the documentation on :ref:`Daml contracts <basic-contracts>` for more information.
 
 In Daml systems, ACS size can reach orders of magnitude higher than synonymous loads in common database or blockchain systems. When the ACS size is in the high 100s GBs or TBs, local database access performance may deteriorate. We will look at potential issues around large ACS size and possible solutions.
 
