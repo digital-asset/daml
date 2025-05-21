@@ -20,7 +20,7 @@ Each Daml business transaction kicks off when a Ledger API client sends the comm
     * Multiple business transactions can be processed in a single ledger transaction through batching.
     * Expected ledger transaction latencies are on the order of 0.5-1 seconds on database sequencers, and multiple seconds on blockchain sequencers.
 
-Refer to the `Daml execution model <../intro/7_Composing.html#daml-s-execution-model>`__  that describes a ledger transaction processed by the Canton ledger. The table below highlights potential resource-intensive activities at each step.
+Refer to the :ref:`Daml execution model :ref:<execution_model>` that describes a ledger transaction processed by the Canton ledger. The table below highlights potential resource-intensive activities at each step.
 
 
 .. list-table:: 

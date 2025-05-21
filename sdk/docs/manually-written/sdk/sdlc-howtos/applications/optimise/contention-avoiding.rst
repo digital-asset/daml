@@ -25,7 +25,7 @@ A contract is considered pending when you do not know if the output has been con
 
 You need to wait while the sequencer is processing a transaction in order to confirm that an input was consumed from a consuming input request. If you do not get confirmation back from the first transaction before submitting a second transaction on the same contract, the sequence is not guaranteed. The only way to avoid this conflict is to control the sequence of those two transactions.
 
-Ledger state is read in the following places within the `Daml Execution Model <../intro/7_Composing.html#daml-s-execution-model>`__ :
+Ledger state is read in the following places within the :ref:`Daml Execution Model <execution_model>` :
 
 #. A client submits a command based on the client’s latest view of the state of the shared ledger. The command might include references to ``ContractIds`` that the client believes are active.
 #. During interpretation, ledger state is used to look up active contracts.
