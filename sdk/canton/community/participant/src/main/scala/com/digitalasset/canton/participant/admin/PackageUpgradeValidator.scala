@@ -261,7 +261,7 @@ class PackageUpgradeValidator(
               )
           }.map[Unit] {
             case (warnings, ()) =>
-              warnings.foreach((err: UpgradeError) =>
+              warnings.iterator.foreach((err: UpgradeError) =>
                 logger.warn(phase.map(_._1).warningMessage(err)))
           }
       }

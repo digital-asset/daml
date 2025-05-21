@@ -12,6 +12,7 @@ import com.daml.lf.language.Util
 
 import cats.implicits._
 import cats.data.WriterT
+import cats.data.Chain
 import scala.annotation.tailrec
 
 case class Upgrading[A](past: A, present: A) {
@@ -357,13 +358,13 @@ abstract class TypecheckUpgradesUtils(
       succeed(())
 
   protected def fail[A](err: UpgradeError.Error): UpgradeM[A] =
-    WriterT(Left[UpgradeError, (Seq[UpgradeError], A)](UpgradeError(err)))
+    WriterT(Left[UpgradeError, (Chain[UpgradeError], A)](UpgradeError(err)))
 
   protected def succeed[A](a: A): UpgradeM[A] =
-    WriterT(Right[UpgradeError, (Seq[UpgradeError], A)]((Seq(), a)))
+    WriterT(Right[UpgradeError, (Chain[UpgradeError], A)]((Chain(), a)))
 
   protected def warn(err: UpgradeError.Error): UpgradeM[Unit] =
-    WriterT(Right((Seq(UpgradeError(err)), ())))
+    WriterT(Right((Chain(UpgradeError(err)), ())))
 
   protected def tryAll[A, B](t: Iterable[A], f: A => UpgradeM[B]): UpgradeM[Seq[B]] =
     t.toSeq.traverse(f)
@@ -406,7 +407,7 @@ abstract class TypecheckUpgradesUtils(
 
 object TypecheckUpgrades {
   type PartialEither[X] = Either[UpgradeError, X]
-  type UpgradeM[A] = WriterT[PartialEither, Seq[UpgradeError], A]
+  type UpgradeM[A] = WriterT[PartialEither, Chain[UpgradeError], A]
 
   sealed abstract class UploadPhaseCheck[A] {
     def uploadedPackage: A
