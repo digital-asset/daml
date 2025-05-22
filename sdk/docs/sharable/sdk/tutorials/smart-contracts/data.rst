@@ -20,8 +20,8 @@ In this section, you'll learn how to create rich data schemas for your ledger. S
 - Record types
 - Derivation of standard properties
 - Variants
-- Manipulating immutable data
-- Contract keys
+- Data manipulation
+- Contract manipulation
 
 After this section, you should be able to use a Daml ledger as a simple database where individual parties can write, read, and delete complex data.
 
@@ -210,41 +210,38 @@ All data in Daml is immutable, meaning once a value is created, it will never ch
 
 Throughout the script, ``eq_record`` never changes. The expression ``"Zero" :: eq_record.my_list`` doesn't change the list in-place, but creates a new list, which is ``eq_record.my_list`` with an extra element in the beginning.
 
-.. _contract_keys:
+.. _manipulate-contracts:
 
-Contract keys
--------------
+Manipulate contracts
+--------------------
 
-Daml's type system lets you store richly structured data on Daml templates, but just like most database schemas have more than one table, Daml contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance contract, but instead store those on separate contracts.
+Daml's type system allows you to store structured data within Daml contracts.
+Like records and other data structures, contracts are immutable.
+They can only be created and archived.
+If you need to change a contract, you must archive the original contract and create a new one with the updated data.
 
-You have already met the type ``ContractId a``, which references a contract of type ``a``. The below shows a contract model where ``Account`` is split out into a separate template and referenced by ``ContractId``, but it also highlights a big problem with that kind of reference: just like data, contracts are immutable. They can only be created and archived, so if you want to change the data on a contract, you end up archiving the original contract and creating a new one with the changed data. That makes contract IDs very unstable, and can cause stale references.
-
-.. literalinclude:: daml/daml-intro-3/daml/IDRef.daml
+.. literalinclude:: daml/daml-intro-3/daml/ContractManipulation.daml
   :language: daml
-  :start-after: -- ID_REF_TEST_BEGIN
-  :end-before: -- ID_REF_TEST_END
+  :start-after: -- CONTRACT_MANIPULATION_BEGIN
+  :end-before: -- CONTRACT_MANIPULATION_END
 
-The script above uses the ``queryContractId`` function, which retrieves the arguments of an active contract using its contract ID. If there is no active contract with the given identifier visible to the given party, ``queryContractId`` returns ``None``. Here, we use a pattern match on ``Some`` which will abort the script if ``queryContractId`` returns ``None``.
+The script above uses ``archiveCmd`` and ``createCmd`` to modify a contract of type ``Account`` in the same transaction.
+This process creates a new contract, and a new, distinct contract ID, as shown by ``newAccountCid =/= accountCid``
 
-Note that, for the first time, the party submitting a transaction is doing more than one thing as part of that transaction. To create ``new_account``, the accountant archives the old account and creates a new account, all in one transaction. More on building transactions in :doc:`compose`.
+When you modify a contract, by archiving it and creating a new one, you generate a new contract ID.
+That makes contract IDs unstable, and it can cause stale references.
 
-You can define *stable* keys for contracts using the ``key`` and ``maintainer`` keywords. ``key`` defines the primary key of a template, with the ability to look up contracts by key, and a uniqueness constraint in the sense that only one contract of a given template and with a given key value can be active at a time:
-
-.. literalinclude:: daml/daml-intro-3/daml/Keys.daml
+.. literalinclude:: daml/daml-intro-3/daml/ContractManipulation.daml
   :language: daml
-  :start-after: -- KEY_TEST_BEGIN
-  :end-before: -- KEY_TEST_END
+  :start-after: -- STALE_CONTRACT_ID_BEGIN
+  :end-before: -- STALE_CONTRACT_ID_END
 
-Since Daml is designed to run on distributed systems, you have to assume that there is no global entity that can guarantee uniqueness, which is why each ``key`` expression must come with a ``maintainer`` expression. ``maintainer`` takes one or several parties, all of which have to be signatories of the contract and be part of the key. That way the index can be partitioned amongst sets of maintainers, and each set of maintainers can independently ensure the uniqueness constraint on their piece of the index. The constraint that maintainers are part of the key is ensured by only having the variable `key` in each maintainer expression.
-
-Instead of calling ``queryContractId`` to get the contract arguments associated with a given contract identifier, use ``queryContractKey``. ``queryContractKey`` takes a value of type ``AccountKey`` and returns an optional tuple. In this case, that optional tuple is of type ``Optional (ContractId Account, Account)``. After archiving the old account (to change the phone number), you can still fetch the account using the existing, unmodified ``balance``. Where the ``ContractId Account`` is different for the new account, the ``AccountKey`` is the same.
-
-When calling ``queryContractKey`` a single key type could be used as the key for multiple templates. Consequently, you need to tell the compiler what type of contract the key is referencing. You can do that with a type annotation on the returned value.
-
+In the script above, the ``ContractId`` in ``balance.account`` still refers to the archived contract.
+Consequently, querying the ``balance.account`` fails and returns ``None``.
 
 Next up
 -------
 
-You can now define data schemas for the ledger, read, write, and delete data from the ledger, as well as use keys to reference and look up data in a stable fashion.
+You can now define data schemas for the ledger, read, write, and delete data from the ledger.
 
 In :doc:`choices` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.

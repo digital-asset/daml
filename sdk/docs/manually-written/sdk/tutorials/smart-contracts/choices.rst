@@ -4,7 +4,7 @@
 Transform contracts using choices
 =================================
 
-In the example in :ref:`contract_keys` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
+In the example in :ref:`manipulate-contracts` the accountant party wanted to change some data on a contract. They did so by archiving the contract and re-creating it with the updated data. That works because the accountant is the sole signatory on the ``Account`` contract defined there.
 
 But what if the accountant wanted to allow the bank to change their own telephone number? Or what if the owner of a ``CashBalance`` should be able to transfer ownership to someone else?
 
@@ -19,7 +19,7 @@ Choices as methods
 
 If you think of templates as classes and contracts as objects, where are the methods?
 
-Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one, and create a new one, you can provide them a convenience method on ``Contact``:
+Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`manipulate-contracts`. Rather than requiring them to manually look up the contract, archive the old one, and create a new one, you can provide them a convenience method on ``Contact``:
 
 .. literalinclude:: daml/daml-intro-4/daml/Contact.daml
   :language: daml
@@ -103,14 +103,13 @@ Choices in the ledger model
 
 In :doc:`contracts` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch``, and ``key assertion``.
+A *transaction* is a list of *actions*, and there are three kinds of action: ``create``, ``exercise`` and ``fetch``.
 
 - A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
 - A ``fetch`` action checks the existence and activeness of a contract.
 - An ``exercise`` action exercises a choice on a contract resulting in a transaction (list of sub-actions) called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
-- A ``key assertion`` records the assertion that the given contract key (see :ref:`contract_keys`) is not assigned to any active contract on the ledger.
 
-Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create``, and ``key assertion`` actions have no consequences, they are always leaf nodes. You can see the actions and their consequences in the transaction view of the above script:
+Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create`` has no consequences, it is always a leaf node. You can see the actions and their consequences in the transaction view of the above script:
 
 .. code-block:: none
 
