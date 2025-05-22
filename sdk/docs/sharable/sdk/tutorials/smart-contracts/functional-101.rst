@@ -31,7 +31,7 @@ The previous chapters of this introduction to Daml have mostly covered the struc
 When comparing Daml to Haskell it's worth noting:
 
 -   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". Daml by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
-- Daml has a ``with`` syntax for records and dot syntax for record field access, neither of which is present in Haskell. However, Daml supports Haskell's curly brace record notation.
+- Daml has a ``with`` syntax for records and a dot syntax for record field access, neither of which is present in Haskell. However, Daml supports Haskell's curly brace record notation.
 - Daml has a number of Haskell compiler extensions active by default.
 - Daml doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
 - Actions are called Monads in Haskell.
@@ -220,7 +220,7 @@ You can see that the function signature is inferred from the context here. If yo
 
     Bear in mind that functions are not serializable, so you can't use them inside template arguments, as choice inputs, or as choice outputs. They also don't have instances of the ``Eq`` or ``Show`` typeclasses which one would commonly want on data types.
 
-The ``mapA`` and ``mapA_`` functions loop through the lists of assets and approvals and apply the functions ``validate`` and ``transfer`` to each element of those lists, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`loops` below.
+The ``mapA`` and ``mapA_`` functions loop through the lists of assets and approvals, and apply the functions ``validate`` and ``transfer`` to each element of those lists, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`loops` below.
 
 Lambdas
 .......
@@ -409,7 +409,7 @@ Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` l
 
   foldl : (b -> a -> b) -> b -> [a] -> b
 
-Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to Daml almost instantly with those correspondences in mind:
+Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item, and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to Daml almost instantly with those correspondences in mind:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml

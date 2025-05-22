@@ -7,9 +7,9 @@ Add constraints to a contract
 You will often want to constrain the data stored or the allowed data transformations in your contract models. In this section, you will learn about the two main mechanisms provided in Daml:
 
 - The ``ensure`` keyword.
-- The ``assert``, ``abort`` and ``error`` keywords.
+- The ``assert``, ``abort`` and, ``error`` keywords.
 
-To make sense of the latter, you'll also learn more about the ``Update`` and ``Script`` types and ``do`` blocks, which will be good preparation for :doc:`compose`, where you will use ``do`` blocks to compose choices into complex transactions.
+To make sense of the latter, you'll also learn more about the ``Update`` and ``Script`` types, and ``do`` blocks, which will be good preparation for :doc:`compose`, where you will use ``do`` blocks to compose choices into complex transactions.
 
 Lastly, you will learn about time on the ledger and in Daml Script.
 
@@ -29,7 +29,7 @@ Suppose, for example, that the ``SimpleIou`` contract from :ref:`simple_iou` sho
   :start-after: -- RESTRICTED_IOU_BEGIN
   :end-before: &&
 
-The ``ensure`` keyword takes a single expression of type ``Bool``. If you want to add more restrictions, use logical operators ``&&``, ``||`` and ``not`` to build up expressions. The below shows the additional restriction that currencies are three capital letters:
+The ``ensure`` keyword takes a single expression of type ``Bool``. If you want to add more restrictions, use logical operators ``&&``, ``||``, and ``not`` to build up expressions. The below shows the additional restriction that currencies are three capital letters:
 
 
 .. literalinclude:: daml/daml-intro-5/daml/Restrictions.daml
@@ -148,10 +148,10 @@ You can always write a recipe using just pen and paper, but you can't cook it up
 - An ``Update a`` is "a recipe to update a Daml ledger, which, when committed, has the effect of changing the ledger, and returns a value of type ``a``". An update to a Daml ledger is a transaction so equivalently, an ``Update a`` is "a recipe to construct a transaction, which, when executed in the context of a ledger, returns a value of type ``a``".
 - A ``Script a`` is "a recipe for a test, which, when performed against a ledger, has the effect of changing the ledger in ways analogous to those available via the API, and returns a value of type ``a``".
 
-Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``submit party commands``, ``create contract`` and ``exercise choice`` should make more sense in that light. For example:
+Expressions like ``getTime``, ``allocateParty party``, ``passTime time``, ``submit party commands``, ``create contract``, and ``exercise choice`` should make more sense in that light. For example:
 
 - ``getTime : Update Time`` is the recipe for an empty transaction that also happens to return a value of type ``Time``.
-- ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LT of the test ledger. It returns ``()``, also called ``Unit`` and can be thought of as a zero-tuple.
+- ``passTime (days 10) : Script ()`` is a recipe for a transaction that doesn't submit any transactions, but has the side-effect of changing the LT of the test ledger. It returns ``()``, also called ``Unit``, and can be thought of as a zero-tuple.
 - ``create iou : Update (ContractId Iou)``, where ``iou : Iou`` is a recipe for a transaction consisting of a single ``create`` action, and returns the contract id of the created contract if successful.
 - ``submit alice (createCmd iou) : Script (ContractId Iou)`` is a recipe for a script in which Alice sends the command ``createCmd iou`` to the ledger which produces a transaction and a return value of type ``ContractId Iou`` and returns that back to Alice.
 
@@ -218,7 +218,7 @@ If the above didn't make complete sense, here's another example to explain what 
   :start-after: -- COIN_BEGIN
   :end-before: -- COIN_END
 
-A ``CoinGame a`` exposes a function ``play`` which takes a ``Coin`` and returns a new ``Coin`` and a result ``a``. More on the ``->`` syntax for functions later.
+A ``CoinGame a`` exposes a function ``play`` which takes a ``Coin`` and returns a new ``Coin`` along with a result ``a``. More on the ``->`` syntax for functions later.
 
 ``Coin`` and ``play`` are deliberately left obscure in the above. All you have is an action ``getCoin`` to get your hands on a ``Coin`` in a ``Script`` context and an action ``flipCoin`` which represents the simplest possible game: a single coin flip resulting in a  ``Face``.
 
