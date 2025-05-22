@@ -2,12 +2,12 @@
 -- SPDX-License-Identifier: Apache-2.0
 {-# LANGUAGE ApplicativeDo #-}
 
-module IDRef where
+module ContractManipulation where
 
 import DA.Assert
 import Daml.Script
 
--- ID_REF_TEST_BEGIN
+-- CONTRACT_MANIPULATION_BEGIN
 data Bank = Bank with
   party : Party
   address: Text
@@ -23,6 +23,37 @@ template Account
   where
     signatory accountant
 
+contract_manipulation_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
+  let
+    bank = Bank with
+      party = bank_party
+      address = "High Street"
+      telephone = "012 3456 789"
+
+  accountCid <- submit accountant do
+     createCmd Account with
+      accountant
+      owner
+      bank
+      number = "ABC123"
+
+  -- Now the accountant updates the telephone number for the bank on the account
+  Some account <- queryContractId accountant accountCid
+  newAccountCid <- submit accountant do
+    archiveCmd accountCid
+    cid <- createCmd account with
+      bank = account.bank with
+        telephone = "098 7654 321"
+    pure cid
+  
+  newAccountCid =/= accountCid
+-- CONTRACT_MANIPULATION_END
+
+
+-- STALE_CONTRACT_ID_BEGIN
 data Cash = Cash with
   currency : Text
   amount : Decimal
@@ -36,7 +67,7 @@ template CashBalance
   where
     signatory accountant
 
-id_ref_test = do
+stale_contract_id_test = do
   accountant <- allocateParty "Bob"
   owner <- allocateParty "Alice"
   bank_party <- allocateParty "Bank"
@@ -64,7 +95,7 @@ id_ref_test = do
 
   -- Now the accountant updates the telephone number for the bank on the account
   Some account <- queryContractId accountant accountCid
-  new_accountCid <- submit accountant do
+  _ <- submit accountant do
     archiveCmd accountCid
     cid <- createCmd account with
       bank = account.bank with
@@ -72,8 +103,8 @@ id_ref_test = do
     pure cid
 
   -- The `account` field on the balance now refers to the archived
-  -- contract, so this will fail.
+  -- contract, so this returns None.
   Some balance <- queryContractId accountant balanceCid
   optAccount <- queryContractId accountant balance.account
   optAccount === None
--- ID_REF_TEST_END
+-- STALE_CONTRACT_ID_END
