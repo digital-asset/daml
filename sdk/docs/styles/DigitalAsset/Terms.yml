@@ -1,4 +1,6 @@
 # cspell: disable 
+# Note: A copy of this file is also available in the Canton repository 
+# https://github.com/DACH-NY/canton/blob/release-line-3.3/docs-open/styles/DigitalAsset/Terms.yml
 extends: substitution
 message: "Use '%s' instead of '%s'."
 level: error
