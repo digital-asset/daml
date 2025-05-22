@@ -1,38 +1,43 @@
 Component Template
 ==================
 
+<write overview paragraphs>
+
 Download
--------------
+--------
 
 Install
--------------
+-------
 
 Configure
--------------
+---------
 
 Secure
--------------
+------
 
 Operate
--------------
-
-Observe
--------------
-
-Harden
--------------
+-------
 
 Optimize
--------------
+--------
+
+Observe
+-------
 
 Upgrade
--------------
+-------
 
 Recover
--------------
+-------
 
 Decommission
 -------------
 
 Troubleshoot
+-------------
+
+Contribute
+----------
+
+References
 -------------
