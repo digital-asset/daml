@@ -15,7 +15,7 @@ import com.digitalasset.canton.ledger.participant.state.SyncService.{
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPackageId, LfPartyId, SynchronizerAlias}
@@ -191,7 +191,7 @@ object SyncService {
   object ConnectedSynchronizerResponse {
     final case class ConnectedSynchronizer(
         synchronizerAlias: SynchronizerAlias,
-        synchronizerId: SynchronizerId,
+        synchronizerId: PhysicalSynchronizerId,
         permission: ParticipantPermission,
     )
   }

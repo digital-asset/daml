@@ -515,6 +515,15 @@ class BftOrderingMetrics private[metrics] (
           qualification = MetricQualification.Traffic,
         )
       )
+
+      val discardedRateLimitedRetransmissionRequestMeter: Meter = openTelemetryMetricsFactory.meter(
+        MetricInfo(
+          prefix :+ "discarded-rate-limited-retransmission-requests",
+          summary = "Discarded rate limited retransmission requests",
+          description = "Discarded retransmission requests messages due to rate limiting",
+          qualification = MetricQualification.Traffic,
+        )
+      )
     }
 
     // Private constructor to avoid being instantiated multiple times by accident

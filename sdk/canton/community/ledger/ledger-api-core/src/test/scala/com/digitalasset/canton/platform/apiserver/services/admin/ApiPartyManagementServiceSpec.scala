@@ -16,11 +16,14 @@ import com.digitalasset.base.error.utils.ErrorDetails.RetryInfoDetail
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.ledger.api.{IdentityProviderId, ObjectMeta}
-import com.digitalasset.canton.ledger.localstore.api.{PartyRecord, PartyRecordStore}
+import com.digitalasset.canton.ledger.localstore.api.{
+  PartyRecord,
+  PartyRecordStore,
+  UserManagementStore,
+}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexPartyManagementService,
-  IndexUpdateService,
   IndexerPartyDetails,
 }
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
@@ -107,19 +110,19 @@ class ApiPartyManagementServiceSpec
 
     "propagate trace context" in {
       val (
-        mockIndexTransactionsService,
         mockIdentityProviderExists,
         mockIndexPartyManagementService,
+        mockUserManagementStore,
         mockPartyRecordStore,
       ) = mockedServices()
       val partyAllocationTracker = makePartyAllocationTracker(loggerFactory)
 
       val apiService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
+        mockUserManagementStore,
         mockIdentityProviderExists,
         partiesPageSize,
         mockPartyRecordStore,
-        mockIndexTransactionsService,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
         ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId),
@@ -133,7 +136,7 @@ class ApiPartyManagementServiceSpec
 
       // Kick the interaction off
       val future = apiService
-        .allocateParty(AllocatePartyRequest("aParty", None, "", ""))
+        .allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
         .thereafter { _ =>
           scope.close()
           span.end()
@@ -155,19 +158,19 @@ class ApiPartyManagementServiceSpec
 
     "close while allocating party" in {
       val (
-        mockIndexTransactionsService,
         mockIdentityProviderExists,
         mockIndexPartyManagementService,
+        mockUserManagementStore,
         mockPartyRecordStore,
       ) = mockedServices()
       val partyAllocationTracker = makePartyAllocationTracker(loggerFactory)
 
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         mockIndexPartyManagementService,
+        mockUserManagementStore,
         mockIdentityProviderExists,
         partiesPageSize,
         mockPartyRecordStore,
-        mockIndexTransactionsService,
         TestPartySyncService(testTelemetrySetup.tracer),
         oneHour,
         ApiPartyManagementService.CreateSubmissionId.fixedForTests(aSubmissionId.toString),
@@ -178,7 +181,7 @@ class ApiPartyManagementServiceSpec
 
       // Kick the interaction off
       val future =
-        apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", ""))
+        apiPartyManagementService.allocateParty(AllocatePartyRequest("aParty", None, "", "", ""))
 
       // Close the service
       apiPartyManagementService.close()
@@ -224,15 +227,11 @@ class ApiPartyManagementServiceSpec
     )
 
   private def mockedServices(): (
-      IndexUpdateService,
       IdentityProviderExists,
       IndexPartyManagementService,
+      UserManagementStore,
       PartyRecordStore,
   ) = {
-    val mockIndexUpdateService = mock[IndexUpdateService]
-    when(mockIndexUpdateService.currentLedgerEnd())
-      .thenReturn(Future.successful(None))
-
     val mockIdentityProviderExists = mock[IdentityProviderExists]
     when(
       mockIdentityProviderExists.apply(ArgumentMatchers.eq(IdentityProviderId.Default))(
@@ -255,10 +254,12 @@ class ApiPartyManagementServiceSpec
       mockPartyRecordStore.getPartyRecordO(any[Ref.Party])(any[LoggingContextWithTrace])
     ).thenReturn(Future.successful(Right(None)))
 
+    val mockUserManagementStore = mock[UserManagementStore]
+
     (
-      mockIndexUpdateService,
       mockIdentityProviderExists,
       mockIndexPartyManagementService,
+      mockUserManagementStore,
       mockPartyRecordStore,
     )
   }

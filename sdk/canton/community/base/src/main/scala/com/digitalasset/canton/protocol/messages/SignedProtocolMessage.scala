@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.protocol.ClosedEnvelope
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWrapper,
@@ -93,7 +93,7 @@ case class SignedProtocolMessage[+M <: SignedProtocolMessageContent](
   ): SignedProtocolMessage[MM] =
     SignedProtocolMessage(typedMessage, signatures)(representativeProtocolVersion)
 
-  override def synchronizerId: SynchronizerId = message.synchronizerId
+  override def synchronizerId: PhysicalSynchronizerId = message.synchronizerId
 
   protected def toProtoV30: v30.SignedProtocolMessage =
     v30.SignedProtocolMessage(

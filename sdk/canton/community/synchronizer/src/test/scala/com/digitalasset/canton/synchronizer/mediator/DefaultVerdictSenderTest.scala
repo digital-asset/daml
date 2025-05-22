@@ -35,6 +35,7 @@ import com.digitalasset.canton.topology.{
   MediatorGroup,
   MediatorId,
   ParticipantId,
+  PhysicalSynchronizerId,
   SynchronizerId,
   TestingIdentityFactory,
   TestingTopology,
@@ -169,14 +170,14 @@ class DefaultVerdictSenderTest
       transactionMediatorGroup: MediatorGroupRecipient,
   ) {
 
-    val synchronizerId: SynchronizerId = SynchronizerId(
+    val synchronizerId: PhysicalSynchronizerId = SynchronizerId(
       UniqueIdentifier.tryFromProtoPrimitive("synchronizer::test")
-    )
+    ).toPhysical
     val testTopologyTimestamp = CantonTimestamp.Epoch
 
     val factory =
       new ExampleTransactionFactory()(
-        synchronizerId = synchronizerId,
+        synchronizerId = synchronizerId.logical,
         mediatorGroup = transactionMediatorGroup,
       )
     val mediatorRecipient: MediatorGroupRecipient = factory.mediatorGroup
@@ -210,7 +211,7 @@ class DefaultVerdictSenderTest
     val synchronizerSyncCryptoApi: SynchronizerCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v34) {
         val topology = TestingTopology.from(
-          Set(synchronizerId),
+          Set(synchronizerId.logical),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
             signatory ->
@@ -227,10 +228,10 @@ class DefaultVerdictSenderTest
           dynamicSynchronizerParameters = initialSynchronizerParameters,
         )
 
-        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
+        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId.logical)
       } else {
         val topology = TestingTopology.from(
-          Set(synchronizerId),
+          Set(synchronizerId.logical),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
             signatory ->
@@ -254,7 +255,7 @@ class DefaultVerdictSenderTest
           dynamicSynchronizerParameters = initialSynchronizerParameters,
         )
 
-        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId)
+        identityFactory.forOwnerAndSynchronizer(mediatorId, synchronizerId.logical)
       }
 
     private val sequencerClientSend: TestSequencerClientSend = new TestSequencerClientSend

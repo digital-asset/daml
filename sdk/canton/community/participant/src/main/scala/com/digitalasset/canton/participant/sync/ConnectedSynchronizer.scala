@@ -85,7 +85,7 @@ import com.digitalasset.canton.topology.processing.{
   SequencedTime,
   TopologyTransactionProcessor,
 }
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil, MonadUtil}
@@ -115,7 +115,6 @@ import scala.concurrent.{ExecutionContext, Future}
   *   Synchronisation crypto utility combining IPS and Crypto operations for a single synchronizer.
   */
 class ConnectedSynchronizer(
-    val synchronizerId: SynchronizerId,
     val synchronizerHandle: SynchronizerHandle,
     participantId: ParticipantId,
     engine: Engine,
@@ -146,6 +145,8 @@ class ConnectedSynchronizer(
     with CloseableHealthComponent
     with AtomicHealthComponent {
 
+  val synchronizerId: PhysicalSynchronizerId = synchronizerHandle.synchronizerId
+
   val topologyClient: SynchronizerTopologyClientWithInit = synchronizerHandle.topologyClient
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
@@ -169,7 +170,6 @@ class ConnectedSynchronizer(
     TransactionConfirmationRequestFactory(
       participantId,
       synchronizerId,
-      staticSynchronizerParameters.protocolVersion,
     )(
       synchronizerCrypto.crypto.pureCrypto,
       seedGenerator,
@@ -631,7 +631,7 @@ class ConnectedSynchronizer(
               ephemeral.timeTracker,
               tc =>
                 participantNodePersistentState.value.ledgerApiStore
-                  .cleanSynchronizerIndex(synchronizerId)(tc, ec)
+                  .cleanSynchronizerIndex(synchronizerId.logical)(tc, ec)
                   .map(_.flatMap(_.sequencerIndex).map(_.sequencerTimestamp)),
             )(initializationTraceContext)
           )
@@ -705,7 +705,7 @@ class ConnectedSynchronizer(
         }
 
         pendingReassignments.lastOption.map(t =>
-          t.reassignmentId.unassignmentTs -> t.sourceSynchronizer
+          t.reassignmentId.unassignmentTs -> t.sourceSynchronizer.map(_.logical)
         )
       }
 
@@ -960,7 +960,6 @@ object ConnectedSynchronizer {
   trait Factory[+T <: ConnectedSynchronizer] {
 
     def create(
-        synchronizerId: SynchronizerId,
         synchronizerHandle: SynchronizerHandle,
         participantId: ParticipantId,
         engine: Engine,
@@ -986,7 +985,6 @@ object ConnectedSynchronizer {
 
   object DefaultFactory extends Factory[ConnectedSynchronizer] {
     override def create(
-        synchronizerId: SynchronizerId,
         synchronizerHandle: SynchronizerHandle,
         participantId: ParticipantId,
         engine: Engine,
@@ -1022,20 +1020,20 @@ object ConnectedSynchronizer {
         persistentState.requestJournalStore,
         tc =>
           ephemeralState.ledgerApiIndexer.ledgerApiStore.value
-            .cleanSynchronizerIndex(synchronizerId)(tc, ec),
+            .cleanSynchronizerIndex(synchronizerHandle.synchronizerId.logical)(tc, ec),
         sortedReconciliationIntervalsProvider,
         persistentState.acsCommitmentStore,
         persistentState.activeContractStore,
         persistentState.submissionTrackerStore,
         participantNodePersistentState.map(_.inFlightSubmissionStore),
-        synchronizerId,
+        synchronizerHandle.synchronizerId,
         parameters.journalGarbageCollectionDelay,
         parameters.processingTimeouts,
         loggerFactory,
       )
       for {
         acsCommitmentProcessor <- AcsCommitmentProcessor(
-          synchronizerId,
+          synchronizerHandle.synchronizerId,
           participantId,
           synchronizerHandle.sequencerClient,
           synchronizerCrypto,
@@ -1060,7 +1058,6 @@ object ConnectedSynchronizer {
           acsCommitmentProcessor.scheduleTopologyTick
         )
       } yield new ConnectedSynchronizer(
-        synchronizerId,
         synchronizerHandle,
         participantId,
         engine,

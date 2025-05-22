@@ -986,7 +986,7 @@ trait SequencerStoreTest
           val env = Env()
           import env.*
           val initialState = SequencerInitialState(
-            synchronizerId = DefaultTestIdentities.synchronizerId, // not used
+            synchronizerId = DefaultTestIdentities.physicalSynchronizerId, // not used
             snapshot = snapshot,
             latestSequencerEventTimestamp = None,
             initialTopologyEffectiveTimestamp = None,

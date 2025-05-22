@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.processing.{
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{PackageDependencyResolverUS, TopologyStore}
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -46,6 +46,8 @@ class TopologyComponentFactory(
     topologyStore: TopologyStore[SynchronizerStore],
     loggerFactory: NamedLoggerFactory,
 ) {
+  // TODO(#25483) synchronizerId of this class should be physical
+  val psid = PhysicalSynchronizerId(synchronizerId, protocolVersion)
 
   def createTopologyProcessorFactory(
       partyNotifier: LedgerServerPartyNotifier,
@@ -63,7 +65,7 @@ class TopologyComponentFactory(
     ): FutureUnlessShutdown[TopologyTransactionProcessor] = {
 
       val participantTerminateProcessing = new ParticipantTopologyTerminateProcessing(
-        synchronizerId,
+        psid,
         protocolVersion,
         recordOrderPublisher,
         topologyStore,
@@ -125,7 +127,7 @@ class TopologyComponentFactory(
   )(implicit executionContext: ExecutionContext): SynchronizerTopologyClientWithInit =
     new StoreBasedSynchronizerTopologyClient(
       clock,
-      synchronizerId,
+      psid,
       topologyStore,
       packageDependencyResolver,
       new IdentityProvidingServiceClient(),
@@ -142,7 +144,7 @@ class TopologyComponentFactory(
   ): FutureUnlessShutdown[SynchronizerTopologyClientWithInit] =
     CachingSynchronizerTopologyClient.create(
       clock,
-      synchronizerId,
+      psid,
       topologyStore,
       packageDependencyResolver,
       ips,

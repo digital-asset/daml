@@ -275,7 +275,8 @@ final class AvailabilityModule[E <: Env[E]](
   ): Unit =
     pipeToSelf(
       activeCryptoProvider.signHash(
-        AvailabilityAck.hashFor(batchId, epochNumber, activeMembership.myId)
+        AvailabilityAck.hashFor(batchId, epochNumber, activeMembership.myId, metrics),
+        "availability-sign-remote-batchId",
       )
     )(handleFailure(s"Failed to sign $batchId") { signature =>
       LocalDissemination.RemoteBatchStoredSigned(batchId, from, signature)
@@ -288,7 +289,8 @@ final class AvailabilityModule[E <: Env[E]](
     pipeToSelf(
       context.sequenceFuture(batches.map { case (batchId, batch) =>
         activeCryptoProvider.signHash(
-          AvailabilityAck.hashFor(batchId, batch.epochNumber, activeMembership.myId)
+          AvailabilityAck.hashFor(batchId, batch.epochNumber, activeMembership.myId, metrics),
+          "availability-sign-local-batchId",
         )
       })
     ) {
@@ -792,9 +794,10 @@ final class AvailabilityModule[E <: Env[E]](
               pipeToSelf(
                 activeCryptoProvider
                   .verifySignature(
-                    AvailabilityAck.hashFor(batchId, epochNumber, from),
+                    AvailabilityAck.hashFor(batchId, epochNumber, from, metrics),
                     from,
                     signature,
+                    "availability-signature-verify-ack",
                   )
               ) {
                 case Failure(exception) =>

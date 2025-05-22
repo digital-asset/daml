@@ -190,7 +190,7 @@ class SyncPersistentStateManager(
       }
     } yield ()
 
-  // TODO(#25388): This should be per PSId
+  // TODO(#25483): This should be per PSId
   def staticSynchronizerParameters(
       synchronizerId: SynchronizerId
   ): Option[StaticSynchronizerParameters] =
@@ -202,6 +202,7 @@ class SyncPersistentStateManager(
   private val persistentStates: concurrent.Map[SynchronizerId, SyncPersistentState] =
     TrieMap[SynchronizerId, SyncPersistentState]()
 
+  // TODO(#25483) This should be physical
   def get(synchronizerId: SynchronizerId): Option[SyncPersistentState] =
     lock.withReadLock[Option[SyncPersistentState]](persistentStates.get(synchronizerId))
 

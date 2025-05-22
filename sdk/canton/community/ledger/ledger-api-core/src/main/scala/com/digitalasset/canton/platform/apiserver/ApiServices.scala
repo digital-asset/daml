@@ -313,10 +313,10 @@ object ApiServices {
 
       val apiPartyManagementService = ApiPartyManagementService.createApiService(
         partyManagementService,
+        userManagementStore,
         new IdentityProviderExists(identityProviderConfigStore),
         partyManagementServiceConfig.maxPartiesPageSize,
         partyRecordStore,
-        updateService,
         syncService,
         managementServiceTimeout,
         telemetry = telemetry,

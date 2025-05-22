@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.synchronizer.grpc
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.digitalasset.canton.*
@@ -17,6 +18,7 @@ import com.digitalasset.canton.participant.metrics.ConnectedSynchronizerMetrics
 import com.digitalasset.canton.participant.store.SyncPersistentState
 import com.digitalasset.canton.participant.sync.SyncPersistentStateManager
 import com.digitalasset.canton.participant.synchronizer.*
+import com.digitalasset.canton.participant.synchronizer.SynchronizerRegistryError.SynchronizerRegistryInternalError
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
   ParticipantTopologyDispatcher,
@@ -82,7 +84,7 @@ class GrpcSynchronizerRegistry(
   override protected def timeouts: ProcessingTimeout = participantNodeParameters.processingTimeouts
 
   private class GrpcSynchronizerHandle(
-      override val synchronizerId: SynchronizerId,
+      override val synchronizerId: PhysicalSynchronizerId,
       override val synchronizerAlias: SynchronizerAlias,
       override val staticParameters: StaticSynchronizerParameters,
       sequencer: RichSequencerClient,
@@ -115,7 +117,9 @@ class GrpcSynchronizerRegistry(
       config: SynchronizerConnectionConfig
   )(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Either[SynchronizerRegistryError, SynchronizerHandle]] = {
+  ): FutureUnlessShutdown[
+    Either[SynchronizerRegistryError, (SynchronizerHandle, SynchronizerConnectionConfig)]
+  ] = {
 
     val sequencerConnections: SequencerConnections =
       config.sequencerConnections
@@ -141,6 +145,29 @@ class GrpcSynchronizerRegistry(
         .processHandshake(config.synchronizerAlias, info.synchronizerId)
         .leftMap(SynchronizerRegistryHelpers.fromSynchronizerAliasManagerError)
 
+      updatedConfigE = {
+        val connectionsWithSequencerId = info.sequencerConnections.aliasToConnection
+        val updatedConnections = config.sequencerConnections.aliasToConnection.map {
+          case (_, connection) =>
+            val potentiallyUpdatedConnection =
+              connectionsWithSequencerId.getOrElse(connection.sequencerAlias, connection)
+            val updatedConnection = potentiallyUpdatedConnection.sequencerId
+              .map(connection.withSequencerId)
+              .getOrElse(connection)
+            updatedConnection
+        }.toSeq
+        SequencerConnections
+          .many(
+            updatedConnections,
+            config.sequencerConnections.sequencerTrustThreshold,
+            config.sequencerConnections.submissionRequestAmplification,
+          )
+          .map(connections => config.copy(sequencerConnections = connections))
+
+      }
+      updatedConfig <- EitherT
+        .fromEither[FutureUnlessShutdown](updatedConfigE)
+        .leftMap(SynchronizerRegistryInternalError.InvalidState(_))
       synchronizerHandle <- getSynchronizerHandle(
         config,
         syncPersistentStateManager,
@@ -156,17 +183,20 @@ class GrpcSynchronizerRegistry(
         partyNotifier,
         metrics,
       )
-    } yield new GrpcSynchronizerHandle(
-      synchronizerHandle.synchronizerId,
-      synchronizerHandle.alias,
-      synchronizerHandle.staticParameters,
-      synchronizerHandle.sequencer,
-      synchronizerHandle.channelSequencerClientO,
-      synchronizerHandle.topologyClient,
-      synchronizerHandle.topologyFactory,
-      synchronizerHandle.persistentState,
-      synchronizerHandle.timeouts,
-    )
+    } yield {
+      val grpcHandle = new GrpcSynchronizerHandle(
+        synchronizerHandle.synchronizerId,
+        synchronizerHandle.alias,
+        synchronizerHandle.staticParameters,
+        synchronizerHandle.sequencer,
+        synchronizerHandle.channelSequencerClientO,
+        synchronizerHandle.topologyClient,
+        synchronizerHandle.topologyFactory,
+        synchronizerHandle.persistentState,
+        synchronizerHandle.timeouts,
+      )
+      (grpcHandle, updatedConfig)
+    }
 
     runE.value
   }

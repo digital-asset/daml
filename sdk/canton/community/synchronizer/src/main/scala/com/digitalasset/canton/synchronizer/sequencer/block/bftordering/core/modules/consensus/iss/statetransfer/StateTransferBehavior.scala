@@ -400,6 +400,7 @@ final class StateTransferBehavior[E <: Env[E]](
         abort,
         previousEpochsCommitCerts = Map.empty,
         metrics,
+        clock,
         loggerFactory,
       ),
       random,

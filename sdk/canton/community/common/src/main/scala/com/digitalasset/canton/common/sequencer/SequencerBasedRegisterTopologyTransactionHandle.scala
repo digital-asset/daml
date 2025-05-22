@@ -16,7 +16,7 @@ import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -33,7 +33,7 @@ trait RegisterTopologyTransactionHandle extends FlagCloseable {
 
 class SequencerBasedRegisterTopologyTransactionHandle(
     sequencerClient: SequencerClient,
-    val synchronizerId: SynchronizerId,
+    val synchronizerId: PhysicalSynchronizerId,
     val member: Member,
     timeTracker: SynchronizerTimeTracker,
     clock: Clock,

@@ -15,6 +15,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
@@ -41,6 +42,7 @@ import scala.concurrent.ExecutionContext
 private[driver] final class CantonOrderingTopologyProvider(
     cryptoApi: SynchronizerCryptoClient,
     override val loggerFactory: NamedLoggerFactory,
+    metrics: BftOrderingMetrics,
 )(implicit
     ec: ExecutionContext
 ) extends OrderingTopologyProvider[PekkoEnv]
@@ -153,7 +155,7 @@ private[driver] final class CantonOrderingTopologyProvider(
             TopologyActivationTime.fromEffectiveTime(maxEffectiveTime).value > activationTime.value
           },
         )
-      topology -> new CantonCryptoProvider(snapshot)
+      topology -> new CantonCryptoProvider(snapshot, metrics)
     }
     PekkoFutureUnlessShutdown(
       s"get ordering topology at activation time $activationTime",

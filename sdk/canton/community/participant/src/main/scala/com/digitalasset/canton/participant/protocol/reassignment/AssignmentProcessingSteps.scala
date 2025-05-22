@@ -54,7 +54,7 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentProcessingSteps(
-    val synchronizerId: Target[SynchronizerId],
+    val synchronizerId: Target[PhysicalSynchronizerId],
     val participantId: ParticipantId,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
@@ -139,7 +139,9 @@ private[reassignment] class AssignmentProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
 
-      targetSynchronizer = unassignmentData.targetSynchronizer
+      targetSynchronizer = unassignmentData.targetSynchronizer.map(
+        PhysicalSynchronizerId(_, staticSynchronizerParameters.unwrap)
+      )
       _ = if (targetSynchronizer != synchronizerId)
         throw new IllegalStateException(
           s"Assignment $reassignmentId: Reassignment data for ${unassignmentData.targetSynchronizer} found on wrong synchronizer $synchronizerId"
@@ -298,7 +300,7 @@ private[reassignment] class AssignmentProcessingSteps(
       traceContext: TraceContext
   ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
-    if (parsedRequest.fullViewTree.targetSynchronizer == synchronizerId) {
+    if (Target(parsedRequest.fullViewTree.synchronizerId) == synchronizerId) {
       val contractIds = parsedRequest.fullViewTree.contracts.contractIds.toSet
       val contractCheck = ActivenessCheck.tryCreate(
         checkFresh = Set.empty,
@@ -475,12 +477,12 @@ private[reassignment] class AssignmentProcessingSteps(
                 reassignmentCoordination.addAssignmentData(
                   assignmentValidationResult.reassignmentId,
                   contracts = assignmentValidationResult.contracts,
-                  target = synchronizerId,
+                  target = synchronizerId.map(_.logical),
                 )
               } else EitherTUtil.unitUS
             update <- EitherT.fromEither[FutureUnlessShutdown](
               assignmentValidationResult.createReassignmentAccepted(
-                synchronizerId,
+                synchronizerId.map(_.logical),
                 participantId,
                 requestId.unwrap,
               )
@@ -566,7 +568,7 @@ object AssignmentProcessingSteps {
       reassignmentId: ReassignmentId,
       submitterMetadata: ReassignmentSubmitterMetadata,
       contracts: ContractsReassignmentBatch,
-      targetSynchronizer: Target[SynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       targetMediator: MediatorGroupRecipient,
       assignmentUuid: UUID,
       targetProtocolVersion: Target[ProtocolVersion],

@@ -1552,6 +1552,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
           synchronizerId: String = "",
+          userId: String = "",
       ): PartyDetails = {
         val proto = check(FeatureFlag.Testing)(consoleEnvironment.run {
           ledgerApiCommand(
@@ -1560,6 +1561,7 @@ trait BaseLedgerApiAdministration extends NoTracing with StreamingCommandHelper 
               annotations = annotations,
               identityProviderId = identityProviderId,
               synchronizerId = synchronizerId,
+              userId = userId,
             )
           )
         })

@@ -15,7 +15,7 @@ import com.typesafe.scalalogging.LazyLogging
 
 final case class ListConnectedSynchronizersResult(
     synchronizerAlias: SynchronizerAlias,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     healthy: Boolean,
 )
 
@@ -31,7 +31,10 @@ object ListConnectedSynchronizersResult {
     ) =
       value
     for {
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerId, "synchronizerId")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        synchronizerId,
+        "physical_synchronizer_id",
+      )
       synchronizerAlias <- SynchronizerAlias.fromProtoPrimitive(synchronizerAlias)
 
     } yield ListConnectedSynchronizersResult(

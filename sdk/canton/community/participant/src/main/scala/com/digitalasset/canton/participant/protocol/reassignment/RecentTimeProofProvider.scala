@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 
@@ -46,18 +46,20 @@ private[reassignment] class RecentTimeProofProvider(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TimeProof] = {
     val synchronizer = targetSynchronizerId.unwrap
+    val physicalId =
+      PhysicalSynchronizerId(targetSynchronizerId.unwrap, staticSynchronizerParameters.unwrap)
 
     for {
       handle <- EitherT.fromEither[FutureUnlessShutdown](
         submissionHandles(synchronizer).toRight(
-          NoTimeProofFromSynchronizer(synchronizer, "unknown synchronizer")
+          NoTimeProofFromSynchronizer(physicalId, "unknown synchronizer")
         )
       )
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
           .forSynchronizer(synchronizer, staticSynchronizerParameters.value)
-          .toRight(NoTimeProofFromSynchronizer(synchronizer, "getting the crypto client"))
+          .toRight(NoTimeProofFromSynchronizer(physicalId, "getting the crypto client"))
       )
 
       parameters <- EitherT(
@@ -66,7 +68,7 @@ private[reassignment] class RecentTimeProofProvider(
           .map(
             _.leftMap(err =>
               NoTimeProofFromSynchronizer(
-                synchronizer,
+                physicalId,
                 s"unable to find synchronizer parameters: $err",
               )
             )

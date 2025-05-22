@@ -1083,6 +1083,7 @@ class IssConsensusModuleTest
             fail(_),
             previousEpochsCommitCerts = Map.empty,
             metrics,
+            clock,
             loggerFactory,
           )
         ),

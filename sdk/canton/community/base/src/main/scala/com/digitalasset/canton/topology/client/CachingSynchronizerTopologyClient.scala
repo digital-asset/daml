@@ -155,6 +155,7 @@ final class CachingSynchronizerTopologyClient(
   }
 
   override def synchronizerId: SynchronizerId = delegate.synchronizerId
+  override def physicalSynchronizerId: PhysicalSynchronizerId = delegate.physicalSynchronizerId
 
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     delegate.snapshotAvailable(timestamp)
@@ -238,7 +239,7 @@ object CachingSynchronizerTopologyClient {
 
   def create(
       clock: Clock,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
       packageDependenciesResolver: PackageDependencyResolverUS,
       ips: IdentityProvidingServiceClient,

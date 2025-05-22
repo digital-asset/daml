@@ -66,7 +66,7 @@ import BlockSequencerFactory.OrderingTimeFixMode
 class BlockSequencer(
     blockOrderer: BlockOrderer,
     name: String,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     cryptoApi: SynchronizerCryptoClient,
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
@@ -78,7 +78,7 @@ class BlockSequencer(
     futureSupervisor: FutureSupervisor,
     health: Option[SequencerHealthConfig],
     clock: Clock,
-    protocolVersion: ProtocolVersion,
+    protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
     processingTimeouts: ProcessingTimeout,

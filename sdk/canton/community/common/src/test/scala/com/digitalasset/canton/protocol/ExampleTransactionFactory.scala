@@ -30,6 +30,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, VettedPackage}
 import com.digitalasset.canton.topology.{
   ParticipantId,
+  PhysicalSynchronizerId,
   SynchronizerId,
   TestingIdentityFactory,
   TestingTopology,
@@ -450,6 +451,8 @@ class ExampleTransactionFactory(
     extends EitherValues {
 
   private val protocolVersion = versionOverride.getOrElse(BaseTest.testedProtocolVersion)
+  val physicalSynchronizerId: PhysicalSynchronizerId =
+    PhysicalSynchronizerId(synchronizerId, protocolVersion)
   private val cantonContractIdVersion = AuthenticatedContractIdVersionV11
   private val random = new Random(0)
 
@@ -803,7 +806,7 @@ class ExampleTransactionFactory(
   val commonMetadata: CommonMetadata =
     CommonMetadata
       .create(cryptoOps, protocolVersion)(
-        synchronizerId,
+        physicalSynchronizerId,
         mediatorGroup,
         Salt.tryDeriveSalt(transactionSeed, 1, cryptoOps),
         transactionUuid,

@@ -11,7 +11,7 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFligh
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbSerializationException
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import slick.jdbc.GetResult
 
@@ -48,7 +48,7 @@ import java.util.UUID
 final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo](
     changeIdHash: ChangeIdHash,
     submissionId: Option[LedgerSubmissionId],
-    submissionSynchronizerId: SynchronizerId,
+    submissionSynchronizerId: PhysicalSynchronizerId,
     messageUuid: UUID,
     rootHashO: Option[RootHash],
     sequencingInfo: SequencingInfo,
@@ -99,7 +99,7 @@ object InFlightSubmission {
     import com.digitalasset.canton.resource.DbStorage.Implicits.*
     val changeId = r.<<[ChangeIdHash]
     val submissionId = r.<<[Option[SerializableSubmissionId]].map(_.submissionId)
-    val submissionSynchronizer = r.<<[SynchronizerId]
+    val submissionSynchronizer = r.<<[PhysicalSynchronizerId]
     val messageId = r.<<[UUID]
     val rootHashO = r.<<[Option[RootHash]]
     val sequencingInfo = r.<<[SequencingInfo]

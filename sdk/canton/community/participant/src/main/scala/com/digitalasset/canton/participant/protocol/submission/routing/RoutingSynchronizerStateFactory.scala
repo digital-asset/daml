@@ -82,9 +82,15 @@ class RoutingSynchronizerStateImpl private[routing] (
               val done =
                 acc ++ res.collect {
                   case (cid, status) if status.status.isActive =>
-                    (cid, (connectedSynchronizer.synchronizerId, ContractStateStatus.Active))
+                    (
+                      cid,
+                      (connectedSynchronizer.synchronizerId.logical, ContractStateStatus.Active),
+                    )
                   case (cid, status) if status.status.isArchived =>
-                    (cid, (connectedSynchronizer.synchronizerId, ContractStateStatus.Archived))
+                    (
+                      cid,
+                      (connectedSynchronizer.synchronizerId.logical, ContractStateStatus.Archived),
+                    )
                 }
               (pending.filterNot(cid => done.contains(cid)), done)
             }

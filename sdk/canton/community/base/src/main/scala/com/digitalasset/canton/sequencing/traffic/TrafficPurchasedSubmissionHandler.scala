@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.client.{SendCallback, SendResult, Sequ
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
 import com.digitalasset.canton.time.{Clock, SynchronizerTimeTracker}
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUnlessShutdownUtil}
@@ -58,8 +58,8 @@ class TrafficPurchasedSubmissionHandler(
     */
   def sendTrafficPurchasedRequest(
       member: Member,
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
       serial: PositiveInt,
       totalTrafficPurchased: NonNegativeLong,
       sequencerClient: SequencerClientSend,

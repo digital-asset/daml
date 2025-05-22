@@ -121,7 +121,11 @@ class SyncCryptoApiParticipantProvider(
       staticSynchronizerParameters: StaticSynchronizerParameters,
   ): Option[SynchronizerCryptoClient] =
     ips.forSynchronizer(synchronizerId).map { domainTopologyClient =>
-      createOrUpdateCache(synchronizerId, staticSynchronizerParameters, domainTopologyClient)
+      createOrUpdateCache(
+        synchronizerId,
+        staticSynchronizerParameters,
+        domainTopologyClient,
+      )
     }
 
 }
@@ -302,7 +306,7 @@ object SyncCryptoClient {
   */
 class SynchronizerCryptoClient private (
     val member: Member,
-    val synchronizerId: SynchronizerId,
+    val physicalSynchronizerId: PhysicalSynchronizerId,
     val synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient],
     val ips: SynchronizerTopologyClient,
     val crypto: SynchronizerCrypto,
@@ -316,6 +320,8 @@ class SynchronizerCryptoClient private (
     with HasFutureSupervision
     with NamedLogging
     with FlagCloseable {
+
+  val synchronizerId: SynchronizerId = physicalSynchronizerId.logical
 
   override val pureCrypto: SynchronizerCryptoPureApi = crypto.pureCrypto
 
@@ -413,7 +419,7 @@ object SynchronizerCryptoClient {
     )
     new SynchronizerCryptoClient(
       member,
-      synchronizerId,
+      PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
       TrieMap.empty,
       ips,
       synchronizerCrypto,
@@ -460,7 +466,7 @@ object SynchronizerCryptoClient {
     )
     new SynchronizerCryptoClient(
       member,
-      synchronizerId,
+      PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
       synchronizerCryptoClientCache,
       ips,
       synchronizerCrypto,

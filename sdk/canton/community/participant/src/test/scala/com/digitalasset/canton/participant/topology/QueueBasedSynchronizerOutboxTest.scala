@@ -132,7 +132,7 @@ class QueueBasedSynchronizerOutboxTest
     )
     val client = new StoreBasedSynchronizerTopologyClient(
       clock,
-      synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
       store = target,
       packageDependenciesResolver = StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
       ips = new IdentityProvidingServiceClient(),
@@ -275,7 +275,7 @@ class QueueBasedSynchronizerOutboxTest
   ): FutureUnlessShutdown[QueueBasedSynchronizerOutbox] = {
     val synchronizerOutbox = new QueueBasedSynchronizerOutbox(
       synchronizer,
-      synchronizerId,
+      DefaultTestIdentities.physicalSynchronizerId,
       participant1,
       testedProtocolVersion,
       handle,

@@ -107,6 +107,7 @@ object UserManagementStore {
 
   sealed trait Error
   final case class UserNotFound(userId: Ref.UserId) extends Error
+  final case class UserDeletedWhileUpdating(userId: Ref.UserId) extends Error
   final case class UserExists(userId: Ref.UserId) extends Error
   final case class TooManyUserRights(userId: Ref.UserId) extends Error
   final case class ConcurrentUserUpdate(userId: Ref.UserId) extends Error

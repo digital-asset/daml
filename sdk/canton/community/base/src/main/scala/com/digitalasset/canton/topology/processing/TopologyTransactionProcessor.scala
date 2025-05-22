@@ -32,6 +32,7 @@ import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.ValidatingTopologyMappingChecks
 import com.digitalasset.canton.topology.{
+  PhysicalSynchronizerId,
   SynchronizerId,
   TopologyManagerError,
   TopologyStateProcessor,
@@ -308,7 +309,7 @@ class TopologyTransactionProcessor(
       }
     }
 
-  def createHandler(synchronizerId: SynchronizerId): UnsignedProtocolEventHandler =
+  def createHandler(synchronizerId: PhysicalSynchronizerId): UnsignedProtocolEventHandler =
     new UnsignedProtocolEventHandler {
 
       override def name: String = s"topology-processor-$synchronizerId"
@@ -519,7 +520,7 @@ object TopologyTransactionProcessor {
   def createProcessorAndClientForSynchronizer(
       topologyStore: TopologyStore[TopologyStoreId.SynchronizerStore],
       ips: IdentityProvidingServiceClient,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       pureCrypto: SynchronizerCryptoPureApi,
       parameters: CantonNodeParameters,
       clock: Clock,
@@ -534,7 +535,7 @@ object TopologyTransactionProcessor {
   ): FutureUnlessShutdown[(TopologyTransactionProcessor, SynchronizerTopologyClientWithInit)] = {
 
     val processor = new TopologyTransactionProcessor(
-      synchronizerId,
+      synchronizerId.logical,
       pureCrypto,
       topologyStore,
       _ => (),

@@ -10,7 +10,7 @@ import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.sequencing.protocol.HandshakeResponse
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -41,7 +41,11 @@ trait SequencerConnectionXStub {
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, (SynchronizerId, SequencerId)]
+  ): EitherT[
+    FutureUnlessShutdown,
+    SequencerConnectionXStubError,
+    (PhysicalSynchronizerId, SequencerId),
+  ]
 
   def getStaticSynchronizerParameters(
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry

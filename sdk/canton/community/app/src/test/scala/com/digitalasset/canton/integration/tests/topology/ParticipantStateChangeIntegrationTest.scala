@@ -215,8 +215,9 @@ trait ParticipantStateChangeIntegrationTest
       daName,
       s"http://localhost:${sequencer1.config.publicApi.port}",
       manualConnect = true,
-      synchronizerId =
-        Some(SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("notcorrect::fingerprint"))),
+      synchronizerId = Some(
+        SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("notcorrect::fingerprint")).toPhysical
+      ),
     )
 
     // fail because synchronizer id is wrong

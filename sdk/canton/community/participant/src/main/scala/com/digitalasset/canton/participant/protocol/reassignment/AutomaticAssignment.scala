@@ -32,7 +32,7 @@ import scala.concurrent.ExecutionContext
 private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
-      targetSynchronizer: Target[SynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       targetStaticSynchronizerParameters: Target[StaticSynchronizerParameters],
       reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
@@ -63,7 +63,10 @@ private[participant] object AutomaticAssignment {
         : EitherT[FutureUnlessShutdown, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- reassignmentCoordination
-          .getTimeProofAndSnapshot(targetSynchronizer, targetStaticSynchronizerParameters)
+          .getTimeProofAndSnapshot(
+            targetSynchronizer.map(_.logical),
+            targetStaticSynchronizerParameters,
+          )
           .map(_._2)
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.map(_.ipsSnapshot)))
         assignmentSubmitter <- EitherT.fromOption[FutureUnlessShutdown](
@@ -72,7 +75,7 @@ private[participant] object AutomaticAssignment {
         )
         submissionResult <- reassignmentCoordination
           .assign(
-            targetSynchronizer,
+            targetSynchronizer.map(_.logical),
             ReassignmentSubmitterMetadata(
               assignmentSubmitter,
               participantId,
@@ -123,7 +126,7 @@ private[participant] object AutomaticAssignment {
           .fromEither[FutureUnlessShutdown](
             targetSynchronizerParameters.unwrap
               .assignmentExclusivityLimitFor(t0)
-              .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap, _))
+              .leftMap(ReassignmentParametersError(targetSynchronizer.unwrap.logical, _))
           )
           .leftWiden[ReassignmentProcessorError]
 
@@ -135,11 +138,11 @@ private[participant] object AutomaticAssignment {
             )
             for {
               _ <- reassignmentCoordination
-                .awaitSynchronizerTime(targetSynchronizer, exclusivityLimit)
+                .awaitSynchronizerTime(targetSynchronizer.map(_.logical), exclusivityLimit)
                 .mapK(FutureUnlessShutdown.outcomeK)
               _ <- reassignmentCoordination
                 .awaitTimestamp(
-                  targetSynchronizer,
+                  targetSynchronizer.map(_.logical),
                   targetStaticSynchronizerParameters,
                   exclusivityLimit,
                   FutureUnlessShutdown.pure(
@@ -153,7 +156,8 @@ private[participant] object AutomaticAssignment {
                   Either.unit
                 // Filter out the case that the participant has disconnected from the target synchronizer in the meantime.
                 case UnknownSynchronizer(synchronizer, _)
-                    if synchronizer == targetSynchronizer.unwrap =>
+                    // TODO(#25483) Check this comparison (logical/physical)
+                    if synchronizer == targetSynchronizer.unwrap.logical =>
                   Either.unit
                 case SynchronizerNotReady(synchronizer, _)
                     if synchronizer == targetSynchronizer.unwrap =>
@@ -171,7 +175,7 @@ private[participant] object AutomaticAssignment {
     for {
       targetIps <- reassignmentCoordination
         .cryptoSnapshot(
-          targetSynchronizer,
+          targetSynchronizer.map(_.logical),
           targetStaticSynchronizerParameters,
           t0,
         )

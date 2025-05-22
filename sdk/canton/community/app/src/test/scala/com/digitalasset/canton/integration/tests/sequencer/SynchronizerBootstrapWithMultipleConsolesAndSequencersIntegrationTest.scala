@@ -52,7 +52,7 @@ trait SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
 
           // find the current sequencer synchronizer state
           val sequencerSynchronizerState = sequencer1.topology.sequencers
-            .list(store = synchronizerId)
+            .list(store = synchronizerId.logical)
             .headOption
             .getOrElse(sys.error("Did not find sequencer synchronizer state on the synchronizer"))
 
