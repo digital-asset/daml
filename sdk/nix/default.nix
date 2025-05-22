@@ -180,6 +180,9 @@ in rec {
     sha256sum = pkgs.coreutils;
     xargs = pkgs.findutils;
 
+    # Vale
+    vale = pkgs.vale;
+
     # Cryptography tooling
     gnupg = pkgs.gnupg;
     gpg   = gnupg;

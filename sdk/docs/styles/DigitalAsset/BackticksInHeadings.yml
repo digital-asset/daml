@@ -1,0 +1,8 @@
+extends: existence
+message: "Avoid using backticks for code formatting in headings."
+nonword: true
+level: error
+scope: heading
+ignorecase: true
+tokens:
+  - '`'

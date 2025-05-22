@@ -10,11 +10,15 @@ swap:
   hoogle: Hoogle
   '[Hh]osted [Uu]tilit[y|ies]': Canton Network Portfolio
   GS|Global[Ss]ync|[Gg][Ss]ync: Global Synchronizer
-  '[Pp]articipant node': Participant Node
+  # Matches the standalone word “participant” or “Participant,” unless it’s preceded by “unassigning,” “Unassigning,” “reassigning,” or “Reassigning,” followed by “node,” “Node,” “nodes,” or “Nodes,” part of a compound word (like a filename or camelCase), or followed by a period that is not a sentence-ending period.
+  '(?<!\b(?:[Uu]nassigning|[Rr]eassigning)\s)\b[Pp]articipant\b(?! [Nn]odes?)(?![-_A-Za-z0-9])(?!(?:\.(?![\s$])))': Participant Node
+  '(?<!\b(?:[Uu]nassigning|[Rr]eassigning)\s)\b[Pp]articipants\b': Participant Nodes
   '[Pp]articipant nodes': Participant Nodes
   '[Ss]uper validator': Super Validator
   '[Ss]uper validators': Super Validators
   '[Ss]ync [Dd]omain|synchronizer': Synchronizer
   '[Ss]ync [Dd]omains|synchronizers': Synchronizers
-  '\b[Vv]alidator\b(?! [Nn]odes?)': Validator Node
+  '\b[Vv]alidator\b(?! [Nn]odes?)|[Vv]alidator node': Validator Node
   '[Vv]alidators|[Vv]alidator nodes': Validator Nodes
+  mediator: Mediator
+  sequencer: Sequencer
