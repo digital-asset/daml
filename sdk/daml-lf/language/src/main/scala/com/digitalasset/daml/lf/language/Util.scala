@@ -171,6 +171,10 @@ object Util {
         case Nil => graph0
       }
 
+    // We use a SortedMap here instead of a HashMap to guarantee a total
+    // ordering of the pkgIds that will not change. If we use a HashMap, the
+    // order of the resulting pkgIds could change when the underlying JVM
+    // changes its hashing seed.
     Graphs.topoSort(buildGraph(pkgIds, pkgIds.toSet, SortedMap.empty)) match {
       case Right(value) =>
         value

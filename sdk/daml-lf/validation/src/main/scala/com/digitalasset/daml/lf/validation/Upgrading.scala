@@ -526,7 +526,7 @@ object TypecheckUpgrades {
     tc.check()
   }
 
-  // Produces UpgradeM[Unit], which can be .run to produce Either[UpgradeError, (Seq[UpgradeError], Unit)]
+  // Produces UpgradeM[Unit], which can be .run to produce Either[UpgradeError, (Chain[UpgradeError], Unit)]
   // If a Left(err) is produced, the upgrade check failed with that error
   // If a Right((warns, result)) is produced, the upgrade check succeeded, and any warnings produced during the upgrade check are listed in `warns`
   def typecheckUpgrades(
