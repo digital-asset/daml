@@ -41,7 +41,7 @@ steps:
 
   - powershell: |
       cd sdk
-      .\ci\create-dotnetrc.ps1
+      ..\ci\create-dotnetrc.ps1
     displayName: 'Create .netrc file'
     condition: succeeded()
     env:
