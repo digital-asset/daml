@@ -39,14 +39,9 @@ da_scala_library(
         "//ledger/ledger-api-errors:__subpackages__",
     ],
     deps = [
-        "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
-        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -62,12 +57,12 @@ da_scala_library(
         "//canton:community_ledger_ledger-common",
         "//canton:community_participant",
         "//canton:community_util-logging",
-        "//canton:daml-common-staging_daml-errors",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/validation",
+        "//ledger/error",
         "//libs-scala/contextualized-logging",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:org_slf4j_slf4j_api",

@@ -58,12 +58,16 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
 
   /** @return message including error category id, error code id, correlation id and cause
     */
-  def toMsg(cause: => String, correlationId: Option[String]): String = {
-    val truncatedCause =
-      if (cause.length > MaxCauseLogLength)
-        cause.take(MaxCauseLogLength) + "..."
-      else
-        cause
+  def toMsg(cause: => String, correlationId: Option[String]): String =
+    toMsg(cause, correlationId, Some(MaxCauseLogLength))
+
+  /** @return message including error category id, error code id, correlation id and cause
+    */
+  def toMsg(cause: => String, correlationId: Option[String], limit: Option[Int]): String = {
+    val truncatedCause = limit match {
+      case Some(maxLength) if (cause.length > maxLength) => cause.take(maxLength) + "..."
+      case _ => cause
+    }
     ErrorCodeMsg(id, category.asInt, correlationId, truncatedCause)
   }
 
