@@ -6,7 +6,7 @@ Compose choices
 
 It's time to put everything you've learned so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :brokenref:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
 
-- Daml projects, packages and modules
+- Daml projects, packages, and modules
 - Composition of transactions
 - Observers and stakeholders
 - Daml's execution model
@@ -21,7 +21,7 @@ The model in this section is not a single Daml file, but a Daml project consisti
 Daml projects
 -------------
 
-Daml is organized in projects, packages and modules. A Daml project is specified using a single ``daml.yaml`` file, and compiles into a package in Daml's intermediate language, or bytecode equivalent, Daml-LF. Each Daml file within a project becomes a Daml module, which is a bit like a namespace. Each Daml project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
+Daml is organized in projects, packages, and modules. A Daml project is specified using a single ``daml.yaml`` file, and compiles into a package in Daml's intermediate language, or bytecode equivalent, Daml-LF. Each Daml file within a project becomes a Daml module, which is a bit like a namespace. Each Daml project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
 
 You can start a new project with a skeleton structure using ``daml new project-name`` in the terminal. A minimal project would contain just a ``daml.yaml`` file and an empty directory of source files.
 
@@ -30,7 +30,7 @@ You can start a new project with a skeleton structure using ``daml new project-n
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and Daml Runtime, the latter gives access to the Daml standard library. ``daml-script`` contains the types and functions for Daml Script.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: it includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of the compiler and the Daml Runtime, the latter gives access to the Daml standard library. ``daml-script`` contains the types and functions for Daml Script.
 
 You compile a Daml project by running ``daml build`` from the project root directory. This creates a DAR file in ``.daml/dist/dist/${project_name}-${project_version}.dar``. A DAR file is Daml's equivalent of a JAR file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`dependencies`.
 
