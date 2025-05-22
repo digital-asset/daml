@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Parties and Authority
+Parties and authority
 =====================
 
 Daml is designed for distributed applications involving mutually distrusting parties. In a well-constructed contract model, all parties have strong guarantees that nobody cheats or circumvents the rules laid out by templates and choices.
@@ -16,8 +16,8 @@ In this section you will learn about Daml's authorization rules and how to devel
 
   Remember that you can load all the code for this section into a folder called ``intro6`` by running ``daml new intro6 --template daml-intro-6``
 
-Preventing IOU Revocation
--------------------------
+Prevent IOU revocation
+----------------------
 
 The ``SimpleIou`` contract from :doc:`choices` and :doc:`constraints` has one major problem: The contract is only signed by the ``issuer``. The signatories are the parties with the power to create and archive contracts. If Alice gave Bob a ``SimpleIou`` for $100 in exchange for some goods, she could just archive it after receiving the goods. Bob would have a record of such actions, but would have to resort to off-ledger means to get his money back:
 
@@ -52,8 +52,8 @@ You'll now learn a couple of common ways of building issuance and transfer workf
 
 .. _intro propose accept:
 
-Use Propose-Accept Workflows for One-Off Authorization
-------------------------------------------------------
+Use Propose-Accept workflow for one-off authorization
+-----------------------------------------------------
 
 If there is no standing relationship between Alice and Bob, Alice can propose the issuance of an Iou to Bob, giving him the choice to accept. You can do so by introducing a proposal contract ``IouProposal``:
 
@@ -98,7 +98,7 @@ Bob can now transfer his ``Iou``. The transfer workflow can even be used for iss
   :start-after: -- IOU_TRANSFER_SCENARIO_BEGIN
   :end-before: -- IOU_TRANSFER_SCENARIO_END
 
-Use Role Contracts for Ongoing Authorization
+Use role contracts for ongoing authorization
 --------------------------------------------
 
 Many actions, like the issuance of assets or their transfer, can be pre-agreed. You can represent this succinctly in Daml through relationship or role contracts.
@@ -128,7 +128,7 @@ Here it is in action:
   :start-after: -- SENDER_SCENARIO_BEGIN
   :end-before: -- SENDER_SCENARIO_END
 
-Daml's Authorization Model
+Daml's authorization model
 --------------------------
 
 Hopefully, the above will have given you a good intuition for how authority is passed around in Daml. In this section you'll learn about the formal authorization model to allow you to reason through your contract models. This will allow you to construct them in such a way that you don't run into authorization errors at runtime, or, worse still, allow malicious transactions.
@@ -150,7 +150,7 @@ The authorizers of transactions are:
 - The root transaction of a commit is authorized by the submitting party.
 - The consequences of an exercise action are authorized by the actors of that action plus the signatories of the contract on which the action was taken.
 
-An Authorization Example
+An authorization example
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
 Consider the transaction from the script above where Bob sends an ``Iou`` to Charlie using a ``Send_Iou`` contract.
@@ -210,7 +210,7 @@ The consequences of ``TryB`` are authorized by both Alice and Bob, but the actio
 
 Therefore, the consequences of ``TryA`` are only authorized by Alice. Bob's authority is now missing to create the flipped ``NonTransitive`` so the transaction fails.
 
-Next Up
+Next up
 -------
 
 In :doc:`compose` you will put everything you have learned together to build a simple asset holding and trading model akin to that in the :brokenref:`/app-dev/bindings-java/quickstart`. In that context you'll learn a bit more about the ``Update`` action and how to use it to compose transactions, as well as about privacy on Daml ledgers.
