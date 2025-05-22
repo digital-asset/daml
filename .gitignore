@@ -1,4 +1,3 @@
-# Ignore .envrc.private anywhere in the repo
-**/.envrc.private
+.envrc.private
 /.idea/
 .DS_Store
