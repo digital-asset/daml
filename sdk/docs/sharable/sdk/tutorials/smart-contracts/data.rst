@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Data Types
+Data types
 ==========
 
 In :doc:`contracts`, you learnt about contract templates, which specify the types of contracts that can be created on the ledger, and what data those contracts hold in their arguments.
@@ -31,7 +31,7 @@ After this section, you should be able to use a Daml ledger as a simple database
 
 .. _native-types:
 
-Native Types
+Native types
 ------------
 
 You have already encountered a few native Daml types: ``Party`` in :doc:`contracts`, and ``Text`` and ``ContractId`` in :doc:`daml-scripts`. Here are those native types and more:
@@ -64,7 +64,7 @@ The below script instantiates each one of these types, manipulates it where appr
 
 Despite its simplicity, there are quite a few things to note in this script:
 
-- The ``import`` statements at the top import two packages from the Daml Standard Library, which contain all the date and time related functions we use here as well as the functions used in Daml Scripts. More on packages, imports and the standard library later.
+- The ``import`` statements at the top import two packages from the Daml standard library, which contain all the date and time related functions we use here as well as the functions used in Daml Scripts. More on packages, imports and the standard library later.
 - Most of the variables are declared inside a ``let`` block.
 
   That's because the ``script do`` block expects script actions like ``submit`` or ``allocateParty``. An integer like ``123`` is not an action, it's a pure expression, something we can evaluate without any ledger. You can think of the ``let`` as turning variable declaration into an action.
@@ -87,7 +87,7 @@ With templates and these native types, it's already possible to write a schema a
   :start-after: -- CASH_BALANCE_BEGIN
   :end-before: -- CASH_BALANCE_END
 
-Assemble Types
+Assemble types
 --------------
 
 There's quite a lot of information on the ``CashBalance`` above and it would be nice to be able to give that data more structure. Fortunately, Daml's type system has a number of ways to assemble these native types into much more expressive structures.
@@ -159,7 +159,7 @@ Records can give the data on ``CashBalance`` a bit more structure:
 
 If you look at the resulting script view, you'll see that this still gives rise to one table. The records are expanded out into columns using dot notation.
 
-Variants and Pattern Matching
+Variants and pattern matching
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Suppose now that you also wanted to keep track of cash in hand. Cash in hand doesn't have a bank, but you can't just leave ``bank`` empty. Daml doesn't have an equivalent to ``null``. Variants can express that cash can either be in hand or at a bank:
@@ -194,7 +194,7 @@ To do this, you can use *pattern matching* and either throw errors or return com
   :start-after: -- VARIANT_ACCESS_BEGIN
   :end-before: -- VARIANT_ACCESS_END
 
-Manipulate Data
+Manipulate data
 ---------------
 
 You've got all the ingredients to build rich types expressing the data you want to be able to write to the ledger, and you have seen how to create new values and read fields from values. But how do you manipulate values once created?
@@ -212,7 +212,7 @@ Throughout the script, ``eq_record`` never changes. The expression ``"Zero" :: e
 
 .. _contract_keys:
 
-Contract Keys
+Contract keys
 -------------
 
 Daml's type system lets you store richly structured data on Daml templates, but just like most database schemas have more than one table, Daml contract models often have multiple templates that reference each other. For example, you may not want to store your bank and account information on each individual cash balance contract, but instead store those on separate contracts.
@@ -242,7 +242,7 @@ Instead of calling ``queryContractId`` to get the contract arguments associated 
 When calling ``queryContractKey`` a single key type could be used as the key for multiple templates. Consequently, you need to tell the compiler what type of contract the key is referencing. You can do that with a type annotation on the returned value.
 
 
-Next Up
+Next up
 -------
 
 You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.

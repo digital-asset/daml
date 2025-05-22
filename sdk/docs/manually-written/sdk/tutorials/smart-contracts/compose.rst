@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Composing Choices
+Compose choices
 =================
 
 It's time to put everything you've learned so far together into a complete and secure Daml model for asset issuance, management, transfer, and trading. This application will have capabilities similar to the one in :brokenref:`/app-dev/bindings-java/quickstart`. In the process you will learn about a few more concepts:
@@ -18,7 +18,7 @@ The model in this section is not a single Daml file, but a Daml project consisti
 
   Remember that you can load all the code for this section into a folder called ``intro7`` by running ``daml new intro7 --template daml-intro-7``
 
-Daml Projects
+Daml projects
 -------------
 
 Daml is organized in projects, packages and modules. A Daml project is specified using a single ``daml.yaml`` file, and compiles into a package in Daml's intermediate language, or bytecode equivalent, Daml-LF. Each Daml file within a project becomes a Daml module, which is a bit like a namespace. Each Daml project has a source root specified in the ``source`` parameter in the project's ``daml.yaml`` file. The package will include all modules specified in ``*.daml`` files beneath that source directory.
@@ -30,11 +30,11 @@ You can start a new project with a skeleton structure using ``daml new project-n
 .. literalinclude:: daml/daml-intro-7/daml.yaml.template
   :language: yaml
 
-You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and Daml Runtime, the latter gives access to the Daml Standard Library. ``daml-script`` contains the types and standard library for Daml Script.
+You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: It includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of compiler and Daml Runtime, the latter gives access to the Daml standard library. ``daml-script`` contains the types and functions for Daml Script.
 
-You compile a Daml project by running ``daml build`` from the project root directory. This creates a ``dar`` file in ``.daml/dist/dist/${project_name}-${project_version}.dar``. A ``dar`` file is Daml's equivalent of a ``JAR`` file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`dependencies`.
+You compile a Daml project by running ``daml build`` from the project root directory. This creates a DAR file in ``.daml/dist/dist/${project_name}-${project_version}.dar``. A DAR file is Daml's equivalent of a JAR file in Java: it's the artifact that gets deployed to a ledger to load the package and its dependencies. ``dar`` files are fully self-contained in that they contain all dependencies of the main package. More on all of this in :doc:`dependencies`.
 
-Project Structure
+Project structure
 -----------------
 
 This project contains an asset holding model for transferable, fungible assets and a separate trade workflow. The templates are structured in three modules: ``Intro.Asset``, ``Intro.Asset.Role``, and ``Intro.Asset.Trade``.
@@ -89,7 +89,7 @@ corresponding functionality:
 
   import Daml.Script
 
-Project Overview
+Project overview
 ----------------
 
 The project both changes and adds to the ``Iou`` model presented in :doc:`parties`:
@@ -100,7 +100,7 @@ The project both changes and adds to the ``Iou`` model presented in :doc:`partie
   With the ``Iou`` model, an ``issuer`` could end up owing cash to anyone as transfers were authorized by just ``owner`` and ``newOwner``. In this project, only parties having an ``AssetHolder`` contract can end up owning assets. This allows the ``issuer`` to determine which parties may own their assets.
 - The ``Trade`` template adds a swap of two assets to the model.
 
-Composed Choices and Scripts
+Composed choices and scripts
 ----------------------------
 
 This project showcases how you can put the ``Update`` and ``Script`` actions you learned about in :doc:`parties` to good use. For example, the ``Merge`` and ``Split`` choices each perform several actions in their consequences.
@@ -211,27 +211,27 @@ Just writing ``(alice, bob, bank, aha, ahb) <- setupRoles`` would also be legal,
 
 .. _execution_model:
 
-Daml's Execution Model
+Daml's execution model
 ----------------------
 
 Daml's execution model is fairly easy to understand, but has some important consequences. You can imagine the life of a transaction as follows:
 
-Command Submission
-  A user submits a list of Commands via the Ledger API of a Participant Node, acting as a `Party` hosted on that Node. That party is called the requester.
+Command submission
+  A user submits a list of commands via the Ledger API of a participant node, acting as a `Party` hosted on that node. That party is called the requester.
 Interpretation
-  Each Command corresponds to one or more Actions. During this step, the ``Update`` corresponding to each Action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.). The result of this is a complete Transaction. Together with its requestor, this is also known as a Commit.
+  Each command corresponds to one or more actions. During this step, the ``Update`` corresponding to each action is evaluated in the context of the ledger to calculate all consequences, including transitive ones (consequences of consequences, etc.). The result of this is a complete transaction. Together with its requestor, this is also known as a commit.
 Blinding
   On ledgers with strong privacy, projections (see :ref:`privacy`) for all involved parties are created. This is also called *projecting*.
-Transaction Submission
-  The Transaction/Commit is submitted to the network.
+Transaction submission
+  The transaction/commit is submitted to the network.
 Validation
-  The Transaction/Commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of Commits, and no double spends occur.
+  The transaction/commit is validated by the network. Who exactly validates can differ from implementation to implementation. Validation also involves scheduling and collision detection, ensuring that the transaction has a well-defined place in the (partial) ordering of commits, and no double spends occur.
 Commitment
-  The Commit is actually committed according to the commit or consensus protocol of the Ledger.
+  The commit is actually committed according to the commit or consensus protocol of the ledger.
 Confirmation
-  The network sends confirmations of the commitment back to all involved Participant Nodes.
+  The network sends confirmations of the commitment back to all involved participant nodes.
 Completion
-  The user gets back a confirmation through the Ledger API of the submitting Participant Node.
+  The user gets back a confirmation through the Ledger API of the submitting participant node.
 
 The first important consequence of the above is that all transactions are committed atomically. Either a transaction is committed as a whole and for all participants, or it fails.
 
@@ -305,7 +305,7 @@ Note that principle 2 of the privacy model means that sometimes parties see cont
 
 This is because the ``create`` action of these contracts are in the transitive consequences of the ``Trade_Settle`` action both of them have a stake in. This kind of disclosure is often called "divulgence" and needs to be considered when designing Daml models for privacy sensitive applications.
 
-Next Up
+Next up
 -------
 
 In :doc:`exceptions`, we will learn about how errors in your model can be handled in Daml.

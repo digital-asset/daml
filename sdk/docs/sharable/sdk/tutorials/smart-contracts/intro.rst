@@ -1,10 +1,10 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _intro-to-daml:
+.. _smart-contract-development:
 
-An Introduction to Daml
-=======================
+Get started with smart contract development
+===========================================
 
 Daml is a smart contract language designed to build composable applications on an abstract :externalref:`da-ledgers`.
 
