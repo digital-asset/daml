@@ -19,7 +19,7 @@ Choices as methods
 
 If you think of templates as classes and contracts as objects, where are the methods?
 
-Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one and create a new one, you can provide them a convenience method on ``Contact``:
+Take as an example a ``Contact`` contract on which the contact owner wants to be able to change the telephone number, just like on the ``Account`` in :ref:`contract_keys`. Rather than requiring them to manually look up the contract, archive the old one, and create a new one, you can provide them a convenience method on ``Contact``:
 
 .. literalinclude:: daml/daml-intro-4/daml/Contact.daml
   :language: daml
@@ -103,14 +103,14 @@ Choices in the ledger model
 
 In :doc:`contracts` you learned about the high-level structure of a Daml ledger. With choices and the `exercise` function, you have the next important ingredient to understand the structure of the ledger and transactions.
 
-A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch`` and ``key assertion``.
+A *transaction* is a list of *actions*, and there are just four kinds of action: ``create``, ``exercise``, ``fetch``, and ``key assertion``.
 
 - A ``create`` action creates a new contract with the given arguments and sets its status to *active*.
 - A ``fetch`` action checks the existence and activeness of a contract.
 - An ``exercise`` action exercises a choice on a contract resulting in a transaction (list of sub-actions) called the *consequences*. Exercises come in two kinds called ``consuming`` and ``nonconsuming``. ``consuming`` is the default kind and changes the contract's status from *active* to *archived*.
 - A ``key assertion`` records the assertion that the given contract key (see :ref:`contract_keys`) is not assigned to any active contract on the ledger.
 
-Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create`` and ``key assertion`` actions have no consequences, they are always leaf nodes. You can see the actions and their consequences in the transaction view of the above script:
+Each action can be visualized as a tree, where the action is the root node, and its children are its consequences. Every consequence may have further consequences. As ``fetch``, ``create``, and ``key assertion`` actions have no consequences, they are always leaf nodes. You can see the actions and their consequences in the transaction view of the above script:
 
 .. code-block:: none
 
@@ -188,4 +188,4 @@ Next up
 
 You can now store and transform data on the ledger, even giving other parties specific write access through choices.
 
-In :doc:`constraints`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on Daml ledgers, ``do`` blocks and ``<-`` notation within those.
+In :doc:`constraints`, you will learn how to restrict data and transformations further. In that context, you will also learn about time on Daml ledgers, ``do`` blocks, and ``<-`` notation within those.

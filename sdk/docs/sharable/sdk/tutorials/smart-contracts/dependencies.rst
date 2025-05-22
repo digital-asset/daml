@@ -63,7 +63,7 @@ Secondly, you'll notice that all the ``*.daml``, ``*.hi`` and ``*.hie`` files ar
 Dependencies and data dependencies
 ----------------------------------
 
-Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi`` files. The information in these files is crucial for dependencies like the Daml standard library, which provide functions, types and typeclasses.
+Dependencies under the ``daml.yaml`` ``dependencies`` group rely on the ``*.hi`` files. The information in these files is crucial for dependencies like the Daml standard library, which provide functions, types, and typeclasses.
 
 However, as you can see above, this information isn't preserved. Furthermore, preserving this information may not even be desirable. Imagine we had built ``intro7`` with SDK 1.100.0, and are building ``intro9`` with SDK 1.101.0. All the typeclasses and instances on the inbuilt types may have changed and are now present twice -- once from the current SDK and once from the dependency. This gets messy fast, which is why the SDK does not support ``dependencies`` across SDK versions. For dependencies on contract models that were fetched from a ledger, or come from an older SDK version, there is a simpler kind of dependency called ``data-dependencies``. The syntax for ``data-dependencies`` is the same, but they only rely on the "binary" ``*.dalf`` files. The name tries to confer that the main purpose of such dependencies is to handle data: Records, Choices, Templates. The stuff one needs to use contract composability across projects.
 

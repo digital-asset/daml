@@ -120,12 +120,12 @@ and move on.
 Note that if the ``Iou`` creation still failed (unlikely with our
 definition of ``Iou`` here, but could happen in more complex
 scenarios), because that one is not wrapped in a ``try`` block, we
-would revert to the default Daml behaviour and the ``Order`` creation
+would revert to the default Daml behavior and the ``Order`` creation
 *would* be rolled back.
 
 In addition to catching built-in exceptions like
 ``PreconditionFailed``, you can also define your own exception types
-which can be caught and thrown. As an example, let’s consider a
+which can be caught and thrown. As an example, let's consider a
 variant of the ``Transfer`` choice that only allows for transfers up
 to a given limit. If the amount is higher than the limit, we throw an
 exception called ``TransferLimitExceeded``.

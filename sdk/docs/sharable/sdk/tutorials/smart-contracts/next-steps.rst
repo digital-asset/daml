@@ -16,7 +16,7 @@ where do you go next? It depends on what you would like to do with Daml:
 - If you're interested in building off-ledger services that interact and integrate with your
   on-ledger Daml models, read the :brokenref:`"Building Applications" section </app-dev/app-arch>`.
 
-- If you're interested in understanding how to install, operate and maintain a production-grade Daml
+- If you're interested in understanding how to install, operate, and maintain a production-grade Daml
   ledger, you can have a look at the `Canton user manual </deploy-daml/intro/index>`_.
 
 - If you want to build Daml applications in a fully-managed environment that handles

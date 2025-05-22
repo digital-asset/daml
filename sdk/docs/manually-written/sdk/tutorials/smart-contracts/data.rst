@@ -23,7 +23,7 @@ In this section, you'll learn how to create rich data schemas for your ledger. S
 - Manipulating immutable data
 - Contract keys
 
-After this section, you should be able to use a Daml ledger as a simple database where individual parties can write, read and delete complex data.
+After this section, you should be able to use a Daml ledger as a simple database where individual parties can write, read, and delete complex data.
 
 .. hint::
 
@@ -148,7 +148,7 @@ In the ``assert`` statements above, we always compared values of in-built types.
 
 There are some other typeclasses that the compiler can derive automatically. Most prominently, ``Show`` to get access to the function ``show`` (equivalent to ``toString`` in many languages) and ``Ord``, which gives access to comparison operators ``<``, ``>``, ``<=``, ``>=``.
 
-It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically, and the native types have appropriate typeclass instances. Eg ``Int`` derives ``Eq``, ``Show`` and ``Ord``, and ``ContractId a`` derives ``Eq`` and ``Show``.
+It's a good idea to always derive ``Eq`` and ``Show`` using ``deriving (Eq, Show)``. The record types created using ``template T with`` do this automatically, and the native types have appropriate typeclass instances. For example, ``Int`` derives ``Eq``, ``Show``, and ``Ord``. As another example, ``ContractId a`` derives ``Eq`` and ``Show``.
 
 Records can give the data on ``CashBalance`` a bit more structure:
 
@@ -245,6 +245,6 @@ When calling ``queryContractKey`` a single key type could be used as the key for
 Next up
 -------
 
-You can now define data schemas for the ledger, read, write and delete data from the ledger, and use keys to reference and look up data in a stable fashion.
+You can now define data schemas for the ledger, read, write, and delete data from the ledger, as well as use keys to reference and look up data in a stable fashion.
 
 In :doc:`choices` you'll learn how to define data transformations and give other parties the right to manipulate data in restricted ways.

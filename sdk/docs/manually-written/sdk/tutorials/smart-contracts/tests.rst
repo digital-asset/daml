@@ -152,14 +152,14 @@ If a ``fetch`` or ``exercise`` is encountered, the participant resolves the cont
 
 If a ``fetchByKey`` or ``lookupByKey`` node is encountered, the contract is only resolved if the requester is a stakeholder on an active contract with the given key. If that's not the case, there is no reason to believe that the key still resolves to some contract that was witnessed earlier. Thus, when using contract keys, make sure you make the likely requesters of transactions observers on your contracts. If you don't, ``fetchByKey`` will always fail, and ``lookupByKey`` will always return ``None``.
 
-Let's illustrate how collisions and operational semantics and interleave:
+Let's illustrate how collisions and operational semantics interleave:
 
 1. Bob creates ``T`` with key ``k``. Alice is not a stakeholder.
 2. Alice submits a command resulting in well-authorized ``lookupByKey @T k`` during interpretation. Even if Alice witnessed 1, this will resolve to a ``None`` as Alice is not a stakeholder. This transaction is invalid at the time of interpretation, but Alice doesn't know that.
 3. Bob submits an ``exerciseByKey @T k Archive``.
 4. Depending on which of the transactions from 2 and 3 gets sequenced first, either just 3, or both 2 and 3 get committed. If 3 is committed before 2, 2 becomes valid while in transit.
 
-As you can see, the behavior of ``fetch``, ``fetchByKey`` and ``lookupByKey`` at interpretation time depend on what information is available to the requester at that time. That's something to keep in mind when writing Daml contracts, and something to think about when encountering frequent "Disputed" errors.
+As you can see, the behavior of ``fetch``, ``fetchByKey``, and ``lookupByKey`` at interpretation time depend on what information is available to the requester at that time. That's something to keep in mind when writing Daml contracts, and something to think about when encountering frequent "Disputed" errors.
 
 Check coverage
 -----------------
@@ -254,7 +254,7 @@ Running ``daml test --show-coverage`` reports how many templates were defined (3
 Template choice exercise coverage
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1`` and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
+The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1``, and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
 
 .. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
   :language: daml
