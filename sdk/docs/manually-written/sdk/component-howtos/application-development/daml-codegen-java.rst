@@ -3,45 +3,35 @@
 Daml Codegen for Java
 =====================
 
-This tool is part of the Daml Assistant and is used to generate Java classes for Daml data types.
+Use the Daml Codegen for Java (``daml codegen java``) to generate Java classes representing all Daml data types defined
+in a Daml Archive (.dar) file.
+These classes simplify constructing the types required by the Java gRPC bindings for the gRPC Ledger API <TODO: add link to it>; for example, ``com.daml.ledger.api.v1.CreateCommand`` and ``com.daml.ledger.api.v1.ExerciseCommand``.
+They also provide JSON decoding utilities, making it easier to work with JSON when using the HTTP JSON Ledger API.
 
-Overview
--------------
-You can use the Daml codegen to generate Java classes representing Daml contract templates.
-These classes incorporate all boilerplate code for constructing corresponding ledger ``com.daml.ledger.api.v1.CreateCommand``,
-``com.daml.ledger.api.v1.ExerciseCommand``, ``com.daml.ledger.api.v1.ExerciseByKeyCommand``, and ``com.daml.ledger.api.v1.CreateAndExerciseCommand``.
-
-Download
--------------
-
-The Daml codegen is part of the Daml Assistant. :ref:`Download the Daml Assistant <assistant-manual-managing-releases>`.
-
-.. TODO(#347) Fix the link to link to Download the Daml Assistant of "Daml Assistant"
+See "How to work with contracts and transactions in Java" <TODO(#309): add link> for details on how to use the generated classes. See the sections below for guidance on setting up and invoking the codegen.
 
 Install
--------------
+-------
 
-The Daml codegen is part of the Daml Assistant.
+Install the Daml Codegen for Java by :ref:`installing the Daml Assistant <assistant-manual-managing-releases>`.
 
-.. TODO(#347) Add link "Download the Daml Assistant" to point to download section of "Daml Assistant"
+.. TODO(#347) Fix the link to point to Install section of "Daml Assistant"
 
 Configure
--------------
+---------
 
-There are two modes to configure the Daml codegen:
+To configure the Daml Codegen, choose one of the two following methods:
 
-- Command line configuration, specifying **all** settings in the command line.
+- **Command line configuration**: Specify all settings directly in the command line.
 
-- Project file configuration, specifying **all** settings in the ``daml.yaml``.
+- **Project file configuration**: Define all settings in the `daml.yaml` file.
 
 Command line configuration
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Help for Daml codegen for Java::
+To view all available command line configuration options for Daml Codegen for Java, run ``daml codegen java --help`` in your terminal:
 
-  $ daml codegen java --help
-
-Codegen command line configuration settings::
+.. code-block:: none
 
       <DAR-file[=package-prefix]>...
                                DAR file to use as input of the codegen with an optional, but recommend, package prefix for the generated sources.
@@ -54,9 +44,9 @@ Codegen command line configuration settings::
       --help                   This help text
 
 Project file configuration
---------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The above settings can be configured in the ``codegen`` element of the Daml project file ``daml.yaml``.
+Specify the above settings in the ``codegen`` element of the Daml project file ``daml.yaml``.
 
 Here is an example::
 
@@ -82,9 +72,9 @@ Here is an example::
         verbosity: 2
 
 Operate
--------------
+-------
 
-Run the Daml codegen using project file configuration with::
+Run the Daml Codegen using project file configuration with::
 
     $ daml codegen java
 
@@ -92,27 +82,8 @@ or using command line configuration with::
 
     $ daml codegen java ./.daml/dist/quickstart-0.0.1.dar=com.daml.quickstart.iou --output-directory=java-codegen/src/main/java --verbosity=2
 
-Observe
--------------
-
-The Daml codegen generates the Java classes in a directory tree under the output directory specified on the command line.
-
-Upgrade
--------------
-
-The Daml codegen is part of the Daml Assistant. :ref:`Upgrade the Daml Assistant <assistant-manual-managing-releases>`.
-
-.. TODO(#347) Fix the link to link to Upgrade the Daml Assistant of "Daml Assistant"
-
-
-Contribute
--------------
-
-.. TODO(#347) Add link "Contribute to Daml Assistant" to point to contribute section of "Daml Assistant" ? otherwise remveo
-.. remove this section
-
 References
--------------
+----------
 
 .. _daml-codegen-java-generated-code:
 
@@ -165,7 +136,7 @@ Daml built-in types are translated to the following equivalent types in Java:
 Escaping rules
 """"""""""""""
 
-To avoid clashes with Java keywords, the Daml codegen applies escaping rules to the following Daml identifiers:
+To avoid clashes with Java keywords, the Daml Codegen applies escaping rules to the following Daml identifiers:
 
 * Type names (except the already mapped :ref:`built-in types <daml-codegen-java-primitive-types>`)
 * Constructor names
@@ -173,7 +144,7 @@ To avoid clashes with Java keywords, the Daml codegen applies escaping rules to 
 * Module names
 * Field names
 
-If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Daml codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
+If any of these identifiers match one of the `Java reserved keywords <https://docs.oracle.com/javase/specs/jls/se12/html/jls-3.html#jls-3.9>`__, the Daml Codegen appends a dollar sign ``$`` to the name. For example, a field with the name ``import`` will be generated as a Java field with the name ``import$``.
 
 Generated classes
 """""""""""""""""
@@ -222,27 +193,27 @@ A Java file that defines the class for the type ``Person`` is generated:
 
 A Java file that defines the class for the type ``Name`` is generated:
 
-  .. code-block:: java
-    :caption: com/acme/producttypes/Name.java
+.. code-block:: java
+  :caption: com/acme/producttypes/Name.java
 
-    package com.acme.producttypes;
+  package com.acme.producttypes;
 
-    public class Name extends DamlRecord<Name> {
-      public final String firstName;
-      public final String lastName;
+  public class Name extends DamlRecord<Name> {
+    public final String firstName;
+    public final String lastName;
 
-      public static Person fromValue(Value value$) { /* ... */ }
+    public static Person fromValue(Value value$) { /* ... */ }
 
-      public Name(String firstName, String lastName) { /* ... */ }
-      public DamlRecord toValue() { /* ... */ }
-    }
+    public Name(String firstName, String lastName) { /* ... */ }
+    public DamlRecord toValue() { /* ... */ }
+  }
 
 .. _daml-codegen-java-templates:
 
 Templates
 ~~~~~~~~~
 
-The Daml codegen generates the following classes for a Daml template:
+The Daml Codegen generates the following classes for a Daml template:
 
   **TemplateName**
       Represents the contract data or the template fields.
@@ -260,12 +231,13 @@ The Daml codegen generates the following classes for a Daml template:
      :end-before: -- end snippet: template example
      :caption: Com/Acme/Templates.daml
 
-In particular, a file that defines five Java classes and an interface is generated:
+In particular, the codegen generates a file that defines six Java classes and one interface:
 
 #. ``Bar``
 #. ``Bar.ContractId``
 #. ``Bar.Contract``
 #. ``Bar.CreateAnd``
+#. ``Bar.JsonDecoder$``
 #. ``Bar.ByKey``
 #. ``Bar.Exercises``
 
@@ -318,6 +290,8 @@ In particular, a file that defines five Java classes and an interface is generat
     public static final class CreateAnd
         extends com.daml.ledger.javaapi.data.codegen.CreateAnd
         implements Exercises<CreateAndExerciseCommand> { /* ... */ }
+
+    public static class JsonDecoder$ { /* ... */ }
 
     public static final class ByKey
         extends com.daml.ledger.javaapi.data.codegen.ByKey
@@ -447,7 +421,7 @@ Parameterized types
 
    This section is only included for completeness. The ``fromValue`` and ``toValue`` methods would typically come from a template that does not have any unbound type parameters.
 
-The Daml codegen uses Java Generic types to represent :ref:`Daml parameterized types <daml-ref-parameterized-types>`.
+The Daml Codegen uses Java Generic types to represent :ref:`Daml parameterized types <daml-ref-parameterized-types>`.
 
 This Daml fragment defines the parameterized type ``Attribute``, used by the ``BookAttribute`` type for modeling the characteristics of the book:
 
@@ -457,7 +431,7 @@ This Daml fragment defines the parameterized type ``Attribute``, used by the ``B
    :end-before: -- end snippet: parameterized types example
    :caption: Com/Acme/ParameterizedTypes.daml
 
-The Daml codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
+The Daml Codegen generates a Java file with a generic class for  the ``Attribute a`` data type:
 
 .. code-block:: java
   :caption: com/acme/parameterizedtypes/Attribute.java
