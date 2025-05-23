@@ -7,7 +7,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.util.ByteString
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.admin.GetPackageResponse
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}

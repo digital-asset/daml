@@ -59,10 +59,10 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
         case Left(err: Validation.Upgradeability.Error) =>
-          logger.error(s"Error while checking two DARs:\n${err.cause}")
+          logger.error(s"Error while checking DARs:\n${err.cause}")
           1
         case Left(err) =>
-          logger.error(s"Error while checking two DARs:\n${err.cause}")
+          logger.error(s"Error while checking DARs:\n${err.cause}")
           1
         case Right(()) => 0
       }

@@ -16,7 +16,7 @@ import org.apache.pekko.http.scaladsl.model.ws.{
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import com.daml.http.json.SprayJson
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.lf.data.Ref
 import com.typesafe.scalalogging.StrictLogging
 import org.scalacheck.Gen

@@ -29,7 +29,7 @@ import util.toLedgerId
 import ContractStreamStep.{Acs, LiveBegin, Txn}
 import json.JsonProtocol.LfValueCodec.{apiValueToJsValue => lfValueToJsValue}
 import query.ValuePredicate.{LfV, TypeLookup}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.http.query.ValuePredicate
 import doobie.ConnectionIO
 import doobie.free.{connection => fconn}

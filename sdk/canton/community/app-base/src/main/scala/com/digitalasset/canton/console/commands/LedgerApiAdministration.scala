@@ -6,8 +6,7 @@ package com.digitalasset.canton.console.commands
 import cats.syntax.foldable.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
-import com.daml.jwt.JwtDecoder
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.{AuthServiceJWTCodec, CustomDamlJWTPayload, Jwt, JwtDecoder, StandardJWTPayload}
 import com.daml.ledger.api.v1.admin.command_inspection_service.CommandState
 import com.daml.ledger.api.v1.admin.package_management_service.PackageDetails
 import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails as ProtoPartyDetails
@@ -53,11 +52,6 @@ import com.digitalasset.canton.console.{
   RemoteParticipantReferenceCommon,
 }
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.ledger.api.auth.{
-  AuthServiceJWTCodec,
-  CustomDamlJWTPayload,
-  StandardJWTPayload,
-}
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,

@@ -801,29 +801,25 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     @Explanation(
-      "Exercise an LF 1.15 interface implemented by an LF 1.17 (or newer) template is disallowed since 2.10.1"
+      "Exercising an LF 1.15 interface implemented by an LF 1.17 (or newer) template is disallowed since 2.10.1"
     )
     @Resolution(
       "Use LF 1.17 for the interface definition."
     )
     object DisallowedInterfaceExercise
-      extends ErrorCode(
-        id = "DISALLOWED_INTERFACE_EXERCISE",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
+        extends ErrorCode(
+          id = "DISALLOWED_INTERFACE_EXERCISE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
 
       final case class Reject(
-                               override val cause: String,
-                               err: LfInterpretationError.DisallowedInterfaceExercise,
-                             )(implicit
-                               loggingContext: ContextualizedErrorLogger
-                             ) extends DamlErrorWithDefiniteAnswer(
-        cause = cause
-      ) {
-
-        override def resources: Seq[Nothing] =
-          Seq()
-      }
+          override val cause: String,
+          err: LfInterpretationError.DisallowedInterfaceExercise,
+      )(implicit
+          loggingContext: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause = cause
+          )
     }
 
     @Explanation(

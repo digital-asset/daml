@@ -15,11 +15,14 @@ import java.time.Duration
   * @param maxCommandsInFlight
   *        Maximum number of submitted commands waiting to be completed in parallel.
   *        Commands submitted after this limit is reached will be rejected.
+  * @param stricterPartyValidation
+  *        Don't allow commands with parties that don't follow a hint::fingerprint format.
   */
 final case class CommandServiceConfig(
     defaultTrackingTimeout: NonNegativeFiniteDuration =
       CommandServiceConfig.DefaultDefaultTrackingTimeout,
     maxCommandsInFlight: Int = CommandServiceConfig.DefaultMaxCommandsInFlight,
+    stricterPartyValidation: Boolean = false,
 )
 
 object CommandServiceConfig {

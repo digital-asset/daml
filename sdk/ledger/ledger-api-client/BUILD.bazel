@@ -98,6 +98,7 @@ da_scala_test_suite(
     deps = [
         ":ledger-api-client",
         "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:daml-common-staging_daml-jwt",
         "//daml-lf/engine",
         "//daml-lf/transaction",
         "//language-support/scala/bindings",
@@ -109,7 +110,6 @@ da_scala_test_suite(
         "//libs-scala/concurrent",
         "//libs-scala/contextualized-logging",
         "//libs-scala/grpc-utils",
-        "//libs-scala/jwt",
         "//libs-scala/ledger-resources",
         "//libs-scala/logging-entries",
         "//libs-scala/ports",

@@ -11,7 +11,7 @@ import com.daml.http.domain.{JwtPayload, JwtPayloadLedgerIdOnly, JwtWritePayload
 import com.daml.http.json.SprayJson
 import com.daml.http.util.Logging.{InstanceUUID, RequestID, extendWithRequestIdLogCtx}
 import util.GrpcHttpErrorCodes._
-import com.daml.jwt.domain.{DecodedJwt, Jwt}
+import com.daml.jwt.{DecodedJwt, Jwt}
 import com.daml.ledger.api.auth.{AuthServiceJWTPayload, CustomDamlJWTPayload, StandardJWTPayload}
 import com.daml.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}

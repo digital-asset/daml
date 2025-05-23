@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.v1.admin.metering_report_service.{GetMeteringReportRequest, GetMeteringReportResponse}
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}

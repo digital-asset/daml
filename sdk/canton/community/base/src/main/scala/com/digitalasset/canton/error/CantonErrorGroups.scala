@@ -25,6 +25,10 @@ object CantonErrorGroups {
 
   abstract class GrpcErrorGroup extends ErrorGroup()
 
+  abstract class TrafficControlErrorGroup extends ErrorGroup()
+
+  abstract class AuthorizationChecksErrorGroup extends ErrorGroup()
+
   object ParticipantErrorGroup extends ErrorGroup() {
 
     abstract class DomainConnectivityErrorGroup extends ErrorGroup()

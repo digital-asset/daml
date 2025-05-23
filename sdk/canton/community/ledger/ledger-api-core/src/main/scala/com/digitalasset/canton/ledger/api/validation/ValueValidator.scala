@@ -10,16 +10,18 @@ import com.daml.lf.data.*
 import com.daml.lf.value.Value.{ContractId, ValueUnit}
 import com.daml.lf.value.Value as Lf
 import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.topology.{PartyId, UniqueIdentifier}
 import io.grpc.StatusRuntimeException
 import scalaz.std.either.*
 import scalaz.syntax.bifunctor.*
 
-abstract class ValueValidator {
+abstract class ValueValidator(
+    validateNumeric: SingleValueValidator[Lf.ValueNumeric],
+    validateParty: SingleValueValidator[Lf.ValueParty],
+) {
 
   import ValidationErrors.*
   import FieldValidator.*
-
-  protected def validateNumeric(s: String): Option[Numeric]
 
   private[validation] def validateRecordFields(
       recordFields: Seq[api.RecordField]
@@ -55,18 +57,11 @@ abstract class ValueValidator {
         .fromString(cId)
         .bimap(invalidArgument, Lf.ValueContractId(_))
     case Sum.Numeric(value) =>
-      validateNumeric(value) match {
-        case Some(numeric) =>
-          Right(Lf.ValueNumeric(numeric))
-        case None =>
-          Left(invalidArgument(s"""Could not read Numeric string "$value""""))
-      }
-    case Sum.Party(party) =>
-      Ref.Party
-        .fromString(party)
-        .left
+      validateNumeric(value).left
         .map(invalidArgument)
-        .map(Lf.ValueParty)
+    case Sum.Party(party) =>
+      validateParty(party).left
+        .map(invalidArgument)
     case Sum.Bool(b) => Right(Lf.ValueBool(b))
     case Sum.Timestamp(micros) =>
       Time.Timestamp
@@ -157,26 +152,59 @@ abstract class ValueValidator {
 
 }
 
-// Standard version of the Validator use by the ledger API
-object ValueValidator extends ValueValidator {
+trait SingleValueValidator[A] {
+  def apply(value: String): Either[String, A]
+}
+
+object LenientNumericValidator extends SingleValueValidator[Lf.ValueNumeric] {
   private[this] val validNumericPattern =
     """[+-]?\d{1,38}(\.\d{0,37})?""".r.pattern
 
-  protected override def validateNumeric(s: String): Option[Numeric] =
+  override def apply(s: String): Either[String, Lf.ValueNumeric] = {
+    def error = s"""Could not read Numeric string "$s""""
     if (validNumericPattern.matcher(s).matches())
-      Numeric.fromUnscaledBigDecimal(new java.math.BigDecimal(s)).toOption
+      Numeric
+        .fromUnscaledBigDecimal(new java.math.BigDecimal(s))
+        .map(Lf.ValueNumeric)
+        .leftMap(_ => error) // preserving old functionality by overwriting the original error
     else
-      None
+      Left(error)
+  }
 }
+
+object StrictNumericValidator extends SingleValueValidator[Lf.ValueNumeric] {
+  override def apply(s: String): Either[String, Lf.ValueNumeric] =
+    Numeric.fromString(s).map(Lf.ValueNumeric)
+}
+
+object LenientPartyValidator extends SingleValueValidator[Lf.ValueParty] {
+  override def apply(party: String): Either[String, Lf.ValueParty] =
+    Ref.Party
+      .fromString(party)
+      .map(Lf.ValueParty)
+}
+
+object StrictPartyValidator extends SingleValueValidator[Lf.ValueParty] {
+  override def apply(party: String): Either[String, Lf.ValueParty] =
+    UniqueIdentifier
+      .fromProtoPrimitive_(party)
+      .map(PartyId(_).toLf)
+      .map(Lf.ValueParty)
+}
+
+// Standard version of the Validator use by the ledger API
+object ValueValidator extends ValueValidator(LenientNumericValidator, LenientPartyValidator)
 
 // Version of the ValueValidator that is stricter for syntax for Numeric but preserves their precision.
-// Use by canton's Repair service
-object StricterValueValidator extends ValueValidator {
-  protected override def validateNumeric(s: String): Option[Numeric] =
-    Numeric.fromString(s).toOption
-}
+// Used by canton's Repair service as well as by the Command service, when configured.
+object StricterNumericValueValidator
+    extends ValueValidator(StrictNumericValidator, LenientPartyValidator)
 
-object NoLoggingValueValidator {
+object StricterPartyValueValidator
+    extends ValueValidator(LenientNumericValidator, StrictPartyValidator)
+
+object NoLoggingValueValidator
+    extends ValueValidator(LenientNumericValidator, LenientPartyValidator) {
 
   def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
     ValueValidator.validateRecord(rec)(NoLogging)

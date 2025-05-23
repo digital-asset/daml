@@ -5,7 +5,7 @@ package com.daml.http
 package endpoints
 
 import Endpoints.ET
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import util.Collections.toNonEmptySet
 import util.FutureUtil.eitherT
 import util.Logging.{InstanceUUID, RequestID}

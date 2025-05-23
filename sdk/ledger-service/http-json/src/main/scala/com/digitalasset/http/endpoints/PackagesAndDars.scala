@@ -11,7 +11,7 @@ import Endpoints.ET
 import util.FutureUtil.{eitherT, rightT}
 import util.Logging.{InstanceUUID, RequestID}
 import util.{ProtobufByteStrings, toLedgerId}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import scalaz.EitherT
 import scalaz.std.scalaFuture._
 import scala.concurrent.{ExecutionContext, Future}

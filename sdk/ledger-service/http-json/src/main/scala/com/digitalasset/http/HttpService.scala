@@ -48,7 +48,7 @@ import java.security.{Key, KeyStore}
 
 import scala.concurrent.{ExecutionContext, Future}
 import ch.qos.logback.classic.{Level => LogLevel}
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.auth.AuthServiceJWTCodec
 import com.daml.ledger.api.{domain => LedgerApiDomain}
 import com.daml.ledger.api.tls.TlsConfiguration

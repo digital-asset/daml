@@ -14,7 +14,7 @@ import util.FutureUtil.{either, eitherT}
 import util.Logging.{InstanceUUID, RequestID}
 import util.toLedgerId
 import util.JwtParties._
-import com.daml.jwt.domain.Jwt
+import com.daml.jwt.Jwt
 import com.daml.ledger.api.{v1 => lav1}
 import lav1.value.{Value => ApiValue, Record => ApiRecord}
 import scalaz.std.scalaFuture._
