@@ -23,7 +23,10 @@
     "lint": "eslint --ext .js,.jsx,.ts,.tsx src/"
   },
   "eslintConfig": {
-    "extends": "react-app"
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   },
   "browserslist": {
     "production": [
@@ -44,6 +47,7 @@
     "@types/dotenv": "^8.2.0",
     "http-proxy-middleware": "^1.0.4",
     "react-scripts": "^4.0.3",
+    "eslint-config-react-app": "^7.0.1",
     "typescript": "~3.8.3"
   }
 }
