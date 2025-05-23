@@ -1,0 +1,79 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module SimpleDvP where
+
+import Daml.Script
+import SimpleAsset
+
+-- SNIPPET-DVP-BEGIN
+template SimpleDvP with
+    party1 : Party
+    party2 : Party
+    allocated1 : ContractId SimpleAsset
+    allocated2 : ContractId SimpleAsset
+  where
+    signatory party1
+    signatory party2
+
+    choice Settle : (ContractId SimpleAsset, ContractId SimpleAsset)
+      with
+        actor : Party
+      controller actor
+      do
+        assert $ actor == party1 || actor == party2
+        new1 <- exercise allocated1 Transfer with newOwner = party2
+        new2 <- exercise allocated2 Transfer with newOwner = party1
+        pure (new1, new2)
+-- SNIPPET-DVP-END
+
+-- SNIPPET-PROPOSAL-BEGIN
+template ProposeSimpleDvP with
+    proposer : Party
+    counterparty : Party
+    allocated : ContractId SimpleAsset
+    expected : SimpleAsset
+  where
+    signatory proposer
+    observer counterparty
+
+    choice Accept : ContractId SimpleDvP
+      with
+        toBeAllocated : ContractId SimpleAsset
+      controller counterparty
+      do
+        fetchedAsset <- fetch toBeAllocated
+        assert $ fetchedAsset == expected
+        create $ SimpleDvP with
+          party1 = proposer
+          party2 = counterparty
+          allocated1 = allocated
+          allocated2 = toBeAllocated
+
+    nonconsuming choice AcceptAndSettle : (ContractId SimpleAsset, ContractId SimpleAsset)
+      with
+        toBeAllocated: ContractId SimpleAsset
+      controller counterparty
+      do
+        dvp <- exercise self $ Accept with ..
+        exercise dvp $ Settle with actor = counterparty
+-- SNIPPET-PROPOSAL-END
+
+simpleDvp = script do
+    p1 <- allocateParty "Alice"
+    p2 <- allocateParty "Bob"
+    b1 <- allocateParty "Bank1"
+    b2 <- allocateParty "Bank2"
+    
+    eur <- submit b1 do createCmd SimpleAsset with issuer = b1; owner = p1; asset = "1 EUR"
+    
+    let usdAsset = SimpleAsset with issuer = b2; owner = p2; asset = "1 USD"
+    usd <- submit b2 do createCmd usdAsset
+    
+    proposeDvP <- submit p1 do createCmd ProposeSimpleDvP with proposer = p1; counterparty = p2; allocated = eur; expected = usdAsset
+
+    (newUsd, newEur) <- submitMulti [p2] [p1] do exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+
+    submit b2 do exerciseCmd newEur Archive
+    submit b1 do exerciseCmd newUsd Archive
