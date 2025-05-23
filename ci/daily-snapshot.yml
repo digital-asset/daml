@@ -41,13 +41,15 @@ jobs:
         else
             release=${{ parameters.version }}
         fi
-
+        
+        curl -v https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
+                   -u $AUTH \
+                   -I
         ERR=$(mktemp)
         OUT=$(curl -v https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
                    -u $AUTH \
                    -I \
                    2>$ERR)
-        echo "RESULT: $OUT"
         STATUS=$(echo "$OUT" | head -1 | sed 's:HTTP/1.1 \([^ ]\+\).*:\1:')
         case "$STATUS" in
           200)
