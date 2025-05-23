@@ -47,6 +47,7 @@ jobs:
                    -u $AUTH \
                    -I \
                    2>$ERR)
+        echo "RESULT: $OUT"
         STATUS=$(echo "$OUT" | head -1 | sed 's:HTTP/1.1 \([^ ]\+\).*:\1:')
         case "$STATUS" in
           200)
