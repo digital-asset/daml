@@ -74,8 +74,7 @@ steps:
 
   - bash: |
       set -euo pipefail
-      cd sdk
-      ../ci/create-dotnetrc.sh
+      ci/create-dotnetrc.sh
     displayName: 'Create .netrc file'
     condition: succeeded()
     env:
