@@ -16,7 +16,7 @@ jobs:
 - job: check_for_release
   pool:
     name: "ubuntu_20_04"
-    demands: assignment -equals default-test
+    demands: assignment -equals default
   steps:
     - template: bash-lib.yml
       parameters:
@@ -43,7 +43,7 @@ jobs:
         fi
 
         ERR=$(mktemp)
-        OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
+        OUT=$(curl -v https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
                    -u $AUTH \
                    -I \
                    2>$ERR)
