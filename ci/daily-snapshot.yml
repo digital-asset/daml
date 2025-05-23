@@ -41,12 +41,16 @@ jobs:
         else
             release=${{ parameters.version }}
         fi
-
+        
+        echo "Using https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/foo" 
+        curl -v https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/foo
+        
+        echo "Using https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release"
+        curl -v https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
+                   -u $AUTH \
+                   -I
         ERR=$(mktemp)
-        ip a
-        ping -c 10 google.com
-        ping -c 10 digitalasset.jfrog.io
-        OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
+        OUT=$(curl -v https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
                    -u $AUTH \
                    -I \
                    2>$ERR)
