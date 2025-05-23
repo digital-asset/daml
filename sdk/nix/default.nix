@@ -180,7 +180,7 @@ in rec {
     sha256sum = pkgs.coreutils;
     xargs = pkgs.findutils;
 
-    # Vale
+    # Vale (TODO: use `vale.withStyles` once the nixpkgs snapshot is recent enough)
     vale = pkgs.vale;
 
     # Cryptography tooling
