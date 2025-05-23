@@ -56,6 +56,14 @@ steps:
 
   - bash: |
       set -euo pipefail
+      ci/create-dotnetrc.sh
+    displayName: 'Create .netrc file'
+    condition: succeeded()
+    env:
+      GITHUB_TOKEN: $(GH_DAML_READONLY)
+
+  - bash: |
+      set -euo pipefail
       p="_${{parameters.name_str}}"
       a="_$(Build.BuildNumber)_$(System.JobAttempt)"
       t="${{parameters.test_mode}}"

@@ -41,6 +41,13 @@ steps:
     displayName: delete old logs
 
   - powershell: |
+      ci\create-dotnetrc.ps1
+    displayName: 'Create .netrc file'
+    condition: succeeded()
+    env:
+      GITHUB_TOKEN: $(GH_DAML_READONLY)
+
+  - powershell: |
       if (Test-Path .\build.ps1) {
         .\build.ps1
       } else {
