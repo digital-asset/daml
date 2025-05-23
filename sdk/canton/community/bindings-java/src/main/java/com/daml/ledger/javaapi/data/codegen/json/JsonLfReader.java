@@ -183,7 +183,7 @@ public class JsonLfReader {
     return result;
   }
 
-  Location locationStart() {
+  final Location locationStart() {
     JsonLocation loc = parser.currentTokenLocation();
     return new Location(loc.getLineNr(), loc.getColumnNr(), (int) loc.getCharOffset());
   }

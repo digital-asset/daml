@@ -45,6 +45,8 @@ da_scala_test(
     ),
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalatest_scalatest_propspec",
+        "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
         "@maven//:org_scalaz_scalaz_scalacheck_binding",
