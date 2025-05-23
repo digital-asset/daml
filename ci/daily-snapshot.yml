@@ -43,8 +43,9 @@ jobs:
         fi
 
         ERR=$(mktemp)
-        ping -c 1 google.com
-        ping -c 1 digitalasset.jfrog.io
+        ip a
+        ping -c 10 google.com
+        ping -c 10 digitalasset.jfrog.io
         OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
                    -u $AUTH \
                    -I \
