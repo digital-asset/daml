@@ -445,7 +445,7 @@ tests damlc =
                     }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
-                  (FailWithError $ 
+                  (FailWithError $
                     "\ESC\\[0;91mMain package must have the same package name as upgraded package.\n"
                       <> "Main package \\(v0.0.2\\) name: my-package2\n"
                       <> "Upgraded package \\(v0.0.1\\) name: my-package"
@@ -550,6 +550,9 @@ tests damlc =
                     { additionalDarsV1 = ["upgrades-CanImplementUpgradeableInterface-dep.dar"]
                     , additionalDarsV2 = ["upgrades-CanImplementUpgradeableInterface-dep.dar"]
                     }
+            , testUpgradeCheck
+                  "DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier"
+                  (SucceedWithoutWarning "*.warning while type checking template Main.Foo signatories:\n  The upgraded template Foo has changed the definition of its signatories.\n  There is 1 difference in the expression:\n    Name .*:Dep:duplicateParty and name .*:Dep:duplicateParty differ for the following reason: Just Name came from package .* and now comes from package .* Both packages support upgrades, but the previous package had a higher version than the current one..*")
             ]
        )
   where
@@ -823,7 +826,7 @@ data Expectation
   = Succeed
   | FailWithError T.Text
   | SucceedWithWarning T.Text
-  | SucceedWithoutWarning T.Text
+  | SucceedWithoutWarning T.Text -- fails if warning equals passed Text
   deriving (Show, Eq, Ord)
 
 data Dependency

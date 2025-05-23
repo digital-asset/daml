@@ -662,6 +662,10 @@ da_haskell_test(
         "//test-common:upgrades-CanImplementUpgradeableInterface-v2.dar",
         "//test-common:upgrades-CanImplementUpgradeableInterface-dep.dar",
         "//test-common:upgrades-CanImplementUpgradeableInterface-files",
+        "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifierDep-v1.dar",
+        "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifierDep-v2.dar",
+        "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier-v1.dar",
+        "//test-common:upgrades-DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier-v2.dar",
     ],
     hackage_deps = [
         "base",
