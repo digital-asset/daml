@@ -2,7 +2,7 @@
 # Note: A copy of this file is also available in the Canton repository 
 # https://github.com/DACH-NY/canton/blob/release-line-3.3/docs-open/styles/DigitalAsset/Terms.yml
 # TODO: Share vale styles in a public repo for reuse
-# https://github.com/orgs/DACH-NY/projects/59/views/1?pane=issue&itemId=111982435 
+# https://github.com/DACH-NY/docs-website/issues/365 
 extends: substitution
 message: "Use '%s' instead of '%s'."
 level: error
