@@ -1,0 +1,32 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module SimpleAsset where
+
+import Daml.Script
+
+-- SNIPPET-START
+template SimpleAsset with
+    issuer : Party
+    owner : Party
+    asset : Text
+  where
+    signatory issuer
+    observer owner
+
+    choice Transfer : ContractId SimpleAsset
+      with
+        newOwner : Party
+      controller owner
+      do
+        create this with owner = newOwner
+-- SNIPPET-END
+
+simpleAsset = script do
+    p1 <- allocateParty "Alice"
+    p2 <- allocateParty "Bob"
+    b <- allocateParty "Bank"
+    cash <- submit b do createCmd SimpleAsset with issuer = b; owner = p1; asset = "Cash"
+    newCash <- submit p1 do exerciseCmd cash Transfer with newOwner = p2
+    submit b do exerciseCmd newCash Archive
