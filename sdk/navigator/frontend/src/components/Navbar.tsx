@@ -18,11 +18,11 @@ import { Icon } from "./Icon";
 import Link from "./Link";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function signOut<S>(
+function signOut(
   client: ApolloClient<any>,
   toSession: (action: Session.Action) => App.Action,
 ) {
-  return Session.signOut<S, App.Action>(toSession, ((
+  return Session.signOut<App.Action>(toSession, ((
     dispatch: Dispatch<App.Action>,
   ) => {
     client.resetStore();

@@ -2,8 +2,7 @@
 typings/**
 out/test/**
 test/**
-src/**/*.ts
-**/*.map
+bazel-out/**
+compiler/**
 .gitignore
-tsconfig.json
 vsc-extension-quickstart.md

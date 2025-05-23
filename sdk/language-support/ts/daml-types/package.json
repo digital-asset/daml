@@ -19,7 +19,9 @@
   "types": "index.d.ts",
   "license": "Apache-2.0",
   "dependencies": {
-    "@mojotech/json-type-validation": "^3.1.0"
+    "@mojotech/json-type-validation": "^3.1.0",
+    "@types/lodash": "^4.5",
+    "lodash": "^4.5"
   },
   "scripts": {
     "build": "tsc --build",
@@ -29,11 +31,13 @@
   },
   "devDependencies": {
     "@types/jest": "^26.0.23",
-    "@types/lodash": "4.14.161",
+    "@types/lodash": "^4.5",
     "@typescript-eslint/eslint-plugin": "^2.16.0",
     "@typescript-eslint/parser": "^2.16.0",
     "eslint": "^6.8.0",
+    "lodash": "^4.5",
     "jest": "^27.0.5",
-    "typescript": "~3.8.3"
+    "ts-jest": "^27.0.3",
+    "typescript": "~5.8"
   }
 }

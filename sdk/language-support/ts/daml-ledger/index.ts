@@ -358,7 +358,7 @@ type LedgerResponse = {
 /**
  * Error code and messages returned by the ledger.
  */
-type LedgerError = {
+export type LedgerError = {
   status: number;
   errors: string[];
   warnings: unknown | undefined;
@@ -1947,7 +1947,7 @@ export class Ledger {
    * @returns No return value on success; throws on error.
    *
    */
-  async uploadDarFile(abuf: ArrayBuffer): Promise<void> {
+  async uploadDarFile(abuf: Buffer<ArrayBufferLike>): Promise<void> {
     const httpResponse = await fetch(this.httpBaseUrl + "v1/packages", {
       body: abuf,
       headers: {
