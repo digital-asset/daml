@@ -5,17 +5,17 @@ Daml Codegen for Java
 
 Use the Daml Codegen for Java (``daml codegen java``) to generate Java classes representing all Daml data types defined
 in a Daml Archive (.dar) file.
-These classes simplify constructing the types required by the Java gRPC bindings for the gRPC Ledger API <TODO: add link to it>; for example, ``com.daml.ledger.api.v1.CreateCommand`` and ``com.daml.ledger.api.v1.ExerciseCommand``.
-They also provide JSON decoding utilities, making it easier to work with JSON when using the JSON Ledger API <TODO(369): add link to JSON Ledger API>.
+These classes simplify constructing the types required by the Java gRPC bindings for the
+:brokenref:`gRPC Ledger API <TODO: add link to it>`; for example, ``com.daml.ledger.api.v1.CreateCommand`` and ``com.daml.ledger.api.v1.ExerciseCommand``.
+They also provide JSON decoding utilities, making it easier to work with JSON when using the
+:brokenref:`JSON Ledger API <TODO(#369): add link to JSON Ledger API>`.
 
 See :ref:`How to work with contracts and transactions in Java <howto-applications-work-with-contracts-java>` for details on how to use the generated classes. See the sections below for guidance on setting up and invoking the codegen.
 
 Install
 -------
 
-Install the Daml Codegen for Java by :ref:`installing the Daml Assistant <assistant-manual-managing-releases>`.
-
-.. TODO(#347) Fix the link to point to Install section of "Daml Assistant"
+Install the Daml Codegen for Java by :brokenref:`installing the Daml Assistant <Install section of Daml Assistant>`.
 
 Configure
 ---------

@@ -6,7 +6,7 @@
 How to work with contracts and transactions in Java
 ===================================================
 
-When writing applications for the Canton Ledger in Java, it is convenient to work with a representation of Daml templates and data
+When writing Canton Network applications in Java, it is convenient to work with a representation of Daml templates and data
 types in Java that closely resemble the original Daml code while still being as close to the native types of Java as
 possible. To achieve this, use the :ref:`Daml Codegen for Java <daml-codegen-java>` to generate Java types based on a Daml
 model. You can then use these types in your Java code when reading information from and sending data to the ledger.
@@ -23,7 +23,7 @@ and user-defined types.
 Use the generated classes in your project
 -----------------------------------------
 
-In order to compile the resulting Java classes, you need to add the Java bindings library <TODO: add link to Java bindings>
+In order to compile the resulting Java classes, you need to add the :brokenref:`Java bindings library <TODO: add link to Java bindings>`
 as dependency to your build tools.
 
 Add the following **Maven** dependency to your project:
@@ -43,7 +43,8 @@ Find the available versions in the `Maven Central Repository <https://search.mav
 Access the Ledger API via gRPC using Java bindings
 --------------------------------------------------
 
-The Java bindings library provides additionally a set of classes that allow you to access the Ledger API via gRPC. TODO: link to Java bindings.
+The Java bindings library provides additionally a set of classes that allow you to access the Ledger API via gRPC
+(:brokenref:` TODO(#370): link to Java bindings <link>`).
 
 For each Ledger API service, there is a reactive counterpart with a matching name. For instance, the reactive
 counterpart of ``UpdateServiceGrpc`` is ``UpdateClient``.
@@ -132,8 +133,7 @@ Advanced connection settings
 
 Sometimes the default settings for gRPC connections or channels are not suitable. For such situations, create a custom
 `NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and
-pass the it to the ``newBuilder`` static method defined over `DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
-..  TODO                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ fix me
+pass the it to the ``newBuilder`` static method defined over :brokenref:`DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`.
 
 Alternative ways to access the Ledger API
 -----------------------------------------
@@ -147,7 +147,7 @@ Use gRPC bindings
 For each gRPC endpoint that you want to call from your Java application, create a gRPC `StreamObserver <https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html>`_ providing
 implementations of the onNext, onError and onComplete observer methods.
 To decode and encode the gRPC messages, use the fromProto and toProto methods of the generated classes of the Java
-bindings library. <TODO(#370): add link to Java bindings library fromProto and toProto methods>
+bindings library. :brokenref:`Link to Java bindings <TODO(#370): add link to Java bindings library fromProto and toProto methods>`
 
 
 Use OpenAPI definitions
@@ -155,4 +155,4 @@ Use OpenAPI definitions
 
 The OpenAPI definitions provide a definition for each Ledger API service and allows you to access it via the JSON
 Ledger API. Use those definitions to encode/decode the gRPC messages as/from JSON payloads required by the JSON Ledger
-API. For more details see <Get started with Canton and the JSON Ledger API TODO(#369): add link to it>.
+API. For more details see :brokenref:`Get started with Canton and the JSON Ledger API < TODO(#369): add link to it>`.
