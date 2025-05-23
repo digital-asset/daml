@@ -132,7 +132,7 @@ def daml_deps():
             urls = ["https://github.com/bazelbuild/rules_nodejs/releases/download/{}/rules_nodejs-{}.tar.gz".format(rules_nodejs_version, rules_nodejs_version)],
             sha256 = rules_nodejs_sha256,
             patches = [
-                "@daml//bazel_tools:rules_nodejs_hotfix.patch",
+                "@daml//bazel_tools:rules_nodejs_package_path_fix.patch",
             ],
             patch_args = ["-p1"],
         )
