@@ -67,6 +67,7 @@ genrule(
         cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@types ./
         cp -r ../$(BINDIR)/external/daml_extension_deps/node_modules/@bazel ./
         cd ..
+        # Check for poison!
         # Avoid file path too long errors on Windows of the form
         #   .../tar_dev_env/usr/bin/tar: node_modules/.cache/terser-webpack-plugin/...: file name is too long (cannot be split); not dumped
         $(execpath //bazel_tools/sh:mktgz) $@ node_modules --dereference
@@ -124,6 +125,7 @@ genrule(
         # Using Yarn has a bug whereby some transitive dependencies are not included (specifically concat-map)
         # NPM can't find npm-cli.js for some reason and won't run
         # So for now, we explicitly depend on concat-map in `package.json` to avoid this
+        # Check for poison!
         PATH=$$(dirname $$DIR/$(location //:yarn)):$$PATH $$DIR/$(location @daml_extension_deps//@vscode/vsce/bin:vsce) package --yarn -o $$DIR/$@
     """.format(npm = npm_version),
     tools = [
