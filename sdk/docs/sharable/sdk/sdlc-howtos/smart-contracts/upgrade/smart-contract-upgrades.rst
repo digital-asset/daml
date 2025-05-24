@@ -1839,13 +1839,13 @@ The package preference is needed at each command submission time and is assemble
   version is used.
 
 - The package-id selection preference list specified in the submitted command's
-  :brokenref:`package_id_selection_preference <com.daml.ledger.api.v1.Commands.package_id_selection_preference>` in a command submission.
+  :subsiteref:`package_id_selection_preference <com.daml.ledger.api.v2.Commands.package_id_selection_preference>` in a command submission.
   This is package-id resolution list explicitly provided by the client to
   override the default package preference mentioned above.
 
    - See :ref:`here <daml-script-package-preference>` for how to provide this in Daml-Script
 
-   -  **Note:** The :brokenref:`package_id_selection_preference <com.daml.ledger.api.v1.Commands.package_id_selection_preference>`
+   -  **Note:** The :subsiteref:`package_id_selection_preference <com.daml.ledger.api.v2.Commands.package_id_selection_preference>`
       must not lead to ambiguous resolutions for package-names,
       meaning that it must not contain two package-ids pointing to
       packages with the same package-name, as otherwise the submission will fail with
@@ -1867,7 +1867,7 @@ Dynamic package resolution can happen in two cases during command submission:
 
 -  For command submissions that use a `by-package-name template ID`
    in the command’s templateId field (e.g. in a
-   create command :brokenref:`here <com.daml.ledger.api.v1.CreateCommand>`)
+   create command :subsiteref:`here <com.daml.ledger.api.v2.CreateCommand>`)
 
 -  For command submissions whose Daml interpretation requires the execution of
    interface choices or fetch-by-interface actions.
@@ -1881,7 +1881,7 @@ Dynamic Package Resolution in Ledger API Queries
 When subscribing for :brokenref:`transaction <transaction-trees>`
 or :ref:`active contract streams <active-contract-service>`,
 users can now use the `by-package-name template ID` format
-in the :brokenref:`template-id request filter field <com.daml.ledger.api.v1.TemplateFilter.template_id>`.
+in the :subsiteref:`template-id request filter field <com.daml.ledger.api.v2.TemplateFilter.template_id>`.
 to specify that they’re interested in fetching events for all templates
 pertaining to the specified package-name. This template selection set is
 dynamic and it widens with each uploaded template/package.

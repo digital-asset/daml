@@ -33,13 +33,13 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
 
 - The :brokenref:`application ID <com.daml.ledger.api.v1.Commands.application_id>` identifies the application that submits the command.
 
-- The :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` is chosen by the application to identify the intended ledger change.
+- The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` is chosen by the application to identify the intended ledger change.
 
 - The deduplication period specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
   If such a change has been accepted in that period, the current submission shall be rejected.
   The period is specified either as a :brokenref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_duration>` or as a :brokenref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_offset>` (inclusive).
 
-- The :brokenref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` is chosen by the application to identify a specific submission.
+- The :subsiteref:`submission ID <com.daml.ledger.api.v2.Commands.submission_id>` is chosen by the application to identify a specific submission.
   It is included in the corresponding completion event so that the application can correlate specific submissions to specific completions.
   An application should never reuse a submission ID.
 
@@ -50,7 +50,7 @@ The ledger may arbitrarily extend the deduplication period specified in the subm
 
 The deduplication period chosen by the ledger is the *effective deduplication period*.
 The ledger may also convert a requested deduplication duration into an effective deduplication offset or vice versa.
-The effective deduplication period is reported in the command completion event in the :brokenref:`deduplication duration <com.daml.ledger.api.v1.Completion.deduplication_period.deduplication_duration>` or :brokenref:`deduplication offset <com.daml.ledger.api.v1.Completion.deduplication_period.deduplication_offset>` fields.
+The effective deduplication period is reported in the command completion event in the :subsiteref:`deduplication duration <com.daml.ledger.api.v2.Completion.deduplication_period.deduplication_duration>` or :subsiteref:`deduplication offset <com.daml.ledger.api.v2.Completion.deduplication_period.deduplication_offset>` fields.
 
 A command submission is considered a **duplicate submission** if at least one of the following holds:
 
@@ -104,8 +104,8 @@ Some ledger changes can be executed at most once, so no command deduplication is
 For example, if the submitted command exercises a consuming choice on a given contract ID, this command can be accepted at most once because every contract can be archived at most once.
 All duplicate submissions of such a change will be rejected with :brokenref:`CONTRACT_NOT_ACTIVE <error_code_CONTRACT_NOT_ACTIVE>`.
 
-In contrast, a :brokenref:`Create command <com.daml.ledger.api.v1.CreateCommand>` would create a fresh contract instance of the given :brokenref:`template <com.daml.ledger.api.v1.CreateCommand.template_id>` for each submission that reaches the ledger (unless other constraints such as the :ref:`template preconditions <daml-ref-preconditions>` or contract key uniqueness are violated).
-Similarly, an :brokenref:`Exercise command <com.daml.ledger.api.v1.ExerciseCommand>` on a non-consuming choice or an :brokenref:`Exercise-By-Key command <com.daml.ledger.api.v1.ExercisebyKeyCommand>` may be executed multiple times if submitted multiple times.
+In contrast, a :subsiteref:`Create command <com.daml.ledger.api.v2.CreateCommand>` would create a fresh contract instance of the given :subsiteref:`template <com.daml.ledger.api.v2.CreateCommand.template_id>` for each submission that reaches the ledger (unless other constraints such as the :ref:`template preconditions <daml-ref-preconditions>` or contract key uniqueness are violated).
+Similarly, an :subsiteref:`Exercise command <com.daml.ledger.api.v2.ExerciseCommand>` on a non-consuming choice or an :subsiteref:`Exercise-By-Key command <com.daml.ledger.api.v2.ExercisebyKeyCommand>` may be executed multiple times if submitted multiple times.
 With command deduplication, applications can ensure such intended ledger changes are executed only once within the deduplication period, even if the application resubmits, say because it considers the earlier submissions to be lost or forgot during a crash that it had already submitted the command.
 
 
@@ -141,9 +141,9 @@ Under this caveat, the following strategy works for applications that use the :r
 
 #. Submit the command with the following parameters:
 
-   - Set the :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
+   - Set the :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
-   - Set the :brokenref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_duration>` to the bound ``B``.
+   - Set the :subsiteref:`deduplication duration <com.daml.ledger.api.v2.Commands.deduplication_period.deduplication_duration>` to the bound ``B``.
 
      .. note::
         It is prudent to explicitly set the deduplication duration to the desired bound ``B``,
@@ -154,7 +154,7 @@ Under this caveat, the following strategy works for applications that use the :r
 	If you omitted the deduplication period, the currently valid maximum deduplication duration would be used.
 	In this case, a ledger configuration update could silently shorten the deduplication period and thus invalidate your deduplication analysis.
 
-   - Set the :brokenref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.
+   - Set the :subsiteref:`submission ID <com.daml.ledger.api.v2.Commands.submission_id>` to a fresh value, e.g., a random UUID.
 
    - Set the timeout (gRPC deadline) to the expected submission processing time (Command Service) or submission hand-off time (Command Submission Service).
 
@@ -185,7 +185,7 @@ Under this caveat, the following strategy works for applications that use the :r
 Error Handling
 --------------
 
-Error handling is needed when the status code of the command submission RPC call or in the :brokenref:`completion event <com.daml.ledger.api.v1.Completion.status>` is not ``OK``.
+Error handling is needed when the status code of the command submission RPC call or in the :subsiteref:`completion event <com.daml.ledger.api.v2.Completion.status>` is not ``OK``.
 The following table lists appropriate reactions by status code (written as ``STATUS_CODE``) and error code (written in capital letters with a link to the error code documentation).
 Fields in the error metadata are written as ``field`` in lowercase letters.
 
@@ -236,7 +236,7 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
      * The specified deduplication offset has been pruned by the participant.
        ``earliest_offset`` contains the last pruned offset.
 
-        Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :brokenref:`completions <com.daml.ledger.api.v1.CompletionStreamRequest>`, starting from the last pruned offset by setting :brokenref:`offset <com.daml.ledger.api.v1.CompletionStreamRequest.offset>` to the value of
+        Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :subsiteref:`completions <com.daml.ledger.api.v2.CompletionStreamRequest>`, starting from the last pruned offset by setting :brokenref:`offset <com.daml.ledger.api.v1.CompletionStreamRequest.offset>` to the value of
         ``earliest_offset``, and use the first received :brokenref:`offset <com.daml.ledger.api.v1.Checkpoint.offset>` as a deduplication offset.
 
 
@@ -321,7 +321,7 @@ We recommend the following strategy for using deduplication offsets:
 	In general, the ledger end need not identify a command completion that is visible to the submitting parties.
 	When running on such a ledger, use the Command Service approach described next.
 
-   - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :brokenref:`Create-And-Exercise command <com.daml.ledger.api.v1.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-2977>` choice, until you get a successful response.
+   - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :subsiteref:`Create-And-Exercise command <com.daml.ledger.api.v2.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-2977>` choice, until you get a successful response.
      The response contains the :brokenref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
 
 
@@ -336,11 +336,11 @@ We recommend the following strategy for using deduplication offsets:
 
 #. Submit the command with the following parameters (analogous to :ref:`Step 3 above <dedup-bounded-step-submit>` except for the deduplication period):
 
-   - Set the :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
+   - Set the :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` to the chosen command ID from :ref:`Step 1 <dedup-bounded-step-command-id>`.
 
-   - Set the :brokenref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_offset>` to ``OFF0``.
+   - Set the :subsiteref:`deduplication offset <com.daml.ledger.api.v2.Commands.deduplication_period.deduplication_offset>` to ``OFF0``.
 
-   - Set the :brokenref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>` to a fresh value, e.g., a random UUID.
+   - Set the :subsiteref:`submission ID <com.daml.ledger.api.v2.Commands.submission_id>` to a fresh value, e.g., a random UUID.
 
    - Set the timeout (gRPC deadline) to the expected submission processing time (Command Service) or submission hand-off time (Command Submission Service).
 
