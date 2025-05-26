@@ -98,7 +98,7 @@ class BftSequencerFactory(
         sequencerId,
         protocolVersion,
         driverClock,
-        new CantonOrderingTopologyProvider(cryptoApi, loggerFactory),
+        new CantonOrderingTopologyProvider(cryptoApi, loggerFactory, metrics.bftOrdering),
         authenticationServices,
         nodeParameters,
         initialHeight,
@@ -137,6 +137,5 @@ class BftSequencerFactory(
 }
 
 object BftSequencerFactory extends LazyLogging {
-
   val ShortName: String = "BFT"
 }

@@ -86,7 +86,9 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
 
     eventually() {
       participant.synchronizers.list_connected().map(_.synchronizerAlias) should contain(daName)
+      // user-manual-entry-begin: SequencerPruningStatus
       val status = sequencer1.pruning.status()
+      // user-manual-entry-end: SequencerPruningStatus
       status.members.map(_.member) should contain(participant.id)
     }
   }
@@ -251,7 +253,9 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
     val earliestAck = earliestAckExcludingParticipant(status, participant3Id).value
 
     // the exact number of records removed will depend on the number of deliver events received so use a regex
+    // user-manual-entry-begin: SequencerForcePruning
     val result = sequencer1.pruning.force_prune_at(earliestAck, dryRun = false)
+    // user-manual-entry-end: SequencerForcePruning
 
     result should fullyMatch regex
       s"""$pruningRegex
@@ -296,7 +300,9 @@ trait SequencerPruningIntegrationTest extends CommunityIntegrationTest with Shar
     }
 
     // now the default pruning should work as all enabled members should have acked
+    // user-manual-entry-begin: SequencerPrune
     val result = sequencer1.pruning.prune()
+    // user-manual-entry-end: SequencerPrune
     result should fullyMatch regex s"""$pruningRegex"""
   }
 

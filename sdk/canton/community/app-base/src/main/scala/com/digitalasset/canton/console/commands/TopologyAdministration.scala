@@ -427,7 +427,7 @@ class TopologyAdministrationGroup(
       consoleEnvironment.run {
         adminCommand(
           TopologyAdminCommands.Write.Authorize(
-            txHash.hash.toHexString,
+            txHash.hash.getCryptographicEvidence,
             mustFullyAuthorize = mustBeFullyAuthorized,
             signedBy = signedBy,
             store = store,

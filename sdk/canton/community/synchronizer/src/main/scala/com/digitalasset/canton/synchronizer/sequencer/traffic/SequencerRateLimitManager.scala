@@ -141,6 +141,14 @@ trait SequencerRateLimitManager extends AutoCloseable {
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerRateLimitError.TrafficNotFound, Option[TrafficState]]
+
+  /** This method must be called during the crash recovery and must reset the state of rate limit
+    * manager to the state at the given timestamp (stores + internal state if there is i.e. a
+    * cache).
+    */
+  def resetStateTo(
+      timestampExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
 
 sealed trait SequencerRateLimitError

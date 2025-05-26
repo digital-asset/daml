@@ -5,6 +5,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.FingerprintKeyId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
@@ -30,6 +32,7 @@ import OrderingTopology.{
 final case class OrderingTopology(
     nodesTopologyInfo: Map[BftNodeId, NodeTopologyInfo],
     sequencingParameters: SequencingParameters,
+    maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
     activationTime: TopologyActivationTime,
     areTherePendingCantonTopologyChanges: Boolean,
 ) extends MessageAuthorizer {
@@ -83,6 +86,9 @@ object OrderingTopology {
         )
       }.toMap,
       sequencingParameters,
+      MaxRequestSizeToDeserialize.Limit(
+        DynamicSynchronizerParameters.defaultMaxRequestSize.value
+      ),
       activationTime,
       areTherePendingCantonTopologyChanges,
     )

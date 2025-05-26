@@ -1212,7 +1212,7 @@ abstract class SequencerReference(
 
     @Help.Summary("Get peer network status")
     def get_peer_network_status(
-        endpoints: Option[Iterable[BftBlockOrdererConfig.EndpointId]]
+        endpoints: Option[Iterable[BftBlockOrdererConfig.EndpointId]] = None
     ): PeerNetworkStatus =
       consoleEnvironment.run {
         runner.adminCommand(

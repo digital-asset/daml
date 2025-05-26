@@ -193,4 +193,14 @@ class DbTrafficConsumedStore(
         s"Removed $pruned traffic consumed entries"
       }
   }
+
+  override def deleteRecordsPastTimestamp(
+      timestampExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    val query =
+      sqlu"delete from seq_traffic_control_consumed_journal where sequencing_timestamp > $timestampExclusive"
+    storage.queryAndUpdate(query, functionFullName).map { deletedCount =>
+      logger.debug(s"Deleted $deletedCount traffic consumed with timestamps > $timestampExclusive")
+    }
+  }
 }

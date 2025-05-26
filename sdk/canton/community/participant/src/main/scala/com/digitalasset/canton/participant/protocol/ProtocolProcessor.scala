@@ -139,17 +139,6 @@ abstract class ProtocolProcessor[
     */
   private val submissionCounter: AtomicInteger = new AtomicInteger(0)
 
-  /** Validations run at the start of the submission. This can be overridden to provide early stage
-    * validations that should fail _synchronously_ the submission.
-    */
-  protected def preSubmissionValidations(
-      params: SubmissionParam,
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
-      protocolVersion: ProtocolVersion,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SubmissionError, Unit]
-
   /** Submits the request to the sequencer, using a recent topology snapshot and the current
     * persisted state as an approximation to the future state at the assigned request timestamp.
     *
@@ -172,7 +161,6 @@ abstract class ProtocolProcessor[
     val recentSnapshot = crypto.create(topologySnapshot)
     val explicitMediatorGroupIndex = steps.explicitMediatorGroup(submissionParam)
     for {
-      _ <- preSubmissionValidations(submissionParam, recentSnapshot, protocolVersion)
       mediator <- chooseMediator(recentSnapshot.ipsSnapshot, explicitMediatorGroupIndex)
         .leftMap(steps.embedNoMediatorError)
       submission <- steps.createSubmission(submissionParam, mediator, ephemeral, recentSnapshot)

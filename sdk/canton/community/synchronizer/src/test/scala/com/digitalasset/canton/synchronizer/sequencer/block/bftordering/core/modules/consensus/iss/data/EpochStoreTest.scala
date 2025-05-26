@@ -449,7 +449,6 @@ object EpochStoreTest {
     ViewChange
       .create(
         BlockMetadata.mk(epochNumber, segmentNumber),
-        0,
         ViewNumber(viewNumber),
         consensusCerts = Seq.empty,
         BftNodeId("address"),
@@ -464,7 +463,6 @@ object EpochStoreTest {
     NewView
       .create(
         BlockMetadata.mk(epochNumber, segmentNumber),
-        segmentIndex = 0,
         viewNumber = ViewNumber(viewNumber),
         viewChanges = Seq.empty,
         prePrepares = Seq.empty,

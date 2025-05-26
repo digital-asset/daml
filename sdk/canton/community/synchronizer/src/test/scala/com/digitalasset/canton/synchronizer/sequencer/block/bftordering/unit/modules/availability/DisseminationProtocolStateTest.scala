@@ -6,6 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mo
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.crypto.Signature.noSignature
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.DisseminationProgress
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
@@ -46,6 +48,7 @@ class DisseminationProtocolStateTest
           disseminatedBatchMetadataWith(AnEpochNumber, ANodeId, ABatchId, noSignature, SomeStats)
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
+          Node0,
           orderingTopology,
         ) shouldBe empty
       }
@@ -60,6 +63,7 @@ class DisseminationProtocolStateTest
         val newTopology = orderingTopology.copy(nodesTopologyInfo = Map.empty)
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
+          Node0,
           newTopology,
         ) shouldBe
           Some(
@@ -69,6 +73,7 @@ class DisseminationProtocolStateTest
                 ABatchId,
                 AnEpochNumber,
                 SomeStats,
+                regressionsToSigning = 1,
               ),
               Set.empty,
             )
@@ -92,6 +97,7 @@ class DisseminationProtocolStateTest
           })
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
+          Node0,
           newTopology,
         ) shouldBe
           Some(
@@ -101,6 +107,7 @@ class DisseminationProtocolStateTest
                 ABatchId,
                 AnEpochNumber,
                 SomeStats,
+                regressionsToSigning = 1,
               ),
               Set.empty,
             )
@@ -129,6 +136,9 @@ object DisseminationProtocolStateTest {
         )
       ),
       SequencingParameters.Default, // irrelevant for this test
+      MaxRequestSizeToDeserialize.Limit(
+        DynamicSynchronizerParameters.defaultMaxRequestSize.value
+      ), // irrelevant for this test
       AnActivationTime, // irrelevant for this test
       areTherePendingCantonTopologyChanges = false, // irrelevant for this test
     )

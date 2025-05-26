@@ -86,6 +86,7 @@ trait SequencerStoreTest
     val instanceDiscriminator2 = UUID.randomUUID()
 
     final case class Env(store: SequencerStore = mk()) {
+
       def deliverEventWithDefaults(
           ts: CantonTimestamp,
           sender: SequencerMemberId = SequencerMemberId(0),
@@ -153,6 +154,9 @@ trait SequencerStoreTest
           memberId = registeredMemberO.map(_.memberId).getOrElse(fail(s"$member is not registered"))
         } yield memberId
 
+      private def ensureSequencerMemberIsRegistered() =
+        store.registerMember(sequencerMember, CantonTimestamp.MinValue)
+
       def saveEventsAndBuffer(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[BytesPayload]]])(
           implicit traceContext: TraceContext
       ): FutureUnlessShutdown[Unit] = {
@@ -160,11 +164,13 @@ trait SequencerStoreTest
           case Some(payloads) => savePayloads(payloads)
           case _ => FutureUnlessShutdown.unit
         }
-        savePayloadsF.flatMap(_ =>
-          store
-            .saveEvents(instanceIndex, events.map(_.map(_.id)))
-            .map(_ => store.bufferEvents(events))
-        )
+        savePayloadsF
+          .flatMap(_ => ensureSequencerMemberIsRegistered())
+          .flatMap(_ =>
+            store
+              .saveEvents(instanceIndex, events.map(_.map(_.id)))
+              .map(_ => store.bufferEvents(events))
+          )
       }
 
       def readEvents(

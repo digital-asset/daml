@@ -5,8 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
@@ -35,7 +37,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   CommitCertificate,
   PrepareCertificate,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
+  Membership,
+  OrderingTopology,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusStatus
 import com.digitalasset.canton.time.SimClock
@@ -122,7 +127,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val message = ViewChange
         .create(
           blockMetaData,
-          allIds.indexOf(originalLeader),
           nextView,
           Seq.empty,
           myId,
@@ -151,7 +155,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val viewChangeMessage = ViewChange
         .create(
           blockMetaData,
-          0,
           nextView,
           Seq.empty,
           myId,
@@ -165,7 +168,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val newViewMessage = NewView
         .create(
           blockMetaData,
-          0,
           nextView,
           Seq(
             viewChangeMessage
@@ -296,7 +298,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val viewChangeMessage = ViewChange
         .create(
           blockMetaData,
-          0,
           nextView,
           Seq(commitCertificate),
           myId,
@@ -305,7 +306,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val newViewMessage = NewView
         .create(
           blockMetaData,
-          0,
           nextView,
           Seq(
             viewChangeMessage
@@ -412,9 +412,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "a block with a commit certificate in a valid new-view should immediately be considered completed" in {
       val originalLeader = myId
-
       val segment = createSegmentState(originalLeader)
-      val segmentIndex = allIds.indexOf(originalLeader)
 
       segment.isViewChangeInProgress shouldBe false
 
@@ -439,7 +437,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val viewChangeMessage = ViewChange
         .create(
           blockMetaData,
-          segmentIndex,
           view2,
           Seq(commitCertificate),
           otherId1,
@@ -448,7 +445,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val newViewMessage = NewView
         .create(
           blockMetaData,
-          segmentIndex,
           view2,
           Seq(
             viewChangeMessage,
@@ -492,7 +488,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val myViewChangeMessage = ViewChange
         .create(
           blockMetaData,
-          segmentIndex,
           view3,
           Seq(commitCertificate),
           myId,
@@ -537,7 +532,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val viewChangeMessage2 = ViewChange
         .create(
           blockMetaData,
-          allIds.indexOf(originalLeader),
           nextView,
           Seq.empty,
           from = myId,
@@ -564,7 +558,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
     "complete view change when serving as the next leader" in {
       val originalLeader = otherId3
-      val originalSegmentIndex = allIds.indexOf(originalLeader)
       val segment = createSegmentState(originalLeader)
 
       val nextView = ViewNumber(ViewNumber.First + 1)
@@ -588,7 +581,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val myViewChangeMessage = ViewChange
         .create(
           blockMetaData,
-          originalSegmentIndex,
           nextView,
           Seq.empty,
           from = myId,
@@ -597,7 +589,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val newViewMessage = NewView
         .create(
           blockMetaData,
-          originalSegmentIndex,
           nextView,
           Seq(
             viewChangeMessage(),
@@ -676,7 +667,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val myViewChangeMessage5 = ViewChange
         .create(
           blockMetaData,
-          allIds.indexOf(originalLeader),
           futureView,
           Seq.empty,
           from = myId,
@@ -715,7 +705,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val myViewChangeMessageEvenFurther = ViewChange
         .create(
           blockMetaData,
-          allIds.indexOf(originalLeader),
           evenFurtherView,
           Seq.empty,
           from = myId,
@@ -737,6 +726,39 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       segment.currentView shouldBe evenFurtherView
       segment.isSegmentComplete shouldBe false
       segment.isBlockComplete(slotNumbers.head1) shouldBe false
+    }
+
+    "reject view change messages outside of the view numbers window" in {
+      val originalLeader = myId
+      val segment = createSegmentState(
+        originalLeader,
+        getViewChangeWindowSize = _ => NonNegativeInt.tryCreate(1),
+      )
+
+      // Discard view change messages outside of the view numbers window while not in view change
+      val view3 = ViewNumber(3L)
+      segment.processEvent(
+        PbftSignedNetworkMessage(
+          createViewChange(view3, from = otherId1, originalLeader, Seq.empty)
+        )
+      )
+      segment.getViewChangeState.get(view3) shouldBe None
+
+      // Enter view change
+      val view1 = ViewNumber(1L)
+      def viewChangeMessage1(from: BftNodeId = otherId1) =
+        createViewChange(view1, from = from, originalLeader, Seq.empty)
+      segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage1())).discard
+      segment.processEvent(PbftSignedNetworkMessage(viewChangeMessage1(from = otherId2))).discard
+      segment.isViewChangeInProgress shouldBe true
+
+      // Discard view change messages outside of the view numbers window during a view change
+      segment.processEvent(
+        PbftSignedNetworkMessage(
+          createViewChange(view3, from = otherId1, originalLeader, Seq.empty)
+        )
+      )
+      segment.getViewChangeState.get(view3) shouldBe None
     }
 
     "replay previously early messages once a view change completes" in {
@@ -761,7 +783,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val newView = createNewView(
         nextView,
         otherId1,
-        originalLeader,
         Seq(
           viewChangeMessage(from = myId),
           viewChangeMessage(from = otherId3),
@@ -868,7 +889,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val viewChangeFromTimeout = ViewChange
         .create(
           blockMetaData,
-          segmentIndex = originalLeaderIndex,
           secondView,
           Seq.empty,
           myId,
@@ -916,7 +936,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val viewChangeFromNewTimeout = ViewChange
         .create(
           blockMetaData,
-          allIds.indexOf(originalLeader),
           thirdView,
           Seq.empty,
           myId,
@@ -952,7 +971,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val newView = createNewView(
         thirdView,
         thirdViewLeader,
-        originalLeader,
         Seq(
           viewChangeMessage(from = myId),
           viewChangeMessage(),
@@ -1138,7 +1156,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
               createNewView(
                 view2,
                 otherId1,
-                originalLeader,
                 Seq(
                   viewChangeMsgForView2(from = myId),
                   viewChangeMsgForView2(from = otherId1),
@@ -1235,7 +1252,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             createNewView(
               view3,
               otherId2,
-              originalLeader,
               Seq(
                 viewChangeMsgForView3(from = myId),
                 viewChangeMsgForView3(from = otherId1),
@@ -1277,7 +1293,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
               createNewView(
                 view2,
                 otherId1,
-                originalLeader,
                 Seq(
                   viewChangeMsgForView2(from = myId),
                   viewChangeMsgForView2(),
@@ -1339,7 +1354,6 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
               createNewView(
                 view2,
                 otherId1,
-                originalLeader,
                 Seq(
                   viewChangeMsgForView2(from = myId),
                   viewChangeMsgForView2(),
@@ -1550,6 +1564,8 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       originalLeader: BftNodeId = myId,
       otherNodes: Seq[BftNodeId] = otherIds,
       completedBlocks: Seq[Block] = Seq.empty,
+      getViewChangeWindowSize: OrderingTopology => NonNegativeInt = _ =>
+        NonNegativeInt.tryCreate(20),
   ) = {
     implicit val config: BftBlockOrdererConfig = BftBlockOrdererConfig()
     val membership = Membership.forTesting(myId, otherNodes.toSet)
@@ -1565,6 +1581,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       abort = fail(_),
       metrics,
       loggerFactory,
+      getViewChangeWindowSize,
     )
   }
 }
@@ -1581,7 +1598,6 @@ object SegmentStateTest {
   val otherId2: BftNodeId = otherIds(1)
   val otherId3: BftNodeId = otherIds(2)
   val allIds: IndexedSeq[BftNodeId] = (myId +: otherIds).sorted
-  val segmentIndex: Int = allIds.indexOf(myId)
   val slotNumbers: NonEmpty[Seq[BlockNumber]] =
     NonEmpty.mk(Seq, BlockNumber.First, 4L, 8L).map(BlockNumber(_))
   val epochInfo: EpochInfo =
@@ -1692,7 +1708,6 @@ object SegmentStateTest {
     ViewChange
       .create(
         blockMetaData,
-        originalLeaderIndex,
         ViewNumber(viewNumber),
         consensusCerts = certs,
         from,
@@ -1713,14 +1728,12 @@ object SegmentStateTest {
   def createNewView(
       viewNumber: Long,
       from: BftNodeId,
-      originalLeader: BftNodeId,
       vcSet: Seq[SignedMessage[ViewChange]],
       ppSet: Seq[SignedMessage[PrePrepare]],
   )(implicit synchronizerProtocolVersion: ProtocolVersion): SignedMessage[NewView] =
     NewView
       .create(
         blockMetaData,
-        segmentIndex = allIds.indexOf(originalLeader),
         viewNumber = ViewNumber(viewNumber),
         viewChanges = vcSet,
         prePrepares = ppSet,
