@@ -642,6 +642,7 @@ scala_library(
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/interpreter",
+        "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//libs-scala/concurrent",
