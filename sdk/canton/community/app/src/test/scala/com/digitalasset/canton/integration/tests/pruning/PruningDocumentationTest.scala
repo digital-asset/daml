@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.pruning
 
 import com.digitalasset.canton.admin.api.client.data.PruningSchedule
 import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
@@ -12,6 +13,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import io.grpc.stub.AbstractStub
 
 /** The PruningDocumentationIntegrationTest illustrates best practices on how to prune the canton
   * nodes for freeing up storage space.
@@ -63,8 +65,31 @@ abstract class PruningDocumentationIntegrationTest
 
       // Prune for one specific day
       set_schedule("0 0 0 31 12 ? 2025", 1.day, retention)
-    // user-manual-entry-end: PruningScheduleExamples
+      // user-manual-entry-end: PruningScheduleExamples
 
+      def testAutomaticPruningFunctions[T <: AbstractStub[T]](
+          pruning: PruningSchedulerAdministration[T]
+      ): Unit = {
+        // user-manual-entry-begin: AutoPruneAllMethods
+        // Set a pruning schedule with a duration and a retention period.
+        pruning.set_schedule("0 0 8 ? * SAT", 8.hours, 90.days)
+
+        // Retrieve the current pruning schedule returning `None` if no schedule is set.
+        val pruningSchedule = pruning.get_schedule()
+
+        // Set individual fields to modify the existing pruning schedule.
+        pruning.set_cron("0 /5 * * * ?")
+        pruning.set_retention(30.days)
+        pruning.set_max_duration(2.hours)
+
+        // Clear the pruning schedule disabling automatic pruning on a specific node.
+        pruning.clear_schedule()
+        // user-manual-entry-end: AutoPruneAllMethods
+
+        pruningSchedule.discard
+      }
+
+      testAutomaticPruningFunctions(participant1.pruning)
   }
 
   "test that ensures the 3.x participant documentation is up to date with how to configure scheduled pruning" in {
@@ -75,17 +100,15 @@ abstract class PruningDocumentationIntegrationTest
 
       val _ = participant
 
-      @scala.annotation.unused
-      def checkCompiles(): Unit =
-        // user-manual-entry-begin: AutoPruneParticipantNode
-        participant.pruning.set_participant_schedule(
-          cron = "0 0 8 ? * SAT",
-          maxDuration = 8.hours,
-          retention = 90.days,
-          pruneInternallyOnly = false,
-        )
-    // user-manual-entry-end: AutoPruneParticipantNode
-
+      // user-manual-entry-begin: AutoPruneParticipantNode
+      participant.pruning.set_participant_schedule(
+        cron = "0 0 8 ? * SAT",
+        maxDuration = 8.hours,
+        retention = 90.days,
+        pruneInternallyOnly = false,
+      )
+      // user-manual-entry-end: AutoPruneParticipantNode
+      participant.pruning.clear_schedule()
   }
 }
 
