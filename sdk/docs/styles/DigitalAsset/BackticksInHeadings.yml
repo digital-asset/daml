@@ -1,0 +1,11 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+extends: existence
+message: "Avoid using backticks for code formatting in headings."
+nonword: true
+level: error
+scope: heading
+ignorecase: true
+tokens:
+  - '`'
