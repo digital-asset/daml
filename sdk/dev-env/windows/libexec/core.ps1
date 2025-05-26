@@ -169,8 +169,13 @@ function da_install_all([String] $Directory) {
 }
 
 function da_reset_app([String] $app) {
+    da_info "[da_reset_app] > scoop reset $app"
     $out = (scoop reset $app *>&1)
+    da_info "[da_reset_app] $out"
+    da_info "[da_reset_app] $out -join rn | Out-String"
     $out = $out -join "`r`n" | Out-String
+    da_info "[da_reset_app] $out"
+
 
     $resettingFound = $out -like "*Resetting*"
     $errorFound = $out -like "*ERROR*"
