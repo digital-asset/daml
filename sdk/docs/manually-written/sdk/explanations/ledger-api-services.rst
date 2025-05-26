@@ -68,18 +68,18 @@ Each intended ledger change is identified by its **change ID**, consisting of th
 
 - The submitting parties, i.e., the union of :brokenref:`party <com.daml.ledger.api.v1.Commands.party>` and :brokenref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`
 - the :brokenref:`application ID <com.daml.ledger.api.v1.Commands.application_id>`
-- The :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`
+- The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`
 
 Application-specific IDs
 ------------------------
 
 The following application-specific IDs, all of which are included in completion events, can be set in commands:
 
-- A :brokenref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
-- A :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
-- A :brokenref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
+- A :subsiteref:`submission ID <com.daml.ledger.api.v2.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
+- A :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
+- A :subsiteref:`workflow ID <com.daml.ledger.api.v2.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandSubmissionService>`.
 
 .. _command-submission-service-deduplication:
 
@@ -111,9 +111,9 @@ Command Completion Service
 
 Use the **command completion service** to find out the completion status of commands you have submitted.
 
-Completions contain the :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
+Completions contain the :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandCompletionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandCompletionService>`.
 
 .. _command-service:
 
@@ -124,7 +124,7 @@ Use the **command service** when you want to submit a command and wait for it to
 
 You can use either the command or command submission services to submit commands to effect a ledger change. The command service is useful for simple applications, as it handles a basic form of coordination between command submission and completion, correlating submissions with completions, and returning a success or failure status. This allow simple applications to be completely stateless, and alleviates the need for them to track command submissions.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandService>`.
 
 Read From the Ledger
 ********************
@@ -166,13 +166,13 @@ You can get these included in requests related to Transactions by setting the ``
 
 Transaction Filter
 ------------------
-``TransactionService`` offers transaction subscriptions filtered by templates and interfaces using ``GetTransactions`` calls. A :brokenref:`transaction filter <com.daml.ledger.api.v1.TransactionFilter>` in ``GetTransactionsRequest`` allows:
+``TransactionService`` offers transaction subscriptions filtered by templates and interfaces using ``GetTransactions`` calls. A :subsiteref:`transaction filter <com.daml.ledger.api.v2.TransactionFilter>` in ``GetTransactionsRequest`` allows:
 
 - filtering by a party, when the :brokenref:`inclusive <com.daml.ledger.api.v1.Filters.inclusive>` field is left empty
 - filtering by a party and :brokenref:`template ID <com.daml.ledger.api.v1.InclusiveFilters.template_filters>`
 - filtering by a party and :brokenref:`interface ID <com.daml.ledger.api.v1.InclusiveFilters.interface_filters>`
-- exposing an interface view, when the :brokenref:`include_interface_view <com.daml.ledger.api.v1.InterfaceFilter.include_interface_view>` is set to ``true``
-- exposing a created event blob to be used for a disclosed contract in command submission when ``include_created_event_blob`` is set to ``true`` in either :brokenref:`TemplateFilter <com.daml.ledger.api.v1.TemplateFilter>` or :brokenref:`InterfaceFilter <com.daml.ledger.api.v1.InterfaceFilter>`
+- exposing an interface view, when the :subsiteref:`include_interface_view <com.daml.ledger.api.v2.InterfaceFilter.include_interface_view>` is set to ``true``
+- exposing a created event blob to be used for a disclosed contract in command submission when ``include_created_event_blob`` is set to ``true`` in either :subsiteref:`TemplateFilter <com.daml.ledger.api.v2.TemplateFilter>` or :subsiteref:`InterfaceFilter <com.daml.ledger.api.v2.InterfaceFilter>`
 
 .. note::
 
@@ -232,7 +232,7 @@ If no events match the request criteria or the requested events are not visible 
 
   When querying by contract key, the key value must be structured in the same way as the key returned in the create event.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.EventQueryService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.EventQueryService>`.
 
 .. _ledger-api-utility-services:
 
@@ -250,7 +250,7 @@ Parties govern on-ledger access control as per :externalref:`Daml's privacy mode
 and :externalref:`authorization rules <da-ledgers-authorization-rules>`.
 Applications and their operators are expected to allocate and use parties to manage on-ledger access control as per their business requirements.
 
-For more information, refer to the pages on :brokenref:`Identity Management</concepts/identity-and-package-management>` and :brokenref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+For more information, refer to the pages on :brokenref:`Identity Management</concepts/identity-and-package-management>` and :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.PartyManagementService>`.
 
 .. _user-management-service:
 
@@ -265,8 +265,8 @@ Daml 2.0 introduced the concept of the user in Daml. While a party represents a 
 
 The relation between a participant node's users and Daml parties is best understood by analogy to classical databases: a participant node's users are analogous to database users while Daml parties are analogous to database roles. Further, the rights granted to a user are analogous to the user's assigned database roles.
 
-For more information, consult the :brokenref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, update, and delete users and their rights.
-See the :brokenref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about the limits of the user management service, e.g., the maximum number of rights per user.
+For more information, consult the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.UserManagementService>` for how to list, create, update, and delete users and their rights.
+See the :subsiteref:`UserManagementFeature descriptor <com.daml.ledger.api.v2.UserManagementFeature>` to learn about the limits of the user management service, e.g., the maximum number of rights per user.
 The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
 
 With user management enabled you can use both new user-based and old custom Daml authorization tokens.
@@ -286,7 +286,7 @@ The **identity provider config service** makes it possible for participant node 
 
 Such parties and users have a matching identity_provider_id defined and are inaccessible to administrators from other identity providers. A user will only be authenticated if the corresponding JWT token is issued by the appropriate identity provider. Users and parties without identity_provider_id defined are assumed to be using the default identity provider, which is configured statically when the participant node is deployed.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.IdentityProviderConfigService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.admin.IdentityProviderConfigService>`.
 
 .. _package-service:
 
@@ -297,7 +297,7 @@ Use the **package service** to obtain information about Daml packages available 
 
 This is useful for obtaining type and metadata information that allow you to interpret event data in a more useful way.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.PackageService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.PackageService>`.
 
 .. _ledger-identity-service:
 
@@ -329,7 +329,7 @@ Version Service
 
 Use the **version service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.VersionService>`.
 
 .. _pruning-service:
 
@@ -338,7 +338,7 @@ Pruning Service
 
 Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.admin.ParticipantPruningService>`.
 
 .. _metering-report-service:
 
@@ -363,4 +363,4 @@ Time Service
 
 Use the **time service** to obtain the time as known by the ledger server.
 
-For full details, see :brokenref:`the proto documentation for the service <com.daml.ledger.api.v1.testing.TimeService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.testing.TimeService>`.
