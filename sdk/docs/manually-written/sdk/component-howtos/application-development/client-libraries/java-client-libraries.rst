@@ -3,12 +3,16 @@
 Java client libraries
 =====================
 
-The Java client libraries offer a client implementation of the Ledger API
-based on `RxJava <https://github.com/ReactiveX/RxJava>`_, a library for composing asynchronous and event-based programs
-using observable sequences for the Java VM. They also provide an idiomatic way to write Canton Network applications in
-Java that simplifies interacting with the Ledger API.
+.. TODO: fix link to gRPC Ledger API reference
 
-The two Java client libraries work on two different layers:
+The Java client libraries simplify using the gRPC Ledger API (:brokenref:`gRPC Ledger API reference <component-howtos-application-development-ledger-api>`).
+Read :ref:`How to work with contracts and transactions in Java <howto-applications-work-with-contracts-java>` for
+guidance on how to use them. Read below to learn about their code architecture, installation, and reference materials.
+
+Overview
+--------
+
+The Java client libraries are organized in two layers:
 
 .. _component-howtos-application-development-java-client-libraries-bindings-java:
 
@@ -25,7 +29,9 @@ The two Java client libraries work on two different layers:
 .. _component-howtos-application-development-java-client-libraries-bindings-rxjava:
 
 - The reactive layer (``bindings-rxjava``):
-    A thin layer built on top of the Ledger API services generated classes.
+    A thin layer built on top of the Ledger API services generated classes. It offers a client implementation of the
+    gRPC Ledger API based on `RxJava <https://github.com/ReactiveX/RxJava>`_, a library for composing asynchronous and
+    event-based programs using observable sequences for the Java VM.
 
     For each Ledger API service, there is a reactive counterpart with a matching name. For instance, the reactive
     counterpart of ``StateServiceGrpc`` is ``StateClient``.
@@ -36,10 +42,16 @@ The two Java client libraries work on two different layers:
 
     This layer is implemented in the Java package ``com.daml.ledger.rxjava``.
 
-Look at :ref:`How to work with contracts and transactions in Java <howto-applications-work-with-contracts-java>` for
-details on how to use both libraries to write Canton Network applications in Java.
+Install
+-------
+
+Find the available versions of the Java client libraries in the Maven Central Repository:
+
+- `bindings-java <https://search.maven.org/artifact/com.daml/bindings-java>`_
+- `bindings-rxjava <https://search.maven.org/artifact/com.daml/bindings-rxjava>`_
+
 
 References
 -------------
 
-See the :brokenref:`JavaDoc reference documentation <javadocs/index.html>`.
+See the `JavaDoc reference documentation <javadocs/index.html>`_.
