@@ -57,8 +57,8 @@ The Daml ledger verifies:
    :alt: A flowchart illustrating the process of authentication described in the two paragraphs immediately above.
 
 How you attach tokens to requests depends on the tool or library you use to interact with the Ledger API.
-See the tool's or library's documentation for more information. (E.g. relevant documentation for
-the :ref:`Java bindings <ledger-api-java-bindings-authorization>`
+See the tool's or library's documentation for more information. (E.g. relevant documentation to
+:ref:`access the Ledger API via gRPC using Java bindings <howto-applications-work-with-contracts-java-authorization>`
 and the :externalref:`JSON API <json-api-access-tokens>`.)
 
 

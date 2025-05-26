@@ -3,6 +3,8 @@
 
 .. _java-bindings:
 
+.. TODO: remove this file when it is no longer referenced from the docs-website
+
 Java Bindings
 #############
 
@@ -49,7 +51,7 @@ When writing applications for the ledger in Java, you want to work with a repres
 
 To achieve this, you can use Daml to Java code generator ("Java codegen") to generate Java types based on a Daml model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
-For more information on Java code generation, see :ref:`daml-codegen-java`.
+For more information on Java code generation, see :ref:`component-howtos-application-development-daml-codegen-java`.
 
 Connect to the Ledger: ``LedgerClient``
 =======================================

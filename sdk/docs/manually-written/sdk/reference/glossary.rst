@@ -397,7 +397,7 @@ The following libraries wrap the `ledger API <#ledger-api>`__ for more native ex
 Java Bindings
 -------------
 
-An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`java-bindings`.
+An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`component-howtos-application-development-java-client-libraries`.
 
 Python Bindings
 ---------------
