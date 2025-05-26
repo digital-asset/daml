@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencer.admin.v30.*
@@ -30,7 +31,7 @@ final class BftOrderingSequencerAdminService(
     createBoolPromise: () => Promise[Boolean] = () => Promise(),
     createNetworkStatusPromise: () => Promise[PeerNetworkStatus] = () => Promise(),
     createOrderingTopologyPromise: () => Promise[(EpochNumber, Set[BftNodeId])] = () => Promise(),
-)(implicit ec: ExecutionContext)
+)(implicit executionContext: ExecutionContext, metricsContext: MetricsContext)
     extends SequencerBftAdministrationService
     with NamedLogging {
 

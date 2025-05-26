@@ -9,10 +9,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.*
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
+  EpochStore,
+  Genesis,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.StateTransferType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
@@ -38,7 +42,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.BlockStored
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
-  PbftNetworkMessage,
   PrePrepare,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
@@ -46,10 +49,10 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.IssConsensusModuleTest.myId
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
-import scala.collection.mutable
 import scala.util.Random
 
 class StateTransferBehaviorTest
@@ -286,7 +289,7 @@ class StateTransferBehaviorTest
                     None, // snapshotAdditionalInfo
                     `aTopologyInfo`,
                     futurePbftMessageQueue,
-                    Seq(), // queuedConsensusMessages
+                    Some(Seq()), // queuedConsensusMessages
                   )
                 ) if futurePbftMessageQueue.isEmpty =>
               // A successful check below means that the new epoch topology message has been resent
@@ -349,11 +352,25 @@ class StateTransferBehaviorTest
     }
 
     "receiving a new epoch stored message" should {
-      "set the epoch state and start state-transferring the epoch" in {
+      "set the epoch state, clean up the postponed message queue, and start state-transferring the epoch" in {
         val stateTransferManagerMock = mock[StateTransferManager[ProgrammableUnitTestEnv]]
         val (context, stateTransferBehavior) =
           createStateTransferBehavior(maybeStateTransferManager = Some(stateTransferManagerMock))
         implicit val ctx: ContextType = context
+
+        val underlyingMessage = mock[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+        when(underlyingMessage.blockMetadata).thenReturn(
+          BlockMetadata(
+            EpochNumber(anEpochInfo.number - 1L), // outdated message
+            BlockNumber.First,
+          )
+        )
+        val signedMessage = underlyingMessage.fakeSign
+        stateTransferBehavior.postponedConsensusMessages
+          .enqueue(
+            otherId,
+            Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(otherId, signedMessage),
+          )
 
         stateTransferBehavior.receive(
           Consensus.NewEpochStored(
@@ -375,6 +392,8 @@ class StateTransferBehaviorTest
               ) =>
         }
 
+        stateTransferBehavior.postponedConsensusMessages.dump shouldBe empty
+
         verify(stateTransferManagerMock, times(1)).stateTransferNewEpoch(
           eqTo(anEpochInfo.number),
           eqTo(aMembership),
@@ -386,8 +405,28 @@ class StateTransferBehaviorTest
     }
   }
 
+  "receiving a 'GetOrderingTopology' message" should {
+    "return the ordering topology" in {
+      val (context, stateTransferBehavior) = createStateTransferBehavior()
+      implicit val ctx: ContextType = context
+
+      val callbackCell = new SingleUseCell[(EpochNumber, Set[BftNodeId])]
+      def callback(epochNumber: EpochNumber, nodes: Set[BftNodeId]): Unit =
+        callbackCell.putIfAbsent(epochNumber -> nodes)
+
+      stateTransferBehavior.receive(Consensus.Admin.GetOrderingTopology(callback))
+
+      callbackCell.get shouldBe
+        Some(Genesis.GenesisEpochNumber -> aMembership.orderingTopology.nodes)
+    }
+  }
+
   private def createStateTransferBehavior(
-      pbftMessageQueue: mutable.Queue[SignedMessage[PbftNetworkMessage]] = mutable.Queue.empty,
+      pbftMessageQueue: FairBoundedQueue[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
+        new FairBoundedQueue(
+          BftBlockOrdererConfig.DefaultConsensusQueueMaxSize,
+          BftBlockOrdererConfig.DefaultConsensusQueuePerNodeQuota,
+        ),
       availabilityModuleRef: ModuleRef[Availability.Message[ProgrammableUnitTestEnv]] =
         fakeModuleExpectingSilence,
       outputModuleRef: ModuleRef[Output.Message[ProgrammableUnitTestEnv]] =
@@ -508,8 +547,9 @@ object StateTransferBehaviorTest {
     TestEpochLength,
     TopologyActivationTime(CantonTimestamp.Epoch),
   )
+  private val otherId: BftNodeId = BftNodeId("other")
   private val aMembership =
-    Membership.forTesting(myId, otherNodes = Set(BftNodeId("other")))
+    Membership.forTesting(myId, otherNodes = Set(otherId))
   private val anEpoch = EpochState.Epoch(
     anEpochInfo,
     currentMembership = aMembership,

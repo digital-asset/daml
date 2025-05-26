@@ -81,10 +81,10 @@ sealed abstract class MaxRequestSizeCrashTest
 
   final private def stop(implicit env: TestConsoleEnvironment): Unit = {
     import env.*
-    // user-manual-entry-begin: StopDistributedCanton user-manual-entry-begin: StopNonDistributedCanton
+    // user-manual-entry-begin: StopCanton
     participants.all.synchronizers.disconnect(daName)
     nodes.local.stop()
-    // user-manual-entry-end: StopDistributedCanton user-manual-entry-end: StopNonDistributedCanton
+    // user-manual-entry-end: StopCanton
   }
 
   final private def restart(implicit env: TestConsoleEnvironment): Unit = {

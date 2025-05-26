@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver
 
 import cats.syntax.traverse.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{
   SigningPublicKey,
   SynchronizerCryptoClient,
@@ -12,6 +13,9 @@ import com.digitalasset.canton.crypto.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
+import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.CantonCryptoProvider.BftOrderingSigningKeyUsage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.{
   CryptoProvider,
@@ -29,7 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoFutureUnlessShutdown,
 }
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.processing.SequencedTime
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -38,6 +42,7 @@ import scala.concurrent.ExecutionContext
 private[driver] final class CantonOrderingTopologyProvider(
     cryptoApi: SynchronizerCryptoClient,
     override val loggerFactory: NamedLoggerFactory,
+    metrics: BftOrderingMetrics,
 )(implicit
     ec: ExecutionContext
 ) extends OrderingTopologyProvider[PekkoEnv]
@@ -113,6 +118,12 @@ private[driver] final class CantonOrderingTopologyProvider(
         s"Sequencer \"first known at\" timestamps queried successfully on snapshot at $snapshotTimestamp: $maybeSequencersFirstKnownAt"
       )
 
+      maxRequestSize <- getMaxRequestSize(snapshot)
+      _ = logger.debug(
+        "Max request time obtained from dynamic synchronizer parameters " +
+          s"queried successfully on snapshot at $snapshotTimestamp: $maxRequestSize"
+      )
+
       sequencingDynamicParameters <- getDynamicSequencingParameters(snapshot.ipsSnapshot)
       _ = logger.debug(
         s"Dynamic sequencing parameters queried successfully on snapshot at $snapshotTimestamp: $sequencingDynamicParameters"
@@ -138,12 +149,13 @@ private[driver] final class CantonOrderingTopologyProvider(
         OrderingTopology(
           nodesTopologyInfo,
           sequencingDynamicParameters,
+          MaxRequestSizeToDeserialize.Limit(maxRequestSize),
           activationTime,
           areTherePendingCantonTopologyChanges = maxTimestamp.exists { case (_, maxEffectiveTime) =>
             TopologyActivationTime.fromEffectiveTime(maxEffectiveTime).value > activationTime.value
           },
         )
-      topology -> new CantonCryptoProvider(snapshot)
+      topology -> new CantonCryptoProvider(snapshot, metrics)
     }
     PekkoFutureUnlessShutdown(
       s"get ordering topology at activation time $activationTime",
@@ -151,10 +163,31 @@ private[driver] final class CantonOrderingTopologyProvider(
     )
   }
 
+  private def getMaxRequestSize(
+      snapshot: SynchronizerSnapshotSyncCryptoApi
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[NonNegativeInt] =
+    for {
+      maybeMaxRequestSize <- snapshot.ipsSnapshot
+        .findDynamicSynchronizerParameters()
+        .map(_.map(_.parameters.maxRequestSize))
+    } yield maybeMaxRequestSize.fold(
+      error => {
+        val defaultSize = DynamicSynchronizerParameters.defaultMaxRequestSize.value
+        logger.debug(
+          s"Max request size could not be retrieved from topology snapshot at ${snapshot.ipsSnapshot.timestamp} (error: $error)," +
+            s"using default ($defaultSize)"
+        )
+        defaultSize
+      },
+      _.value,
+    )
+
   private def computeFirstKnownAtTimestamps(
       sequencers: Seq[SequencerId],
       snapshot: SynchronizerSnapshotSyncCryptoApi,
-  )(implicit traceContext: TraceContext) =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, Option[(SequencedTime, EffectiveTime)]]] =
     sequencers
       .map { sequencerId =>
         snapshot.ipsSnapshot.memberFirstKnownAt(sequencerId).map(sequencerId -> _)
@@ -167,7 +200,7 @@ private[driver] final class CantonOrderingTopologyProvider(
 
   private def getDynamicSequencingParameters(
       snapshot: TopologySnapshot
-  )(implicit traceContext: TraceContext) =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[SequencingParameters] =
     for {
       parametersE <- snapshot.findDynamicSequencingParameters()
       parametersO = parametersE.toOption

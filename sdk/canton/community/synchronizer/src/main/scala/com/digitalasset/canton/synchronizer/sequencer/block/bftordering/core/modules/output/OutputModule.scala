@@ -8,11 +8,15 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.sequencing.protocol.AllMembersOfSynchronizer
+import com.digitalasset.canton.sequencing.protocol.{
+  AllMembersOfSynchronizer,
+  MaxRequestSizeToDeserialize,
+}
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.synchronizer.block.LedgerBlockEvent.deserializeSignedOrderingRequest
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.{
   DefaultDatabaseReadTimeout,
@@ -102,8 +106,11 @@ class OutputModule[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     requestInspector: RequestInspector = DefaultRequestInspector, // For testing
-)(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
-    extends Output[E]
+)(implicit
+    override val config: BftBlockOrdererConfig,
+    synchronizerProtocolVersion: ProtocolVersion,
+    mc: MetricsContext,
+) extends Output[E]
     with HasDelayedInit[Message[E]] {
 
   private val thisNode = startupState.thisNode
@@ -595,6 +602,7 @@ class OutputModule[E <: Env[E]](
       case tracedOrderingRequest @ Traced(orderingRequest) =>
         requestInspector.isRequestToAllMembersOfSynchronizer(
           orderingRequest,
+          currentEpochOrderingTopology.maxRequestSizeToDeserialize,
           logger,
           tracedOrderingRequest.traceContext,
         )
@@ -776,6 +784,7 @@ object OutputModule {
 
     def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
+        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
         logger: TracedLogger,
         traceContext: TraceContext,
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean
@@ -785,11 +794,15 @@ object OutputModule {
 
     override def isRequestToAllMembersOfSynchronizer(
         request: OrderingRequest,
+        maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
         logger: TracedLogger,
         traceContext: TraceContext,
     )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean =
-      // TODO(#21615) we should avoid a further deserialization downstream
-      deserializeSignedOrderingRequest(synchronizerProtocolVersion)(request.payload) match {
+      // TODO(#21615) we should avoid a further deserialization downstream, which would also eliminate
+      //  a zip bomb vulnerability in the BUG that could be triggered by byzantine sequencers (#10428)
+      deserializeSignedOrderingRequest(synchronizerProtocolVersion, maxRequestSizeToDeserialize)(
+        request.payload
+      ) match {
         case Right(signedSubmissionRequest) =>
           signedSubmissionRequest.content.content.content.batch.allRecipients
             .contains(AllMembersOfSynchronizer)

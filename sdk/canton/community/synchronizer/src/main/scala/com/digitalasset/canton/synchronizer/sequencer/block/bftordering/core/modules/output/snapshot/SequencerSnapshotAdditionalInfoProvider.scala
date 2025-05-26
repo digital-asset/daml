@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.snapshot
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
@@ -33,7 +34,8 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
     outputMetadataStore: OutputMetadataStore[E],
     epochStoreReader: EpochStoreReader[E],
     override val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit metricsContext: MetricsContext)
+    extends NamedLogging {
 
   def provide(
       snapshotTimestamp: CantonTimestamp,

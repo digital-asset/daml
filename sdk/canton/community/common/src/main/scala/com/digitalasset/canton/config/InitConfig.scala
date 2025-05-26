@@ -41,7 +41,6 @@ object InitConfigBase {
       override val identifierName: Option[String] = None
     }
   }
-
 }
 
 /** Control how the identity of the node is determined.

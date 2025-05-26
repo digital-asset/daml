@@ -111,7 +111,7 @@ class StoreBackedCommandInterpreterSpec
 
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
-    submissionTime = Time.Timestamp.now(),
+    preparationTime = Time.Timestamp.now(),
     usedPackages = Set.empty,
     timeBoundaries = Time.Range.unconstrained,
     nodeSeeds = ImmArray.Empty,

@@ -47,7 +47,7 @@ import com.digitalasset.canton.tracing.{
   Traced,
 }
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.{EitherTUtil, RateLimiter}
+import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, RateLimiter}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
 import com.google.common.annotations.VisibleForTesting
@@ -55,6 +55,7 @@ import io.grpc.Status
 import io.grpc.stub.{ServerCallStreamObserver, StreamObserver}
 import org.apache.pekko.stream.Materializer
 
+import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
@@ -444,11 +445,12 @@ class GrpcSequencerService(
   ): Unit = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     withServerCallStreamObserver(responseObserver) { observer =>
-      val result = for {
-        subscriptionRequest <- SubscriptionRequestV2
-          .fromProtoV30(request)
-          .left
-          .map(err => invalidRequest(err.toString))
+      val resultE = for {
+        subscriptionRequest <-
+          SubscriptionRequestV2
+            .fromProtoV30(request)
+            .left
+            .map(err => invalidRequest(err.toString))
         SubscriptionRequestV2(member, timestamp) = subscriptionRequest
         _ = logger.debug(
           s"Received subscription request from $member for timestamp (inclusive) $timestamp"
@@ -459,8 +461,20 @@ class GrpcSequencerService(
           Status.UNAVAILABLE.withDescription("Sequencer is being shutdown."),
         )
         _ <- checkSubscriptionMemberPermission(member)
-        authenticationTokenO = IdentityContextHelper.getCurrentStoredAuthenticationToken
-        _ <- subscriptionPool
+      } yield (member, timestamp, IdentityContextHelper.getCurrentStoredAuthenticationToken)
+
+      // Note: we cannot assign the "cancel" handler during the async subscription creation,
+      // see the doc for `setOnCancelHandler`.
+      // Instead, we close the subscription should it have already been created.
+      val subscriptionReference = new AtomicReference[Option[GrpcManagedSubscription[_]]](None)
+      observer.setOnCancelHandler(() => subscriptionReference.get().foreach(_.close()))
+
+      // Note: we do the first part of the subscription creation above in the same thread,
+      // so that we can use the GRPC interceptor injected context to grab the authentication token.
+      val resultF = for {
+        result <- EitherT.fromEither[Future](resultE)
+        (member, timestamp, authenticationTokenO) = result
+        subscription <- subscriptionPool
           .create(
             () =>
               createSubscriptionV2[T](
@@ -475,8 +489,13 @@ class GrpcSequencerService(
           .leftMap { case SubscriptionPool.PoolClosed =>
             Status.UNAVAILABLE.withDescription("Subscription pool is closed.")
           }
-      } yield ()
-      result.fold(err => responseObserver.onError(err.asException()), identity)
+      } yield {
+        subscriptionReference.set(Some(subscription))
+      }
+      FutureUtil.doNotAwait(
+        resultF.fold(err => responseObserver.onError(err.asException()), identity),
+        failureMessage = s"Failed to establish subscription for ${request.member}",
+      )
     }
   }
 
@@ -552,10 +571,12 @@ class GrpcSequencerService(
       timestamp: Option[CantonTimestamp],
       observer: ServerCallStreamObserver[T],
       toSubscriptionResponse: SequencedSerializedEvent => T,
-  )(implicit traceContext: TraceContext): GrpcManagedSubscription[T] = {
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[GrpcManagedSubscription[T]] = {
 
     logger.info(s"$member subscribes from timestamp=$timestamp")
-    new GrpcManagedSubscription(
+    val subscription = new GrpcManagedSubscription(
       handler => directSequencerSubscriptionFactory.createV2(timestamp, member, handler),
       observer,
       member,
@@ -564,6 +585,7 @@ class GrpcSequencerService(
       loggerFactory,
       toSubscriptionResponse,
     )
+    subscription.initialize().map(_ => subscription)
   }
 
   /** Ensure observer is a ServerCalLStreamObserver

@@ -95,4 +95,12 @@ trait TrafficConsumedStore extends AutoCloseable {
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[String]
+
+  /** Deletes all traffic consumed entries that greater than the provided timestamp (exclusive). To
+    * be used by the crash recovery to reset the traffic consumed store to a state at watermark,
+    * right before the beginning of the block from which the sequencer will start rehydrating.
+    */
+  def deleteRecordsPastTimestamp(
+      timestampExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
