@@ -27,25 +27,14 @@ jobs:
         eval "$(./dev-env/bin/dade-assist)"
         source $(bash-lib)
 
-        error_handler() {
-          local exit_code="$1"
-          local line_number="$2"
-          local command="$3"
-          echo "Error: Command '$command' on line $line_number exited with status $exit_code" >&2
-        }
-        trap 'error_handler $? $LINENO "$BASH_COMMAND"' ERR
-
         prefix=$(git show ${{ parameters.commit }}:sdk/NIGHTLY_PREFIX)
         if [ "${{ parameters.version }}" = "snapshot" ]; then
-            release=$(./release.sh snapshot ${{ parameters.commit }} $prefix | awk '{print $2}')
+            release=$(./release.sh snapshot ${{ parameters.commit }} $prefix 2>/dev/null | awk '{print $2}')
         else
             release=${{ parameters.version }}
         fi
 
         ERR=$(mktemp)
-        ip a
-        ping -c 10 google.com
-        ping -c 10 digitalasset.jfrog.io
         OUT=$(curl https://digitalasset.jfrog.io/artifactory/api/storage/assembly/daml/$release \
                    -u $AUTH \
                    -I \

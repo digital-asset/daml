@@ -220,21 +220,21 @@ case $1 in
             sha="$(git rev-parse "$commit")"
             case $(check_new_version_and_commit "$version" "$commit") in
               exact)
-                echo "add the following line to LATEST in order to preserve semver ordering:"
+                >&2 echo "add the following line to LATEST in order to preserve semver ordering:"
                 make_snapshot snapshot $sha "$version"
-                echo "and commit with the following (2 lines) message:"
-                echo "$branch_name Snapshot"
-                echo "Create a snapshot for [$branch_name](https://github.com/digital-asset/daml/commits/$branch_name/) at commit $sha"
+                >&2 echo "and commit with the following (2 lines) message:"
+                >&2 echo "$branch_name Snapshot"
+                >&2 echo "Create a snapshot for [$branch_name](https://github.com/digital-asset/daml/commits/$branch_name/) at commit $sha"
                 ;;
               adhoc)
-                echo "add the following line to LATEST in order to preserve semver ordering:"
+                >&2 echo "add the following line to LATEST in order to preserve semver ordering:"
                 make_snapshot adhoc $sha "$version"
-                echo "WARNING: The expected release branch for version $version is '$target_branch', but commit $commit is not on any release branch. Generating an adhoc release name..." >&2
-                echo "and commit with the following message:"
-                echo "$branch_name adhoc Snapshot"
+                >&2 echo "WARNING: The expected release branch for version $version is '$target_branch', but commit $commit is not on any release branch. Generating an adhoc release name..." >&2
+                >&2 echo "and commit with the following message:"
+                >&2 echo "$branch_name adhoc Snapshot"
                 ;;
               failure)
-                echo "ERROR: The expected release branch for version $version is '$target_branch', but commit $commit belongs to a different release branch: $(find_release_branches_for_commit "$commit" | tr '\n' ' ')" >&2
+                >&2 echo "ERROR: The expected release branch for version $version is '$target_branch', but commit $commit belongs to a different release branch: $(find_release_branches_for_commit "$commit" | tr '\n' ' ')" >&2
                 exit 1
                 ;;
             esac
