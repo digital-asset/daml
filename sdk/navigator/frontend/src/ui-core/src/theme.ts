@@ -230,7 +230,8 @@ export const hardcodedStyle = {
 // files. Some others didn't.
 
 const typed: styled.ThemedStyledComponentsModule<ThemeInterface> =
-  styled as styled.ThemedStyledComponentsModule<ThemeInterface>;
+  // There is no types package for 5.3.x, this coercion is a symptom of outdated types
+  styled as any as styled.ThemedStyledComponentsModule<ThemeInterface>;
 
 export const {
   css,
