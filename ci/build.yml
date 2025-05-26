@@ -34,6 +34,13 @@ jobs:
   steps:
     - bash: |
         set -euo pipefail
+        ci/create-dotnetrc.sh
+      displayName: 'Create .netrc file'
+      condition: succeeded()
+      env:
+        GITHUB_TOKEN: $(GH_DAML_READONLY)
+    - bash: |
+        set -euo pipefail
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/verify-docs-synchronized.sh
