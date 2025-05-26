@@ -1,4 +1,4 @@
-.. _daml-codegen-java:
+.. _component-howtos-application-development-daml-codegen-java:
 
 Daml Codegen for Java
 =====================
@@ -85,12 +85,12 @@ or using command line configuration with::
 References
 ----------
 
-.. _daml-codegen-java-generated-code:
+.. _component-howtos-application-development-daml-codegen-java-generated-code:
 
 Generated Java code
 ^^^^^^^^^^^^^^^^^^^
 
-.. _daml-codegen-java-primitive-types:
+.. _component-howtos-application-development-daml-codegen-java-primitive-types:
 
 Daml primitives to Java types
 """""""""""""""""""""""""""""
@@ -138,7 +138,7 @@ Escaping rules
 
 To avoid clashes with Java keywords, the Daml Codegen applies escaping rules to the following Daml identifiers:
 
-* Type names (except the already mapped :ref:`built-in types <daml-codegen-java-primitive-types>`)
+* Type names (except the already mapped :ref:`built-in types <component-howtos-application-development-daml-codegen-java-primitive-types>`)
 * Constructor names
 * Type parameters
 * Module names
@@ -208,7 +208,7 @@ A Java file that defines the class for the type ``Name`` is generated:
     public DamlRecord toValue() { /* ... */ }
   }
 
-.. _daml-codegen-java-templates:
+.. _component-howtos-application-development-daml-codegen-java-templates:
 
 Templates
 ~~~~~~~~~
@@ -463,7 +463,7 @@ Below is a Java fragment that converts an attribute with a ``java.lang.Long`` va
 
   Value serializedPages = pagesAttribute.toValue(Int64::new);
 
-See :ref:`Daml To Java Type Mapping <daml-codegen-java-primitive-types>` for an overview of the Java Bindings `Value`_ types.
+See :ref:`Daml To Java Type Mapping <component-howtos-application-development-daml-codegen-java-primitive-types>` for an overview of the Java Bindings `Value`_ types.
 
 .. note::
 
