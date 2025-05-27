@@ -17,6 +17,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.tracing.TraceContext
 
+import java.time.Instant
+
 import MempoolModuleMetrics.{emitRequestStats, emitStateStats}
 
 /** Simple, non-crash-fault-tolerant in-memory mempool implementation.
@@ -129,10 +131,21 @@ class MempoolModule[E <: Env[E]](
       messageType: String
   )(implicit context: E#ActorContextT[Mempool.Message]): Unit = {
     val requests = dequeueN(mempoolState.receivedOrderRequests, config.maxRequestsInBatch).map(_.tx)
+    val batchCreationInstant = Instant.now
     context.withNewTraceContext { implicit traceContext =>
       logger.debug(
         s"$messageType: mempool sending batch to local availability with the following tids ${requests
             .flatMap(_.traceContext.traceId)}"
+      )
+      import metrics.performance.orderingStageLatency.*
+      requests.foreach(
+        _.value.orderingStartInstant.foreach(
+          emitOrderingStageLatency(
+            labels.stage.values.mempool.RequestQueuedForBatchInclusion,
+            _,
+            batchCreationInstant,
+          )
+        )
       )
       availability.asyncSendTraced(Availability.LocalDissemination.LocalBatchCreated(requests))
     }

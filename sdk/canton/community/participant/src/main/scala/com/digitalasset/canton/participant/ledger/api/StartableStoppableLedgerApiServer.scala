@@ -24,6 +24,7 @@ import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.http.HttpApiServer
+import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -56,6 +57,7 @@ import com.digitalasset.canton.platform.config.{
   IndexServiceConfig,
 }
 import com.digitalasset.canton.platform.index.IndexServiceOwner
+import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.{PackagePreferenceBackend, ResourceOwnerOps}
@@ -310,13 +312,18 @@ class StartableStoppableLedgerApiServer(
       // contract IDs of the transaction yet. This means enrichment of the transaction may fail
       // when processing unsuffixed contract IDs. For that reason we disable this requirement via the flag below.
       // When CIDs are suffixed, we can re-use the LfValueTranslation from the index service created above
-      lfValueTranslationForInteractiveSubmission = new LfValueTranslation(
-        metrics = config.metrics,
-        engineO =
-          Some(new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false))),
-        loadPackage = (packageId, loggingContext) =>
-          timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
-        loggerFactory = loggerFactory,
+      packageLoader = new DeduplicatingPackageLoader()
+      interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
+        new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
+        packageResolver = packageId =>
+          traceContext =>
+            FutureUnlessShutdown.outcomeF(
+              packageLoader.loadPackage(
+                packageId = packageId,
+                delegate = packageId => timedSyncService.getLfArchive(packageId)(traceContext),
+                metric = config.metrics.index.db.translation.getLfPackage,
+              )
+            ),
       )
 
       _ <- ApiServiceOwner(
@@ -370,7 +377,7 @@ class StartableStoppableLedgerApiServer(
         authenticateFatContractInstance = contractAuthenticator.authenticateFat,
         dynParamGetter = config.syncService.dynamicSynchronizerParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
-        lfValueTranslation = lfValueTranslationForInteractiveSubmission,
+        interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         keepAlive = config.serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
       )

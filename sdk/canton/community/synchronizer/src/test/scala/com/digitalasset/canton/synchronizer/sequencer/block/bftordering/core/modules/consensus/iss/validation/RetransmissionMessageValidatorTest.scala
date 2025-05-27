@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator.RetransmissionResponseValidationError
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
@@ -172,7 +173,27 @@ class RetransmissionMessageValidatorTest extends AnyWordSpec with BftSequencerBa
       val result =
         validator.validateRetransmissionResponse(RetransmissionResponse.create(otherId, Seq.empty))
       result shouldBe Left(
-        "Got a retransmission response from node0 with no commit certificates, ignoring"
+        RetransmissionResponseValidationError.MalformedMessage(
+          otherId,
+          "no commit certificates",
+        )
+      )
+    }
+
+    "error when message has commit certificates with multiple epoch numbers" in {
+      val validator = new RetransmissionMessageValidator(epoch)
+      val cc1 = CommitCertificate(prePrepare(epochNumber = 10L, blockNumber = 10L), Seq.empty)
+      val cc2 = CommitCertificate(prePrepare(epochNumber = 11L, blockNumber = 10L), Seq.empty)
+
+      val result =
+        validator.validateRetransmissionResponse(
+          RetransmissionResponse.create(otherId, Seq(cc1, cc2))
+        )
+      result shouldBe Left(
+        RetransmissionResponseValidationError.MalformedMessage(
+          otherId,
+          "commit certificates from different epochs 10, 11",
+        )
       )
     }
 
@@ -183,7 +204,11 @@ class RetransmissionMessageValidatorTest extends AnyWordSpec with BftSequencerBa
       val result =
         validator.validateRetransmissionResponse(RetransmissionResponse.create(otherId, Seq(cc)))
       result shouldBe Left(
-        "Got a retransmission response from node0 for wrong epoch(s) 10, while we're at 0, ignoring"
+        RetransmissionResponseValidationError.WrongEpoch(
+          otherId,
+          EpochNumber(10L),
+          EpochNumber.First,
+        )
       )
     }
 
@@ -195,7 +220,10 @@ class RetransmissionMessageValidatorTest extends AnyWordSpec with BftSequencerBa
       val result =
         validator.validateRetransmissionResponse(RetransmissionResponse.create(otherId, Seq(cc)))
       result shouldBe Left(
-        "Got a retransmission response from node0 with block number(s) outside of epoch 0: 10, ignoring"
+        RetransmissionResponseValidationError.MalformedMessage(
+          otherId,
+          "block number(s) outside of epoch 0: 10",
+        )
       )
     }
 
@@ -208,7 +236,10 @@ class RetransmissionMessageValidatorTest extends AnyWordSpec with BftSequencerBa
           RetransmissionResponse.create(otherId, Seq(cc, cc))
         )
       result shouldBe Left(
-        "Got a retransmission response from node0 with multiple commit certificates for the following block number(s): 0, ignoring"
+        RetransmissionResponseValidationError.MalformedMessage(
+          otherId,
+          "multiple commit certificates for the following block number(s): 0",
+        )
       )
     }
 
@@ -219,7 +250,10 @@ class RetransmissionMessageValidatorTest extends AnyWordSpec with BftSequencerBa
       val result =
         validator.validateRetransmissionResponse(RetransmissionResponse.create(otherId, Seq(cc)))
       result shouldBe Left(
-        "Got a retransmission response from node0 with invalid commit certificate: commit certificate for block 0 has the following errors: there are no commits, ignoring"
+        RetransmissionResponseValidationError.MalformedMessage(
+          otherId,
+          "invalid commit certificate: commit certificate for block 0 has the following errors: there are no commits",
+        )
       )
     }
   }

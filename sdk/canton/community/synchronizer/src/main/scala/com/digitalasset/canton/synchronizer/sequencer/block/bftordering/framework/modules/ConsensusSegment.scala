@@ -469,7 +469,6 @@ object ConsensusSegment {
 
     final case class ViewChange private (
         blockMetadata: BlockMetadata,
-        segmentIndex: Int,
         viewNumber: ViewNumber,
         consensusCerts: Seq[ConsensusCertificate],
         from: BftNodeId,
@@ -485,7 +484,6 @@ object ConsensusSegment {
           from,
           v30.ConsensusMessage.Message.ViewChange(
             v30.ViewChange(
-              segmentIndex,
               consensusCerts.map(certificate =>
                 v30.ConsensusCertificate(certificate match {
                   case pc: PrepareCertificate =>
@@ -493,7 +491,7 @@ object ConsensusSegment {
                   case cc: CommitCertificate =>
                     v30.ConsensusCertificate.Certificate.CommitCertificate(cc.toProto)
                 })
-              ),
+              )
             )
           ),
         )
@@ -508,12 +506,11 @@ object ConsensusSegment {
       override def name: String = "ViewChange"
       def create(
           blockMetadata: BlockMetadata,
-          segmentIndex: Int,
           viewNumber: ViewNumber,
           consensusCerts: Seq[ConsensusCertificate],
           from: BftNodeId,
       )(implicit synchronizerProtocolVersion: ProtocolVersion): ViewChange =
-        ViewChange(blockMetadata, segmentIndex, viewNumber, consensusCerts, from)(
+        ViewChange(blockMetadata, viewNumber, consensusCerts, from)(
           protocolVersionRepresentativeFor(synchronizerProtocolVersion),
           None,
         )
@@ -545,7 +542,6 @@ object ConsensusSegment {
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield ConsensusSegment.ConsensusMessage.ViewChange(
           blockMetadata,
-          viewChange.segmentIndex,
           viewNumber,
           certs,
           from,
@@ -562,7 +558,6 @@ object ConsensusSegment {
 
     final case class NewView private (
         blockMetadata: BlockMetadata,
-        segmentIndex: Int,
         viewNumber: ViewNumber,
         viewChanges: Seq[SignedMessage[ViewChange]],
         prePrepares: Seq[SignedMessage[PrePrepare]],
@@ -588,7 +583,6 @@ object ConsensusSegment {
           from,
           v30.ConsensusMessage.Message.NewView(
             v30.NewView(
-              segmentIndex,
               sortedViewChanges.map(_.toProtoV1),
               prePrepares.map(_.toProtoV1),
             )
@@ -607,14 +601,12 @@ object ConsensusSegment {
       override def name: String = "NewView"
       def create(
           blockMetadata: BlockMetadata,
-          segmentIndex: Int,
           viewNumber: ViewNumber,
           viewChanges: Seq[SignedMessage[ViewChange]],
           prePrepares: Seq[SignedMessage[PrePrepare]],
           from: BftNodeId,
       )(implicit synchronizerProtocolVersion: ProtocolVersion): NewView = NewView(
         blockMetadata,
-        segmentIndex,
         viewNumber,
         viewChanges,
         prePrepares,
@@ -657,7 +649,6 @@ object ConsensusSegment {
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield ConsensusSegment.ConsensusMessage.NewView(
           blockMetadata,
-          newView.segmentIndex,
           viewNumber,
           viewChanges,
           prePrepares,

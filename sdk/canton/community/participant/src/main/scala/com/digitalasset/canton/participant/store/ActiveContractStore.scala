@@ -664,6 +664,11 @@ object ActiveContractStore {
       case _ => false
     }
 
+    def isArchived: Boolean = this match {
+      case Archived => true
+      case _ => false
+    }
+
     def isReassignedAway: Boolean = this match {
       case ReassignedAway(_, _) => true
       case _ => false

@@ -18,7 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 
 class ViewChangeMessageValidator(
     membership: Membership,
-    segmentBlockNumbers: Seq[BlockNumber],
+    segmentBlockNumbers: NonEmpty[Seq[BlockNumber]],
 ) {
   private val strongQuorum = membership.orderingTopology.strongQuorum
   private val consensusCertificateValidator = new ConsensusCertificateValidator(strongQuorum)
@@ -35,6 +35,14 @@ class ViewChangeMessageValidator(
     val currentViewNumber = viewChange.viewNumber
 
     for {
+      _ <- {
+        val blockNumber = viewChange.blockMetadata.blockNumber
+        Either.cond(
+          blockNumber == segmentBlockNumbers.head1,
+          (),
+          s"the blockNumber $blockNumber is not the first block in segment ${segmentBlockNumbers.head1}",
+        )
+      }
       _ <- {
         val wrongEpochs = certs
           .map(_.prePrepare.message.blockMetadata.epochNumber)
@@ -99,6 +107,13 @@ class ViewChangeMessageValidator(
     val epochNumber = newView.blockMetadata.epochNumber
 
     for {
+      _ <- {
+        Either.cond(
+          segmentNumber == segmentBlockNumbers.head1,
+          (),
+          s"the blockNumber $segmentNumber is not the first block in segment ${segmentBlockNumbers.head1}",
+        )
+      }
       _ <- {
         val wrongEpochs = newView.viewChanges
           .map(_.message.blockMetadata.epochNumber)

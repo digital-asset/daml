@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
@@ -27,7 +28,8 @@ final class PruningModule[E <: Env[E]](
     stores: BftOrderingStores[E],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
-) extends Pruning[E] {
+)(implicit metricsContext: MetricsContext)
+    extends Pruning[E] {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var periodicPruningCancellable: Option[CancellableEvent] = None

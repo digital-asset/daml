@@ -10,6 +10,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import java.io.{File, RandomAccessFile}
 import java.nio.channels.OverlappingFileLockException
+import java.nio.file.Files
 import scala.concurrent.blocking
 import scala.util.control.NonFatal
 
@@ -89,43 +90,37 @@ object AmmoniteCacheLock {
   ): Either[Throwable, Option[AmmoniteCacheLock]] = blocking(synchronized {
     try {
       val myLockFile = path / "lock"
-      if (myLockFile.toIO.exists()) {
-        Right(None)
-      } else {
-        logger.debug(s"Attempting to obtain lock $myLockFile")
-        val out = new RandomAccessFile(myLockFile.toIO, "rw")
-        Option(out.getChannel.tryLock()) match {
-          case None =>
-            logger.debug(s"Failed to acquire lock for $myLockFile")
-            out.close()
-            Right(None)
-          case Some(lock) =>
-            myLockFile.toIO.deleteOnExit()
-            Right(Some(new AmmoniteCacheLock {
-              override def release(): Unit =
-                try {
-                  logger.debug(s"Releasing lock $myLockFile...")
-                  lock.release()
-                  out.close()
-                  if (!myLockFile.toIO.delete()) {
-                    logger.warn(s"Failed to delete lock file $myLockFile")
-                  }
-                } catch {
-                  case NonFatal(e) =>
-                    logger.error(s"Releasing ammonite cache lock $lockFile failed", e)
+      logger.debug(s"Attempting to obtain lock $myLockFile")
+      val out = new RandomAccessFile(myLockFile.toIO, "rw")
+      Option(out.getChannel.tryLock()) match {
+        case None =>
+          logger.debug(s"Failed to acquire lock for $myLockFile")
+          out.close()
+          Right(None)
+        case Some(lock) =>
+          Right(Some(new AmmoniteCacheLock {
+            override def release(): Unit =
+              try {
+                logger.debug(s"Releasing lock $myLockFile...")
+                lock.release()
+                out.close()
+                if (!Files.deleteIfExists(myLockFile.toNIO)) { // throws when the file exists but cannot be deleted
+                  logger.warn(s"Failed to delete lock file $myLockFile because it did not exist")
                 }
+              } catch {
+                case NonFatal(e) =>
+                  logger.error(s"Releasing ammonite cache lock $lockFile failed", e)
+              }
 
-              override val storage: Storage = new Storage.Folder(path, isRepl = isRepl)
+            override val storage: Storage = new Storage.Folder(path, isRepl = isRepl)
 
-              override def toString: String = s"file cache at $path"
+            override def toString: String = s"file cache at $path"
 
-              override def lockFile: Option[File] = Some(myLockFile.toIO)
-            }))
-
-        }
+            override def lockFile: Option[File] = Some(myLockFile.toIO)
+          }))
       }
     } catch {
-      case e: OverlappingFileLockException => Right(None)
+      case _: OverlappingFileLockException => Right(None)
       case NonFatal(e) => Left(e)
     }
   })

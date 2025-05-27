@@ -3,7 +3,12 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.digitalasset.canton.error.TransactionRoutingError.UnableToQueryTopologySnapshot
+import com.digitalasset.canton.crypto.SynchronizerCryptoPureApi
+import com.digitalasset.canton.error.TransactionRoutingError.{
+  UnableToGetStaticParameters,
+  UnableToQueryTopologySnapshot,
+}
+import com.digitalasset.canton.ledger.participant.state.index.ContractStateStatus
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.SynchronizerId
@@ -47,5 +52,11 @@ trait RoutingSynchronizerState {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[Map[LfContractId, SynchronizerId]]
+  ): FutureUnlessShutdown[Map[LfContractId, (SynchronizerId, ContractStateStatus)]]
+
+  /** SyncCryptoPureApi for this synchronizer.
+    */
+  def getSyncCryptoPureApi(
+      synchronizerId: SynchronizerId
+  ): Either[UnableToGetStaticParameters.Failed, Option[SynchronizerCryptoPureApi]]
 }
