@@ -15,7 +15,6 @@ template Coin
     owner: Party
     amount: Decimal
   where
-    signatory issuer
     signatory owner
 
     ensure amount > 0.0
