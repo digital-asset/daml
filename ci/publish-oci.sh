@@ -42,10 +42,12 @@ declare -A publish=(
 if [[ x"$DEBUG" != x ]]; then
   unarchive="tar -x -v -z -f"
   copy="cp -v"
+  move="mv -v"
   makedir="mkdir -p -v"
 else
   unarchive="tar -x -z -f"
   copy="cp -f"
+  move="mv -f"
   makedir="mkdir -p"
 fi
 logs="${STAGING_DIR}/logs"
@@ -53,7 +55,7 @@ ${makedir} "${logs}"
 
 function on_exit() {
   info "Cleanup...\t\t\t\t"
- # rm -rf "${STAGING_DIR}"/dist && info_done
+  rm -rf "${STAGING_DIR}"/dist && info_done
 }
 
 trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
@@ -105,6 +107,7 @@ cd "${STAGING_DIR}" || exit 1
         ${copy} ${artifact} "dist/${arch}/${artifact_name}"
       else
         ${unarchive} "${artifact}" -C "dist/${arch}/${artifact_name}"
+        ${move} "dist/${arch}/${artifact_name}/${artifact_name}" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
       fi
       gen_manifest > "dist/${arch}/${artifact_name}/component.yaml"
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
@@ -126,7 +129,7 @@ cd "${STAGING_DIR}" || exit 1
 # target:  //compiler/damlc:damlc-dist.tar.gz
 ###
 function publish_damlc {
-  publish_artifact "damlc" "damlc/damlc" "Compiler and IDE backend for the Daml programming language"
+  publish_artifact "damlc" "damlc-${RELEASE_TAG}/damlc" "Compiler and IDE backend for the Daml programming language"
 }
 
 ###
@@ -142,8 +145,9 @@ function publish_daml_script {
 # target: "//language-support/ts/codegen:daml2js-dist"
 ###
 function publish_daml2js {
-  publish_artifact "daml2js" "daml2js/daml2js" "Daml to JavaScript compiler"
+  publish_artifact "daml2js" "daml2js-${RELEASE_TAG}/daml2js" "Daml to JavaScript compiler"
 }
+
 
 ###
 # Publish component "codegen"
@@ -157,4 +161,4 @@ function publish_codegen {
 for component in "${!publish[@]}"; do
  "${publish[$component]}"
 done
-#publish_damlc
+
