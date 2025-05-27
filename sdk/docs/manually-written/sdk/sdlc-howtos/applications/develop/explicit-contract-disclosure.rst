@@ -212,8 +212,8 @@ How do stakeholders disclose contracts to submitters?
 
 The disclosed contract's details can be fetched by the contract's stakeholder from the contract's
 associated :subsiteref:`CreatedEvent <com.daml.ledger.api.v2.CreatedEvent>`,
-which can be read from the Ledger API via the active contracts and transactions queries
-(see :ref:`Reading from the ledger <reading-from-the-ledger>`).
+which can be read from the Ledger API via the active contracts and transactions queries.
+
 
 The stakeholder can then share the disclosed contract details to the submitter off-ledger (outside of Daml)
 by conventional means, such as HTTPS, SFTP, or e-mail. A :subsiteref:`DisclosedContract <com.daml.ledger.api.v2.DisclosedContract>` can

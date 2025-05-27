@@ -28,25 +28,7 @@ packages which enable authors to publish new versions of their templates
 while maintaining compatibility with prior versions, without any
 downtime for package users and existing contracts.
 
-Package authors previously upgraded their packages by either:
-
--  | Providing a Daml workflow for upgrading contracts to the new version,
-     and tell users of the old version to use the workflow to upgrade
-     their old templates to the new versions.
-   | This requires communication with all package users, splits package users
-     across the two versions during the migration, and may incur
-     significant network cost. This approach is described
-     :ref:`here <upgrade-overview>`.
-
--  | Uploading the new version of their application code to their participant,
-     temporarily stopping workflows relating to the old version, and manually
-     upgrading every old template on the participant to the new version by
-     directly manipulating Canton’s databases. This method is error-prone and
-     requires some downtime for the participant.
-
-Now, with SCU, any contract from the old package is automatically interpreted
-as the new version as soon as it is used in a new workflow that requires
-it. This feature is well-suited for developing and rolling out incremental
+This feature is well-suited for developing and rolling out incremental
 template changes. There are guidelines to ensure upgrade compatibility
 between DAR files. The compatibility is checked at compile time, DAR
 upload time, and runtime. This is to ensure data backwards upgrade
@@ -81,10 +63,7 @@ are:
 -  The implementation of an interface instance can be changed;
 
 The following table summarizes the changes supported by SCU. Consult the
-sections below for additional information. For application updates
-that are not covered by SCU, consult the :ref:`Automating the Upgrade Process
-<upgrade-automation>` section, which describes an upgrade tool for
-migrating contracts from an old version to a new version.
+sections below for additional information.
 
 .. csv-table::
   :file: upgrade-scopes.csv
@@ -153,8 +132,8 @@ the SQL.
 
 .. code-block:: sql
 
-    SELECT * 
-      FROM active('mypackage:My.App:MyTemplate') 
+    SELECT *
+      FROM active('mypackage:My.App:MyTemplate')
       WHERE package_id = 'deadbeefpackageidhex'
 
 
@@ -186,7 +165,7 @@ Smart Contract Upgrade Basics
 
 To upgrade a package the package author modifies their existing
 package to add new functionality, such as new fields and choices. When
-the new package is uploaded to a participant with the old version, 
+the new package is uploaded to a participant with the old version,
 the participant ensures that every modification to the model in the
 new version is a valid upgrade of the previous version.
 
@@ -320,7 +299,7 @@ package-name queries and command submission.
 PQS & Daml Shell
 ~~~~~~~~~~~~~~~~
 
-As of 2.10, PQS only supports querying contracts via package-name, 
+As of 2.10, PQS only supports querying contracts via package-name,
 dropping support for direct package-id queries. See
 `the PQS section <#pqs>`__ for more information and a work-around.
 
@@ -373,8 +352,8 @@ data transformations that cannot be made using SCU upgrades:
 These restrictions are required to give a simple model of runtime
 upgrades, avoiding ambiguity and non-obvious side effects. If you
 require any of these types of changes, you may need to consider a
-redeployment with downtime, either using the approach suggested in :ref:`Rolling out backwards-incompatible changes <backwards-incompatible-changes>`
-or using the existing upgrade procedure described in :ref:`here <upgrade-overview>`.
+redeployment with downtime, either using the approach suggested in
+:ref:`Rolling out backwards-incompatible changes <backwards-incompatible-changes>`.
 
 In this version of SCU, the following functionality has not yet
 been implemented, but may be implemented in future releases.
@@ -957,9 +936,9 @@ the v1 and v2 IOU modules. The v1 IOU module should be overwritten as follows:
 .. code:: daml
 
   module Main where
-  
+
   import Daml.Script
-  
+
   template IOU
     with
       issuer: Party
@@ -970,13 +949,13 @@ the v1 and v2 IOU modules. The v1 IOU module should be overwritten as follows:
       observer owner
       key issuer : Party
       maintainer key
-  
+
   mkIOU : Script Party
   mkIOU = do
     alice <- allocateParty "alice"
     alice `submit` createCmd (IOU alice alice 1)
     pure alice
-  
+
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
   getIOU key = queryContractKey @IOU key key
 
@@ -985,10 +964,10 @@ The v2 IOU module should be overwritten to look like the following:
 .. code:: daml
 
   module Main where
-  
+
   import Daml.Script
   import DA.Optional (fromOptional)
-  
+
   template IOU
     with
       issuer: Party
@@ -1000,19 +979,19 @@ The v2 IOU module should be overwritten to look like the following:
       observer owner
       key issuer : Party
       maintainer key
-  
+
   mkIOU : Script Party
   mkIOU = do
     alice <- allocateParty "alice"
     alice `submit` createCmd (IOU alice alice 1 (Some "USD"))
     pure alice
-  
+
   mkIOUWithoutCurrency : Script Party
   mkIOUWithoutCurrency = do
     alice <- allocateParty "alice"
     alice `submit` createCmd (IOU alice alice 1 None)
     pure alice
-  
+
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
   getIOU key = queryContractKey @IOU key key
 
@@ -1109,7 +1088,7 @@ A similar script called ``duplicateIOU`` should be added in V2, supplying an
         res <- key `submit` exerciseExactCmd iouCid Duplicate { amount = Some 4 }
         case res.oldValue of
           None -> pure None -- This should never happen
-          Some oldValue -> 
+          Some oldValue ->
             mbNewIOU <- queryContractId key res.newCid
             case mbNewIOU of
               Some newIOU -> pure (Some (newCid, oldValue, newIOU))
@@ -1152,7 +1131,7 @@ contracts default to ``None`` for the ``outsideObservers`` field, so all
 existing contracts have the same observer list as before: the
 single owner.
 
-In the case where a contract's signatories or observers change in during an 
+In the case where a contract's signatories or observers change in during an
 upgrade/downgrade in a way that doesn't meet the constraints above, the upgrade,
 and thus full transaction, fails at runtime.
 
@@ -1191,9 +1170,9 @@ with the following:
 .. code:: daml
 
   module Main where
-  
+
   import Daml.Script
-  
+
   template IOU
     with
       issuer: Party
@@ -1205,18 +1184,18 @@ with the following:
       observer owner
       key issuer : Party
       maintainer key
-  
+
   data Currency
     = USD
     | GBP
     deriving (Show, Eq, Ord)
-  
+
   mkIOU : Script Party
   mkIOU = do
     alice <- allocateParty "alice"
     alice `submit` createCmd (IOU alice alice 1 USD)
     pure alice
-  
+
   getIOU : Party -> Script (Optional (ContractId IOU, IOU))
   getIOU key = queryContractKey @IOU key key
 
@@ -1322,7 +1301,7 @@ source:
 .. code:: daml
 
   module Main where
-  
+
   data Shape
     = Circle
     | Polygon { sides : Int }
@@ -1334,7 +1313,7 @@ with a ``len`` field:
 .. code:: daml
 
   module Main where
-  
+
   data Shape
     = Circle
     | Polygon { sides : Int }
@@ -1576,9 +1555,9 @@ module ``my-iface/daml/MyIface.daml``:
 .. code:: daml
 
   module MyIface where
-  
+
   data HasValueView = HasValueView { hasValueView : Int }
-  
+
   interface HasValue where
     viewtype HasValueView
     getValue : Int
@@ -1611,10 +1590,10 @@ with the following:
 .. code:: daml
 
   module Main where
-  
+
   import Daml.Script
   import MyIface
-  
+
   template IOU
     with
       issuer: Party
@@ -1640,7 +1619,7 @@ Add a ``quantity`` field to the v2 IOU package, and amend the definition of
 
   ...
   import DA.Optional (fromOptional)
-  
+
   template IOU
     with
       issuer: Party
@@ -1746,7 +1725,7 @@ project. Multi-package builds also enable cross-package navigation in Daml
 Studio.
 
 The :ref:`Multi-package builds for upgrades <upgrades-multi-package>` section
-goes into more detail on how to set up multi-package builds for SCU and how it 
+goes into more detail on how to set up multi-package builds for SCU and how it
 can help with testing.
 
 Working with a Running Canton Instance
@@ -1946,10 +1925,6 @@ protocol version together, since 2.10 introduces a new protocol version.
 The steps to achieve this are given in the :brokenref:`Canton Upgrading
 manual <one_step_migration>`.
 
-Finally, you can migrate your live data from your previous DARs to the
-new LF1.17 DARs, using one of the existing downtime upgrade techniques
-listed :ref:`here <upgrades-index>`.
-
 .. _upgrades-best-practices:
 
 Best Practices
@@ -2004,7 +1979,7 @@ The SCU type checker emits an error and refuses to compile this module:
 
   error type checking <none>:
     This package defines both interfaces and templates. This may make this package and its dependents not upgradeable.
-    
+
     It is recommended that interfaces are defined in their own package separate from their implementations.
     Downgrade this error to a warning with -Wupgrade-interfaces
     Disable this error entirely with -Wno-upgrade-interfaces
@@ -2074,7 +2049,7 @@ Avoid Contract Metadata Changes
 
 The signatories, stakeholders, contract key, and ensure clauses of a contract
 should be fixed at runtime for a given contract. Changing their definitions in
-your Daml code is discouraged and triggers a warning from the SCU typechecker. 
+your Daml code is discouraged and triggers a warning from the SCU typechecker.
 
 We strongly recommend against altering the type of a key. If changing the type
 of a key cannot be avoided, consider using an off-ledger migration instead of
@@ -2111,7 +2086,10 @@ To make a breaking change, publish a new package version with package name ``mai
 different package name from those with ``main-v1``, it is not typechecked
 against those packages and its datatypes are not automatically converted.
 You would need to manually migrate values from ``main-v1`` packages to
-``main-v2`` -- existing downtime upgrade techniques are listed :ref:`here <upgrades-index>`.
+``main-v2``.
+
+.. todo: add reference to migration upgrade tool or automation
+
 
 Avoid Depending on LF 1.15 Packages
 -----------------------------------
@@ -2155,7 +2133,7 @@ package's datatype in the definition of ``MyData``.
   ...
   warning while type checking data type Main.MyData:
     This package has LF version 1.17, but it depends on a serializable type <dep1 package ID>:Dep1:D from package <dep 1 package ID> (dep1, 1.0.0) which has LF version 1.15.
-    
+
     We do not recommend that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, because those datatypes are not upgradeable.
     Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency
     Remove this warning with -Wno-upgrade-serialized-non-upgradeable-dependency
@@ -2166,10 +2144,10 @@ warnings with ``-Wno-upgrade-serialized-non-upgradeable-dependency``.
 
 .. _upgrade-dont-upload-daml-script:
 
-Avoid Depending on Daml Script Packages
+Do not depend on Daml Script Packages
 ---------------------------------------
 
-We recommend only depending on Daml Script packages such as ``daml-script-lts``
+We recommend only depending on Daml Script packages such as ``daml-script``
 in dedicated packages for running tests written in Daml Script. These packages
 should not be part of your model and should not be uploaded to the ledger.
 
@@ -2180,89 +2158,6 @@ a Daml Script package in a way that can neither be removed nor upgraded to the
 next SDK version. Your package and any of its SCU upgrades would
 be stuck on that SDK version.
 
-For example, suppose you have a ``main`` package that depends on
-``daml-script-lts`` from SDK 2.10.0.
-
-.. code:: yaml
-
-  version: 2.10.0
-  name: main
-  ...
-  dependencies:
-  - daml-prim
-  - daml-stdlib
-  - daml-script-lts
-  build-options:
-  - --target=1.17
-
-.. code:: daml
-
-  module Main where
-
-  import qualified Daml.Script
-
-  data MyData = MyData
-    { field1 : Daml.Script.PartyIdHint
-    }
-
-Because ``MyData`` is a serializable datatype, any changes to it must be valid
-upgrade changes (e.g. adding a field) for the ``main`` package itself to be upgraded. If SDK 2.10.X introduces a change to
-``daml-script-lts`` that is not a valid upgrade of the ``daml-script-lts`` in
-SDK 2.10.0, then ``field1`` is not upgradeable to the next version of the
-SDK, nor can the field be dropped because the field is used in SCU checks.
-
-**Note**: While it is unlikely that an SDK update breaks ``daml-script-lts``
-for upgrades, we still strongly recommend against it. In Daml 3.x, Canton may
-disallow uploading ``daml-script-lts`` entirely.
-
-At that point, all future development on ``main``, including future upgrades,
-would be locked to SDK 2.10.0. To bump the SDK version, ``main`` would have to
-be migrated via a manual upgrade tool with downtime -- existing downtime upgrade
-techniques are listed :ref:`here <upgrades-index>`.
-
-For this reason, we strongly recommend against using Daml Script as an upgrade
-dependency for any package going on the ledger. Whenever building the ``main``
-package above, you can expect a warning:
-
-.. code:: bash
-
-  > daml build
-  ...
-  warning while type checking data type Main.MyData:
-    This package depends on a datatype <package ID>:Daml.Script.Stable:PartyIdHint from <package ID> (daml-script-lts-stable, 0.0.0) with LF version 1.17.
-    
-    We do not recommend using datatypes from Daml Script in >= LF1.17 packages, because those datatypes are not upgradeable.
-    Upgrade this warning to an error -Werror=upgrade-serialized-daml-script
-    Remove this warning with -Wno-upgrade-serialized-daml-script
-
-**Note:** For added safety, you may upgrade these warnings to errors with
-``-Werror=upgrade-serialized-daml-script``. We recommend against removing these
-warnings with ``-Wno-upgrade-serialized-daml-script``.
-
-If instead ``main`` depends on a datatype in a non-serializable position such
-as the type signature of a function, ``main`` can still be upgraded without
-breaking any SCU restrictions. For example:
-
-.. code:: daml
-
-  module Main where
-
-  import qualified Daml.Script
-
-  data MyData = MyData
-    { field1 : Text
-    }
-
-  myFunction : Daml.Script.PartyIdHint -> Bool
-  myFunction _ = True
-
-In this case, when changing SDK from 2.10.0 to 2.10.X, the typechecker
-ignores the change to ``Daml.Script.PartyIdHint`` in ``myFunction``, because it
-is not in a serializable position. This means ``daml-script-lts`` can be kept
-even when it is not a valid upgrade from one version to the next.
-
-**Note:** We still recommend against depending on Daml Script for
-ledger-uploaded packages, even in this case with non-serializable positions.
 
 Operational Design Guideline for Upgrading Daml Apps
 ----------------------------------------------------
@@ -2359,7 +2254,7 @@ To handle such changes, you can replace the existing contract with an upgraded o
 
 - Where required, provide reference data for the ``upgrade`` choice via additional choice arguments.
 
-- Implement backend automation or a contract migration tool similar to the one described :ref:`here <upgrade-overview>`
+- Implement backend automation
   to migrate all old contracts to the new ones by exercising the ``upgrade`` choice on the existing contracts.
 
 .. note::
@@ -2614,7 +2509,7 @@ dependencies if their source has changed:
    Building /home/dylanthinnes/ex-upgrades-template/main-v2
    ...
    Severity: DsError
-   Message: 
+   Message:
    error type checking template Main.IOU :
      The upgraded template IOU has added new fields, but the following new fields are not Optional:
        Field 'currency' with type Text
