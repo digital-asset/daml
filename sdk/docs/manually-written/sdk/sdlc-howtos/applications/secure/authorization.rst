@@ -25,10 +25,9 @@ You thus need to add support for authorization using access tokens to your appli
 Introduction
 ************
 
-Your Daml application sends requests to the :ref:`Ledger API <integration-with-ledger-api>` exposed by a participant node to submit changes to the ledger
+Your Daml application sends requests to the :ref:`Ledger API <ledger-api>` exposed by a participant node to submit changes to the ledger
 (e.g., "*exercise choice X on contract Y as party Alice*"), or to read data from the ledger
 (e.g., "*read all active contracts visible to party Alice*").
-Your application might send these requests via a middleware like the :externalref:`JSON API <json-api>`.
 
 Whether a participant node *can* serve such a request depends on whether the participant node hosts the respective parties, and
 whether the request is valid according to the :externalref:`Daml Ledger Model <da-ledgers>`.
