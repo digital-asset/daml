@@ -136,9 +136,6 @@ start_postgresql
 
 # Run the tests.
 
-echo "Debug //docs:daml-intro-12"
-$bazel run //docs:daml-intro-12
-
 echo "Running bazel test with the following tag filters: ${tag_filter}"
 
 $bazel test //... \
