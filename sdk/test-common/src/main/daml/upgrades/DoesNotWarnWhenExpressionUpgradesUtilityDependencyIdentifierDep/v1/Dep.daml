@@ -3,9 +3,6 @@
 
 module Dep where
 
--- data Dummy = Dummy with
---     foo : Bool
-
 duplicateParty : Party -> [Party]
 duplicateParty x = [x,x]
 
