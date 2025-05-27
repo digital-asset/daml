@@ -23,13 +23,10 @@ Daml Assistant
 - Launch the tools in the SDK:
 
   - Launch :ref:`Daml Studio <write-daml-studio>`: ``daml studio``
-  - Launch :ref:`Sandbox <sandbox-manual>`, :brokenref:`Navigator </tools/navigator/index>` and the :externalref:`json-api`: ``daml start``
-    You can disable the HTTP JSON API by passing ``--json-api-port none`` to ``daml start``.
-    To specify additional options for sandbox/navigator/the HTTP JSON API you can use
-    ``--sandbox-option=opt``, ``--navigator-option=opt`` and ``--json-api-option=opt``.
+  - Launch :ref:`Sandbox <sandbox-manual>` and the :externalref:`json-api`: ``daml start``
+    You can disable the JSON Ledger API by passing ``--json-api-port none`` to ``daml start``.
+    To specify additional options for sandbox you can use ``--sandbox-option=opt``.
   - Launch Sandbox: ``daml sandbox``
-  - Launch Navigator (Deprecated): ``daml navigator``
-  - Launch the :externalref:`json-api`: ``daml json-api``
   - Run :brokenref:`Daml codegen </tools/codegen>`: ``daml codegen``
 
 - Install new SDK versions manually: ``daml install <version>``
@@ -37,7 +34,7 @@ Daml Assistant
    Note that you need to update your `project config file <#configuration-files>` to use the new version.
 
 Command Help
-**********************
+************
 
 To see information about any command, run it with ``--help``.
 
@@ -144,14 +141,8 @@ Here is what each field means:
 
 - ``build-options``: a list of tokens that will be appended to some invocations of ``damlc`` (currently `build` and `ide`). Note that there is no further shell parsing applied.
 - ``sandbox-options``: a list of options that will be passed to Sandbox in ``daml start``.
-- ``navigator-options``: a list of options that will be passed to Navigator in ``daml start``.
-- ``json-api-options``: a list of options that will be passed to the HTTP JSON API in ``daml start``.
 - ``script-options``: a list of options that will be passed to the Daml script
   runner when running the ``init-script`` as part of ``daml start``.
-- ``start-navigator``: Controls whether navigator is started as part
-  of ``daml start``. Defaults to ``true``. If this is specified as a CLI argument,
-  say ``daml start --start-navigator=true``, the CLI argument takes precedence over
-  the value in ``daml.yaml``.
 
 The ``daml.yaml`` file supports `Environment Variable Interpolation <#environment-variable-interpolation>`__.
 

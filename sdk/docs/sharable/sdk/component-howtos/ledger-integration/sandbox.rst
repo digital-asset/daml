@@ -108,8 +108,8 @@ Run With TLS
 ************
 
 To enable TLS, you need to specify the private key for your server and
-the certificate chain. This enables TLS for both the Ledger API and
-the Canton Admin API. When enabling client authentication, you also
+the certificate chain. This enables TLS for both the gRPC Ledger API and
+the Admin API. When enabling client authentication, you also
 need to specify client certificates which can be used by Canton’s
 internal processes. Note that the identity of the application
 will not be proven by using this method, i.e. the `application_id` field in the request
@@ -396,21 +396,21 @@ These metrics include:
 --------------------------------------
 
 A database metric. Time spent retrieving a page of active contracts to be
-served from the active contract service. The page size is
+served from the State Service. The page size is
 configurable, please look at the CLI reference.
 
 ``daml.index.db.get_completions``
 ---------------------------------
 
 A database metric. Time spent retrieving a page of command completions to be
-served from the command completion service. The page size is
+served from the Command Completion Service. The page size is
 configurable, please look at the CLI reference.
 
 ``daml.index.db.get_flat_transactions``
 ---------------------------------------
 
 A database metric. Time spent retrieving a page of flat transactions to be
-streamed from the transaction service. The page size is
+streamed from the Update Service. The page size is
 configurable, please look at the CLI reference.
 
 ``daml.index.db.get_ledger_end``
@@ -428,14 +428,14 @@ A database metric. Time spent retrieving the ledger identifier.
 ---------------------------------------
 
 A database metric. Time spent retrieving a page of flat transactions to be
-streamed from the transaction service. The page size is
+streamed from the Update Service. The page size is
 configurable, please look at the CLI reference.
 
 ``daml.index.db.load_all_parties``
 ----------------------------------
 
 A database metric. Load the currently allocated parties so that
-they are served via the party management service.
+they are served via the Party Management Service.
 
 ``daml.index.db.load_archive``
 ------------------------------
@@ -458,17 +458,11 @@ A database metric. Time to load the current entries in the log of
 package uploads. Used to verify whether a package
 has been ultimately uploaded.
 
-``daml.index.db.load_packages``
--------------------------------
-
-A database metric. Load the currently uploaded packages so that
-they are served via the package management service.
-
 ``daml.index.db.load_parties``
 ------------------------------
 
 A database metric. Load the currently allocated parties so that
-they are served via the party service.
+they are served via the Party Management Service.
 
 ``daml.index.db.load_party_entries``
 ------------------------------------
@@ -484,12 +478,6 @@ A database metric. Time to fetch one contract on the index to be used by
 the Daml interpreter to evaluate a command into a
 transaction.
 
-``daml.index.db.lookup_configuration``
---------------------------------------
-
-A database metric. Time to fetch the configuration so that it's
-served via the configuration management service.
-
 ``daml.index.db.lookup_contract_by_key``
 ----------------------------------------
 
@@ -501,7 +489,7 @@ transaction.
 -----------------------------------------------
 
 A database metric. Time to lookup a single flat transaction by identifier
-to be served by the transaction service.
+to be served by the Update Service.
 
 ``daml.index.db.lookup_maximum_ledger_time``
 --------------------------------------------
@@ -514,13 +502,7 @@ contracts involved to ensure causal monotonicity.
 -----------------------------------------------
 
 A database metric. Time to lookup a single transaction tree by identifier
-to be served by the transaction service.
-
-``daml.index.db.store_configuration_entry``
--------------------------------------------
-
-A database metric. Time spent persisting a change in the ledger configuration
-provided through the configuration management service.
+to be served by the Update Service.
 
 ``daml.index.db.store_ledger_entry``
 ------------------------------------
@@ -528,18 +510,11 @@ provided through the configuration management service.
 A database metric. Time spent persisting a transaction that has been
 successfully interpreted and is final.
 
-``daml.index.db.store_package_entry``
--------------------------------------
-
-A database metric. Time spent storing a Daml package uploaded through
-the package management service.
-
 ``daml.index.db.store_party_entry``
 -----------------------------------
 
 A database metric. Time spent storing party information as part of the
-party allocation endpoint provided by the party
-management service.
+party allocation endpoint provided by the Party Management Service.
 
 ``daml.index.db.store_rejection``
 ---------------------------------
