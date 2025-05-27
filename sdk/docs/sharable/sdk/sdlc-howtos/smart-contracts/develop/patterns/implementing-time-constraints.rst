@@ -42,6 +42,34 @@ Coin contract
       :start-after: -- BEGIN_LIMITED_TIME_COIN_TRANSFER
       :end-before: -- END_LIMITED_TIME_COIN_TRANSFER
 
+.. mermaid::
+
+  stateDiagram-v2
+    asOwner: actAs Me
+    asNewOwner: actAs You
+
+    state XX <<choice>>
+
+    [*] --> coinCid
+
+    state asOwner {
+      coinCid --> X: exercise Transfer(newOwner=You, deadline=now + 5 minutes)
+      state TransferBody {
+        X --> transferProposalCid: create TransferProposal(coin=coinCid, newOwner=You, deadline=coin.deadline)
+        transferProposalCid --> transferProposal
+      }
+    }
+    state asNewOwner {
+      transferProposal --> XX: exercise AcceptTransfer()
+      state AcceptTransferBody {
+        XX --> XXX: now <= coin.deadline
+        XXX --> newCoinCid: create Coin(owner=You, issuer=Bank, amount=100)
+        XX --> Abort: now > coin.deadline
+      }
+    }
+
+    newCoinCid --> [*]
+
 
 How to check that a deadline has passed
 ***************************************

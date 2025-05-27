@@ -13,7 +13,6 @@ import Utilities
 template Coin
   with
     owner: Party
-    issuer: Party
     amount: Decimal
   where
     signatory issuer
@@ -31,35 +30,6 @@ template Coin
             with coin=this; newOwner; deadline
 -- END_LIMITED_TIME_COIN_TRANSFER
 
--- original contract with no changes needed.
-template CoinProposal
-  with
-    owner: Party
-    issuer: Party
-    amount: Decimal
-  where
-    signatory issuer
-    observer owner
-
-    choice AcceptProposal
-      : ContractId Coin
-      controller owner
-      do create Coin with issuer; owner; amount
-
--- original contract with no changes needed.
-template CoinOwnerAuthorization
-  with
-    owner: Party
-    issuer: Party
-  where
-    signatory issuer
-    observer owner
-
-    choice WithdrawAuthorization
-      : ()
-      controller issuer
-      do return ()
-
 -- TransferProposal contract needs additional logic to time limit when transfers are accepted
 template TransferProposal
   with
@@ -68,7 +38,6 @@ template TransferProposal
     deadline: Time
   where
     signatory coin.owner
-    signatory coin.issuer
     observer newOwner
 
     choice WithdrawTransfer : ContractId Coin
@@ -78,42 +47,36 @@ template TransferProposal
 
 -- BEGIN_LIMITED_TIME_ACCEPT_COIN_TRANSFER
     choice AcceptTransfer : ContractId Coin
-      with
-        token: ContractId CoinOwnerAuthorization
       controller newOwner
       do
         assertWithinDeadline "within-transfer-deadline" deadline
-        t <- fetch token
-        assert (coin.issuer == t.issuer)
-        assert (newOwner == t.owner)
         create coin with owner = newOwner
 -- END_LIMITED_TIME_ACCEPT_COIN_TRANSFER
 
-limitedTimeTokenAccept : Script ()  -- test
-limitedTimeTokenAccept =
+-- test
+limitedTimeCoinTransfer : Script ()
+limitedTimeCoinTransfer =
   script do
 
-    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
+    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
 
-    --test 1: token is active, allowing new owner to accept within a 5 minute deadline
+    --test 1: owner's coin is transferred to a new owner within a 5 minute deadline
 
-    createProposal <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
-    coinId <- owner `submit` do exerciseCmd createProposal AcceptProposal
+    coin <- owner `submit` do createCmd Coin with owner; amount=100.0
+
     t0 <- getTime
-    coinProposal <- owner `submit` do exerciseCmd coinId Transfer with newOwner; deadline=addRelTime t0 (minutes 5)
+    transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; deadline=addRelTime t0 (minutes 5)
 
-    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
-    newOwner `submit` do exerciseCmd coinProposal AcceptTransfer with token = tokenId
+    newOwner `submit` do exerciseCmd transferProposal AcceptTransfer
 
-    --test 2: token is active, but owner **fails** to accept within a 5 minute deadline
+    --test 2: owner's coin is transferred to a new owner after a 5 minute deadline has passed
 
-    createProposal <- issuer `submit` do createCmd CoinProposal with owner; issuer; amount=100.0
-    coinId <- owner `submit` do exerciseCmd createProposal AcceptProposal
+    coin <- owner `submit` do createCmd Coin with owner; amount=150.0
+
     t1 <- getTime
-    coinProposal <- owner `submit` do exerciseCmd coinId Transfer with newOwner; deadline=addRelTime t1 (minutes 5)
+    transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; deadline=addRelTime t0 (minutes 5)
 
     -- simulate waiting for over 5 minutes
     _ <- passTime (minutes 6)
 
-    tokenId <- issuer `submit` do createCmd CoinOwnerAuthorization with owner = newOwner; issuer
-    newOwner `submitMustFail` do exerciseCmd coinProposal AcceptTransfer with token = tokenId
+    newOwner `submitMustFail` do exerciseCmd coinProposal AcceptTransfer
