@@ -246,12 +246,7 @@ class PackageUpgradeValidator(
           }
           EitherT(
             Future(
-              TypecheckUpgrades(loggerFactory)
-                .typecheckUpgrades(
-                  packageMap,
-                  phase,
-                )
-                .toEither
+              TypecheckUpgrades.typecheckUpgrades(packageMap, phase).run
             )
           ).leftMap[DamlError] {
             case err: UpgradeError =>
@@ -264,6 +259,10 @@ class PackageUpgradeValidator(
                 unhandledErr,
                 Some(s"Typechecking upgrades for ${phase.uploadedPackage._1} failed with unknown error."),
               )
+          }.map[Unit] {
+            case (warnings, ()) =>
+              warnings.iterator.foreach((err: UpgradeError) =>
+                logger.warn(phase.map(_._1).warningMessage(err)))
           }
       }
 

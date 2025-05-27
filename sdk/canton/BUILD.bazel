@@ -214,7 +214,18 @@ scala_macro_library(
 da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    scalacopts = [
+    override_scalacopts = [
+        "-Xsource:3",
+        "-language:postfixOps",
+    ] + [
+        copt
+        for copt in default_scalacopts + lf_scalacopts_stricter
+        if copt not in [
+            "-P:wartremover:traverser:org.wartremover.warts.ExplicitImplicitTypes",
+            "-P:wartremover:traverser:org.wartremover.warts.NonUnitStatements",
+        ]
+    ],
+    override_scaladocopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ] + [
@@ -1002,7 +1013,6 @@ scala_library(
         "//daml-lf/transaction",
         "//daml-lf/transaction:transaction_proto_java",
         "//daml-lf/validation",
-        # "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/executors",
         "//libs-scala/ledger-resources",

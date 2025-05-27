@@ -55,6 +55,7 @@ jest.mock(
 
       constructor(...args: unknown[]) {
         mockConstructor(...args);
+        // eslint-disable-next-line @typescript-eslint/no-this-alias
         mockInstance = this;
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const { EventEmitter } = require("events");

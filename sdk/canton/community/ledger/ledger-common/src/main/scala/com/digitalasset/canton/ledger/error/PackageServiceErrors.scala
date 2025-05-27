@@ -289,14 +289,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
-            cause = phase match {
-              case TypecheckUpgrades.MaximalDarCheck(oldPackage, newPackage) =>
-                s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${upgradeError.prettyInternal}"
-              case TypecheckUpgrades.MinimalDarCheck(oldPackage, newPackage) =>
-                s"The uploaded DAR contains a package $oldPackage, but upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${upgradeError.prettyInternal}"
-              case TypecheckUpgrades.StandaloneDarCheck(newPackage) =>
-                s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that it cannot be upgraded. Reason: ${upgradeError.prettyInternal}"
-            },
+            cause = phase.errorMessage(upgradeError),
             extraContext = phase match {
               case TypecheckUpgrades.MaximalDarCheck(oldPackage, newPackage) =>
                 Map(

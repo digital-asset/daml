@@ -105,7 +105,7 @@ trait LongTests { this: UpgradesSpec =>
       testPackagePair(
         "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v1.dar",
         "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF117WithoutSameUseSite-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheck(UpgradesSpec.ExpectSuccess(None)),
       )
     }
 
@@ -113,7 +113,7 @@ trait LongTests { this: UpgradesSpec =>
       testPackagePair(
         "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v1.dar",
         "test-common/upgrades-SucceedsWhenUpgradingLF115DepToLF115WithoutSameUseSite-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheck(UpgradesSpec.ExpectSuccess(None)),
       )
     }
 
@@ -122,7 +122,23 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v1.dar",
         "test-common/upgrades-FailsWhenUpgradingLF115DepsAtUseSite-v2.dar",
         assertPackageUpgradeCheck(
-          Some("The upgraded data type MainD has changed the types of some of its original fields.")
+          UpgradesSpec.ExpectFailure(
+            "The upgraded data type MainD has changed the types of some of its original fields."
+          )
+        ),
+      )
+    }
+
+    "CannotImplementNonUpgradeableInterface (during upgrade)" in {
+      testPackagePair(
+        "test-common/upgrades-CannotImplementNonUpgradeableInterface-v1.dar",
+        "test-common/upgrades-CannotImplementNonUpgradeableInterface-v2.dar",
+        assertPackageUpgradeCheckSecondOnly(
+          UpgradesSpec.ExpectSuccess(
+            Some(
+              "Template T implements interface .*:Dep:I from package .* which has LF version <= 1.15. It is forbidden for upgradeable templates \\(LF version >= 1.17\\) to implement interfaces from non-upgradeable packages \\(LF version <= 1.15\\)."
+            )
+          )
         ),
       )
     }
@@ -164,11 +180,19 @@ trait LongTests { this: UpgradesSpec =>
   }
 }
 
+object UpgradesSpec {
+  abstract class UpgradeExpectation
+  final case class ExpectSuccess(warning: Option[String]) extends UpgradeExpectation
+  final case class ExpectFailure(msg: String) extends UpgradeExpectation
+}
+
 abstract class UpgradesSpec(val suffix: String)
     extends AsyncWordSpec
     with Matchers
     with Inside
     with CantonFixture {
+  import UpgradesSpec._
+
   override lazy val devMode = true;
   override val cantonFixtureDebugMode = CantonFixtureDebugKeepTmpFiles
 
@@ -200,7 +224,7 @@ abstract class UpgradesSpec(val suffix: String)
   }
 
   def assertPackageUpgradeCheckSecondOnly(
-      failureMessage: Option[String]
+      failureMessage: UpgradeExpectation
   )(
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
@@ -209,7 +233,7 @@ abstract class UpgradesSpec(val suffix: String)
       cantonLogSrc
     )
 
-  def assertPackageUpgradeCheck(failureMessage: Option[String])(
+  def assertPackageUpgradeCheck(failureMessage: UpgradeExpectation)(
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
@@ -220,7 +244,7 @@ abstract class UpgradesSpec(val suffix: String)
   def assertPackageDependenciesUpgradeCheck(
       v1dep: String,
       v2dep: String,
-      failureMessage: Option[String],
+      failureMessage: UpgradeExpectation,
   )(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
@@ -233,7 +257,7 @@ abstract class UpgradesSpec(val suffix: String)
   }
 
   def assertPackageUpgradeCheckGeneral(
-      failureMessage: Option[String]
+      failureMessage: UpgradeExpectation
   )(
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
@@ -269,9 +293,9 @@ abstract class UpgradesSpec(val suffix: String)
 
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
-        case Some(additionalInfo) =>
+        case ExpectFailure(additionalInfo) =>
           if (
-            s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId \\(.*\\)|new package $testPackageSecondId \\(.*\\)). Reason: $additionalInfo".r
+            s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (it cannot be upgraded|(existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId \\(.*\\)|new package $testPackageSecondId \\(.*\\))). Reason: $additionalInfo".r
               .findFirstIn(cantonLogSrc)
               .isEmpty
           ) fail("did not find upgrade failure in canton log:\n")
@@ -283,13 +307,21 @@ abstract class UpgradesSpec(val suffix: String)
               val msg = err.toString
               msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
               msg should include regex (
-                s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package|new package)"
+                s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (it cannot be upgraded|(existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package|new package))"
               )
             }
           }
 
         // If a failure is not expected, look for a success message
-        case None =>
+        case ExpectSuccess(mbWarning) =>
+          mbWarning match {
+            case Some(warning) =>
+              filterLog(cantonLogSrc, testPackageSecondId) should include regex (
+                s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), a warning occurred while verifying that (it can be upgraded|(existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) is a valid upgrade of (existing package $testPackageFirstId \\(.*\\)|new package $testPackageSecondId \\(.*\\))). Reason: $warning"
+              )
+            case None =>
+              ()
+          }
           filterLog(cantonLogSrc, testPackageSecondId) should include regex (
             s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
           )
