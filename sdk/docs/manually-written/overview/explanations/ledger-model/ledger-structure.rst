@@ -70,7 +70,7 @@ Definition: **Action**
      A Create action contains the following pieces of information:
 
      * The **contract ID** is a unique identifier of the contract.
-       It is equivalent to the transaction output (TxO) in ledger models based on :ref:`unspent transaction outputs (UTxO) <https://en.wikipedia.org/wiki/Unspent_transaction_output>`.
+       It is equivalent to the transaction output (TxO) in ledger models based on `unspent transaction outputs (UTxO) <https://en.wikipedia.org/wiki/Unspent_transaction_output>`_.
 
      * The **template ID** identifies the Daml code associated with the contract,
        and its arguments define the **contract instance**, which is the immutable data associated with the contract ID.
