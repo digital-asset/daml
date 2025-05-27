@@ -51,7 +51,7 @@ The owner can transfer such an asset to a new owner with the ``Transfer`` choice
 
 .. note::
    These Daml templates are for illustration purposes only.
-   They are not meant for real-world usage as they lack rigorous input validation.
+   They are not meant for real-world usage as they are heavily simplified.
 
 .. literalinclude:: ./daml/SimpleAsset.daml
    :language: daml
