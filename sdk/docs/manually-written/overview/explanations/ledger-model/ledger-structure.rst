@@ -194,6 +194,7 @@ That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`
 For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to accept both simulataneously.
 To that end, Bob exercises both ``Accept`` choices in a single transaction with two root actions (blue and purple), as shown next.
 
+.. https://lucid.app/lucidchart/acb71942-2a11-417c-ae0a-003c8ea2da69/edit
 .. image:: ./images/dvp-accept-two.svg
    :align: center
    :width: 100%
@@ -291,6 +292,7 @@ This workflow gives rise to the ledger shown below with four commits:
 
 * In the forth commit, Bob requests to exercise the ``AcceptAndSettle`` choice on the DvP proposal.
 
+.. https://lucid.app/lucidchart/3ef6e9da-b534-4640-bc19-8fa5c7fb3a71/edit
 .. image:: ./images/dvp-ledger.svg
    :align: center
    :alt: The sequence of commits for the whole DvP workflow. First, banks 1 and 2 issue the assets, then Alice proposes the DvP, and finally Bob accepts and settles it.
