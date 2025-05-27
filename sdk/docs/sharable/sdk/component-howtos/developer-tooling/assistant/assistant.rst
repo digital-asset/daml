@@ -151,7 +151,7 @@ Recommended ``build-options``
 
 The default set of warnings enabled by the Daml compiler is fairly conservative.
 When you are just starting out, seeing a huge set of warnings can easily be
-overwhelming and distract from what you are actually working on.  However, as
+overwhelming and distract from what you are actually working on. However, as
 you get more experienced and more people work on a Daml project, enabling
 additional warnings (and enforcing their absence in CI) can be useful.
 
