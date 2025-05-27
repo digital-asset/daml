@@ -630,17 +630,19 @@ def daml_multi_package_test(
         build_files = [],
         srcs = [],
         daml = "//daml-assistant:daml",
+        sdk_tarball = "//release:sdk-release-tarball",
         enable_interfaces = False,
         additional_compiler_flags = [],
         **kwargs):
     sh_inline_test(
         name = name,
-        data = [daml] + srcs + [multi_package_file] + build_files,
+        data = [daml, sdk_tarball] + srcs + [multi_package_file] + build_files,
         cmd = """
             set -eou pipefail
-            tmpdir=$$(mktemp -d)
-            trap "rm -rf $$tmpdir" EXIT
+            export DAML_HOME=$$PWD/$$(mktemp -d tmp.XXXXXXX)
+            tmpdir=$$PWD/$$(mktemp -d tmp.XXXXXXX)
             DAML=$$(canonicalize_rlocation $(rootpath {daml}))
+            {install_sdk}
             rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
             {cp_multi_package_file}
             {cp_build_files}
@@ -648,6 +650,10 @@ def daml_multi_package_test(
             {run_tests}
         """.format(
             daml = daml,
+            install_sdk = "$$DAML install $$(canonicalize_rlocation $(rootpath {sdk_tarball})) --install-with-custom-version {sdk_version}".format(
+                sdk_tarball = sdk_tarball,
+                sdk_version = sdk_version,
+            ),
             cp_srcs = "\n".join([
                 "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
                     src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
