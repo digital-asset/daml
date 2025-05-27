@@ -623,3 +623,68 @@ $$DAMLC doctest {flags} --script-lib $$SCRIPT_DAR --cpp $$CPP --package-name {pa
         ),
         **kwargs
     )
+
+def daml_multi_package_test(
+        name,
+        multi_package_file,
+        build_files = [],
+        srcs = [],
+        daml = "//daml-assistant:daml",
+        enable_interfaces = False,
+        additional_compiler_flags = [],
+        **kwargs):
+    sh_inline_test(
+        name = name,
+        data = [daml] + srcs + [multi_package_file] + build_files,
+        cmd = """
+            set -eou pipefail
+            tmpdir=$$(mktemp -d)
+            trap "rm -rf $$tmpdir" EXIT
+            DAML=$$(canonicalize_rlocation $(rootpath {daml}))
+            rlocations () {{ for i in $$@; do echo $$(canonicalize_rlocation $$i); done; }}
+            {cp_multi_package_file}
+            {cp_build_files}
+            {cp_srcs}
+            {run_tests}
+        """.format(
+            daml = daml,
+            cp_srcs = "\n".join([
+                "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
+                    src = "$$(canonicalize_rlocation $(rootpath {}))".format(src),
+                    dest = "$$tmpdir/$(rootpath {})".format(src),
+                )
+                for src in srcs
+            ]),
+            cp_build_files = "\n".join([
+                """
+                    src=$$(canonicalize_rlocation $(rootpath {src}))
+                    dest=$$(echo "$$tmpdir/$(rootpath {src})" | sed 's/\\.template$$//')
+                    mkdir -p $$(dirname $$dest); cp -f $$src $$dest
+                    sed -iE 's/__VERSION__/{sdk_version}/' $$dest
+                """.format(
+                    sdk_version = sdk_version,
+                    src = build_file,
+                )
+                for build_file in build_files
+            ]),
+            cp_multi_package_file =
+                "mkdir -p $$(dirname {dest}); cp -f {src} {dest}".format(
+                    src = "$$(canonicalize_rlocation $(rootpath {}))".format(multi_package_file),
+                    dest = "$$tmpdir/$(rootpath {})".format(multi_package_file),
+                ),
+            run_tests = "\n".join([
+                """
+                    echo $$(dirname $$tmpdir/$(rootpath {build_file}))
+                    cd $$(dirname $$tmpdir/$(rootpath {build_file}))
+                    $$DAML build {enable_interfaces} {damlc_opts}
+                    $$DAML test
+                """.format(
+                    build_file = build_file,
+                    enable_interfaces = "--enable-interfaces=no" if not enable_interfaces else "",
+                    damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
+                )
+                for build_file in build_files
+            ])
+        ),
+        **kwargs
+    )

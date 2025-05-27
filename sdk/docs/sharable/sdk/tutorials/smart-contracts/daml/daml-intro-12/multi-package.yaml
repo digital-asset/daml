@@ -1,0 +1,5 @@
+packages:
+- ./asset
+- ./asset-tests
+- ./multi-trade
+- ./multi-trade-tests

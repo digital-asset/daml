@@ -3,7 +3,7 @@
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test", "daml_multi_package_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 load("@scala_version//:index.bzl", "scala_major_version")
@@ -495,6 +495,7 @@ daml_test(
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-8/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-10/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-12/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-12-part1/**",
             "source/sdk/tutorials/smart-contracts/daml/daml-intro-12-part2/**",
         ],
@@ -578,6 +579,13 @@ daml_build_test(
         "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
     project_dir = "source/sdk/tutorials/smart-contracts/daml/daml-intro-7",
+)
+
+daml_multi_package_test(
+    name = "daml-intro-12",
+    multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-12/multi-package.yaml",
+    build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-12/**/daml.yaml.template"]),
+    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-12/**/*.daml"]),
 )
 
 daml_build_test(
