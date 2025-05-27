@@ -20,11 +20,13 @@ Ledger Model
    
 
 
-Canton enables multi-party workflows by providing parties with a virtual *shared ledger*,
-which encodes the current state of their shared contracts, written in a smart contract language.
+Canton enables multi-party workflows by providing parties with a *virtual global ledger* (VGL),
+which encodes the current state of their shared contracts written in a smart contract language.
 At a high level, the interactions are visualized below:
 Three parties Alice, Bob, and Charlie connect independently to a virtual global ledger, depicted as a large cloud.
 They hold different views of that ledger in their local databases shown as blue icons.
+The global ledger is virtual in the sense that no single entity typically sees this global ledger in its entirety;
+it is an imaginary database that represents the union of all parties' databases.
 
 .. https://lucid.app/lucidchart/e119dde8-4abe-4b09-9a95-5ca6ef3fb509/edit
 .. image:: ./images/da-ledger-model.svg
@@ -32,11 +34,11 @@ They hold different views of that ledger in their local databases shown as blue 
 
 The Ledger Model defines:
 
-  #. What the ledger looks like - the structure of Canton Ledgers
-  #. Who can request which changes - the integrity model for Canton Ledgers
-  #. Who sees which changes and data - the privacy model for Canton Ledgers
+  #. What the ledger looks like - the structure of the Canton Ledger
+  #. Who can request which changes - the integrity model for the Canton Ledger
+  #. Who sees which changes and data - the privacy model for the Canton Ledger
 
-The below sections review these concepts of the Ledger Model in turn and how they relate to Daml smart contracts.
+The sections below review these concepts of the Ledger Model in turn and how they relate to Daml smart contracts.
 
 .. _da-ledgers-running-example:
 

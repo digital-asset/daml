@@ -24,9 +24,9 @@ template SimpleAsset with
 -- SNIPPET-END
 
 simpleAsset = script do
-    p1 <- allocateParty "Alice"
-    p2 <- allocateParty "Bob"
-    b <- allocateParty "Bank"
-    cash <- submit b do createCmd SimpleAsset with issuer = b; owner = p1; asset = "Cash"
-    newCash <- submit p1 do exerciseCmd cash Transfer with newOwner = p2
-    submit b do exerciseCmd newCash Archive
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
+    bank <- allocateParty "Bank"
+    cash <- submit bank do createCmd SimpleAsset with issuer = bank; owner = alice; asset = "Cash"
+    newCash <- submit alice do exerciseCmd cash Transfer with newOwner = bob
+    submit bank do exerciseCmd newCash Archive

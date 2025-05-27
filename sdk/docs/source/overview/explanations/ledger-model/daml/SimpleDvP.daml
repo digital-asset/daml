@@ -11,8 +11,8 @@ import SimpleAsset
 template SimpleDvP with
     party1 : Party
     party2 : Party
-    allocated1 : ContractId SimpleAsset
-    allocated2 : ContractId SimpleAsset
+    asset1 : ContractId SimpleAsset
+    asset2 : ContractId SimpleAsset
   where
     signatory party1
     signatory party2
@@ -23,8 +23,8 @@ template SimpleDvP with
       controller actor
       do
         assert $ actor == party1 || actor == party2
-        new1 <- exercise allocated1 Transfer with newOwner = party2
-        new2 <- exercise allocated2 Transfer with newOwner = party1
+        new1 <- exercise asset1 Transfer with newOwner = party2
+        new2 <- exercise asset2 Transfer with newOwner = party1
         pure (new1, new2)
 -- SNIPPET-DVP-END
 
@@ -48,8 +48,8 @@ template ProposeSimpleDvP with
         create $ SimpleDvP with
           party1 = proposer
           party2 = counterparty
-          allocated1 = allocated
-          allocated2 = toBeAllocated
+          asset1 = allocated
+          asset2 = toBeAllocated
 
     nonconsuming choice AcceptAndSettle : (ContractId SimpleAsset, ContractId SimpleAsset)
       with
@@ -61,19 +61,20 @@ template ProposeSimpleDvP with
 -- SNIPPET-PROPOSAL-END
 
 simpleDvp = script do
-    p1 <- allocateParty "Alice"
-    p2 <- allocateParty "Bob"
+    alice <- allocateParty "Alice"
+    bob <- allocateParty "Bob"
     b1 <- allocateParty "Bank1"
     b2 <- allocateParty "Bank2"
     
-    eur <- submit b1 do createCmd SimpleAsset with issuer = b1; owner = p1; asset = "1 EUR"
+    eur <- submit b1 do createCmd SimpleAsset with issuer = b1; owner = alice; asset = "1 EUR"
     
-    let usdAsset = SimpleAsset with issuer = b2; owner = p2; asset = "1 USD"
+    let usdAsset = SimpleAsset with issuer = b2; owner = bob; asset = "1 USD"
     usd <- submit b2 do createCmd usdAsset
     
-    proposeDvP <- submit p1 do createCmd ProposeSimpleDvP with proposer = p1; counterparty = p2; allocated = eur; expected = usdAsset
+    proposeDvP <- submit alice do createCmd ProposeSimpleDvP with proposer = alice; counterparty = bob; allocated = eur; expected = usdAsset
 
-    (newUsd, newEur) <- submitMulti [p2] [p1] do exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+    -- Bob allocates and settles in one go, but in theory either of the two could exercise Settle after Bob's allocation.
+    (newUsd, newEur) <- submitMulti [bob] [alice] do exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
 
     submit b2 do exerciseCmd newEur Archive
     submit b1 do exerciseCmd newUsd Archive

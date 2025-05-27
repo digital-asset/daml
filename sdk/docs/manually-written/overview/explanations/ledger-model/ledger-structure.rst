@@ -36,10 +36,10 @@ Alice and Bob have allocated their assets (contracts #1 and #2) on the ledger to
 Bob now exercises the ``Settle`` choice on this contract to perform the atomic exchange of the two assets.
 
 Exercising ``Settle`` choice yields an Exercise action that references the ``SimpleDvp`` input contract #4.
-This action has two consequences, which perform the asset transfers:
+This action contains two consequences, which perform the asset transfers automatically as part of the ``Settle`` choice.
 
-#. Alice exercises the ``Transfer`` choice on her ``SimpleAsset`` contract #1.
-   This subaction has another consequence, namely the creation of Bob's new ``SimpleAsset`` contract #5.
+#. Alice exercises the ``Transfer`` choice on her ``SimpleAsset`` contract #1, which archives the contract.
+   This subaction contains another consequence, namely the creation of Bob's new ``SimpleAsset`` contract #5.
    
 #. Bob exercises the ``Transfer`` choice on his ``SimpleAsset`` contract #2.
    As a consequence thereof, Alice's new ``SimpleAsset`` contract #6 is created.
@@ -47,13 +47,13 @@ This action has two consequences, which perform the asset transfers:
 The diagram below depicts this hierarchical structure of actions (in blue):
 Every exercise of a choice and create of a contract yields a node in a tree with the consequences as children,
 denoted by the dash-dotted arrows.
-The nodes refer to inputs shown in gray, which are not part of the action itself.
+The nodes refer to input contracts shown in gray, which are not part of the action itself.
 
 .. https://lucid.app/lucidchart/f3f49c7c-d257-4136-9dcb-39750f45c24d/edit
 .. image:: ./images/dvp-settle-action.svg
    :alt: The settlement action on the ``SimpleDvp`` contract between Alice and Bob, with the two legs of the swap as consequences.
 
-Overall, the settlement in this example is reduced to two types of actions:
+Overall, the settlement in this example contains two types of actions:
 
 #. Creating contracts
 
@@ -66,20 +66,20 @@ These are also the two main kinds of actions in the Ledger Model.
 Definition: **Action**
   An **action** is one of the following:
 
-  #. A **Create** action on a contract, which records the creation of the contract.
+  #. A **Create** action on a template, which records the creation of the contract.
      A Create action contains the following pieces of information:
 
      * The **contract ID** is a unique identifier of the contract.
-       It is equivalent to the transaction output TxO in UTxO models.
+       It is equivalent to the transaction output (TxO) in ledger models based on :ref:`unspent transaction outputs (UTxO) <https://en.wikipedia.org/wiki/Unspent_transaction_output>`.
 
      * The **template ID** identifies the Daml code associated with the contract,
-       and its argument define the **contract instance**, which is the immutable data associated with the contract ID.
+       and its arguments define the **contract instance**, which is the immutable data associated with the contract ID.
 
      * The **signatories** are the non-empty set of parties that must authorize the creation and archival of the contract.
 
      * The **contract observers**, or just observers for short, are the set of parties that will be informed about the contract creation and archival, in addition to the signatories.
 
-     The signatories and contract observers can be computed from the template arguments using the ``signatory`` and ``observer`` clauses defined by the template.
+     In Daml, the signatories and contract observers are determined by the ``signatory`` and ``observer`` clauses defined by the template.
    
      Create nodes are depicted as shown below.
      Diagrams often omit fields with empty values and observers that are also signatories.
@@ -96,7 +96,7 @@ Definition: **Action**
      * An exercise **kind**, which is either **consuming** or
        **non-consuming**. Once consumed, a contract cannot be used again;
        for example, Alice must not be able to transfer her asset twice, as this would be double spending.
-       Contracts exercised in a non-consuming fashion can be reused.
+       In contrast, contracts exercised in a non-consuming fashion can be reused.
       
      * The contract ID on which the choice is exercised.
        This contract is called the **input contract**.
@@ -150,7 +150,7 @@ Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its c
 
 An example of a Fetch action appears in the ``Accept`` choice on a DvP proposal contract from the template ``ProposeSimpleDvP``.
 The choice body fetches the ``SimpleAsset`` that Bob allocates to the DvP,
-which checks that the asset contract is active and brings the contract instance into the computation
+which checks that the asset contract is active and brings the contract instance into the computation,
 so that the choice implementation can assert that this asset meets the expectation expressed in the proposal contract.
 The next diagram shows this Exercise action with the Fetch action as its first consequence.
 
@@ -207,7 +207,7 @@ The transaction consists of two actions, namely the two ``Transfer`` actions of 
    :alt: The consequences of the ``Settle`` action are a transaction of two actions, namely the two ``Transfer`` legs of the DvP.
 
 The hierarchical structure of actions extends to transactions and yields the notion of subtransactions.
-A **proper subtransaction** of a transaction is obtained by removing at least one action, or replacing it by a subtransaction of its consequences;
+A **proper subtransaction** of a transaction is obtained by (repeatedly) replacing an action by its consequences;
 and a **subtransaction** of a transaction is either the transaction itself or a proper subtransaction thereof.
 
 For example, given the transaction shown above consisting only of the two consequences of the ``Settle`` action,
