@@ -3,7 +3,7 @@
 
 .. _sandbox-manual:
 
-Test: Daml Sandbox
+Daml Sandbox
 ##################
 
 The Daml Sandbox, or Sandbox for short, is a simple ledger implementation that enables rapid application prototyping by simulating a Daml Ledger.
