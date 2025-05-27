@@ -237,3 +237,30 @@ for shmid in $(ipcs -m | sed 1,3d | awk '{print $2}' | sed '$d'); do ipcrm -m $s
 To build Haskell executables with profiling enabled, pass `-c dbg` to
 Bazel, e.g. `bazel build -c dbg damlc`. If you want to build the whole
 SDK with profiling enabled use `daml-sdk-head --profiling`.
+
+### How to run Vale locally
+[Vale][vale_official] is a customizable linter for grammar, style, and spelling, helping to enforce consistent writing standards. Run Vale to address warnings, suggestions, and errors before creating a PR to ensure adherence to our [official style guide][da_style_guide] and [terminology guidelines][terminology_guide] and to **expedite the PR approval process.**
+
+> **Note:** All commands below must be run from inside the `sdk` directory.
+
+Vale is made available via Nix. To check that Vale is active, run:
+```bash
+vale --version
+```
+To see all the suggestions, warnings, and errors in the terminal, run `vale path/to/your/file.rst` at the root of the project directory. For instance, run:
+```bash
+vale docs/manually-written/overview/howtos/index.rst 
+```
+To see only errors when running Vale, use the `--minAlertLevel` flag. For instance, run:
+```bash
+vale --minAlertLevel=error docs/manually-written/overview/howtos/index.rst 
+```
+For more information, refer to the official [Vale doc][vale_doc]. 
+
+[vale_official]: https://vale.sh/
+
+[da_style_guide]: https://docs.google.com/document/d/153D6-gI0blsAvlrzReHVyz8RCHUQzzdKnxnpcADlt6c/edit?pli=1&tab=t.0#heading=h.im66lq8ybndj
+
+[terminology_guide]: https://docs.google.com/document/d/1r1MogDIHN68TosxHYufnSzqEIL8lGYnFuwWhXVEgTAQ/edit?tab=t.0#heading=h.f3wg43q4j3as
+
+[vale_doc]: https://vale.sh/docs
