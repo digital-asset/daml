@@ -42,7 +42,7 @@ Coin contract
       :start-after: -- BEGIN_LIMITED_TIME_COIN_TRANSFER
       :end-before: -- END_LIMITED_TIME_COIN_TRANSFER
 
-.. figure:: ../images/timeLimitedCoinTransfer.png
+.. figure:: ./images/timeLimitedCoinTransfer.png
    :alt: Time limited coin ownership transfer uses the transfer deadline to create a new Coin and archive the old one
 
    Time limited coin ownership transfer
