@@ -86,7 +86,9 @@ final class LfValueTranslation(
 ) extends LfValueSerialization
     with NamedLogging {
 
-  private val enricherO = engineO.map(new Enricher(_))
+  private val enricherO = engineO.map(engine =>
+    new Enricher(engine, requireContractIdSuffix = engine.config.requireSuffixedGlobalContractId)
+  )
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 
@@ -181,8 +183,8 @@ final class LfValueTranslation(
     consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
 
   def enrichContract(contract: FatContractInstance)(implicit
-                                                ec: ExecutionContext,
-                                                loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
   ): Future[FatContractInstance] =
     consumeEnricherResult(enricher.enrichContract(contract))
 

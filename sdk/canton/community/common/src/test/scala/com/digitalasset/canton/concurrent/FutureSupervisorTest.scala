@@ -56,6 +56,23 @@ trait FutureSupervisorTest extends AnyWordSpec with BaseTest with HasExecutionCo
       fut3 shouldBe fut1
       fut3.value shouldBe Some(Success(timestamp))
     }
+
+    "scale for many supervised futures" in {
+      val count = 100000
+      val supervisor =
+        new FutureSupervisor.Impl(config.NonNegativeDuration.ofSeconds(1))(scheduledExecutor())
+      val promise = Promise[Unit]()
+      val supervisedFutures = (1 to count).toList.map { i =>
+        supervisor.supervised(s"test-$i")(promise.future)
+      }
+      supervisor.inspectScheduled.size shouldBe count
+      promise.success(())
+      Future.sequence(supervisedFutures).futureValue
+
+      eventually() {
+        supervisor.inspectScheduled shouldBe Seq.empty
+      }
+    }
   }
 }
 
@@ -129,6 +146,5 @@ class FutureSupervisorImplTest extends FutureSupervisorTest {
       )
 
     }
-
   }
 }

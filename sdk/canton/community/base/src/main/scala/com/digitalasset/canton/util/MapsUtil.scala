@@ -239,7 +239,7 @@ object MapsUtil {
     * @throws java.lang.IllegalArgumentException
     *   if the minuend is not defined for all keys of the subtrahend.
     */
-  def mapDiff[K, V](minuend: Map[K, V], subtrahend: collection.Map[K, V])(implicit
+  def mapDiff[K, V](minuend: Map[K, V], subtrahend: scala.collection.Map[K, V])(implicit
       loggingContext: ErrorLoggingContext
   ): Map[K, V] = {
     ErrorUtil.requireArgument(

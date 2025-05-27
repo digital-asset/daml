@@ -42,11 +42,10 @@ import com.digitalasset.canton.sequencing.protocol.SendAsyncError.SendAsyncError
 import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericStoredTopologyTransaction
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.EitherTUtil.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
-import io.grpc.{CallOptions, ManagedChannel, Status}
+import io.grpc.{CallOptions, ManagedChannel, Status, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -83,7 +82,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     import TraceContext.Implicits.Empty.*
     managedChannel.runOnOrAfterClose_(new RunOnClosing() {
       override def name: String = "grpc-sequencer-transport-shutdown-auth"
+
       override def done: Boolean = clientAuth.isClosing
+
       override def run()(implicit traceContext: TraceContext): Unit = clientAuth.close()
     })
   }
@@ -218,7 +219,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[Future, String, TopologyStateForInitResponse] = {
     logger.debug("Downloading topology state for initialization")
 
-    ClientAdapter
+    val resultF = ClientAdapter
       .serverStreaming(
         request.toProtoV30,
         sequencerServiceClient.service.downloadTopologyStateForInit,
@@ -233,7 +234,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       .runFold(Vector.empty[GenericStoredTopologyTransaction])((acc, txs) =>
         acc ++ txs.topologyTransactions.value.result
       )
-      .toEitherTRight[String]
       .map { accumulated =>
         val storedTxs = StoredTopologyTransactions(accumulated)
         logger.debug(
@@ -241,6 +241,23 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         )
         TopologyStateForInitResponse(Traced(storedTxs))
       }
+
+    EitherTUtil
+      .fromFuture(
+        resultF,
+        {
+          case grpcExc: StatusRuntimeException =>
+            logger.debug(s"Downloading topology state for initialization failed with $grpcExc")
+            grpcExc.getStatus.toString
+
+          case exc =>
+            logger.warn(
+              s"Downloading topology state for initialization failed with unexpected exception $exc",
+              exc,
+            )
+            exc.toString
+        },
+      )
   }
 }
 

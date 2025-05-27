@@ -360,8 +360,6 @@ object JsCommandServiceCodecs {
   implicit val deduplicationPeriodDeduplicationOffsetRW
       : Codec[DeduplicationPeriod.DeduplicationOffset] = deriveRelaxedCodec
 
-  implicit val durationRW: Codec[protobuf.duration.Duration] = deriveRelaxedCodec
-
   implicit val jsSubmitAndWaitRequestRW: Codec[JsSubmitAndWaitForTransactionRequest] =
     deriveConfiguredCodec
 
@@ -388,6 +386,10 @@ object JsCommandServiceCodecs {
 
   implicit val jsCommandCommandRW: Codec[JsCommand.Command] = deriveConfiguredCodec
   implicit val jsCommandCreateRW: Codec[JsCommand.CreateCommand] = deriveConfiguredCodec
+  implicit val jsCommandCreateAndExerciseRW: Codec[JsCommand.CreateAndExerciseCommand] =
+    deriveConfiguredCodec
+  implicit val jsCommandExerciseByKeyRW: Codec[JsCommand.ExerciseByKeyCommand] =
+    deriveConfiguredCodec
   implicit val jsCommandExerciseRW: Codec[JsCommand.ExerciseCommand] = deriveConfiguredCodec
 
   implicit val commandCompletionRW: Codec[command_completion_service.CompletionStreamRequest] =
@@ -427,6 +429,15 @@ object JsCommandServiceCodecs {
   implicit val completionResponseOffsetCheckpointRW: Codec[
     command_completion_service.CompletionStreamResponse.CompletionResponse.OffsetCheckpoint
   ] = deriveRelaxedCodec
+
+  implicit val completionDeduplicationPeriodDeduplicationDurationRW: Codec[
+    completion.Completion.DeduplicationPeriod.DeduplicationDuration
+  ] = deriveRelaxedCodec
+
+  implicit val completionDeduplicationPeriodDeduplicationOffsetRW: Codec[
+    completion.Completion.DeduplicationPeriod.DeduplicationOffset
+  ] = deriveRelaxedCodec
+
   implicit val completionResponseOffsetCompletionRW: Codec[
     command_completion_service.CompletionStreamResponse.CompletionResponse.Completion
   ] = deriveRelaxedCodec

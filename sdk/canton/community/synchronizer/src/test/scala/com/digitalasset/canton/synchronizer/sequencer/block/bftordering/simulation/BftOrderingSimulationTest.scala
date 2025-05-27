@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation
 
-import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
@@ -94,7 +94,6 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
   def numberOfInitialNodes: Int
   def generateStages(): Seq[SimulationTestStageSettings]
 
-  private implicit val metricsContext: MetricsContext = MetricsContext.Empty
   private val noopMetrics = SequencerMetrics.noop(getClass.getSimpleName).bftOrdering
 
   private lazy val initialIndexRange = 0 until numberOfInitialNodes
@@ -358,6 +357,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             new RequestInspector {
               override def isRequestToAllMembersOfSynchronizer(
                   request: OrderingRequest,
+                  maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
                   logger: TracedLogger,
                   traceContext: TraceContext,
               )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true

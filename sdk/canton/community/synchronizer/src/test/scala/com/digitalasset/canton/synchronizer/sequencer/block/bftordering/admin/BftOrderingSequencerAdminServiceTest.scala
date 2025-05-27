@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin
 
-import com.digitalasset.canton.BaseTest
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.sequencer.admin.v30.{
   AddPeerEndpointRequest,
@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   TlsPeerEndpoint,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.PeerNetworkStatus
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.P2PEndpointConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
   P2PEndpoint,
@@ -34,7 +35,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Promise
 
-class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
+class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BftSequencerBaseTest {
 
   "BftOrderingSequencerAdminService" should {
     "delegate addPeerEndpoint to the p2p out module" in {
@@ -74,7 +75,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
                 ),
                 any[Boolean => Unit],
               )
-          )
+          )(any[MetricsContext])
           response.added shouldBe true
         }
     }
@@ -114,7 +115,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
                 P2PEndpoint.Id("localhost", Port.tryCreate(1234), transportSecurity = true),
                 any[Boolean => Unit],
               )
-          )
+          )(any[MetricsContext])
           response.removed shouldBe true
         }
     }
@@ -140,7 +141,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
         .map { response =>
           verify(p2PNetworkOutAdminSpy).asyncSend(
             P2PNetworkOut.Admin.GetStatus(any[PeerNetworkStatus => Unit])
-          )
+          )(any[MetricsContext])
           response.statuses shouldBe empty
         }
     }
@@ -166,7 +167,7 @@ class BftOrderingSequencerAdminServiceTest extends AsyncWordSpec with BaseTest {
         .map { response =>
           verify(consensusAdminSpy).asyncSend(
             Consensus.Admin.GetOrderingTopology(any[(EpochNumber, Set[BftNodeId]) => Unit])
-          )
+          )(any[MetricsContext])
           response.sequencerIds shouldBe empty
         }
     }

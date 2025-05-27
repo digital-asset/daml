@@ -6,7 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin
 import cats.implicits.*
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.config.{PemFile, PemString, TlsClientCertificate, TlsClientConfig}
-import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyNameOnlyCase, PrettyPrinting}
 import com.digitalasset.canton.sequencer.admin.v30.PeerEndpoint.Security
 import com.digitalasset.canton.sequencer.admin.v30.PeerEndpoint.Security.Empty
 import com.digitalasset.canton.sequencer.admin.v30.{
@@ -119,9 +119,7 @@ object SequencerBftAdminData {
       peerEndpointId.tls,
     )
 
-  sealed trait PeerEndpointHealthStatus extends Product with Serializable with PrettyPrinting {
-    override val pretty: Pretty[this.type] = prettyOfObject[this.type]
-  }
+  sealed trait PeerEndpointHealthStatus extends PrettyNameOnlyCase with Serializable
   object PeerEndpointHealthStatus {
     case object UnknownEndpoint extends PeerEndpointHealthStatus
     case object Unauthenticated extends PeerEndpointHealthStatus

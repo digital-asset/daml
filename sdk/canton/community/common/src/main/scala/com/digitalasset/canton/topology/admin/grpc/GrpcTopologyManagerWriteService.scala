@@ -56,6 +56,32 @@ class GrpcTopologyManagerWriteService(
       store,
       waitToBecomeEffective,
     ) = requests
+
+    def authorizeFromHash(txHash: TxHash) = for {
+      manager <- targetManagerET(store)
+      signingKeys <-
+        EitherT
+          .fromEither[FutureUnlessShutdown](
+            signedBy.traverse(Fingerprint.fromProtoPrimitive)
+          )
+          .leftMap(ProtoDeserializationFailure.Wrap(_))
+      forceFlags <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          ForceFlags
+            .fromProtoV30(forceChanges)
+            .leftMap(ProtoDeserializationFailure.Wrap(_): RpcError)
+        )
+      signedTopoTx <-
+        manager
+          .accept(
+            txHash,
+            signingKeys,
+            forceChanges = forceFlags,
+            expectFullAuthorization = mustFullyAuthorize,
+          )
+          .leftWiden[RpcError]
+    } yield signedTopoTx
+
     val result = requestType match {
       case Type.Empty =>
         EitherT.leftT[FutureUnlessShutdown, GenericSignedTopologyTransaction][RpcError](
@@ -67,29 +93,7 @@ class GrpcTopologyManagerWriteService(
           txHash <- EitherT
             .fromEither[FutureUnlessShutdown](Hash.fromHexString(value).map(TxHash.apply))
             .leftMap(err => ProtoDeserializationFailure.Wrap(err.toProtoDeserializationError))
-          manager <- targetManagerET(store)
-          signingKeys <-
-            EitherT
-              .fromEither[FutureUnlessShutdown](
-                signedBy.traverse(Fingerprint.fromProtoPrimitive)
-              )
-              .leftMap(ProtoDeserializationFailure.Wrap(_))
-          forceFlags <- EitherT
-            .fromEither[FutureUnlessShutdown](
-              ForceFlags
-                .fromProtoV30(forceChanges)
-                .leftMap(ProtoDeserializationFailure.Wrap(_): RpcError)
-            )
-          signedTopoTx <-
-            manager
-              .accept(
-                txHash,
-                signingKeys,
-                forceChanges = forceFlags,
-                expectFullAuthorization = mustFullyAuthorize,
-              )
-              .leftWiden[RpcError]
-
+          signedTopoTx <- authorizeFromHash(txHash)
         } yield signedTopoTx
 
       case Type.Proposal(Proposal(op, serial, mapping)) =>

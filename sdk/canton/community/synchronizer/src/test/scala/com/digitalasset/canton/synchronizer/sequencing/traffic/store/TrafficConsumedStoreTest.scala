@@ -176,6 +176,26 @@ trait TrafficConsumedStoreTest
         }
       }
 
+      "remove correct records with deleteRecordsPastTimestamp" in {
+        val store = mk()
+        for {
+          _ <- store.store(Seq(consumedAlice1))
+          _ <- store.store(Seq(consumedAlice2))
+          _ <- store.store(Seq(consumedAlice3)) // this one will be removed
+          _ <- store.store(Seq(consumedBob1))
+          _ <- store.store(Seq(consumedBob2))
+          _ <- store.store(Seq(consumedBob3)) // this one will be removed
+          _ <- store.deleteRecordsPastTimestamp(t2)
+          resAlice <- store.lookup(alice)
+          resBob <- store.lookup(bob)
+          res <- store.lookupLatestBeforeInclusive(t3)
+        } yield {
+          resAlice should contain theSameElementsInOrderAs List(consumedAlice1, consumedAlice2)
+          resBob should contain theSameElementsInOrderAs List(consumedBob1, consumedBob2)
+          res should contain theSameElementsInOrderAs List(consumedAlice2, consumedBob2)
+        }
+      }
+
       "return latest balances at given timestamp" in {
         val store = mk()
 

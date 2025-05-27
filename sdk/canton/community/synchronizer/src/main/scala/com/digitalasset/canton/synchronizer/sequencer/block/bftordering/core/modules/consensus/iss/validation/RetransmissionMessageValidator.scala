@@ -5,10 +5,17 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import cats.syntax.bifunctor.*
 import cats.syntax.traverse.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator.RetransmissionResponseValidationError
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.RetransmissionsMessage.{
   RetransmissionRequest,
   RetransmissionResponse,
@@ -93,42 +100,53 @@ class RetransmissionMessageValidator(epoch: Epoch) {
 
   def validateRetransmissionResponse(
       response: RetransmissionResponse
-  ): Either[String, Unit] = for {
-    _ <- validateNonEmptyCommitCerts(response)
-    _ <- validateRetransmissionsResponseEpochNumber(response)
+  ): Either[RetransmissionResponseValidationError, Unit] = for {
+    certs <- validateNonEmptyCommitCerts(response)
+    _ <- validateRetransmissionsResponseEpochNumber(response.from, certs)
     _ <- validateBlockNumbers(response)
     _ <- validateCommitCertificates(response)
   } yield ()
 
   private def validateNonEmptyCommitCerts(
       response: RetransmissionResponse
-  ): Either[String, Unit] = {
+  ): Either[RetransmissionResponseValidationError, NonEmpty[Seq[CommitCertificate]]] = {
     val RetransmissionResponse(from, commitCertificates) = response
-    if (commitCertificates.nonEmpty) Right(())
-    else
-      Left(
-        s"Got a retransmission response from $from with no commit certificates, ignoring"
-      )
+    NonEmpty.from(commitCertificates) match {
+      case Some(nel) => Right(nel)
+      case None =>
+        Left(RetransmissionResponseValidationError.MalformedMessage(from, "no commit certificates"))
+    }
   }
 
   private def validateRetransmissionsResponseEpochNumber(
-      response: RetransmissionResponse
-  ): Either[String, Unit] = {
-    val RetransmissionResponse(from, commitCertificates) = response
-    val wrongEpochs =
-      commitCertificates
-        .map(_.prePrepare.message.blockMetadata.epochNumber)
-        .filter(_ != currentEpochNumber)
-    Either.cond(
-      wrongEpochs.isEmpty,
-      (),
-      s"Got a retransmission response from $from for wrong epoch(s) ${wrongEpochs.mkString(", ")}, while we're at $currentEpochNumber, ignoring",
-    )
+      from: BftNodeId,
+      commitCertificates: NonEmpty[Seq[CommitCertificate]],
+  ): Either[RetransmissionResponseValidationError, Unit] = {
+    val byEpoch = commitCertificates
+      .groupBy(_.prePrepare.message.blockMetadata.epochNumber)
+
+    if (byEpoch.sizeIs > 1)
+      Left(
+        RetransmissionResponseValidationError
+          .MalformedMessage(
+            from,
+            s"commit certificates from different epochs ${byEpoch.keys.toSeq.sorted.mkString(", ")}",
+          )
+      )
+    else if (!byEpoch.contains(currentEpochNumber))
+      Left(
+        RetransmissionResponseValidationError.WrongEpoch(
+          from,
+          messageEpochNumber = byEpoch.head1._1,
+          currentEpochNumber = currentEpochNumber,
+        )
+      )
+    else Right(())
   }
 
   private def validateBlockNumbers(
       response: RetransmissionResponse
-  ): Either[String, Unit] = {
+  ): Either[RetransmissionResponseValidationError, Unit] = {
     val RetransmissionResponse(from, commitCertificates) = response
 
     val wrongBlockNumbers =
@@ -144,31 +162,56 @@ class RetransmissionMessageValidator(epoch: Epoch) {
         case (blockNumber, certs) if certs.sizeIs > 1 => blockNumber
       }
 
-    for {
+    val result = for {
       _ <- Either.cond(
         wrongBlockNumbers.isEmpty,
         (),
-        s"Got a retransmission response from $from with block number(s) outside of epoch $currentEpochNumber: ${wrongBlockNumbers
-            .mkString(", ")}, ignoring",
+        s"block number(s) outside of epoch $currentEpochNumber: ${wrongBlockNumbers.mkString(", ")}",
       )
       _ <- Either.cond(
         blocksWithMultipleCommitCerts.isEmpty,
         (),
-        s"Got a retransmission response from $from with multiple commit certificates for the following block number(s): ${blocksWithMultipleCommitCerts
-            .mkString(", ")}, ignoring",
+        s"multiple commit certificates for the following block number(s): ${blocksWithMultipleCommitCerts
+            .mkString(", ")}",
       )
     } yield ()
+
+    result.leftMap(RetransmissionResponseValidationError.MalformedMessage(from, _))
   }
 
-  private def validateCommitCertificates(response: RetransmissionResponse): Either[String, Unit] = {
+  private def validateCommitCertificates(
+      response: RetransmissionResponse
+  ): Either[RetransmissionResponseValidationError, Unit] = {
     val RetransmissionResponse(from, commitCertificates) = response
     commitCertificates
       .traverse(commitCertValidator.validateConsensusCertificate)
       .bimap(
         error =>
-          s"Got a retransmission response from $from with invalid commit certificate: $error, ignoring",
+          RetransmissionResponseValidationError
+            .MalformedMessage(from, s"invalid commit certificate: $error"),
         _ => (),
       )
   }
 
+}
+
+object RetransmissionMessageValidator {
+  sealed trait RetransmissionResponseValidationError {
+    def errorMsg: String
+  }
+  object RetransmissionResponseValidationError {
+    final case class WrongEpoch(
+        from: BftNodeId,
+        messageEpochNumber: EpochNumber,
+        currentEpochNumber: EpochNumber,
+    ) extends RetransmissionResponseValidationError {
+      val errorMsg =
+        s"Got a retransmission response from $from for wrong epoch(s) $messageEpochNumber, while we're at $currentEpochNumber, ignoring"
+    }
+    final case class MalformedMessage(from: BftNodeId, reason: String)
+        extends RetransmissionResponseValidationError {
+      val errorMsg =
+        s"Got a retransmission response from $from with $reason, ignoring"
+    }
+  }
 }

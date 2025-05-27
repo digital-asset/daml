@@ -1,5 +1,5 @@
 // start all local instances defined in the configuration file
-nodes.local.start()
+participant1.start()
 
 // Bootstrap the synchronizer
 val synchronizerId = bootstrap.synchronizer(

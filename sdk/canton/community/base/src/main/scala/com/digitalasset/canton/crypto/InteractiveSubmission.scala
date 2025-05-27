@@ -19,6 +19,7 @@ import com.digitalasset.canton.protocol.hash.{
   TransactionMetadataHashBuilder,
 }
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, SerializableContract}
+import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
@@ -194,7 +195,8 @@ object InteractiveSubmission {
   def verifySignatures(
       hash: Hash,
       signatures: Map[PartyId, Seq[Signature]],
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
+      cryptoPureApi: CryptoPureApi,
+      topologySnapshot: TopologySnapshot,
       actAs: Set[LfPartyId],
       logger: TracedLogger,
   )(implicit
@@ -230,7 +232,8 @@ object InteractiveSubmission {
       verifySignatures(
         hash,
         signaturesFromActAsParties,
-        cryptoSnapshot,
+        cryptoPureApi,
+        topologySnapshot,
         logger,
       )
     }
@@ -242,7 +245,8 @@ object InteractiveSubmission {
   private def verifySignatures(
       hash: Hash,
       signatures: Map[PartyId, Seq[Signature]],
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
+      cryptoPureApi: CryptoPureApi,
+      topologySnapshot: TopologySnapshot,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,
@@ -252,7 +256,7 @@ object InteractiveSubmission {
       .parTraverse_ { case (party, signatures) =>
         for {
           authInfo <- EitherT(
-            cryptoSnapshot.ipsSnapshot
+            topologySnapshot
               .partyAuthorization(party)
               .map(
                 _.toRight(s"Could not find party signing keys for $party.")
@@ -265,7 +269,7 @@ object InteractiveSubmission {
               .toRight(s"Signing key ${signature.signedBy} is not a valid key for $party")
               .flatMap(key =>
                 // TODO(#23551) Add new usage for interactive submission
-                cryptoSnapshot.pureCrypto
+                cryptoPureApi
                   .verifySignature(hash.unwrap, key, signature, SigningKeyUsage.ProtocolOnly)
                   .map(_ => key.fingerprint)
                   .leftMap(_.toString)

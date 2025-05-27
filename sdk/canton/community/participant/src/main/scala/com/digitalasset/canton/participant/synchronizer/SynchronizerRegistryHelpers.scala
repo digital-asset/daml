@@ -49,7 +49,7 @@ import org.apache.pekko.stream.Materializer
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
 
-trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging {
+trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with HasCloseContext {
   this: HasFutureSupervision =>
   def participantId: ParticipantId
   protected def participantNodeParameters: ParticipantNodeParameters

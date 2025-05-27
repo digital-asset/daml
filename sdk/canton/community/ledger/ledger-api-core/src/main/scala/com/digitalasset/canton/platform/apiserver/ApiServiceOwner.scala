@@ -14,6 +14,7 @@ import com.digitalasset.canton.config.{
   NonNegativeFiniteDuration,
   TlsServerConfig,
 }
+import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
@@ -49,7 +50,6 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
-import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
@@ -112,7 +112,7 @@ object ApiServiceOwner {
       authenticateFatContractInstance: AuthenticateFatContractInstance,
       dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
-      lfValueTranslation: LfValueTranslation,
+      interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       keepAlive: Option[KeepAliveServerConfig],
       packagePreferenceBackend: PackagePreferenceBackend,
   )(implicit
@@ -194,7 +194,7 @@ object ApiServiceOwner {
         authenticateFatContractInstance = authenticateFatContractInstance,
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
-        lfValueTranslation = lfValueTranslation,
+        interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         packagePreferenceBackend = packagePreferenceBackend,
         logger = loggerFactory.getTracedLogger(this.getClass),
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
