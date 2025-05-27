@@ -48,8 +48,13 @@ Similarly ``multi-trade`` contains the ``MultiTrade`` template, and ``multi-trad
 It allows the Daml Assistant to orchestrate the build of each sub-package.
 It contains the list of sub-packages:
 
-.. literalinclude:: daml/daml-intro-12/multi-package.yaml
-  :language: none
+.. code-block:: yaml
+
+  packages:
+  - ./asset
+  - ./asset-tests
+  - ./multi-trade
+  - ./multi-trade-tests
 
 Run ``daml build --all`` at the root of the multi-package project, to build all sub-packages.
 Or you can run ``daml build`` in any of the sub-package. It detects the dependencies, and build them in the correct order.
