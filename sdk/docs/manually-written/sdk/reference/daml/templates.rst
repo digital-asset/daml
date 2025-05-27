@@ -247,7 +247,7 @@ This does not merely mean "convertible to bytes"; it has a specific meaning in D
 The serializability rule serves three purposes:
 
 1. Offer a stable means to store ledger values permanently.
-2. Provide a sensible encoding of them over :ref:`grpc`.
+2. Provide a sensible encoding of them over the :ref:`ledger-api`.
 3. Provide sensible *types* that directly match their Daml counterparts in languages like Java for language codegen.
 
 For example, certain kinds of type parameters Daml offers are compatible with (1) and (2), but have no proper counterpart in (3), so they are disallowed.

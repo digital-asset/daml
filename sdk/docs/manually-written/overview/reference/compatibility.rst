@@ -115,8 +115,6 @@ Summary of Ledger API Changes
      - Introduce Daml-LF 1.13
    * - 1.10
      - Introduce Daml-LF 1.12
-
-       Stabilize :externalref:`participant pruning <ops-ref_index>`
    * - 1.9
      - Introduce Daml-LF 1.11
    * - 1.8

@@ -1,14 +1,10 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _integration-with-ledger-api:
+.. _build_explanations_ledger_api_overview:
 
-Build Integration with the Ledger API
-#####################################
-
-To write an application around a Daml ledger, you will need to interact with the **Ledger API**.
-
-Every ledger that Daml can run on exposes this same API.
+Ledger API overview
+###################
 
 What's in the Ledger API
 ************************
@@ -43,30 +39,35 @@ For full information on the services see :ref:`ledger-api-services`.
 
 You may also want to read the :externalref:`protobuf documentation <com/daml/ledger/api/scalapb/package.proto>`, which explains how each service is defined as protobuf messages.
 
-.. _how-to-access-ledger-api:
+.. todo: cleanup the content below
+..
+.. .. _how-to-access-ledger-api:
+..
+..    How to Access the Ledger API
+..    ****************************
+..
+..
+..    You can access the Ledger API via the :brokenref:`Java Bindings <bindings-java/index>` or the :brokenref:`Python Bindings <python-bindings>` (formerly known as DAZL).
+..
+..    If you don't use a language that targets the JVM or Python, you can use gRPC to generate the code to access the Ledger API in
+..    several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
+..    pointers on how you may want to approach this.
+..
+..    You can also use the :externalref:`HTTP JSON API Service <json-api>` to tap into the Ledger API.
+..
+..    At its core, this service provides a simplified view of the active contract set and additional primitives to query it and
+..    exposing it using a well-defined JSON-based encoding over a conventional HTTP connection.
+..
+..    A subset of the services mentioned above is also available as part of the HTTP JSON API.
+..
 
-How to Access the Ledger API
-****************************
-
-You can access the Ledger API via the :brokenref:`Java Bindings <bindings-java/index>` or the :ref:`Python Bindings <python-bindings>` (formerly known as DAZL).
-
-If you don't use a language that targets the JVM or Python, you can use gRPC to generate the code to access the Ledger API in
-several supported programming languages. :doc:`Further documentation <bindings-x-lang/index>` provides a few
-pointers on how you may want to approach this.
-
-You can also use the :externalref:`HTTP JSON API Service <json-api>` to tap into the Ledger API.
-
-At its core, this service provides a simplified view of the active contract set and additional primitives to query it and
-exposing it using a well-defined JSON-based encoding over a conventional HTTP connection.
-
-A subset of the services mentioned above is also available as part of the HTTP JSON API.
 
 .. _daml-lf-intro:
 
 Daml-LF
 *******
 
-When you :ref:`compile Daml source into a .dar file <assistant-manual-building-dars>`, the underlying format is Daml-LF. Daml-LF is similar to Daml, but is stripped down to a core set of features. The relationship between the surface Daml syntax and Daml-LF is loosely similar to that between Java and JVM bytecode.
+When you :ref:`compile Daml source into a .dar file <build_howto_build_dar_files>`, the underlying format is Daml-LF. Daml-LF is similar to Daml, but is stripped down to a core set of features. The relationship between the surface Daml syntax and Daml-LF is loosely similar to that between Java and JVM bytecode.
 
 As a user, you don't need to interact with Daml-LF directly. But internally, it's used for:
 
