@@ -37,7 +37,7 @@ Coin contract
     In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
     be given a fixed lifetime.
 
-    .. literalinclude:: ./LimitedTimeCoinTransfer.daml
+    .. literalinclude:: ./daml/LimitedTimeCoinTransfer.daml
       :language: daml
       :start-after: -- BEGIN_LIMITED_TIME_COIN_TRANSFER
       :end-before: -- END_LIMITED_TIME_COIN_TRANSFER
