@@ -3,6 +3,8 @@
 
 .. _daml-codegen:
 
+.. TODO(#350) remove this file since the content should already be in component-howtos-application-development-daml-codegen-java.rst and the file for daml codegen for js
+
 Daml Codegen
 ############
 

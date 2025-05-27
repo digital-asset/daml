@@ -8,6 +8,7 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.collection.FairBoundedQueue
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.HasDelayedInit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
@@ -21,11 +22,13 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopologyInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus.ConsensusMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{Env, ModuleRef}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.collection.BoundedQueue.DropStrategy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -48,7 +51,7 @@ final class PreIssConsensusModule[E <: Env[E]](
     override val timeouts: ProcessingTimeout,
 )(implicit
     synchronizerProtocolVersion: ProtocolVersion,
-    config: BftBlockOrdererConfig,
+    override val config: BftBlockOrdererConfig,
     mc: MetricsContext,
 ) extends Consensus[E]
     with HasDelayedInit[Consensus.Message[E]] {
@@ -82,12 +85,20 @@ final class PreIssConsensusModule[E <: Env[E]](
             abort,
             previousEpochsCommitCerts,
             metrics,
+            clock,
             loggerFactory,
           ),
           random,
           dependencies,
           loggerFactory,
           timeouts,
+          futurePbftMessageQueue =
+            new FairBoundedQueue[ConsensusMessage.PbftUnverifiedNetworkMessage](
+              config.consensusQueueMaxSize,
+              config.consensusQueuePerNodeQuota,
+              // Drop newest to ensure continuity of messages (and fall back to retransmissions or state transfer later if needed)
+              DropStrategy.DropNewest,
+            ),
         )()()
         context.become(consensus)
         // This will send all queued messages to the proper Consensus module.

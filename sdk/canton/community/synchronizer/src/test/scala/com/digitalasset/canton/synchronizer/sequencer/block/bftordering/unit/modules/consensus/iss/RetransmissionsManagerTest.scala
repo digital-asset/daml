@@ -46,6 +46,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
   ProgrammableUnitTestContext,
   ProgrammableUnitTestEnv,
 }
+import com.digitalasset.canton.time.SimClock
 import org.scalatest.wordspec.AnyWordSpec
 import org.slf4j.event.Level
 
@@ -464,6 +465,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       fail(_),
       previousEpochsCommitCerts = Map.empty,
       metrics,
+      new SimClock(loggerFactory = loggerFactory),
       loggerFactory,
     )
   }

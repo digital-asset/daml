@@ -333,11 +333,11 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object TopologyEvent
       extends ProtocolConverter[
         lapi.topology_transaction.TopologyEvent,
-        JsTopologyEvent.Event,
+        JsTopologyEvent.TopologyEvent,
       ] {
     def toJson(
         event: lapi.topology_transaction.TopologyEvent.Event
-    ): Future[JsTopologyEvent.Event] =
+    ): Future[JsTopologyEvent.TopologyEvent] =
       event match {
         case lapi.topology_transaction.TopologyEvent.Event.Empty =>
           illegalValue(lapi.topology_transaction.TopologyEvent.Event.Empty.toString())
@@ -350,7 +350,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       }
 
     def fromJson(
-        event: JsTopologyEvent.Event
+        event: JsTopologyEvent.TopologyEvent
     ): Future[lapi.topology_transaction.TopologyEvent.Event] = event match {
       case added: JsTopologyEvent.ParticipantAuthorizationAdded =>
         Future(
@@ -1420,7 +1420,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           submissionId = obj.submissionId,
           userId = obj.userId,
           hashingSchemeVersion = obj.hashingSchemeVersion,
-          minLedgerTime = None,
+          minLedgerTime = obj.minLedgerTime,
         )
       }
   }

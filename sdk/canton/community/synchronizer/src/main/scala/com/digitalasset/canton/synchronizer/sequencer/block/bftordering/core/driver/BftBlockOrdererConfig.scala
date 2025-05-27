@@ -23,6 +23,9 @@ import com.digitalasset.canton.config.{
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
+  DefaultConsensusQueueMaxSize,
+  DefaultConsensusQueuePerNodeQuota,
+  DefaultDelayedInitQueueMaxSize,
   DefaultEpochLength,
   DefaultEpochStateTransferTimeout,
   DefaultMaxBatchCreationInterval,
@@ -50,6 +53,13 @@ import scala.concurrent.duration.*
   * @param maxBatchesPerBlockProposal
   *   A maximum number of batches per block proposal (pre-prepare). Needs to be the same across the
   *   network for the BFT time assumptions to hold. It is validated in runtime.
+  * @param consensusQueueMaxSize
+  *   A maximum size per consensus-related queue.
+  * @param consensusQueuePerNodeQuota
+  *   A maximum number of messages per node stored in consensus-related queues (quotas are
+  *   maintained separately per queue).
+  * @param delayedInitQueueMaxSize
+  *   A maximum size per delayed init queue.
   * @param epochStateTransferRetryTimeout
   *   A state transfer retry timeout covering periods from requesting blocks from a single epoch up
   *   to receiving all the corresponding batches.
@@ -65,6 +75,9 @@ final case class BftBlockOrdererConfig(
     maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
     // TODO(#24184) make a dynamic sequencing parameter
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
+    consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
+    consensusQueuePerNodeQuota: Int = DefaultConsensusQueuePerNodeQuota,
+    delayedInitQueueMaxSize: Int = DefaultDelayedInitQueueMaxSize,
     epochStateTransferRetryTimeout: FiniteDuration = DefaultEpochStateTransferTimeout,
     outputFetchTimeout: FiniteDuration = DefaultOutputFetchTimeout,
     pruningConfig: PruningConfig = DefaultPruningConfig,
@@ -88,6 +101,7 @@ final case class BftBlockOrdererConfig(
       s"but the maximum number allowed of requests per block is ${BftTime.MaxRequestsPerBlock}",
   )
 }
+
 object BftBlockOrdererConfig {
 
   // Minimum epoch length that allows 16 nodes (i.e., the current CN load test target) to all act as consensus leaders
@@ -99,6 +113,9 @@ object BftBlockOrdererConfig {
   val DefaultMinRequestsInBatch: Short = 3
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
+  val DefaultConsensusQueueMaxSize: Int = 10 * 1024
+  val DefaultConsensusQueuePerNodeQuota: Int = 1024
+  val DefaultDelayedInitQueueMaxSize: Int = 1024
   val DefaultEpochStateTransferTimeout: FiniteDuration = 10.seconds
   val DefaultOutputFetchTimeout: FiniteDuration = 2.second
   val DefaultPruningConfig: PruningConfig = PruningConfig(
@@ -135,7 +152,7 @@ object BftBlockOrdererConfig {
       CantonConfigValidatorDerivation[P2PNetworkAuthenticationConfig]
   }
 
-  /** If [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
+  /** The [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
     * correctly for the client to correctly authenticate the server, as the client tells the server
     * its endpoint for authentication based on this information.
     */

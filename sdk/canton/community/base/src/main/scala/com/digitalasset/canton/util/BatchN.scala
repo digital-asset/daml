@@ -40,7 +40,7 @@ object BatchN {
       maxBatchSize: Int,
       maxBatchCount: Int,
       catchUpMode: CatchUpMode = MaximizeConcurrency,
-  ): Flow[IN, collection.immutable.Iterable[IN], NotUsed] = {
+  ): Flow[IN, scala.collection.immutable.Iterable[IN], NotUsed] = {
     val totalBatchSize = maxBatchSize * maxBatchCount
     Flow[IN]
       .batch[ArrayBuffer[IN]](
@@ -80,7 +80,7 @@ object BatchN {
   // collection needs to be built, this will fall back to IterableFactory.Delegate[Iterable](List).
   // Please note this cannot be a value class, since some ancestors of immutable.Iterable is Any.
   private class IterableToIterable[X](val iterable: Iterable[X])
-      extends collection.immutable.Iterable[X] {
+      extends scala.collection.immutable.Iterable[X] {
     override def iterator: Iterator[X] = iterable.iterator
   }
 }

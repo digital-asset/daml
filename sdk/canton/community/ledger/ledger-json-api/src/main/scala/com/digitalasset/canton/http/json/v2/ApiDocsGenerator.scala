@@ -15,9 +15,7 @@ import sttp.tapir.docs.asyncapi.AsyncAPIInterpreter
 import sttp.tapir.docs.openapi.OpenAPIDocsInterpreter
 import sttp.tapir.{AnyEndpoint, headers}
 
-import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
-import scala.collection.immutable.ListMap
+import scala.collection.immutable.{ListMap, SortedMap}
 
 class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
     extends NamedLogging {
@@ -59,8 +57,30 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
       proto: ProtoInfo,
   ): openapi.Components = {
     val updatedSchemas: ListMap[String, SchemaLike] =
-      component.schemas.map(s => importSchemaLike(s, proto))
+      component.schemas.map(s => importSchemaLike(s, proto, findUniqueParent(s, component.schemas)))
     component.copy(schemas = updatedSchemas)
+  }
+
+  private def findUniqueParent(
+      component: (String, SchemaLike),
+      schemas: ListMap[String, SchemaLike],
+  ) = {
+    val (name, schema) = component
+    schema match {
+      case s: Schema if s.oneOf.nonEmpty =>
+        val referencingSchemas = schemas.collect {
+          case (parentName, parent: Schema) if parent.properties.exists {
+                case (_, prop: Schema) => prop.$ref.contains(s"#/components/schemas/$name")
+                case _ => false
+              } =>
+            parentName
+        }
+        referencingSchemas match {
+          case single :: Nil => Some(single)
+          case _ => None
+        }
+      case _ => None
+    }
   }
 
   private def supplyComponents(
@@ -75,9 +95,10 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
   private def importSchemaLike(
       component: (String, SchemaLike),
       proto: ProtoInfo,
+      parentComponent: Option[String],
   ): (String, SchemaLike) =
     component._2 match {
-      case schema: Schema => importSchema(component._1, schema, proto)
+      case schema: Schema => importSchema(component._1, schema, proto, parentComponent)
       case _ => component
     }
 
@@ -85,9 +106,10 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
       componentName: String,
       componentSchema: Schema,
       proto: ProtoInfo,
+      parentComponent: Option[String] = None,
   ): (String, Schema) =
     proto
-      .findMessageInfo(componentName)
+      .findMessageInfo(componentName, parentComponent)
       .map { message =>
         val properties = componentSchema.properties.map { case (propertyName, propertySchema) =>
           message
@@ -113,10 +135,23 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
       }
       .getOrElse((componentName, componentSchema))
 
+  def loadProtoData()(implicit traceContext: TraceContext): ProtoInfo =
+    ProtoInfo
+      .loadData()
+      .fold(
+        error => {
+          logger.warn(s"Cannot load proto data for documentation $error")
+          // If we cannot load protoInfo data then we  generate docs with no supplemented comments
+          ProtoInfo(ExtractedProtoComments(SortedMap.empty, SortedMap.empty))
+        },
+        identity,
+      )
+
   def createDocs(
       lapiVersion: String,
       endpointDescriptions: Seq[AnyEndpoint],
-  )(implicit traceContext: TraceContext): ApiDocs = {
+      protoData: ProtoInfo,
+  ): ApiDocs = {
     val openApiDocs: openapi.OpenAPI = OpenAPIDocsInterpreter()
       .toOpenAPI(
         endpointDescriptions,
@@ -125,16 +160,6 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
       )
       .openapi("3.0.3")
 
-    val protoData = ProtoInfo
-      .loadData()
-      .fold(
-        error => {
-          logger.warn(s"Cannot load proto data for documentation $error")
-          // If we cannot load protoInfo data then we  generate docs with no supplemented comments
-          ProtoInfo(ExtractedProtoComments(Map.empty, Map.empty))
-        },
-        identity,
-      )
     val supplementedOpenApi = supplyProtoDocs(openApiDocs, protoData)
     import sttp.apispec.openapi.circe.yaml.*
 
@@ -154,10 +179,11 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
     ApiDocs(openApiYaml, asyncApiYaml)
   }
 
-  def createStaticDocs()(implicit traceContext: TraceContext): ApiDocs =
+  def createStaticDocs(protoInfo: ProtoInfo): ApiDocs =
     createDocs(
       VersionFile.readVersion().getOrElse("unknown"),
       staticDocumentationEndpoints.map(addHeaders),
+      protoInfo,
     )
 
   private def addHeaders(endpoint: AnyEndpoint) =
@@ -165,24 +191,6 @@ class ApiDocsGenerator(override protected val loggerFactory: NamedLoggerFactory)
 }
 
 final case class ApiDocs(openApi: String, asyncApi: String)
-
-object GenerateJSONApiDocs extends App {
-  val docsDir = "target/apidocs"
-  val docsTargetDir = Paths.get(docsDir)
-  Files.createDirectories(docsTargetDir)
-  // No trace context needed -> it is used only for static yaml generation
-  implicit val traceContext: TraceContext = TraceContext.empty
-  val apiDocsGenerator = new ApiDocsGenerator(NamedLoggerFactory.root)
-  val staticDocs = apiDocsGenerator.createStaticDocs()
-  Files.write(
-    docsTargetDir.resolve("openapi.yaml"),
-    staticDocs.openApi.getBytes(StandardCharsets.UTF_8),
-  )
-  Files.write(
-    docsTargetDir.resolve("asyncapi.yaml"),
-    staticDocs.asyncApi.getBytes(StandardCharsets.UTF_8),
-  )
-}
 
 object OpenAPI3_0_3Fix {
   def fixTupleDefinition(existingDefinition: OpenAPI): OpenAPI = existingDefinition

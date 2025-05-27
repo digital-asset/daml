@@ -1038,7 +1038,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
           res <- sequencer.sendAsyncSigned(sign(request)).value
           _ = res.isLeft shouldBe true
           _ = res.left.toOption.map(
-            _.cause.contains("Submission was rejected because not traffic is available")
+            _.cause.contains("Submission was rejected because no traffic is available")
           ) shouldBe Some(true)
           senderTraffic <- getStateFor(sender, sequencer)
         } yield {

@@ -7,6 +7,7 @@ import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.*
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.EpochNumber
@@ -100,12 +101,28 @@ class AvailabilityModuleDisseminationTest
           ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
           verify(cryptoProvider).signHash(
-            AvailabilityAck.hashFor(ABatchId, anEpochNumber, me)
+            AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
+            operationId = "availability-sign-local-batchId",
           )
 
           disseminationProtocolState.disseminationProgress should be(empty)
-          disseminationProtocolState.batchesReadyForOrdering should
-            contain only BatchReadyForOrderingNode0Vote
+          locally {
+            import BatchReadyForOrderingNode0Vote._2.*
+            disseminationProtocolState.batchesReadyForOrdering.values.toSeq should
+              matchPattern {
+                case Seq(
+                      DisseminatedBatchMetadata(
+                        `proofOfAvailability`,
+                        `epochNumber`,
+                        `stats`,
+                        _,
+                        _,
+                        _,
+                        _,
+                      )
+                    ) =>
+              }
+          }
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
         }
     }
@@ -133,7 +150,8 @@ class AvailabilityModuleDisseminationTest
         ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
         verify(cryptoProvider).signHash(
-          AvailabilityAck.hashFor(ABatchId, anEpochNumber, me)
+          AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
+          operationId = "availability-sign-local-batchId",
         )
 
         disseminationProtocolState.disseminationProgress should
@@ -166,7 +184,8 @@ class AvailabilityModuleDisseminationTest
         ctx.runPipedMessagesAndReceiveOnModule(availability) // Perform signing
 
         verify(cryptoProvider).signHash(
-          AvailabilityAck.hashFor(ABatchId, anEpochNumber, me)
+          AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
+          operationId = "availability-sign-local-batchId",
         )
 
         disseminationProtocolState.disseminationProgress should be(empty)
@@ -207,7 +226,8 @@ class AvailabilityModuleDisseminationTest
           availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
 
           verify(cryptoProvider).signHash(
-            AvailabilityAck.hashFor(ABatchId, anEpochNumber, me)
+            AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
+            operationId = "availability-sign-local-batchId",
           )
 
           availability.receive(
@@ -269,7 +289,8 @@ class AvailabilityModuleDisseminationTest
           availability.receive(LocalDissemination.LocalBatchesStored(Seq(ABatchId -> ABatch)))
 
           verify(cryptoProvider).signHash(
-            AvailabilityAck.hashFor(ABatchId, anEpochNumber, me)
+            AvailabilityAck.hashFor(ABatchId, anEpochNumber, me, metrics),
+            operationId = "availability-sign-local-batchId",
           )
 
           availability.receive(
@@ -499,6 +520,47 @@ class AvailabilityModuleDisseminationTest
       )
       canAcceptBatch(AnotherBatchId) shouldBe true
     }
+    "evict batches that are being tracked of after some epochs" in {
+      implicit val ctx: ProgrammableUnitTestContext[Availability.Message[ProgrammableUnitTestEnv]] =
+        new ProgrammableUnitTestContext()
+      val availabilityStore = spy(new FakeAvailabilityStore[ProgrammableUnitTestEnv])
+      val disseminationProtocolState = new DisseminationProtocolState()
+
+      val availability = createAvailability[ProgrammableUnitTestEnv](
+        disseminationProtocolState = disseminationProtocolState,
+        cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        availabilityStore = availabilityStore,
+        initialEpochNumber = Genesis.GenesisEpochNumber,
+      )
+
+      availability.receive(
+        Availability.LocalDissemination.RemoteBatchStored(
+          ABatchId,
+          anEpochNumber,
+          Node1,
+        )
+      )
+
+      // just expiring an epoch is not enough to evict its batches
+      val expiringEpochNumber =
+        EpochNumber(anEpochNumber + OrderingRequestBatch.BatchValidityDurationEpochs)
+      availability.receive(
+        Availability.Consensus
+          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, expiringEpochNumber)
+      )
+      verifyZeroInteractions(availabilityStore)
+
+      // an extra window of batch validity has to go by for an epoch have its batches evicted
+      val evictionEpochNumber =
+        EpochNumber(anEpochNumber + 2 * OrderingRequestBatch.BatchValidityDurationEpochs)
+      availability.receive(
+        Availability.Consensus
+          .CreateProposal(OrderingTopologyNode0, failingCryptoProvider, evictionEpochNumber)
+      )
+
+      // the batch got evicted
+      verify(availabilityStore).gc(Seq(ABatchId))
+    }
   }
 
   "it receives Dissemination.RemoteBatchStored (from local store)" should {
@@ -521,7 +583,8 @@ class AvailabilityModuleDisseminationTest
       disseminationProtocolState.batchesReadyForOrdering should be(empty)
       disseminationProtocolState.toBeProvidedToConsensus should be(empty)
       verify(cryptoProvider).signHash(
-        AvailabilityAck.hashFor(ABatchId, anEpochNumber, myId)
+        AvailabilityAck.hashFor(ABatchId, anEpochNumber, myId, metrics),
+        operationId = "availability-sign-remote-batchId",
       )
     }
   }
@@ -604,9 +667,10 @@ class AvailabilityModuleDisseminationTest
         availability.receive(msg)
 
         verify(cryptoProvider).verifySignature(
-          AvailabilityAck.hashFor(msg.batchId, anEpochNumber, msg.from),
+          AvailabilityAck.hashFor(msg.batchId, anEpochNumber, msg.from, metrics),
           msg.from,
           msg.signature,
+          operationId = "availability-signature-verify-ack",
         )
 
         availability.receive(
@@ -614,8 +678,22 @@ class AvailabilityModuleDisseminationTest
         )
 
         disseminationProtocolState.disseminationProgress should be(empty)
-        disseminationProtocolState.batchesReadyForOrdering should
-          contain only BatchReadyForOrderingNode0And1Votes
+        locally {
+          import BatchReadyForOrderingNode0And1Votes._2.*
+          disseminationProtocolState.batchesReadyForOrdering.values.toSeq should matchPattern {
+            case Seq(
+                  DisseminatedBatchMetadata(
+                    `proofOfAvailability`,
+                    `epochNumber`,
+                    `stats`,
+                    _,
+                    _,
+                    _,
+                    _,
+                  )
+                ) =>
+          }
+        }
         disseminationProtocolState.toBeProvidedToConsensus should be(empty)
       }
     }
@@ -642,9 +720,10 @@ class AvailabilityModuleDisseminationTest
           QuorumAcksForNode0To3.tail.foreach { quorumAck =>
             availability.receive(quorumAck)
             verify(cryptoProvider).verifySignature(
-              AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from),
+              AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from, metrics),
               quorumAck.from,
               quorumAck.signature,
+              operationId = "availability-signature-verify-ack",
             )
           }
 
@@ -659,8 +738,22 @@ class AvailabilityModuleDisseminationTest
           }
 
           disseminationProtocolState.disseminationProgress should be(empty)
-          disseminationProtocolState.batchesReadyForOrdering should
-            contain only BatchReadyForOrdering4NodesQuorumVotes
+          locally {
+            import BatchReadyForOrdering4NodesQuorumVotes._2.*
+            disseminationProtocolState.batchesReadyForOrdering.values.toSeq should matchPattern {
+              case Seq(
+                    DisseminatedBatchMetadata(
+                      `proofOfAvailability`,
+                      `epochNumber`,
+                      `stats`,
+                      _,
+                      _,
+                      _,
+                      _,
+                    )
+                  ) =>
+            }
+          }
           disseminationProtocolState.toBeProvidedToConsensus should be(empty)
         }
     }
@@ -686,9 +779,10 @@ class AvailabilityModuleDisseminationTest
         NonQuorumAcksForNode0To6.tail.foreach { quorumAck =>
           availability.receive(quorumAck)
           verify(cryptoProvider).verifySignature(
-            AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from),
+            AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from, metrics),
             quorumAck.from,
             quorumAck.signature,
+            operationId = "availability-signature-verify-ack",
           )
         }
 
@@ -732,9 +826,10 @@ class AvailabilityModuleDisseminationTest
           val msg = remoteBatchAcknowledged(idx = 1)
           availability.receive(msg)
           verify(cryptoProvider).verifySignature(
-            AvailabilityAck.hashFor(msg.batchId, anEpochNumber, msg.from),
+            AvailabilityAck.hashFor(msg.batchId, anEpochNumber, msg.from, metrics),
             msg.from,
             msg.signature,
+            operationId = "availability-signature-verify-ack",
           )
 
           availability.receive(
@@ -775,9 +870,10 @@ class AvailabilityModuleDisseminationTest
           QuorumAcksForNode0To3.tail.foreach { quorumAck =>
             availability.receive(quorumAck)
             verify(cryptoProvider).verifySignature(
-              AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from),
+              AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from, metrics),
               quorumAck.from,
               quorumAck.signature,
+              operationId = "availability-signature-verify-ack",
             )
             availability.receive(
               LocalDissemination.RemoteBatchAcknowledgeVerified(
@@ -820,9 +916,10 @@ class AvailabilityModuleDisseminationTest
           availability.receive(quorumAck)
 
           verify(cryptoProvider).verifySignature(
-            AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from),
+            AvailabilityAck.hashFor(quorumAck.batchId, anEpochNumber, quorumAck.from, metrics),
             quorumAck.from,
             quorumAck.signature,
+            operationId = "availability-signature-verify-ack",
           )
 
           availability.receive(
@@ -867,9 +964,10 @@ class AvailabilityModuleDisseminationTest
         val node1Ack = remoteBatchAcknowledged(1)
         availability.receive(node1Ack)
         verify(cryptoProvider, times(1)).verifySignature(
-          AvailabilityAck.hashFor(node1Ack.batchId, anEpochNumber, node1Ack.from),
+          AvailabilityAck.hashFor(node1Ack.batchId, anEpochNumber, node1Ack.from, metrics),
           node1Ack.from,
           node1Ack.signature,
+          operationId = "availability-signature-verify-ack",
         )
         availability.receive(
           LocalDissemination.RemoteBatchAcknowledgeVerified(

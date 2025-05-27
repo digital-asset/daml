@@ -79,14 +79,15 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
 
     val writer =
       new SequencerWriter(
-        storageFactory,
-        TestSequencerWriterFlowFactory,
-        storage,
-        store,
-        clock,
-        CommitMode.Default.some,
-        timeouts,
-        loggerFactory,
+        writerStoreFactory = storageFactory,
+        writerFlowFactory = TestSequencerWriterFlowFactory,
+        storage = storage,
+        rateLimitManagerO = None,
+        generalStore = store,
+        clock = clock,
+        expectedCommitMode = CommitMode.Default.some,
+        timeouts = timeouts,
+        loggerFactory = loggerFactory,
       )
     def numberOfFlowsCreated: Int = runningFlows.size
 

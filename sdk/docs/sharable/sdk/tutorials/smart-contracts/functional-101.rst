@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Functional Programming 101
+Functional programming 101
 ==========================
 
 In this chapter, you will learn more about expressing complex logic in a functional language like Daml. Specifically, you'll learn about
@@ -17,12 +17,12 @@ If you no longer have your :doc:`compose` and :doc:`dependencies` projects set u
 
 .. _haskell-connection:
 
-The Haskell Connection
+The Haskell connection
 ----------------------
 
 The previous chapters of this introduction to Daml have mostly covered the structure of templates, and their connection to the :externalref:`Daml Ledger Model <da-ledgers>`. The logic of what happens within the ``do`` blocks of choices has been kept relatively simple. In this chapter, we will dive deeper into Daml's expression language, the part that allows you to write logic inside those ``do`` blocks. But we can only scratch the surface here. Daml borrows a lot of its language from `Haskell <https://www.haskell.org>`__. If you want to dive deeper, or learn about specific aspects of the language you can refer to standard literature on Haskell. Some recommendations:
 
-- `Finding Success and Failure in Haskell (Julie Maronuki, Chris Martin) <https://joyofhaskell.com/>`__
+- `Finding Success and Failure in Haskell (Julie Moronuki, Chris Martin) <https://joyofhaskell.com/>`__
 - `Haskell Programming from first principles (Christopher Allen, Julie Moronuki) <http://haskellbook.com/>`__
 - `Learn You a Haskell for Great Good! (Miran Lipovača) <http://learnyouahaskell.com/>`__
 - `Programming in Haskell (Graham Hutton) <http://www.cs.nott.ac.uk/~pszgmh/pih.html>`__
@@ -31,7 +31,7 @@ The previous chapters of this introduction to Daml have mostly covered the struc
 When comparing Daml to Haskell it's worth noting:
 
 -   Haskell is a lazy language, which allows you to write things like ``head [1..]``, meaning "take the first element of an infinite list". Daml by contrast is strict. Expressions are fully evaluated, which means it is not possible to work with infinite data structures.
-- Daml has a ``with`` syntax for records and dot syntax for record field access, neither of which is present in Haskell. However, Daml supports Haskell's curly brace record notation.
+- Daml has a ``with`` syntax for records and a dot syntax for record field access, neither of which is present in Haskell. However, Daml supports Haskell's curly brace record notation.
 - Daml has a number of Haskell compiler extensions active by default.
 - Daml doesn't support all features of Haskell's type system. For example, there are no existential types or GADTs.
 - Actions are called Monads in Haskell.
@@ -74,7 +74,7 @@ There are two interesting things going on here:
 1. We have more than one ``->``.
 2. We have a type parameter ``a`` with a constraint ``Additive a``.
 
-Function Application
+Function application
 ....................
 
 Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is right associative, meaning ``a -> a -> a`` is equivalent to ``a -> (a -> a)``. Using the "maps to" way of reading ``->``, we get "``a`` maps to a function that maps ``a`` to ``a``".
@@ -90,7 +90,7 @@ If you try this out in your IDE, you'll see that the compiler infers type ``Int 
 
 So if we have a function ``f : a -> b -> c -> d`` and a value ``valA : a``, we get ``f valA : b -> c -> d``, i.e. we can apply the function argument by argument. If we also had ``valB : b``, we would have ``f valA valB : c -> d``. What this tells you is that function *application* is left associative: ``f valA valB == (f valA) valB``.
 
-Infix Functions
+Infix functions
 ...............
 
 Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function, and wrap a normal function in backticks to make it infix:
@@ -118,7 +118,7 @@ If we want to partially apply an infix operation we can also do that as follows:
 
   While function application is left associative by default, infix operators can be declared left or right associative and given a precedence. Good examples are the boolean operations ``&&`` and ``||``, which are declared right associative with precedences 3 and 2, respectively. This allows you to write ``True || True && False`` and get value ``True``. See section 4.4.2 of `the Haskell 98 report <https://www.haskell.org/onlinereport/decls.html>`_ for more on fixities.
 
-Type Constraints
+Type constraints
 ................
 
 The ``Additive a =>`` part of the signature of ``add`` is a type constraint on the type parameter ``a``. ``Additive`` here is a typeclass. You already met typeclasses like ``Eq`` and ``Show`` in :doc:`data`. The ``Additive`` typeclass says that you can add a thing, i.e. there is a function ``(+) : a -> a -> a``. Now the way to read the full signature of ``add`` is "Given that ``a`` has an instance for the ``Additive`` typeclass, ``a`` maps to a function which maps ``a`` to ``a``".
@@ -142,7 +142,7 @@ Using single letters, while common, is not mandatory. The above may be made a li
   exercise : (Template template, Choice template choice result) =>
                ContractId template -> choice -> Update result
 
-Pattern Matching in Arguments
+Pattern matching in arguments
 .............................
 
 You met pattern matching in :doc:`data`, using ``case`` expressions which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
@@ -193,7 +193,7 @@ The ``..`` in the second to last line means fill all fields of the new record us
 
 because the notation ``asset@(Asset with ..)`` binds ``asset`` to the entire record, while also binding all of the fields of ``asset`` to local variables.
 
-Functions Everywhere
+Functions everywhere
 ....................
 
 You have probably already guessed it: Anywhere you can put a value in Daml you can also put a function. Even inside data types:
@@ -220,25 +220,25 @@ You can see that the function signature is inferred from the context here. If yo
 
     Bear in mind that functions are not serializable, so you can't use them inside template arguments, as choice inputs, or as choice outputs. They also don't have instances of the ``Eq`` or ``Show`` typeclasses which one would commonly want on data types.
 
-The ``mapA`` and ``mapA_`` functions loop through the lists of assets and approvals and apply the functions ``validate`` and ``transfer`` to each element of those lists, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`looping` below.
+The ``mapA`` and ``mapA_`` functions loop through the lists of assets and approvals, and apply the functions ``validate`` and ``transfer`` to each element of those lists, performing the resulting ``Update`` action in the process. We'll look at that more closely under :ref:`loops` below.
 
 Lambdas
 .......
 
 Daml supports inline functions, called "lambda"s. They are defined using the ``(\x y z -> ...)`` syntax. For example, a lambda version of ``increment`` would be ``(\n -> n + 1)``.
 
-Control Flow
+Control flow
 ------------
 
-In this section, we will cover branching and looping, and look at a few common patterns of how to translate procedural code into functional code.
+In this section, we will cover branches and loops, and look at a few common patterns of how to translate procedural code into functional code.
 
-Branching
-.........
+Branches
+........
 
 Until :doc:`compose` the only real kind of control flow introduced has been ``case``, which is a powerful tool for branching.
 
-If ... Else
-~~~~~~~~~~~
+If-else expression
+~~~~~~~~~~~~~~~~~~
 
 :doc:`constraints` also showed a seemingly self-explanatory ``if ... else`` expression, but didn't explain it further. Let's implement the function ``boolToInt : Bool -> Int`` which in typical fashion maps ``True`` to ``1`` and ``False`` to ``0``. Here is an implementation using ``case``:
 
@@ -268,7 +268,7 @@ The linter knows the equivalence and suggests a better implementation:
 
 In short: ``if ... else`` expressions are equivalent to ``case`` expressions, but can be easier to read.
 
-Control Flow as Expressions
+Control flow as expressions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``case`` and ``if ... else`` expressions really are control flow in the sense that they short-circuit:
@@ -305,7 +305,7 @@ If we need functions that can return two (or more) types of things we need to en
 
 When you have more than two possible types (and sometimes even just for two types), it can be clearer to define your own variant type to wrap all possibilities.
 
-Branching in Actions
+Branches in actions
 ~~~~~~~~~~~~~~~~~~~~
 
 The most common case where this becomes important is inside ``do`` blocks. Say we want to create a contract of one type in one case, and of another type in another case. Let's say we have two template types and want to write a function that creates an ``S`` if a condition is met, and a ``T`` otherwise.
@@ -367,9 +367,9 @@ With ``case``, ``if ... else``, ``void`` and ``when``, you can express all branc
   :start-after: -- TELL_SIZE_BEGIN
   :end-before: -- TELL_SIZE_END
 
-.. _looping:
+.. _loops:
 
-Looping
+Loops
 .......
 
 Other than branching, the most common form of control flow is looping. Looping is usually used to iteratively modify some state. We'll use JavaScript in this section to illustrate the procedural way of doing things.
@@ -409,7 +409,7 @@ Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` l
 
   foldl : (b -> a -> b) -> b -> [a] -> b
 
-Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to Daml almost instantly with those correspondences in mind:
+Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item, and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to Daml almost instantly with those correspondences in mind:
 
 .. literalinclude:: daml/daml-intro-10/daml/Main.daml
   :language: daml
@@ -473,7 +473,7 @@ If there is no explicit iterator, you can use recursion. Let's try to write a fu
 
 You may be tempted to make ``reverseWorker`` a local definition inside ``reverse``, but Daml only supports recursion for top-level functions so the recursive part ``recurseWorker`` has to be its own top-level function.
 
-Folds and Maps in Action Contexts
+Folds and maps in action contexts
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 The folds and ``map`` function above are pure in the sense introduced in :doc:`constraints`: The functions used to map or process items have no side effects. If you have looked at the :doc:`dependencies` models, you'll have noticed ``mapA``, ``mapA_``, and ``forA``, which seem to serve a similar role but within ``Action``\ s . A good example is the ``mapA`` call in the ``testMultiTrade`` script:
@@ -510,7 +510,7 @@ To improve your familiarity with these concepts, try implementing ``foldlA`` in 
 
 Lastly, you'll have noticed that in some cases we used ``mapA_``, not ``mapA``. The underscore indicates that the result is not used, so ``mapA_ fn xs fn == void (mapA fn xs)``. The Daml Linter will alert you if you could use ``mapA_`` instead of ``mapA``, and similarly for ``forA_``.
 
-Next Up
+Next up
 -------
 
-You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml Standard Library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.
+You now know the basics of functions and control flow, both in pure and Action contexts. The :doc:`dependencies` example shows just how much can be done with just the tools you have encountered here, but there are many more tools at your disposal in the Daml standard library. It provides functions and typeclasses for many common circumstances and in :doc:`stdlib`, you'll get an overview of the library and learn how to search and browse it.

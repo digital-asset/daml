@@ -5,7 +5,9 @@ package com.digitalasset.canton.console
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.NonNegativeDuration
+import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
@@ -52,6 +54,20 @@ class ConsoleMacrosTest extends AnyWordSpec with BaseTest {
       // - Total number of invocations is 1 + 10 = 11.
       // - Sometimes, it might be 12, as the deadline stuff is working on the nanosecond level
       counter.get() should be <= 12
+    }
+
+    "cantonProcessLogger" in {
+      import scala.sys.process.*
+      val processLogger = ConsoleMacros.utils.cantonProcessLogger(logger)
+      loggerFactory.assertLogsSeq(SuppressionRule.LevelAndAbove(Level.DEBUG))(
+        "echo something_on_stdout".!(processLogger),
+        LogEntry.assertLogSeq(
+          Seq(
+            (_.debugMessage should include("something_on_stdout"), "expected logged value")
+          ),
+          Seq.empty,
+        ),
+      )
     }
 
   }

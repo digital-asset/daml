@@ -163,7 +163,6 @@ class IssSegmentModuleTest
   private val viewChange1Node1BlockNoProgress = ViewChange
     .create(
       block10Metadata1Node,
-      segmentIndex = 0,
       SecondViewNumber,
       consensusCerts = Seq.empty,
       from = myId,
@@ -171,7 +170,6 @@ class IssSegmentModuleTest
     .fakeSign
   private val newView1Node1BlockNoProgress = NewView.create(
     block10Metadata1Node,
-    segmentIndex = 0,
     SecondViewNumber,
     viewChanges = Seq(viewChange1Node1BlockNoProgress),
     prePrepares = Seq(bottomBlock0),
@@ -831,7 +829,6 @@ class IssSegmentModuleTest
         val expectedViewChange = ViewChange
           .create(
             block10Metadata1Node,
-            segmentIndex = 0,
             viewNumber = nextView,
             consensusCerts = Seq(
               CommitCertificate(
@@ -845,7 +842,6 @@ class IssSegmentModuleTest
         val expectedNewView = NewView
           .create(
             block10Metadata1Node,
-            segmentIndex = 0,
             viewNumber = nextView,
             viewChanges = Seq(expectedViewChange),
             prePrepares = Seq(block10PrePrepare1Node, bottomBlock1, bottomBlock2),
@@ -1012,7 +1008,6 @@ class IssSegmentModuleTest
         def expectedViewChange(from: BftNodeId = myId) = ViewChange
           .create(
             blockMetadata,
-            segmentIndex = blockOrder4Nodes.indexOf(myId),
             viewNumber = nextView,
             consensusCerts = Seq.empty,
             from = from,
@@ -1573,7 +1568,6 @@ class IssSegmentModuleTest
         val viewChange = ViewChange
           .create(
             blockMetadata,
-            segmentIndex = blockOrder4Nodes.indexOf(myId),
             viewNumber = SecondViewNumber,
             consensusCerts =
               Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),
@@ -1612,7 +1606,6 @@ class IssSegmentModuleTest
           ViewChange
             .create(
               blockMetadata,
-              segmentIndex = blockOrder4Nodes.indexOf(myId),
               viewNumber = SecondViewNumber,
               consensusCerts = Seq.empty,
               from = otherIds(i),
@@ -1623,12 +1616,10 @@ class IssSegmentModuleTest
         val newView =
           NewView.create(
             blockMetadata,
-            segmentIndex = blockOrder4Nodes.indexOf(myId),
             viewNumber = SecondViewNumber,
             ViewChange
               .create(
                 blockMetadata,
-                segmentIndex = blockOrder4Nodes.indexOf(myId),
                 viewNumber = SecondViewNumber,
                 consensusCerts =
                   Seq[ConsensusCertificate](PrepareCertificate(prePrepare.fakeSign, prepares)),

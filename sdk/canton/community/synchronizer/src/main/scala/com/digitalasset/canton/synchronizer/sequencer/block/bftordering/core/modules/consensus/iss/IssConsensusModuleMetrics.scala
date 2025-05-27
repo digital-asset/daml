@@ -27,7 +27,7 @@ private[iss] object IssConsensusModuleMetrics {
   def emitConsensusLatencyStats(
       metrics: BftOrderingMetrics
   )(implicit mc: MetricsContext): Unit = {
-    val now = Instant.now()
+    val now = Instant.now
     lastConsensusCommitInstant.foreach { instant =>
       val duration = Duration.between(instant, now)
       metrics.consensus.commitLatency.update(duration)

@@ -63,7 +63,9 @@ trait MediatorPruningIntegrationTest extends CommunityIntegrationTest with Share
     // for the prehead counter to progress
     eventually() {
       // prune the mediator
+      // user-manual-entry-begin: MediatorPrune
       mediator1.pruning.prune()
+      // user-manual-entry-end: MediatorPrune
 
       // should have removed all of the response aggregations as we've exceeded the response window
       val finalizedResponsesAfterPrune = countFinalizedResponses().futureValue

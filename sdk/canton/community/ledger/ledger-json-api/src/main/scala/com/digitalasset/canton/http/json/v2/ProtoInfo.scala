@@ -5,7 +5,9 @@ package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.http.json.v2.ProtoInfo.{camelToSnake, normalizeName}
 import io.circe
+import io.circe.yaml.Printer
 
+import scala.collection.immutable.SortedMap
 import scala.io.Source
 
 /** Reads stored proto data in order to extract comments (and put into openapi).
@@ -16,10 +18,15 @@ import scala.io.Source
 
 final case class ProtoInfo(protoComments: ExtractedProtoComments) {
 
-  def findMessageInfo(msgName: String): Option[MessageInfo] = protoComments.messages
-    .get(msgName)
-    .orElse(protoComments.messages.get(normalizeName(msgName)))
-    .orElse(protoComments.oneOfs.get(camelToSnake(normalizeName(msgName))))
+  def findMessageInfo(msgName: String, parentMsgName: Option[String] = None): Option[MessageInfo] =
+    protoComments.messages
+      .get(msgName)
+      .orElse(protoComments.messages.get(normalizeName(msgName)))
+      .orElse(
+        protoComments.oneOfs
+          .get(normalizeName(parentMsgName.getOrElse("")))
+          .flatMap(_.get(camelToSnake(normalizeName(msgName))))
+      )
 }
 
 final case class MessageInfo(message: FieldData) {
@@ -29,20 +36,21 @@ final case class MessageInfo(message: FieldData) {
     message.fieldComments
       .get(name)
       .orElse(message.fieldComments.get(camelToSnake(name)))
+
+  override def toString: String = getComments().getOrElse("")
 }
 
 final case class FieldData(comments: Option[String], fieldComments: Map[String, String])
 
 final case class ExtractedProtoComments(
-    messages: Map[String, MessageInfo],
-    oneOfs: Map[String, MessageInfo],
+    messages: SortedMap[String, MessageInfo],
+    oneOfs: SortedMap[String, SortedMap[String, MessageInfo]],
 ) {
   def toYaml(): String = {
     import io.circe.syntax.*
-    import io.circe.yaml.syntax.AsYaml
     import io.circe.generic.auto.*
-    val yaml = this.asJson.asYaml
-    yaml.spaces2
+    val yamlPrinter = Printer(preserveOrder = true)
+    yamlPrinter.pretty(this.asJson)
   }
 }
 
