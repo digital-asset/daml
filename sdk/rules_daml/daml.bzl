@@ -684,7 +684,7 @@ def daml_multi_package_test(
                     damlc_opts = " ".join(default_damlc_opts + additional_compiler_flags),
                 )
                 for build_file in build_files
-            ])
+            ]),
         ),
         **kwargs
     )
