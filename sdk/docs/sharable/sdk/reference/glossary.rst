@@ -246,10 +246,13 @@ A `party <#party>`__ `submits <#submitting-commands-writing-to-the-ledger>`__ an
 
 See :ref:`reference-updates`.
 
+
+.. _daml-script:
+
 Daml Script
 ===========
 
-**Daml Script** provides a way of testing Daml code during development. You can run Daml Script inside `Daml Studio <#daml-studio>`__, or write them to be executed on `Sandbox <#sandbox>`__ when it starts up.
+**Daml Script** provides a way of testing Daml code during development. You can run Daml Script inside `Daml Studio <#daml-studio>`__.
 
 They're useful for:
 
@@ -345,9 +348,9 @@ Ledger API
 ==========
 
 The **Ledger API** is an API that's exposed by any `ledger <#daml-ledger>`__ on a participant node. Users access and manipulate the ledger state through the Ledger API.
-An alternative name for the Ledger API is the **gRPC Ledger API** if disambiguation from other technologies is needed.
-See :ref:`integration-with-ledger-api` page.
-It includes the following :ref:`services <ledger-api-services>`.
+There are two protocols available for the Ledger API: gRPC and JSON.
+See the :subsiteref:`Ledger API reference <build_reference_ledger_api>`.
+
 
 Command Submission Service
 --------------------------
@@ -399,15 +402,12 @@ Java Bindings
 
 An idiomatic Java library for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`component-howtos-application-development-java-client-libraries`.
 
-Python Bindings
----------------
-
-A Python library (formerly known as DAZL) for writing `ledger applications <#application-ledger-client-integration>`__. See :ref:`Python Bindings <python-bindings>`.
 
 Reading From the Ledger
 =======================
 
 `Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
+
 
 Submitting Commands, Writing To the Ledger
 ==========================================

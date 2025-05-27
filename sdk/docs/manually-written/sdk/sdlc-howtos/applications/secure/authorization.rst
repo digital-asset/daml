@@ -25,10 +25,9 @@ You thus need to add support for authorization using access tokens to your appli
 Introduction
 ************
 
-Your Daml application sends requests to the :ref:`Ledger API <integration-with-ledger-api>` exposed by a participant node to submit changes to the ledger
+Your Daml application sends requests to the :ref:`Ledger API <ledger-api>` exposed by a participant node to submit changes to the ledger
 (e.g., "*exercise choice X on contract Y as party Alice*"), or to read data from the ledger
 (e.g., "*read all active contracts visible to party Alice*").
-Your application might send these requests via a middleware like the :externalref:`JSON API <json-api>`.
 
 Whether a participant node *can* serve such a request depends on whether the participant node hosts the respective parties, and
 whether the request is valid according to the :externalref:`Daml Ledger Model <da-ledgers>`.
@@ -156,10 +155,8 @@ and there are two formats of the JSON payload used by Daml ledgers.
 User Access Tokens
 ==================
 
-Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
-They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
-
-User access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
+Participant nodes manage a dynamic set of users.
+The corresponding user access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
 Instead, user access tokens encode the participant user on whose behalf the request is issued.
 
 When handling such requests, participant nodes look up the participant user's current rights

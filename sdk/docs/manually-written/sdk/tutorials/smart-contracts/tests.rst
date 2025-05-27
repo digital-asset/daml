@@ -67,7 +67,7 @@ The above tools and functions allow you to diagnose most problems with Daml code
 
 Contention refers to conflicts over access to contracts. Daml guarantees that there can only be one consuming choice exercised per contract so what if two parties simultaneously submit an exercise command on the same contract? Only one can succeed. Contention can also occur due to incomplete or stale knowledge. Maybe a contract was archived a little while ago, but due to latencies, a client hasn't found out yet, or maybe due to the privacy model, they never will. What all these cases have in common is that someone has incomplete knowledge of the state the ledger will be in at the time a transaction will be processed and/or committed.
 
-For in-depth information, see the section on :doc:`Avoiding contention <../../sdlc-howtos/applications/optimise/contention-avoiding>`.
+For in-depth information, see the section on :ref:`Avoiding contention <build-howto-avoid-contention-issues>`.
 
 If we look back at :ref:`execution_model` we'll see there are three places where ledger state is read:
 
