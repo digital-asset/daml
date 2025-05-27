@@ -5,6 +5,7 @@
 module SimpleDvP where
 
 import Daml.Script
+import DA.Optional
 import SimpleAsset
 
 -- SNIPPET-DVP-BEGIN
@@ -60,39 +61,57 @@ template ProposeSimpleDvP with
         exercise dvp $ Settle with actor = counterparty
 -- SNIPPET-PROPOSAL-END
 
-simpleDvp = script do
-    alice <- allocateParty "Alice"
-    bob <- allocateParty "Bob"
-    bank1 <- allocateParty "Bank1"
-    bank2 <- allocateParty "Bank2"
-
+setup alice bob bank1 bank2 = script do
     -- SNIPPET-SCRIPT-BEGIN
-    let eurAsset = SimpleAsset with
-      issuer = bank1
-      owner = alice
-      asset = "1 EUR"
-    eur <- submit bank1 do createCmd 
+  let eurAsset = SimpleAsset with
+        issuer = bank1
+        owner = alice
+        asset = "1 EUR"
+  eur <- submit bank1 do createCmd eurAsset
     
-    let usdAsset = SimpleAsset with
-      issuer = bank2
-      owner = bob
-      asset = "1 USD"
-    usd <- submit bank2 do createCmd usdAsset
+  let usdAsset = SimpleAsset with
+        issuer = bank2
+        owner = bob
+        asset = "1 USD"
+  usd <- submit bank2 do createCmd usdAsset
     
-    proposeDvP <- submit alice $
-      do createCmd ProposeSimpleDvP with
+  proposeDvP <- submit alice $ do
+    createCmd ProposeSimpleDvP with
         proposer = alice
         counterparty = bob
         allocated = eur
         expected = usdAsset
-    disclosedEur <- fromSome <$> queryDisclosure alice eur
+  disclosedEur <- fromSome <$> queryDisclosure alice eur
+  -- SNIPPET-SCRIPT-END
 
-    -- Bob accepts and settles in one go.
-    -- In theory, Bob could also just accept and then either of the two can subsequently exercise Settle.
-    (newUsd, newEur) <- submitWithDisclosures [bob] [disclosedEur] do
-        exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
-    -- SNIPPET-SCRIPT-END
+  pure (eur, usd, proposeDvP, disclosedEur)
+
+simpleDvp = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  bank1 <- allocateParty "Bank1"
+  bank2 <- allocateParty "Bank2"
+
+  (eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
+
+  -- SNIPPET-ACCEPT_AND_SETTLE-BEGIN
+  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+      exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+  -- SNIPPET-ACCEPT_AND_SETTLE-END
     
+  submit bank2 do exerciseCmd newEur Archive
+  submit bank1 do exerciseCmd newUsd Archive
 
-    submit b2 do exerciseCmd newEur Archive
-    submit b1 do exerciseCmd newUsd Archive
+  (eur, usd, proposeDvp, disclosedEur) <- setup alice bob bank1 bank2
+
+  -- SNIPPET-ACCEPT_THEN_SETTLE-BEGIN
+  dvp <- submit bob $
+    do exerciseCmd proposeDvp $ Accept with toBeAllocated = usd
+
+  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+      exerciseCmd dvp $ Settle with actor = bob
+  -- SNIPPET-ACCEPT_THEN_SETTLE-END
+
+  submit bank2 do exerciseCmd newEur Archive
+  submit bank1 do exerciseCmd newUsd Archive
+

@@ -69,7 +69,7 @@ Either party to the DvP can execute the swap by exercising the ``Settle`` choice
 
 To create a DvP contract instance, the parties go through the usual propose-accept workflow pattern shown next.
 Party ``proposer`` creates a proposal for the party ``counterparty`` with their allocated asset and the description of the asset they expect to swap with.
-The ``counterparty`` can accept the proposal with the ``Accept`` choice to create a ``SimpleDvP`` contract or to accept and immediately settle the swap with the ``AcceptAndSettle`` choice.
+The ``counterparty`` can accept the proposal with the ``Accept`` choice to create a ``SimpleDvP`` contract, or can accept and immediately settle the swap with the ``AcceptAndSettle`` choice.
 
 .. literalinclude:: ./daml/SimpleDvP.daml
    :language: daml
