@@ -204,7 +204,8 @@ in isolation.
 For example, the acceptance transaction from the paint offer example is not consistent as a ledger, because `PaintOffer A P Bank`
 and the `Iou Bank A` contracts are used without being created before:
 
-.. image:: ./images/action-structure-paint-offer.svg
+..
+   .. image:: ./images/action-structure-paint-offer.svg
    :align: center
    :width: 60%
    :alt: The flowchart of Alice's original paint deal, first described in the Structure section.
