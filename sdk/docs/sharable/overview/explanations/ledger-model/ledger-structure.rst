@@ -178,8 +178,8 @@ More generally, for an action `act`, its **proper subactions** are all actions i
 `act`, together with all of their proper subactions.
 Additionally, `act` is a (non-proper) **subaction** of itself.
 
-The subaction relation is visualized below for Bob's ``Settle`` exercise.
-Both the blue and purple boxes are proper subactions of Bob's ``Settle`` action (shown as the grey box).
+The subaction relation is visualized below for Bob's ``Settle`` exercise by nested boxes with rounded corners.
+Both the blue and purple boxes are proper subactions of Bob's ``Settle`` action shown in grey.
 The green box is a proper subaction of the blue and the grey boxes, and the yellow box is a proper subaction of the purple and the grey boxes.
 
 .. https://lucid.app/lucidchart/dbe05602-46b8-4b23-8957-a8e15af912e6/edit
