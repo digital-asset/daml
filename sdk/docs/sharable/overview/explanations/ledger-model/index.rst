@@ -35,8 +35,8 @@ it is an imaginary database that represents the union of all parties' databases.
 The Ledger Model defines:
 
   #. What the ledger looks like - the structure of the Canton Ledger
-  #. Who can request which changes - the integrity model for the Canton Ledger
   #. Who sees which changes and data - the privacy model for the Canton Ledger
+  #. What changes are allowed and who can request them - the integrity model for the Canton Ledger
 
 The sections below review these concepts of the Ledger Model in turn and how they relate to Daml smart contracts.
 
@@ -51,7 +51,7 @@ The owner can transfer such an asset to a new owner with the ``Transfer`` choice
 
 .. note::
    These Daml templates are for illustration purposes only.
-   They are not meant for real-world usage as they lack rigorous input validation.
+   They are not meant for real-world usage as they are heavily simplified.
 
 .. literalinclude:: ./daml/SimpleAsset.daml
    :language: daml
