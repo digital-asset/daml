@@ -7,5 +7,6 @@ pkgs.mkShell {
     curl
     jq
     vale
+    python3.pkgs.docutils
   ];
 }
