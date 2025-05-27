@@ -1858,16 +1858,13 @@ Dynamic Package Resolution in Ledger API Queries
 ------------------------------------------------
 
 When subscribing for :brokenref:`transaction <transaction-trees>`
-or :ref:`active contract streams <active-contract-service>`,
+or :brokenref:`active contract streams <active-contract-service>`,
 users can now use the `by-package-name template ID` format
 in the :subsiteref:`template-id request filter field <com.daml.ledger.api.v2.TemplateFilter.template_id>`.
 to specify that they’re interested in fetching events for all templates
 pertaining to the specified package-name. This template selection set is
 dynamic and it widens with each uploaded template/package.
 
-**Note:** The by-package-name query mechanism described here does not
-apply to events sourced from non-upgradable templates (coming from
-packages with LF < 1.17)
 
 Example
 ~~~~~~~

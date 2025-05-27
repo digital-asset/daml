@@ -155,10 +155,8 @@ and there are two formats of the JSON payload used by Daml ledgers.
 User Access Tokens
 ==================
 
-Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
-They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
-
-User access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
+Participant nodes manage a dynamic set of users.
+The corresponding user access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
 Instead, user access tokens encode the participant user on whose behalf the request is issued.
 
 When handling such requests, participant nodes look up the participant user's current rights

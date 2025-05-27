@@ -46,6 +46,9 @@ Directory and .daml file names must be in UpperCamel casing.
 
 The ``daml new <package-name>`` command provides pre-made templates for various package structures and tutorials, see :brokenref:`Daml Assistant Templates <daml-assistant-templates>` for more information.
 
+
+.. _multi-package-build:
+
 Multiple packages
 --------------------
 
@@ -78,6 +81,7 @@ Variables can also be placed inline, and are supported on all string fields in t
   dependencies:
     - daml-prim
     - daml-stdlib
+
 
 How to build Daml packages
 ==========================
