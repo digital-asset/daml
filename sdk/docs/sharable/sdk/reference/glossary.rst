@@ -355,42 +355,42 @@ See the :subsiteref:`Ledger API reference <build_reference_ledger_api>`.
 Command Submission Service
 --------------------------
 
-Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__.
+Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
 
 Command Completion Service
 --------------------------
 
-Use the **command completion service** to find out whether or not `commands you have submitted <#submitting-commands-writing-to-the-ledger>`__ have completed, and what their status was.
+Use the **command completion service** to find out whether or not `commands you have submitted <#submitting-commands-writing-to-the-ledger>`__ have completed, and what their status was. See :ref:`command-completion-service`.
 
 Command Service
 ---------------
 
-Use the **command service** when you want to `submit a command <#submitting-commands-writing-to-the-ledger>`__ and wait for it to be executed.
+Use the **command service** when you want to `submit a command <#submitting-commands-writing-to-the-ledger>`__ and wait for it to be executed. See :ref:`command-service`.
 
 Transaction Service
 -------------------
 
-Use the **transaction service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__.
+Use the **transaction service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
 
 Active Contract Service
 -----------------------
 
-Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__.
+Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`active-contract-service`.
 
 Package Service
 ---------------
 
-Use the **package service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__.
+Use the **package service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
 Ledger Identity Service
 -----------------------
 
-Use the **ledger identity service** to get the identity string of the `ledger <#daml-ledger>`__ that your application is connected to.
+Use the **ledger identity service** to get the identity string of the `ledger <#daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
 
 Ledger Configuration Service
 ----------------------------
 
-Use the **ledger configuration service** to subscribe to changes in `ledger <#daml-ledger>`__ configuration.
+Use the **ledger configuration service** to subscribe to changes in `ledger <#daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
 
 Ledger API Libraries
 ====================
