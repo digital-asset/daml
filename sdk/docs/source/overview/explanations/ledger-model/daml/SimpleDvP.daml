@@ -63,18 +63,36 @@ template ProposeSimpleDvP with
 simpleDvp = script do
     alice <- allocateParty "Alice"
     bob <- allocateParty "Bob"
-    b1 <- allocateParty "Bank1"
-    b2 <- allocateParty "Bank2"
-    
-    eur <- submit b1 do createCmd SimpleAsset with issuer = b1; owner = alice; asset = "1 EUR"
-    
-    let usdAsset = SimpleAsset with issuer = b2; owner = bob; asset = "1 USD"
-    usd <- submit b2 do createCmd usdAsset
-    
-    proposeDvP <- submit alice do createCmd ProposeSimpleDvP with proposer = alice; counterparty = bob; allocated = eur; expected = usdAsset
+    bank1 <- allocateParty "Bank1"
+    bank2 <- allocateParty "Bank2"
 
-    -- Bob allocates and settles in one go, but in theory either of the two could exercise Settle after Bob's allocation.
-    (newUsd, newEur) <- submitMulti [bob] [alice] do exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+    -- SNIPPET-SCRIPT-BEGIN
+    let eurAsset = SimpleAsset with
+      issuer = bank1
+      owner = alice
+      asset = "1 EUR"
+    eur <- submit bank1 do createCmd 
+    
+    let usdAsset = SimpleAsset with
+      issuer = bank2
+      owner = bob
+      asset = "1 USD"
+    usd <- submit bank2 do createCmd usdAsset
+    
+    proposeDvP <- submit alice $
+      do createCmd ProposeSimpleDvP with
+        proposer = alice
+        counterparty = bob
+        allocated = eur
+        expected = usdAsset
+    disclosedEur <- fromSome <$> queryDisclosure alice eur
+
+    -- Bob accepts and settles in one go.
+    -- In theory, Bob could also just accept and then either of the two can subsequently exercise Settle.
+    (newUsd, newEur) <- submitWithDisclosures [bob] [disclosedEur] do
+        exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+    -- SNIPPET-SCRIPT-END
+    
 
     submit b2 do exerciseCmd newEur Archive
     submit b1 do exerciseCmd newUsd Archive

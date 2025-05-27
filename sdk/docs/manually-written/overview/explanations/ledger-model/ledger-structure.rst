@@ -10,13 +10,7 @@ Structure
 #########
 
 .. note::
-   * Switch to DAG structure
-
-   * Define our eUTXO model (introduce contract ID vs. contract)
-     
    * Unassign vs. Assign (necessary for reassignment counter?)
-
-   * Remove NoSuchKey stuff (doesn't make sense with non-unique contract keys)
 
    
 
@@ -194,11 +188,22 @@ The green box is a proper subaction of the blue and the grey boxes, and the yell
 Transactions
 ************
 
-A **transaction** is a list of actions.
-Thus, the consequences of an exercise form a transaction.
-In the example, the consequences of the ``Settle`` action form the following transaction,
+A **transaction** is a list of actions that are executed atomically.
+Those actions are called the **root actions** of the transaction.
+That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is a **root action**.
+For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to accept both simulataneously.
+To that end, Bob exercises both ``Accept`` choices in a single transaction with two root actions (blue and purple), as shown next.
+
+.. image:: ./images/dvp-accept-two.svg
+   :align: center
+   :width: 100%
+   :alt: A transaction with two top-level actions where Bob accepts two DvP proposal, one from Alice and one from Charlie.
+
+In particular, the consequences of an exercise form a transaction.
+In the example of the ``Settle`` action on Alice's and Bob's ``SimpleDvP``,
+the consequences of the ``Settle`` action form the following transaction,
 where actions are ordered left-to-right as before.
-The transaction consists of two actions, namely the two ``Transfer`` actions of the two legs of the DvP.
+The transaction consists of two root actions (blue and purple), namely the two ``Transfer`` actions of the two legs of the DvP.
 
 .. https://lucid.app/lucidchart/b8f2c6d1-654b-4658-adc5-77eb59e27d05/edit
 .. image:: ./images/dvp-settle-consequences-are-transactions.svg
@@ -206,6 +211,7 @@ The transaction consists of two actions, namely the two ``Transfer`` actions of 
    :width: 50%
    :alt: The consequences of the ``Settle`` action are a transaction of two actions, namely the two ``Transfer`` legs of the DvP.
 
+         
 The hierarchical structure of actions extends to transactions and yields the notion of subtransactions.
 A **proper subtransaction** of a transaction is obtained by (repeatedly) replacing an action by its consequences;
 and a **subtransaction** of a transaction is either the transaction itself or a proper subtransaction thereof.
@@ -220,13 +226,13 @@ the next diagram shows all its proper non-empty subtransactions, each in its own
    :alt: All proper subtransactions of the consequences of the ``Settle`` action.
 
          
-Transaction inputs and outputs
-******************************
+Inputs and outputs
+******************
 
 The Ledger Model falls into the category of (extended) UTxO-style ledgers
 where the set of unspent transaction outputs (UTxOs) constitutes the current state of a ledger.
-Here, the transaction outputs are the contract IDs of the contracts created in a transaction.
-When a contract is consumed, its contract ID is spent and thus removed from the UTxOs.
+Here, the **transaction outputs** are the contract IDs of the contracts created in a transaction.
+When a contract is consumed, its contract ID is spent and thus removed from the UTxO set.
 The data associated with each UTxO is immutable;
 modifications happen by consuming a contract ID and recreating a new contract with a different contract ID.
 
@@ -242,102 +248,68 @@ This Ledger Model extends the UTxO model in two aspects:
 These aspects are discussed in more detail in the remaining sections of the Ledger Model.
 
 
-Ledgers
-*******
+Ledger
+******
 
-The transaction structure records the contents of the
-changes, but not *who requested them*. This information is added by the notion
-of a **commit**: a transaction paired with the parties that
-requested it, called the **requesters** of the commit.
-A commit may have one or more requesters.
-Given a commit `(p, tx)` with transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is
-called a **top-level action** of the commit. A **ledger** is a sequence of
-commits. A top-level action of any ledger commit is also a top-level action of
-the ledger.
+The transaction structure records the contents of the changes, but not *who requested them*.
+This information is added by the notion of a **commit**:
+a transaction paired with the parties that requested it, called the **requesters** of the commit.
+A commit has one or more requesters.
+In Daml Script, the requesters correspond to the ``actAs`` parties given to the ``submit`` commands.
 
-The following EBNF grammar summarizes the structure of commits and ledgers:
+Definition **Ledger**:
+  A **Ledger** is a directed acyclic graph (DAG) of commits,
+  where an edge `(c`:sub:`1`\ `, c`:sub:`2`\ `)` connects a commit `c`:sub:`1` to another commit `c`:sub:`2`
+  if and only if the transaction of `c`:sub:`1` uses a contract ID created by the transaction in `c`:sub:`2`.
 
-::
+Definition **top-level action**:
+  For a commit, the root actions of its transaction are called the **top-level actions**.
+  A top-level action of any ledger commit is also a top-level action of the ledger.
 
-   Commit   ::= party+ Transaction
-   Ledger   ::= Commit*
+A Canton Ledger thus represents the full history of all actions taken by parties.\ [#ledger-vs-journal]_
+The graph structure of the Ledger induces an *order* on the commits in the ledger.
+Visually, a ledger can be represented as a sequence growing from left to right as time progresses.
+Below, dashed vertical lines in purple mark the boundaries of commits,
+and each commit is annotated with its requester(s).
+Blue arrows link each exercise and fetch actions to the create action of the input contract.
+These arrows highlight that the ledger forms a **transaction graph**.
 
-A Daml ledger thus represents the full history of all actions taken by
-parties.\ [#ledger-vs-journal]_ Since the ledger is a sequence (of dependent actions), it induces an
-*order* on the commits in the ledger. Visually, a ledger can be represented
-as a sequence growing from left to right as time progresses. Below,
-dashed vertical lines mark the boundaries of commits, and each commit is
-annotated with its requester(s). Arrows link the create and
-exercise actions on the same contracts. These additional arrows highlight
-that the ledger forms a **transaction graph**. For example, the
-aforementioned house painting scenario is visually represented as
-follows.
+For example, the following Daml Script encodes the whole workflow of the running DvP example.
 
-.. https://www.lucidchart.com/documents/edit/85c311c5-8402-494d-bdcc-bb5ffff4e1bd
-.. image:: ./images/paint-offer-ledger.svg
+.. literalinclude:: ./daml/SimpleDvP.daml
+   :language: daml
+   :start-after: SNIPPET-SCRIPT-BEGIN
+   :end-before: SNIPPET-SCRIPT-END
+
+This workflow gives rise to the ledger shown below with four commits:
+
+* In the first commit, Bank 1 requests the creation of the ``SimpleAsset`` of ``1 EUR`` issued to Alice (contract #1).
+  
+* In the second commit, Bank 2 requests the creation of the ``SimpleAsset`` of ``1 USD`` issued to Bob (contract #2).
+
+* In the thrid commit, Alice requests the creation of the ``SimpleDvpPoposal`` (contract #3).
+
+* In the forth commit, Bob requests to exercise the ``AcceptAndSettle`` choice on the DvP proposal.
+
+.. image:: ./images/dvp-ledger.svg
    :align: center
-   :alt: The time sequence of commits. In the first commit, Iou Bank A is requested by the bank. In the second, PaintOffer P A P123 is requested by P. Finally, the entire set of actions from the paint agreement chart is requested by A.
+   :alt: The sequence of commits for the whole DvP workflow. First, banks 1 and 2 issue the assets, then Alice proposes the DvP, and finally Bob accepts and settles it.
+
+.. note::
+   The Ledger does not impose an order between independent commits.
+   In this example, there are no edges among the first three commits,
+   so they could be presented in any order.
+
+   As the Ledger is a DAG, one can always extend the order into a linear sequence via a topological sort.
+   For the next sections, we pretend that the Ledger is totally ordered, and discuss the more general partial orders in the causality section.
+
+.. todo::
+   Link to causality section
+
+The definitions presented here are all the ingredients required to *record* the interaction between parties in a Daml ledger.
+That is, they address the first question: "what do changes and ledgers look like?".
 
 
-The definitions presented here are all the ingredients required to
-*record* the interaction between parties in a Daml ledger. That is, they
-address the first question: "what do changes and ledgers look
-like?". To answer the next question, "who can request which changes",
-a precise definition is needed of which ledgers are permissible,
-and which are not. For example, the above
-paint offer ledger is intuitively permissible, while all of the
-following ledgers are not.
-
-.. figure:: ./images/double-spend.svg
-   :align: center
-   :alt: Described in the caption.
-
-   Alice spending her IOU twice ("double spend"), once transferring it
-   to `B` and once to `P`.
-
-.. figure:: ./images/non-conformant-action.svg
-   :align: center
-   :name: alice-changes-offer
-   :alt: Described in the caption.
-
-   Alice changing the offer's outcome by removing the transfer of the `Iou`.
-
-.. figure:: ./images/invalid-obligation.svg
-   :align: center
-   :name: obligation-imposed-on-painter
-   :alt: Described in the caption.
-
-   An obligation imposed on the painter without his consent.
-
-.. figure:: ./images/stealing-ious.svg
-   :align: center
-   :name: painter-stealing-ious
-   :alt: Described in the caption.
-
-   Painter stealing Alice's IOU. Note that the ledger would be
-   intuitively permissible if it was Alice performing the last commit.
-
-.. figure:: ./images/failed-key-assertion.svg
-   :align: center
-   :name: alice-claiming-retracted-offer
-   :alt: Described in the caption.
-
-   Painter falsely claiming that there is no offer.
-
-.. figure:: ./images/double-key-creation.svg
-   :align: center
-   :name: painter-creating-two-offers-with-same-key
-   :alt: Described in the caption.
-
-   Painter trying to create two different paint offers with the same reference number.
-
-   
-The next section discusses the criteria that rule out the above examples as
-invalid ledgers.
-
-
-The Topology ledger
-*******************
 
 .. [#ledger-vs-journal]
 
