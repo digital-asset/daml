@@ -53,7 +53,7 @@ ${makedir} "${logs}"
 
 function on_exit() {
   info "Cleanup...\t\t\t\t"
-  rm -rf "${STAGING_DIR}"/dist && info_done
+ # rm -rf "${STAGING_DIR}"/dist && info_done
 }
 
 trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
@@ -92,19 +92,19 @@ cd "${STAGING_DIR}" || exit 1
   for item in ${artifact_platforms[@]}; do
     if [[ "$artifact_path" =~ .jar ]]; then
         arch="${item}"
-        search_patern="${artifact_path}"
+        search_pattern="${artifact_path%%/*}"
       else
         arch="${item##*,}"
-        search_patern="${artifact_name}-${RELEASE_TAG}-${item%%,*}.tar.gz"
+        search_pattern="${artifact_name}-${RELEASE_TAG}-${item%%,*}.tar.gz"
     fi
     info "Processing ${artifact_name} for ${arch}...\n"
-    artifact="$(find . -type f -name ${search_patern} | head -1)"
+    artifact="$(find . -type f -name ${search_pattern} | head -1)"
     if [ -f "${artifact}" ]; then
       ${makedir} "dist/${arch}/${artifact_name}"
       if [[ "$artifact_path" =~ .jar ]]; then
         ${copy} ${artifact} "dist/${arch}/${artifact_name}"
       else
-        ${unarchive} "${artifact}" -C "dist/${arch}"
+        ${unarchive} "${artifact}" -C "dist/${arch}/${artifact_name}"
       fi
       gen_manifest > "dist/${arch}/${artifact_name}/component.yaml"
       platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
@@ -126,7 +126,7 @@ cd "${STAGING_DIR}" || exit 1
 # target:  //compiler/damlc:damlc-dist.tar.gz
 ###
 function publish_damlc {
-  publish_artifact "damlc" "damlc" "Compiler and IDE backend for the Daml programming language"
+  publish_artifact "damlc" "damlc/damlc" "Compiler and IDE backend for the Daml programming language"
 }
 
 ###
@@ -142,7 +142,7 @@ function publish_daml_script {
 # target: "//language-support/ts/codegen:daml2js-dist"
 ###
 function publish_daml2js {
-  publish_artifact "daml2js" "daml2js" "Daml to JavaScript compiler"
+  publish_artifact "daml2js" "daml2js/daml2js" "Daml to JavaScript compiler"
 }
 
 ###
@@ -157,3 +157,4 @@ function publish_codegen {
 for component in "${!publish[@]}"; do
  "${publish[$component]}"
 done
+#publish_damlc
