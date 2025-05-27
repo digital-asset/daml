@@ -53,7 +53,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 2.0.0
+    sdk-version: 3.3.0-snapshot.20250507.0
     name: quickstart
     source: daml
     init-script: Main:initialize
