@@ -84,7 +84,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         // Receiving a New View message from the incorrect leader fails
         val wrongNextLeader =
           computeLeaderOfView(ViewNumber(nextView + 1), originalLeaderIndex, allIds)
-        val wrongNewView = createNewView(nextView, wrongNextLeader, myId, vcSet, ppSeq)
+        val wrongNewView = createNewView(nextView, wrongNextLeader, vcSet, ppSeq)
         assertLogs(
           vcState.processMessage(wrongNewView),
           log => {
@@ -94,7 +94,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ) shouldBe false
 
         // Receiving a New View message from the correct leader succeeds
-        val correctNewView = createNewView(nextView, nextLeader, myId, vcSet, ppSeq)
+        val correctNewView = createNewView(nextView, nextLeader, vcSet, ppSeq)
         assertNoLogs(vcState.processMessage(correctNewView)) shouldBe true
 
         // Duplicate New View message are rejected
@@ -165,7 +165,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val maybePrePrepares = vcState.constructPrePreparesForNewView(blockMetaData)
         val nv = vcState.createNewViewMessage(
           blockMetaData,
-          segmentIndex,
           maybePrePrepares.map {
             case Right(r) => r
             case Left(toSign) => toSign.fakeSign
@@ -279,7 +278,7 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         extraVC.foreach(vcState.processMessage)
 
         val newView =
-          vcState.createNewViewMessage(blockMetaData, segmentIndex, prePrepares, fail(_))
+          vcState.createNewViewMessage(blockMetaData, prePrepares, fail(_))
 
         // NewView.viewChanges should match the original quorumVC (unaffected by extraVC)
         newView.viewChanges shouldBe quorumVC

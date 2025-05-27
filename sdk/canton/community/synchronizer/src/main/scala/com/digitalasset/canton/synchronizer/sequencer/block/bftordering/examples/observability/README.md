@@ -15,7 +15,7 @@ in the official documentation.
   * `docker build . -t canton-community:latest` (or anything matching your [.env](.env)'s `CANTON_IMAGE`).
 * A matching ledger API test tool ("LAPITT"):
   * Build it with `sbt ledger-test-tool-2-dev/assembly`.
-  * Copy it as `lapitt.jar` in the project's root directory from `enterprise/ledger-test-tool/tool/lf-v2.dev/target/scala-2.13/ledger-api-test-tool-2.dev-3.?.0-SNAPSHOT.jar`
+  * Copy it as `lapitt.jar` here from `enterprise/ledger-test-tool/tool/lf-v2.dev/target/scala-2.13/ledger-api-test-tool-2.dev-3.?.0-SNAPSHOT.jar`
 
 ⚠️ **Docker compose V1 is deprecated and incompatible with this project**, check [Docker documentation](https://docs.docker.com/compose/migrate/).
 One sign you are using the wrong version is the command syntax with a dash instead of a space:

@@ -252,7 +252,7 @@ object PreIssConsensusModuleTest {
   final class IgnoringSegmentModuleRef[-MessageT](
       val latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]]
   ) extends IgnoringModuleRef[MessageT] {
-    override def asyncSend(msg: MessageT): Unit = ()
+    override def asyncSend(msg: MessageT)(implicit metricsContext: MetricsContext): Unit = ()
   }
 
   def createCompletedBlocks(

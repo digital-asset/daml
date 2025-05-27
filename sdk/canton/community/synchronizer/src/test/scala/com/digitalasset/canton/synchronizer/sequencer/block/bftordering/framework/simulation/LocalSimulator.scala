@@ -59,7 +59,7 @@ class LocalSimulator(
   ): Unit = {
     val (priority, duration) =
       msg match {
-        case ModuleControl.Send(_, _) =>
+        case ModuleControl.Send(_, _, _, _, _) =>
           /* A guarantee that we need to provide is that if a module `from`` sends message m1 to module `to``
            * and then sends message m2 to the same module, m1 *must* be delivered before m2.
            * So here we find if there is such a message, and uses that as a lower bound for when this message can be

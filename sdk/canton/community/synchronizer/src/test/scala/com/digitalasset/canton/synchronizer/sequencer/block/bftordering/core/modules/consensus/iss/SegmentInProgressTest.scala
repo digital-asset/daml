@@ -50,7 +50,6 @@ class SegmentInProgressTest extends AsyncWordSpec with BftSequencerBaseTest {
     val newView1 = createNewView(
       viewNumber = v1,
       from = otherIds(0),
-      originalLeader = myId,
       Seq(viewChange1),
       Seq(ppView1),
     )

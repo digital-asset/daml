@@ -209,15 +209,17 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Should have sent a block transfer response with an empty commit certificate.
       verify(p2pNetworkOutRef, times(1))
         .asyncSend(
-          P2PNetworkOut.send(
-            P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
-              StateTransferMessage.BlockTransferResponse
-                .create(commitCertificate = None, from = myId)
-                .fakeSign
-            ),
-            to = otherId,
+          eqTo(
+            P2PNetworkOut.send(
+              P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
+                StateTransferMessage.BlockTransferResponse
+                  .create(commitCertificate = None, from = myId)
+                  .fakeSign
+              ),
+              to = otherId,
+            )
           )
-        )
+        )(any[MetricsContext])
     }
 
     "send a non-empty block transfer response on a request for onboarding" in {
@@ -266,15 +268,17 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       // Should have sent a block transfer response with a single commit certificate.
       verify(p2pNetworkOutRef, times(1))
         .asyncSend(
-          P2PNetworkOut.send(
-            P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
-              StateTransferMessage.BlockTransferResponse
-                .create(Some(commitCert), from = myId)
-                .fakeSign
-            ),
-            to = otherId,
+          eqTo(
+            P2PNetworkOut.send(
+              P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
+                StateTransferMessage.BlockTransferResponse
+                  .create(Some(commitCert), from = myId)
+                  .fakeSign
+              ),
+              to = otherId,
+            )
           )
-        )
+        )(any[MetricsContext])
     }
   }
 
@@ -352,20 +356,22 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     // Should have sent an ordered block to the Output module.
     val prePrepare = commitCert.prePrepare.message
     verify(outputRef, times(1)).asyncSend(
-      Output.BlockOrdered(
-        OrderedBlockForOutput(
-          OrderedBlock(
-            blockMetadata,
-            prePrepare.block.proofs,
-            prePrepare.canonicalCommitSet,
-          ),
-          prePrepare.viewNumber,
-          from = commitCert.prePrepare.from,
-          isLastInEpoch = true,
-          mode = OrderedBlockForOutput.Mode.FromStateTransfer,
+      eqTo(
+        Output.BlockOrdered(
+          OrderedBlockForOutput(
+            OrderedBlock(
+              blockMetadata,
+              prePrepare.block.proofs,
+              prePrepare.canonicalCommitSet,
+            ),
+            prePrepare.viewNumber,
+            from = commitCert.prePrepare.from,
+            isLastInEpoch = true,
+            mode = OrderedBlockForOutput.Mode.FromStateTransfer,
+          )
         )
       )
-    )
+    )(any[MetricsContext])
   }
 
   "handle empty block transfer response" in {
@@ -490,12 +496,14 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     order
       .verify(p2pNetworkOutRef, times(numberOfTimes))
       .asyncSend(
-        P2PNetworkOut.send(
-          P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(blockTransferRequest),
-          to,
+        eqTo(
+          P2PNetworkOut.send(
+            P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(blockTransferRequest),
+            to,
+          )
         )
-      )
-    order.verify(p2pNetworkOutRef, never).asyncSend(any[P2PNetworkOut.Message])
+      )(any[MetricsContext])
+    order.verify(p2pNetworkOutRef, never).asyncSend(any[P2PNetworkOut.Message])(any[MetricsContext])
   }
 }
 

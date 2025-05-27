@@ -46,15 +46,21 @@ object LedgerBlockEvent extends HasLoggerName {
       extends LedgerBlockEvent
 
   def fromRawBlockEvent(
-      protocolVersion: ProtocolVersion
+      protocolVersion: ProtocolVersion,
+      maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
   )(blockEvent: RawBlockEvent): ParsingResult[LedgerBlockEvent] =
     blockEvent match {
       case RawBlockEvent.Send(request, microsecondsSinceEpoch) =>
         for {
-          deserializedRequest <- deserializeSignedOrderingRequest(protocolVersion)(request)
-          timestamp <- LfTimestamp
-            .fromLong(microsecondsSinceEpoch)
-            .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
+          deserializedRequest <-
+            deserializeSignedOrderingRequest(
+              protocolVersion,
+              maxRequestSizeToDeserialize,
+            )(request)
+          timestamp <-
+            LfTimestamp
+              .fromLong(microsecondsSinceEpoch)
+              .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
         } yield LedgerBlockEvent.Send(CantonTimestamp(timestamp), deserializedRequest, request.size)
       case RawBlockEvent.Acknowledgment(acknowledgement) =>
         deserializeSignedAcknowledgeRequest(protocolVersion)(acknowledgement).map(
@@ -63,7 +69,8 @@ object LedgerBlockEvent extends HasLoggerName {
     }
 
   def deserializeSignedOrderingRequest(
-      protocolVersion: ProtocolVersion
+      protocolVersion: ProtocolVersion,
+      maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
   )(submissionRequestBytes: ByteString): ParsingResult[SignedOrderingRequest] = {
 
     // Deserialize inner content as SubmissionRequest
@@ -72,11 +79,10 @@ object LedgerBlockEvent extends HasLoggerName {
     ): ParsingResult[SignedContent[SubmissionRequest]] = input.flatMap(
       _.deserializeContent(
         // ... and we're done!
-        SubmissionRequest.fromByteString(protocolVersion, MaxRequestSizeToDeserialize.NoLimit)
+        SubmissionRequest.fromByteString(protocolVersion, maxRequestSizeToDeserialize)
       )
     )
 
-    // TODO(i10428) Prevent zip bombing when decompressing the request
     for {
       // This is the SignedContent signed by the submitting sequencer (so SignedContent[OrderingRequest[SignedContent[SubmissionRequest]]])
       // See explanation diagram in the [[Sequencer]] companion object

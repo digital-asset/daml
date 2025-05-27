@@ -62,9 +62,12 @@ object Consensus {
   sealed trait ConsensusMessage extends ProtocolMessage
   object ConsensusMessage {
     final case class PbftUnverifiedNetworkMessage(
+        // The actual sender will differ from the underlying message's original sender in cases a node
+        // retransmits another node's old messages.
+        actualSender: BftNodeId,
         underlyingNetworkMessage: SignedMessage[
           ConsensusSegment.ConsensusMessage.PbftNetworkMessage
-        ]
+        ],
     ) extends ConsensusMessage
 
     final case class PbftVerifiedNetworkMessage(

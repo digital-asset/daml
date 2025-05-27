@@ -8,22 +8,22 @@ How to work with contracts and transactions in Java
 
 When writing Canton Network applications in Java, it is convenient to work with a representation of Daml templates and data
 types in Java that closely resemble the original Daml code while still being as close to the native types of Java as
-possible. To achieve this, use the :ref:`Daml Codegen for Java <daml-codegen-java>` to generate Java types based on a Daml
+possible. To achieve this, use the :ref:`Daml Codegen for Java <component-howtos-application-development-daml-codegen-java>` to generate Java types based on a Daml
 model. You can then use these types in your Java code when reading information from and sending data to the ledger.
 
 Setup the codegen
 -----------------
 
-Run and configure the code generator for Java according to :ref:`Daml Codegen for Java <daml-codegen-java>` to use and
+Run and configure the code generator for Java according to :ref:`Daml Codegen for Java <component-howtos-application-development-daml-codegen-java>` to use and
 generate the Java classes for your project.
 
-See also in :ref:`Generated code <daml-codegen-java-generated-code>` how the generated code looks for the Daml built-in
+See also in :ref:`Generated code <component-howtos-application-development-daml-codegen-java-generated-code>` how the generated code looks for the Daml built-in
 and user-defined types.
 
 Use the generated classes in your project
 -----------------------------------------
 
-In order to compile the resulting Java classes, you need to add the :brokenref:`Java bindings library <TODO: add link to Java bindings>`
+In order to compile the resulting Java classes, you need to add the :ref:`Java bindings library <component-howtos-application-development-java-client-libraries-bindings-java>`
 as dependency to your build tools.
 
 Add the following **Maven** dependency to your project:
@@ -43,8 +43,7 @@ Find the available versions in the `Maven Central Repository <https://search.mav
 Access the Ledger API via gRPC using Java bindings
 --------------------------------------------------
 
-The Java bindings library provides additionally a set of classes that allow you to access the Ledger API via gRPC
-(:brokenref:` TODO(#370): link to Java bindings <link>`).
+The :ref:`Java bindings reactive library <component-howtos-application-development-java-client-libraries-bindings-rxjava>` provides a set of classes that allow you to access the Ledger API via gRPC.
 
 For each Ledger API service, there is a reactive counterpart with a matching name. For instance, the reactive
 counterpart of ``UpdateServiceGrpc`` is ``UpdateClient``.
@@ -146,8 +145,8 @@ Use gRPC bindings
 
 For each gRPC endpoint that you want to call from your Java application, create a gRPC `StreamObserver <https://grpc.github.io/grpc-java/javadoc/io/grpc/stub/StreamObserver.html>`_ providing
 implementations of the onNext, onError and onComplete observer methods.
-To decode and encode the gRPC messages, use the fromProto and toProto methods of the generated classes of the Java
-bindings library. :brokenref:`Link to Java bindings <TODO(#370): add link to Java bindings library fromProto and toProto methods>`
+To decode and encode the gRPC messages, use the fromProto and toProto methods of the generated classes of the :ref:`Java
+bindings library <component-howtos-application-development-java-client-libraries-bindings-java>`.
 
 
 Use OpenAPI definitions

@@ -86,9 +86,9 @@ trait EpochStore[E <: Env[E]] extends AutoCloseable {
       viewChangeMessage: SignedMessage[M]
   ): String = viewChangeMessage.message match {
     case newView: NewView =>
-      s"add NewView for view ${newView.viewNumber}, segment ${newView.segmentIndex} and leader ${newView.from}"
+      s"add NewView for view ${newView.viewNumber}, blockMetadata ${newView.blockMetadata} and leader ${newView.from}"
     case viewChange: ViewChange =>
-      s"add ViewChange for ${viewChange.viewNumber} and segment ${viewChange.segmentIndex}"
+      s"add ViewChange for ${viewChange.viewNumber} and blockMetadata ${viewChange.blockMetadata}"
   }
 
   def addOrderedBlock(
