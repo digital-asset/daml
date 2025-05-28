@@ -6,7 +6,7 @@
 How Daml Types are Translated to Protobuf
 #########################################
 
-This page gives an overview and reference on how Daml types and contracts are represented by the Ledger API as protobuf messages, most notably:
+This page gives an overview and reference on how Daml types and contracts are represented by the gRPC Ledger API as protobuf messages, most notably:
 
 - in the stream of transactions from the :brokenref:`com.daml.ledger.api.v1.transactionservice`
 - as payload for :brokenref:`com.daml.ledger.api.v1.createcommand` and :brokenref:`com.daml.ledger.api.v1.exercisecommand` sent to :brokenref:`com.daml.ledger.api.v1.commandsubmissionservice` and :brokenref:`com.daml.ledger.api.v1.commandservice`.

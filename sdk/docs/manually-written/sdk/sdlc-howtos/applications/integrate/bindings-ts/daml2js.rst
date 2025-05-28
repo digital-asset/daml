@@ -4,7 +4,7 @@
 Use the JavaScript Code Generator
 #################################
 
-The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries </app-dev/bindings-ts/index.html>`_ for interacting with a Daml ledger via the `HTTP JSON API </json-api/index.html>`_.
+The command ``daml codegen js`` generates JavaScript (and TypeScript) that can be used in conjunction with the `JavaScript Client Libraries </app-dev/bindings-ts/index.html>`_ for interacting with a Daml ledger via the :externalref:`JSON Ledger API <json-api>`.
 
 Inputs to the command are DAR files. Outputs are JavaScript packages with TypeScript typings containing metadata and types for all Daml packages included in the DAR files.
 
@@ -88,7 +88,7 @@ To understand the TypeScript typings produced by the code generator, it is helpf
    For *n*-tuples where *n ≥ 3*, representation is analogous with the pair case (the last line of the table).
 
 .. note::
-   The TypeScript types ``Time``, ``Decimal``, ``Numeric`` and ``Int`` all alias to ``string``. These choices relate to the avoidance of precision loss under serialization over the `json-api <../json-api/index.html>`_.
+   The TypeScript types ``Time``, ``Decimal``, ``Numeric`` and ``Int`` all alias to ``string``. These choices relate to the avoidance of precision loss under serialization over the :externalref:`JSON Ledger API <json-api>`.
 
 .. note::
    The TypeScript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
