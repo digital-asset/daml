@@ -1,0 +1,63 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module SimpleCoinTransfer where
+
+import Daml.Script
+import Utilities
+
+template Coin
+  with
+    owner: Party
+    amount: Decimal
+  where
+    signatory owner
+
+    ensure amount > 0.0
+
+-- BEGIN_SIMPLE_COIN_TRANSFER
+    choice Transfer : ContractId TransferProposal
+      with
+        newOwner: Party
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner
+-- END_SIMPLE_COIN_TRANSFER
+
+-- TransferProposal contract needs additional logic to time limit when transfers are accepted
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+  where
+    signatory coin.owner
+    observer newOwner
+
+    choice WithdrawTransfer : ContractId Coin
+      controller coin.owner
+      do
+        create coin
+
+-- BEGIN_SIMPLE_ACCEPT_COIN_TRANSFER
+    choice AcceptTransfer : ContractId Coin
+      controller newOwner
+      do
+        create coin with owner = newOwner
+-- END_SIMPLE_ACCEPT_COIN_TRANSFER
+
+-- test
+simpleCoinTransfer : Script ()
+simpleCoinTransfer =
+  script do
+
+    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
+
+    --test 1: owner's coin is transferred to a new owner
+
+    coin <- owner `submit` do createCmd Coin with owner; amount=100.0
+
+    transferProposal <- owner `submit` do exerciseCmd coin Transfer with newOwner
+
+    newOwner `submit` do exerciseCmd transferProposal AcceptTransfer

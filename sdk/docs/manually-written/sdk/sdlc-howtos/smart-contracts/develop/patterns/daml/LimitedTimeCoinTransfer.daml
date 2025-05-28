@@ -61,21 +61,21 @@ limitedTimeCoinTransfer =
 
     --test 1: owner's coin is transferred to a new owner within a 5 minutes
 
-    coin1 <- owner `submit` do createCmd Coin with owner; amount=100.0
+    coin <- owner `submit` do createCmd Coin with owner; amount=100.0
 
-    t1 <- getTime
-    transferProposal1 <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t1 (minutes 5)
+    t0 <- getTime
+    transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t0 (minutes 5)
 
-    newOwner `submit` do exerciseCmd transferProposal1 AcceptTransfer
+    newOwner `submit` do exerciseCmd transferProposal AcceptTransfer
 
     --test 2: owner's coin is fails to transfer to a new owner after a 5 minute time limit has passed
 
-    coin2 <- owner `submit` do createCmd Coin with owner; amount=150.0
+    coin <- owner `submit` do createCmd Coin with owner; amount=150.0
 
-    t2 <- getTime
-    transferProposal2 <- owner `submit` do exerciseCmd coin2 Transfer with newOwner; timeLimit=addRelTime t2 (minutes 5)
+    t1 <- getTime
+    transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t0 (minutes 5)
 
     -- simulate waiting for over 5 minutes
     _ <- passTime (minutes 6)
 
-    newOwner `submitMustFail` do exerciseCmd transferProposal2 AcceptTransfer
+    newOwner `submitMustFail` do exerciseCmd coinProposal AcceptTransfer
