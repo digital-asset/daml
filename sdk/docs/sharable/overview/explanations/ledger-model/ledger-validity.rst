@@ -3,7 +3,7 @@
 Valid Ledgers
 *************
 
-.. note::
+.. wip::
    Extend with time monotonicity requirement
 
 At the core is the concept of a *valid ledger*; changes

@@ -6,7 +6,7 @@
 Daml: Define Contract Models Compactly
 ######################################
 
-.. note::
+.. wip::
 
    Integrate this whole page into the running examples of the other sections.
 
