@@ -447,6 +447,9 @@ tests damlc =
             , testUpgradeCheck
                   "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
                   (FailWithError "error type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
+            , testUpgradeCheck
+                  "DoesNotWarnWhenExpressionUpgradesUtilityDependencyIdentifier"
+                  (SucceedWithoutWarning "*.warning while type checking template Main.Foo signatories:\n  The upgraded template Foo has changed the definition of its signatories.\n  There is 1 difference in the expression:\n    Name .*:Dep:duplicateParty and name .*:Dep:duplicateParty differ for the following reason: Just Name came from package .* and now comes from package .* Both packages support upgrades, but the previous package had a higher version than the current one..*")
             ]
        )
   where
@@ -710,7 +713,7 @@ data Expectation
   = Succeed
   | FailWithError T.Text
   | SucceedWithWarning T.Text
-  | SucceedWithoutWarning T.Text
+  | SucceedWithoutWarning T.Text -- fails if warning equals passed Text
   deriving (Show, Eq, Ord)
 
 data Dependency

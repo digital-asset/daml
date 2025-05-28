@@ -7,5 +7,6 @@ pkgs.mkShell {
     curl
     jq
     sphinx
+    vale
   ];
 }

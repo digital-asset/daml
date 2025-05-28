@@ -25,10 +25,9 @@ You thus need to add support for authorization using access tokens to your appli
 Introduction
 ************
 
-Your Daml application sends requests to the :ref:`Ledger API <integration-with-ledger-api>` exposed by a participant node to submit changes to the ledger
+Your Daml application sends requests to the :ref:`Ledger API <ledger-api>` exposed by a participant node to submit changes to the ledger
 (e.g., "*exercise choice X on contract Y as party Alice*"), or to read data from the ledger
 (e.g., "*read all active contracts visible to party Alice*").
-Your application might send these requests via a middleware like the :externalref:`JSON API <json-api>`.
 
 Whether a participant node *can* serve such a request depends on whether the participant node hosts the respective parties, and
 whether the request is valid according to the :externalref:`Daml Ledger Model <da-ledgers>`.
@@ -58,8 +57,8 @@ The Daml ledger verifies:
 
 How you attach tokens to requests depends on the tool or library you use to interact with the Ledger API.
 See the tool's or library's documentation for more information. (E.g. relevant documentation to
-:ref:`access the Ledger API via gRPC using Java bindings <howto-applications-work-with-contracts-java-authorization>`
-and the :externalref:`JSON API <json-api-access-tokens>`.)
+:ref:`access the gRPC Ledger API using Java bindings <howto-applications-work-with-contracts-java-authorization>`
+and the :externalref:`JSON Ledger API <json-api-access-tokens>`.)
 
 
 .. _authorization-claims:
@@ -69,7 +68,7 @@ Access Tokens and Rights
 
 Access tokens contain information about the rights granted to the bearer of the token. These rights are specific to the API being accessed.
 
-The Daml Ledger API uses the following rights to govern request authorization:
+The Ledger API uses the following rights to govern request authorization:
 
 - ``public``: the right to retrieve publicly available information, such as the ledger identity
 - ``participant_admin``: the right to administer the participant node
@@ -82,9 +81,7 @@ The following table summarizes the rights required to access each Ledger API end
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 | Ledger API service                  | Endpoint                      | Required right                                         |
 +=====================================+===============================+========================================================+
-| LedgerIdentityService               | GetLedgerIdentity             | public                                                 |
-+-------------------------------------+-------------------------------+--------------------------------------------------------+
-| ActiveContractsService              | GetActiveContracts            | for each requested party p: canReadAs(p)               |
+| StateService                        | GetActiveContracts            | for each requested party p: canReadAs(p)               |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 | CommandCompletionService            | CompletionEnd                 | public                                                 |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
@@ -99,10 +96,6 @@ The following table summarizes the rights required to access each Ledger API end
 | Health                              | All                           | no access token required for health checking           |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 | IdentityProviderConfigService       | All                           | participant_admin                                      |
-+-------------------------------------+-------------------------------+--------------------------------------------------------+
-| LedgerConfigurationService          | GetLedgerConfiguration        | public                                                 |
-+-------------------------------------+-------------------------------+--------------------------------------------------------+
-| MeteringReportService               | All                           | participant_admin                                      |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 | PackageService                      | All                           | public                                                 |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
@@ -121,7 +114,7 @@ The following table summarizes the rights required to access each Ledger API end
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 |                                     | SetTime                       | participant_admin                                      |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
-| TransactionService                  | LedgerEnd                     | public                                                 |
+| UpdateService                       | LedgerEnd                     | public                                                 |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
 |                                     | All (except LedgerEnd)        | for each requested party p: canReadAs(p)               |
 +-------------------------------------+-------------------------------+--------------------------------------------------------+
@@ -156,16 +149,14 @@ and there are two formats of the JSON payload used by Daml ledgers.
 User Access Tokens
 ==================
 
-Daml ledgers that support participant :ref:`user management <user-management-service>` also accept user access tokens.
-They are useful for scenarios where an application's rights change dynamically over the application's lifetime.
-
-User access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
+Participant nodes manage a dynamic set of users.
+The corresponding user access tokens do not encode rights directly like the custom Daml claims tokens explained in the following sections.
 Instead, user access tokens encode the participant user on whose behalf the request is issued.
 
 When handling such requests, participant nodes look up the participant user's current rights
 before checking request authorization per the  :ref:`table above <authorization-claims>`.
 Thus the rights granted to an application can be changed dynamically using
-the participant user management service *without* issuing new access tokens,
+the participant User Management Service *without* issuing new access tokens,
 as would be required for the custom Daml claims tokens.
 
 User access tokens are `JWTs <https://datatracker.ietf.org/doc/html/rfc7519>`_ that follow the
