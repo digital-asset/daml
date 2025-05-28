@@ -3,8 +3,8 @@
 
 .. _ledger-api-services:
 
-The gRPC Ledger API Services
-############################
+The Ledger API Services
+#######################
 
 .. note::
     MOVE ME INTO THE CANTON REPO
