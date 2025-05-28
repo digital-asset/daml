@@ -3,10 +3,14 @@
 Introduction
 ============
 
-The purpose of the `Overview` manual section is to:
+The purpose of the *Overview* manual section is to:
+
 * Introduce you to the importance and problems of multi-party applications.
+
 * Provide a high-level overview of how Canton can help you build and run multi-party applications.
+
 * Explain the different components of the Canton ecosystem and how they fit together.
+
 * Show how the different products of Digital Asset allow you to join the Canton Network as a user or a provider of services.
 
 Multi-Party Applications
@@ -60,12 +64,12 @@ which connects individual instances through the **Canton Protocol**.
 The shared data items managed and synchronized by Canton are called **contract instances**. Every contract instance is
 associated with a **template** that defines the **smart contract choices** for the contract instance. These choices
 represent the possible update commands on the ledger, archiving a given set of contracts and creating new ones
-atomically. These rules are written in the **DAML** programming language and contain the business logic and authorization
+atomically. These rules are written in the **Daml** programming language and contain the business logic and authorization
 rules.
 
 The entirety of the contract instances and templates is called the **Ledger**. Each contract is owned by a group of
 stakeholders, called **Parties**. Each party participates in the network through their validator node. This validator
-node has only visibility to the subset of contracts of the parties associated. As validator nodes are able to connect
+node has only visibility into the subset of contracts of the parties associated. As validator nodes are able to connect
 to different networks, the entire network forms a single **Virtual Global Ledger** which is not controlled by any
 single entity.
 
@@ -75,7 +79,7 @@ but instead connect to synchronizers to form a network with other validators. Ea
 synchronizers unilaterally, creating a network of networks.
 
 In order to transact with each other on a given transaction, validators need to find at least one synchronizer where
-they are all connected to. This synchronizer will then order, **buffer and forward the encrypted messages** to the respective
+they are all connected to. This synchronizer will then **order, buffer and forward the encrypted messages** to the respective
 validators without understanding what is being transacted on. There is one specific instance of a synchronizer that is
 called the **Global Synchronizer** (`https://sync.global <https://sync.global>`_), serving as the global backbone of the network.
 
@@ -83,16 +87,19 @@ Contracts are not tied to synchronizers. Synchronizers are not aware of each oth
 suitable synchronizer for their transactions, creating an **natively interoperable network** of synchronizers and validators.
 This allows the Canton Network to **scale horizontally** by just adding more synchronizers and validators whenever needed.
 
+Continue diving into the elements of the :brokenref:`Canton Network <overview_overview_canton_network>`.
+
+.. we need to add more references to the protocol and the global sync.
+
 Ledger concepts expressed in database terms
 -------------------------------------------
 
 The concepts can be related to databases: templates are table schemas, contract instances are table rows, choices
-are stored procedures performing a set of atomic delete and insert statements. Different actors on the network now
-exchange which stored procedures they want to run through the Canton protocol. The protocol orders, validates and distributes
-these requests to the affected parties such that they can apply it to their local data stores deterministically.
+are stored procedures performing a set of atomic delete and insert statements. But instead of running against a
+single database, different actors on the network now exchange which stored procedures they want to run through
+the Canton protocol. The protocol orders, validates, removes conflicts and distributes these requests to the affected parties such
+that they can apply it to their local data stores deterministically.
 
-The protocol uses the synchronizer to distribute and buffer the encrypted messages between the different data stores to
-provide a reliable total order multi-cast.
 
 Join the Canton Network
 -----------------------
