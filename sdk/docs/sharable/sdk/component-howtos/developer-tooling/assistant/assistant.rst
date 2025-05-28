@@ -23,7 +23,7 @@ Daml Assistant
 - Launch the tools in the SDK:
 
   - Launch :ref:`Daml Studio <write-daml-studio>`: ``daml studio``
-  - Launch :ref:`Sandbox <sandbox-manual>` and the :externalref:`json-api`: ``daml start``
+  - Launch :ref:`Sandbox <sandbox-manual>` and the :subsiteref:`Json Ledger API <json-api>`: ``daml start``
     You can disable the JSON Ledger API by passing ``--json-api-port none`` to ``daml start``.
     To specify additional options for sandbox you can use ``--sandbox-option=opt``.
   - Launch Sandbox: ``daml sandbox``

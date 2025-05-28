@@ -157,6 +157,22 @@ You can use either the command or command submission services to submit commands
 
 For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandService>`.
 
+.. _interactive-submission-service:
+
+Interactive Submission Service
+==============================
+
+Use **Interactive Submission Service** to prepare and submit daml transactions signed with your own signing keys.
+
+Service allows interactive construction of command submissions It contains two endpoints allowing a two-step command submission:
+The prepare and execute endpoints allow to submit commands in steps:
+
+- prepare transaction from the supplied list of commands
+- inspect proposed transaction and sign it using own key
+- submit the prepared transaction
+
+For more information, refer to the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.interactive.InteractiveSubmissionService>`.
+
 .. _reading-from-the-ledger:
 
 Read From the Ledger
@@ -273,7 +289,7 @@ Parties govern on-ledger access control as per :externalref:`Daml's privacy mode
 and :externalref:`authorization rules <da-ledgers-authorization-rules>`.
 Applications and their operators are expected to allocate and use parties to manage on-ledger access control as per their business requirements.
 
-For more information, refer to the pages on :externalref:`Identity Management<identity-management>` and :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.PartyManagementService>`.
+For more information, refer to the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.PartyManagementService>`.
 
 .. _user-management-service:
 
@@ -307,7 +323,7 @@ Such parties and users have a matching ``identity_provider_id`` defined and are 
 
 For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.admin.IdentityProviderConfigService>`.
 
-.. _package management-service:
+.. _package-management-service:
 
 Package Management Service
 ==========================
