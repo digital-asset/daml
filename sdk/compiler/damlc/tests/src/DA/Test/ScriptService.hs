@@ -9,7 +9,6 @@ import Control.Exception
 import Control.Monad
 import DA.Bazel.Runfiles
 import DA.Cli.Damlc.Packaging
-import DA.Cli.Damlc.DependencyDb
 import qualified DA.Daml.LF.Ast.Version as LF
 import DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
@@ -97,19 +96,8 @@ withScriptService lfVersion action =
             "- daml-stdlib",
             "- " <> show scriptDar
           ]
-      withPackageConfig (ProjectPath ".") $ \PackageConfigFields {..} -> do
-        let projDir = toNormalizedFilePath' dir
-        installDependencies
-            projDir
-            (options lfVersion)
-            (unsafeResolveReleaseVersion pSdkVersion)
-            pDependencies
-            pDataDependencies
-        createProjectPackageDb
-          projDir
-          (options lfVersion)
-          pModulePrefixes
-
+      withPackageConfig (ProjectPath ".") $
+        setupPackageDbFromPackageConfig (toNormalizedFilePath' dir) $ options lfVersion
       logger <- Logger.newStderrLogger Logger.Debug "script-service"
 
       -- Spinning up the script service is expensive so we do it once at the beginning.
