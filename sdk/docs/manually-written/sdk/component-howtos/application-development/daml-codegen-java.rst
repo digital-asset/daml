@@ -53,7 +53,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 2.0.0
+    sdk-version: 3.3.0-snapshot.20250507.0
     name: quickstart
     source: daml
     init-script: Main:initialize
@@ -166,8 +166,8 @@ The Java package for the generated classes is the equivalent of the lowercase Da
 
   package foo.bar.baz;
 
-Records (a.k.a product types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Records (a.k.a. product types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`Daml record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the Daml record fields. A Daml field having the type of another record is represented as a field having the type of the generated class for that record.
 
@@ -303,8 +303,8 @@ In particular, the codegen generates a file that defines six Java classes and on
 
 Note that ``byKey`` and ``ByKey`` will only be generated for templates that define a key.
 
-Variants (a.k.a sum types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Variants (a.k.a. sum types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 
