@@ -6,7 +6,7 @@
 Causality
 #########
 
-.. note::
+.. wip::
 
    Update so that the DAG structure of ledgers are reflected directly.
    This should greatly simplify the formalism here.

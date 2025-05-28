@@ -6,7 +6,7 @@
 Portability, Compatibility, and Support Durations
 #################################################
 
-.. note::
+.. wip::
     rip out anyhing < 3.0
 
 
