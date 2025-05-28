@@ -115,7 +115,7 @@ An **action** is one of the following:
    * An exercise **kind**, which is either **consuming** or
      **non-consuming**. Once consumed, a contract cannot be used again;
      for example, Alice must not be able to transfer her asset twice, as this would be double spending.
-     In contrast, contracts exercised in a non-consuming fashion can be reused.
+     In contrast, contracts exercised in a non-consuming fashion can be reused, for example for expressing a delegation from one party to another.
       
    * The **contract ID** on which the choice is exercised.
      This contract is called the **input contract**.
@@ -203,8 +203,9 @@ More generally, for an action `act`, its **proper subactions** are all actions i
 `act`, together with all of their proper subactions.
 Additionally, `act` is a (non-proper) **subaction** of itself.
 
-The subaction relation is visualized below for Bob's ``Settle`` exercise by the nesting of the boxes with rounded corners.
-Both the blue and purple boxes are proper subactions of Bob's ``Settle`` action shown in grey.
+The subaction relation is visualized below for Bob's ``Settle`` exercise.
+Each box with rounded corners represents an action and the nesting of these boxes encodes the subaction relation.
+In detail, both the blue and purple boxes are proper subactions of Bob's ``Settle`` action shown in grey.
 The green box is a proper subaction of the blue and the grey boxes, and the yellow box is a proper subaction of the purple and the grey boxes.
 
 .. https://lucid.app/lucidchart/dbe05602-46b8-4b23-8957-a8e15af912e6/edit
