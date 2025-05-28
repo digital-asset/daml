@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
@@ -22,6 +23,8 @@ trait BftSequencerBaseTest extends BaseTest {
 
   protected final implicit lazy val synchronizerProtocolVersion: ProtocolVersion =
     testedProtocolVersion
+
+  protected implicit val metricsContext: MetricsContext = MetricsContext.Empty
 
   protected implicit def toFuture[X](x: PekkoFutureUnlessShutdown[X])(implicit
       ec: ExecutionContext

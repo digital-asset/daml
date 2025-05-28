@@ -3,8 +3,10 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology
 
+import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
+import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.{
   AuthenticatedMessageType,
@@ -21,42 +23,51 @@ import com.digitalasset.canton.tracing.TraceContext
 trait CryptoProvider[E <: Env[E]] {
 
   def signHash(
-      hash: Hash
+      hash: Hash,
+      operationId: String,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]]
 
   def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]]
 
   def verifySignature(
       hash: Hash,
       member: BftNodeId,
       signature: Signature,
+      operationId: String,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]]
 
-  def verifySignedMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
+  final def verifySignedMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       signedMessage: SignedMessage[MessageT],
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
     verifySignature(
       hashForMessage(signedMessage.message, signedMessage.from, authenticatedMessageType),
       signedMessage.from,
       signedMessage.signature,
+      operationId = s"verify-signature-$authenticatedMessageType",
     )
 }
 
 object CryptoProvider {
 
-  sealed trait AuthenticatedMessageType extends Product
+  sealed trait AuthenticatedMessageType extends Product with PrettyPrinting {
+    override final def pretty: Pretty[this.type] = prettyOfObject[this.type]
+  }
   object AuthenticatedMessageType {
     case object BftOrderingPbftBlock extends AuthenticatedMessageType
     case object BftAvailabilityAck extends AuthenticatedMessageType
@@ -100,21 +111,29 @@ final case class DelegationCryptoProvider[E <: Env[E]](
     signer: CryptoProvider[E],
     verifier: CryptoProvider[E],
 ) extends CryptoProvider[E] {
-  override def signHash(hash: Hash)(implicit
-      traceContext: TraceContext
+  override def signHash(hash: Hash, operationId: String)(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, Signature]] =
-    signer.signHash(hash)
+    signer.signHash(hash, operationId)
 
   override def signMessage[MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
       message: MessageT,
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     signer.signMessage(message, authenticatedMessageType)
 
-  override def verifySignature(hash: Hash, member: BftNodeId, signature: Signature)(implicit
-      traceContext: TraceContext
+  override def verifySignature(
+      hash: Hash,
+      member: BftNodeId,
+      signature: Signature,
+      operationId: String,
+  )(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): E#FutureUnlessShutdownT[Either[SignatureCheckError, Unit]] =
-    verifier.verifySignature(hash, member, signature)
+    verifier.verifySignature(hash, member, signature, operationId)
 }

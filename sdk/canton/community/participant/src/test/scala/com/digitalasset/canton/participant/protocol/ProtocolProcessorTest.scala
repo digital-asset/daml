@@ -79,7 +79,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
+import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{
   BaseTest,
   DefaultDamlValues,
@@ -391,15 +391,6 @@ class ProtocolProcessorTest
         override protected def metricsContextForSubmissionParam(
             submissionParam: Int
         ): MetricsContext = MetricsContext.Empty
-
-        override protected def preSubmissionValidations(
-            params: Int,
-            cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
-            protocolVersion: ProtocolVersion,
-        )(implicit
-            traceContext: TraceContext
-        ): EitherT[FutureUnlessShutdown, TestProcessingSteps.TestProcessingError, Unit] =
-          EitherT.pure(())
       }
 
     (sut, persistentState, ephemeralState.get(), participantNodeEphemeralState)

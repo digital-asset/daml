@@ -3,11 +3,18 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions
 
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeNumeric, PositiveDouble}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.RetransmissionMessageValidator.RetransmissionResponseValidationError
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.{
+  BftNodeRateLimiter,
+  EpochState,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.shortType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider.AuthenticatedMessageType
@@ -30,13 +37,19 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   Env,
   ModuleRef,
 }
+import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.duration.*
 import scala.util.{Failure, Success}
 
-import RetransmissionsManager.{HowManyEpochsToKeep, NodeRoundRobin, RetransmissionRequestPeriod}
+import RetransmissionsManager.{
+  HowManyEpochsToKeep,
+  MaxRetransmissionRequestBurstFactorPerNode,
+  NodeRoundRobin,
+  RetransmissionRequestPeriod,
+}
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class RetransmissionsManager[E <: Env[E]](
@@ -45,6 +58,7 @@ class RetransmissionsManager[E <: Env[E]](
     abort: String => Nothing,
     previousEpochsCommitCerts: Map[EpochNumber, Seq[CommitCertificate]],
     metrics: BftOrderingMetrics,
+    clock: Clock,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends NamedLogging {
@@ -58,6 +72,16 @@ class RetransmissionsManager[E <: Env[E]](
 
   private var incomingRetransmissionsRequestCount = 0
   private var outgoingRetransmissionsRequestCount = 0
+  private var discardedWrongEpochRetransmissionsResponseCount = 0
+  private var discardedRateLimitedRetransmissionRequestCount = 0
+
+  private val requestRateLimiter =
+    new BftNodeRateLimiter(
+      clock,
+      maxTasksPerSecond =
+        NonNegativeNumeric.tryCreate(1.toDouble / RetransmissionRequestPeriod.toSeconds.toDouble),
+      maxBurstFactor = PositiveDouble.tryCreate(MaxRetransmissionRequestBurstFactorPerNode),
+    )
 
   private val previousEpochsRetransmissionsTracker = new PreviousEpochsRetransmissionsTracker(
     HowManyEpochsToKeep,
@@ -114,8 +138,22 @@ class RetransmissionsManager[E <: Env[E]](
           metrics.consensus.votes.labels.Epoch -> epoch.toString
         )
       )
+    metrics.consensus.retransmissions.discardedWrongEpochRetransmissionResponseMeter
+      .mark(discardedWrongEpochRetransmissionsResponseCount.toLong)(
+        mc.withExtraLabels(
+          metrics.consensus.votes.labels.Epoch -> epoch.toString
+        )
+      )
+    metrics.consensus.retransmissions.discardedRateLimitedRetransmissionRequestMeter
+      .mark(discardedRateLimitedRetransmissionRequestCount.toLong)(
+        mc.withExtraLabels(
+          metrics.consensus.votes.labels.Epoch -> epoch.toString
+        )
+      )
     incomingRetransmissionsRequestCount = 0
     outgoingRetransmissionsRequestCount = 0
+    discardedWrongEpochRetransmissionsResponseCount = 0
+    discardedRateLimitedRetransmissionRequestCount = 0
   }
 
   def handleMessage(
@@ -234,19 +272,40 @@ class RetransmissionsManager[E <: Env[E]](
     msg match {
       case req @ Consensus.RetransmissionsMessage.RetransmissionRequest(status) =>
         incomingRetransmissionsRequestCount += 1
-        (currentEpoch.zip(validator)) match {
-          case Some((epochState, validator))
-              if (epochState.epoch.info.number == status.epochNumber) =>
-            validator.validateRetransmissionRequest(req)
-          case _ =>
-            previousEpochsRetransmissionsTracker
-              .processRetransmissionsRequest(status)
-              .map(_ => ())
+        if (requestRateLimiter.checkAndUpdateRate(status.from)) {
+          (currentEpoch.zip(validator)) match {
+            case Some((epochState, validator))
+                if (epochState.epoch.info.number == status.epochNumber) =>
+              validator.validateRetransmissionRequest(req)
+            case _ =>
+              previousEpochsRetransmissionsTracker
+                .processRetransmissionsRequest(status)
+                .map(_ => ())
+          }
+        } else {
+          discardedRateLimitedRetransmissionRequestCount += 1
+          Left(
+            s"Dropped a retransmission request from ${status.from} for epoch ${status.epochNumber} due to rate limiting"
+          )
         }
       case response: Consensus.RetransmissionsMessage.RetransmissionResponse =>
         validator match {
           case Some(validator) =>
-            validator.validateRetransmissionResponse(response)
+            val validationResult = validator.validateRetransmissionResponse(response)
+            validationResult match {
+              case Left(_: RetransmissionResponseValidationError.MalformedMessage) =>
+                emitNonCompliance(metrics)(
+                  response.from,
+                  currentEpoch.map(_.epoch.info.number),
+                  view = None,
+                  block = None,
+                  metrics.security.noncompliant.labels.violationType.values.RetransmissionResponseInvalidMessage,
+                )
+              case Left(_: RetransmissionResponseValidationError.WrongEpoch) =>
+                discardedWrongEpochRetransmissionsResponseCount += 1
+              case _ => ()
+            }
+            validationResult.leftMap(_.errorMsg)
           case None =>
             Left(
               s"Received a retransmission response from ${response.from} while transitioning epochs, ignoring"
@@ -340,6 +399,7 @@ class RetransmissionsManager[E <: Env[E]](
 
 object RetransmissionsManager {
   val RetransmissionRequestPeriod: FiniteDuration = 3.seconds
+  val MaxRetransmissionRequestBurstFactorPerNode: Double = 6.toDouble
 
   // TODO(#24443): unify this value with catch up and pass it as config
   val HowManyEpochsToKeep = 5

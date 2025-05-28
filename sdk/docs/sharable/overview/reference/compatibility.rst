@@ -10,7 +10,7 @@ Portability, Compatibility, and Support Durations
     rip out anyhing < 3.0
 
 
-The Daml Ecosystem offers a number of forward and backward compatibility guarantees aiming to give the Ecosystem as a whole the following properties. See :externalref:`ecosystem-architecture` for the terms used here and how they fit together.
+The Daml Ecosystem offers a number of forward and backward compatibility guarantees aiming to give the Ecosystem as a whole the following properties. See :brokenref:`ecosystem-architecture` for the terms used here and how they fit together.
 
 Application Portability
 
@@ -27,7 +27,7 @@ Daml Upgradeability
 Ledger API Compatibility: Application Portability
 *************************************************
 
-Application Portability and to some extent Network Upgradeability are achieved by intermediating through the Ledger API. As per :ref:`versioning`, and :externalref:`ecosystem-architecture`, the Ledger API is independently semantically versioned, and the compatibility guarantees derived from that semantic versioning extend to the entire semantics of the API, including the behavior of Daml Packages on the Ledger. Since all interaction with a Daml Ledger happens through the Daml Ledger API, a Daml Application is guaranteed to work as long as the Participant Node exposes a compatible Ledger API version.
+Application Portability and to some extent Network Upgradeability are achieved by intermediating through the Ledger API. As per :ref:`versioning`, and :brokenref:`ecosystem-architecture`, the Ledger API is independently semantically versioned, and the compatibility guarantees derived from that semantic versioning extend to the entire semantics of the API, including the behavior of Daml Packages on the Ledger. Since all interaction with a Daml Ledger happens through the Daml Ledger API, a Daml Application is guaranteed to work as long as the Participant Node exposes a compatible Ledger API version.
 
 Specifically, if a Daml Application is built against Ledger API version X.Y.Z and a Participant Node exposes Ledger API version X.Y2.Z2, the application is guaranteed to work as long as Y2.Z2 >= Y.Z.
 
@@ -115,8 +115,6 @@ Summary of Ledger API Changes
      - Introduce Daml-LF 1.13
    * - 1.10
      - Introduce Daml-LF 1.12
-
-       Stabilize :externalref:`participant pruning <ops-ref_index>`
    * - 1.9
      - Introduce Daml-LF 1.11
    * - 1.8

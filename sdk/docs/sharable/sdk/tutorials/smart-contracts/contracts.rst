@@ -3,13 +3,13 @@
 
 .. _basic-contracts:
 
-Basic Contracts
+Basic contracts
 ===============
 
 To begin with, you're going to write a very small Daml template, which represents a self-issued, non-transferable token. Because it's a minimal template, it isn't actually useful on its own - you'll make it more useful later - but it's enough that it can show you the most basic concepts:
 
 - Transactions
-- Daml Modules and Files
+- Daml modules and files
 - Templates
 - Contracts
 - Signatories
@@ -18,7 +18,7 @@ To begin with, you're going to write a very small Daml template, which represent
 
   Remember that you can load all the code for this section into a folder ``intro1`` by running ``daml new intro1 --template daml-intro-1``
 
-Daml Ledger Basics
+Daml ledger basics
 ------------------
 
 Like most structures called ledgers, a Daml Ledger is just a list of *commits*. When we say *commit*, we mean the final result of when a *party* successfully *submits* a *transaction* to the ledger.
@@ -33,7 +33,7 @@ Individual contracts are *immutable* in the sense that an active contract can no
 
 Daml specifies what transactions are legal on a Daml Ledger. The rules the Daml code specifies are collectively called a *Daml model* or *contract model*.
 
-Daml Modules and Files
+Daml modules and files
 ----------------------
 
 Each ``.daml`` file defines a *Daml Module* at the top:
@@ -73,7 +73,7 @@ The ``signatory`` keyword specifies the *signatories* of a contract. These are t
 
 Furthermore, Daml ledgers *guarantee* that parties see all transactions where their authority is used. This means that signatories of a contract are guaranteed to see the creation and archival of that contract.
 
-Next Up
+Next up
 -------
 
 In :doc:`daml-scripts`, you'll learn about how to try out the ``Token`` contract template in Daml's inbuilt Daml Script testing language.

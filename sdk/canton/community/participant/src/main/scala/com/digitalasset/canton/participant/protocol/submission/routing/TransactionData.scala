@@ -82,9 +82,14 @@ private[routing] object TransactionData {
             contractsStakeholders,
             disclosedContracts = disclosedContracts,
           )
-          .leftMap[TransactionRoutingError](cids =>
+          .leftMap[TransactionRoutingError](contractsError =>
             TransactionRoutingError.TopologyErrors.UnknownContractSynchronizers
-              .Error(cids.map(_.coid).toList)
+              .Error(
+                contractsError.notFound.map(_.coid),
+                contractsError.archived.map { case (syncId, cid) =>
+                  syncId -> cid.map(_.coid)
+                },
+              )
           )
     } yield TransactionData(
       transaction = transaction,

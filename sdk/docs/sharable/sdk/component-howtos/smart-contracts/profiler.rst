@@ -3,8 +3,8 @@
 
 .. _measure-daml-profiler:
 
-Measure: Daml Profiler
-######################
+Daml Profiler
+################
 
 The Daml Profiler is only available in
 `Daml Enterprise <https://www.digitalasset.com/products/daml-enterprise>`_.

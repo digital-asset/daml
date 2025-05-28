@@ -11,7 +11,8 @@ Daml Studio is an integrated development environment (IDE) for Daml. It is an ex
 Install
 *******
 
-Daml Studio is included in :ref:`the Daml SDK <install-the-sdk>`.
+Install the :ref:`daml-assistant`, which includes Daml Studio and sets up the Visual Studio Code extension
+as part of the installation process.
 
 Create Your First Daml File
 ***************************
@@ -393,13 +394,13 @@ The Multi-IDE runs a separate package environment for each package in the projec
 allowing the IDE to replicate properties such as dependencies, module-prefixes, and build-options
 of each package individually, without clashing with other packages in the project.
 A package's environment automatically reloads if its ``daml.yaml`` file changes,
-or any of the dependency DAR files change.  
+or any of the dependency DAR files change.
 
 Note, however, that the Multi-IDE does not hold "live" copies of DARs, therefore any changes
 to a package that is a dependency of another package are not visible in that second package until
-you run ``daml build``.  
+you run ``daml build``.
 You can run ``daml build --all`` to rebuild all relevant DARs. The IDE accounts for this
-and reloads environments as necessary.  
+and reloads environments as necessary.
 
 Jumping to definition on non-local dependencies (those not listed in ``multi-package.yaml``)
 also uses the correct environment, giving correct diagnostics for that package, and allowing
@@ -487,6 +488,6 @@ This feature can also be used when Multi-IDE is inactive, as described below.
 
 Deactivating Multi-IDE
 ======================
-The Multi-IDE feature can be deactivated by going to VSCode settings (``ctrl + ,``), searching for 
+The Multi-IDE feature can be deactivated by going to VSCode settings (``ctrl + ,``), searching for
 ``Daml: Multi Package Ide Support``, and unticking the box. You do not need to restart your editor.
 If you are deactivating this feature due to a bug, please report it on the `forums <https://discuss.daml.com/>`__.

@@ -1980,8 +1980,12 @@ class CantonSyncService(
 
   override def getRoutingSynchronizerState(implicit
       traceContext: TraceContext
-  ): RoutingSynchronizerState =
-    RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
+  ): RoutingSynchronizerState = {
+    val syncCryptoPureApi: RoutingSynchronizerStateFactory.SyncCryptoPureApiLookup =
+      (synchronizerId, staticSyncParameters) =>
+        syncCrypto.forSynchronizer(synchronizerId, staticSyncParameters).map(_.pureCrypto)
+    RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup, syncCryptoPureApi)
+  }
 
 }
 

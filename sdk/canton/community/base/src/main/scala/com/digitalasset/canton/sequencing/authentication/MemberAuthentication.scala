@@ -159,9 +159,9 @@ object MemberAuthentication extends MemberAuthentication {
   ): EitherT[Future, Status, AuthenticationToken] =
     EitherT(
       tokenManager.getToken
-        .leftMap(err =>
-          Status.PERMISSION_DENIED.withDescription(s"Authentication token refresh error: $err")
-        )
+        .leftMap { err =>
+          err.withDescription(s"Authentication token refresh error: ${err.getDescription}")
+        }
         .value
         .onShutdown(
           Left(

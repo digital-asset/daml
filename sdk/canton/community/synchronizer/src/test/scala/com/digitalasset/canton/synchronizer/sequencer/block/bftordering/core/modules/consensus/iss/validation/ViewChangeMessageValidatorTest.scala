@@ -43,6 +43,8 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
   private val otherId = BftNodeId("otherId")
   private val membership = Membership.forTesting(myId, Set(otherId))
   private val epochNumber = EpochNumber(0L)
+  private val epochNumber2 = EpochNumber(1L)
+  private val epochNumber3 = EpochNumber(2L)
   private val blockNumbers = NonEmpty(Seq, 1L, 3L, 5L).map(BlockNumber(_))
   private val wrongHash = Hash.digest(
     HashPurpose.BftOrderingPbftBlock,
@@ -106,12 +108,11 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       viewNumber: ViewNumber,
       consensusCerts: Seq[ConsensusCertificate],
       epochNumber: Long = 0L,
-      segment: Long = 0L,
+      segment: Long = 1L,
       from: BftNodeId = myId,
   ) =
     ViewChange.create(
       BlockMetadata(EpochNumber(epochNumber), BlockNumber(segment)),
-      0,
       viewNumber,
       consensusCerts,
       from,
@@ -122,9 +123,9 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       viewChanges: Seq[SignedMessage[ViewChange]],
       prePrepares: Seq[SignedMessage[PrePrepare]],
       from: BftNodeId = myId,
+      segment: Long = 1L,
   ): NewView = NewView.create(
-    BlockMetadata(EpochNumber(0), BlockNumber(0)),
-    0,
+    BlockMetadata(EpochNumber(0), BlockNumber(segment)),
     viewNumber,
     viewChanges,
     prePrepares,
@@ -138,6 +139,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val result = validator.validateViewChangeMessage(viewChangeMsg(view1, Seq.empty))
 
       result shouldBe Right(())
+    }
+
+    "error when message is using wrong blockNumber" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val result =
+        validator.validateViewChangeMessage(viewChangeMsg(view1, Seq.empty, segment = 2L))
+
+      result shouldBe Left("the blockNumber 2 is not the first block in segment 1")
     }
 
     "error when message has prepare certificates for the wrong epoch" in {
@@ -211,6 +221,35 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
 
       result shouldBe Left(
         "prepare certificate for block 1 has the following errors: there are no prepares, commit certificate for block 3 has the following errors: there are no commits"
+      )
+    }
+
+    "error when certificates have messages with epoch numbers different across them or different from the pre-prepare's epoch number" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val pp1 = prePrepare(epochNumber, 1L, view0)
+      val pp3 = prePrepare(epochNumber, 3L, view0)
+
+      val pc = PrepareCertificate(
+        pp1,
+        Seq(
+          prepare(epochNumber2, 1L, pp1.message.hash),
+          prepare(epochNumber3, 1L, pp1.message.hash, from = otherId),
+        ),
+      )
+      val cc = CommitCertificate(
+        pp3,
+        Seq(
+          commit(epochNumber2, 3L, pp3.message.hash),
+          commit(epochNumber2, 3L, pp3.message.hash, from = otherId),
+        ),
+      )
+
+      val result =
+        validator.validateViewChangeMessage(viewChangeMsg(view2, Seq[ConsensusCertificate](pc, cc)))
+
+      result shouldBe Left(
+        "prepare certificate for block 1 has the following errors: all prepares should be of the same epoch number, but they are distributed across multiple epoch numbers (1, 2), commit certificate for block 3 has the following errors: commits have epoch number 1 but it should be 0"
       )
     }
 
@@ -364,6 +403,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       result shouldBe Right(())
     }
 
+    "error when message is using wrong blockNumber" in {
+      val validator = new ViewChangeMessageValidator(membership, blockNumbers)
+
+      val result =
+        validator.validateNewViewMessage(newViewMessage(view1, Seq.empty, Seq.empty, segment = 2L))
+
+      result shouldBe Left("the blockNumber 2 is not the first block in segment 1")
+    }
+
     "error when there are view changes are for wrong epoch" in {
       val validator = new ViewChangeMessageValidator(membership, blockNumbers)
 
@@ -396,7 +444,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val result = validator.validateNewViewMessage(newView)
 
       result shouldBe Left(
-        "there are view change messages for the wrong segment identifier (3, 2 instead of 0)"
+        "there are view change messages for the wrong segment identifier (3, 2 instead of 1)"
       )
     }
 

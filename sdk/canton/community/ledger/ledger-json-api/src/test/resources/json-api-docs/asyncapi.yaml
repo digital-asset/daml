@@ -290,11 +290,11 @@ components:
         details:
           type: array
           items:
-            $ref: '#/components/schemas/Any'
+            $ref: '#/components/schemas/ProtoAny'
         unknownFields:
-          type: string
-    Any:
-      title: Any
+          $ref: '#/components/schemas/UnknownFieldSet'
+    ProtoAny:
+      title: ProtoAny
       type: object
       required:
       - typeUrl
@@ -306,12 +306,45 @@ components:
         value:
           type: string
         unknownFields:
-          type: string
+          $ref: '#/components/schemas/UnknownFieldSet'
+    UnknownFieldSet:
+      title: UnknownFieldSet
+      type: object
+      required:
+      - fields
+      properties:
+        fields:
+          $ref: '#/components/schemas/Map_Int_Field'
+    Map_Int_Field:
+      title: Map_Int_Field
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/Field'
+    Field:
+      title: Field
+      type: object
+      properties:
+        varint:
+          type: array
+          items:
+            type: integer
+            format: int64
+        fixed64:
+          type: array
+          items:
+            type: integer
+            format: int64
+        fixed32:
+          type: array
+          items:
+            type: integer
+            format: int32
+        lengthDelimited:
+          type: array
+          items:
+            type: string
     DeduplicationPeriod:
       title: DeduplicationPeriod
-      description: |-
-        Specifies the deduplication period for the change ID.
-        If omitted, the participant will assume the configured maximum deduplication time.
       oneOf:
       - type: object
         required:
@@ -353,9 +386,9 @@ components:
           type: integer
           format: int32
         unknownFields:
+          $ref: '#/components/schemas/UnknownFieldSet'
           description: This field is automatically added as part of protobuf to json
             mapping
-          type: string
     DeduplicationOffset:
       title: DeduplicationOffset
       type: object
@@ -523,10 +556,10 @@ components:
             template or wildcard filter means additional events that will match the query.
             The impact of include_interface_view and include_created_event_blob fields in the filters will
             also be accumulated.
-            At least one cumulative filter MUST be specified.
             A template or an interface SHOULD NOT appear twice in the accumulative field.
             A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
-            Optional
+            Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
+            include_created_event_blob unset is used.
           type: array
           items:
             $ref: '#/components/schemas/CumulativeFilter'
@@ -727,12 +760,6 @@ components:
           $ref: '#/components/schemas/JsContractEntry'
     JsContractEntry:
       title: JsContractEntry
-      description: |-
-        For a contract there could be multiple contract_entry-s in the entire snapshot. These together define
-        the state of one contract in the snapshot.
-        A contract_entry is included in the result, if and only if there is at least one stakeholder party of the contract
-        that is hosted on the synchronizer at the time of the event and the party satisfies the
-        ``TransactionFilter`` in the query.
       oneOf:
       - type: object
         required:
@@ -958,7 +985,7 @@ components:
         details:
           type: array
           items:
-            $ref: '#/components/schemas/Any'
+            $ref: '#/components/schemas/ProtoAny'
     JsEmpty:
       title: JsEmpty
       type: object
@@ -1272,7 +1299,6 @@ components:
           $ref: '#/components/schemas/Update'
     Update:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -1456,7 +1482,7 @@ components:
             Required
           type: array
           items:
-            $ref: '#/components/schemas/Event'
+            $ref: '#/components/schemas/TopologyEvent'
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -1488,23 +1514,27 @@ components:
             in order relative to a synchronizer based on their effective time rather than their sequencing time.
             Required
           type: string
-    Event:
-      title: Event
-      description: |-
-        Events in transactions can have two primary shapes:
-
-        - ACS delta: events can be CreatedEvent or ArchivedEvent
-        - ledger effects: events can be CreatedEvent or ExercisedEvent
-
-        In the update service the events are restricted to the events
-        visible for the parties specified in the transaction filter. Each
-        event message type below contains a ``witness_parties`` field which
-        indicates the subset of the requested parties that can see the event
-        in question.
+    TopologyEvent:
+      title: TopologyEvent
       oneOf:
-      - $ref: '#/components/schemas/ParticipantAuthorizationAdded'
-      - $ref: '#/components/schemas/ParticipantAuthorizationChanged'
-      - $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
+      - type: object
+        required:
+        - ParticipantAuthorizationAdded
+        properties:
+          ParticipantAuthorizationAdded:
+            $ref: '#/components/schemas/ParticipantAuthorizationAdded'
+      - type: object
+        required:
+        - ParticipantAuthorizationChanged
+        properties:
+          ParticipantAuthorizationChanged:
+            $ref: '#/components/schemas/ParticipantAuthorizationChanged'
+      - type: object
+        required:
+        - ParticipantAuthorizationRevoked
+        properties:
+          ParticipantAuthorizationRevoked:
+            $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
     ParticipantAuthorizationAdded:
       title: ParticipantAuthorizationAdded
       type: object
@@ -1612,7 +1642,7 @@ components:
             Required
           type: array
           items:
-            $ref: '#/components/schemas/Event1'
+            $ref: '#/components/schemas/Event'
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -1643,7 +1673,7 @@ components:
             which synchronized the transaction.
             Required
           type: string
-    Event1:
+    Event:
       title: Event
       description: |-
         Events in transactions can have two primary shapes:
@@ -1885,7 +1915,6 @@ components:
           $ref: '#/components/schemas/Update1'
     Update1:
       title: Update
-      description: The update that matches the filter in the request.
       oneOf:
       - type: object
         required:
@@ -1983,7 +2012,7 @@ components:
           type: integer
           format: int64
         eventsById:
-          $ref: '#/components/schemas/Map_K_V'
+          $ref: '#/components/schemas/Map_Int_TreeEvent'
           description: |-
             Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
             Each key must be a valid node ID (non-negative integer).
@@ -2012,6 +2041,11 @@ components:
             which synchronized the transaction.
             Required
           type: string
+    Map_Int_TreeEvent:
+      title: Map_Int_TreeEvent
+      type: object
+      additionalProperties:
+        $ref: '#/components/schemas/TreeEvent'
     TreeEvent:
       title: TreeEvent
       description: |-

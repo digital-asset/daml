@@ -1,8 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Exception Handling
-==================
+Handle exceptions
+=================
 
 The default behavior in Daml is to abort the transaction on any error
 and roll back all changes that have happened until then. However, this
@@ -120,12 +120,12 @@ and move on.
 Note that if the ``Iou`` creation still failed (unlikely with our
 definition of ``Iou`` here, but could happen in more complex
 scenarios), because that one is not wrapped in a ``try`` block, we
-would revert to the default Daml behaviour and the ``Order`` creation
+would revert to the default Daml behavior and the ``Order`` creation
 *would* be rolled back.
 
 In addition to catching built-in exceptions like
 ``PreconditionFailed``, you can also define your own exception types
-which can be caught and thrown. As an example, let’s consider a
+which can be caught and thrown. As an example, let's consider a
 variant of the ``Transfer`` choice that only allows for transfers up
 to a given limit. If the amount is higher than the limit, we throw an
 exception called ``TransferLimitExceeded``.
@@ -157,8 +157,7 @@ Finally, we can adapt our choice to catch this exception as well:
 For more information on exceptions, take a look at the
 :ref:`language reference <exceptions>`.
 
-
-Next Up
+Next up
 -------
 
 We have now seen how to develop safe models and how we can handle
