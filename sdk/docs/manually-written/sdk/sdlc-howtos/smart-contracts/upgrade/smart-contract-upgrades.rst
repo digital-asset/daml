@@ -1764,13 +1764,6 @@ The package preference is needed at each command submission time and is assemble
       packages with the same package-name, as otherwise the submission will fail with
       an ``INVALID_ARGUMENT`` error.
 
-.. note::
-    **Important**: DAR uploads change the package preference on the participant.
-    If a new uploaded DAR contains a package with a higher version
-    than the existing package preference for the same package name,
-    the default preference is updated to the new package ID.
-    Essentially, this affects the Daml code version used in command submissions.
-
 .. _dynamic-package-resolution-in-command-submission:
 
 Dynamic Package Resolution in Command Submission
