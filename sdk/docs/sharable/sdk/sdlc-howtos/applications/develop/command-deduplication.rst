@@ -35,7 +35,7 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
 
 - The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` is chosen by the application to identify the intended ledger change.
 
-- The deduplication period specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`command completion service <command-completion-service>`.
+- The deduplication period specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`Command Completion Service <command-completion-service>`.
   If such a change has been accepted in that period, the current submission shall be rejected.
   The period is specified either as a :brokenref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_duration>` or as a :brokenref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_offset>` (inclusive).
 
@@ -43,7 +43,7 @@ The first three form the :ref:`change ID <change-id>` that identifies the intend
   It is included in the corresponding completion event so that the application can correlate specific submissions to specific completions.
   An application should never reuse a submission ID.
 
-The ledger may arbitrarily extend the deduplication period specified in the submission, even beyond the maximum deduplication duration specified in the :ref:`ledger configuration <ledger-configuration-service>`.
+The ledger may arbitrarily extend the deduplication period specified in the submission.
 
 .. note::
    The maximum deduplication duration is the length of the deduplication period guaranteed to be supported by the participant.
@@ -60,15 +60,15 @@ A command submission is considered a **duplicate submission** if at least one of
 
 The outcome of command deduplication is communicated as follows:
 
-- Command submissions via the :ref:`command service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless the `gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
+- Command submissions via the :ref:`Command Service <command-service>` indicate the command deduplication outcome as a synchronous gRPC response unless the `gRPC deadline <https://grpc.io/blog/deadlines/>`_ was exceeded.
 
   .. note::
-     The outcome MAY additionally appear as a completion event on the :ref:`command completion service <command-completion-service>`,
-     but applications using the :ref:`command service <command-service>` typically need not process completion events.
+     The outcome MAY additionally appear as a completion event on the :ref:`Command Completion Service <command-completion-service>`,
+     but applications using the :ref:`Command Service <command-service>` typically need not process completion events.
 
-- Command submissions via the :ref:`command submission service <command-submission-service>` can indicate the outcome as a synchronous gRPC response,
-  or asynchronously through the :ref:`command completion service <command-completion-service>`.
-  In particular, the submission may be a duplicate even if the command submission service acknowledges the submission with the gRPC status code ``OK``.
+- Command submissions via the :ref:`Command Submission Service <command-submission-service>` can indicate the outcome as a synchronous gRPC response,
+  or asynchronously through the :ref:`Command Completion Service <command-completion-service>`.
+  In particular, the submission may be a duplicate even if the Command Submission Service acknowledges the submission with the gRPC status code ``OK``.
 
 Independently of how the outcome is communicated, command deduplication generates the following outcomes of a command submission:
 
@@ -384,5 +384,5 @@ The above strategy can fail in the following scenarios:
 
 
 ..
-  Command deduplication on the JSON API
-  *************************************
+  Command deduplication on the JSON Ledger API
+  ********************************************

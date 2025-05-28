@@ -21,13 +21,13 @@ Synchronizer-aware projection
 
 Certain Daml ledgers can interoperate with other Daml ledgers.
 That is, the contracts created on one ledger can be used and archived in transactions on other ledgers.
-Some Participant Nodes can connect to multiple ledgers and provide their parties unified access to those ledgers via the :externalref:`Ledger API <ledger-api-services>`.
+Some Participant Nodes can connect to multiple ledgers and provide their parties unified access to those ledgers via the :externalref:`gRPC Ledger API <ledger-api-services>`.
 For example, when an organization initially deploys two workflows to two Daml ledgers, it can later compose those workflows into a larger workflow that spans both ledgers.
 
 Interoperability may limit the visibility a Participant Node has into a party's ledger projection, i.e., its :ref:`local ledger <local-ledger>`, when the party is hosted on multiple Participant Nodes.
 These limitations influence what parties can observe via the Ledger API of each Participant Node.
 In particular, interoperability affects which events a party observes and their order.
-This document explains the visibility limitations due to interoperability and their consequences for the Transaction Service, by :ref:`example <interop-limitation-examples>` and formally by introducing interoperable versions of :ref:`causality graphs <interop-causality-graph>` and :ref:`projections <ledger-aware-projection>`.
+This document explains the visibility limitations due to interoperability and their consequences for the Update Service, by :ref:`example <interop-limitation-examples>` and formally by introducing interoperable versions of :ref:`causality graphs <interop-causality-graph>` and :ref:`projections <ledger-aware-projection>`.
 
 The presentation assumes that you are familiar with the following concepts:
 
@@ -86,9 +86,9 @@ The components in this diagram are the following:
 Aggregation at the Participant
 ==============================
 
-The Participant Node assembles the updates from these ledgers and outputs them via the party's Transaction Service and Active Contract Service.
+The Participant Node assembles the updates from these ledgers and outputs them via the party's Update Service and State Service.
 When a Participant Node hosts a party only on a subset of the interoperable Daml ledgers,
-then the transaction and active contract services of the Participant Node are derived only from those ledgers.
+then the Update and State Services of the Participant Node are derived only from those ledgers.
 
 For example, in the :ref:`above topology <multiple-ledgers>`, when a transaction creates a contract with stakeholder Alice on Ledger 2,
 then `P1`\ 's transaction stream for Alice will emit this transaction and report the contract as active, but Alice's stream at `P2` will not.
@@ -101,18 +101,18 @@ Enter and Leave Events
 
 With interoperability, a transaction can use a contract whose creation was recorded on a different ledger.
 In the :ref:`above topology <multiple-ledgers>`, e.g., one transaction creates a contract `c1` with stakeholder Alice on Ledger 1 and another archives the contract on Ledger 2.
-Then the Participant Node `P2` outputs the **Create** action as a ``CreatedEvent``, but not the **Exercise** in form of an ``ArchiveEvent`` on the transaction service
+Then the Participant Node `P2` outputs the **Create** action as a ``CreatedEvent``, but not the **Exercise** in form of an ``ArchiveEvent`` on the Update Service
 because Ledger 2 can not notify `P2` as `P2` does not host Alice on Ledger 2.
 Conversely, when one transaction creates a contract `c2` with stakeholder Alice on Ledger 2 and another archives the contract on Ledger 1, then `P2` outputs the ``ArchivedEvent``, but not the ``CreatedEvent``.
 
 To keep the transaction stream consistent, `P2` additionally outputs a **Leave** `c1` action on Alice's transaction stream.
 This action signals that the Participant Node no longer outputs events concerning this contract;
 in particular not when the contract is archived.
-The contract is accordingly no longer reported in the active contract service and cannot be used by command submissions.
+The contract is accordingly no longer reported in the State Service and cannot be used by command submissions.
 
 Conversely, `P2` outputs an **Enter** `c2` action some time before the ``ArchivedEvent`` on the transaction stream.
 This action signals that the Participant Node starts outputting events concerning this contract.
-The contract is reported in the Active Contract Service and can be used by command submission.
+The contract is reported in the State Service and can be used by command submission.
 
 The actions **Enter** and **Leave** are similar to a **Create** and a consuming **Exercise** action, respectively, except that **Enter** and **Leave** may occur several times for the same contract whereas 
 there should be at most one **Create** action and at most one consuming **Exercise** action for each contract.
@@ -154,7 +154,7 @@ The actions on `CounterOffer` and `PaintAgree` contracts are committed on Ledger
 All actions on `Iou`\ s are committed on Ledger 2, assuming that some Participant Node hosts the Bank on Ledger 2.
 The last transaction is a cross-ledger transaction because the archival of the `CounterOffer` and the creation of the `PaintAgree`\ ment commits on Ledger 1 simultaneously with the transfer of Alice's `Iou` to the painter on Ledger 2.
 
-For the last transaction, Participant Node 1 notifies Alice of the transaction tree, the two archivals and the `PaintAgree` creation via the Transaction Service as usual.
+For the last transaction, Participant Node 1 notifies Alice of the transaction tree, the two archivals and the `PaintAgree` creation via the Update Service as usual.
 Participant Node 2 also output's the whole transaction tree on Alice's transaction tree stream, which contains the consuming **Exercise** of Alice's `Iou`.
 However, it has not output the **Create** of Alice's `Iou` because `Iou` actions commit on Ledger 2, on which Participant Node 2 does not host Alice.
 So Alice merely *witnesses* the archival even though she is an :ref:`informee <def-informee>` of the exercise.
@@ -162,7 +162,7 @@ The **Exercise** action is therefore marked as merely being witnessed on Partici
 
 In general, an action is marked as **merely being witnessed** when a party is an informee of the action, but the action is not committed on a ledger on which the Participant Node hosts the party.
 Unlike **Enter** and **Leave**, such witnessed actions do not affect causality from the participant's point of view and therefore provide weaker ordering guarantees.
-Such witnessed actions show up neither in the flat transaction stream nor in the Active Contracts Service.
+Such witnessed actions show up neither in the flat transaction stream nor in the State Service.
 
 For example, suppose that the **Create** `PaintAgree` action commits on Ledger 2 instead of Ledger 1, i.e., only the `CounterOffer` actions commit on Ledger 1.
 Then, Participant Node 2 marks the **Create** `PaintAgree` action also as merely being witnessed on the transaction tree stream.
@@ -380,7 +380,7 @@ Conversely, a consistent ledger does not talk about the incoming and outgoing le
 Ledger-aware Projection
 ***********************
 
-A Participant Node maintains a local ledger for each party it hosts and the Transaction Service outputs a topological sort of this local ledger.
+A Participant Node maintains a local ledger for each party it hosts and the Update Service outputs a topological sort of this local ledger.
 When the Participant Node hosts the party on several ledgers, this local ledger is an multi-ledger causality graph.
 This section defines the ledger-aware projection of an multi-ledger causality graph, which yields such a local ledger.
 
@@ -472,7 +472,7 @@ That is, a **Leave** action is white on the right hand side and an **Enter** act
 Ledger API Ordering Guarantees
 ******************************
 
-The Transaction Service and the Active Contract Service are derived from the local ledger that the Participant Node maintains for the party.
+The Update Service and the State Service are derived from the local ledger that the Participant Node maintains for the party.
 Let `Y` be the set of ledgers on which the Participant Node hosts a party.
 The transaction tree stream outputs a topological sort of the party's local ledger on `Y`, with the following modifications:
 
@@ -488,7 +488,7 @@ The transaction tree stream outputs a topological sort of the party's local ledg
 
 The flat transaction stream contains precisely the ``CreatedEvent``\ s, ``ArchivedEvent``\ s, and the **Enter** and **Leave** actions that correspond to **Create**, consuming **Exercise**, **Enter** and **Leave** actions in transaction trees on the transaction tree stream where the party is a stakeholder of the affected contract and that are not marked as merely being witnessed.
 
-Similarly, the active contract service provides the set of contracts that are active at the returned offset according to the flat transaction stream.
+Similarly, the State Service provides the set of contracts that are active at the returned offset according to the flat transaction stream.
 That is, the contract state changes of all events from the transaction event stream are taken into account in the provided set of contracts.
 
 The :ref:`ordering guarantees <ordering-guarantees>` for single Daml ledgers extend accordingly.

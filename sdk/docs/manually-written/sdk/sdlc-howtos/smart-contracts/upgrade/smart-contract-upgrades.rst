@@ -90,28 +90,11 @@ the same package name must have distinct package versions.
 -  When defining a Daml package, the ``name`` field of the package's ``daml.yaml`` is now used to
    specify the SCU package name.
 
-The JSON API server is compatible with the smart contract upgrade
-feature by:
-
--  Supporting package names for commands and queries;
-
--  Allowing use of an optional ``packageIdSelectionPreference`` field to
-   specify a preferred package ID to use;
-
--  Requiring either a package ID or package name to be present to disambiguate
-   the partially-qualified form of template/interface IDs.
-
-Previously JSON API had supported partially qualified template IDs,
-(i.e. simply ``<module>:<entity>``) as an interactive convenience which
-fails if there is more than one package with matching template names.
-Since this format was not supported for production use and does not work
-with SCU, it is now unavailable.
-
 The Java and TypeScript codegen allow the use of package name and
 package ID (if needed).
 
-PQS supports for this feature.  PQS now supports the highly sought after feature of using package-name
-(specified in ``daml.yaml``) instead of the more cumbersome package-id. When specifying a
+PQS supports using package-name
+(specified in ``daml.yaml``) instead of package-id. When specifying a
 template/interface/choice name, simply substitute any package-id with the
 package-name (eg. now ``register:DA.Register:Token``) instead of the old
 ``deadbeefpackageidhex:DA.Register:Token`` format. This applies to template
@@ -290,10 +273,10 @@ The Java and TypeScript CodeGen have been updated to perform upgrades on
 retrieved contracts, and now use package-names over package-ids for
 commands to the participant.
 
-JSON API Server
+JSON Ledger API
 ~~~~~~~~~~~~~~~
 
-To match the changes to the Ledger API, the JSON API similarly supports
+To match the changes to the gRPC Ledger API, the JSON Ledger API similarly supports
 package-name queries and command submission.
 
 PQS & Daml Shell
@@ -1858,7 +1841,7 @@ Dynamic Package Resolution in Ledger API Queries
 ------------------------------------------------
 
 When subscribing for :brokenref:`transaction <transaction-trees>`
-or :brokenref:`active contract streams <active-contract-service>`,
+or :brokenref:`active contract streams <state-service>`,
 users can now use the `by-package-name template ID` format
 in the :subsiteref:`template-id request filter field <com.daml.ledger.api.v2.TemplateFilter.template_id>`.
 to specify that they’re interested in fetching events for all templates
@@ -2165,7 +2148,7 @@ When considering upgrading, we regard each Daml application as composed of:
   to all participant nodes interacting with the app)
 
 - **Off-ledger components** interacting with the ledger via the Ledger API or other supported
-  Canton Ledger API clients (JSON API or PQS).
+  Canton Ledger API clients (JSON Ledger API or PQS).
   These are typically Java or TypeScript services implementing off-ledger business logic.
 
 Zero-Downtime Upgrades
@@ -2601,8 +2584,8 @@ the following:
 
 .. _json-api-server-1:
 
-JSON API Server
-----------------
+JSON Ledger API
+---------------
 
 Template IDs may still be used with a package ID; however,
 for packages built as LF 1.17 or greater, the package may also be
@@ -2619,7 +2602,7 @@ that if you use a template with a package name in the request, you can
 no longer expect the template IDs in the result to exactly match the
 input template ID.
 
-Package ID selection preference: preferences apply to JSON API where you
+Package ID selection preference: preferences apply to JSON Ledger API where you
 can specify your preferred selection of package versions.
 
 PQS

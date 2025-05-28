@@ -6,7 +6,7 @@ JavaScript Client libraries
 
 .. _typescript:
 
-The JavaScript client libraries allow you to easily build frontend applications that interact with the :externalref:`HTTP JSON API service <json-api>`.
+The JavaScript client libraries allow you to easily build frontend applications that interact with the :externalref:`JSON Ledger API <json-api>`.
 
 These libraries can dramatically reduce the time
 necessary to develop a full-stack application by abstracting away implementation details, particularly when building a prototype or an application with relatively simple requirements.
@@ -15,7 +15,7 @@ The daml/types ts-daml-types library contains the TypeScript data types correspo
 Apart from its usefulness for TypeScript developers, the library can also be pulled in as a development-type dependency for JavaScript projects
 to take advantage of tooling integration with the TypeScript ecosystem, such as the availability of autocompletion on Visual Studio Code.
 
-The daml/ledger ts-daml-ledger library contains functions used to interact with the endpoints exposed by HTTP JSON API service and forms
+The daml/ledger ts-daml-ledger library contains functions used to interact with the endpoints exposed by JSON Ledger API and forms
 the basic layer of functionality. At this layer, you can easily query for active contracts from the ledger, create new ones or exercise
 choices. This layer is agnostic with regards to any specific framework required to build the frontend.
 

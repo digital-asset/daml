@@ -40,10 +40,10 @@ Add the following **Maven** dependency to your project:
 
 Find the available versions in the `Maven Central Repository <https://search.maven.org/artifact/com.daml/bindings-java>`__.
 
-Access the Ledger API via gRPC using Java bindings
---------------------------------------------------
+Access the gRPC Ledger API using Java bindings
+----------------------------------------------
 
-The :ref:`Java bindings reactive library <component-howtos-application-development-java-client-libraries-bindings-rxjava>` provides a set of classes that allow you to access the Ledger API via gRPC.
+The :ref:`Java bindings reactive library <component-howtos-application-development-java-client-libraries-bindings-rxjava>` provides a set of classes that allow you to access the gRPC Ledger API.
 
 For each Ledger API service, there is a reactive counterpart with a matching name. For instance, the reactive
 counterpart of ``UpdateServiceGrpc`` is ``UpdateClient``.

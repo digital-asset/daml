@@ -355,47 +355,32 @@ See the :subsiteref:`Ledger API reference <build_reference_ledger_api>`.
 Command Submission Service
 --------------------------
 
-Use the **command submission service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
+Use the **Command Submission Service** to `submit commands <#submitting-commands-writing-to-the-ledger>`__ - either create commands or exercise commands - to the `ledger <#daml-ledger>`__. See :ref:`command-submission-service`.
 
 Command Completion Service
 --------------------------
 
-Use the **command completion service** to find out whether or not `commands you have submitted <#submitting-commands-writing-to-the-ledger>`__ have completed, and what their status was. See :ref:`command-completion-service`.
+Use the **Command Completion Service** to find out whether or not `commands you have submitted <#submitting-commands-writing-to-the-ledger>`__ have completed, and what their status was. See :ref:`command-completion-service`.
 
 Command Service
 ---------------
 
-Use the **command service** when you want to `submit a command <#submitting-commands-writing-to-the-ledger>`__ and wait for it to be executed. See :ref:`command-service`.
+Use the **Command Service** when you want to `submit a command <#submitting-commands-writing-to-the-ledger>`__ and wait for it to be executed. See :ref:`command-service`.
 
-Transaction Service
--------------------
+Update Service
+--------------
 
-Use the **transaction service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`transaction-service`.
+Use the **Update Service** to listen to changes in the `ledger <#daml-ledger>`__, reported as a stream of `transactions <#transactions>`__. See :ref:`update-service`.
 
-Active Contract Service
------------------------
+State Service
+-------------
 
-Use the **active contract service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`active-contract-service`.
+Use the **State Service** to obtain a party-specific view of all `contracts <#contract>`__ currently `active <#active-contract-archived-contract>`__ on the `ledger <#daml-ledger>`__. See :ref:`state-service`.
 
 Package Service
 ---------------
 
-Use the **package service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
-
-Ledger Identity Service
------------------------
-
-Use the **ledger identity service** to get the identity string of the `ledger <#daml-ledger>`__ that your application is connected to. See :ref:`ledger-identity-service`.
-
-Ledger Configuration Service
-----------------------------
-
-Use the **ledger configuration service** to subscribe to changes in `ledger <#daml-ledger>`__ configuration. See :ref:`ledger-configuration-service`.
-
-Ledger API Libraries
-====================
-
-The following libraries wrap the `ledger API <#ledger-api>`__ for more native experience applications development.
+Use the **Package Service** to obtain information about Daml packages available on the `ledger <#daml-ledger>`__. See :ref:`package-service`.
 
 Java Bindings
 -------------
@@ -406,7 +391,7 @@ An idiomatic Java library for writing `ledger applications <#application-ledger-
 Reading From the Ledger
 =======================
 
-`Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the transaction stream to get the events, or the more sophisticated active contract service.
+`Applications <#application-ledger-client-integration>`__ get information about the `ledger <#daml-ledger>`__ by **reading** from it. You can't query the ledger, but you can subscribe to the update stream to get the events, or the more sophisticated State Service.
 
 
 Submitting Commands, Writing To the Ledger

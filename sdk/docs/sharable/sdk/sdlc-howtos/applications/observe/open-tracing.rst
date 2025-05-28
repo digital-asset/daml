@@ -133,13 +133,15 @@ Continue Spans Across Different Applications
 
 Sometimes you may wish to continue the same span across multiple Daml transactions forming a single workflow. This may be especially interesting when different client application instances interact through the ledger and yet their entire conversation should be seen as a single coherent succession of spans. In that case, it is possible to extract the trace context associated with the past transactions from the Transaction, TransactionTree, or Completion records that are returned from the following **Ledger API** calls:
 
-* ``TransactionService.GetTransactions``
-* ``TransactionService.GetTransactionTrees``
-* ``TransactionService.GetTransactionByEventId``
-* ``TransactionService.GetTransactionById``
-* ``TransactionService.GetFlatTransactionByEventId``
-* ``TransactionService.GetFlatTransactionById``
-* ``CompletionService.CompletionStream``
+* ``UpdateService.GetUpdates``
+* ``UpdateService.GetUpdateTrees``
+* ``UpdateService.GetTransactionByOffset``
+* ``UpdateService.GetTransactionById``
+* ``UpdateService.GetTransactionTreeByOffset``
+* ``UpdateService.GetTransactionTreeById``
+* ``UpdateService.GetUpdateByOffset``
+* ``UpdateService.GetUpdateById``
+* ``CommandCompletionService.CompletionStream``
 
 You can extract the context by using a helper function implemented in the example:
 
