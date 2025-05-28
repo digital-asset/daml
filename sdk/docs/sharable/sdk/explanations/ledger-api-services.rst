@@ -13,7 +13,7 @@ The Ledger API is structured as a set of services. The core services are impleme
 
 This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
 
-If you want to read low-level detail about each service, see the protobuf documentation of the API </sdk/reference/grpc/proto-docs> (TODO FIX BUILD SCRIPT AS THE DOCUMENTATION IS NOT GENERATED).
+If you want to read low-level detail about each service, see :brokenref:`the protobuf documentation of the API <build-reference-lapi-proto-docs>`.
 
 Overview
 ********
@@ -21,7 +21,7 @@ Overview
 The API is structured as two separate data streams:
 
 -  A stream of **commands** TO the ledger that allow an application to submit transactions and change state.
--  A stream of **transactions** and corresponding **events** FROM the ledger that indicate all state changes that have taken place on the ledger.
+-  A stream of **updates** and corresponding **events** FROM the ledger that indicate all state changes that have taken place on the ledger.
 
 Commands are the only way an application can cause the state of the ledger to change, and events are the only mechanism to read those changes.
 
@@ -55,9 +55,9 @@ Command Submission Service
 
 Use the **Command Submission Service** to submit commands to the ledger. Commands either create a new contract, or exercise a choice on an existing contract.
 
-A call to the Command Submission Service will return as soon as the ledger server has parsed the command, and has either accepted or rejected it. This does not mean the command has been executed, only that the server has looked at the command and decided that its format is acceptable, or has rejected it for syntactic or content reasons.
+A call to the Command Submission Service returns as soon as the ledger server has parsed the command, and has either accepted or rejected it. This does not mean the command has been executed, only that the server has looked at the command and decided that its format is acceptable, or has rejected it for syntactic or content reasons.
 
-The on-ledger effect of the command execution will be reported via the `Update Service <#update-service>`__, described below. The completion status of the command is reported via the `Command Completion Service <#command-completion-service>`__. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. Alternatively, you can use the `Command Service <#command-service>`__, which conveniently wraps the command submission and completion services.
+The on-ledger effect of the command execution is reported via the `Update Service <#update-service>`__, described below. The completion status of the command is reported via the `Command Completion Service <#command-completion-service>`__. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. Alternatively, you can use the `Command Service <#command-service>`__, which conveniently wraps the Command Submission and Command Completion Services.
 
 .. _change-id:
 
@@ -66,8 +66,8 @@ Change ID
 
 Each intended ledger change is identified by its **change ID**, consisting of the following three components:
 
-- The submitting parties, i.e., the union of :brokenref:`party <com.daml.ledger.api.v1.Commands.party>` and :brokenref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`
-- the :brokenref:`application ID <com.daml.ledger.api.v1.Commands.application_id>`
+- The submitting parties, that is :subsiteref:`act_as <com.daml.ledger.api.v2.Commands.act_as>`
+- the :subsiteref:`user ID <com.daml.ledger.api.v2.Commands.user_id>`
 - The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`
 
 Application-specific IDs
@@ -97,8 +97,8 @@ For details on how to use command deduplication, see the :ref:`Command Deduplica
 
 .. _command-explicit-contract-disclosure:
 
-Explicit contract disclosure (experimental)
--------------------------------------------
+Explicit contract disclosure
+----------------------------
 
 Starting with Canton 2.7, Ledger API clients can use explicit contract disclosure to submit commands with attached
 disclosed contracts received from third parties. For more details,
@@ -134,11 +134,11 @@ Read From the Ledger
 Update Service
 ==============
 
-Use the **Update Service** to listen to changes in the ledger state, reported via a stream of transactions.
+Use the **Update Service** to listen to changes in the ledger state, reported via a stream of updates.
 
-Transactions detail the changes on the ledger, and contains all the events (create, exercise, archive of contracts) that had an effect in that transaction.
+Updates can contain transactions, reassignments and topology transactions. A transaction in turn can contain all the events (create, exercise, archive of contracts) that had an effect in that transaction.
 
-Transactions contain a :brokenref:`transaction ID <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the :brokenref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, the :brokenref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, and the events in the transaction.
+Transactions contain a :brokenref:`update ID <com.daml.ledger.api.v2.Transaction.update_id>` (assigned by the server), the :brokenref:`workflow ID <com.daml.ledger.api.v2.Commands.workflow_id>`, the :brokenref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`, and the events in the transaction.
 
 Subscribe to the Update Service to read events from an arbitrary point on the ledger. This arbitrary point is specified by the ledger offset. This is important when starting or restarting and application, and to work in conjunction with the `State Service <#state-service>`__.
 
@@ -162,21 +162,19 @@ The service works in a non-verbose mode by default, which means that some identi
 
 You can get these included in requests related to Transactions by setting the ``verbose`` field in message ``GetTransactionsRequest`` or ``GetActiveContractsRequest`` to ``true``.
 
-.. _transaction-filter:
+.. _event-format:
 
-Transaction Filter
-------------------
-``UpdateService`` offers transaction subscriptions filtered by templates and interfaces using ``GetUpdates`` calls. A :subsiteref:`transaction filter <com.daml.ledger.api.v2.TransactionFilter>` in ``GetUpdatesRequest`` allows:
+Event format
+------------
+``UpdateService`` offers transaction subscriptions filtered by templates and interfaces using ``GetUpdates`` calls. An :subsiteref:`event format <com.daml.ledger.api.v2.EventFormat>` embedded in ``GetUpdatesRequest.update_format.include_transactions`` allows:
 
-- filtering by a party, when the :brokenref:`inclusive <com.daml.ledger.api.v1.Filters.inclusive>` field is left empty
-- filtering by a party and :brokenref:`template ID <com.daml.ledger.api.v1.InclusiveFilters.template_filters>`
-- filtering by a party and :brokenref:`interface ID <com.daml.ledger.api.v1.InclusiveFilters.interface_filters>`
-- exposing an interface view, when the :subsiteref:`include_interface_view <com.daml.ledger.api.v2.InterfaceFilter.include_interface_view>` is set to ``true``
-- exposing a created event blob to be used for a disclosed contract in command submission when ``include_created_event_blob`` is set to ``true`` in either :subsiteref:`TemplateFilter <com.daml.ledger.api.v2.TemplateFilter>` or :subsiteref:`InterfaceFilter <com.daml.ledger.api.v2.InterfaceFilter>`
+- filtering by a party
+- filtering by a party and template ID
+- filtering by a party and interface ID
+- exposing an interface view
+- exposing a created event blob to be used for a disclosed contract in command submission
 
-.. note::
-
-  The :brokenref:`template_ids <com.daml.ledger.api.v1.InclusiveFilters.template_ids>` field is deprecated as of Canton 2.8.0 and will be removed in future releases. Use :brokenref:`template_filter <com.daml.ledger.api.v1.InclusiveFilters.template_filters>` instead.
+To learn more see :subsiteref:`Ledger API reference <build_reference_ledger_api>`.
 
 .. _state-service:
 
@@ -196,18 +194,18 @@ Verbosity
 
 See :ref:`verbosity` above.
 
-Transaction Filter
-------------------
-See :ref:`transaction-filter` above.
+Event Format
+------------
+See :ref:`event-format` above.
 
 .. note::
 
-  The RPCs exposed as part of the transaction and active contracts services make use of offsets.
+  The RPCs exposed as part of the update and state services make use of offsets.
 
-  An offset is an opaque string of bytes assigned by the participant to each transaction as they are received from the ledger.
-  Two offsets returned by the same participant are guaranteed to be lexicographically ordered: while interacting with a single participant, the offset of two transactions can be compared to tell which was committed earlier.
+  An offset is an integer assigned by the participant to each transaction as they are received from the ledger.
+  Two offsets returned by the same participant are guaranteed to be ordered: while interacting with a single participant, the offset of two transactions can be compared to tell which was committed earlier.
   The state of a ledger (i.e. the set of active contracts) as exposed by the Ledger API is valid at a specific offset, which is why the last message your application receives when calling the ``StateService`` is precisely that offset.
-  In this way, the client can keep track of the relevant state without needing to invoke the ``StateService`` again, by starting to read transactions from the given offset.
+  In this way, the client can keep track of the relevant state without needing to invoke the ``StateService`` again, by starting to read updates from the given offset.
 
   Offsets are also useful to perform crash recovery and failover as documented more in depth in the :brokenref:`application architecture <dealing-with-failures>` page.
 

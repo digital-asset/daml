@@ -15,7 +15,7 @@ The gRPC Ledger API exposes the following services:
 
   - Use the :ref:`Command Submission Service <command-submission-service>` to submit commands (create a contract or exercise a choice) to the ledger.
   - Use the :ref:`Command Completion Service <command-completion-service>` to track the status of submitted commands.
-  - Use the :ref:`Command Service <command-service>` for a convenient service that combines the command submission and completion services.
+  - Use the :ref:`Command Service <command-service>` for a convenient service that combines the command submission and completion.
 
   .. _reading-from-the-ledger:
 - Reading from the ledger
