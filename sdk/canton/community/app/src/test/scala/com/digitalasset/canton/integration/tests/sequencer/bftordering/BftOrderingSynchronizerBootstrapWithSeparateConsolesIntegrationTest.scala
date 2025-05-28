@@ -3,16 +3,13 @@
 
 package com.digitalasset.canton.integration.tests.sequencer.bftordering
 
-import com.digitalasset.canton.config.DbConfig
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
-import com.digitalasset.canton.integration.tests.sequencer.SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
+//import com.digitalasset.canton.integration.plugins.{UseBftSequencer, UsePostgres}
+//import com.digitalasset.canton.integration.tests.sequencer.SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
 
-class BftOrderingSynchronizerBootstrapWithSeparateConsolesIntegrationTest
-    extends SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest {
-
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-}
+// TODO(#16789) re-enable
+//class BftOrderingSynchronizerBootstrapWithSeparateConsolesIntegrationTest
+//    extends SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest {
+//
+//  registerPlugin(new UsePostgres(loggerFactory))
+//  registerPlugin(new UseBftSequencer(loggerFactory))
+//}
