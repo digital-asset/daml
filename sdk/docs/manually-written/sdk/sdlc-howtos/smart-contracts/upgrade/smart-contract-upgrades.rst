@@ -361,11 +361,11 @@ of our package:
   > daml init
   > daml version
   SDK versions:
-    2.10.0  (project SDK version from daml.yaml)
+    3.3.0  (project SDK version from daml.yaml)
 
-Running ``daml version`` should print a line showing that 2.10.0 or higher is the "project SDK version from daml.yaml".
+Running ``daml version`` should print a line showing that 3.3.0 or higher is the "project SDK version from daml.yaml".
 
-Add ``daml-script-lts`` to the list of dependencies in ``v1/my-pkg/daml.yaml``,
+Add ``daml-script`` to the list of dependencies in ``v1/my-pkg/daml.yaml``,
 as well as ``--target=2.1`` to the ``build-options``:
 
 .. code:: yaml
@@ -376,7 +376,7 @@ as well as ``--target=2.1`` to the ``build-options``:
   dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script-lts
+  - daml-script
   build-options:
   - --target=2.1
 
@@ -384,7 +384,7 @@ as well as ``--target=2.1`` to the ``build-options``:
 in favor of simplicity. In particular, we recommend a package undergoing SCU
 should contain a version identifier in its name as well, but we omit this - consult the section on :ref:`package naming best
 practices <upgrade-package-naming>` to learn more. We also recommend
-that you do not depend on ``daml-script-lts`` in any package that is uploaded to
+that you do not depend on ``daml-script`` in any package that is uploaded to
 the ledger - more on this :ref:`here <upgrade-dont-upload-daml-script>`.
 
 Then create ``v1/my-pkg/daml/Main.daml``:
@@ -439,7 +439,7 @@ field pointing to v1:
   dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script-lts
+  - daml-script
   upgrades: ../../v1/my-pkg/.daml/dist/my-pkg-1.0.0.dar
   build-options:
   - --target=2.1
@@ -849,7 +849,7 @@ without modifications and is immediately available for use.
 Validate the DAR Against a Running Participant Node
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Uou can validate your DAR against the current
+You can validate your DAR against the current
 participant node state without uploading it to the participant via the
 ``PackageManagementService.validateDar`` Ledger API endpoint. This allows
 participant node operators to first check the DAR before uploading it.
@@ -1089,27 +1089,6 @@ single owner.
 In the case where a contract's signatories or observers change in during an
 upgrade/downgrade in a way that doesn't meet the constraints above, the upgrade,
 and thus full transaction, fails at runtime.
-
-Modifying Key Expressions
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Similarly, key expressions can be changed as long as they evaluate to
-the same value for existing contracts.
-
-For example, v2 can add a new field "alternative key" to the v2 IOU
-template, and use it instead of the default key when present.
-
-.. code:: daml
-
-  ...
-      -- Add a new alternativeKey field
-      alternativeKey: Optional Party
-    where
-      key fromOptional issuer alternativeKey
-  ...
-
-All old contracts will default to using the ``issuer``, and new contracts
-will use the ``alternativeKey`` field.
 
 Upgrading Enums
 ~~~~~~~~~~~~~~~
@@ -1494,7 +1473,7 @@ module ``my-iface/daml/MyIface.daml``:
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: my-iface
   version: 1.0.0
   source: daml/MyIface.daml
@@ -1627,8 +1606,8 @@ reupload the two versions:
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
   upload-dar did not succeed: ... Implementation of interface ...:MyIface:HasValue by template IOU appears in package that is being upgraded, but does not appear in this package.
 
-Packages with new versions cannot add an interface instance to an existing
-template either. For example, restore the instance deleted in the previous step
+Packages with new versions can however add an interface instance to an existing
+template. For example, restore the instance deleted in the previous step
 and remove the ``HasValue`` interface from ``v2/my-pkg/daml/Main.daml`` instead.
 Then restart the sandbox and try to reupload the two versions.
 
@@ -1645,7 +1624,7 @@ Then restart the sandbox and try to reupload the two versions.
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
-  upload-dar did not succeed: ... Implementation of ...:MyIface:HasValue by template IOU appears in this package, but does not appear in package that is being upgraded.
+  DAR upload succeeded.
 
 Similarly to choices, scripts may invoke interface implementations from
 their own version using ``exerciseExactCmd``.
@@ -1720,7 +1699,7 @@ Working with the Daml Sandbox
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For the same reason, the :ref:`Daml sandbox <sandbox-manual>` does not support
-hot-swapping of SCU-enabled (LF 1.17) packages.
+hot-swapping packages.
 
 There are two ways to work around this:
   - restart the sandbox after each rebuild
@@ -1767,10 +1746,10 @@ as the mapping from package-name to package ID for all known package-names on th
 
 The package preference is needed at each command submission time and is assembled from two sources:
 
-- The **default** package preference of the Ledger API server to which the command is submitted.
-  This is the exhaustive mapping from package-name to package ID for all known package-names on the participant.
-  If multiple package IDs exist for a package-name, the package ID of the package with the highest
-  version is used.
+- The **default** package preference of the Ledger API server to which the
+  command is submitted.  By default, for each package name the Ledger API picks a
+  package version known by all participants involved in the transaction, if it
+  exists.
 
 - The package-id selection preference list specified in the submitted command's
   :subsiteref:`package_id_selection_preference <com.daml.ledger.api.v2.Commands.package_id_selection_preference>` in a command submission.
@@ -1885,7 +1864,7 @@ upgrade, leaving the template ``T`` non-upgradeable.
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: main
   version: 1.0.0
   source: Main.daml
@@ -1923,7 +1902,7 @@ it as two packages, ``helper`` and ``main``:
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: helper
   version: 1.0.0
   source: Helper.daml
@@ -1944,7 +1923,7 @@ it as two packages, ``helper`` and ``main``:
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: main
   version: 1.0.0
   source: Main.daml
@@ -2205,7 +2184,7 @@ prefer full `Workflow Testing <#workflow-testing>`__.
 
 We recommend placing your Daml Script tests
 in a separate package which depends on all versions of your business logic when testing your upgrades with Daml Script. This testing
-package should not be uploaded to the ledger if possible, as it depends on the ``daml-script-lts`` package.
+package should not be uploaded to the ledger if possible, as it depends on the ``daml-script`` package.
 This package emits a warning on the participant when uploaded, as it serves no purpose on a participant,
 cannot be fully removed (as with any package), and may not be uploadable to the
 ledger in future versions (Daml 3). More information about this limitation :ref:`here <upgrade-dont-upload-daml-script>`.
@@ -2509,10 +2488,8 @@ ledger using package name to create an integrated view of all versions of contra
 Daml-Script
 -----------
 
-Daml 2.10 introduces a new version of Daml Script which can be used by
-depending on ``daml-script-lts`` in your ``daml.yaml``, as described
-in `Writing your first upgrade <#writing-your-first-upgrade>`__. This version of Daml Script
-supports upgrades over the Ledger API.
+Daml 3.3 introduces a new version of Daml Script which supports upgrades over
+the Ledger API.
 
 All commands and queries in this version of Daml Script now use
 upgrades/downgrades automatically to ensure that they exercise the correct versions
