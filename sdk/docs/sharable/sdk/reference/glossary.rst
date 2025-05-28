@@ -434,8 +434,8 @@ When you compile Daml source code into a `.dar file <#dar-file-dalf-file>`__, th
 
 As a user, you don't need to interact with Daml-LF directly. But internally, it's used for:
 
-- executing Daml code on the Sandbox or on another platform
-- sending and receiving values via the Ledger API (using a protocol such as gRPC)
+- executing Daml code on the Ledger
+- sending and receiving values via the Ledger API
 - generating code in other languages for interacting with Daml models (often called “codegen”)
 
 Composability

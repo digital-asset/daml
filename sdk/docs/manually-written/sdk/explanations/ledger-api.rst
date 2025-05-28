@@ -42,11 +42,11 @@ When you :ref:`compile Daml source into a .dar file <build_howto_build_dar_files
 
 As a user, you don't need to interact with Daml-LF directly. But internally, it's used for:
 
-- Executing Daml code on the Sandbox or on another platform
+- Executing Daml code on the Ledger
 - Sending and receiving values via the Ledger API
 - Generating code in other languages for interacting with Daml models (often called “codegen”)
 
-Daml assistant offers two code generators (for Java and Typescript) that convert the DAML-LF to the generates idiomatic representations of Daml for you.
+Daml assistant offers two code generators that convert the DAML-LF to the idiomatic representations of Daml in Java or Typescript.
 
 When You Need to Know About Daml-LF
 ===================================
