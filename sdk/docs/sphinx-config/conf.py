@@ -11,7 +11,8 @@ from pygments_daml_lexer import DamlLexer
 from ref import IgnoreRefRole
 
 extensions = [
-    'sphinx.ext.todo'
+    'sphinx.ext.todo',
+    'wip',
 ]
 
 html_theme = 'default'
