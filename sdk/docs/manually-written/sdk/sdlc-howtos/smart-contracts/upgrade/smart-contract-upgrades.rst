@@ -2481,8 +2481,6 @@ ledger using package name to create an integrated view of all versions of contra
 Daml-Script
 -----------
 
-Daml 3.3 introduces a new version of Daml Script which supports upgrades over
-the Ledger API.
 
 All commands and queries in this version of Daml Script now use
 upgrades/downgrades automatically to ensure that they exercise the correct versions
