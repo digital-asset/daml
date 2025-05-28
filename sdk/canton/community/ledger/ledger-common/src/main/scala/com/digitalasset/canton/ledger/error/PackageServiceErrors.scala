@@ -308,7 +308,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
                   "newPackage" -> newPackage,
                   "additionalInfo" -> upgradeError.prettyInternal,
                 )
-            }
+            },
           )
     }
 

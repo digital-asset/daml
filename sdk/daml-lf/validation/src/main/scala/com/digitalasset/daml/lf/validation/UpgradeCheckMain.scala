@@ -11,7 +11,7 @@ import com.daml.lf.archive.{Error => ArchiveError}
 import com.daml.lf.data.Ref
 import com.daml.lf.language.Ast
 
-import com.digitalasset.canton.participant.admin.PackageUpgradeValidator
+import com.digitalasset.canton.platform.packages.PackageUpgradeValidator
 import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}

@@ -102,7 +102,7 @@ object CantonRunner {
          |      parameters = {
          |        engine.enable-engine-stack-traces = true
          |        dev-version-support = ${config.devMode}
-         |        disable-upgrade-validation = ${config.disableUpgradeValidation}
+         |        unsafe-disable-upgrade-validation = ${config.disableUpgradeValidation}
          |      }
          |      ${timeType.fold("")(x => "testing-time.type = " + x)}
          |    }""".stripMargin

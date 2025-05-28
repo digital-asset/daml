@@ -7,6 +7,7 @@ import com.daml.grpc.sampleservice.implementations.HelloServiceReferenceImplemen
 import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.daml.platform.hello.{HelloRequest, HelloResponse, HelloServiceGrpc}
 import com.digitalasset.canton.config.RequireTypes.Port
+import com.digitalasset.canton.config.ServerConfig
 import com.digitalasset.canton.ledger.api.tls.TlsConfiguration
 import com.digitalasset.canton.ledger.client.GrpcChannel
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
@@ -41,8 +42,6 @@ final case class TlsFixture(
         .single(testRequest)
     }
 
-  private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
-
   private final class MockApiServices(apiServices: ApiServices) extends ResourceOwner[ApiServices] {
     override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
       Resource(Future.successful(apiServices))(_ => Future.successful(()))(context)
@@ -74,7 +73,8 @@ final case class TlsFixture(
         new LedgerApiService(
           apiServicesOwner = owner,
           desiredPort = Port.Dynamic,
-          maxInboundMessageSize = DefaultMaxInboundMessageSize,
+          maxInboundMessageSize = ServerConfig.defaultMaxInboundMessageSize.unwrap,
+          maxInboundMetadataSize = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
           address = None,
           tlsConfiguration = Some(serverTlsConfiguration),
           servicesExecutor = servicesExecutor,

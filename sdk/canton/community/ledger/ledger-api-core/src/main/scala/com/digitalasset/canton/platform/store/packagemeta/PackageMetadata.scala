@@ -9,7 +9,7 @@ import com.daml.daml_lf_dev.DamlLf
 import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, PackageName}
-import com.daml.lf.language.LanguageVersion
+import com.daml.lf.language.{Ast, LanguageVersion}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.{
   InterfacesImplementedBy,
@@ -39,7 +39,7 @@ object PackageMetadata {
       allPackageIdsForName: NonEmpty[Set[Ref.PackageId]],
   )
 
-  def from(archive: DamlLf.Archive): PackageMetadata = {
+  def from(archive: DamlLf.Archive): (PackageMetadata, Ref.PackageId, Ast.Package) = {
     val ((packageId, pkg), packageInfo) = Decode.assertDecodeInfoPackage(archive)
 
     val nonUpgradablePackageMetadata = PackageMetadata(
@@ -50,7 +50,7 @@ object PackageMetadata {
       packageIdVersionMap = Map.empty,
     )
 
-    pkg.metadata
+    val packageMetadata = pkg.metadata
       .collect {
         case decodedPackageMeta
             // TODO(https://github.com/digital-asset/daml/issues/19393) Test this
@@ -70,6 +70,8 @@ object PackageMetadata {
           )
       }
       .getOrElse(nonUpgradablePackageMetadata)
+
+    (packageMetadata, packageId, pkg)
   }
 
   object Implicits {

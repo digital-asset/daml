@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.admin.PackageService.{
   catchUpstreamErrors,
 }
 import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, ParticipantEventPublisher}
+import com.digitalasset.canton.platform.packages.PackageUpgradeValidator
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext

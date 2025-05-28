@@ -455,7 +455,7 @@ trait CantonConfig {
         engine = participantParameters.engine,
         allowForUnauthenticatedContractIds =
           participantParameters.allowForUnauthenticatedContractIds,
-        disableUpgradeValidation = participantParameters.disableUpgradeValidation,
+        disableUpgradeValidation = participantParameters.unsafeDisableUpgradeValidation,
         commandProgressTracking = participantParameters.commandProgressTracker,
       )
     }
@@ -1519,8 +1519,7 @@ object CantonConfig {
         .foldLeft(c) { case (subConfig, (key, obj)) =>
           subConfig.withValue(key, goVal(key, obj))
         }
-    go(config)
-      .resolve()
+    go(config.resolve()) // Resolve config _before_ redacting confidential fields
       .root()
       .get("canton")
       .render(CantonConfig.defaultConfigRenderer)

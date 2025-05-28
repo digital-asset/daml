@@ -1,4 +1,4 @@
-sdk-version: 2.10.1-snapshot.20250513.13174.0.vfd3eadaf
+sdk-version: 2.10.1-snapshot.20250527.13181.0.v1004bc26
 build-options: 
 - --target=1.14
 name: CantonExamplesDependency

@@ -1,7 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.participant.admin
+package com.digitalasset.canton.platform.packages
 
 import cats.data.EitherT
 import com.daml.daml_lf_dev.DamlLf.Archive
@@ -15,8 +15,7 @@ import com.daml.logging.entries.LoggingValue.OfString
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.{InternalError, Validation}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.admin.PackageUpgradeValidator.PackageMap
-import com.digitalasset.canton.participant.admin.PackageUploader.ErrorValidations
+import com.digitalasset.canton.platform.packages.PackageUpgradeValidator.PackageMap
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import scalaz.std.either.*
@@ -29,6 +28,32 @@ import scala.math.Ordering.Implicits.infixOrderingOps
 
 object PackageUpgradeValidator {
   type PackageMap = Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)]
+
+  /** Validate that the provided packages pass the upgrade validation checks, provided they are closed under dependency.
+    *
+    * @throws java.lang.IllegalArgumentException if the provided packages are not self-contained.
+    */
+  def validateSelfContainedPackageListUpgrade(
+      loggerFactory: NamedLoggerFactory,
+      upgradingPackages: List[(Ref.PackageId, Ast.Package)],
+  )(implicit
+      executionContext: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): EitherT[Future, DamlError, Unit] =
+    new PackageUpgradeValidator(
+      // Note: It is fine to use an empty package map here, as validation is expected to run on a self-contained set of
+      //     packages in this class. If the packages were not self-contained and the package-map was provided non-empty,
+      //     we'd need to ensure it contains only references to LF 1.17+ packages.
+      getPackageMap = _ => Map.empty,
+      getLfArchive = _ =>
+        _ =>
+          Future.failed(
+            new IllegalArgumentException(
+              "No call expected to getLfArchive as the provided packages in validateUpgrade must be self-contained"
+            )
+          ),
+      loggerFactory = loggerFactory,
+    ).validateUpgrade(upgradingPackages)
 }
 
 class PackageUpgradeValidator(
@@ -65,11 +90,14 @@ class PackageUpgradeValidator(
                 // by a cache depending on the order in which the packages are uploaded.
                 validatePackageUpgrade((pkgId, pkg), pkgMetadata, packageMap, upgradingPackagesMap)
               )
-              res <- go(if (supportsUpgrades(pkg)) {
-                packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version)))
-              } else {
-                packageMap
-              }, rest)
+              res <- go(
+                if (supportsUpgrades(pkg)) {
+                  packageMap + ((pkgId, (pkgMetadata.name, pkgMetadata.version)))
+                } else {
+                  packageMap
+                },
+                rest,
+              )
             } yield res
           case None =>
             logger.debug(
@@ -93,9 +121,7 @@ class PackageUpgradeValidator(
     val uploadedPackageIdWithMeta: PkgIdWithNameAndVersion =
       PkgIdWithNameAndVersion(uploadedPackageId, uploadedPackageMetadata)
     val optUploadedDar = Some((uploadedPackageIdWithMeta, uploadedPackageAst))
-    logger.info(
-      s"Uploading DAR file for $uploadedPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
-    )
+    logger.info(s"Checking upgrade compatibility for package with ID $uploadedPackageIdWithMeta")
     existingVersionedPackageId(uploadedPackageMetadata, packageMap) match {
       case Some(existingPackageId) =>
         if (existingPackageId == uploadedPackageId)
@@ -117,7 +143,7 @@ class PackageUpgradeValidator(
         for {
           _ <- typecheckUpgrades(
             TypecheckUpgrades.StandaloneDarCheck(
-              newPackage = optUploadedDar,
+              newPackage = optUploadedDar
             ),
             packageMap,
           )
@@ -162,7 +188,11 @@ class PackageUpgradeValidator(
           optPackage <- Future.fromTry {
             optArchive
               .traverse(Decode.decodeArchive(_))
-              .handleError(Validation.handleLfArchiveError)
+              .left
+              .map { err =>
+                Validation.handleLfArchiveError(err).asGrpcError
+              }
+              .toTry
           }
         } yield optPackage
     }
@@ -240,8 +270,14 @@ class PackageUpgradeValidator(
       .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
         implicit loggingContext =>
           phase match {
-            case p: TypecheckUpgrades.MaximalDarCheck[_] => logger.info(s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}")
-            case p: TypecheckUpgrades.MinimalDarCheck[_] => logger.info(s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}")
+            case p: TypecheckUpgrades.MaximalDarCheck[_] =>
+              logger.info(
+                s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}"
+              )
+            case p: TypecheckUpgrades.MinimalDarCheck[_] =>
+              logger.info(
+                s"Package ${p.newPackage._1} claims to upgrade package id ${p.oldPackage._1}"
+              )
             case _ => ()
           }
           EitherT(
@@ -257,17 +293,21 @@ class PackageUpgradeValidator(
             case unhandledErr =>
               InternalError.Unhandled(
                 unhandledErr,
-                Some(s"Typechecking upgrades for ${phase.uploadedPackage._1} failed with unknown error."),
+                Some(
+                  s"Typechecking upgrades for ${phase.uploadedPackage._1} failed with unknown error."
+                ),
               )
-          }.map[Unit] {
-            case (warnings, ()) =>
-              warnings.iterator.foreach((err: UpgradeError) =>
-                logger.warn(phase.map(_._1).warningMessage(err)))
+          }.map[Unit] { case (warnings, ()) =>
+            warnings.iterator.foreach((err: UpgradeError) =>
+              logger.warn(phase.map(_._1).warningMessage(err))
+            )
           }
       }
 
   private def typecheckUpgrades(
-      typecheckPhase: TypecheckUpgrades.UploadPhaseCheck[Option[(PkgIdWithNameAndVersion, Ast.Package)]],
+      typecheckPhase: TypecheckUpgrades.UploadPhaseCheck[Option[
+        (PkgIdWithNameAndVersion, Ast.Package)
+      ]],
       packageMap: PackageMap,
   )(implicit
       loggingContext: LoggingContextWithTrace

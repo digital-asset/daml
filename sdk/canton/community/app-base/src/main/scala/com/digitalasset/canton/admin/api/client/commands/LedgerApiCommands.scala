@@ -97,6 +97,12 @@ import com.daml.ledger.api.v1.ledger_configuration_service.{
   LedgerConfigurationServiceGrpc,
 }
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.package_service.PackageServiceGrpc.PackageServiceStub
+import com.daml.ledger.api.v1.package_service.{
+  GetPackageRequest,
+  GetPackageResponse,
+  PackageServiceGrpc,
+}
 import com.daml.ledger.api.v1.testing.time_service.TimeServiceGrpc.TimeServiceStub
 import com.daml.ledger.api.v1.testing.time_service.{
   GetTimeRequest,
@@ -453,14 +459,26 @@ object LedgerApiCommands {
 
   object PackageService {
 
-    abstract class BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
+    abstract class PackageManagementServiceBaseCommand[Req, Resp, Res]
+        extends GrpcAdminCommand[Req, Resp, Res] {
       override type Svc = PackageManagementServiceStub
       override def createService(channel: ManagedChannel): PackageManagementServiceStub =
         PackageManagementServiceGrpc.stub(channel)
     }
 
+    abstract class PackageServiceBaseCommand[Req, Resp, Res]
+        extends GrpcAdminCommand[Req, Resp, Res] {
+      override type Svc = PackageServiceStub
+      override def createService(channel: ManagedChannel): PackageServiceStub =
+        PackageServiceGrpc.stub(channel)
+    }
+
     final case class UploadDarFile(darPath: String)
-        extends BaseCommand[UploadDarFileRequest, UploadDarFileResponse, Unit] {
+        extends PackageManagementServiceBaseCommand[
+          UploadDarFileRequest,
+          UploadDarFileResponse,
+          Unit,
+        ] {
 
       override def createRequest(): Either[String, UploadDarFileRequest] =
         for {
@@ -480,7 +498,11 @@ object LedgerApiCommands {
     }
 
     final case class ValidateDarFile(darPath: String)
-        extends BaseCommand[ValidateDarFileRequest, ValidateDarFileResponse, Unit] {
+        extends PackageManagementServiceBaseCommand[
+          ValidateDarFileRequest,
+          ValidateDarFileResponse,
+          Unit,
+        ] {
 
       override def createRequest(): Either[String, ValidateDarFileRequest] =
         for {
@@ -499,9 +521,13 @@ object LedgerApiCommands {
     }
 
     final case class ListKnownPackages(limit: PositiveInt)
-        extends BaseCommand[ListKnownPackagesRequest, ListKnownPackagesResponse, Seq[
-          PackageDetails
-        ]] {
+        extends PackageManagementServiceBaseCommand[
+          ListKnownPackagesRequest,
+          ListKnownPackagesResponse,
+          Seq[
+            PackageDetails
+          ],
+        ] {
 
       override def createRequest(): Either[String, ListKnownPackagesRequest] = Right(
         ListKnownPackagesRequest()
@@ -519,6 +545,28 @@ object LedgerApiCommands {
         Right(response.packageDetails.take(limit.value))
     }
 
+    final case class GetPackage(packageId: String)
+        extends PackageServiceBaseCommand[
+          GetPackageRequest,
+          GetPackageResponse,
+          GetPackageResponse,
+        ] {
+
+      override def createRequest(): Either[String, GetPackageRequest] = Right(
+        GetPackageRequest(packageId = packageId)
+      )
+
+      override def submitRequest(
+          service: PackageServiceStub,
+          request: GetPackageRequest,
+      ): Future[GetPackageResponse] =
+        service.getPackage(request)
+
+      override def handleResponse(
+          response: GetPackageResponse
+      ): Either[String, GetPackageResponse] =
+        Right(response)
+    }
   }
 
   object CommandInspectionService {
