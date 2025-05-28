@@ -391,11 +391,3 @@ In order to fix this, either
 * Change the SDK version in the project's ``daml.yaml`` file, or
 * Change directories to be outside of the project, where the default Daml
   version that is already installed on your system will be used.
-
-References
-----------
-
-Configuration options
-^^^^^^^^^^^^^^^^^^^^^
-
-Canton Configuration Options:
