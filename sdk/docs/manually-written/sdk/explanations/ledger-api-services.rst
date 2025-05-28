@@ -9,11 +9,9 @@ The gRPC Ledger API Services
 .. note::
     MOVE ME INTO THE CANTON REPO
 
-The Ledger API is structured as a set of services. The core services are implemented using `gRPC <https://grpc.io/>`__ and `Protobuf <https://developers.google.com/protocol-buffers/>`__, but most applications access this API through the mediation of the language bindings.
+The Ledger API is structured as a set of services. This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
 
-This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
-
-If you want to read low-level detail about each service, see :brokenref:`the protobuf documentation of the API <build-reference-lapi-proto-docs>`.
+If you want to read low-level detail about each service, see :subsiteref:`the protobuf documentation of the API <build-reference-lapi-proto-docs>`.
 
 Overview
 ********
@@ -35,10 +33,43 @@ The need to handle these issues is a major determinant of application architectu
 
 For more help understanding these issues so you can build correct, performant and maintainable applications, read the :brokenref:`application architecture guide </app-dev/app-arch>`.
 
+Services
+********
+
+The gRPC Ledger API exposes the following services:
+
+- Submitting commands to the ledger
+
+  - Use the :ref:`Command Submission Service <command-submission-service>` to submit commands (create a contract or exercise a choice) to the ledger.
+  - Use the :ref:`Command Completion Service <command-completion-service>` to track the status of submitted commands.
+  - Use the :ref:`Command Service <command-service>` for a convenient service that combines the command submission and completion.
+  - Use the :ref:`Interactive Submission Service <interactive-submission-service>` to prepare and submit an externally signed transaction.
+
+- Reading from the ledger
+
+  - Use the :ref:`Update Service <update-service>` to stream committed transactions and the resulting events (choices exercised, and contracts created or archived), and to look up transactions.
+  - Use the :ref:`State Service <state-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
+  - Use the :ref:`Event Query Service <event-query-service> to obtain a party-specific view of contract events.
+
+- Utility services
+
+  - Use the :ref:`Party Management Service <party-service>` to allocate and find information about parties on the Daml ledger.
+  - Use the :ref:`User Management Service <user-management-service>` to manage users and their rights.
+  - Use the :ref:`Identity Provider Config Service <identity-provider-config-service>` to define and manage external IDP systems configured to issue tokens for a Participant Node.
+  - Use the :ref:`Package Management Service <package-management-service>` to upload packages the Daml ledger.
+  - Use the :ref:`Package Service <package-service>` to query the Daml packages deployed to the ledger.
+  - Use the :ref:`Version Service <version-service>` to retrieve information about the Ledger API version.
+  - Use the :ref:`Pruning Service <pruning-service>` to prune archived contracts and transactions before or at a given offset
+
+- Testing services (on Sandbox only, *not* for production ledgers)
+
+  - Use the :ref:`Time Service <time-service>` to obtain the time as known by the ledger.
+
 Glossary
 ========
 
-- The ledger is a list of ``transactions``. The Update Service returns these.
+- The ledger is a list of ``updates``.
+- An ``update`` can be a Daml ``transaction``, or ``topology transaction`` such as change of permission of Participant to a party.
 - A ``transaction`` is a tree of ``actions``, also called ``events``, which are of type ``create``, ``exercise`` or ``archive``. The Update Service can return the whole tree, or a flattened list.
 - A ``submission`` is a proposed transaction, consisting of a list of ``commands``, which correspond to the top-level ``actions`` in that transaction.
 - A ``completion`` indicates the success or failure of a ``submission``.
@@ -126,6 +157,8 @@ You can use either the command or command submission services to submit commands
 
 For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandService>`.
 
+.. _reading-from-the-ledger:
+
 Read From the Ledger
 ********************
 
@@ -211,7 +244,7 @@ See :ref:`event-format` above.
 
   You can read more about offsets in the `protobuf documentation of the API <../app-dev/grpc/proto-docs.html#ledgeroffset>`__.
 
-.. event-query-service:
+.. _event-query-service:
 
 Event Query Service
 ===================
@@ -278,13 +311,21 @@ User management is available in Canton-enabled drivers and not yet available in 
 Identity Provider Config Service
 ================================
 
-Use **identity provider config service** to define and manage the parameters of an external IDP systems configured to issue tokens for a participant node.
+Use **identity provider config service** to define and manage the parameters of an external IDP systems configured to issue tokens for a Participant Node.
 
 The **identity provider config service** makes it possible for participant node administrators to set up and manage additional identity providers at runtime. This allows using access tokens from identity providers unknown at deployment time. When an identity provider is configured, independent IDP administrators can manage their own set of parties and users.
 
 Such parties and users have a matching identity_provider_id defined and are inaccessible to administrators from other identity providers. A user will only be authenticated if the corresponding JWT token is issued by the appropriate identity provider. Users and parties without identity_provider_id defined are assumed to be using the default identity provider, which is configured statically when the participant node is deployed.
 
 For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.admin.IdentityProviderConfigService>`.
+
+.. _package management-service:
+
+Package Management Service
+==========================
+
+Use the **Package Management Service** to query the Daml-LF packages supported by the Participant Node and to upload
+and validate .dar files.
 
 .. _package-service:
 
