@@ -185,7 +185,7 @@ done
 
 
 # manually use find to locate all .rst files vale supports recursive search but
-# it seems broken, it does not seem to handle basel symlinks well and config to
+# it seems broken, it does not seem to handle bazel symlinks well and config to
 # ignore paths and/or extensions did not seem to work
 if [[ $is_test = 1 ]]; then
   echo "Checking .rst with vale, is_test=TRUE so --minAlertLevel=warning"
