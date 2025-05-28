@@ -15,3 +15,5 @@ action:
 swap:
   #(?i)=case insensitive
   '(?i)JSON API|HTTP API|JSON API v2|HTTP JSON Ledger API': JSON Ledger API
+  'http': HTTP
+  'api': API
