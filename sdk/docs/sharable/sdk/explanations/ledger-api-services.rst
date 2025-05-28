@@ -178,7 +178,7 @@ Transaction Filter
 
   The :brokenref:`template_ids <com.daml.ledger.api.v1.InclusiveFilters.template_ids>` field is deprecated as of Canton 2.8.0 and will be removed in future releases. Use :brokenref:`template_filter <com.daml.ledger.api.v1.InclusiveFilters.template_filters>` instead.
 
-.. _active-contract-service:
+.. _state-service:
 
 State Service
 =============
@@ -299,7 +299,7 @@ This is useful for obtaining type and metadata information that allow you to int
 
 For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.PackageService>`.
 
-.. _ledger-identity-service:
+.. _version-service:
 
 Version Service
 ===============

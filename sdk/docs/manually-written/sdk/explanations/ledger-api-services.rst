@@ -178,7 +178,7 @@ Transaction Filter
 
   The :brokenref:`template_ids <com.daml.ledger.api.v1.InclusiveFilters.template_ids>` field is deprecated as of Canton 2.8.0 and will be removed in future releases. Use :brokenref:`template_filter <com.daml.ledger.api.v1.InclusiveFilters.template_filters>` instead.
 
-.. _active-contract-service:
+.. _state-service:
 
 State Service
 =============
@@ -267,7 +267,7 @@ The relation between a participant node's users and Daml parties is best underst
 
 For more information, consult the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.UserManagementService>` for how to list, create, update, and delete users and their rights.
 See the :subsiteref:`UserManagementFeature descriptor <com.daml.ledger.api.v2.UserManagementFeature>` to learn about the limits of the User Management Service, e.g., the maximum number of rights per user.
-The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
+The feature descriptor can be retrieved using the :ref:`Version Service <version-service>`.
 
 With user management enabled you can use both new user-based and old custom Daml authorization tokens.
 Consult the :ref:`Authorization documentation <authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
@@ -299,7 +299,7 @@ This is useful for obtaining type and metadata information that allow you to int
 
 For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.PackageService>`.
 
-.. _ledger-identity-service:
+.. _version-service:
 
 Version Service
 ===============
