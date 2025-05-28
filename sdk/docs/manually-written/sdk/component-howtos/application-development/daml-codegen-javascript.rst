@@ -95,11 +95,9 @@ Generated JavaScript/TypeScript code
 Daml primitives to TypeScript
 """""""""""""""""""""""""""""
 
-Daml built-in types are translated to the following equivalent types in TypeScript:
-The TypeScript equivalents of the primitive Daml types are provided by the @daml/types
-:brokenref:`JavaScript client library <link>`.
-
-.. TODO: add link to JavaScript client library
+Daml built-in types are translated to the following equivalent types in TypeScript.
+The TypeScript equivalents of the primitive Daml types are provided by the
+:brokenref:`@daml/types <link>`.
 
 **Interfaces**:
 
@@ -142,7 +140,7 @@ The TypeScript equivalents of the primitive Daml types are provided by the @daml
 +-------------------+--------------------+----------------------------------+
 
 .. note::
-   The types given in the "TypeScript" column are defined in @daml/types.
+   The types given in the **TypeScript** column are defined in @daml/types.
 
 .. note::
    For *n*-tuples where *n ≥ 3*, representation is analogous with the pair case (the last line of the table).
@@ -159,8 +157,8 @@ Generated TypeScript mappings
 
 The mappings from user-defined data types in Daml to TypeScript are best explained by example.
 
-Records (a.k.a product types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Records (a.k.a. product types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 In Daml, we might model a person like this.
 
@@ -180,12 +178,12 @@ Given the above definition, the generated TypeScript code will be as follows.
 
    type Person = {
      name: string;
-     party: daml.Party;
-     age: daml.Int;
+     party: damlTypes.Party;
+     age: damlTypes.Int;
    }
 
-Variants (a.k.a sum types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Variants (a.k.a. sum types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 This is a Daml type for a language of additive expressions.
 
@@ -197,7 +195,7 @@ This is a Daml type for a language of additive expressions.
      | Var Text
      | Add (Expr a, Expr a)
 
-In TypeScript, it is represented as a `discriminated union <https://www.typescriptlang.org/docs/handbook/advanced-types.html#discriminated-unions>`_.
+In TypeScript, it is represented as a `discriminated union <https://www.typescriptlang.org/docs/handbook/typescript-in-5-minutes-func.html#discriminated-unions>`_.
 
 .. code-block:: typescript
    :linenos:
@@ -205,7 +203,7 @@ In TypeScript, it is represented as a `discriminated union <https://www.typescri
    type Expr<a> =
      |  { tag: 'Lit'; value: a }
      |  { tag: 'Var'; value: string }
-     |  { tag: 'Add'; value: {_1: Expr<a>, _2: Expr<a>} }
+     |  { tag: 'Add'; value: Tuple2<Expr<a>, Expr<a>> }
 
 Sum of products
 ~~~~~~~~~~~~~~~
