@@ -189,8 +189,8 @@ done
 # ignore paths and/or extensions did not seem to work
 if [[ $is_test = 1 ]]; then
   echo "Checking .rst with vale, is_test=TRUE so --minAlertLevel=warning"
-  vale ./docs/sharable --minAlertLevel=warning
+  vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=warning
 else
   echo "Checking .rst with vale, is_test=FALSE so --minAlertLevel=suggestion"
-  vale ./docs/sharable --minAlertLevel=suggestion
+  vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=suggestion
 fi
