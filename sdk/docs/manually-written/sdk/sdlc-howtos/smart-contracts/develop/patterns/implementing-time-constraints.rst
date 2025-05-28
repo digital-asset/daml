@@ -73,7 +73,7 @@ Transfer proposals can occur at any point in time. The following changes fix thi
 TransferProposal contract
     In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline has been exceeded or passed.
 
-    .. literalinclude:: ./daml/LimitedTimeCoinTransfer.daml
+    .. literalinclude:: ./daml/DelayedCoinTransfer.daml
       :language: daml
       :start-after: -- BEGIN_DELAYED_ACCEPT_COIN_TRANSFER
       :end-before: -- END_DELAYED_ACCEPT_COIN_TRANSFER
@@ -82,7 +82,7 @@ Coin contract
     In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
     be given a delay.
 
-    .. literalinclude:: ./daml/LimitedTimeCoinTransfer.daml
+    .. literalinclude:: ./daml/DelayedCoinTransfer.daml
       :language: daml
       :start-after: -- BEGIN_DELAYED_COIN_TRANSFER
       :end-before: -- END_DELAYED_COIN_TRANSFER
