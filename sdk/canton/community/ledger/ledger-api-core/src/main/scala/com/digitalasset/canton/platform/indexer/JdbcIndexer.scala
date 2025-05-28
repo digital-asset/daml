@@ -50,6 +50,7 @@ object JdbcIndexer {
       loggerFactory: NamedLoggerFactory,
       dataSourceProperties: DataSourceProperties,
       highAvailability: HaConfig,
+      disableUpgradeValidation: Boolean,
   )(implicit materializer: Materializer) {
 
     def initialized(
@@ -138,6 +139,7 @@ object JdbcIndexer {
                 _,
                 executionContext,
                 config.packageMetadataView,
+                disableUpgradeValidation,
                 loggerFactory,
               ),
             ),

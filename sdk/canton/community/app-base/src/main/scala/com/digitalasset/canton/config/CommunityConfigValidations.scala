@@ -77,6 +77,7 @@ object CommunityConfigValidations
       adminTokenSafetyCheckParticipants,
       adminTokensMatchOnParticipants,
       eitherUserListsOrPrivilegedTokensOnParticipants,
+      allowDisableUpgradeValidationsOnlyOnNonStandardConfig,
     )
 
   /** Group node configs by db access to find matching db storage configs.
@@ -390,4 +391,19 @@ object CommunityConfigValidations
       .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
       .getOrElse(Validated.Valid(()))
   }
+
+  private def allowDisableUpgradeValidationsOnlyOnNonStandardConfig(
+      config: CantonConfig
+  ): Validated[NonEmpty[Seq[String]], Unit] =
+    if (!config.parameters.nonStandardConfig) {
+      val errors = config.participants.view.collect {
+        case (participantName, participantConfig)
+            if participantConfig.parameters.unsafeDisableUpgradeValidation =>
+          s"Setting parameters.unsafe-disable-upgrade-validation = true for participant $participantName requires you to explicitly set canton.parameters.non-standard-config = yes. Note that this is a dangerous configuration and should only be enabled in non-production environments."
+      }
+      NonEmpty
+        .from(errors.toList)
+        .map(Validated.invalid[NonEmpty[Seq[String]], Unit])
+        .getOrElse(Validated.Valid(()))
+    } else Validated.Valid(())
 }

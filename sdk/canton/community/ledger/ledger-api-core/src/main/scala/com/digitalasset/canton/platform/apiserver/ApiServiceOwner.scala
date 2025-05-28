@@ -15,6 +15,7 @@ import com.digitalasset.canton.config.{
   KeepAliveServerConfig,
   NonNegativeDuration,
   NonNegativeFiniteDuration,
+  ServerConfig,
 }
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
@@ -73,6 +74,7 @@ object ApiServiceOwner {
         ApiServiceOwner.DefaultApiStreamShutdownTimeout,
       address: Option[String] = DefaultAddress, // This defaults to "localhost" when set to `None`.
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
+      maxInboundMetadataSize: Int = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
       port: Port = DefaultPort,
       tls: Option[TlsConfiguration] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
@@ -204,6 +206,7 @@ object ApiServiceOwner {
         apiServicesOwner,
         port,
         maxInboundMessageSize,
+        maxInboundMetadataSize,
         address,
         tls,
         new UserBasedAuthorizationInterceptor(
@@ -236,7 +239,7 @@ object ApiServiceOwner {
   val DefaultPort: Port = Port.tryCreate(6865)
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsConfiguration] = None
-  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024 // Larger than ServerConfig default
   val DefaultConfigurationLoadTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)
   val DefaultSeeding: Seeding = Seeding.Strong

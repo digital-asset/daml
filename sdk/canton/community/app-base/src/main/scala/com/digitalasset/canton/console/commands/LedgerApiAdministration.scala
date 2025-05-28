@@ -20,12 +20,14 @@ import com.daml.ledger.api.v1.event_query_service.{
 }
 import com.daml.ledger.api.v1.ledger_configuration_service.LedgerConfiguration
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
+import com.daml.ledger.api.v1.package_service.GetPackageResponse
 import com.daml.ledger.api.v1.transaction.{Transaction, TransactionTree}
 import com.daml.ledger.api.v1.transaction_filter.{Filters, TransactionFilter}
 import com.daml.ledger.api.v1.value.Value
 import com.daml.ledger.api.v1.{EventQueryServiceOuterClass, ValueOuterClass}
 import com.daml.ledger.{api, javaapi as javab}
 import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 import com.daml.metrics.api.MetricHandle.{Histogram, Meter}
 import com.daml.metrics.api.{MetricHandle, MetricName, MetricsContext}
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
@@ -40,6 +42,7 @@ import com.digitalasset.canton.console.CommandErrors.GenericCommandError
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
   CommandSuccessful,
+  ConsoleCommandResult,
   ConsoleEnvironment,
   ConsoleMacros,
   FeatureFlag,
@@ -59,10 +62,11 @@ import com.digitalasset.canton.ledger.api.domain.{
 }
 import com.digitalasset.canton.ledger.api.{DeduplicationPeriod, domain}
 import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{GrpcError, RecordingStreamObserver}
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
+import com.digitalasset.canton.platform.packages.PackageUpgradeValidator
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.NoTracing
@@ -76,6 +80,7 @@ import java.time.Instant
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.nowarn
+import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
 
 trait BaseLedgerApiAdministration extends NoTracing {
@@ -826,6 +831,57 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ledgerApiCommand(LedgerApiCommands.PackageService.ListKnownPackages(limit))
         })
 
+      @Help.Summary("Check a participant's Daml packages for upgrade validity")
+      @Help.Description(
+        """Checks the upgradable Daml packages (compiled with LF 1.17) persisted on the participant for upgrade validity.
+          |It is recommended to run this check for all participants upgrading from Canton 2.10.0, before the upgrade procedure is started.
+          |If you are upgrading from older Canton versions (2.9.x and older) to Canton 2.10.1+, this check is not necessary.
+          |This command will fail if some packages in the participant's package store are not upgrade-compatible.
+          |Note: This command does not upload or modify any packages on the participant."""
+      )
+      def check_upgrade_validity(): Unit = {
+
+        def decodeResponse(
+            response: GetPackageResponse
+        ): Either[String, (Ref.PackageId, Ast.Package)] = for {
+          packageId <- LfPackageId.fromString(response.hash)
+          res <- com.daml.lf.archive
+            .archivePayloadDecoder(packageId, onlySerializableDataDefs = false)
+            .fromByteString(response.archivePayload)
+            .left
+            .map(_.toString)
+        } yield res
+
+        consoleEnvironment.run {
+          for {
+            packageDetails <- ledgerApiCommand(
+              LedgerApiCommands.PackageService.ListKnownPackages(PositiveInt.MaxValue)
+            )
+            getPackageResponses <- packageDetails
+              .map(_.packageId)
+              .traverse(pkgId =>
+                ledgerApiCommand(LedgerApiCommands.PackageService.GetPackage(pkgId))
+              )
+            packages <- ConsoleCommandResult.fromEither(
+              getPackageResponses.traverse(decodeResponse)
+            )
+            _ <- ConsoleCommandResult.fromEither(
+              Await
+                .result(
+                  PackageUpgradeValidator
+                    .validateSelfContainedPackageListUpgrade(loggerFactory, packages.toList)(
+                      implicitly[ExecutionContext],
+                      LoggingContextWithTrace.empty,
+                    )
+                    .value,
+                  Duration.Inf,
+                )
+                .left
+                .map(_.cause)
+            )
+          } yield ()
+        }
+      }
     }
 
     @Help.Summary("Monitor progress of commands", FeatureFlag.Testing)

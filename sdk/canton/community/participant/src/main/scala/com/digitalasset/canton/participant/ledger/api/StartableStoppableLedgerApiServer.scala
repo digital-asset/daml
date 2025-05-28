@@ -257,6 +257,7 @@ class StartableStoppableLedgerApiServer(
           postgres = config.serverConfig.postgresDataSource,
         ),
         highAvailability = config.indexerHaConfig,
+        disableUpgradeValidation = config.cantonParameterConfig.disableUpgradeValidation,
       )
       dbSupport <- DbSupport
         .owner(
@@ -339,6 +340,7 @@ class StartableStoppableLedgerApiServer(
           .map(LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig),
         address = Some(config.serverConfig.address),
         maxInboundMessageSize = config.serverConfig.maxInboundMessageSize.unwrap,
+        maxInboundMetadataSize = config.serverConfig.maxInboundMetadataSize.unwrap,
         port = config.serverConfig.port,
         seeding = config.cantonParameterConfig.ledgerApiServerParameters.contractIdSeeding,
         optWriteService = Some(timedWriteService),
