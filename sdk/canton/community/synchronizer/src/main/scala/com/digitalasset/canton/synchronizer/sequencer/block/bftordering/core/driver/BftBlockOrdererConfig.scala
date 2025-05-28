@@ -213,10 +213,10 @@ object BftBlockOrdererConfig {
   )
 
   final case class PruningConfig(
-      enabled: Boolean,
-      retentionPeriod: FiniteDuration,
-      minNumberOfBlocksToKeep: Int,
-      pruningFrequency: FiniteDuration,
+      enabled: Boolean = DefaultPruningConfig.enabled,
+      retentionPeriod: FiniteDuration = DefaultPruningConfig.retentionPeriod,
+      minNumberOfBlocksToKeep: Int = DefaultPruningConfig.minNumberOfBlocksToKeep,
+      pruningFrequency: FiniteDuration = DefaultPruningConfig.pruningFrequency,
   ) extends UniformCantonConfigValidation
   object PruningConfig {
     implicit val pruningConfigCantonConfigValidator: CantonConfigValidator[PruningConfig] =
