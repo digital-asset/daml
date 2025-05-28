@@ -101,8 +101,8 @@ The TypeScript equivalents of the primitive Daml types are provided by the
 
 **Interfaces**:
 
-- ``Template<T extends object, K = unknown>``
-- ``Choice<T extends object, C, R, K = unknown>``
+- ``interface Template<T extends object, K = unknown, I extends string = string>``
+- ``interface Choice<T extends object, C, R, K = unknown>``
 
 **Types**:
 
@@ -224,8 +224,8 @@ Compared to the earlier definition, the ``Add`` case is now in terms of a record
    :linenos:
 
    type Expr<a> =
-     |  { tag: 'Lit2'; value: a }
-     |  { tag: 'Var2'; value: string }
+     |  { tag: 'Lit'; value: a }
+     |  { tag: 'Var'; value: string }
      |  { tag: 'Add'; value: Expr.Add<a> }
 
    namespace Expr {
@@ -235,7 +235,7 @@ Compared to the earlier definition, the ``Add`` case is now in terms of a record
      }
    }
 
-The thing to note is how the definition of the ``Add`` case has given rise to a record type definition ``Expr.Add``.
+Note how the definition of the ``Add`` case has given rise to a record type definition ``Expr.Add``.
 
 Enums
 ~~~~~
@@ -254,12 +254,10 @@ the generated TypeScript will consist of a type declaration and the definition o
 
    type Color = 'Red' | 'Blue' | 'Yellow'
 
-   const Color = {
-     Red: 'Red',
-     Blue: 'Blue',
-     Yellow: 'Yellow',
-     keys: ['Red','Blue','Yellow'],
-   } as const;
+   const Color:
+     damlTypes.Serializable<Color> & {
+     }
+   & { readonly keys: Color[] } & { readonly [e in Color]: e };
 
 Templates and Choices
 ~~~~~~~~~~~~~~~~~~~~~
@@ -290,30 +288,34 @@ The ``daml codegen js`` command generates types for each of the choices defined 
    :linenos:
 
    type Transfer = {
-     newOwner: daml.Party;
+     newOwner: damlTypes.Party;
    }
 
    type Iou = {
-     issuer: daml.Party;
-     owner: daml.Party;
+     issuer: damlTypes.Party;
+     owner: damlTypes.Party;
      currency: string;
-     amount: daml.Numeric;
+     amount: damlTypes.Numeric;
    }
 
-Each template results in the generation of a companion object. Here, is a schematic of the one generated from the
-``Iou`` template [2]_.
+Each template results in the generation of an interface and a companion object. Here, is a schematic of the one
+generated from the ``Iou`` template [1]_, [2]_.
 
 .. code-block:: typescript
    :linenos:
 
-   const Iou: daml.Template<Iou, undefined> & {
-     Archive: daml.Choice<Iou, DA_Internal_Template.Archive, {}, undefined>;
-     Transfer: daml.Choice<Iou, Transfer, daml.ContractId<Iou>, undefined>;
-   } = {
-     /* ... */
-   }
+    interface IouInterface {
+      Archive: damlTypes.Choice<Iou, DA.Internal.Template.Archive, {}, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<Iou, undefined>>;
+      Transfer: damlTypes.Choice<Iou, Transfer, damlTypes.ContractId<Iou>, undefined> & damlTypes.ChoiceFrom<damlTypes.Template<Iou, undefined>>;
+    }
 
-.. [2] The ``undefined`` type parameter captures the fact that ``Iou`` has no contract key.
+    const Iou:
+      damlTypes.Template<Iou, undefined, '<template_id>'> &
+      damlTypes.ToInterface<Iou, never> &
+      IouInterface;
+
+.. [1] The ``undefined`` type parameter captures the fact that ``Iou`` has no contract key.
+.. [2] The ``never`` type parameter captures the fact that ``Iou`` does not implement directly any interface.
 
 The exact details of these companion objects are not important, think of them as representing metadata.
 
