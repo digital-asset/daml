@@ -75,8 +75,8 @@ TransferProposal contract
 
     .. literalinclude:: ./daml/LimitedTimeCoinTransfer.daml
       :language: daml
-      :start-after: -- BEGIN_DELAY_ACCEPT_COIN_TRANSFER
-      :end-before: -- END_DELAY_ACCEPT_COIN_TRANSFER
+      :start-after: -- BEGIN_DELAYED_ACCEPT_COIN_TRANSFER
+      :end-before: -- END_DELAYED_ACCEPT_COIN_TRANSFER
 
 Coin contract
     In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
@@ -84,8 +84,8 @@ Coin contract
 
     .. literalinclude:: ./daml/LimitedTimeCoinTransfer.daml
       :language: daml
-      :start-after: -- BEGIN_DELAY_COIN_TRANSFER
-      :end-before: -- END_DELAY_COIN_TRANSFER
+      :start-after: -- BEGIN_DELAYED_COIN_TRANSFER
+      :end-before: -- END_DELAYED_COIN_TRANSFER
 
 .. https://lucid.app/lucidchart/3acf1391-b25b-420c-8ea3-627e9d276528/edit
 
