@@ -31,7 +31,7 @@ several programming languages that support the `proto` standard.
 If you don't want to use the gRPC API, you can also use the :subsiteref:`JSON Ledger API <json-api>`. This API is formally
 described using an :subsiteref:`openapi<reference-json-api-openapi>` and :subsiteref:`asyncapi<reference-json-api-asyncapi>`
 descriptions. You can use any language that supports OpenAPI standard to generate the clients using the
-`OpenAPI Genetors<https://openapi-generator.tech>`__.
+`OpenAPI Generators <https://openapi-generator.tech/docs/generators>`__.
 
 .. _daml-lf-intro:
 
