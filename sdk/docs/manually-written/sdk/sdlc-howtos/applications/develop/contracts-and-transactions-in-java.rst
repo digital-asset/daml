@@ -132,7 +132,7 @@ Advanced connection settings
 
 Sometimes the default settings for gRPC connections or channels are not suitable. For such situations, create a custom
 `NettyChannelBuilder <https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyChannelBuilder.html>`_ object and
-pass the it to the ``newBuilder`` static method defined over :brokenref:`DamlLedgerClient <javadocs/com/daml/ledger/rxjava/DamlLedgerClient.html>`.
+pass the it to the ``newBuilder`` static method defined over `DamlLedgerClient </javadocs/3.3/com/daml/ledger/rxjava/DamlLedgerClient.html>`_.
 
 Alternative ways to access the Ledger API
 -----------------------------------------
