@@ -25,7 +25,7 @@ if [ "{local}" = "true" ]; then
 fi
 
 CANTON_ENTERPRISE_VERSION=2.10.1-snapshot.20250528.12472.0.v2b845a24
-CANTON_ENTERPRISE_SHA=3987fcec45e1798cd6fdcb7e82684dc6fbe1925d980197fd734f1d6cd7c03283
+CANTON_ENTERPRISE_SHA=900eef8555a2f6f4980d507d3964e5fc0702c7a34bfd104a519c6c7c63b61336
 CANTON_ENTERPRISE_URL=https://digitalasset.jfrog.io/artifactory/assembly/canton/2.10.1-snapshot.20250528.12472.0.v2b845a24/canton-enterprise-2.10.1-snapshot.20250528.12472.0.v2b845a24.tar.gz
 
 url=$$CANTON_ENTERPRISE_URL
