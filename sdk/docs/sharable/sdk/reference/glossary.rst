@@ -292,8 +292,6 @@ A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of 
 .. Package, module, library
 .. ========================
 
-.. TODO ask Robin
-
 Developer Tools
 ***************
 

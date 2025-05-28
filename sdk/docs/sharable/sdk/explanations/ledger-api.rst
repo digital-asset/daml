@@ -16,20 +16,20 @@ Ledger API services as :subsiteref:`JSON Ledger API <json-api>`.
 
 For a high level introduction to the services see :ref:`ledger-api-services`.
 
-You may also want to read :subsiteref:`the protobuf documentation of the API <build-reference-lapi-proto-docs>`, which explains how each service is defined through its protobuf messages.
+You may also want to read :brokenref:`the protobuf documentation of the API <build-reference-lapi-proto-docs>`, which explains how each service is defined through its protobuf messages.
 
 .. _how-to-access-ledger-api:
 
 How to Access the Ledger API
 ****************************
 
-You can access the gRPC Ledger API via the :ref:`Java bindings <component-howtos-application-development-java-client-libraries-bindings>`.
+You can access the gRPC Ledger API via the :ref:`Java bindings <component-howtos-application-development-java-client-libraries-bindings-java>`.
 
 If you don't use a language that targets the JVM, you can use gRPC to generate the code to access the Ledger API in
 several programming languages that support the `proto` standard.
 
 If you don't want to use the gRPC API, you can also use the :subsiteref:`JSON Ledger API <json-api>`. This API is formally
-described using an :subsiteref:`openapi<reference-json-api-openapi>` and :subsiteref:`asynchapi<reference-json-api-asynchapi>`
+described using an :subsiteref:`openapi<reference-json-api-openapi>` and :subsiteref:`asyncapi<reference-json-api-asyncapi>`
 descriptions. You can use any language that supports OpenAPI standard to generate the clients using the
 `OpenAPI Genetors<https://openapi-generator.tech>`__.
 
