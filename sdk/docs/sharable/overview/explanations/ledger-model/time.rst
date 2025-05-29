@@ -68,25 +68,6 @@ Time has therefore to be considered slightly fuzzy in Daml, with the fuzziness d
 Daml applications should not interpret the value returned by :externalref:`getTime <daml-ref-gettime>` as a precise timestamp.
 
 
-.. _ledger-time-model:
-
-Ledger Time Model
-*****************
-
-The *ledger time model* is the set of parameters used in the assignment and validation of ledger time.
-It consists of the following:
-
-#. ``skew_min`` and ``skew_max``, the bounds on the difference between ``lt_TX`` and ``rt_TX``.
-
-#. ``transaction_latency``, the average duration from the time a transaction is submitted from a participant to the ledger
-   until the transaction is recorded.
-   This value is used by the participant to account for latency when submitting transactions to the ledger:
-   transactions are submitted slightly ahead of their ledger time, with the intention that they arrive at ``lt_TX == rt_TX``.
-
-The ledger time model is part of the ledger configuration and can be changed by ledger operators through the
-:brokenref:`SetTimeModel <com.daml.ledger.api.v1.admin.SetTimeModelRequest>` config management API.
-
-
 .. _assigning-ledger-time:
 
 Assign Ledger Time
@@ -98,7 +79,7 @@ In most cases, Daml applications will not need to worry about ledger time and re
 For reference, this section describes the details of how the ledger time is currently assigned.
 The algorithm is not part of the definition of time in Daml, and may change in the future.
 
-#. When submitting commands over the ledger API,
+#. When submitting commands over the Ledger API,
    users can optionally specify a ``min_ledger_time_rel`` or ``min_ledger_time_abs`` argument.
    This defines a lower bound for the ledger time in relative and absolute terms, respectively.
 
