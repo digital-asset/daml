@@ -1,0 +1,99 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module CoinWithTransferWindow where
+
+import Daml.Script
+import DA.Action (unless)
+import DA.TextMap qualified as TextMap
+import DA.Time (addRelTime, isLedgerTimeGE, isLedgerTimeLT, minutes)
+import Utilities
+
+template Coin
+  with
+    owner: Party
+    amount: Decimal
+  where
+    signatory owner
+
+    ensure amount > 0.0
+
+-- BEGIN_COIN_TRANSFER_WINDOW
+    choice Transfer : ContractId TransferProposal
+      with
+        newOwner: Party
+        startTime: Time
+        duration: RelTime
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner; startTime; addRelTime startTime duration
+-- END_COIN_TRANSFER_WINDOW
+
+-- TransferProposal contract needs additional logic to ensure transfers are only accepted within a given time interval
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+    startTime: Time
+    endTime: Time
+  where
+    signatory coin.owner
+    observer newOwner
+
+    ensure startTime < endTime
+
+    choice WithdrawTransfer : ContractId Coin
+      controller coin.owner
+      do
+        create coin
+
+-- BEGIN_ACCEPT_COIN_TRANSFER_WINDOW
+    choice AcceptTransfer : ContractId Coin
+      controller newOwner
+      do
+        withinWindow <- isLedgerTimeGE startTime && isLedgerTimeLT endTime
+        _ <- unless withinWindow $ failWithStatus $
+               FailureStatus
+                 "transfer-outside-time-window"
+                 InvalidGivenCurrentSystemStateOther
+                 ("Ledger time is outside permitted transfer time window [" <> show startTime <> ", " <> show endTime <> ")")
+                 (TextMap.fromList [("startTime", show startTime), ("endTime", show endTime)])
+        create coin with owner = newOwner
+-- END_ACCEPT_COIN_TRANSFER_WINDOW
+
+-- test
+coinWithTransferWindow : Script ()
+coinWithTransferWindow =
+  script do
+
+    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
+
+    --test 1: owner's coin fails to transfer to a new owner until the transfer time window has started
+
+    coin1 <- owner `submit` do createCmd Coin with owner; amount=100.0
+
+    t1 <- getTime
+    transferProposal1 <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; startTime=addRelTime t1 (minutes 5); duration=minutes 5
+
+    newOwner `submitMustFail` do exerciseCmd transferProposal1 AcceptTransfer
+
+    --test 2: owner's coin can be transferred to a new owner within the transfer time window
+
+    -- simulate waiting for over 5 minutes
+    _ <- passTime (minutes 6)
+
+    newOwner `submit` do exerciseCmd transferProposal1 AcceptTransfer
+
+    --test 3: owner's coin fails to transfer to a new owner after the transfer time window has expired
+
+    coin3 <- owner `submit` do createCmd Coin with owner; amount=300.0
+
+    t3 <- getTime
+    transferProposal3 <- owner `submit` do exerciseCmd coin3 Transfer with newOwner; startTime=addRelTime t3 (minutes 5); duration=minutes 5
+
+    -- simulate waiting for over 10 minutes
+    _ <- passTime (minutes 11)
+
+    newOwner `submitMustFail` do exerciseCmd transferProposal3 AcceptTransfer

@@ -6,24 +6,62 @@
 How To Implement Time Constraints
 #################################
 
-How to check that a deadline is valid
-*************************************
+The following subsection demonstrate how the following Coin and TransferProposal contracts can be modified to use
+different types of ledger time constraints to control when parties are allowed to perform ledger writes.
 
-This design pattern demonstrates how to limit choices so that they must occur by a given deadline.
+Coin contract
 
-Here is an implementation of a simple coin transfer:
+.. literalinclude:: ./daml/SimpleCoinTransfer.daml
+    :language: daml
+    :start-after: -- BEGIN_SIMPLE_COIN_TEMPLATE
+    :end-before: -- END_SIMPLE_COIN_TEMPLATE
 
 .. literalinclude:: ./daml/SimpleCoinTransfer.daml
     :language: daml
     :start-after: -- BEGIN_SIMPLE_COIN_TRANSFER
     :end-before: -- END_SIMPLE_COIN_TRANSFER
 
+TransferProposal contract
+
 .. literalinclude:: ./daml/SimpleCoinTransfer.daml
     :language: daml
-    :start-after: -- BEGIN_SIMPLE_ACCEPT_COIN_TRANSFER
-    :end-before: -- END_SIMPLE_ACCEPT_COIN_TRANSFER
+    :start-after: -- BEGIN_PROPOSAL_TEMPLATE
+    :end-before: -- END_PROPOSAL_TEMPLATE
 
-Transfer proposals can occur at any point in time. The following changes fix this deficiency:
+.. literalinclude:: ./daml/SimpleCoinTransfer.daml
+    :language: daml
+    :start-after: -- BEGIN_SIMPLE_COIN_ACCEPT_TRANSFER
+    :end-before: -- END_SIMPLE_COIN_ACCEPT_TRANSFER
+
+.. literalinclude:: ./daml/SimpleCoinTransfer.daml
+    :language: daml
+    :start-after: -- BEGIN_SIMPLE_COIN_REJECT_TRANSFER
+    :end-before: -- END_SIMPLE_COIN_REJECT_TRANSFER
+
+
+.. https://lucid.app/lucidchart/f4495d3a-c1ad-423d-806d-24fb312347df/edit
+
+.. figure:: ./images/simpleCoinTransfer.svg
+   :align: center
+   :width: 100%
+
+   Simple coin transfer with consent withdrawal
+
+How to check that a deadline is valid
+*************************************
+
+This design pattern demonstrates how to limit choices so that they must occur by a given deadline.
+
+Motivation
+^^^^^^^^^^
+
+When parties need to perform ledger writes by a given deadline.
+
+Implementation
+^^^^^^^^^^^^^^
+
+Transfer proposals can be accepted at any point in time. To restrict this behaviour so that acceptance must occur by a
+fixed time, a guard for AcceptTransfer choice execution can be added.
 
 TransferProposal contract
     In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline is valid.
@@ -32,6 +70,9 @@ TransferProposal contract
       :language: daml
       :start-after: -- BEGIN_LIMITED_TIME_ACCEPT_COIN_TRANSFER
       :end-before: -- END_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+
+As transfer proposals are created when a Transfer choice is executed, the time by which an AcceptTransfer can be executed
+needs to be passed in as a choice parameter.
 
 Coin contract
     In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
@@ -56,19 +97,16 @@ How to check that a deadline has passed
 
 This design pattern demonstrates how to ensure choices only occur after a given deadline.
 
-Here is an implementation of a simple coin transfer:
+Motivation
+^^^^^^^^^^
 
-.. literalinclude:: ./daml/SimpleCoinTransfer.daml
-    :language: daml
-    :start-after: -- BEGIN_SIMPLE_COIN_TRANSFER
-    :end-before: -- END_SIMPLE_COIN_TRANSFER
+When parties need to perform ledger writes after a fixed time delay.
 
-.. literalinclude:: ./daml/SimpleCoinTransfer.daml
-    :language: daml
-    :start-after: -- BEGIN_SIMPLE_ACCEPT_COIN_TRANSFER
-    :end-before: -- END_SIMPLE_ACCEPT_COIN_TRANSFER
+Implementation
+^^^^^^^^^^^^^^
 
-Transfer proposals can occur at any point in time. The following changes fix this deficiency:
+Transfer proposals can be accepted at any point in time. To restrict this behaviour so that acceptance can only occur
+after a fixed delay, a guard for AcceptTransfer choice execution can be added.
 
 TransferProposal contract
     In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline has been exceeded or passed.
@@ -77,6 +115,9 @@ TransferProposal contract
       :language: daml
       :start-after: -- BEGIN_DELAYED_ACCEPT_COIN_TRANSFER
       :end-before: -- END_DELAYED_ACCEPT_COIN_TRANSFER
+
+As transfer proposals are created when a Transfer choice is executed, the delay time after which an AcceptTransfer can be executed
+needs to be passed in as a choice parameter.
 
 Coin contract
     In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
@@ -99,7 +140,46 @@ Coin contract
 Grant time-limited writes to parties
 ************************************
 
-TODO: https://github.com/DACH-NY/docs-website/issues/317
+This design pattern demonstrates how to grant time-limited writes to parties.
+
+Motivation
+^^^^^^^^^^
+
+When parties need to be able to perform ledger writes, but writes need to only be granted for a specific time window.
+
+Implementation
+^^^^^^^^^^^^^^
+
+Transfer proposals can be accepted at any point in time. To restrict this behaviour so that acceptance can only occur
+within a given time window, a guard for AcceptTransfer choice execution can be added.
+
+TransferProposal contract
+    In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline has been exceeded or passed.
+
+    .. literalinclude:: ./daml/CoinWithTransferWindow.daml
+      :language: daml
+      :start-after: -- BEGIN_ACCEPT_COIN_TRANSFER_WINDOW
+      :end-before: -- END_ACCEPT_COIN_TRANSFER_WINDOW
+
+As transfer proposals are created when a Transfer choice is executed, the interval start and end times, during which
+an AcceptTransfer can be executed need to be passed in as choice parameters.
+
+Coin contract
+    In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
+    be given a delay.
+
+    .. literalinclude:: ./daml/CoinWithTransferWindow.daml
+      :language: daml
+      :start-after: -- BEGIN_COIN_TRANSFER_WINDOW
+      :end-before: -- END_COIN_TRANSFER_WINDOW
+
+.. https://lucid.app/lucidchart/29366bd1-a8aa-4aa3-bf09-e7a6f2de0163/edit
+
+.. figure:: ./images/coinWithTransferWindow.svg
+   :align: center
+   :width: 100%
+
+   Time limited coin ownership transfer
 
 Where to use getTime
 ********************

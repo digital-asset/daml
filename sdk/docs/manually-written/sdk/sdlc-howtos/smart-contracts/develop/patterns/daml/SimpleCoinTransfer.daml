@@ -8,6 +8,7 @@ module SimpleCoinTransfer where
 import Daml.Script
 import Utilities
 
+-- BEGIN_SIMPLE_COIN_TEMPLATE
 template Coin
   with
     owner: Party
@@ -16,6 +17,7 @@ template Coin
     signatory owner
 
     ensure amount > 0.0
+-- END_SIMPLE_COIN_TEMPLATE
 
 -- BEGIN_SIMPLE_COIN_TRANSFER
     choice Transfer : ContractId TransferProposal
@@ -26,7 +28,7 @@ template Coin
             with coin=this; newOwner
 -- END_SIMPLE_COIN_TRANSFER
 
--- TransferProposal contract needs additional logic to time limit when transfers are accepted
+-- BEGIN_PROPOSAL_TEMPLATE
 template TransferProposal
   with
     coin: Coin
@@ -34,18 +36,21 @@ template TransferProposal
   where
     signatory coin.owner
     observer newOwner
+-- END_PROPOSAL_TEMPLATE
 
+-- BEGIN_SIMPLE_COIN_REJECT_TRANSFER
     choice WithdrawTransfer : ContractId Coin
       controller coin.owner
       do
         create coin
+-- END_SIMPLE_COIN_REJECT_TRANSFER
 
--- BEGIN_SIMPLE_ACCEPT_COIN_TRANSFER
+-- BEGIN_SIMPLE_COIN_ACCEPT_TRANSFER
     choice AcceptTransfer : ContractId Coin
       controller newOwner
       do
         create coin with owner = newOwner
--- END_SIMPLE_ACCEPT_COIN_TRANSFER
+-- END_SIMPLE_COIN_ACCEPT_TRANSFER
 
 -- test
 simpleCoinTransfer : Script ()
