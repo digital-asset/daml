@@ -165,7 +165,7 @@ command in a separate terminal:
 You can quit the session by running the ``exit`` command.
 
 Built-in documentation
-**********************
+""""""""""""""""""""""
 
 The Canton console comes with built-in documentation. You
 can use the ``help`` command to get online documentation for top-level commands. Many objects in the
@@ -184,7 +184,7 @@ Or go more in depth about specific items within that object as in the following 
   health.help("status")
 
 Interact with the Sandbox
-*************************
+"""""""""""""""""""""""""
 
 One of the objects available in the Canton console represents the Sandbox itself. The object is called
 ``sandbox`` and you can use it to interact with the Sandbox. For example, you can list the DARs loaded
@@ -199,7 +199,7 @@ check the health of the Sandbox, perform pruning operations and more. Consult th
 above and the main documentation for the Canton console to learn about further capabilities.
 
 How it works
-************
+""""""""""""
 
 Canton offers a console where you can run administrative or debugging commands.
 
