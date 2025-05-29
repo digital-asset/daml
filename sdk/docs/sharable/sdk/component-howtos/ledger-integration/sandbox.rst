@@ -37,7 +37,7 @@ the resulting configuration files will be merged.
 Run With Authorization
 **********************
 
-By default, Sandbox accepts all valid ledger API requests without performing any request authorization.
+By default, Sandbox accepts all valid Ledger API requests without performing any request authorization.
 
 To start Sandbox with authorization using `JWT-based <https://jwt.io/>`__
 access tokens as described in the

@@ -221,10 +221,9 @@ be constructed from the fields of the same name from the original contract's ``C
 
 .. note::
   The ``created_event_blob`` field in ``CreatedEvent`` (used to construct the :subsiteref:`DisclosedContract <com.daml.ledger.api.v2.DisclosedContract>`)
-  is populated **only** on demand for ``GetTransactions``, ``GetTransactionTrees``, and ``GetActiveContracts`` streams.
+  is populated **only** on demand for ``GetUpdates``, ``GetUpdateTrees``, and ``GetActiveContracts`` streams.
 
-.. todo: consider adding back this note
-  To learn more, see :ref:`configuring transaction filters <transaction-filter>`.
+  To learn more, see :ref:`configuring event format <event-format>`.
 
 .. _submitter-disclosed-contract:
 
