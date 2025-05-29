@@ -140,6 +140,8 @@ against it:
 
 Because ``daml sandbox`` is a Canton instance, all documentation for using Canton applies.
 
+.. _running-canton-console-against-daml-sandbox:
+
 Connecting to Sandbox's console
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -211,8 +213,6 @@ in a production environment.
 
 For an in-depth guide on how to use this tool against a production, staging or
 testing environment, consult the :externalref:`main documentation for the Canton console <canton_console>`.
-
-.. _running-canton-console-against-daml-sandbox:
 
 Testing your Daml contracts
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -361,9 +361,9 @@ This is most commonly either caused by an existing process that is already
 listening on that port, or if you do not have the permissions to bind to that
 address.
 
-On Linux, the ``lsof -n -i`` command can help you discover lists what processes
-are already listening to a port. For example, if an existing Java program is
-already listening to 6865, ``lsof`` would look as follows:
+On Linux, the ``lsof -n -i`` command lists what processes are already listening
+to a port. For example, if an existing Java program is already listening to
+6865, ``lsof`` would look as follows:
 
 .. code-block:: none
 
