@@ -6,7 +6,7 @@
 How To Implement Time Constraints
 #################################
 
-The following subsection demonstrate how the following Coin and TransferProposal contracts can be modified to use
+The next subsections demonstrate how the following Coin and TransferProposal contracts can be modified to use
 different types of ledger time constraints to control when parties are allowed to perform ledger writes.
 
 Coin contract
