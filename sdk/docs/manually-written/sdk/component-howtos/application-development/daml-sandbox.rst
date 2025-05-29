@@ -15,7 +15,7 @@ Install the Daml Sandbox by :brokenref:`installing the Daml Assistant <Install s
 Configure
 ---------
 
-To configure the Daml Sandbox, we use the command line.
+To configure the Daml Sandbox, use the command line.
 
 Command line configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -75,7 +75,7 @@ Configure the underlying Canton ledger further in one of two ways:
 Operate
 -------
 
-There are two ways to start running the Daml Sandbox:
+There are two ways to run the Daml Sandbox:
 
 #. Run the Daml Sandbox in isolation with:
 
@@ -169,7 +169,7 @@ Built-in documentation
 
 The Canton console comes with built-in documentation. You
 can use the ``help`` command to get online documentation for top-level commands. Many objects in the
-console also have further built-in help that you can access by invoking the ``help`` method on them.
+console also have built-in help that you can access by invoking the ``help`` method on them.
 
 For example, you can ask for help on the ``health`` object by typing:
 
@@ -177,7 +177,7 @@ For example, you can ask for help on the ``health`` object by typing:
 
   health.help
 
-Or go more in depth about specific items within that object as in the following example:
+Or go more in-depth about specific items within that object, as in the following example:
 
 .. code-block:: scala
 
@@ -195,7 +195,7 @@ on the Sandbox by running the following command:
   sandbox.dars.list()
 
 Among the various features available as part of the console, you can manage parties and packages,
-check the health of the Sandbox, perform pruning operations and more. Consult the built-in documentation mentioned
+check the health of the Sandbox, perform pruning operations, and more. Consult the built-in documentation mentioned
 above and the main documentation for the Canton console to learn about further capabilities.
 
 How it works
@@ -374,7 +374,7 @@ already listening to 6865, ``lsof`` would look as follows:
 
 If killing the existing process isn't an option, or if you don't have the
 permission to bind to a given port, you can reconfigure the ports of a given
-node using the top-level options described in.
+node using the top-level options described below:
 
 * Use ``--port=<port>`` to override binding to ``6865``
 * Use ``--admin-api-port=<port>`` to override binding to ``6866``
@@ -394,7 +394,7 @@ message:
 
       SDK not installed. Cannot run command without SDK.
 
-In order to fix this, either
+To fix this, you can:
 
 * Install the SDK as instructed to by the error, or
 * Change the SDK version in the project's ``daml.yaml`` file, or
