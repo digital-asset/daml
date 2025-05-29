@@ -6,7 +6,7 @@
 The gRPC Ledger API Services
 ############################
 
-.. note::
+.. todo:
     MOVE ME INTO THE CANTON REPO
 
 The Ledger API is structured as a set of services. This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
