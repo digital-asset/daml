@@ -97,7 +97,7 @@ Daml primitives to TypeScript
 
 Daml built-in types are translated to the following equivalent types in TypeScript.
 The TypeScript equivalents of the primitive Daml types are provided by the
-:brokenref:`@daml/types <link>`.
+`@daml/types </typedocs/3.3/daml-types/index.html>`_.
 
 **Interfaces**:
 
@@ -317,9 +317,5 @@ generated from the ``Iou`` template [1]_, [2]_.
 .. [1] The ``undefined`` type parameter captures the fact that ``Iou`` has no contract key.
 .. [2] The ``never`` type parameter captures the fact that ``Iou`` does not implement directly any interface.
 
-The exact details of these companion objects are not important, think of them as representing metadata.
-
-Use the companion objects to create contracts and exercise choices using the :brokenref:`@daml/ledger <link to @daml/ledger library documentation>` package.
-See the :brokenref:`Use contracts and transactions in JavaScript <link>` for details on how to use them and generated
-code in general to interact with the JSON Ledger API.
-
+See the :brokenref:`Use contracts and transactions in JavaScript <link>` for details on how to use generated
+code to interact with the JSON Ledger API.

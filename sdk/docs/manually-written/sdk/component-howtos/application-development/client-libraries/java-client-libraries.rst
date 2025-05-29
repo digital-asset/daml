@@ -54,4 +54,4 @@ Find the available versions of the Java client libraries in the Maven Central Re
 References
 -------------
 
-See the `JavaDoc reference documentation <javadocs/index.html>`_.
+See the `JavaDoc reference documentation </javadocs/3.3/index.html>`_.
