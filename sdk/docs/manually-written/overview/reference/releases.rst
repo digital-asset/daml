@@ -4,6 +4,10 @@
 Releases and Versioning
 #######################
 
+.. wip::
+   review and ensure that we want to keep giving these guarantees
+
+
 .. _versioning:
 
 Versioning
@@ -17,14 +21,14 @@ Stable releases have versions MAJOR.MINOR.PATCH. Segments of the version are inc
 #. MINOR version when functionality is added in a backwards compatible manner, and
 #. PATCH version when there are only backwards compatible bug fixes.
 
-Daml's "public API" is laid out in the :brokenref:`daml-ecosystem-overview`.
+.. todo: consider adding back: Daml's "public API" is laid out in the :brokenref:`daml-ecosystem-overview`.
 
 Cadence
 *******
 
 Regular, weekly snapshot releases are made every Wednesday, with additional snapshots produced as needed. These releases contain Daml Components, both from the `daml repository <https://github.com/digital-asset/daml>`_ as well as some others.
 
-The decision to perform a Minor version release is based on the content or scope of the payload of that release.  The intent is to release a Minor version once a quarter but this may change based on the customer demand for new, key features.  
+The decision to perform a Minor version release is based on the content or scope of the payload of that release.  The intent is to release a Minor version once a quarter but this may change based on the customer demand for new, key features.
 
 No more than one major version is released every six months, barring exceptional circumstances.
 
