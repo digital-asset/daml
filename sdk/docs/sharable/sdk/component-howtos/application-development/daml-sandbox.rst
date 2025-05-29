@@ -55,11 +55,6 @@ in your terminal.
 Canton configuration
 ^^^^^^^^^^^^^^^^^^^^
 
-Behind the scenes, Sandbox spins up a Canton ledger with an in-memory
-participant ``sandbox`` and an in-memory sync domain ``local``. You can pass additional
-Canton configuration files via ``-c``. This option can be specified multiple times and
-the resulting configuration files will be merged.
-
 Behind the scenes, Daml Sandbox runs an underlying Canton ledger with a default
 configuration file to initialize a participant named ``sandbox``, a sequencer
 named ``sequencer1``, and a mediator named ``mediator1``.
@@ -136,7 +131,9 @@ Interacting with Sandbox's ledger
 
 Once the sandbox is running, you may interact with it the same way you would for
 any Canton instance. For example, you may upload dars to it, or run scripts
-against it::
+against it:
+
+.. code-block:: none
 
     $ daml ledger upload-dar --host localhost --port 6865 <path to DAR>
     $ daml script --ledger-host localhost --port 6865 --dar <path to DAR> --script-name <script name in DAR>
@@ -148,7 +145,9 @@ Connecting to Sandbox's console
 
 Once you have a Sandbox running locally (i.e. after running ``daml start`` or ``daml sandbox``)
 you may connect to Sandbox remotely by running the ``daml canton-console``
-command in a separate terminal::
+command in a separate terminal:
+
+.. code-block:: none
 
     $ daml canton-console
        _____            _
@@ -172,11 +171,15 @@ The Canton console comes with built-in documentation. You
 can use the ``help`` command to get online documentation for top-level commands. Many objects in the
 console also have further built-in help that you can access by invoking the ``help`` method on them.
 
-For example, you can ask for help on the ``health`` object by typing::
+For example, you can ask for help on the ``health`` object by typing:
+
+.. code-block:: scala
 
   health.help
 
-Or go more in depth about specific items within that object as in the following example::
+Or go more in depth about specific items within that object as in the following example:
+
+.. code-block:: scala
 
   health.help("status")
 
@@ -185,7 +188,9 @@ Interact with the Sandbox
 
 One of the objects available in the Canton console represents the Sandbox itself. The object is called
 ``sandbox`` and you can use it to interact with the Sandbox. For example, you can list the DARs loaded
-on the Sandbox by running the following command::
+on the Sandbox by running the following command:
+
+.. code-block:: scala
 
   sandbox.dars.list()
 
@@ -205,7 +210,7 @@ As such, you can interact with the running Sandbox using the console, just like 
 in a production environment.
 
 For an in-depth guide on how to use this tool against a production, staging or
-testing environment, consult the :ref:`main documentation for the Canton console <canton_console>`.
+testing environment, consult the :externalref:`main documentation for the Canton console <canton_console>`.
 
 .. _running-canton-console-against-daml-sandbox:
 
@@ -242,7 +247,7 @@ file to Sandbox with ``daml sandbox --config auth.conf``.
        certificate = my-certificate.cert
    }]
 
-The settings under ``auth-services`` are described in detail in `API configuration documentation </canton/usermanual/apis.html#jwt-authorization>`__
+The settings under ``auth-services`` are described in detail in `API configuration documentation <jwt-authorization>`__
 
 Generate JSON web tokens (JWT)
 """"""""""""""""""""""""""""""
@@ -336,11 +341,11 @@ Failed to bind to address
 
 By default, Daml Sandbox reserves five ports for its Canton services:
 
-* 6865 for the participant's Ledger API
-* 6866 for the participant's Admin API
-* 6867 for the sequencer's public API
-* 6868 for the sequencer's admin API
-* 6869 for the mediator's admin API
+* ``6865`` for the participant's Ledger API
+* ``6866`` for the participant's Admin API
+* ``6867`` for the sequencer's public API
+* ``6868`` for the sequencer's admin API
+* ``6869`` for the mediator's admin API
 
 The Sandbox will also bind to the port specified in the ``--json-api-port``, if
 any.
@@ -358,7 +363,9 @@ address.
 
 On Linux, the ``lsof -n -i`` command can help you discover lists what processes
 are already listening to a port. For example, if an existing Java program is
-already listening to 6865, ``lsof`` would look as follows::
+already listening to 6865, ``lsof`` would look as follows:
+
+.. code-block:: none
 
       $ lsof -n -i
       ...
@@ -369,11 +376,11 @@ If killing the existing process isn't an option, or if you don't have the
 permission to bind to a given port, you can reconfigure the ports of a given
 node using the top-level options described in.
 
-* Use ``--port=<port>`` to override binding to 6865
-* Use ``--admin-api-port=<port>`` to override binding to 6866
-* Use ``--sequencer-public-port=<port>`` to override binding to 6867
-* Use ``--sequencer-admin-port=<port>`` to override binding to 6868
-* Use ``--mediator-admin-port=<port>`` to override binding to 6869
+* Use ``--port=<port>`` to override binding to ``6865``
+* Use ``--admin-api-port=<port>`` to override binding to ``6866``
+* Use ``--sequencer-public-port=<port>`` to override binding to ``6867``
+* Use ``--sequencer-admin-port=<port>`` to override binding to ``6868``
+* Use ``--mediator-admin-port=<port>`` to override binding to ``6869``
 * Use ``--json-api-port`` to change the port to which the JSON API binds.
 
 SDK not installed
@@ -381,7 +388,9 @@ SDK not installed
 
 If the ``daml.yaml`` file of the project you are currently in specifies a
 version of the Daml SDK that is not installed, you may get the following error
-message::
+message:
+
+.. code-block:: none
 
       SDK not installed. Cannot run command without SDK.
 
@@ -391,11 +400,3 @@ In order to fix this, either
 * Change the SDK version in the project's ``daml.yaml`` file, or
 * Change directories to be outside of the project, where the default Daml
   version that is already installed on your system will be used.
-
-References
-----------
-
-Configuration options
-^^^^^^^^^^^^^^^^^^^^^
-
-Canton Configuration Options:
