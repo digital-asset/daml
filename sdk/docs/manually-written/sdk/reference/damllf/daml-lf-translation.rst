@@ -172,6 +172,62 @@ The second gotcha is that a constructor in a data type declaration can have at m
    * - ``data Foo = Bar | Baz Int Text``
      - Name arguments to the Baz constructor, for example ``data Foo = Bar | Baz { x: Int; y: Text }``
 
+Restrictions for upgrades
+=========================
+
+The flavour of a datatype's Daml-LF representation restricts the ways in which
+it can be upgraded via smart contract upgrades: only records can add fields, and
+only variant and enums can add new constructors. It is not possible to change
+the flavour of a datatype when upgrading it.
+
+Therefore, the choice of the flavour of a datatype is very important depending
+on what upgrade behaviours are planned for it. For example, the following
+datatype:
+
+.. code::
+
+   data Foo = Foo { foo: Int }
+
+is translated to a record in Daml-LF:
+
+.. code::
+
+   record Foo ↦ { foo: Int64 }
+
+We can add fields when upgrading it, because that does not change its flavour:
+
+.. code::
+
+   -- Add a field to Foo in version 2 of its package
+   data Foo = Foo { foo: Int, newField: Int }
+
+.. code::
+
+   // Still a record
+   record Foo ↦ { foo: Int64, newField: Int }
+
+However, we cannot add a new constructor, because that would change its flavour
+from a record to a variant:
+
+.. code::
+
+   -- Add a constructor to Foo in version 2 of its package
+   data Foo
+     = Foo { foo: Int }
+     | NewConstructor
+
+.. code::
+
+   // Flavour changed from a record to a variant
+   variant Foo ↦ Foo Foo.Foo | NewConstructor
+
+In short: If the datatype is planned to gradually add more constructors over
+time, it should be defined as a variant. If the datatype is planned to add
+fields over time, it should be defined as a record.
+
+More information about restrictions imposed on different flavours of datatypes
+by smart contract upgrades is available in :ref:`Limitations in Upgrading Variants <limitations-in-upgrading-variants>`.
+
 Type Synonyms
 *************
 
