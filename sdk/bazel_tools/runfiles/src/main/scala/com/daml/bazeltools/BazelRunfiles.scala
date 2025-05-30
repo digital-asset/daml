@@ -19,7 +19,7 @@ trait BazelRunfiles {
 
   def rlocation(path: String): String =
     if (inBazelEnvironment)
-      Runfiles.create.rlocation(MainWorkspace + "/" + path)
+      Runfiles.preload.unmapped().rlocation(MainWorkspace + "/" + path)
     else
       path
 
@@ -29,7 +29,7 @@ trait BazelRunfiles {
         .resolve(path)
         .toString
         .replace("\\", "/")
-      val runfilePath = Option(Runfiles.create.rlocation(workspacePathString))
+      val runfilePath = Option(Runfiles.preload.unmapped().rlocation(workspacePathString))
       Paths.get(runfilePath.getOrElse(throw new IllegalArgumentException(path.toString)))
     } else
       path
