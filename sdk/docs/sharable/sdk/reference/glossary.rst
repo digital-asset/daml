@@ -262,7 +262,7 @@ They're useful for:
 
 In Daml Studio, Daml Script runs in an emulated ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a Daml ledger. Daml Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a Daml Script fails) what caused it to fail.
 
-See :ref:`testing-using-script`.
+See :ref:`test-using-scripts`.
 
 .. Damle, Daml runtime, Daml execution engine
 .. ==========================================
