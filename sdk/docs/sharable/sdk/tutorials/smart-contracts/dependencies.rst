@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _dependencies:
+
 Work with dependencies
 ======================
 
@@ -18,8 +20,8 @@ Upgrades are covered in their own section outside this introduction to Daml: :re
 
 Since we are extending :doc:`compose`, the setup for this chapter is slightly more complex:
 
-#. In a base directory, load the :doc:`compose` project using ``daml new intro7 --template daml-intro-7``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
-#. In the same directory, load this chapter's project using ``daml new intro9 --template daml-intro-9``.
+#. In a base directory, load the :doc:`compose` project using ``daml new intro-compose  --template daml-intro-compose``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
+#. In the same directory, load this chapter's project using ``daml new intro-9  --template daml-intro-9``.
 
 ``Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 
@@ -78,6 +80,8 @@ For an extension model like this one,``data-dependencies`` are appropriate, so t
       :end-before: sandbox-options:
 
 You'll notice a module ``Test.Intro.Asset.TradeSetup``, which is almost a carbon copy of the :doc:`compose` trade setup Scripts. ``data-dependencies`` is designed to use existing contracts and data types. Daml Script is not imported. In practice, we also shouldn't expect that the DAR file we download from the ledger using ``daml ledger fetch-dar`` contains test scripts. For larger projects it's good practice to keep them separate and only deploy templates to the ledger.
+
+.. _project-structures:
 
 About project structures
 ------------------------

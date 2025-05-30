@@ -262,7 +262,7 @@ They're useful for:
 
 In Daml Studio, Daml Script runs in an emulated ledger. You specify a linear sequence of actions that various parties take, and these are evaluated in order, according to the same consistency, authorization, and privacy rules as they would be on a Daml ledger. Daml Studio shows you the resulting `transaction <#transactions>`__ graph, and (if a Daml Script fails) what caused it to fail.
 
-See :ref:`testing-using-script`.
+See :ref:`test-using-scripts`.
 
 .. Damle, Daml runtime, Daml execution engine
 .. ==========================================
@@ -292,8 +292,6 @@ A ``.dar`` contains multiple ``.dalf`` files. A ``.dalf`` file is the output of 
 .. Package, module, library
 .. ========================
 
-.. TODO ask Robin
-
 Developer Tools
 ***************
 
@@ -319,18 +317,6 @@ Sandbox
 You can also run the Sandbox connected to a PostgreSQL back end, which gives you persistence and a more production-like experience.
 
 See :ref:`sandbox-manual`.
-
-Navigator (Deprecated)
-======================
-
-**Navigator** is a tool for exploring what's on the ledger. You can use it to see what contracts can be seen by different parties, and `submit commands <#submitting-commands-writing-to-the-ledger>`__ on behalf of those parties.
-
-Navigator GUI
--------------
-
-This is the version of Navigator that runs as a web app.
-
-See :brokenref:`/tools/navigator/index`.
 
 Building Applications
 *********************
@@ -436,8 +422,8 @@ When you compile Daml source code into a `.dar file <#dar-file-dalf-file>`__, th
 
 As a user, you don't need to interact with Daml-LF directly. But internally, it's used for:
 
-- executing Daml code on the Sandbox or on another platform
-- sending and receiving values via the Ledger API (using a protocol such as gRPC)
+- executing Daml code on the Ledger
+- sending and receiving values via the Ledger API
 - generating code in other languages for interacting with Daml models (often called “codegen”)
 
 Composability

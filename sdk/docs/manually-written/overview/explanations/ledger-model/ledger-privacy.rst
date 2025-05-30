@@ -8,9 +8,6 @@ Privacy
 
 .. wip::
 
-   * Replace divulgence for submission by explicit disclosure.
-     Divulged contracts are not exposed over LAPI.
-
    * Discuss ledger model projection with Canton projection in terms of information leakage (projection of the transaction view Merkle tree vs. as defined in here)
 
 

@@ -9,9 +9,9 @@ Daml Codegen for Java
 Use the Daml Codegen for Java (``daml codegen java``) to generate Java classes representing all Daml data types defined
 in a Daml Archive (.dar) file.
 These classes simplify constructing the types required by the Java gRPC bindings for the
-:brokenref:`gRPC Ledger API <TODO: add link to it>`; for example, ``com.daml.ledger.api.v1.CreateCommand`` and ``com.daml.ledger.api.v1.ExerciseCommand``.
+:externalref:`gRPC Ledger API <ledger-api-services>`; for example, ``com.daml.ledger.api.v2.CreateCommand`` and ``com.daml.ledger.api.v2.ExerciseCommand``.
 They also provide JSON decoding utilities, making it easier to work with JSON when using the
-:brokenref:`JSON Ledger API <TODO(#369): add link to JSON Ledger API>`.
+:externalref:`JSON Ledger API <json-api>`.
 
 See :ref:`How to work with contracts and transactions in Java <howto-applications-work-with-contracts-java>` for details on how to use the generated classes. See the sections below for guidance on setting up and invoking the codegen.
 
@@ -53,7 +53,7 @@ Specify the above settings in the ``codegen`` element of the Daml project file `
 
 Here is an example::
 
-    sdk-version: 2.0.0
+    sdk-version: 3.3.0-snapshot.20250507.0
     name: quickstart
     source: daml
     init-script: Main:initialize
@@ -166,8 +166,8 @@ The Java package for the generated classes is the equivalent of the lowercase Da
 
   package foo.bar.baz;
 
-Records (a.k.a product types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Records (a.k.a. product types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`Daml record <daml-ref-record-types>` is represented by a Java class with fields that have the same name as the Daml record fields. A Daml field having the type of another record is represented as a field having the type of the generated class for that record.
 
@@ -225,7 +225,10 @@ The Daml Codegen generates the following classes for a Daml template:
       Used whenever a contract ID of the corresponding template is used in another template or record, for example: ``data Foo = Foo (ContractId Bar)``. This class also provides methods to generate an ``ExerciseCommand`` for each choice that can be sent to the ledger with the Java Bindings.
 
   **TemplateName.Contract**
-      Represents an actual contract on the ledger. It contains a field for the contract ID (of type ``TemplateName.ContractId``) and a field for the template data (of type ``TemplateName``). With the static method ``TemplateName.Contract.fromCreatedEvent``, you can deserialize a `CreatedEvent <https://docs.daml.com//javadocs/com/daml/ledger/javaapi/data/CreatedEvent.html>`__ to an instance of ``TemplateName.Contract``.
+      Represents an actual contract on the ledger. It contains a field for the contract ID (of type ``TemplateName.ContractId``)
+      and a field for the template data (of type ``TemplateName``). With the static method
+      ``TemplateName.Contract.fromCreatedEvent``, you can deserialize a `CreatedEvent </javadocs/3.3/com/daml/ledger/javaapi/data/CreatedEvent.html>`_
+      to an instance of ``TemplateName.Contract``.
 
 
   .. literalinclude:: ./code-snippets/Com/Acme/Templates.daml
@@ -303,8 +306,8 @@ In particular, the codegen generates a file that defines six Java classes and on
 
 Note that ``byKey`` and ``ByKey`` will only be generated for templates that define a key.
 
-Variants (a.k.a sum types)
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+Variants (a.k.a. sum types)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A :ref:`variant or sum type <daml-ref-sum-types>` is a type with multiple constructors, where each constructor wraps a value of another type. The generated code is comprised of an abstract class for the variant type itself and a subclass thereof for each constructor. Classes for variant constructors are similar to classes for records.
 

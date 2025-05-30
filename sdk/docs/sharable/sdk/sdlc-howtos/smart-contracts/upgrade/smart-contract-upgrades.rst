@@ -18,10 +18,7 @@ What is Smart Contract Upgrade (SCU)?
 Smart Contract Upgrade (SCU) allows Daml models (packages in DAR files) to be
 updated on Canton transparently, provided some guidelines in making the
 changes are followed. For example, you can fix an application bug by uploading
-the DAR of the fixed package. This feature requires the minimum versions of LF
-1.17 and Canton Protocol version 7. This section provides an overview of
-the SCU feature, while :brokenref:`The Smart Contract Upgrade Model in Depth
-<upgrade-model-reference>` is a concise, technical description of the feature.
+the DAR of the fixed package.
 
 Smart Contract Upgrade (SCU) is a feature for Daml
 packages which enable authors to publish new versions of their templates
@@ -118,30 +115,6 @@ the SQL.
     SELECT *
       FROM active('mypackage:My.App:MyTemplate')
       WHERE package_id = 'deadbeefpackageidhex'
-
-
-Requirements
-------------
-
-Note that SCU is only available when the criteria below are met:
-
--  Canton 2.10.x or above
-
--  Daml LF Version 1.17 or above
-
--  Canton Protocol Version 7 or above
-
-There are instructions below on how to configure this setup. The
-sections below, unless explicitly stated otherwise, assume that this is
-the case.
-
-To prevent unexpected behavior, this feature enforces a unique package name and version for each DAR being
-uploaded to a participant node.
-This closes a loophole where the participant node allowed multiple DARs with
-the same package name and version. For backward compatibility, this
-restriction only applies for packages compiled with LF >= 1.17. If LF <
-1.15 is used, there can be several packages with the same name and
-version but this should be corrected; duplicate package names and versions are no longer supported.
 
 Smart Contract Upgrade Basics
 -----------------------------
@@ -249,19 +222,18 @@ Canton
 ~~~~~~
 
 When considering the Canton ledger nodes, only the Canton participant
-node is aware of smart contract upgrading. The Canton domain nodes are
-only concerned with the protocol version which must be at least 7 to allow connected participants to use upgradable Daml packages.
+node is aware of smart contract upgrading.
 
 Below, we provide a brief overview of the interactions with the
 participant node that have been adapted for supporting the smart
-contract upgrading feature starting with Canton 2.10:
+contract upgrading feature:
 
 -  DAR upload requests go through an additional validation stage to
    check the contained new packages for upgrade-compatibility with
    other packages previously uploaded on the participant.
 
 -  Ledger API command submissions can be automatically or explicitly
-   up/downgraded if multiple upgrade-supported (language version >= 1.17) packages exist for the same package-name.
+   up/downgraded if multiple packages exist for the same package-name.
 
 -  Ledger API streaming queries are adapted to support fetching events
    more generically, by package-name.
@@ -282,7 +254,7 @@ package-name queries and command submission.
 PQS & Daml Shell
 ~~~~~~~~~~~~~~~~
 
-As of 2.10, PQS only supports querying contracts via package-name,
+PQS only supports querying contracts via package-name,
 dropping support for direct package-id queries. See
 `the PQS section <#pqs>`__ for more information and a work-around.
 
@@ -389,12 +361,12 @@ of our package:
   > daml init
   > daml version
   SDK versions:
-    2.10.0  (project SDK version from daml.yaml)
+    3.3.0  (project SDK version from daml.yaml)
 
-Running ``daml version`` should print a line showing that 2.10.0 or higher is the "project SDK version from daml.yaml".
+Running ``daml version`` should print a line showing that 3.3.0 or higher is the "project SDK version from daml.yaml".
 
-Add ``daml-script-lts`` to the list of dependencies in ``v1/my-pkg/daml.yaml``,
-as well as ``--target=1.17`` to the ``build-options``:
+Add ``daml-script`` to the list of dependencies in ``v1/my-pkg/daml.yaml``,
+as well as ``--target=2.1`` to the ``build-options``:
 
 .. code:: yaml
 
@@ -404,15 +376,15 @@ as well as ``--target=1.17`` to the ``build-options``:
   dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script-lts
+  - daml-script
   build-options:
-  - --target=1.17
+  - --target=2.1
 
 **Note:** Throughout this tutorial we ignore some best practices
 in favor of simplicity. In particular, we recommend a package undergoing SCU
 should contain a version identifier in its name as well, but we omit this - consult the section on :ref:`package naming best
 practices <upgrade-package-naming>` to learn more. We also recommend
-that you do not depend on ``daml-script-lts`` in any package that is uploaded to
+that you do not depend on ``daml-script`` in any package that is uploaded to
 the ledger - more on this :ref:`here <upgrade-dont-upload-daml-script>`.
 
 Then create ``v1/my-pkg/daml/Main.daml``:
@@ -467,10 +439,10 @@ field pointing to v1:
   dependencies:
   - daml-prim
   - daml-stdlib
-  - daml-script-lts
+  - daml-script
   upgrades: ../../v1/my-pkg/.daml/dist/my-pkg-1.0.0.dar
   build-options:
-  - --target=1.17
+  - --target=2.1
 
 Any changes you make to v2 are now validated as correct upgrades
 over v1.
@@ -856,7 +828,7 @@ without modifications and is immediately available for use.
 
 .. note::
 
-  In 2.10, once a DAR is successfully uploaded, it cannot be
+  Once a DAR is successfully uploaded, it cannot be
   safely removed from the participant node. Participant operators must
   then ensure that uploaded functionality does not break the intended
   upgrade lineage as newly uploaded DARs affect the upgrading line (i.e.
@@ -864,11 +836,11 @@ without modifications and is immediately available for use.
 
 .. note::
 
-  Upgrade-supported packages stored on the participant must
+  Packages stored on the participant must
   lead to unique package-id -> (package-name, package-version) relationships
   since runtime package-name -> package-id
   resolution must be deterministic (see `Ledger API <#ledger-api>`__). For this
-  reason, once a LF 1.17+ DAR has been uploaded with its main package
+  reason, once a DAR has been uploaded with its main package
   having a specific package-name/package-version, this relationship cannot
   be overridden. Hence, uploading a DAR with different content for the
   same name/version as an existing DAR on the participant leads to a
@@ -877,7 +849,7 @@ without modifications and is immediately available for use.
 Validate the DAR Against a Running Participant Node
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Starting with 2.10 you can validate your DAR against the current
+You can validate your DAR against the current
 participant node state without uploading it to the participant via the
 ``PackageManagementService.validateDar`` Ledger API endpoint. This allows
 participant node operators to first check the DAR before uploading it.
@@ -1117,27 +1089,6 @@ single owner.
 In the case where a contract's signatories or observers change in during an
 upgrade/downgrade in a way that doesn't meet the constraints above, the upgrade,
 and thus full transaction, fails at runtime.
-
-Modifying Key Expressions
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Similarly, key expressions can be changed as long as they evaluate to
-the same value for existing contracts.
-
-For example, v2 can add a new field "alternative key" to the v2 IOU
-template, and use it instead of the default key when present.
-
-.. code:: daml
-
-  ...
-      -- Add a new alternativeKey field
-      alternativeKey: Optional Party
-    where
-      key fromOptional issuer alternativeKey
-  ...
-
-All old contracts will default to using the ``issuer``, and new contracts
-will use the ``alternativeKey`` field.
 
 Upgrading Enums
 ~~~~~~~~~~~~~~~
@@ -1522,7 +1473,7 @@ module ``my-iface/daml/MyIface.daml``:
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: my-iface
   version: 1.0.0
   source: daml/MyIface.daml
@@ -1533,7 +1484,7 @@ module ``my-iface/daml/MyIface.daml``:
   - daml-prim
   - daml-stdlib
   build-options:
-  - --target=1.17
+  - --target=2.1
 
 .. code:: daml
 
@@ -1655,8 +1606,8 @@ reupload the two versions:
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
   upload-dar did not succeed: ... Implementation of interface ...:MyIface:HasValue by template IOU appears in package that is being upgraded, but does not appear in this package.
 
-Packages with new versions cannot add an interface instance to an existing
-template either. For example, restore the instance deleted in the previous step
+Packages with new versions can however add an interface instance to an existing
+template. For example, restore the instance deleted in the previous step
 and remove the ``HasValue`` interface from ``v2/my-pkg/daml/Main.daml`` instead.
 Then restart the sandbox and try to reupload the two versions.
 
@@ -1673,7 +1624,7 @@ Then restart the sandbox and try to reupload the two versions.
   > daml ledger upload-dar --port 6865
   ...
   Uploading .daml/dist/my-pkg-2.0.0.dar to localhost:6865
-  upload-dar did not succeed: ... Implementation of ...:MyIface:HasValue by template IOU appears in this package, but does not appear in package that is being upgraded.
+  DAR upload succeeded.
 
 Similarly to choices, scripts may invoke interface implementations from
 their own version using ``exerciseExactCmd``.
@@ -1748,7 +1699,7 @@ Working with the Daml Sandbox
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For the same reason, the :ref:`Daml sandbox <sandbox-manual>` does not support
-hot-swapping of SCU-enabled (LF 1.17) packages.
+hot-swapping packages.
 
 There are two ways to work around this:
   - restart the sandbox after each rebuild
@@ -1775,7 +1726,7 @@ that scopes templates by package-name, allowing version-agnostic addressing of t
 It serves as a reference to all template IDs with the qualified name ``<module-name>:<template-name>``
 from all packages with the name ``package-name`` known to the Ledger API server.
 
-`By-package-name template ID` addressing is supported for all upgradable packages (LF >= 1.17)
+`By-package-name template ID` addressing is supported for all packages
 and is possible on both the write path (command submission) and read path (Ledger API queries).
 
 The `by-package-name template ID` is an API-level concept of the Ledger API.
@@ -1795,10 +1746,10 @@ as the mapping from package-name to package ID for all known package-names on th
 
 The package preference is needed at each command submission time and is assembled from two sources:
 
-- The **default** package preference of the Ledger API server to which the command is submitted.
-  This is the exhaustive mapping from package-name to package ID for all known package-names on the participant.
-  If multiple package IDs exist for a package-name, the package ID of the package with the highest
-  version is used.
+- The **default** package preference of the Ledger API server to which the
+  command is submitted.  By default, for each package name the Ledger API picks a
+  package version known by all participants involved in the transaction, if it
+  exists.
 
 - The package-id selection preference list specified in the submitted command's
   :subsiteref:`package_id_selection_preference <com.daml.ledger.api.v2.Commands.package_id_selection_preference>` in a command submission.
@@ -1812,13 +1763,6 @@ The package preference is needed at each command submission time and is assemble
       meaning that it must not contain two package-ids pointing to
       packages with the same package-name, as otherwise the submission will fail with
       an ``INVALID_ARGUMENT`` error.
-
-.. note::
-    **Important**: DAR uploads change the package preference on the participant.
-    If a new uploaded DAR contains an upgradable (LF >= 1.17) package with a higher version
-    than the existing package preference for the same package name,
-    the default preference is updated to the new package ID.
-    Essentially, this affects the Daml code version used in command submissions.
 
 .. _dynamic-package-resolution-in-command-submission:
 
@@ -1852,7 +1796,7 @@ dynamic and it widens with each uploaded template/package.
 Example
 ~~~~~~~
 
-Given the following packages with LF 1.17 existing on the participant
+Given the following packages existing on the participant
 node:
 
 -  Package AppV1
@@ -1874,36 +1818,6 @@ node:
 If a transaction query is created with a templateId specified as
 ``#app1:mod:T``, then the events stream will include events from both
 template-ids: ``pkgId1:mod:T`` and ``pkgId2:mod:T``
-
-Migrating to SCU
-================
-
-SCU is only supported on LF1.17, which in turn is only supported on
-Canton Protocol Version 7. Existing deployed contracts
-require migration and redeployment to use this feature.
-See :brokenref:`here <upgrade_to_2.10>` for the migration guide to 2.10 and Protocol Version 7
-
-First you must migrate your Daml model to be compatible with
-upgrades; see `Best Practices <#best-practices>`__ for what to
-change here. Pay particular attention to the case of interfaces and
-exceptions, as failure to do so could lead to packages which are
-incompatible with SCU and require the use of another full migration (and
-downtime).
-
-Next, be aware of the new package-name scoping rules, and
-ensure that your package set does not violate them. In short, LF1.17 packages
-with the same package name are unified under SCU, so you should ensure that
-all of your packages that are not intended to be direct upgrades of each other
-have unique package names.
-Note also that only one package for each version
-can exist within a given package name.
-LF1.15 packages are not subject to this restriction, and can exist alongside LF1.17
-packages.
-
-Once you have your new DARs, you need to upgrade your Canton and
-protocol version together, since 2.10 introduces a new protocol version.
-The steps to achieve this are given in the :brokenref:`Canton Upgrading
-manual <one_step_migration>`.
 
 .. _upgrades-best-practices:
 
@@ -1943,7 +1857,7 @@ upgrade, leaving the template ``T`` non-upgradeable.
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: main
   version: 1.0.0
   source: Main.daml
@@ -1951,7 +1865,7 @@ upgrade, leaving the template ``T`` non-upgradeable.
   - daml-prim
   - daml-stdlib
   build-options:
-  - --target=1.17
+  - --target=2.1
 
 The SCU type checker emits an error and refuses to compile this module:
 
@@ -1981,7 +1895,7 @@ it as two packages, ``helper`` and ``main``:
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: helper
   version: 1.0.0
   source: Helper.daml
@@ -1989,7 +1903,7 @@ it as two packages, ``helper`` and ``main``:
   - daml-prim
   - daml-stdlib
   build-options:
-  - --target=1.17
+  - --target=2.1
 
 .. code:: daml
 
@@ -2002,7 +1916,7 @@ it as two packages, ``helper`` and ``main``:
 
 .. code:: yaml
 
-  sdk-version: 2.10.0
+  sdk-version: 3.3.0
   name: main
   version: 1.0.0
   source: Main.daml
@@ -2012,17 +1926,9 @@ it as two packages, ``helper`` and ``main``:
   data-dependencies:
   - <path to helper DAR>
   build-options:
-  - --target=1.17
+  - --target=2.1
 
 To manage the complexity of working with multiple packages at once, we recommend using :ref:`multi-package builds <multi-package-build>`.
-
-Remove Retroactive Instances
-----------------------------
-
-SCU is not compatible with retroactive interface instances, so if you are migrating to SCU from an LF1.15
-project that uses retroactive instances, you must move the instances to their respective templates
-during the migration.
-See `Limitations <#limitations>`__ for more information.
 
 Avoid Contract Metadata Changes
 -------------------------------
@@ -2069,58 +1975,6 @@ You would need to manually migrate values from ``main-v1`` packages to
 ``main-v2``.
 
 .. todo: add reference to migration upgrade tool or automation
-
-
-Avoid Depending on LF 1.15 Packages
------------------------------------
-
-Smart contract upgrades were only enabled in LF 1.17. This means that packages
-of previous LF versions, namely <= LF 1.15, are not upgradeable. By extension,
-their datatypes and templates are not upgradeable.
-
-This means that datatypes in an LF 1.17 package with fields that use datatyps
-from an LF 1.15 dependency cannot ever upgrade those datatypes, so that package remains a dependency forever.
-
-As an example, assume we have three packages:
-* ``main``, which uses LF 1.17, with module ``Main``
-* ``dep1``, which uses LF 1.15, with module ``Dep1``
-* ``dep2``, which uses LF 1.17, with module ``Dep2``
-
-.. code:: daml
-
-  module Main where
-
-  import qualified Dep1
-  import qualified Dep2
-
-  data MyData = MyData
-    { field1: Dep1.D
-    , field2: Dep2.D
-    , field3: (Dep1.D, Dep2.D)
-    }
-
-Because datatype ``Dep1.D`` comes from an LF 1.15 dependency, it cannot be
-upgraded, and so ``field1`` and the second element of ``field3`` can never be
-changed. However, ``field2`` and the first element of ``field3`` can be upgraded
-as new upgraded versions of ``dep2`` become available.
-
-If you compile ``main``, you can expect a warning about the use of an LF 1.15
-package's datatype in the definition of ``MyData``.
-
-.. code:: bash
-
-  > daml build
-  ...
-  warning while type checking data type Main.MyData:
-    This package has LF version 1.17, but it depends on a serializable type <dep1 package ID>:Dep1:D from package <dep 1 package ID> (dep1, 1.0.0) which has LF version 1.15.
-
-    We do not recommend that >= LF1.17 packages depend on <= LF1.15 datatypes in places that may be serialized to the ledger, because those datatypes are not upgradeable.
-    Upgrade this warning to an error -Werror=upgrade-serialized-non-upgradeable-dependency
-    Remove this warning with -Wno-upgrade-serialized-non-upgradeable-dependency
-
-**Note:** For added safety, you may upgrade these warnings to errors with
-``-Werror=upgrade-serialized-non-upgradeable-dependency``. We recommend against removing these
-warnings with ``-Wno-upgrade-serialized-non-upgradeable-dependency``.
 
 .. _upgrade-dont-upload-daml-script:
 
@@ -2323,7 +2177,7 @@ prefer full `Workflow Testing <#workflow-testing>`__.
 
 We recommend placing your Daml Script tests
 in a separate package which depends on all versions of your business logic when testing your upgrades with Daml Script. This testing
-package should not be uploaded to the ledger if possible, as it depends on the ``daml-script-lts`` package.
+package should not be uploaded to the ledger if possible, as it depends on the ``daml-script`` package.
 This package emits a warning on the participant when uploaded, as it serves no purpose on a participant,
 cannot be fully removed (as with any package), and may not be uploadable to the
 ledger in future versions (Daml 3). More information about this limitation :ref:`here <upgrade-dont-upload-daml-script>`.
@@ -2537,8 +2391,7 @@ SCU Support in Daml Tooling
 Codegen
 -------
 
-For packages that support SCU (i.e. LF1.17), generated code uses
-package names in place of package IDs in template IDs. Retrieved data
+Generated code uses package names in place of package IDs in template IDs. Retrieved data
 from the ledger is subject to the upgrade transformations described
 in previous sections.
 
@@ -2587,14 +2440,8 @@ the following:
 JSON Ledger API
 ---------------
 
-Template IDs may still be used with a package ID; however,
-for packages built as LF 1.17 or greater, the package may also be
-identified by name. That is to say, for upgradable packages a template ID can have
-the form ``#<package-name>:<module-name>:<template-name>``, and this is
-resolved to corresponding templates from all packages which share this
-name and are built at 1.17 or above. For packages built at LF 1.15,
-the templates are not identifiable via a package name, and a
-package ID must be used.
+Packages can be addressed both by package ID and by package name in the
+interaction with the JSON Ledger API.
 
 Note: template IDs in query results always use a package ID. This
 allows you to distinguish the source of a particular contract. This means
@@ -2634,10 +2481,6 @@ ledger using package name to create an integrated view of all versions of contra
 Daml-Script
 -----------
 
-Daml 2.10 introduces a new version of Daml Script which can be used by
-depending on ``daml-script-lts`` in your ``daml.yaml``, as described
-in `Writing your first upgrade <#writing-your-first-upgrade>`__. This version of Daml Script
-supports upgrades over the Ledger API.
 
 All commands and queries in this version of Daml Script now use
 upgrades/downgrades automatically to ensure that they exercise the correct versions

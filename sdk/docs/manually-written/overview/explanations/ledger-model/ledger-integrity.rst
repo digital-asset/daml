@@ -6,7 +6,7 @@
 Integrity
 #########
 
-.. note::
+.. wip::
 
    * Key consistency (should be transaction-internal only: consistent lookups)
 

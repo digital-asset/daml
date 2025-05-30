@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _testing-using-script:
+.. _test-using-scripts:
 
 Test templates using Daml scripts
 =================================
@@ -17,7 +17,7 @@ In this section we test the ``Token`` model from :doc:`contracts` using the :ref
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro2`` by running ``daml new intro2 --template daml-intro-2``
+  Remember that you can load all the code for this section into a folder called ``intro2`` by running ``daml new intro-daml-scripts  --template daml-intro-daml-scripts``
 
 .. script_basics:
 
@@ -28,7 +28,7 @@ A ``Script`` is like a recipe for a test, letting you create a scenario where di
 
 Below is a basic script that creates a ``Token`` for a party called "Alice":
 
-.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
+.. literalinclude:: daml/daml-intro-daml-scripts/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_1_BEGIN
   :end-before: -- TOKEN_TEST_1_END
@@ -61,7 +61,6 @@ There are a few ways to run Daml Scripts:
 - In Daml Studio against a test ledger, providing visualizations of the resulting ledger.
 - Using the command line ``daml test`` also against a test ledger, useful for continuous integration.
 - Against a real ledger. See the documentation for :ref:`Daml Script <daml-script>` for more information.
-- Interactively using :brokenref:`Daml REPL (Deprecated) </daml-repl/index>`.
 
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on that text to display the outcome of the script.
 
@@ -94,7 +93,7 @@ Test for failure
 
 In :doc:`contracts` you learned that creating a ``Token`` requires the authority of its owner. In other words, it should not be possible for Alice to create a token for another party, e.g. Bob, or vice versa. A reasonable attempt to test that would be:
 
-.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
+.. literalinclude:: daml/daml-intro-daml-scripts/daml/Token_Test.daml
   :language: daml
   :start-after: -- FAILURE_TEST_1_BEGIN
   :end-before: -- FAILURE_TEST_1_END
@@ -108,7 +107,7 @@ The script failed, as expected, but scripts abort at the first failure. This mea
 
 To test for failing submits and keep the script running thereafter, or fail if the submission succeeds, you can use the ``submitMustFail`` function:
 
-.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
+.. literalinclude:: daml/daml-intro-daml-scripts/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_2_BEGIN
   :end-before: -- TOKEN_TEST_2_END
@@ -138,7 +137,7 @@ To ``archiveCmd`` the token Alice has created, you need the contract id. Retriev
 
 This script first checks that Bob cannot archive Alice's token. Then Alice successfully archives it:
 
-.. literalinclude:: daml/daml-intro-2/daml/Token_Test.daml
+.. literalinclude:: daml/daml-intro-daml-scripts/daml/Token_Test.daml
   :language: daml
   :start-after: -- TOKEN_TEST_3_BEGIN
   :end-before: -- TOKEN_TEST_3_END
