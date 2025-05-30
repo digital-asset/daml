@@ -37,8 +37,8 @@ For more details on compiling your DAR file, see :ref:`How to
 build Daml Archive (.dar) files <build_howto_build_dar_files>`
 
 Once you've built your DAR file, you may want to check out
-:ref:`Manage Daml packages and archive
-<manage-daml-packages-and-archives>` for guidance on loading it into
+:externalref:`Manage Daml packages and archive
+<_manage-daml-packages-and-archives>` for guidance on loading it into
 your participant.
 
 Next up
