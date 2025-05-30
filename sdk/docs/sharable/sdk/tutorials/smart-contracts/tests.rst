@@ -14,7 +14,6 @@ Specifically we will cover:
 - The choice coverage
 
 Note that this section only covers testing your Daml contracts.
-For more holistic application testing, please refer to :brokenref:`/getting-started/testing`.
 
 .. hint::
 
@@ -65,8 +64,9 @@ Test templates with Daml Scripts
 
 :ref:`Daml Script <daml-script>` is the main tool to test Daml contracts.
 In a script, you can submit commands and queries from multiple parties on a fresh, initially empty, ledger.
+
 .. TODO https://github.com/DACH-NY/docs-website/issues/398 to fix the broken ref
-:brokenref:`daml-script-ref` provides you with a detailed overview of all the commands and queries available in the Daml Script library.
+   `daml-script-ref` provides you with a detailed overview of all the commands and queries available in the Daml Script library.
 
 There are two main ways to run a Daml Script:
 - Click the ``Script results`` lens in VS Code: it provides the table and transaction views, which are useful for debugging.
@@ -146,6 +146,7 @@ For instance the ``testMultiTrade`` executed 28 transactions, to create 12 activ
 
 The second part of the summary is the coverage report.
 It shows you how many templates and choices are tested by the complete set of scripts in the package, in proportion of the total number of templates and choices.
+
 .. TODO: https://github.com/DACH-NY/docs-website/issues/406 to fix the brokenref
 To learn more about Daml test coverage, read the :brokenref:`how-to-daml-test-coverage`.
 
