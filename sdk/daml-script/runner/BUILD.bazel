@@ -101,6 +101,10 @@ da_scala_test(
     ),
     deps = [
         ":script-runner-lib",
+        "//daml-lf/data",
+        "//daml-lf/engine",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
     ],
 )
 

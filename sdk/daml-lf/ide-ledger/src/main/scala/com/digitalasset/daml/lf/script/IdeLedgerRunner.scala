@@ -65,6 +65,7 @@ private[lf] object IdeLedgerRunner {
       result: R,
       value: SValue,
       tx: IncompleteTransaction,
+      timeBoundaries: Option[Time.Range],
   ) extends SubmissionResult[R]
 
   final case class SubmissionError(error: Error, tx: IncompleteTransaction)
@@ -383,7 +384,12 @@ private[lf] object IdeLedgerRunner {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))
                 case Right(r) =>
-                  Commit(r, resultValue, enrich(ledgerMachine.incompleteTransaction))
+                  Commit(
+                    r,
+                    resultValue,
+                    enrich(ledgerMachine.incompleteTransaction),
+                    Some(ledgerMachine.getTimeBoundaries),
+                  )
               }
             case Left(err) =>
               throw err

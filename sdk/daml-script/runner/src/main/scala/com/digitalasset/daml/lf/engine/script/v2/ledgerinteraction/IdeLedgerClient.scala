@@ -610,7 +610,7 @@ class IdeLedgerClient(
           case IdeLedgerRunner.Interruption(continue) =>
             loop(continue())
           case err: IdeLedgerRunner.SubmissionError => Left(err)
-          case commit @ IdeLedgerRunner.Commit(result, _, _) =>
+          case commit @ IdeLedgerRunner.Commit(result, _, _, _) =>
             val referencedParties: Set[Party] =
               result.richTransaction.blindingInfo.disclosure.values
                 .fold(Set.empty[Party])(_ union _)
@@ -735,8 +735,8 @@ class IdeLedgerClient(
         commands,
         optLocation,
       ) match {
-        case Right(IdeLedgerRunner.Commit(result, _, tx)) =>
-          val commandResultPackageIds = commands.flatMap(toCommandPackageIds(_))
+        case Right(IdeLedgerRunner.Commit(result, _, tx, timeBoundaries)) =>
+          val commandResultPackageIds = commands.flatMap(toCommandPackageIds)
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
           def convEvent(
@@ -776,7 +776,8 @@ class IdeLedgerClient(
           val tree = ScriptLedgerClient.TransactionTree(
             transaction.roots.toList
               .zip(commandResultPackageIds)
-              .collect(Function.unlift { case (id, pkgId) => convEvent(id, Some(pkgId)) })
+              .collect(Function.unlift { case (id, pkgId) => convEvent(id, Some(pkgId)) }),
+            timeBoundaries,
           )
           val results = ScriptLedgerClient.transactionTreeToCommandResults(tree)
           if (errorBehaviour == ScriptLedgerClient.SubmissionErrorBehaviour.MustFail)
