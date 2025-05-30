@@ -151,6 +151,6 @@ CLI flags
 =========
 See :ref:`Daml Assistant Flags <daml-assistant-flags>`
 
-Configuration Files
+Configuration files
 ===================
 See :ref:`Daml Asssistant Configuration Files <daml-assistant-config-files>`
