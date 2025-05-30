@@ -92,9 +92,11 @@ This allows the Canton Network to **scale horizontally** by just adding more syn
 
 Continue diving into the elements of the :brokenref:`Canton Network <overview_overview_canton_network>`.
 
-.. we need to add more references to the protocol and the global sync.
+.. todo::
+    we need to add more references to the protocol and the global sync.
+    also, we need to replace / improve below image with a better one.
 
-.. figure:: arch-intro-2b.png
+.. image:: arch-intro-2b.png
    :alt: A network with three synchronizers, including the global sync and four participant nodes, each hosting one or
         more parties. Each participant node can connect to different synchronizers at their own discretion.
 
