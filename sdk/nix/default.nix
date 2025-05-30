@@ -182,6 +182,7 @@ in rec {
 
     # Vale (TODO: use `vale.withStyles` once the nixpkgs snapshot is recent enough)
     vale = pkgs.vale;
+    rst2html = python3.pkgs.docutils;
 
     # Cryptography tooling
     gnupg = pkgs.gnupg;
