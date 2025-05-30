@@ -14,8 +14,10 @@ import Utilities
 template Coin
   with
     owner: Party
+    issuer: Party
     amount: Decimal
   where
+    signatory issuer
     signatory owner
 
     ensure amount > 0.0
@@ -40,6 +42,7 @@ template TransferProposal
     endTime: Time
   where
     signatory coin.owner
+    signatory coin.issuer
     observer newOwner
 
     ensure startTime < endTime
@@ -68,11 +71,11 @@ coinWithTransferWindow : Script ()
 coinWithTransferWindow =
   script do
 
-    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
 
     --test 1: owner's coin fails to transfer to a new owner until the transfer time window has started
 
-    coin1 <- owner `submit` do createCmd Coin with owner; amount=100.0
+    coin1 <- owner `submit` do createCmd Coin with owner; issuer; amount=100.0
 
     t1 <- getTime
     transferProposal1 <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; startTime=addRelTime t1 (minutes 5); duration=minutes 5
@@ -88,7 +91,7 @@ coinWithTransferWindow =
 
     --test 3: owner's coin fails to transfer to a new owner after the transfer time window has expired
 
-    coin3 <- owner `submit` do createCmd Coin with owner; amount=300.0
+    coin3 <- owner `submit` do createCmd Coin with owner; issuer; amount=300.0
 
     t3 <- getTime
     transferProposal3 <- owner `submit` do exerciseCmd coin3 Transfer with newOwner; startTime=addRelTime t3 (minutes 5); duration=minutes 5

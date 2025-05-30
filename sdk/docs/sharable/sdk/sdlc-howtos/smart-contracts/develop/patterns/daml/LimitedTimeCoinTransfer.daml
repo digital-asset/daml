@@ -13,8 +13,10 @@ import Utilities
 template Coin
   with
     owner: Party
+    issuer: Party
     amount: Decimal
   where
+    signatory issuer
     signatory owner
 
     ensure amount > 0.0
@@ -37,6 +39,7 @@ template TransferProposal
     timeLimit: Time
   where
     signatory coin.owner
+    signatory coin.issuer
     observer newOwner
 
     choice WithdrawTransfer : ContractId Coin
@@ -57,11 +60,11 @@ limitedTimeCoinTransfer : Script ()
 limitedTimeCoinTransfer =
   script do
 
-    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
 
     --test 1: owner's coin is transferred to a new owner within a 5 minutes
 
-    coin <- owner `submit` do createCmd Coin with owner; amount=100.0
+    coin <- owner `submit` do createCmd Coin with owner; issuer; amount=100.0
 
     t0 <- getTime
     transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t0 (minutes 5)
@@ -70,7 +73,7 @@ limitedTimeCoinTransfer =
 
     --test 2: owner's coin is fails to transfer to a new owner after a 5 minute time limit has passed
 
-    coin <- owner `submit` do createCmd Coin with owner; amount=150.0
+    coin <- owner `submit` do createCmd Coin with owner; issuer; amount=150.0
 
     t1 <- getTime
     transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t0 (minutes 5)

@@ -12,8 +12,10 @@ import Utilities
 template Coin
   with
     owner: Party
+    issuer: Party
     amount: Decimal
   where
+    signatory issuer
     signatory owner
 
     ensure amount > 0.0
@@ -35,6 +37,7 @@ template TransferProposal
     newOwner: Party
   where
     signatory coin.owner
+    signatory coin.issuer
     observer newOwner
 -- END_PROPOSAL_TEMPLATE
 
@@ -57,11 +60,11 @@ simpleCoinTransfer : Script ()
 simpleCoinTransfer =
   script do
 
-    [owner, newOwner] <- makePartiesFrom ["Me", "You"]
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
 
     --test 1: owner's coin is transferred to a new owner
 
-    coin <- owner `submit` do createCmd Coin with owner; amount=100.0
+    coin <- owner `submit` do createCmd Coin with owner; issuer; amount=100.0
 
     transferProposal <- owner `submit` do exerciseCmd coin Transfer with newOwner
 
