@@ -13,7 +13,7 @@ If you no longer have your :doc:`compose` and :doc:`dependencies` projects set u
 
 .. note::
 
-  There is a project template ``daml-intro-10`` for this chapter, but it only contains a single source file with the code snippets embedded in this section.
+  There is a project template ``daml-intro-functional-101`` for this chapter, but it only contains a single source file with the code snippets embedded in this section.
 
 .. _haskell-connection:
 
@@ -43,7 +43,7 @@ In :doc:`data` you learnt about one half of Daml's type system: Data types. It's
 
 For example, the function signature ``Int -> Int`` maps an integer to another integer. There are many such functions, but one would be:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- INCREMENT_BEGIN
   :end-before: -- INCREMENT_END
@@ -52,7 +52,7 @@ You can see here that the function declaration and the function definitions are 
 
 In the case of ``increment`` it could have been omitted. Similarly, we could define a function ``add`` without a declaration:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- ADD_BEGIN
   :end-before: -- ADD_END
@@ -64,7 +64,7 @@ If you do this, and wonder what type the compiler has inferred, you can hover ov
 
 What you see here is a slightly more complex signature:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- ADD_SIG_BEGIN
   :end-before: -- ADD_SIG_END
@@ -81,7 +81,7 @@ Let's start by looking at the right hand part ``a -> a -> a``. The ``->`` is rig
 
 And this is indeed what happens. We can define a different version of ``increment`` by *partially applying* ``add``:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- INCREMENT2_BEGIN
   :end-before: -- INCREMENT2_END
@@ -95,21 +95,21 @@ Infix functions
 
 Now ``add`` is clearly just an alias for ``+``, but what is ``+``? ``+`` is just a function. It's only special because it starts with a symbol. Functions that start with a symbol are *infix* by default which means they can be written between two arguments. That's why we can write ``1 + 2`` rather than ``+ 1 2``. The rules for converting between normal and infix functions are simple. Wrap an infix function in parentheses to use it as a normal function, and wrap a normal function in backticks to make it infix:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- INFIX_BEGIN
   :end-before: -- INFIX_END
 
 With that knowledge, we could have defined ``add`` more succinctly as the alias that it is:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- ADD2_BEGIN
   :end-before: -- ADD2_END
 
 If we want to partially apply an infix operation we can also do that as follows:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- INFIX2_BEGIN
   :end-before: -- INFIX2_END
@@ -147,21 +147,21 @@ Pattern matching in arguments
 
 You met pattern matching in :doc:`data`, using ``case`` expressions which is one way of pattern matching. However, it can also be convenient to do the pattern matching at the level of function arguments. Think about implementing the function ``uncurry``:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- UNCURRY_SIG_BEGIN
   :end-before: -- UNCURRY_SIG_END
 
 ``uncurry`` takes a function with two arguments (or more, since ``c`` could be a function), and turns it into a function from a 2-tuple to ``c``. Here are three ways of implementing it, using tuple accessors, ``case`` pattern matching, and function pattern matching:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- UNCURRY_BEGIN
   :end-before: -- UNCURRY_END
 
 Any pattern matching you can do in ``case`` you can also do at the function level, and the compiler helpfully warns you if you did not cover all cases, which is called "non-exhaustive".
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- FROM_SOME_BEGIN
   :end-before: -- FROM_SOME_END
@@ -198,7 +198,7 @@ Functions everywhere
 
 You have probably already guessed it: Anywhere you can put a value in Daml you can also put a function. Even inside data types:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- FUNCTION_IN_DATA_BEGIN
   :end-before: -- FUNCTION_IN_DATA_END
@@ -242,7 +242,7 @@ If-else expression
 
 :doc:`constraints` also showed a seemingly self-explanatory ``if ... else`` expression, but didn't explain it further. Let's implement the function ``boolToInt : Bool -> Int`` which in typical fashion maps ``True`` to ``1`` and ``False`` to ``0``. Here is an implementation using ``case``:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- BOOL_TO_INT_BEGIN
   :end-before: -- BOOL_TO_INT_END
@@ -261,7 +261,7 @@ If you write this function in the IDE, you'll get a warning from the linter:
 
 The linter knows the equivalence and suggests a better implementation:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- BOOL_TO_INT2_BEGIN
   :end-before: -- BOOL_TO_INT2_END
@@ -273,7 +273,7 @@ Control flow as expressions
 
 ``case`` and ``if ... else`` expressions really are control flow in the sense that they short-circuit:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- TEXT_TO_BOOL_BEGIN
   :end-before: -- TEXT_TO_BOOL_END
@@ -282,7 +282,7 @@ This function behaves as you would expect: the error only gets evaluated if an i
 
 This is different from functions, where all arguments are evaluated immediately:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- IFELSE_BEGIN
   :end-before: -- IFELSE_END
@@ -291,14 +291,14 @@ In the above, ``boom`` is an error.
 
 While providing proper control flow, ``case`` and ``if ... else`` expressions do result in a value when evaluated. You can actually see that in the function definitions above. Since each of the functions is defined just as a ``case`` or ``if ... else`` expression, the value of the evaluated function is just the value of the ``case`` or ``if ... else`` expression. Values have a type: the ``if ... else`` expression in ``boolToInt2`` has type ``Int`` as that is what the function returns; similarly, the ``case`` expression in ``doError`` has type ``Bool``. To be able to give such expressions an unambiguous type, each branch needs to have the same type. The below function does not compile as one branch tries to return an ``Int`` and the other a ``Text``:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- TYPE_ERROR_BEGIN
   :end-before: -- TYPE_ERROR_END
 
 If we need functions that can return two (or more) types of things we need to encode that in the return type. For two possibilities, it's common to use the ``Either`` type:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- INT_OR_TEXT_BEGIN
   :end-before: -- INT_OR_TEXT_END
@@ -310,14 +310,14 @@ Branches in actions
 
 The most common case where this becomes important is inside ``do`` blocks. Say we want to create a contract of one type in one case, and of another type in another case. Let's say we have two template types and want to write a function that creates an ``S`` if a condition is met, and a ``T`` otherwise.
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- S_T_BEGIN
   :end-before: -- S_T_END
 
 It would be tempting to write a simple ``if ... else``, but it won't typecheck if each branch returns a different type:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- TYPE_ERROR2_BEGIN
   :end-before: -- TYPE_ERROR2_END
@@ -327,42 +327,42 @@ We have two options:
 1. Use the ``Either`` trick from above.
 2. Get rid of the return types.
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- S_OR_T_BEGIN
   :end-before: -- S_OR_T_END
 
 The latter is so common that there is a utility function in ``DA.Action`` to get rid of the return type: ``void : Functor f => f a -> f ()``.
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- VOID_BEGIN
   :end-before: -- VOID_END
 
 ``void`` also helps express control flow of the type "Create a ``T`` only if a condition is met.
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- CUSTOM_WHEN_BEGIN
   :end-before: -- CUSTOM_WHEN_END
 
 Note that we still need the ``else`` clause of the same type ``()``. This pattern is so common, it's encapsulated in the standard library function ``DA.Action.when : (Applicative f) => Bool -> f () -> f ()``.
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- WHEN_BEGIN
   :end-before: -- WHEN_END
 
 Despite ``when`` looking like a simple function, the compiler does some magic so that it short-circuits evaluation just like ``if ... else`` and ``case``. The following ``noop`` function is a no-op (i.e. "does nothing"), not an error as one might otherwise expect:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- MAGIC_WHEN_BEGIN
   :end-before: -- MAGIC_WHEN_END
 
 With ``case``, ``if ... else``, ``void`` and ``when``, you can express all branching. However, one additional feature you may want to learn is guards. They are not covered here, but can help avoid deeply nested ``if ... else`` blocks. Here's just one example. The Haskell sources at the beginning of the chapter cover this topic in more depth.
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- TELL_SIZE_BEGIN
   :end-before: -- TELL_SIZE_END
@@ -411,7 +411,7 @@ Folds correspond to looping with an explicit iterator: ``for`` and ``forEach`` l
 
 Let's give the type parameters semantic names. ``b`` is the state, ``a`` is an item. ``foldl``\ s first argument is a function which takes a state and an item, and returns a new state. That's the equivalent of the inner block of the ``forEach``. It then takes a state, which is the initial state, and a list of items, which is the iterator. The result is again a state. The ``sum`` function above can be translated to Daml almost instantly with those correspondences in mind:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- SUM_BEGIN
   :end-before: -- SUM_END
@@ -435,14 +435,14 @@ Translating the ``for`` into a ``forEach`` is easy if you can get your hands on 
 
 Daml also has an operator ``(!!) : [a] -> Int -> a`` which returns an element in a list. You may now be tempted to write ``sumArrs`` like this:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- SUM_ARR_BEGIN
   :end-before: -- SUM_ARR_END
 
 Unfortunately, that's not a very good approach. Lists in Daml are linked lists, which makes access using ``(!!)`` too slow for this kind of iteration. A better approach in Daml is to get rid of the ``i`` altogether and instead merge the lists first using the ``zip`` function, and then iterate over the "zipped" up lists:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- SUM_ARR2_BEGIN
   :end-before: -- SUM_ARR2_END
@@ -454,7 +454,7 @@ Maps
 
 In effect, the lambda passed to ``foldl`` only "wants" to act on a single element of the (zipped-up) input list, but still has to manage the concatenation of the whole state. Acting on each element separately is a common-enough pattern that there is a specialized function for it: ``map : (a -> b) -> [a] -> [b]``. Using it, we can rewrite ``sumArr`` to:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- SUM_ARR3_BEGIN
   :end-before: -- SUM_ARR3_END
@@ -466,7 +466,7 @@ Recursion
 
 If there is no explicit iterator, you can use recursion. Let's try to write a function that reverses a list, for example. We want to avoid ``(!!)`` so there is no sensible iterator here. Instead, we use recursion:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- REVERSE_BEGIN
   :end-before: -- REVERSE_END
@@ -487,7 +487,7 @@ Here we have a list of relationships (type ``[Relationship]``) and a function ``
 
 Intuitively, it's clear how to fix this: we want the compound action consisting of performing each of the actions in the list in turn. There's a function for that: ``sequence : : Applicative m => [m a] -> m [a]``. It implements that intuition and allows us to "take the ``Update`` out of the list", so to speak. So we could write ``sequence (map setupRelationship rels)``. This is so common that it's encapsulated in the ``mapA`` function, a possible implementation of which is
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- MAPA_BEGIN
   :end-before: -- MAPA_END
@@ -496,7 +496,7 @@ The ``A`` in ``mapA`` stands for "Action", and you'll find that many functions t
 
 To improve your familiarity with these concepts, try implementing ``foldlA`` in terms of ``foldl``, as well as ``sequence`` and ``mapA`` using recursion or ``foldr``. Here is one set of possible implementations:
 
-.. literalinclude:: daml/daml-intro-10/daml/Main.daml
+.. literalinclude:: daml/daml-intro-functional-101/daml/Main.daml
   :language: daml
   :start-after: -- IMPLEMENTATIONS_BEGIN
   :end-before: -- IMPLEMENTATIONS_END
