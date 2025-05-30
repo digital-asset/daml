@@ -18,7 +18,7 @@ See :ref:`How to work with contracts and transactions in Java <howto-application
 Install
 -------
 
-Install the Daml Codegen for Java by :brokenref:`installing the Daml Assistant <Install section of Daml Assistant>`.
+Install the Daml Codegen for Java by :ref:`installing the Daml Assistant <daml-assistant-install>`.
 
 Configure
 ---------
