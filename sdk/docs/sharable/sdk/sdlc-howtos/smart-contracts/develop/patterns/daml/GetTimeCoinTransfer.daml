@@ -3,11 +3,9 @@
 
 {-# LANGUAGE PartialTypeSignatures #-}
 
-module LimitedTimeCoinTransfer where
+module GetTimeCoinTransfer where
 
 import Daml.Script
-import DA.Assert (assertWithinDeadline)
-import DA.Time (addRelTime, minutes)
 import Utilities
 
 template Coin
@@ -21,7 +19,7 @@ template Coin
 
     ensure amount > 0.0
 
--- BEGIN_LIMITED_TIME_COIN_TRANSFER
+-- BEGIN_GET_TIME_TRANSFER
     choice Transfer : ContractId TransferProposal
       with
         newOwner: Party
@@ -29,9 +27,8 @@ template Coin
       controller owner
       do create TransferProposal
             with coin=this; newOwner; timeLimit
--- END_LIMITED_TIME_COIN_TRANSFER
+-- END_GET_TIME_TRANSFER
 
--- TransferProposal contract needs additional logic to time limit when transfers are accepted
 template TransferProposal
   with
     coin: Coin
@@ -47,22 +44,28 @@ template TransferProposal
       do
         create coin
 
--- BEGIN_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+-- BEGIN_GET_TIME_ACCEPT_TRANSFER
     choice AcceptTransfer : ContractId Coin
       controller newOwner
       do
-        assertWithinDeadline "time-limited-transfer" timeLimit
+        t <- getTime
+        _ <- unless (t < timeLimit) $ failWithStatus $
+                       FailureStatus
+                         "deadline-exceeded"
+                         InvalidGivenCurrentSystemStateOther
+                         ("Ledger time is after deadline " <> show timeLimit)
+                         (TextMap.fromList [("timeLimit", show timeLimit)])
         create coin with owner = newOwner
--- END_LIMITED_TIME_ACCEPT_COIN_TRANSFER
+-- END_GET_TIME_ACCEPT_TRANSFER
 
 -- test
-limitedTimeCoinTransfer : Script ()
-limitedTimeCoinTransfer =
+getTimeCoinTransfer : Script ()
+getTimeCoinTransfer =
   script do
 
     [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
 
-    --test 1: owner's coin is transferred to a new owner within a 5 minutes
+    --test 1: owner's coin is transferred to a new owner within 5 minutes
 
     coin <- owner `submit` do createCmd Coin with owner; issuer; amount=100.0
 
