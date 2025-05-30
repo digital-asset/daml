@@ -4,30 +4,153 @@
 Test Daml contracts
 ===================
 
-This chapter is all about testing and debugging the Daml contracts you've built using the tools from earlier chapters. You've already met Daml Script as a way of testing your code inside the IDE. In this chapter you'll learn about more ways to test with Daml Script and its other uses, as well as other tools you can use for testing and debugging. You'll also learn about a few error cases that are most likely to crop up only in actual distributed testing, and which need some care to avoid. Specifically we will cover:
+This chapter is about testing and debugging the Daml contracts you've built using the tools from earlier chapters.
+You've already met Daml Script as a way of testing your code inside the IDE.
+In this chapter you'll learn about more ways to run Daml Scripts, as well as other tools you can use for testing and debugging.
+Specifically we will cover:
 
-- Daml test tooling - Daml Script
-- The choice coverage
+- Running Daml Scripts to test and debug templates
 - The ``trace`` and ``debug`` functions
-- Contention
+- The choice coverage
 
-Note that this section only covers testing your Daml contracts. For more holistic application testing, please refer to :brokenref:`/getting-started/testing`.
+Note that this section only covers testing your Daml contracts.
 
-If you no longer have your projects set up, load all the code for this parts 1 and 2 of this section into two folders ``intro12-part1`` and ``intro12-part2``, by running ``daml new intro12-part1 --template daml-intro-12-part1`` and ``daml new intro12-part2 --template daml-intro-12-part2``.
+.. hint::
 
-Daml test tooling
------------------
+  Remember that you can load all the code for this section into a folder called ``intro12`` by running ``daml new intro12 --template daml-intro-12``
 
-There are three primary tools available in the SDK to test and interact with Daml contracts. It is highly recommended to explore the respective docs. The :doc:`dependencies` model lends itself well to being tested using these tools.
+Multi-package project structure
+-------------------------------
 
-:ref:`daml-script`
+In :ref:`project-structures` you learned that it is important to keep the scripts and templates in separate packages.
+The project for this section is a multi-package build, containing all the code from :ref:`compose` and :ref:`dependencies`.
+The folder structure looks like this:
 
-   :ref:`daml-script` should be familiar by now. It's a way to script commands and queries from multiple parties against a Daml Ledger. Unless you've browsed other sections of the documentation already, you have probably used it mostly in the IDE. However, Daml Script can do much more than that. It has four different modes of operation:
+.. code-block:: none
 
-   1. Run on a special script service in the IDE, providing the script views.
-   2. Run the script service via the Daml assistant, which is useful for quick regression testing.
-   3. Start a sandbox and run against that for regression testing against an actual Ledger API.
-   4. Run against any other already running ledger.
+  .
+  ├── asset
+  ├── asset-tests
+  ├── multi-trade
+  ├── multi-trade-tests
+  └── multi-package.yaml
+
+``asset``, ``asset-tests``, ``multi-trade`` and ``multi-trade-tests`` are packages.
+They each contain there own ``daml.yaml`` file.
+``asset`` contains the code for the ``Asset`` and ``Trade`` templates.
+The scripts for testing ``Asset`` and ``Trade`` are in the ``asset-tests`` package, which depends on ``asset``.
+Contrary to ``asset-tests``, ``asset`` is meant to be uploaded to a Canton ledger.
+
+Similarly ``multi-trade`` contains the ``MultiTrade`` template, and ``multi-trade-tests`` contains the corresponding scripts.
+
+``multi-package.yaml`` is the multi-package configuration.
+It allows the Daml Assistant to orchestrate the build of each sub-package.
+It contains the list of sub-packages:
+
+.. code-block:: yaml
+
+  packages:
+  - ./asset
+  - ./asset-tests
+  - ./multi-trade
+  - ./multi-trade-tests
+
+Run ``daml build --all`` at the root of the multi-package project, to build all sub-packages.
+Or you can run ``daml build`` in any of the sub-package. It detects the dependencies, and build them in the correct order.
+For instance, running ``daml build`` in ``multi-trade-tests`` triggers the build of ``asset``, ``multi-trade`` and ``multi-trade-tests`` in that order.
+
+Test templates with Daml Scripts
+--------------------------------
+
+:ref:`Daml Script <daml-script>` is the main tool to test Daml contracts.
+In a script, you can submit commands and queries from multiple parties on a fresh, initially empty, ledger.
+
+.. TODO https://github.com/DACH-NY/docs-website/issues/398 to fix the broken ref
+   `daml-script-ref` provides you with a detailed overview of all the commands and queries available in the Daml Script library.
+
+There are two main ways to run a Daml Script:
+- Click the ``Script results`` lens in VS Code: it provides the table and transaction views, which are useful for debugging.
+- Run the ``daml test`` command of the Daml assistant, which is useful for regression checks and coverage.
+
+Run a script in VS Code
+~~~~~~~~~~~~~~~~~~~~~~~
+
+In :ref:`test-using-scripts`, you learned how to write and run a Daml Script in VS Code.
+
+As a refresher, find a script in the ``asset-tests`` or ``multi-trade-tests`` and click the ``Script results`` lens, that appears on top of the script name.
+VS Code should open the table view in a side pane.
+The table view describes the final state of the ledger at the end of the script.
+It shows the list of active contracts, their data, and for each party, if it can see the contract or not.
+Click the ``Show archived`` toggle to see the list of archived contracts.
+
+In the side pane, click the ``Show transaction view`` button to switch to the transaction view.
+It shows you all the transactions, and sub-transactions, executed by the script.
+It also contain the failure message whenever a script fail.
+Try to change the submitting party of an `exerciseCmd` and see if the script is still succeeding.
+
+You can use the table and transaction views in VS Code to better understand the visibility of each contract, and authority of each party.
+
+Run all scripts with the Daml Assistant
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The Daml Assistant can run all the scripts inside a package.
+This is useful for quick regression check, and their automation in the CI.
+
+Open a terminal in the ``multi-trade-tests`` folder and run ``daml test``.
+It should succeed and print the following test summary:
+
+.. code-block:: none
+
+  Test Summary
+
+  daml/Intro/Asset/MultiTradeTests.daml:testMultiTrade: ok, 12 active contracts, 28 transactions.
+  daml/Intro/Asset/TradeSetup.daml:setupRoles: ok, 2 active contracts, 4 transactions.
+  daml/Intro/Asset/TradeSetup.daml:test_issuance: ok, 3 active contracts, 5 transactions.
+  daml/Intro/Asset/TradeSetup.daml:tradeSetup: ok, 6 active contracts, 10 transactions.
+  Modules internal to this package:
+  - Internal templates
+    0 defined
+    0 (100.0%) created
+  - Internal template choices
+    0 defined
+    0 (100.0%) exercised
+  - Internal interface implementations
+    0 defined
+      0 internal interfaces
+      0 external interfaces
+  - Internal interface choices
+    0 defined
+    0 (100.0%) exercised
+  Modules external to this package:
+  - External templates
+    7 defined
+    5 ( 71.4%) created in any tests
+    5 ( 71.4%) created in internal tests
+    0 (  0.0%) created in external tests
+  - External template choices
+    27 defined
+    7 ( 25.9%) exercised in any tests
+    7 ( 25.9%) exercised in internal tests
+    0 (  0.0%) exercised in external tests
+  - External interface implementations
+    0 defined
+  - External interface choices
+    0 defined
+    0 (100.0%) exercised in any tests
+    0 (100.0%) exercised in internal tests
+    0 (100.0%) exercised in external tests
+
+The first part of the summary is a list of each executed script.
+For each script, you can see the total number of transactions, and active contracts at the end of the script.
+For instance the ``testMultiTrade`` executed 28 transactions, to create 12 active contracts.
+
+The second part of the summary is the coverage report.
+It shows you how many templates and choices are tested by the complete set of scripts in the package, in proportion of the total number of templates and choices.
+
+.. TODO: https://github.com/DACH-NY/docs-website/issues/406 to fix the brokenref
+
+To learn more about Daml test coverage, read the :brokenref:`how-to-daml-test-coverage`.
+
 
 Debug, trace, and stacktraces
 -----------------------------
@@ -51,590 +174,3 @@ The above demonstrates nicely how to test the happy path, but what if a function
 If in doubt, use ``debug``. It's the easier of the two to interpret the results of.
 
 The thing in the square brackets is the last location. It'll tell you the Daml file and line number that triggered the printing, but often no more than that because full stacktraces could violate subtransaction privacy quite easily. If you want to enable stacktraces for some purely functional code in your modules, you can use the machinery in :ref:`module-da-stack-24914` to do so, but we won't cover that any further here.
-
-Diagnose contention errors
---------------------------
-
-The above tools and functions allow you to diagnose most problems with Daml code, but they are all synchronous. The sequence of commands is determined by the sequence of inputs. That means one of the main pitfalls of distributed applications doesn't come into play: Contention.
-
-Contention refers to conflicts over access to contracts. Daml guarantees that there can only be one consuming choice exercised per contract so what if two parties simultaneously submit an exercise command on the same contract? Only one can succeed. Contention can also occur due to incomplete or stale knowledge. Maybe a contract was archived a little while ago, but due to latencies, a client hasn't found out yet, or maybe due to the privacy model, they never will. What all these cases have in common is that someone has incomplete knowledge of the state the ledger will be in at the time a transaction will be processed and/or committed.
-
-For in-depth information, see the section on :ref:`Avoiding contention <build-howto-avoid-contention-issues>`.
-
-If we look back at :ref:`execution_model` we'll see there are three places where ledger state is read:
-
-1. A command is submitted by some client, probably looking at the state of the ledger to build that command. Maybe the command includes references to ContractIds that the client believes are active.
-2. During interpretation, ledger state is used to look up active contracts.
-3. During commit, ledger state is again used to look up contracts and validate the transaction by reinterpreting it.
-
-Collisions can occur both between 1 and 2 and between 2 and 3. Only during the commit phase is the complete relevant ledger state at the time of the transaction known, which means the ledger state at commit time is king. As a Daml contract developer, you need to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid collisions by designing contracts appropriately.
-
-Common errors
-~~~~~~~~~~~~~
-
-The most common error messages you'll see are listed below. All of them can be due to one of three reasons.
-
-1. Race conditions - knowledge of a state change is not yet known during command submission
-2. Stale references - the state change is known, but contracts have stale references to keys or ContractIds
-3. Ignorance - due to privacy or operational semantics, the requester doesn't know the current state
-
-Following the possible error messages, we'll discuss a few possible causes and remedies.
-
-ContractId not found during interpretation
-..........................................
-
-.. code-block:: none
-
-  Command interpretation error in the Daml engine: dependency error: couldn't find contract ContractId(004481eb78464f1ed3291b06504d5619db4f110df71cb5764717e1c4d3aa096b9f).
-
-ContractId not found during validation
-......................................
-
-.. code-block:: none
-
-  Disputed: dependency error: couldn't find contract ContractId (00c06fa370f8858b20fd100423d928b1d200d8e3c9975600b9c038307ed6e25d6f).
-
-fetchByKey error during interpretation
-......................................
-
-.. code-block:: none
-
-  Command interpretation error in the Daml engine: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d.
-
-fetchByKey dispute during validation
-....................................
-
-.. code-block:: none
-
-  Disputed: dependency error: couldn't find key com.daml.lf.transaction.GlobalKey@11f4913d
-
-lookupByKey dispute during validation
-......................................
-
-.. code-block:: none
-
-  Disputed: recreated and original transaction mismatch VersionedTransaction(...) expected, but VersionedTransaction(...) is recreated.
-
-Avoid race conditions and stale references
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The first thing to avoid is write-write or write-read contention on contracts. In other words, one requester submitting a transaction with a consuming exercise on a contract while another requester submits another exercise or fetch on the same contract. This type of contention cannot be eliminated entirely, for there will always be some latency between a client submitting a command to a participant, and other clients learning of the committed transaction.
-
-Here are a few scenarios and measures you can take to reduce this type of collision:
-
-1. Shard data. Imagine you want to store a user directory on the ledger. At the core, this is of type ``[(Text, Party)]``, where ``Text`` is a display name and `Party` the associated Party. If you store this entire list on a single contract, any two users wanting to update their display name at the same time will cause a collision. If you instead keep each ``(Text, Party)`` on a separate contract, these write operations become independent from each other.
-
-   The Analogy to keep in mind when structuring your data is that a template defines a table, and a contract is a row in that table. Keeping large pieces of data on a contract is like storing big blobs in a database row. If these blobs can change through different actions, you get write conflicts.
-2. Use nonconsuming choices if you can. Nonconsuming exercises have the same contention properties as fetches: they don't collide with each other.
-
-   Contract keys can seem like a way out, but they are not. Contract keys are resolved to contract IDs during the interpretation phase on the participant node. So it reduces latencies slightly by moving resolution from the client layer to the participant layer, but it doesn't remove the issue. Going back to the auction example above, if Alice sent a command ``exerciseByKey @Auction auctionKey Bid with amount = 100``, this would be resolved to an ``exercise cid Bid with amount = 100`` during interpretation, where ``cid`` is the participant's best guess what ContractId the key refers to.
-3. Avoid workflows that encourage multiple parties to simultaneously try to exercise a consuming choice on the same contract. For example, imagine an ``Auction`` contract containing a field ``highestBid : (Party, Decimal)``. If Alice tries to bid $100 at the same time that Bob tries to bid $90, it doesn't matter that Alice's bid is higher. The second transaction to be sequenced will be rejected as it has a write collision with the first. It's better to record the bids in separate ``Bid`` contracts, which can be written to independently. Again, think about how you would structure this data in a relational database to avoid data loss due to race conditions.
-4. Think carefully about storing ContractIds. Imagine you had created a sharded user directory according to 1. Each user has a ``User`` contract that store their display name and party. Now you write a chat application where each ``Message`` contract refers to the sender by ``ContractId User``. If the user changes their display name, that reference goes stale. You either have to modify all messages that user ever sent, or become unable to use the sender contract in Daml. If you need to be able to make this link inside Daml, contract Keys help here. If the only place you need to link ``Party`` to ``User`` is the UI, it might be best to not store contract references in Daml at all.
-
-Collisions due to ignorance
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The :externalref:`Daml ledger model <da-ledgers>` specifies authorization rules, and privacy rules. Ie it specifies what makes a transaction conformant, and who gets to see which parts of a committed transaction. It does *not* specify how a command is translated to a transaction. This may seem strange at first since the commands - create, exercise, exerciseByKey, createAndExercise - correspond so closely to actions in the ledger model. But the subtlety comes in on the read side. What happens when the participant, during interpretation, encounters a ``fetch``, ``fetchByKey``, or ``lookupByKey``?
-
-To illustrate the problem, let's assume there is a template ``T`` with a contract key, and Alice has witnessed two ``Create`` nodes of a contract of type ``T`` with key ``k``, but no corresponding archive nodes. Alice may not be able to order these two nodes causally in the sense of "one create came before the other". See :brokenref:`/concepts/local-ledger` for an in-depth treatment of causality on Daml Ledgers.
-
-So what should happen now if Alice's participant encounters a ``fetchByKey @T k`` or ``lookupByKey @T k`` during interpretation? What if it encounters a ``fetch`` node? These decisions are part of the operational semantics, and the decision of what should happen is based on the consideration that the chance of a participant submitting an invalid transaction should be minimized.
-
-If a ``fetch`` or ``exercise`` is encountered, the participant resolves the contract as long as it has not witnessed an archive node for that contract - ie as long as it can't guarantee that the contract is no longer active. The rationale behind this is that ``fetch`` and ``exercise`` use ContractIds, which need to come from somewhere: Command arguments, contract arguments, or key lookups. In all three cases, someone believes the ContractId to be active still so it's worth trying.
-
-If a ``fetchByKey`` or ``lookupByKey`` node is encountered, the contract is only resolved if the requester is a stakeholder on an active contract with the given key. If that's not the case, there is no reason to believe that the key still resolves to some contract that was witnessed earlier. Thus, when using contract keys, make sure you make the likely requesters of transactions observers on your contracts. If you don't, ``fetchByKey`` will always fail, and ``lookupByKey`` will always return ``None``.
-
-Let's illustrate how collisions and operational semantics interleave:
-
-1. Bob creates ``T`` with key ``k``. Alice is not a stakeholder.
-2. Alice submits a command resulting in well-authorized ``lookupByKey @T k`` during interpretation. Even if Alice witnessed 1, this will resolve to a ``None`` as Alice is not a stakeholder. This transaction is invalid at the time of interpretation, but Alice doesn't know that.
-3. Bob submits an ``exerciseByKey @T k Archive``.
-4. Depending on which of the transactions from 2 and 3 gets sequenced first, either just 3, or both 2 and 3 get committed. If 3 is committed before 2, 2 becomes valid while in transit.
-
-As you can see, the behavior of ``fetch``, ``fetchByKey``, and ``lookupByKey`` at interpretation time depend on what information is available to the requester at that time. That's something to keep in mind when writing Daml contracts, and something to think about when encountering frequent "Disputed" errors.
-
-Check coverage
------------------
-
-When ``daml test`` runs a set of tests, it analyzes the ledger record from those tests to report template and choice coverage. It calculates what percentage of templates defined in the package were created and what percentage of choices defined in the package were exercised.
-
-You can also save the resulting coverage results for the test set to a file and then read them back into a future report. In an invocation of ``daml test``, you can both read results in and run tests simultaneously in order to generate a final report which aggregates them. More details on the workflows that this enables are detailed in :ref:`save-results-workflows`.
-
-.. figure:: images/tests/coverage_workflow.png
-   :alt: Flow chart visually explaining sources and sinks for coverage results.
-
-Flags controlling test set
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You can control the set of tests run by ``daml test`` using ``--test-pattern PATTERN``, ``--files FILE``, and ``--all``.
-
-* Passing ``--test-pattern <PATTERN>`` runs only the local tests which match ``PATTERN``.
-* Passing ``--files <FILE>`` runs only the tests found in ``FILE``.
-* Enabling ``--all`` runs tests in dependency modules as well. Note: all external tests are run, regardless of the setting in ``test-pattern``; ``test-pattern`` only restricts local tests.
-
-Flags controlling serialization
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-You can save the final coverage results of a ``daml test`` invocation using ``--save-coverage FILE``. This writes the list of templates and choices in scope, along with the list of templates created and choices exercised.
-
-You can read in previous coverage results using ``--load-coverage FILE``. This flag can be set multiple times, in which case the results from each file will be read and aggregated into the final result.
-
-There may be occasions where you only need to aggregate coverage results from files, without running any tests. To do that, use the ``--load-coverage-only`` flag, which ensures that no tests are run.
-
-Flags controlling report
-~~~~~~~~~~~~~~~~~~~~~~~~
-
-Enabling ``--show-coverage`` tells the final printed report to include the names of any templates, choices, and interfaces which are not covered. By default, the report only reports the percentage of coverage.
-
-You can remove choices from the rendered coverage report with ``--coverage-ignore-choice PATTERN``. This flag's behavior is further documented in :ref:`exclude-choices`.
-
-Define templates, choices, and interfaces
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To demonstrate how the coverage report works, we start by defining three dummy templates, ``T1``, ``T2``, and ``T3``. Each template has two dummy choices:
-
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
-  :language: daml
-  :start-after: -- TEMPLATE_DEFINITIONS_START
-  :end-before: -- TEMPLATE_DEFINITIONS_END
-
-We also define an interface ``I`` with instances for ``T1`` and ``T2``:
-
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
-  :language: daml
-  :start-after: -- INTERFACE_DEFINITIONS_START
-  :end-before: -- INTERFACE_DEFINITIONS_END
-
-Start testing
-~~~~~~~~~~~~~
-
-By writing a test which selectively creates and exercises only some of these templates and choices, we will see how the coverage report shows us templates and choices we haven't created and exercised respectively.
-
-To start, the test allocates a single party, ``alice``, which we will use for the whole test:
-
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
-  :language: daml
-  :start-after: -- ALLOCATE_PARTY_START
-  :end-before: -- ALLOCATE_PARTY_END
-
-Template creation coverage
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The coverage report mentions which templates were defined but never created. For example, the following test creates contracts out of only ``T1`` and ``T2``, never creating instances of template ``T3``:
-
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
-  :language: daml
-  :start-after: -- CREATE_TEMPLATES_START
-  :end-before: -- CREATE_TEMPLATES_END
-
-Running ``daml test --show-coverage`` reports how many templates were defined (3), how many were created (2, 66.7%), and the names of those that weren't created (``T3``):
-
-.. code-block::
-
-  > daml test --show-coverage
-  ...
-  Modules internal to this package:
-  - Internal templates
-    3 defined
-    2 ( 66.7%) created
-    internal templates never created: 1
-      Token_Coverage_Part1:T3
-  ...
-
-.. _Template choice exercise coverage:
-
-Template choice exercise coverage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The coverage report also tracks which choices were exercised. For example, the following test exercises the first and second choices of ``T1``, and the second choice of ``T2``. It also archives ``T1``, but not ``T2``.
-
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
-  :language: daml
-  :start-after: -- EXERCISE_TEMPLATES_START
-  :end-before: -- EXERCISE_TEMPLATES_END
-
-``daml test --show-coverage`` reports that the test exercised 4 out of 9 choices, and lists the choices that weren't exercised, including the second choice of ``T2`` and all the choices on ``T3``.
-
-Note that ``Token_Coverage_Part1:T2:Archive`` is included in the list of unexercised choices - because ``t2`` was not archived, its ``Archive`` choice was not run.
-
-.. code-block::
-
-  > daml test --show-coverage
-  ...
-  - Internal template choices
-  9 defined
-  4 ( 44.4%) exercised
-  internal template choices never exercised: 5
-    Token_Coverage_Part1:T2:Archive
-    Token_Coverage_Part1:T2:C_T2_2
-    Token_Coverage_Part1:T3:Archive
-    Token_Coverage_Part1:T3:C_T3_1
-    Token_Coverage_Part1:T3:C_T3_2
-  ...
-
-Interface choice exercise coverage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-The coverage report also tracks interfaces, with two differences:
-* Because interfaces are not created directly but rather cast from templates which implement them, the coverage report cannot not track their creation nor their archival.
-* Because interfaces can be cast from many possible implementing templates, the report tracks interface choices by what interface they are exercised on and which template they were cast from. In the report, these interface choices are formatted as ``<module>:<template>:<choice_name>`` - the ``<choice_name>`` tells us the interface, the ``<template>`` tells us the template type an interface contract was cast from.
-
-The following test creates ``t1`` and ``t2`` as before, but casts them immediately to ``I`` to get two contracts of ``I``: ``t1_i`` via ``T1``, and ``t2_i`` via ``T2``. It exercises both choices on the ``t1_i``, but only the first choice on ``t2_i``.
-
-.. literalinclude:: daml/daml-intro-12-part1/daml/Token_Coverage_Part1.daml
-  :language: daml
-  :start-after: -- EXERCISE_INTERFACES_START
-  :end-before: -- EXERCISE_INTERFACES_END
-
-In the coverage report, there are four detected choices, as expected: two choices for the implementation of ``I`` for ``T1``, and two choices for the implementation of ``I`` for ``T2``. Three were exercised, so the only choice that wasn't exercised was ``C_I_1`` for ``T2``, which is reported as ``Token_Coverage_Part1:T2:C_I_1``.
-
-.. code-block::
-
-  > daml test --show-coverage
-  ...
-  - Internal interface choices
-    4 defined
-    3 ( 75.0%) exercised
-    internal interface choices never exercised: 1
-      Token_Coverage_Part1:T2:C_I_2
-  ...
-
-Check coverage of external dependencies
-------------------------------------------
-
-The coverage report also describes coverage for external templates, interfaces, and choices. In the ``intro12-part1`` directory, run ``daml build --output intro12-part1.dar``, and copy the resulting ``./intro12-part1.dar`` file into the ``intro12-part2`` directory, where the remainder of our commands will be run.
-
-The ``daml.yaml`` configuration file in part2 specifies ``intro12-part1.dar`` as a dependency, letting us import its module.
-
-Definitions
-~~~~~~~~~~~
-
-We begin by defining importing the external dependency ``Token_Coverage_Part1`` as ``External`` to bring all of its external templates and interfaces into scope.
-
-.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
-  :language: daml
-  :start-after: -- IMPORT_EXTERNAL_BEGIN
-  :end-before: -- IMPORT_EXTERNAL_END
-
-We also define a dummy template ``T`` with no choices, but an implementation of external interface ``External.I``.
-
-.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
-  :language: daml
-  :start-after: -- DEFINE_INTERNAL_TEMPLATE_BEGIN
-  :end-before: -- DEFINE_INTERNAL_TEMPLATE_END
-
-Finally, we define an interface ``I`` with one dummy choice, and implementations for our local template ``T`` and the external template ``External.T1``.
-
-.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
-  :language: daml
-  :start-after: -- DEFINE_INTERNAL_INTERFACE_START
-  :end-before: -- DEFINE_INTERNAL_INTERFACE_END
-
-Local definitions
-~~~~~~~~~~~~~~~~~
-
-Running ``daml test -p '^$'`` to create a coverage report without running any tests: Because no tests were run, coverage will be 0% in all cases. However, the report will still tally all discovered templates, interfaces, and choices, both external and internal.
-
-.. code-block:: none
-
-  Modules internal to this package:
-  - Internal templates
-    1 defined
-    0 (  0.0%) created
-  - Internal template choices
-    1 defined
-    0 (  0.0%) exercised
-  - Internal interface implementations
-    3 defined
-      2 internal interfaces
-      1 external interfaces
-  - Internal interface choices
-    4 defined
-    0 (  0.0%) exercised
-
-  Modules external to this package:
-  - External templates
-    3 defined
-    0 (  0.0%) created in any tests
-    0 (  0.0%) created in internal tests
-    0 (  0.0%) created in external tests
-  - External template choices
-    9 defined
-    0 (  0.0%) exercised in any tests
-    0 (  0.0%) exercised in internal tests
-    0 (  0.0%) exercised in external tests
-  - External interface implementations
-    2 defined
-  - External interface choices
-    4 defined
-    0 (  0.0%) exercised in any tests
-    0 (  0.0%) exercised in internal tests
-    0 (  0.0%) exercised in external tests
-
-We defined 1 template with 1 default choice (``Archive``), which get reported along with their coverage in the first two sections:
-
-.. code-block:: none
-
-  - Internal templates
-    1 defined
-    0 (  0.0%) created
-  - Internal template choices
-    1 defined
-    0 (  0.0%) exercised
-
-We also have 3 interface implementations that we have defined locally, ``External.I for T``, ``I for T``, and ``I for External.T1``. Note that while the interface implementations are local, the interfaces that they are defined over can be non-local - in this case we have 2 for the local interface ``I``, and 1 for the external interface ``External.I``. The total number of locally defined implementations, and the breakdown into local interfaces and external interfaces, is presented in the "Internal interface implementations" section.
-
-.. code-block:: none
-
-  - Internal interface implementations
-    3 defined
-      2 internal interfaces
-      1 external interfaces
-
-These local interface implementations provide 4 choices, two from ``External.I for T``, one from ``I for T``, and one from ``I for External.T1``, reported in the next section along with coverage.
-
-.. code-block:: none
-
-  - Internal interface choices
-    4 defined
-    0 (  0.0%) exercised
-
-External definitions
-~~~~~~~~~~~~~~~~~~~~
-
-By importing ``Token_Coverage_Part1`` as ``External``, we have brought 3 templates, 9 template choices, 2 interface instances, and 4 interface choices into scope from there, which are listed in the external modules section.
-
-.. code-block:: none
-
-  ...
-  Modules external to this package:
-  - External templates
-    3 defined
-    ...
-  - External template choices
-    9 defined
-    ...
-  - External interface implementations
-    2 defined
-  - External interface choices
-    4 defined
-    ...
-
-External, internal, and "any" coverage
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Unlike internal types, externally defined types can be covered by both internal and external tests. As a result, the report for external types distinguishes between coverage provided by internal tests, external tests, and "any" tests (both internal and external tests).
-
-Here we cover how to run internal and external tests simultaneously to get an aggregate report, and how to interpret this report.
-
-The ``--all`` flag runs tests in external modules as well. Run ``daml test --all --test-pattern notests`` in the ``intro12-part2`` directory - this instructs ``daml test`` to run all tests from external modules, and to run local tests matching ``notests``. We have no local tests named ``notests``, so this will only run the ``main`` test from ``part1``. Because the ``main`` test from ``part1`` does not use any of the types defined in ``part2``, the internal section of the resulting coverage report shows 0% everywhere. However, the ``main`` test does exercise many types in ``part1`` which are external to ``part2`` - as a result, the report's "external" section is similar to the "internal" section in the report for ``part1``:
-
-.. code-block:: none
-
-  ...
-  Modules external to this package:
-  - External templates
-    3 defined
-    2 ( 66.7%) created in any tests
-    0 (  0.0%) created in internal tests
-    2 ( 66.7%) created in external tests
-  - External template choices
-    9 defined
-    4 ( 44.4%) exercised in any tests
-    0 (  0.0%) exercised in internal tests
-    4 ( 44.4%) exercised in external tests
-  - External interface implementations
-    2 defined
-  - External interface choices
-    4 defined
-    3 ( 75.0%) exercised in any tests
-    0 (  0.0%) exercised in internal tests
-    3 ( 75.0%) exercised in external tests
-
-Note that unlike the internal section of the report in Part 1, the external section of the report in Part 2 has coverage for internal tests, external tests, and any tests. In this report, we only ran an external test, ``External:main``, so 0 is reported for all internal tests.
-
-Let's write a local test which will create ``External:T3``, a template which the ``External:main`` test does not create.
-
-.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
-  :language: daml
-  :start-after: -- TEST_T3_BEGIN
-  :end-before: -- TEST_T3_END
-
-If we run this test on its own using ``daml test --test-pattern testT3``, our external coverage report will show that 1 out of 3 of the external templates in scope were created, 1 by internal tests and 0 by external tests.
-
-.. code-block:: none
-
-  ...
-  modules external to this package:
-  - external templates
-    3 defined
-    1 ( 33.3%) created in any tests
-    1 ( 33.3%) created in internal tests
-    0 (  0.0%) created in external tests
-  ...
-
-We can run this test alongside the ``External:main`` test using ``daml test --all --test-pattern testT3``, to get an aggregate coverage report. The report now shows that 2 out of 3 of the external templates in scope were created in ``External:main``, and 1 out of 3 by internal test ``testT3``. Because ``External:main`` creates ``External:T1`` and ``External:T2``, and ``testT3`` creates ``External:T3``, all types are created across our tests, and the overall coverage across any tests is 3 out of 3 (100%).
-
-.. code-block:: none
-
-  ...
-  Modules external to this package:
-  - External templates
-    3 defined
-    3 (100.0%) created in any tests
-    1 ( 33.3%) created in internal tests
-    2 ( 66.7%) created in external tests
-  ...
-
-If we define a different local test, ``testT1AndT2``, which creates ``T1`` and ``T2``, running it alongside ``External:Main``, our report shows 2 out of 3 for "internal tests", 2 out of 3 for "external tests", but 2 out of 3 for "any tests"! Because the templates created by each test overlap, ``T3`` is never created and never covered, so despite an abundance of testing for external templates, coverage is still less than 100%.
-
-.. literalinclude:: daml/daml-intro-12-part2/daml/Token_Coverage_Part2.daml
-  :language: daml
-  :start-after: -- TEST_T1_AND_T2_BEGIN
-  :end-before: -- TEST_T1_AND_T2_END
-
-.. code-block:: none
-
-  ...
-  Modules external to this package:
-  - External templates
-    3 defined
-    2 ( 66.7%) created in any tests
-    2 ( 66.7%) created in internal tests
-    2 ( 66.7%) created in external tests
-  ...
-
-External template choices and interface instance choices are also reported with "any", internal, and external coverage - we will not cover them here.
-
-.. _save-results-workflows:
-
-Save results workflows
-~~~~~~~~~~~~~~~~~~~~~~
-
-The ``--save-coverage`` and ``--load-coverage`` flags enable you to write coverage results to a file and read them back out again. Multiple coverage results from different files can be aggregated, along with new coverage results from tests, and then written back to a new file.
-
-This enables three new kinds of coverage testing which should be especially useful to those with large test suites.
-
-Single test iteration
-~~~~~~~~~~~~~~~~~~~~~
-
-When iterating on a single test, you can see the overall coverage of the system by loading in coverage results from all unchanged tests and running the single test, producing an aggregate result.
-
-.. code-block:: sh
-
-  > # Run tests 1 through 8, long running
-  > daml test --pattern Test[12345678] --save-coverage unchanged-test-results
-  ...
-  > # Run test 9, aggregate with results from tests 1 through 8
-  > daml test --pattern Test9 --load-coverage unchanged-test-results
-  ...
-  > # ... make some changes to test 9 ...
-  > # Only need to run test 9 to compare coverage report
-  > daml test --pattern Test9 --load-coverage unchanged-test-results
-
-Multiple test aggregation
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When running a large test suite, you can split the suite across multiple machines and aggregate the results.
-
-.. code-block:: sh
-
-  > # On machine 1:
-  > daml test --pattern Machine1Test --save-coverage machine1-results
-  ...
-  > # On machine 2:
-  > daml test --pattern Machine2Test --save-coverage machine2-results
-  ...
-  > # On machine 3:
-  > daml test --pattern Machine3Test --save-coverage machine3-results
-  ...
-  > # Aggregate results into a single report once all three are done
-  > daml test --load-coverage-only \
-      --load-coverage machine1-results \
-      --load-coverage machine2-results \
-      --load-coverage machine3-results
-
-Test failure recovery
-~~~~~~~~~~~~~~~~~~~~~
-
-If a test failure causes one ``daml test`` to fail, other coverage results from other tests can be used, and only the failing test needs to be rerun.
-
-.. code-block:: sh
-
-  > # First test run
-  > daml test --pattern Test1 --save-coverage test1-results
-  ...
-  > # Second test run:
-  > daml test --pattern Test2 --save-coverage test2-results
-  ...
-  > # Third test run (failing):
-  > daml test --pattern Test3 --save-coverage test3-results
-  ...
-  FAILED
-  ...
-  > # ... fix third test ...
-  > # Third test run (succeeds):
-  > daml test --pattern Test3 --save-coverage test3-results
-  ...
-  > # Aggregate results into a single report once all three are done
-  > daml test --load-coverage-only \
-      --load-coverage test1-results \
-      --load-coverage test2-results \
-      --load-coverage test3-results
-
-.. _exclude-choices:
-
-Exclude choices from the coverage report
-----------------------------------------
-
-To exclude choices from the printed coverage report, use ``--coverage-ignore-choice PATTERN``. Any choice whose fully qualified name matches the regular expression in ``PATTERN`` is removed from the coverage report. The choice will not be included in counts of defined choices or in counts of exercised choices. The choice is treated as if it does not exist.
-
-The fully qualified name of a choice depends on whether the choice is defined in the local package or in an external package. Choices defined in the local package are fully qualified as ``<module>:<template>:<choice name>``. Choices defined in external packages are fully qualified as ``<package id>:<module>:<template>:<choice name>``. By defining your pattern to match different sections in the fully qualified names of your choices, you can exclude choices based on package id, module, template, or name.
-
-Example: excluding archive choices
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To exclude the ``Archive`` choice from coverage, match for the string "Archive" in the "name" portion of the fully qualified name. Do this by specifying ``--coverage-ignore-choice ':Archive$'``.
-
-If applied to the coverage report in `Template choice exercise coverage`_, your coverage report changes from the following:
-
-.. code-block::
-
-  > daml test --show-coverage
-  ...
-  - Internal template choices
-  9 defined
-  4 ( 44.4%) exercised
-  internal template choices never exercised: 5
-    Token_Coverage_Part1:T2:Archive
-    Token_Coverage_Part1:T2:C_T2_2
-    Token_Coverage_Part1:T3:Archive
-    Token_Coverage_Part1:T3:C_T3_1
-    Token_Coverage_Part1:T3:C_T3_2
-  ...
-
-to a report that ignores ``Archive`` choices in all cases:
-
-.. code-block::
-
-  > daml test --show-coverage --coverage-ignore-choice ':Archive$'
-  ...
-  - Internal template choices
-  7 defined
-  4 ( 57.1%) exercised
-  internal template choices never exercised: 3
-    Token_Coverage_Part1:T2:C_T2_2
-    Token_Coverage_Part1:T3:C_T3_1
-    Token_Coverage_Part1:T3:C_T3_2
-  ...
-
-Example: excluding choices from a specific module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To exclude a specific module (for example ``MyModule``) from coverage, match for the "module" portion of the fully qualified name. Do this by specifying ``--coverage-ignore-choice '(^|:)MyModule:[^:]*:[^:]*$'``. This matches for any template and any choice, matches for your module name, and ignores any leading package identifier.
-
-Exclude choices from serialized reports
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-To ensure that serialized data always reflects full coverage information, the flag does **not** eliminate the choices from serialization using the ``--save-coverage`` flag. Serialized reports saved to a file always contain all information collected. The ``--coverage-ignore-choice`` flag only excludes choices from the printed report. For any text report generated from serialized data, you must specify ``--coverage-ignore-choice`` every time it is generated.
-
