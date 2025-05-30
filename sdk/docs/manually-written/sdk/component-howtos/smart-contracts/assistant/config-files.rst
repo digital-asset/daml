@@ -3,7 +3,7 @@
 
 .. _daml-assistant-config-files:
 
-Daml Assistant Configuration Files
+Daml Assistant configuration files
 ##################################
 
 Package Configuration file (daml.yaml)

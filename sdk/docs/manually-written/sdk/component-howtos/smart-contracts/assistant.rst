@@ -102,7 +102,7 @@ Other Daml Commands
     | This provides code improvement suggestions for your daml code.
 
 - | ``daml codegen``:
-  | See :ref:`Daml Java Codegen <component-howtos-application-development-daml-codegen-java>` and :ref:`Daml Javascript Codegen <component-howtos-application-development-daml-codegen-javascript>`
+  | See :ref:`Daml Codegen for Java <component-howtos-application-development-daml-codegen-java>` and :ref:`Daml Codegen for Javascript <component-howtos-application-development-daml-codegen-javascript>`
 - | ``daml script``:
   | See :brokenref:`Daml Script <daml-script>`
 - | ``canton-console``:
@@ -147,7 +147,7 @@ See the open source GitHub repository: https://github.com/digital-asset/daml
 
 References
 **********
-CLI Flags
+CLI flags
 =========
 See :ref:`Daml Assistant Flags <daml-assistant-flags>`
 
