@@ -14,6 +14,8 @@ The definitions presented here are all the ingredients required to *record* the 
 That is, they address the first question: "what do changes and ledgers look like?".
 The basic building blocks of changes are *actions*, which get grouped into *transactions*, *commits*, and the *Ledger*.
 
+.. _ledger-structure_running_example:
+
 Running workflow example
 ************************
 
@@ -193,6 +195,8 @@ The diagram also shows that fetches have the same effect: input contract #2 is u
    :width: 100%
    :alt: The accept-and-settle action on Alice's ``ProposeSimpleDvP`` exercised by Bob.
 
+.. _da-ledger-subaction:
+         
 Subactions
 ==========
          
@@ -293,7 +297,7 @@ In Daml Script, the requesters correspond to the ``actAs`` parties given to the 
 Definition **Ledger**:
   A **Ledger** is a directed acyclic graph (DAG) of commits,
   where an edge `(c`:sub:`1`\ `, c`:sub:`2`\ `)` connects a commit `c`:sub:`1` to another commit `c`:sub:`2`
-  if and only if the transaction of `c`:sub:`1` uses a contract ID created by the transaction in `c`:sub:`2`.
+  if and only if the transaction of `c`:sub:`1` uses a contract ID created by or used in the transaction in `c`:sub:`2`.
 
 Definition **top-level action**:
   For a commit, the root actions of its transaction are called the **top-level actions**.
@@ -336,7 +340,7 @@ This workflow gives rise to the ledger shown below with four commits:
 
    As the Ledger is a DAG, one can always extend the order into a linear sequence via a topological sort.
    For the next sections, we pretend that the Ledger is totally ordered (unless otherwise specified).
-   We discuss the more general partial orders in the causality section.
+   We discuss the more general partial orders in the :ref:`causality section <local-ledger>`.
 
 .. todo::
    Link to causality section
