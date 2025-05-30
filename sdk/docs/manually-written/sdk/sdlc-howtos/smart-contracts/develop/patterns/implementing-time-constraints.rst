@@ -6,6 +6,18 @@
 How To Implement Time Constraints
 #################################
 
+Contract time constraints may be implemented using either:
+
+* ledger time primitives (i.e. isLedgerTimeLT, isLedgerTimeLE, isLedgerTimeGT and isLedgerTimeGE) or assertions
+  (i.e. assertWithinDeadline and assertDeadlineExceeded)
+
+    * the use of ledger time primitives and assertions do not constrain the time bound between transaction preparation
+      and submission - e.g. they are suitable for workflows using external parties to sign transactions
+
+* or, by calling getTime
+
+    * calls to getTime constrain transaction preparation and submission workflows to be within 1 minute.
+
 The next subsections demonstrate how the following Coin and TransferProposal contracts can be modified to use
 different types of ledger time constraints to control when parties are allowed to perform ledger writes.
 
@@ -184,11 +196,42 @@ Coin contract
 Where to use getTime
 ********************
 
-For workflows that prepare transactions and submit them at a latter date, care needs to be taken when using calls to getTime.a
+For workflows that prepare and submit transactions, care needs to be taken when using calls to getTime. This is because
+call to getTime cause transactions to be bound to the ledger time, and in turn constrains sequencers during transaction
+re-ordering. As Global Synchronizers are configured such that the transaction prepare and submit time window is 1 minute,
+this effectively means that any workflow that uses getTime must prepare and submit transactions within 1 minute.
 
-If the prepare and submission times are expected to be more than one minute apart, then using getTime should be avoided.
+For workflows where this constraint can not be met (e.g. workflows that sign transactions using external parties), it is
+recommended that workflows are designed to use the ledger time primitives and assertions.
 
-Using getTime causes the current ledger (prepare) time to get recorded against the transaction (as workflow evaluation
-is now dependent on the ledger time returned by calls to getTime). This in turn constrains how the sequencer may reorder
-transactions. As global synchronizers are configured such that the prepare to persist time must be bounded by 1 minute,
-this restricts the workflows that may use getTime.
+Motivation
+^^^^^^^^^^
+
+When parties need to perform ledger writes by a given deadline, but are able to prepare and submit a transaction within
+1 minute.
+
+Implementation
+^^^^^^^^^^^^^^
+
+Transfer proposals can be accepted at any point in time. To restrict this behaviour so that acceptance must occur by a
+fixed time, a guard for AcceptTransfer choice execution can be added.
+
+TransferProposal contract
+    In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline is valid.
+
+    .. literalinclude:: ./daml/GetTimeCoinTransfer.daml
+      :language: daml
+      :start-after: -- BEGIN_GET_TIME_ACCEPT_TRANSFER
+      :end-before: -- END_GET_TIME_ACCEPT_TRANSFER
+
+As transfer proposals are created when a Transfer choice is executed, the time by which an AcceptTransfer can be executed
+needs to be passed in as a choice parameter.
+
+Coin contract
+    In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
+    be given a fixed lifetime.
+
+    .. literalinclude:: ./daml/GetTimeCoinTransfer.daml
+      :language: daml
+      :start-after: -- BEGIN_GET_TIME_TRANSFER
+      :end-before: -- END_GET_TIME_TRANSFER
