@@ -315,4 +315,4 @@ As an example, the following is an expression for a ``Text``:
 
 Notice the use of nested pattern matching above.
 
-.. note:: An underscore was used in place of a variable name. The reason for this is that :ref:`Daml Studio <write-daml-studio>` produces a warning for all variables that are not being used. This is useful in detecting unused variables. You can suppress the warning by naming the variable with an initial underscore.
+.. note:: An underscore was used in place of a variable name. The reason for this is that :ref:`Daml Studio <daml-studio>` produces a warning for all variables that are not being used. This is useful in detecting unused variables. You can suppress the warning by naming the variable with an initial underscore.

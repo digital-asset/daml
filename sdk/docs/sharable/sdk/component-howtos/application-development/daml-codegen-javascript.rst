@@ -18,7 +18,7 @@ interact with JSON Ledger API. See the sections below for guidance on setting up
 Install
 -------
 
-Install the Daml Codegen for JavaScript by :brokenref:`installing the Daml Assistant <Install section of Daml Assistant>`.
+Install the Daml Codegen for JavaScript by :ref:`installing the Daml Assistant <daml-assistant-install>`.
 
 Configure
 ---------

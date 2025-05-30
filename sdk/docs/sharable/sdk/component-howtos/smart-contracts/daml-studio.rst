@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _write-daml-studio:
+.. _daml-studio:
 
 Write: Daml Studio
 ##################
@@ -430,7 +430,7 @@ cancellation within a notification.
 Directory Envrionment Tools (direnv)
 ====================================
 Tools like ``direnv`` are commonly used to set up dependencies and import environment variables
-for use with :brokenref:`environment variable interpolation support <environment-variable-interpolation>`. To make this work in Daml Studio,
+for use with :ref:`environment variable interpolation support <environment-variable-interpolation>`. To make this work in Daml Studio,
 you need a VSCode extension that sets this up for other extensions.
 In the case of ``direnv`` specifically (i.e. you have a ``.envrc`` file), we
 recommend using `this direnv extension by Martin Kühl <https://marketplace.visualstudio.com/items?itemName=mkhl.direnv>`__, which we have verified is compatible.
