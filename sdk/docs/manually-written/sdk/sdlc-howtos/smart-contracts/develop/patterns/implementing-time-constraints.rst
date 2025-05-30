@@ -213,8 +213,8 @@ When parties need to perform ledger writes by a given deadline, but are able to 
 Implementation
 ^^^^^^^^^^^^^^
 
-Transfer proposals can be accepted at any point in time. To restrict this behaviour so that acceptance must occur by a
-fixed time, a guard for AcceptTransfer choice execution can be added. Here we determine current ledger time by calling getTime.
+Transfer proposals can be accepted at any point in time. To require acceptance by a
+fixed time, you can add a guard for AcceptTransfer choice execution. Here you determine the current ledger time by calling getTime.
 
 TransferProposal contract
     In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline is valid
