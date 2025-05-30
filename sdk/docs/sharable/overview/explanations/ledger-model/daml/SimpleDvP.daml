@@ -112,6 +112,15 @@ simpleDvp = script do
       exerciseCmd dvp $ Settle with actor = bob
   -- SNIPPET-ACCEPT_THEN_SETTLE-END
 
+  -- SNIPPET-REVERT-PROPOSAL-BEGIN
+  proposeDvP2 <- submit alice $ do
+    createCmd ProposeSimpleDvP with
+        proposer = alice
+        counterparty = bob
+        allocated = newUsd
+        expected = eurAsset
+  -- SNIPPET-REVERT-PROPOSAL-END
+
   submit bank2 do exerciseCmd newEur Archive
   submit bank1 do exerciseCmd newUsd Archive
 
