@@ -16,7 +16,7 @@ To begin with, you're going to write a very small Daml template, which represent
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder ``intro1`` by running ``daml new intro1 --template daml-intro-1``
+  Remember that you can load all the code for this section into a folder ``intro1`` by running ``daml new intro1 --template daml-intro-contracts``
 
 Daml ledger basics
 ------------------
@@ -38,13 +38,13 @@ Daml modules and files
 
 Each ``.daml`` file defines a *Daml Module* at the top:
 
-.. literalinclude:: daml/daml-intro-1/daml/Token.daml
+.. literalinclude:: daml/daml-intro-contracts/daml/Token.daml
   :language: daml
   :lines: 5
 
 Code comments in Daml are introduced with ``--``:
 
-.. literalinclude:: daml/daml-intro-1/daml/Token.daml
+.. literalinclude:: daml/daml-intro-contracts/daml/Token.daml
   :language: daml
   :lines: 4-5
 
@@ -53,7 +53,7 @@ Templates
 
 A ``template`` defines a type of contract that can be created, and who has the right to do so. *Contracts* are instances of *templates*.
 
-.. literalinclude:: daml/daml-intro-1/daml/Token.daml
+.. literalinclude:: daml/daml-intro-contracts/daml/Token.daml
   :language: daml
   :lines: 12,17,21,25,30
   :caption: A simple template

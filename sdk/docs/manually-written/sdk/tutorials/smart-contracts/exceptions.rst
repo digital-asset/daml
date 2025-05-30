@@ -36,7 +36,7 @@ outside of Daml.
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro8`` by running ``daml new intro8 --template daml-intro-8``
+  Remember that you can load all the code for this section into a folder called ``intro8`` by running ``daml new intro8 --template daml-intro-exceptions``
 
 Our example for the use of exceptions will be a simple shop
 template. Users can order items by calling a choice and transfer money
@@ -45,7 +45,7 @@ owner in return.
 
 First, we need to setup a template to represent the account of a user:
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- ACCOUNT_BEGIN
   :end-before: -- ACCOUNT_END
@@ -59,7 +59,7 @@ field to represent the bank accepted by the owner, a list of
 observers that can order items, and a fixed price for the items that can be
 ordered:
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- SHOP_BEGIN
   :end-before: -- SHOP_END
@@ -71,7 +71,7 @@ The ordering process is then represented by a non-consuming choice on
 this template which calls ``Transfer`` and creates an ``Order``
 contract in return:
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- ORDER_BEGIN
   :end-before: -- ORDER_END
@@ -97,7 +97,7 @@ exception is defined in ``daml-stdlib`` as
 ``PreconditionFailed``. Putting it together our order process for
 trusted users looks as follows:
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- ORDER_TRUSTED_BEGIN
   :end-before: -- ORDER_TRUSTED_END
@@ -134,7 +134,7 @@ We first have to define the exception and define a way to represent it
 as a string. In this case, our exception should store the amount that
 someone tried to transfer as well as the limit.
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- CUSTOM_EXCEPTION_BEGIN
   :end-before: -- CUSTOM_EXCEPTION_END
@@ -142,14 +142,14 @@ someone tried to transfer as well as the limit.
 To throw our own exception, you can use ``throw`` in ``Update`` and
 ``Script`` or ``throwPure`` in other contexts.
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- TRANSFER_LIMITED_BEGIN
   :end-before: -- TRANSFER_LIMITED_END
 
 Finally, we can adapt our choice to catch this exception as well:
 
-.. literalinclude:: daml/daml-intro-8/daml/Intro/Exceptions.daml
+.. literalinclude:: daml/daml-intro-exceptions/daml/Intro/Exceptions.daml
   :language: daml
   :start-after: -- ORDER_TRUSTED_LIMITED_BEGIN
   :end-before: -- ORDER_TRUSTED_LIMITED_END
