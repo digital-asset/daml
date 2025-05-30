@@ -197,9 +197,9 @@ Where to use getTime
 ********************
 
 For workflows that prepare and submit transactions, care needs to be taken when using calls to getTime. This is because
-calls to getTime cause transactions to be bound to the ledger time, and in turn constrains how sequencers may re-ordering
-transactions. As Global Synchronizers are configured such that the transaction prepare and submit time window is 1 minute,
-this means that any workflow using getTime must prepare and submit transactions within that 1 minute time window.
+calls to getTime cause transactions to be bound to the ledger time, and in turn constrain how sequencers may re-order
+transactions. Global Synchronizers are configured such that the transaction prepare and submit time window is one minute,
+so any workflow using getTime must prepare and submit transactions within that one-minute time window.
 
 For workflows where this constraint can not be met (e.g. workflows that sign transactions using external parties), it is
 recommended that workflows are designed to use the ledger time primitives and assertions.
@@ -213,8 +213,8 @@ When parties need to perform ledger writes by a given deadline, but are able to 
 Implementation
 ^^^^^^^^^^^^^^
 
-Transfer proposals can be accepted at any point in time. To restrict this behaviour so that acceptance must occur by a
-fixed time, a guard for AcceptTransfer choice execution can be added. Here we determine current ledger time by calling getTime.
+Transfer proposals can be accepted at any point in time. To require acceptance by a
+fixed time, you can add a guard for AcceptTransfer choice execution. Here you determine the current ledger time by calling getTime.
 
 TransferProposal contract
     In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline is valid
