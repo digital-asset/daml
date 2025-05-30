@@ -4,7 +4,7 @@
 Test Daml contracts
 ===================
 
-This chapter is about testing and debugging the Daml contracts you've built using the tools from earlier chapters.
+This section is about testing and debugging the Daml contracts you've built using the tools from earlier chapters.
 You've already met Daml Script as a way of testing your code inside the IDE.
 In this chapter you'll learn about more ways to run Daml Scripts, as well as other tools you can use for testing and debugging.
 Specifically we will cover:
