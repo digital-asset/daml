@@ -197,7 +197,7 @@ Where to use getTime
 ********************
 
 For workflows that prepare and submit transactions, care needs to be taken when using calls to getTime. This is because
-calls to getTime cause transactions to be bound to the ledger time, and in turn constrains how sequencers may re-ordering
+calls to getTime cause transactions to be bound to the ledger time, and in turn constrain how sequencers may re-order
 transactions. Global Synchronizers are configured such that the transaction prepare and submit time window is one minute,
 so any workflow using getTime must prepare and submit transactions within that one-minute time window.
 
