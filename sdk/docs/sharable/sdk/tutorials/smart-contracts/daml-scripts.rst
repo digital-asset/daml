@@ -1,7 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-.. _testing-using-script:
+.. _test-using-scripts:
 
 Test templates using Daml scripts
 =================================
@@ -61,7 +61,6 @@ There are a few ways to run Daml Scripts:
 - In Daml Studio against a test ledger, providing visualizations of the resulting ledger.
 - Using the command line ``daml test`` also against a test ledger, useful for continuous integration.
 - Against a real ledger. See the documentation for :ref:`Daml Script <daml-script>` for more information.
-- Interactively using :brokenref:`Daml REPL (Deprecated) </daml-repl/index>`.
 
 In Daml Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on that text to display the outcome of the script.
 

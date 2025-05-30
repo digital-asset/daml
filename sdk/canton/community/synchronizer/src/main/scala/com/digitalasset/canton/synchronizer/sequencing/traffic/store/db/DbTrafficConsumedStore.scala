@@ -197,10 +197,31 @@ class DbTrafficConsumedStore(
   override def deleteRecordsPastTimestamp(
       timestampExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
-    val query =
-      sqlu"delete from seq_traffic_control_consumed_journal where sequencing_timestamp > $timestampExclusive"
-    storage.queryAndUpdate(query, functionFullName).map { deletedCount =>
-      logger.debug(s"Deleted $deletedCount traffic consumed with timestamps > $timestampExclusive")
-    }
+    val deleteQuery =
+      s"""delete from seq_traffic_control_consumed_journal
+        |where member = ? and sequencing_timestamp > ?
+        |""".stripMargin
+
+    val cleanUpQuery = for {
+      // First lookup all members
+      members <- sql"select member from sequencer_members".as[Member]
+      // Then delete all consumed record above the timestamp for each member
+      // This force the DB to use the index on (member, sequencing_timestamp)
+      deletedCount <- DbStorage
+        .bulkOperation(deleteQuery, members, storage.profile) { pp => member =>
+          pp >> member
+          pp >> timestampExclusive
+        }
+        .map(_.sum)
+    } yield deletedCount
+
+    storage
+      .queryAndUpdate(cleanUpQuery.transactionally, functionFullName)
+      .transformOnShutdown(0)
+      .map { deletedCount =>
+        logger.debug(
+          s"Deleted $deletedCount traffic consumed with timestamps > $timestampExclusive"
+        )
+      }
   }
 }

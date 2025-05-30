@@ -29,15 +29,15 @@ How Command Deduplication Works
 The following fields in a command submissions are relevant for command deduplication.
 The first three form the :ref:`change ID <change-id>` that identifies the intended ledger change.
 
-- The union of :brokenref:`party <com.daml.ledger.api.v1.Commands.party>` and :brokenref:`act_as <com.daml.ledger.api.v1.Commands.act_as>` define the submitting parties.
+- The :subsiteref:`act_as <com.daml.ledger.api.v2.Commands.act_as>` define the submitting parties.
 
-- The :brokenref:`application ID <com.daml.ledger.api.v1.Commands.application_id>` identifies the application that submits the command.
+- The :subsiteref:`user ID <com.daml.ledger.api.v2.Commands.user_id>` identifies the user that submits the command.
 
-- The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` is chosen by the application to identify the intended ledger change.
+- The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` is chosen by the user to identify the intended ledger change.
 
 - The deduplication period specifies the period for which no earlier submissions with the same change ID should have been accepted, as witnessed by a completion event on the :ref:`Command Completion Service <command-completion-service>`.
   If such a change has been accepted in that period, the current submission shall be rejected.
-  The period is specified either as a :brokenref:`deduplication duration <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_duration>` or as a :brokenref:`deduplication offset <com.daml.ledger.api.v1.Commands.deduplication_period.deduplication_offset>` (inclusive).
+  The period is specified either as a :subsiteref:`deduplication duration <com.daml.ledger.api.v2.Commands.deduplication_period.deduplication_duration>` or as a :subsiteref:`deduplication offset <com.daml.ledger.api.v2.Commands.deduplication_period.deduplication_offset>` (inclusive).
 
 - The :subsiteref:`submission ID <com.daml.ledger.api.v2.Commands.submission_id>` is chosen by the application to identify a specific submission.
   It is included in the corresponding completion event so that the application can correlate specific submissions to specific completions.
@@ -82,7 +82,7 @@ Independently of how the outcome is communicated, command deduplication generate
   The fields ``longest_duration`` or ``earliest_offset`` in the metadata specify the longest duration or earliest offset that is currently supported on the Ledger API endpoint.
   At least one of the two fields is present.
 
-  Neither deduplication durations up to the :brokenref:`maximum deduplication duration <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_duration>` nor deduplication offsets published within that duration SHOULD result in this error.
+  Neither deduplication durations up to the maximum deduplication duration configured nor deduplication offsets published within that duration SHOULD result in this error.
   Participants may accept longer periods at their discretion.
 
 - The gRPC status code ``FAILED_PRECONDITION`` with error code id :brokenref:`PARTICIPANT_PRUNED_DATA_ACCESSED <error_code_PARTICIPANT_PRUNED_DATA_ACCESSED>`, when specifying a deduplication period represented by an offset, indicates that the specified deduplication offset has been pruned.
@@ -117,7 +117,7 @@ If processing measured across all retries takes longer than your estimate ``B``,
 Under this caveat, the following strategy works for applications that use the :ref:`Command Service <command-service>` or the :ref:`Command Submission <command-submission-service>` and :ref:`Command Completion Service <command-completion-service>`.
 
 .. note::
-   The bound ``B`` should be at most the configured :brokenref:`maximum deduplication duration <com.daml.ledger.api.v1.LedgerConfiguration.max_deduplication_duration>`.
+   The bound ``B`` should be at most the configured maximum deduplication duration.
    Otherwise you rely on the ledger accepting longer deduplication durations.
    Such reliance makes your application harder to port to other Daml ledgers and fragile, as the ledger may stop accepting such extended durations at its own discretion.
 
@@ -135,7 +135,7 @@ Under this caveat, the following strategy works for applications that use the :r
 
    .. _dedup-bounded-step-offset:
 
-#. When you use the :ref:`Command Completion Service <command-submission-service>`, obtain a recent offset on the completion stream ``OFF1``, say the :brokenref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
+#. When you use the :ref:`Command Submission Service <command-submission-service>`, obtain a recent offset on the State Service ``OFF1``, say the :subsiteref:`current ledger end <com.daml.ledger.api.v2.GetLedgerEndRequest>`.
 
    .. _dedup-bounded-step-submit:
 
@@ -236,8 +236,8 @@ Fields in the error metadata are written as ``field`` in lowercase letters.
      * The specified deduplication offset has been pruned by the participant.
        ``earliest_offset`` contains the last pruned offset.
 
-        Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :subsiteref:`completions <com.daml.ledger.api.v2.CompletionStreamRequest>`, starting from the last pruned offset by setting :brokenref:`offset <com.daml.ledger.api.v1.CompletionStreamRequest.offset>` to the value of
-        ``earliest_offset``, and use the first received :brokenref:`offset <com.daml.ledger.api.v1.Checkpoint.offset>` as a deduplication offset.
+        Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :subsiteref:`completions <com.daml.ledger.api.v2.CompletionStreamRequest>`, starting from the last pruned offset by setting :subsiteref:`offset <com.daml.ledger.api.v2.CompletionStreamRequest.begin_exclusive>` to the value of
+        ``earliest_offset``, and use the first received :subsiteref:`completion offset <com.daml.ledger.api.v2.Completion.offset>` or :subsiteref:`checkpoint offset <com.daml.ledger.api.v2.OffsetCheckpoint.offset>` as a deduplication offset.
 
 
    - * ``ABORTED`` / :brokenref:`SUBMISSION_ALREADY_IN_FLIGHT <error_code_SUBMISSION_ALREADY_IN_FLIGHT>`
@@ -312,9 +312,9 @@ We recommend the following strategy for using deduplication offsets:
 
    .. _dedup-unbounded-step-dedup-offset:
 
-#. Obtain a recent offset ``OFF0`` on the completion event stream and remember across crashes that you use ``OFF0`` with the chosen command ID. There are several ways to do so:
+#. Obtain a recent offset ``OFF0`` on the completion stream and remember across crashes that you use ``OFF0`` with the chosen command ID. There are several ways to do so:
 
-   - Use the :ref:`Command Completion Service <command-completion-service>` by asking for the :brokenref:`current ledger end <com.daml.ledger.api.v1.CompletionEndRequest>`.
+   - Use the :ref:`State Service <state-service>` by asking for the :subsiteref:`current ledger end <com.daml.ledger.api.v2.GetLedgerEndRequest>`.
 
      .. note::
 	Some ledger implementations reject deduplication offsets that do not identify a command completion visible to the submitting parties with the error code id :brokenref:`INVALID_DEDUPLICATION_PERIOD <error_code_INVALID_DEDUPLICATION_PERIOD>`.
@@ -322,7 +322,7 @@ We recommend the following strategy for using deduplication offsets:
 	When running on such a ledger, use the Command Service approach described next.
 
    - Use the :ref:`Command Service <command-service>` to obtain a recent offset by repeatedly submitting a dummy command, e.g., a :subsiteref:`Create-And-Exercise command <com.daml.ledger.api.v2.CreateAndExerciseCommand>` of some single-signatory template with the :ref:`Archive <function-da-internal-template-functions-archive-2977>` choice, until you get a successful response.
-     The response contains the :brokenref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>`.
+     The response contains the :subsiteref:`completion offset <com.daml.ledger.api.v2.SubmitAndWaitResponse.completion_offset>`.
 
 
    .. _dedup-unbounded-step-offset:
@@ -350,7 +350,7 @@ We recommend the following strategy for using deduplication offsets:
 
    - When you use the :ref:`Command Service <command-service>` and the response carries the status code ``OK``, the ledger change took place.
      You can report success.
-     The response contains a :brokenref:`completion offset <com.daml.ledger.api.v1.SubmitAndWaitForTransactionIdResponse.completion_offset>` that you can use in :ref:`Step 2 <dedup-unbounded-step-dedup-offset>` of later submissions.
+     The response contains a :subsiteref:`completion offset <com.daml.ledger.api.v2.SubmitAndWaitResponse.completion_offset>` that you can use in :ref:`Step 2 <dedup-unbounded-step-dedup-offset>` of later submissions.
 
    - When you use the :ref:`Command Submission Service <command-submission-service>`,
      subscribe with the :ref:`Command Completion Service <command-submission-service>` for completions for ``actAs`` from ``OFF1`` (exclusive) until you see a completion event for the change ID and the submission ID chosen in :ref:`step 3 <dedup-bounded-step-submit>`.
