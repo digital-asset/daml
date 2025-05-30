@@ -6,6 +6,18 @@
 How To Implement Time Constraints
 #################################
 
+Contract time constraints may be implemented using either:
+
+* ledger time primitives (i.e. isLedgerTimeLT, isLedgerTimeLE, isLedgerTimeGT and isLedgerTimeGE) or assertions
+  (i.e. assertWithinDeadline and assertDeadlineExceeded)
+
+    * the use of ledger time primitives and assertions do not constrain the time bound between transaction preparation
+      and submission - e.g. they are suitable for workflows using external parties to sign transactions
+
+* or, by calling getTime
+
+    * calls to getTime constrain transaction preparation and submission workflows to be within 1 minute.
+
 The next subsections demonstrate how the following Coin and TransferProposal contracts can be modified to use
 different types of ledger time constraints to control when parties are allowed to perform ledger writes.
 
@@ -184,4 +196,43 @@ Coin contract
 Where to use getTime
 ********************
 
-TODO: https://github.com/DACH-NY/docs-website/issues/328
+For workflows that prepare and submit transactions, care needs to be taken when using calls to getTime. This is because
+calls to getTime cause transactions to be bound to the ledger time, and in turn constrain how sequencers may re-order
+transactions. Global Synchronizers are configured such that the transaction prepare and submit time window is one minute,
+so any workflow using getTime must prepare and submit transactions within that one-minute time window.
+
+For workflows where this constraint can not be met (e.g. workflows that sign transactions using external parties), it is
+recommended that workflows are designed to use the ledger time primitives and assertions.
+
+Motivation
+^^^^^^^^^^
+
+When parties need to perform ledger writes by a given deadline, but are able to prepare and submit a transaction within
+1 minute.
+
+Implementation
+^^^^^^^^^^^^^^
+
+Transfer proposals can be accepted at any point in time. To require acceptance by a
+fixed time, you can add a guard for AcceptTransfer choice execution. Here you determine the current ledger time by calling getTime.
+
+TransferProposal contract
+    In the TransferProposal contract, the body of the AcceptTransfer choice is modified to assert that the contract deadline is valid
+    relative to the ledger time returned by calling getTime.
+
+    .. literalinclude:: ./daml/GetTimeCoinTransfer.daml
+      :language: daml
+      :start-after: -- BEGIN_GET_TIME_ACCEPT_TRANSFER
+      :end-before: -- END_GET_TIME_ACCEPT_TRANSFER
+
+As transfer proposals are created when a Transfer choice is executed, the time by which an AcceptTransfer can be executed
+needs to be passed in as a choice parameter.
+
+Coin contract
+    In the Coin contract, the Transfer choice has an additional deadline argument, so that TransferProposal contracts can
+    be given a fixed lifetime.
+
+    .. literalinclude:: ./daml/GetTimeCoinTransfer.daml
+      :language: daml
+      :start-after: -- BEGIN_GET_TIME_TRANSFER
+      :end-before: -- END_GET_TIME_TRANSFER
