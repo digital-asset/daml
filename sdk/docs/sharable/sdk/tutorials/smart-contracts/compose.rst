@@ -18,7 +18,7 @@ The model in this section is not a single Daml file, but a Daml project consisti
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro7`` by running ``daml new intro7 --template daml-intro-compose``
+  Remember that you can load all the code for this section into a folder called ``intro7`` by running ``daml new intro-compose  --template daml-intro-compose``
 
 Daml projects
 -------------

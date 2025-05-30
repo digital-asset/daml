@@ -14,7 +14,7 @@ In this section you will learn about Daml's authorization rules and how to devel
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro6`` by running ``daml new intro6 --template daml-intro-parties``
+  Remember that you can load all the code for this section into a folder called ``intro6`` by running ``daml new intro-parties  --template daml-intro-parties``
 
 Prevent IOU revocation
 ----------------------

@@ -20,8 +20,8 @@ Upgrades are covered in their own section outside this introduction to Daml: :re
 
 Since we are extending :doc:`compose`, the setup for this chapter is slightly more complex:
 
-#. In a base directory, load the :doc:`compose` project using ``daml new intro7 --template daml-intro-compose``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
-#. In the same directory, load this chapter's project using ``daml new intro9 --template daml-intro-9``.
+#. In a base directory, load the :doc:`compose` project using ``daml new intro-compose  --template daml-intro-compose``. The directory ``intro7`` here is important as it'll be referenced by the other project we are creating.
+#. In the same directory, load this chapter's project using ``daml new intro-9  --template daml-intro-9``.
 
 ``Dependencies`` contains a new module ``Intro.Asset.MultiTrade`` and a corresponding test module ``Test.Intro.Asset.MultiTrade``.
 

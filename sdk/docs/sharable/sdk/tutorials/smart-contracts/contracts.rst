@@ -16,7 +16,7 @@ To begin with, you're going to write a very small Daml template, which represent
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder ``intro1`` by running ``daml new intro1 --template daml-intro-contracts``
+  Remember that you can load all the code for this section into a folder ``intro1`` by running ``daml new intro-contracts  --template daml-intro-contracts``
 
 Daml ledger basics
 ------------------

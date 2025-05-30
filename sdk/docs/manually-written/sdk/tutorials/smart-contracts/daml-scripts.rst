@@ -17,7 +17,7 @@ In this section we test the ``Token`` model from :doc:`contracts` using the :ref
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro2`` by running ``daml new intro2 --template daml-intro-daml-scripts``
+  Remember that you can load all the code for this section into a folder called ``intro2`` by running ``daml new intro-daml-scripts  --template daml-intro-daml-scripts``
 
 .. script_basics:
 

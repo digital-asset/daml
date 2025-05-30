@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 sdk-version: __VERSION__
-name: Dependencies7
+name: dependencies-compose
 source: source/sdk/tutorials/smart-contracts/daml/daml-intro-compose/daml/
 version: 1.0.0
 dependencies:
