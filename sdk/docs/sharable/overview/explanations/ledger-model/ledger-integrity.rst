@@ -582,8 +582,6 @@ to him. However, the actor of this exercise is Alice, who has not
 authorized the exercise. Thus, this ledger is not
 well-authorized.
 
-The rationale for making the maintainers required authorizers for a **NoSuchKey** assertion
-is discussed in the next section about :ref:`privacy <da-model-privacy-authorization>`.
 
 Valid Ledgers, Obligations, Offers and Rights
 *********************************************
