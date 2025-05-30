@@ -148,6 +148,7 @@ The second part of the summary is the coverage report.
 It shows you how many templates and choices are tested by the complete set of scripts in the package, in proportion of the total number of templates and choices.
 
 .. TODO: https://github.com/DACH-NY/docs-website/issues/406 to fix the brokenref
+
 To learn more about Daml test coverage, read the :brokenref:`how-to-daml-test-coverage`.
 
 
