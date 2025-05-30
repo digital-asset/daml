@@ -16,13 +16,13 @@ The purpose of the *Overview* manual section is to:
 Multi-Party Applications
 ------------------------
 
-We use software applications everyday. They help us communicate, share information, and make decisions.
-But what happens when we need to collaborate with multiple parties on the same set of data? How do we ensure that
+Software applications are used every day to facilitate communication, share information, and support decision-making.
+But what happens when you need to collaborate with multiple parties on the same set of data? How do you ensure that
 everyone has access and can operate on the same information? Who controls the data? Who controls who can collaborate?
-If we trust each other or work in the same organization, we delegate this to a central authority operating a
-centralised application, such as the IT department of our  company or one of the large cloud providers. But what if we
-are not part of the same organization? What if we cannot agree on who should operate the application? What if we do
-not trust each other but still want to collaborate? Then we end up with a **multi-party application**.
+When there's trust and collaboration within the same organization, responsibility is often delegated to a central authority operating a
+centralised application, such as the IT department of our  company or one of the large cloud providers. But what if you
+are not part of the same organization? What if you cannot agree on who should operate the application? What if you do
+not trust each other but still want to collaborate? Then you end up with a **multi-party application**.
 
 Originally, multi-party applications are built by each party implementing their own version of the application, and
 exchanging messages to signal data changes. Such applications are very bilateral in nature and require
@@ -105,10 +105,15 @@ Join the Canton Network
 -----------------------
 In the Canton Network, you can either be a user, an application provider, or an infrastructure operator.
 Digital Asset provides a set of products and services that allow you to join the Canton Network conveniently and easily.
-* Use Canton Network Portfolio as a hosted solution to hold and use your digital assets on the network.
+
+.. * Use Canton Network Portfolio as a hosted solution to hold and use your digital assets on the network.
+
 * Build your own applications using our SDK.
+
 * Use our financial application building blocks to accelerate the development of your own applications.
+
 * Run your own validator node as part of an existing network.
+
 * Create your own sub-network by deploying your own synchronizer.
 
 Read more about the different ways to join the Canton Network in the :brokenref:`How to Engage with the Network <how-to-engage>` section.
