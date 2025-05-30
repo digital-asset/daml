@@ -184,11 +184,4 @@ Coin contract
 Where to use getTime
 ********************
 
-For workflows that prepare transactions and submit them at a latter date, care needs to be taken when using calls to getTime.a
-
-If the prepare and submission times are expected to be more than one minute apart, then using getTime should be avoided.
-
-Using getTime causes the current ledger (prepare) time to get recorded against the transaction (as workflow evaluation
-is now dependent on the ledger time returned by calls to getTime). This in turn constrains how the sequencer may reorder
-transactions. As global synchronizers are configured such that the prepare to persist time must be bounded by 1 minute,
-this restricts the workflows that may use getTime.
+TODO: https://github.com/DACH-NY/docs-website/issues/328
