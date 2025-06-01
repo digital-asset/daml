@@ -3,7 +3,7 @@
 
 .. _daml-assistant-flags:
 
-Daml Assistant Flags
+Daml Assistant flags
 ####################
 
 ``daml build``
