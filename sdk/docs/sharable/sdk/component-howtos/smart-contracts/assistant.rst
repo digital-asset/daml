@@ -50,6 +50,8 @@ In this file you can configure the following:
 Operate
 *******
 
+.. _daml-assistant-version-management:
+
 Version Management
 ==================
 Daml Assistant supports installation of several versions of the SDK at the same time.  
@@ -65,6 +67,8 @@ Daml Command - Build and Clean
 ==============================
 Given a ``daml.yaml`` and ``.daml`` source files, the ``daml build`` command will generate a .dar for this package. See :ref:`How to build Daml Archives <build_howto_build_dar_files>` for how to define a package and build it to a DAR.  
 The ``daml clean`` command will remove any Daml artifact files created in your package during a daml build, including the .dar.
+
+.. _daml-assistant-test:
 
 Daml Command - Test
 ===================
@@ -110,11 +114,15 @@ Other Daml Commands
 - | ``upgrade-check``:
   | See :ref:`Upgrade Check Tool <upgrade-check-tool>`
 
+.. _daml-assistant-upgrade:
+
 Upgrade
 *******
 The Daml Assistant will automatically upgrade whenever you install a more recent version of the Daml SDK (using the daml install command above).  
 
 If you wish to specify the version of the Daml Assistant (Note that this is just the Assistant, not the SDK, which contains the compiler. The version of the SDK is controlled by the ``daml.yaml``), then use ``daml install <version> --install-assistant=yes``. This can be used for versions that are already installed.
+
+.. _daml-assistant-decomission:
 
 Decomission
 ***********
