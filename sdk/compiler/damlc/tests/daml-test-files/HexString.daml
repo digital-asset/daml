@@ -10,9 +10,40 @@ module HexString where
 
 import DA.Assert ((===))
 import DA.Exception (GeneralError (..))
+import DA.Numeric()
 import DA.Optional (fromSome)
 import DA.Crypto.Text
 import Daml.Script
+
+n0_0: Numeric 0
+n0_0 = 0.0
+
+n0_37: Numeric 37
+n0_37 = 0.0
+
+n1_0: Numeric 0
+n1_0 = 1.0
+
+n1_37: Numeric 37
+n1_37 = 1.0
+
+nM1_0: Numeric 0
+nM1_0 = -1.0
+
+nM1_37: Numeric 37
+nM1_37 = -1.0
+
+nMin_0: Numeric 0
+nMin_0 = minBound @(Numeric 0)
+
+nMin_37: Numeric 37
+nMin_37 = minBound @(Numeric 37)
+
+nMax_0: Numeric 0
+nMax_0 = maxBound @(Numeric 0)
+
+nMax_37: Numeric 37
+nMax_37 = maxBound @(Numeric 37)
 
 n3: Numeric 3
 n3 = 0.123
@@ -84,9 +115,29 @@ main =
     fromHex "alice" === (None: Optional Party)
 
     -- `numericViaStringToHex` and `numericViaStringFromHex`
+    numericViaStringToHex n0_0 === "302e30"
+    numericViaStringToHex n0_37 === "302e30"
+    numericViaStringToHex n1_0 === "312e30"
+    numericViaStringToHex n1_37 === "312e30"
+    numericViaStringToHex nM1_0 === "2d312e30"
+    numericViaStringToHex nM1_37 === "2d312e30"
+    numericViaStringToHex nMin_0 === "2d39393939393939393939393939393939393939393939393939393939393939393939393939392e30"
+    numericViaStringToHex nMin_37 === "2d392e39393939393939393939393939393939393939393939393939393939393939393939393939"
+    numericViaStringToHex nMax_0 === "39393939393939393939393939393939393939393939393939393939393939393939393939392e30"
+    numericViaStringToHex nMax_37 === "392e39393939393939393939393939393939393939393939393939393939393939393939393939"
     numericViaStringToHex n3 === "302e313233"
     numericViaStringToHex n7 === "302e31323334353637"
     numericViaStringToHex n10 === "302e313233343536373839"
+    numericViaStringFromHex "302e30" === Some n0_0
+    numericViaStringFromHex "302e30" === Some n0_37
+    numericViaStringFromHex "312e30" === Some n1_0
+    numericViaStringFromHex "312e30" === Some n1_37
+    numericViaStringFromHex "2d312e30" === Some nM1_0
+    numericViaStringFromHex "2d312e30" === Some nM1_37
+    numericViaStringFromHex "2d39393939393939393939393939393939393939393939393939393939393939393939393939392e30" === Some nMin_0
+    numericViaStringFromHex "2d392e39393939393939393939393939393939393939393939393939393939393939393939393939" === Some nMin_37
+    numericViaStringFromHex "39393939393939393939393939393939393939393939393939393939393939393939393939392e30" === Some nMax_0
+    numericViaStringFromHex "392e39393939393939393939393939393939393939393939393939393939393939393939393939" === Some nMax_37
     numericViaStringFromHex "302e313233" === Some n3
     numericViaStringFromHex "302e31323334353637" === Some n7
     numericViaStringFromHex "302e313233343536373839" === Some n10
