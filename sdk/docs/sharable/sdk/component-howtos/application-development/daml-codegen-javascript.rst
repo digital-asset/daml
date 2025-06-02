@@ -8,11 +8,9 @@ defined in a Daml Archive (.dar) file.
 
 
 The generated code makes it easier to construct types and work with JSON when using the
-:brokenref:`JSON Ledger API <TODO(#369): add link to JSON Ledger API>`.
+:externalref:`JSON Ledger API <json-api>`.
 
-.. TODO: add link to JSON Ledger API tutorial
-
-See :brokenref:`Get started with Canton and the JSON Ledger API <link>` for details on how to use the generated code to
+See :externalref:`Get started with Canton and the JSON Ledger API <tutorial-canton-and-the-json-ledger-api>` for details on how to use the generated code to
 interact with JSON Ledger API. See the sections below for guidance on setting up and invoking the codegen.
 
 Install
@@ -147,7 +145,7 @@ The TypeScript equivalents of the primitive Daml types are provided by the
 
 .. note::
    The TypeScript types ``Time``, ``Decimal``, ``Numeric`` and ``Int`` all alias to ``string``. These choices relate to
-   the avoidance of precision loss under serialization over the :brokenref:`JSON Ledger API <link>`.
+   the avoidance of precision loss under serialization over the :externalref:`JSON Ledger API <json-api>`.
 
 .. note::
    The TypeScript definition of type ``Optional<τ>`` in the above table might look complicated. It accounts for differences in the encoding of optional values when nested versus when they are not (i.e. "top-level"). For example, ``null`` and ``"foo"`` are two possible values of ``Optional<Text>`` whereas, ``[]`` and ``["foo"]`` are two possible values of type ``Optional<Optional<Text>>`` (``null`` is another possible value, ``[null]`` is **not**).
