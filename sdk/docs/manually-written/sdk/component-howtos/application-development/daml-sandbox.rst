@@ -5,7 +5,9 @@
 Daml Sandbox
 ============
 
-The Daml Sandbox, or Sandbox for short, is a program that enables rapid application prototyping by running a simple Canton ledger with one participant.
+The Daml Sandbox, or Sandbox for short, is a program for running a Canton ledger with your Daml code.
+The ledger uses the simplest topology possible: a single Participant Node connected to a Synchronizer Node.
+Use the Daml sandbox when you need access to a Canton ledger running your Daml code and matching the target Participant Node topology is not required.
 
 Install
 -------
@@ -24,11 +26,11 @@ To view all available command line configuration options for Daml Sandbox, run `
 
 .. code-block:: none
 
-      Usage: daml sandbox [--port ARG] [--admin-api-port ARG] 
-                          [--sequencer-public-port ARG] [--sequencer-admin-port ARG] 
-                          [--mediator-admin-port ARG] [--json-api-port ARG] 
-                          [--json-api-port-file PATH] [--canton-port-file PATH] 
-                          [--static-time | --wall-clock-time] [--canton-help] 
+      Usage: daml sandbox [--port ARG] [--admin-api-port ARG]
+                          [--sequencer-public-port ARG] [--sequencer-admin-port ARG]
+                          [--mediator-admin-port ARG] [--json-api-port ARG]
+                          [--json-api-port-file PATH] [--canton-port-file PATH]
+                          [--static-time | --wall-clock-time] [--canton-help]
                           [-c|--config FILE] [--port-file PATH] [--dar PATH] [ARG]
 
       Available options:
