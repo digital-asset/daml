@@ -273,7 +273,6 @@ abstract class EncodeSpec(languageVersion: LanguageVersion)
   private def validate(pkgId: PackageId, pkg: Package): Unit = {
     Validation
       .checkPackage(
-        stablePackages,
         language.PackageInterface(stablePackages.packagesMap + (pkgId -> pkg)),
         pkgId,
         pkg,

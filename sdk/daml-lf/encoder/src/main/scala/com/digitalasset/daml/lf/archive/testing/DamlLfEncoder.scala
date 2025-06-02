@@ -11,7 +11,6 @@ import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parsePackage}
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.SdkVersion
-import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
@@ -72,7 +71,6 @@ private[daml] object DamlLfEncoder extends App {
     if (validation)
       Validation
         .checkPackage(
-          stablePackages = StablePackagesV2,
           pkgInterface = pkgs,
           pkgId = pkgId,
           pkg = pkg,

@@ -454,7 +454,7 @@ private[lf] final class Compiler(
     config.packageValidation match {
       case Compiler.NoPackageValidation =>
       case Compiler.FullPackageValidation =>
-        Validation.checkPackage(StablePackagesV2, pkgInterface, pkgId, pkg).left.foreach(throw _)
+        Validation.checkPackage(pkgInterface, pkgId, pkg).left.foreach(throw _)
     }
 
     val t1 = Time.Timestamp.now()
