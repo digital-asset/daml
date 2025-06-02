@@ -196,10 +196,9 @@ in rec {
 
     # Sphinx
     sphinx-build = pkgs.sphinx;
-
     semver = pkgs.semver-tool;
-
     undmg = pkgs.undmg;
+    watchexec = pkgs.watchexec;
 
     # Cloud tools
     aws = pkgs.awscli;
