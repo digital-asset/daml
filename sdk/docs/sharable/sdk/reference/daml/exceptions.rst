@@ -8,7 +8,7 @@ Reference: Exceptions (Deprecated)
 
 .. note:: User-defined Daml Exceptions, catching, and throwing have been
    deprecated and are being phased out in favour of the :externalref:`Canton error framework <error_codes>`,
-   which represents Daml errors as :externalref:`InvalidGivenCurrentSystemStateOther <error-categories-inventory_InvalidGivenCurrentSystemStateOther>`.
+   which represents Daml errors as :brokenref:`InvalidGivenCurrentSystemStateOther <error-categories-inventory_InvalidGivenCurrentSystemStateOther>`.
 
 Exceptions are a Daml feature which provides a way to handle
 certain errors that arise during interpretation instead of aborting
