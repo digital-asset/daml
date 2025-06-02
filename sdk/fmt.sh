@@ -188,5 +188,10 @@ if [[ $is_test = 1 ]]; then
   vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=warning
 else
   echo "Checking .rst with vale, is_test=FALSE so --minAlertLevel=suggestion"
-  vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=suggestion
+  if [ "$diff_mode" = "true" ]; then
+    echo "--diff, so only linting diff"
+    check_diff $merge_base '\.rst$' vale --config ./.vale-ci.ini --minAlertLevel=suggestion
+  else
+    vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=suggestion
+  fi
 fi
