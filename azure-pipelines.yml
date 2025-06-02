@@ -140,7 +140,7 @@ jobs:
       name: publish_to_oci
       env:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        REGISTRY: "europe-docker.pkg.dev/da-images-dev/oci-private"
+        REGISTRY: "europe-docker.pkg.dev/da-images-dev/private"
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
