@@ -1,6 +1,9 @@
 .. Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. wip::
+    Turn into a proper how-to guide, remove mentions to contract keys.
+
 .. _smart-contract-upgrades:
 
 Smart Contract Upgrade
