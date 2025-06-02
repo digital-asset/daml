@@ -1,25 +1,23 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.digitalasset.daml.lf
+package validation
 
 import com.digitalasset.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.digitalasset.daml.lf.data.TemplateOrInterface
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
-import com.digitalasset.daml.lf.language.{
-  LanguageVersion,
-  PackageInterface,
-  Reference,
-  StablePackages,
-}
+import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface, Reference}
 import com.digitalasset.daml.lf.language.iterable.TypeIterable
 import com.digitalasset.daml.lf.validation.Util._
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 
 import scala.annotation.tailrec
 
+// The type checker is correct only for LF2
 private[validation] object Typing {
 
   // stack-safety achieved via a Work trampoline.
@@ -318,18 +316,18 @@ private[validation] object Typing {
   }
 
   def checkModule(
-      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       pkgId: PackageId,
       mod: Module,
   ): Unit = { // entry point
     val langVersion = handleLookup(Context.None, pkgInterface.lookupPackage(pkgId)).languageVersion
+    if (langVersion.major != LanguageVersion.Major.V2)
+      throw new IllegalArgumentException(s"language version $langVersion is not supported")
     mod.definitions.foreach {
       case (dfnName, DDataType(_, params, cons)) =>
         val env =
           Env(
             languageVersion = langVersion,
-            stablePackages = stablePackages,
             pkgInterface = pkgInterface,
             ctx = Context.DefDataType(pkgId, mod.name, dfnName),
             tVars = params.toMap,
@@ -351,7 +349,6 @@ private[validation] object Typing {
       case (dfnName, dfn: DValue) =>
         Env(
           languageVersion = langVersion,
-          stablePackages = stablePackages,
           pkgInterface = pkgInterface,
           ctx = Context.DefValue(pkgId, mod.name, dfnName),
         ).checkDValue(dfn)
@@ -359,7 +356,6 @@ private[validation] object Typing {
         val env =
           Env(
             languageVersion = langVersion,
-            stablePackages = stablePackages,
             pkgInterface = pkgInterface,
             ctx = Context.Template(pkgId, mod.name, dfnName),
             tVars = params.toMap,
@@ -373,7 +369,6 @@ private[validation] object Typing {
       val env =
         Env(
           languageVersion = langVersion,
-          stablePackages = stablePackages,
           pkgInterface = pkgInterface,
           ctx = Context.Template(tyConName),
           tVars = Map.empty,
@@ -390,7 +385,6 @@ private[validation] object Typing {
       val env =
         Env(
           languageVersion = langVersion,
-          stablePackages = stablePackages,
           pkgInterface = pkgInterface,
           ctx = Context.DefException(tyConName),
           tVars = Map.empty,
@@ -408,7 +402,6 @@ private[validation] object Typing {
       val env =
         Env(
           languageVersion = langVersion,
-          stablePackages = stablePackages,
           pkgInterface = pkgInterface,
           ctx = Context.DefInterface(tyConName),
           tVars = Map.empty,
@@ -419,7 +412,6 @@ private[validation] object Typing {
 
   case class Env(
       languageVersion: LanguageVersion,
-      stablePackages: StablePackages,
       pkgInterface: PackageInterface,
       ctx: Context,
       tVars: Map[TypeVarName, Kind] = Map.empty,
@@ -427,7 +419,7 @@ private[validation] object Typing {
   ) {
 
     private[lf] def TTuple2(t1: Type, t2: Type) =
-      TApp(TApp(TTyCon(stablePackages.Tuple2), t1), t2)
+      TApp(TApp(TTyCon(StablePackagesV2.Tuple2), t1), t2)
 
     private[lf] def kindOf(typ: Type): Kind = { // testing entry point
       // must *NOT* be used for sub-types
@@ -653,7 +645,6 @@ private[validation] object Typing {
       // Note (MA): we use an empty environment and add `tmplParam : TTyCon(templateId)`
       val env = Env(
         languageVersion = languageVersion,
-        stablePackages = stablePackages,
         pkgInterface = pkgInterface,
         ctx = ctx,
       )
