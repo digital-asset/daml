@@ -41,9 +41,13 @@ The `daml.yaml` defines the following properties for a package:
     import V1.Main
 
   This is useful for multi-version testing, see :ref:`Smart Contract Upgrades <smart-contract-upgrades>`.
-- | ``build-options``: (optional) A list of flag for ``daml build`` (See :ref:`Daml Build Flags <daml-build-flags>`) that will be applied to any action that involves the Compiler.
-  | This includes ``build``, ``test``, ``damlc docs`` and ``damlc lint``.
-  | Included in these flags are controls for warnings, see :ref:`Recommended Build Options <recommended-build-options>` for our recommended set of warnings to enable.
+
+  .. _daml-yaml-build-options:
+
+- 
+  ``build-options``: (optional) A list of flag for ``daml build`` (See :ref:`Daml Build Flags <daml-build-flags>`) that will be applied to any action that involves the Compiler.
+  This includes ``build``, ``test``, ``damlc docs`` and ``damlc lint``.
+  Included in these flags are controls for warnings, see :ref:`Recommended Build Options <recommended-build-options>` for our recommended set of warnings to enable.
 - ``sandbox-options``: (optional) A list of options that will be passed to Sandbox in ``daml start``.
 - ``script-options``: (optional) A list of options that will be passed to the Daml script
   runner when running the ``init-script`` as part of ``daml start``.
@@ -73,6 +77,9 @@ Here is what each field means:
   find the source code for dependency DARs and build them in topological order.
 - ``projects``: an optional list of directories containing ``multi-package.yaml`` config files, which will extend the above package set for resolving
   the build order. These exist to allow separation of your project into sub-projects which can still be built when removed from the surrounding environment.
+
+The multi-package also includes a ``dars`` field, for providing additional information to Daml Studio.
+See :ref:`Daml Studio Jump to definition <daml-studio-jump-to-def>` for more details.
 
 The ``multi-package.yaml`` file supports :ref:`Environment Variable Interpolation <environment-variable-interpolation>`.
 
