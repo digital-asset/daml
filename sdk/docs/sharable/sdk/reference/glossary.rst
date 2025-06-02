@@ -307,7 +307,7 @@ Studio
 
 **Daml Studio** is a plugin for Visual Studio Code, and is the IDE for writing Daml code.
 
-See :ref:`write-daml-studio`.
+See :ref:`daml-studio`.
 
 Sandbox
 =======

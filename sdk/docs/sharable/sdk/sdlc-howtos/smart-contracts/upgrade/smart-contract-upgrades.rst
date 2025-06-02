@@ -2109,6 +2109,8 @@ Testing
 Standalone Upgradeability Checks
 --------------------------------
 
+.. _upgrade-check-tool:
+
 We recommend using the ``upgrade-check`` tool to perform a standalone check that all of the DARs typecheck against one another correctly as further validation of your upgraded packages.
 
 This tool takes a list of DARs and runs Canton's participant-side upgrade

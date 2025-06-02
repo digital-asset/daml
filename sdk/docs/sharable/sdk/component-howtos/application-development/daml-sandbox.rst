@@ -12,7 +12,7 @@ Use the Daml sandbox when you need access to a Canton ledger running your Daml c
 Install
 -------
 
-Install the Daml Sandbox by :brokenref:`installing the Daml Assistant <Install section of Daml Assistant>`.
+Install the Daml Sandbox by :ref:`installing the Daml Assistant <daml-assistant-install>`.
 
 Configure
 ---------
