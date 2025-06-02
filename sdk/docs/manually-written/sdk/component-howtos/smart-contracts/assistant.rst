@@ -8,8 +8,8 @@ Daml Assistant
 
 Overview
 ********
-Daml Assistant is the tool for installing Daml SDK, which are bundles of every component under the Component How-Tos section, as well as CLI interface to unify them under.
-Daml Assistant is required in order to develop Daml Smart Contracts.
+The Daml Assistant provides a uniform CLI and installation experience for the components of the Daml SDK.
+Use the Daml Assistant to develop your Daml code.
 
 .. _daml-assistant-install:
 
