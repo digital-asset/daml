@@ -182,6 +182,7 @@ in rec {
 
     # Vale (TODO: use `vale.withStyles` once the nixpkgs snapshot is recent enough)
     vale = pkgs.vale;
+    # indirect dependency of vale (needed to lint reStructurexText.rst files)
     rst2html = python3.pkgs.docutils;
 
     # Cryptography tooling
