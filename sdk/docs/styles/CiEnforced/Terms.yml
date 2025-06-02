@@ -1,0 +1,19 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+# cspell: disable
+# Note: A copy of this file is also available in the Canton repository
+# https://github.com/DACH-NY/canton/blob/release-line-3.3/docs-open/styles/DigitalAsset/Terms.yml
+# TODO: Share vale styles in a public repo for reuse
+# https://github.com/DACH-NY/docs-website/issues/365
+extends: substitution
+message: "Use '%s' instead of '%s'."
+level: error
+ignorecase: false
+action:
+  name: replace
+swap:
+  #(?i)=case insensitive
+  '(?i)JSON API|HTTP API|JSON API v2|HTTP JSON Ledger API': JSON Ledger API
+  'http': HTTP
+  'api': API
