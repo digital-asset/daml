@@ -1,10 +1,15 @@
 .. Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. wip::
+    Add more details around acquired interfaces and link to best practices wrt
+    interface view changes. Verify that the ledger API normalization rules are
+    still correct.
+
 .. _upgrade-model-reference:
 
-The Smart Contract Upgrade Model in Depth
-=========================================
+Smart Contract Upgrade Reference
+================================
 
 This document describes in detail what rules govern package validation upon
 upload and how contracts, choice arguments and choice results are upgraded or
@@ -28,17 +33,14 @@ Packages
 
 **Definition:** A *utility package* is a package with no template
 definition, no interface definition, no exception definition, and only
-non-`serializable <https://github.com/digital-asset/daml/blob/main-2.x/sdk/daml-lf/spec/daml-lf-1.rst#serializable-types>`__
+non-`serializable <https://github.com/digital-asset/daml/blob/main/sdk/daml-lf/spec/daml-lf-2.rst#serializable-types>`__
 data type definitions. A utility package typically consists of
 helper functions and constants, but no type definitions.
 
-In the following validity check, packages whose LF version does not support upgrades
-(1.15 and earlier) and utility packages are ignored. 
-
 A DAR is checked against previously uploaded DARs for upgrade validity on upload
 to a participant. Specifically, for every package with
-:ref:`name<assistant-manual-build-a-project>` *p* and
-:ref:`version<assistant-manual-build-a-project>` *v* present in the uploaded
+:brokenref:`name<assistant-manual-build-a-project>` *p* and
+:brokenref:`version<assistant-manual-build-a-project>` *v* present in the uploaded
 DAR:
 
 1. The participant looks up versions *v_prev* and *v_next* of *p* in its package
@@ -46,7 +48,7 @@ DAR:
    *p* smaller than *v*, and *v_next* is the smallest version of *p*
    greater than *v*. Note that they may not always exist.
 
-   .. image:: ./images/upgrade-static-checks-order.svg
+   .. image:: ./smart-contract-upgrades/images/upgrade-static-checks-order.svg
 
 2. The participant checks that version *v* of *p* is a valid upgrade of
    version *v_prev* of p, if it exists.
@@ -276,144 +278,6 @@ template on the left because it changes the type of ``x1`` from ``Int`` to ``Tex
               where
                 signatory p
         
-Template Keys
-~~~~~~~~~~~~~
-
-The key of the new version of a template must be a valid upgrade of the prior version's key.
-
-
-Adding or removing a key leads to a validation error.
-
-Changing the key type to one that is not a valid upgrade of the
-original type leads to a validation error.
-
-.. _examples-3:
-
-**Examples**
-
-Below, the template on the right is a valid upgrade of the template on the left because the key type of the template on the right is a valid upgrade of the key type of the template on the left:
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * - .. code-block:: daml
-            
-            data MyKey = MyKey
-              with
-                p : Party
-
-            template T
-              with
-                p : Party
-              where
-                signatory p
-                key MyKey p : MyKey
-                maintainer key.p
-
-     - .. code-block:: daml
-
-            data MyKey = MyKey
-              with
-                p : Party
-                i : Optional Int
-
-            template T
-              with
-                p : Party
-              where
-                signatory p
-                key MyKey p None : MyKey
-                maintainer key.p
-
-Below, the template on the right is **not** a valid upgrade of the
-template on the left because it adds a key.
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * - .. code-block:: daml
-
-            template T
-              with
-                p : Party
-                k : Text
-              where
-                signatory p
-
-     - .. code-block:: daml
-
-            template T
-              with
-                p : Party
-                k : Text
-              where
-                signatory p
-                key (p, k): (Party, Text)
-                maintainer (fst key)
-        
-Below, the template on the right is **not** a valid upgrade of the
-template on the left because it deletes its key.
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * - .. code-block:: daml
-
-            template T
-              with
-                p : Party
-                k : Text
-              where
-                signatory p
-                key (p, k): (Party, Text)
-                maintainer (fst key)
-
-     - .. code-block:: daml
-
-            template T
-              with
-                p : Party
-                k : Text
-              where
-                signatory p
-        
-Below, the template on the right is **not** a valid upgrade of the
-template on the left because it changes the key type for a type that
-is not a valid upgrade of ``(Party, Text)``.
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * - .. code-block:: daml
-
-            template T
-              with
-                p : Party
-                k : Text
-              where
-                signatory p
-                key (p, k): (Party, Text)
-                maintainer (fst key)
-
-     - .. code-block:: daml
-
-            template T
-              with
-                p : Party
-                k : Text
-              where
-                signatory p
-                key (p, 2): (Party, Int)
-                maintainer (fst key)
-
 Template Choices
 ~~~~~~~~~~~~~~~~
 
@@ -1100,9 +964,7 @@ if and only if:
 -  *r2* resolves to a type *t2* with qualified name *q2* in package *p2;*
 -  *r1* resolves to a type *t1* with qualified name *q1* in package *p1;*
 -  The qualified names *q2* and *q1* are the same;
--  Either the LF versions or *p1* and *p2* both support upgrades and 
-   package *p2* is a valid upgrade of package *p1*, or *p2* and *p1* are the
-   exact same package.
+-  Package *p2* is a valid upgrade of package *p1*.
 
 It is worth noting that even when *t2* upgrades *t1*, *r2* only upgrades
 *r1* provided that package *p2* is a valid upgrade of package *p1* as a
@@ -1113,8 +975,7 @@ whole.
 **Examples**
 
 In these examples we assume the existence of packages ``q-1.0.0`` and
-``q-2.0.0`` with LF version 1.17, and that the latter is a valid upgrade of
-the former.
+``q-2.0.0`` and that the latter is a valid upgrade of the former.
 
 .. list-table::
    :widths: 50 50
@@ -1191,34 +1052,6 @@ definitions of ``V`` are the same.
             import qualified Dep
      
             data T = T Dep.V
-
-Suppose now that q-1.0.0 and q-2.0.0 are both compiled to LF version
-1.15 (which does not support upgrades). Then below, the module on the
-right is **not** a valid upgrade of the module on the left because the
-references to U on each side resolve to packages with different IDs.
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * - .. code-block:: daml
-
-            module Main where
-     
-            -- imported from q-1.0.0
-            import qualified Dep
-     
-            data T = T Dep.U
-     
-     - .. code-block:: daml
-
-            module Main where
-     
-            -- imported from q-2.0.0
-            import qualified Dep
-     
-            data T = T Dep.U
 
 Data Types - Builtin Types
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -1348,7 +1181,9 @@ they are fixed by the interface definition, which is non-upgradable. Hence,
 the only thing that can change between two versions of an instance is the
 bodies of its methods and view.
 
-Adding or deleting an interface leads to a validation error.
+Interface instances may be added to a template.
+
+Deleting an interface instance from a template leads to a validation error.
 
 **Examples**
 
@@ -1397,6 +1232,36 @@ body of method ``m``.
                   view = IView (fromOptional i j)
                   m = fromOptional i j
 
+Below, the template on the right is a valid upgrade of the
+template on the left. It adds a new instance of ``I`` for template ``T3``.
+
+.. list-table::
+   :widths: 50 50
+   :width: 100%
+   :class: diff-block
+
+   * - .. code-block:: daml
+
+            template T3 
+              with
+                p : Party
+                i : Int
+              where
+                signatory p
+
+     - .. code-block:: daml
+
+            template T3 
+              with
+                p : Party
+                i : Int
+              where
+                signatory p
+
+                interface instance I for T3 where
+                  view = IView i
+                  m = i
+
 Below, the template on the right is **not** a valid upgrade of the
 template on the left because it removes the instance of ``I`` for template
 ``T2``.
@@ -1428,38 +1293,6 @@ template on the left because it removes the instance of ``I`` for template
               where
                 signatory p
 
-Below, the template on the right is **not** a valid upgrade of the
-template on the left because it adds a new instance of ``I`` for template
-``T3``.
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * - .. code-block:: daml
-
-            template T3 
-              with
-                p : Party
-                i : Int
-              where
-                signatory p
-
-     - .. code-block:: daml
-
-            template T3 
-              with
-                p : Party
-                i : Int
-              where
-                signatory p
-
-                interface instance I for T3 where
-                  view = IView i
-                  m = i
-
-
 Data Transformation: Runtime Semantics
 --------------------------------------
 
@@ -1467,12 +1300,11 @@ A template version is selected whenever a contract is fetched, a choice is exerc
 converted to a template value, according to a set
 of rules detailed below. We call this template the target template.
 
-The contract is then transformed into a value that fits the type of
-the target template. Then, its metadata (signatories, stakeholders, key,
-maintainers) is recomputed using the code of the target template and compared
-against the existing metadata stored on the ledger: it is not allowed to change.
-The ensure clause of the contract is also re-evaluated: it must evaluate to
-``True``.
+The contract is then transformed into a value that fits the type of the target
+template. Then, its metadata (signatories, stakeholders) is recomputed using the
+code of the target template and compared against the existing metadata stored on
+the ledger: it is not allowed to change.  The ensure clause of the contract is
+also re-evaluated: it must evaluate to ``True``.
 
 In addition, when a choice is exercised, its arguments are transformed into
 values that fit the type signature of the choice in the target template.  The
@@ -2021,15 +1853,11 @@ parameters that is stored on the ledger for this contract. Namely:
 
 - The contract signatories;
 - The contract stakeholders (the union of signatories and observers);
-- The contract key;
-- The maintainers of the contract key.
 
 The metadata of two contracts are equivalent if and only if:
 
 - their signatories are equal;
 - their stakeholders are equal;
-- their keys, after transformation to the maximum version of the two contracts, are equal;
-- their maintainers are equal.
 
 Upon retrieval and after conversion, the metadata of a contract is recomputed
 using the code of the target template. It is a runtime error if the recomputed
@@ -2039,7 +1867,7 @@ metadata is not equivalent to that of the original contract.
 differently from what is described above, as long as the result is semantically
 equivalent.
 
-**Example 1**
+**Example**
 
 Below the template on the right is a valid upgrade of the template on the left.
 
@@ -2120,123 +1948,6 @@ signatories of this transformed contract are then computed using the expression
 then compared to signatories of the original contract stored on the ledger:
 ``['Alice']``. They do not match and thus the upgrade is rejected at runtime.
 
-**Example 2**
-
-Below the module on the right is a valid upgrade of the module on the left:
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * -  In ``p-1.0.0``:
-     -  In ``p-2.0.0``:
-
-   * - .. code-block:: daml 
-           
-           module M where
-
-           data MyKey = MyKey
-             with
-               p : Party
-
-           template T 
-             with
-               sig : Party
-             where
-               signatory sig
-               key MyKey p : MyKey
-               maintainer key.p
-
-     - .. code-block:: daml
-           
-           module M where
-
-           data MyKey = MyKey
-             with
-               p : Party
-               i : Optional Int
-
-           template T 
-             with
-               sig : Party
-               i : Optional Int
-             where
-               signatory sig
-               key MyKey p i : MyKey
-               maintainer key.p
-    
-Assume a ledger that contains a contract of type ``T`` written by
-``p-1.0.0``.
-
-+-------------+---------------+---------------------------+-------------------------+
-| Contract ID | Contract Type | Contract Key              | Contract                |
-+=============+===============+===========================+=========================+
-| ``1234``    | ``p-1.0.0:T`` | ``MyKey { p = 'Alice' }`` | ``T { sig = 'Alice' }`` |
-+-------------+---------------+---------------------------+-------------------------+
-
-Fetching contract ``1234`` with package preference ``p-2.0.0`` retrieves the
-contract and successfully transforms it into a value of type ``p-2.0.0:T``: ``T
-{ sig = 'Alice', i = None }``. The key of this transformed contract is then
-computed using the expression ``MyKey p i``, which evaluates to the value
-``MyKey { p = 'Alice', i = None }``. This value is then compared against the key
-of the original contract after transformation to a value of type
-``p-2.0.0:MyKey``: ``MyKey { p = 'Alice', i = None }``. The two values match and
-thus the upgrade is valid.
-
-On the other hand, below, the module on the right is **not** a valid upgrade
-of the module on the left:
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * -  In ``p-1.0.0``:
-     -  In ``p-2.0.0``:
-
-   * - .. code-block:: daml 
-           
-           module M where
-
-           data MyKey = MyKey
-             with
-               p : Party
-
-           template T 
-             with
-               sig : Party
-             where
-               signatory sig
-               key MyKey p : MyKey
-               maintainer key.p
-
-     - .. code-block:: daml
-           
-           module M where
-
-           data MyKey = MyKey
-             with
-               p : Party
-               i : Optional Int
-
-           template T 
-             with
-               sig : Party
-             where
-               signatory sig
-               key MyKey p (Some 0) : MyKey
-               maintainer key.p
-
-Assume the same ledger as above. Fetching contract ``1234`` with package
-preference ``p-2.0.0`` retrieves the the contract and again successfully
-transforms it into the value ``T { sig = 'Alice' }``. The key of this
-transformed contract is then computed using the expression ``MyKey p (Some 0)``,
-which evaluates to the value ``MyKey { p = 'Alice', i = Some 0 }``. This value is
-then compared against the original contract's key after transformation to a
-value of type ``p-2.0.0:MyKey``: ``MyKey { p = 'Alice', i = None }``. The two
-values do not match and thus the upgrade is rejected at runtime.
-
 Ensure Clause
 ~~~~~~~~~~~~~
 
@@ -2278,11 +1989,9 @@ have been written using the template on the left with ``n = 0``.
 Interface Views
 ~~~~~~~~~~~~~~~
 
-The view for a given interface instance is not allowed to change between two
-versions of a contract. When a contract is fetched or exercised by interface,
-its view according to the code of the target template is compared to its view
-according to the code of the template that was used when the contract was
-created. It is a runtime error if the two views differ.
+The view for a given interface instance may change between two versions of a
+contract. When a contract is fetched or exercised by interface, its view is
+recopmuted according to the code of the target template.
 
 **Example**
 
@@ -2296,62 +2005,7 @@ Assume an interface ``I`` with view type ``IView`` and a method ``m``.
       viewtype IView
       m : Int
  
-In that case, the template on the right below is a valid upgrade of the template on the
-left.
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * -  In ``p-1.0.0``:
-     -  In ``p-2.0.0``:
-
-   * - .. code-block:: daml
-
-            template T 
-              with
-                p : Party
-                i : Int
-              where
-                signatory p
-
-                interface instance I for T where
-                  view = IView i
-                  m = i
-
-     - .. code-block:: daml
-
-            template T 
-              with
-                p : Party
-                i : Int
-                j : Optional Int
-              where
-                signatory p
-
-                interface instance I for T where
-                  view = IView (fromOptional i j)
-                  m = fromOptional i j
-
-Assume a ledger that contains a contract of type ``T`` written by
-``p-1.0.0``.
-
-+-------------+---------------+-----------------------------------------+
-| Contract ID | Type          | Contract                                |
-+=============+===============+=========================================+
-| ``1234``    | ``p-1.0.0:T`` | ``T { p = 'Alice', i = 42 }``           |
-+-------------+---------------+-----------------------------------------+
-
-Fetching contract ``1234`` by interface with package preference ``p-2.0.0``
-retrieves the contract and computes its view according to ``p-1.0.0``: ``IView
-42``. The contract is then transformed into a value of type ``p-2.0.0:T``:
-``T { sig = 'Alice', i = 42, j = None }`` and its view is computed again, this
-time according to ``p-2.0.0``: ``IView 42``. Because the two views agree, the
-fetch is successful.
-
-On the other hand, below, the template on the right is **not** a valid upgrade
-of the template on the left.
+Below, the template on the right is a valid upgrade of the template on the left.
 
 .. list-table::
    :widths: 50 50
@@ -2387,98 +2041,25 @@ of the template on the left.
                   view = IView (i+1)
                   m = i
 
-Assume the same ledger as above. Fetching contract ``1234`` by interface with
-package preference ``p-2.0.0`` again retrieves the contract and computes its
-view according to ``p-1.0.0``: ``IView 42``. The contract is then transformed
-into a value of type ``p-2.0.0:T``: ``T { sig = 'Alice', i = 42 }`` and its view
-is computed again, this time according to ``p-2.0.0``: ``IView 43``. Because the
-two views differ, the fetch is rejected at runtime.
-
-Key Transformation in FetchByKey and LookupByKey
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When fetching or looking up a contract by key in the body of a choice, the type
-of the key expression is known at compile time. Let us call it the target type.
-The returned contract, if any, verifies that its key, after
-transformation to the target type, matches the key used for querying.
-
-**Example**
-
-Below the module on the right is a valid upgrade of the module on the left:
-
-.. list-table::
-   :widths: 50 50
-   :width: 100%
-   :class: diff-block
-
-   * -  In ``p-1.0.0``:
-     -  In ``p-2.0.0``:
-
-   * - .. code-block:: daml 
-           
-           module M where
-
-           data MyKey = MyKey
-             with
-               p : Party
-
-           template T 
-             with
-               sig : Party
-             where
-               signatory sig
-               key MyKey p : MyKey
-               maintainer key.p
-
-     - .. code-block:: daml
-           
-           module M where
-
-           data MyKey = MyKey
-             with
-               p : Party
-               i : Optional Int
-
-           template T 
-             with
-               sig : Party
-               i : Optional Int
-             where
-               signatory sig
-               key MyKey p i : MyKey
-               maintainer key.p
-    
 Assume a ledger that contains a contract of type ``T`` written by
 ``p-1.0.0``.
 
-+-------------+---------------+---------------------------+-------------------------+
-| Contract ID | Contract Type | Contract Key              | Contract                |
-+=============+===============+===========================+=========================+
-| ``1234``    | ``p-1.0.0:T`` | ``MyKey { p = 'Alice' }`` | ``T { sig = 'Alice' }`` |
-+-------------+---------------+---------------------------+-------------------------+
++-------------+---------------+-----------------------------------------+
+| Contract ID | Type          | Contract                                |
++=============+===============+=========================================+
+| ``1234``    | ``p-1.0.0:T`` | ``T { p = 'Alice', i = 42 }``           |
++-------------+---------------+-----------------------------------------+
 
-Finally, assume a third package which depends on ``p-2.0.0`` and defines a
-choice involving the following lookup by key:
+Fetching contract ``1234`` by interface with package preference ``p-2.0.0``
+retrieves the contract and transforms it into a value of type ``p-2.0.0:T``:
+``T { sig = 'Alice', i = 42, j = None }``. Then its view is computed time
+according to ``p-2.0.0``: ``IView 43``.
 
-.. code:: daml
-
-  choice C : ()
-    controller ctl
-    do
-      cid <- lookupByKey @T (MyKey alice None)
-      ...
-
-The static type of the key being looked up is thus ``p-2.0.0:MyKey``. The key of
-contract ``1234``, once transformed to a value of type ``p-2.0.0:MyKey``,
-becomes ``MyKey { p = 'Alice', i = None }``. This matches the key being looked
-up, so ``cid`` is bound to ``Some 1234``.
-
-LF 1.17 Values in the Ledger API 
+Values in the Ledger API 
 --------------------------------
 
-Commands and queries that involve LF 1.17 templates or interfaces have relaxed
-validation rules for ingested values. Returned values are subject
-to normalization.  
+Commands and queries have relaxed validation rules for ingested values. Returned
+values are subject to normalization.  
 
 Value Validation in Commands
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -2495,8 +2076,8 @@ this definition necessarily extends to sub-values.
 
 In a record value of the form ``Constructor { field1 = v1, ..., fieldn = vn }``, ``vi`` is a *trailing None* if for all ``n >= j >= i``, ``vj = None``.
 
-On submission of a command whose target template is defined in an LF 1.17
-package, the validation rules for values are relaxed as follows:
+On submission of a command, the validation rules for values are relaxed as
+follows:
 
   - The ``record_id``, ``variant_id``, and ``enum_id`` fields of values, 
     if present, are only checked against the module and type name of the
@@ -2508,12 +2089,11 @@ package, the validation rules for values are relaxed as follows:
     provided in the same order as that of the record type definition, and 
     trailing Nones may be omitted.
 
-These rules apply for all sub-values, even those whose type is defined in an
-LF 1.15 or earlier package.
+These rules apply for all sub-values.
 
 **Example 1**
 
-Assume a LF 1.17 package called ``example1-1.0.0`` which defines a template called 
+Assume a package called ``example1-1.0.0`` which defines a template called 
 ``T`` in a module called ``Main``.
 
 .. code:: daml
@@ -2580,34 +2160,9 @@ succeed:
 This is because the module and type names of the type annotation, ``Main`` and
 ``T``, match those of the expected type: ``example1-1.0.0:Main.T``.
 
-Assume now a LF 1.15 package called ``example1-lf115-1.0.0`` with the same contents as
-``example1-1.0.0``. Trying to submit a Create command for ``example1-1.0.0:Main.T``
-whose create argument are annotated with type ``other-1.0.0:T:Main.T`` fails:
-
-.. code::
-
-    ERROR c.d.c.e.CommunityConsoleEnvironment - Request failed for sandbox.
-      GrpcClientError: INVALID_ARGUMENT/COMMAND_PREPROCESSING_FAILED(8,e448b57c): 
-        Mismatching variant id, the type tells us ba561ce9adfc91b583752a842e72530f10ee0d93e729d19ef3179cd80daf43ca:Main:T,
-        but the value tells us 39fb87e17e104daeaf10fdbc32d282d004a29d5ec14db6579605456c42d5678d:Main:T
-      Request: SubmitAndWaitTransactionTree(
-      actAs = sandbox::12208e04d297...,
-      readAs = Seq(),
-      commandId = '',
-      workflowId = '',
-      submissionId = '',
-      deduplicationPeriod = None(),
-      applicationId = 'CantonConsole',
-      commands = ...
-    )
-    ...
-
-This is because the relaxed validation rules only apply to LF 1.17 templates.
-The behavior for LF 1.15 and earlier remains unchanged.
-
 **Example 2**
 
-Assume a LF 1.17 package called ``example2-1.0.0`` which defines a template with
+Assume a package called ``example2-1.0.0`` which defines a template with
 two optional fields: one in leading position, and one in trailing position.
 
 .. code:: daml
@@ -2761,47 +2316,6 @@ However, providing all but the trailing optional field ``j`` suceeds, even witho
       ...
     )
 
-Finally, assume a package called ``example2-lf115-1.0.0`` which defines the same
-``Main`` module as ``example2-1.0.0`` but compiles to LF 1.15. Submitting a command
-that misses the field ``j`` results in an error:
-
-.. code::
-
-    @ val createCmd = Command(
-        command = Command.Command.Create(
-          value = CreateCommand(
-            templateId = Some(value = Identifier(packageId = packageIdExample2Lf115, moduleName = "Main", entityName = "T")),
-            createArguments = Some(
-              value = Record(
-                recordId = None,
-                fields = Seq(
-                  RecordField(label = "i", value = Some(value = Value(sum = Value.Sum.Optional(value = Optional(value = None))))),
-                  RecordField(
-                    label = "p",
-                    value = Some(value = Value(sum = Value.Sum.Party(value = sandbox.adminParty.toLf)))
-                  )
-                )
-              )
-            )
-          )
-        )
-      ) 
-    
-    @ sandbox.ledger_api.commands.submit(Seq(sandbox.adminParty), Seq(createCmd)) 
-    ERROR c.d.c.e.CommunityConsoleEnvironment - Request failed for sandbox.
-      GrpcClientError: INVALID_ARGUMENT/COMMAND_PREPROCESSING_FAILED(8,a144d39d): Expecting 3 field for record 6c247f322c1a84610a5a015d5d713f2c8c0f33290d6b154de212fce228aa522b:Main:T, but got 2
-      Request: SubmitAndWaitTransactionTree(
-      actAs = sandbox::12204b23b351...,
-      readAs = Seq(),
-      commandId = '',
-      workflowId = '',
-      submissionId = '',
-      deduplicationPeriod = None(),
-      applicationId = 'CantonConsole',
-      commands = ...
-    )
-    ...
-                
 Value normalization in Ledger API responses
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -2809,18 +2323,12 @@ A Ledger API value (e.g. ``create_arguments`` in a ``CreatedEvent``) is said to
 be in normal form if none of its sub-values (itself included) has trailing
 Nones.
 
-Starting with Daml 2.10, values in Ledger API non-verbose responses are subject
-to normalization whenever the transaction involves an LF 1.17 template or
-interface. The normalization extends to all sub-values, including those whose
-type is defined in an LF 1.15 or earlier package.
+Starting with Daml 3.3.0, values in Ledger API non-verbose responses are subject
+to normalization. The normalization extends to all sub-values.
 
-When no LF 1.17 package is involved in a transaction or when verbose mode is
-requested, then the values in Ledger API responses are guaranteed **not** to be
-in normal form.
+**Example**
 
-**Example 1**
-
-Assume a LF 1.17 package called ``example1-1.0.0`` which defines a template
+Assume a package called ``example1-1.0.0`` which defines a template
 ``T`` and a record ``Record`` in a module called ``Main``.
 
 .. code:: daml
@@ -2905,163 +2413,3 @@ omitted from the response, but also the third field of the nested record
 ``None``, the second template argument (originally ``i``) and the first nested
 record field (originally ``ri``) are present in the response because they are
 not in trailing positions.
-
-**Example 2**
-
-Assume a LF 1.15 package called ``record-lf115-1.0.0`` which defines a
-record ``Record`` with a trailing optional field in a module called ``LF115``.
-
-.. code:: daml
-
-    module LF115 where  
-
-    data Record = Record { ri : Int, rj : Optional Int }
-      deriving (Eq, Show)
-
-Also assume a LF 1.17 package called ``example2-1.0.0`` which defines a template
-``T`` in a module called ``Main``. The template has a field of type
-``record-lf115-1.0.0:LF115.Record``. 
-
-.. code:: daml
-
-    module Main where
-
-    template T
-      with
-        p : Party
-        r : LF115.Record
-      where
-        signatory p
-
-.. note:: It is not recommended for LF 1.17 templates to depend on LF 1.15 serializable values.
-
-Finally, assume a ledger that contains a contract of type ``T`` written by
-``example2-1.0.0`` where the trailing optional field of ``r`` is set to ``None``.
-
-.. code:: scala
-
-    val createCmd = ledger_api_utils.create(
-      packageIdExample2, 
-      "Main",
-      "T", 
-      Map(
-        "p" -> sandbox.adminParty, 
-        "r" -> Map("ri" -> 1, "rj" -> None)))
-    
-    sandbox.ledger_api.commands.submit(Seq(sandbox.adminParty), Seq(createCmd))
-    
-Then querying the ledger's active contract set in non-verbose mode returns the
-following:
-
-.. code:: scala
-
-    sandbox.ledger_api.acs.of_party(sandbox.adminParty, verbose=false)
-    
-    res15: Seq[com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent] = List(
-      WrappedCreatedEvent(
-        event = CreatedEvent(
-          ...
-          createArguments = Some(
-            value = Record(
-              recordId = None,
-              fields = Vector(
-                RecordField(
-                  label = "",
-                  value = Some(
-                    value = Value(sum = Party(value = "sandbox::1220c70e4430e82758d9377f86a4f87e1d98d8b1f259bb71a0e099e886608844fbf0"))
-                  )
-                ),
-                RecordField(
-                  label = "",
-                  value = Some(
-                    value = Value(
-                      sum = Record(
-                        value = Record(
-                          recordId = None,
-                          fields = Vector(RecordField(label = "", value = Some(value = Value(sum = Int64(value = 1L)))))
-                        )
-                      )
-                    )
-                  )
-                )
-              )
-            )
-          ),
-          ...
-        )
-      )
-    )
-
-Note that the trailing ``None`` field in the nested LF 1.15 record has
-been omitted from the response. This is because the normalization of LF 1.17 
-values extends to all subvalues, including those defined in LF 1.15 packages.
-
-**Example 3**
-
-Assume the same LF 1.15 package ``record-lf115-1.0.0`` as in Example 2.
-
-.. code:: daml
-
-    module LF115 where  
-
-    data Record = Record { ri : Int, rj : Optional Int }
-      deriving (Eq, Show)
-
-Also assume a LF 1.17 package called ``example3-1.0.0`` which defines a template
-``T`` in a module called ``Main``. The template defines a choice ``C`` which
-returns a value of type ``record-lf115-1.0.0:LF115.Record`` with a trailing
-None.
-
-.. code:: daml
-
-    module Main where
-
-    template T
-      with
-        p : Party
-      where
-        signatory p
-    
-        nonconsuming choice C : LF115.Record
-          controller p
-          do pure (LF115.Record { ri = 1, rj = None })
-    
-Finally, assume a creation event ``createdEvent`` for this template. Exercising 
-choice ``C`` on this contract yields the following response:
-    
-.. code:: scala
-
-    val createdEvent = sandbox.ledger_api.acs.of_party(sandbox.adminParty, verbose=false).head.event
-    val exCmd = ledger_api_utils.exercise("C", Map(), createdEvent) 
-    val exercisedEvent = sandbox.ledger_api.commands.submit(Seq(sandbox.adminParty), Seq(exCmd))
-    sandbox.ledger_api.transactions.trees(Set(sandbox.adminParty), 2, verbose=false)(1)
-    
-    res18: com.daml.ledger.api.v1.transaction.TransactionTree = TransactionTree(
-      ...
-      eventsById = Map(
-        "#1220be66a5da4596a4a14fbeec9c3e020760b895040f2478a4d0f43387a5711554d4:0" -> TreeEvent(
-          kind = Exercised(
-            value = ExercisedEvent(
-              ...
-              exerciseResult = Some(
-                value = Value(
-                  sum = Record(
-                    value = Record(
-                      recordId = None,
-                      fields = Vector(RecordField(label = "", value = Some(value = Value(sum = Int64(value = 1L)))))
-                    )
-                  )
-                )
-              ),
-              ...
-            )
-          )
-        )
-      ),
-      ...
-    )
-
-Note that the trailing optional field ``rj`` is omitted from the response. This
-is because the transaction created by the exercise involves a LF 1.17 template.
-All of the transaction's subvalues are therefore normalized. This includes
-values of types defined in LF 1.15 packages.
