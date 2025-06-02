@@ -177,10 +177,10 @@ Restrictions for upgrades
 
 The flavour of a datatype's Daml-LF representation restricts the ways in which
 it can be upgraded via smart contract upgrades: only records can add fields, and
-only variant and enums can add new constructors. It is not possible to change
-the flavour of a datatype when upgrading it.
+only variants and enums can add new constructors. It is not possible to change
+the flavour of a datatype once it has been chosen.
 
-Therefore, the choice of the flavour of a datatype is very important depending
+Therefore, the ideal choice of the flavour of a datatype strongly depends
 on what upgrade behaviours are planned for it. For example, the following
 datatype:
 
