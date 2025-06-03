@@ -3,12 +3,13 @@
 
 package com.digitalasset.daml.lf.language
 
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 
 private[lf] final case class StablePackage(
     moduleName: Ref.ModuleName,
     packageId: Ref.PackageId,
     pkg: Ast.Package,
+    bytes: Bytes,
 ) {
   require(Set(moduleName) == pkg.modules.keySet)
 
