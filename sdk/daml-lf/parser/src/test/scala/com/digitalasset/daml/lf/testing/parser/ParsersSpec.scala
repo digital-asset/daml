@@ -695,7 +695,13 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
               ),
           ),
           observers = e"Cons @Party [Mod:Person {person} this] (Nil @Party)",
-          key = Some(TemplateKey(t"Party", e"(Mod:Person {name} this)", e"""\ (p: Party) -> p""")),
+          key = Some(
+            TemplateKey(
+              t"Party",
+              e"(Mod:Person {name} this)",
+              e"""\ (p: Party) -> Cons @Party [p] (Nil @Party)""",
+            )
+          ),
           implements = VectorMap(
             human ->
               TemplateImplements(
