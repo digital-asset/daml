@@ -55,7 +55,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
     def insertCreate_ : PartialTransaction =
       ptx
         .insertCreate(
-          submissionTime = data.Time.Timestamp.Epoch,
+          preparationTime = data.Time.Timestamp.Epoch,
           contract = contract,
           optLocation = None,
           contractIdVersion = contractIdVersion,

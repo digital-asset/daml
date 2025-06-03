@@ -103,7 +103,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
             commands = ImmArray(speedyCmd),
             disclosures = ImmArray.empty,
             ledgerTime = let,
-            submissionTime = let,
+            preparationTime = let,
             seeding = seeding,
             packageResolution = packageNameMap,
           )

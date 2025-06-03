@@ -114,8 +114,8 @@ For global / absolute contract IDs, no restrictions apply: different global
 contract IDs may have the same prefix, e.g., if they were created in two
 different transactions.
 
-Submission time
----------------
+Preparation time
+----------------
 
 The submission time is used to derive the transaction seed and the local
 contract IDs. In practice, it should be close to the original time at which the
@@ -124,7 +124,7 @@ specification. However a particular ledger implementation can require
 this time to be within a particular time window around the commit
 time. This allows, for instance, the committer of a central committer
 ledger to enforce global uniqueness of the pair (submission seed,
-submission time).
+preparation time).
 
 
 Node seeds
@@ -152,8 +152,8 @@ Transaction seed construction
 
 From the submission, a so-called *transaction seed* is derived as follows::
 
-  deriveTransactionSeed(submissionSeed, participantId, submissionTime) :=
-     HMAC(submissionSeed, participantId ∥ submissionTime)
+  deriveTransactionSeed(submissionSeed, participantId, preparationTime) :=
+     HMAC(submissionSeed, participantId ∥ preparationTime)
 
 where
 
@@ -162,6 +162,8 @@ where
   prefixed with its size encoded as a 32 bits big-endian integer;
 * ``submissionTime`` is the submission time in micro second encoded as
   a 64 bytes big-endian integer with UNIX epoch as the origin;
+* ``preparationTime`` is the preparation time in micro second encoded as
+  a 64 bytes big-endian integer;
 
 
 Derivation of seeds for root nodes of the transaction
@@ -202,7 +204,7 @@ a sequence of bytes defined as follows ::
 
 where
 
-* ``∥`` is the concatenation operation; 
+* ``∥`` is the concatenation operation;
 * ``versionPrefix`` is 1 byte (equal to `0x00`) used to identify the
   contract ID V1 scheme;
 * ``discriminator`` is a sequence of 32 bytes. It is like a random
@@ -221,12 +223,12 @@ Derivation of contract ID discriminator
 
 The discriminator for the created contract ID V1 is given as follows::
 
-  discriminator = HMAC(nodeSeed, submissionTime ∥ nₛ ∥ stakeholders) 
+  discriminator = HMAC(nodeSeed, preparationTime ∥ nₛ ∥ stakeholders)
 
 where
 
 * ``nodeSeed`` is the seed of the node where the contract is created;
-* ``submissionTime`` is the submission time in micro second encoded as
+* ``preparationTime`` is the preparation time in micro second encoded as
   a 64 bytes big-endian integer;
 * ``nₛ`` is the number of stakeholder's of the contract encoded as a
   32 bits big-endian integer;
@@ -296,13 +298,13 @@ Validation
 ^^^^^^^^^^
 
 Reinterpretation for a full transaction validation takes the
-transaction, the submission seed, and the submission time as
+transaction, the submission seed, and the preparation time as
 inputs. Transaction seed is derived in the same way as for
 submission.
 
 Reinterpretation for a partial transaction validation takes the
 partial transaction, the seeds of the partial transaction root nodes,
-and the submission time as inputs.
+and the preparation time as inputs.
 
 In both cases when a contract ID must be allocated, the local contract ID
 is computed and checked for freshness in the same way as for

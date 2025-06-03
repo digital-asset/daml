@@ -240,7 +240,7 @@ class TransactionRoutingProcessor(
       .fromEither[FutureUnlessShutdown](
         TransactionMetadata.fromTransactionMeta(
           metaLedgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
-          metaSubmissionTime = transactionMeta.submissionTime,
+          metaPreparationTime = transactionMeta.submissionTime,
           metaOptNodeSeeds = transactionMeta.optNodeSeeds,
         )
       )

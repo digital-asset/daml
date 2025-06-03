@@ -87,7 +87,7 @@ object EngineLogger {
   * <p>
   *
   * The class requires a pseudo random generator (`nextRandomInt`) to randomize the
-  * submission time. This generator does not have to be cryptographically secure.
+  * preparation time. This generator does not have to be cryptographically secure.
   * <p>
   *
   * This class is thread safe as long `nextRandomInt` is.
@@ -146,7 +146,7 @@ class Engine(val config: EngineConfig) {
       engineLogger: Option[EngineLogger] = None,
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
 
-    val submissionTime = cmds.ledgerEffectiveTime
+    val preparationTime = cmds.ledgerEffectiveTime
 
     for {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
@@ -168,8 +168,8 @@ class Engine(val config: EngineConfig) {
           commands = processedCmds,
           disclosures = processedDiscs,
           ledgerTime = cmds.ledgerEffectiveTime,
-          submissionTime = submissionTime,
-          seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+          preparationTime = preparationTime,
+          seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
           packageResolution = pkgResolution,
           engineLogger = engineLogger,
         )
@@ -187,14 +187,14 @@ class Engine(val config: EngineConfig) {
     * @param nodeSeed the seed of the root node as generated during submission.
     *                 If undefined the contract IDs are derive using V0 scheme.
     *                 The value does not matter for other kind of nodes.
-    * @param submissionTime the submission time used to compute contract IDs
+    * @param preparationTime the preparation time used to compute contract IDs
     * @param ledgerEffectiveTime the ledger effective time used as a result of `getTime` during reinterpretation
     */
   def reinterpret(
       submitters: Set[Party],
       command: ReplayCommand,
       nodeSeed: Option[crypto.Hash],
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
@@ -212,7 +212,7 @@ class Engine(val config: EngineConfig) {
         readAs = Set.empty,
         sexpr = sexpr,
         ledgerTime = ledgerEffectiveTime,
-        submissionTime = submissionTime,
+        preparationTime = preparationTime,
         seeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed)),
         packageResolution = packageResolution,
         engineLogger = engineLogger,
@@ -224,7 +224,7 @@ class Engine(val config: EngineConfig) {
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
@@ -238,8 +238,8 @@ class Engine(val config: EngineConfig) {
         commands = commands,
         disclosures = ImmArray.empty,
         ledgerTime = ledgerEffectiveTime,
-        submissionTime = submissionTime,
-        seeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime),
+        preparationTime = preparationTime,
+        seeding = Engine.initialSeeding(submissionSeed, participantId, preparationTime),
         packageResolution = packageResolution,
         engineLogger = engineLogger,
       )
@@ -264,7 +264,7 @@ class Engine(val config: EngineConfig) {
       tx: SubmittedTransaction,
       ledgerEffectiveTime: Time.Timestamp,
       participantId: Ref.ParticipantId,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       submissionSeed: crypto.Hash,
   )(implicit loggingContext: LoggingContext): Result[Unit] = {
     // reinterpret
@@ -274,7 +274,7 @@ class Engine(val config: EngineConfig) {
         tx,
         ledgerEffectiveTime,
         participantId,
-        submissionTime,
+        preparationTime,
         submissionSeed,
       )
       (rtx, _) = result
@@ -334,7 +334,7 @@ class Engine(val config: EngineConfig) {
       commands: ImmArray[speedy.Command],
       disclosures: ImmArray[speedy.DisclosedContract] = ImmArray.empty,
       ledgerTime: Time.Timestamp,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
       engineLogger: Option[EngineLogger] = None,
@@ -350,7 +350,7 @@ class Engine(val config: EngineConfig) {
         readAs,
         sexpr,
         ledgerTime,
-        submissionTime,
+        preparationTime,
         seeding,
         packageResolution,
         engineLogger,
@@ -371,7 +371,7 @@ class Engine(val config: EngineConfig) {
       readAs: Set[Party],
       sexpr: SExpr,
       ledgerTime: Time.Timestamp,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       seeding: speedy.InitialSeeding,
       packageResolution: Map[Ref.PackageName, Ref.PackageId],
       engineLogger: Option[EngineLogger] = None,
@@ -379,7 +379,7 @@ class Engine(val config: EngineConfig) {
 
     val machine = UpdateMachine(
       compiledPackages = compiledPackages,
-      submissionTime = submissionTime,
+      preparationTime = preparationTime,
       initialSeeding = seeding,
       expr = SEApp(sexpr, Array(SValue.SToken)),
       committers = submitters,
@@ -490,7 +490,7 @@ class Engine(val config: EngineConfig) {
 
             val meta = Tx.Metadata(
               submissionSeed = None,
-              submissionTime = machine.submissionTime,
+              preparationTime = machine.preparationTime,
               usedPackages = deps,
               timeBoundaries = machine.getTimeBoundaries,
               nodeSeeds = nodeSeeds,
@@ -499,8 +499,8 @@ class Engine(val config: EngineConfig) {
             )
             config.profileDir.foreach { dir =>
               val desc = Engine.profileDesc(tx)
-              val profileFile = dir.resolve(s"${meta.submissionTime}-$desc.json")
-              machine.profile.name = s"${meta.submissionTime}-$desc"
+              val profileFile = dir.resolve(s"${meta.preparationTime}-$desc.json")
+              machine.profile.name = s"${meta.preparationTime}-$desc"
               machine.profile.writeSpeedscopeJson(profileFile)
             }
             ResultDone((tx, meta))
@@ -691,10 +691,10 @@ object Engine {
   def initialSeeding(
       submissionSeed: crypto.Hash,
       participant: Ref.ParticipantId,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
   ): InitialSeeding =
     InitialSeeding.TransactionSeed(
-      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, submissionTime)
+      crypto.Hash.deriveTransactionSeed(submissionSeed, participant, preparationTime)
     )
 
   private def profileDesc(tx: VersionedTransaction): String = {

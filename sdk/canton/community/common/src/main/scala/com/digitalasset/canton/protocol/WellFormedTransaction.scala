@@ -561,7 +561,7 @@ object WellFormedTransaction {
 
     val transactions = transactionsWithRollbackScope.map(_.unwrap)
     val ledgerTimes = transactions.map(_.metadata.ledgerTime).distinct
-    val submissionTimes = transactions.map(_.metadata.submissionTime).distinct
+    val submissionTimes = transactions.map(_.metadata.preparationTime).distinct
     val versions = transactions.map(_.tx.version).distinct
     for {
       ledgerTime <- Either.cond(
