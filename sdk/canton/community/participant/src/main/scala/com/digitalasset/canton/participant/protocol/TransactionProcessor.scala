@@ -181,7 +181,7 @@ class TransactionProcessor(
             mediatorGroup = externallySignedSubmission.mediatorGroup.value,
             synchronizerId = synchronizerId,
             timeBoundaries = timeBoundaries,
-            submissionTime = wfTransaction.metadata.submissionTime.toLf,
+            submissionTime = wfTransaction.metadata.preparationTime.toLf,
             disclosedContracts = disclosedContracts,
           ),
           nodeSeeds = wfTransaction.metadata.seeds,

@@ -44,7 +44,7 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     mediatorGroup = 0,
     domainId = "domainId",
     ledgerEffectiveTime = Some(Time.Timestamp.Epoch),
-    submissionTime = Time.Timestamp.Epoch,
+    preparationTime = Time.Timestamp.Epoch,
     disclosedContracts = SortedMap(
       cid1 -> node1,
       cid2 -> node2,
@@ -83,7 +83,7 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
                                    |# Ledger Effective Time
                                    |'01' # Some
                                    |'0000000000000000' # 0 (long)
-                                   |# Submission Time
+                                   |# Preparation Time
                                    |'0000000000000000' # 0 (long)
                                    |# Disclosed Contracts
                                    |'00000002' # 2 (int)

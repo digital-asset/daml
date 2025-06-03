@@ -497,7 +497,7 @@ object ModelConformanceChecker {
                 mediatorGroup,
                 synchronizerId,
                 reInterpretationResult.timeBoundaries,
-                reInterpretationResult.metadata.submissionTime.toLf,
+                reInterpretationResult.metadata.preparationTime.toLf,
                 enrichedInputContracts,
               ),
               reInterpretationResult.metadata.seeds,

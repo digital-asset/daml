@@ -338,7 +338,7 @@ private[speedy] case class PartialTransaction(
     * contract instance.
     */
   def insertCreate(
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       contract: ContractInfo,
       optLocation: Option[Location],
       contractIdVersion: ContractIdVersion,
@@ -354,12 +354,12 @@ private[speedy] case class PartialTransaction(
         val discriminator =
           crypto.Hash.deriveContractDiscriminator(
             actionNodeSeed,
-            submissionTime,
+            preparationTime,
             contract.stakeholders,
           )
         Value.ContractId.V1(discriminator)
       case ContractIdVersion.V2 =>
-        Value.ContractId.V2.unsuffixed(submissionTime, actionNodeSeed)
+        Value.ContractId.V2.unsuffixed(preparationTime, actionNodeSeed)
     }
     val createNode = contract.toCreateNode(cid)
     val nid = NodeId(nextNodeIdx)
