@@ -12,29 +12,34 @@ Privacy
 
 
 
-The :ref:`previous section <ledger-structure>` answered what the Ledger looks like by introducing a hierarchical format to record the changes.
+The :ref:`ledger structure section <ledger-structure>` answered the question "What the Ledger looks like?" by introducing a hierarchical format to record the changes.
 This section addresses the question "who sees which changes and data".
 That is, it explains the privacy model for Canton Ledgers.
 
-The privacy model of Daml Ledgers is based on a **need-to-know basis**,
+The privacy model of Canton Ledgers is based on a **need-to-know basis**,
 and provides privacy **on the level of subtransactions**.
 Namely, a party learns only those parts of ledger changes that affect contracts in which the party has a stake,
 and the consequences of those changes.
 The hierarchical structure is key here because it yields a natural notion of sub-transaction privacy.
-To make this precise, the concepts of informee and witness are needed.
+To make the sub-transaction privacy notion precise, we introduce the concepts of *informee* and *witness*.
 
 Informees
 *********
 
-A party take different roles in Daml templates and choices:
-they can be declared as contract or choice ``observer``, ``signatory`` or ``controller``.
-As the name suggests, every contract and choice observer should observe changes to the contract (creation or archival) and exercises of a choice, respectively.
-A signatory is bound by a contract and thus has a stake in it;
-they should also learn when the contract is created or used.
-An actor of an exercise, which is the controller of the choice, has a stake in the action and should therefore see the action;
-they may not have a stake in the input contract though.
-This motivates the following definition of an **informee**, namely the set of parties that should be informed about the action.
-The informees for an action are the union of the sets marked with X in the following table.
+A party can take different roles in Daml templates and choices;
+the party can be declared as contract or choice ``observer``, ``signatory`` or ``controller``.
+
+* Every contract and choice ``observer`` should observe changes to the contract (creation or archival) and exercises of a choice, respectively, as the name suggests.
+  
+* A ``signatory`` is bound by a contract and thus has a stake in it;
+  they should learn when the contract is created or used.
+
+* An actor of an exercise, which is the ``controller`` of the choice, has a stake in the action and should therefore see the exercise;
+  they may not have a stake in the input contract though.
+  
+These observations motivate the following definition of an **informee**, namely the set of parties that should be informed about the action.
+The informees for an action are the union of the sets marked with X in the following table,
+where a **stakeholder** of a contract is a signatory or contract observer of the contract.
 
 .. _def-informee:
 
@@ -68,8 +73,7 @@ The informees for an action are the union of the sets marked with X in the follo
      - X
      - 
 
-For example, the informees of a **Create** action are the signatories and observers of the created contract,
-which are called the **stakeholders** of the contract.
+For example, the informees of a **Create** action are the stakeholders of the created contract, that is, the signatories and observers.
 For consuming **Exercise** actions, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
 
 As a design decision, a contract observer of the input contract is not informed about non-consuming **Exercise** and **Fetch** actions,
@@ -81,9 +85,10 @@ This is because such actions do not change the state of the contract itself.
    Daml compiles such choices to a non-consuming choice whose first or last consequence exercises the ``Archive`` choice on the template.
    Accordingly, contract observers are only informees of the ``Archive`` subaction, but not of the main ``Exercise`` action itself.
 
-In the :ref:`running example <da-ledgers-running-example>`, the ``AcceptAndSettle`` action and :ref:`its subactions <da-ledger-subaction>` have the informees shown in the blue hexagons of the next figure.
-For example, Alice is an informees of the root action because she is a signatory of the input contract #3, and Bob is an informee because he is the actor of the choice.
-Similarly, Bank 2 and Bob are informees of the **Fetch** action because Bank 2 is a signatory of the input contract #2 and Bob is the actor of the action.
+To illustrate the concept of informees, we use the :ref:`running example of Alice and Bob swapping their assets <ledger-structure_running_example>`.
+The ``AcceptAndSettle`` action and :ref:`its subactions <da-ledger-subaction>` have the informees shown in the blue hexagons of the next figure.
+For example, Alice is an informee of the root action ① because she is a signatory of the input contract #3, and Bob is an informee because he is the actor of the choice.
+Similarly, Bank 2 and Bob are informees of the **Fetch** action ③ because Bank 2 is a signatory of the input contract #2 and Bob is the actor of the action.
 Had Bob not been the actor, he would not be an informee because contract observers are not automatically informees of non-consuming exercises and fetches.
 
 .. https://lucid.app/lucidchart/3176adad-0474-4755-bfb5-e323e1a65fab/edit
@@ -226,7 +231,7 @@ the requesters cannot be retained.
 Divulgence: When non-stakeholders see contracts
 ***********************************************
 
-The guiding principle for the privacy model of Daml ledgers is that contracts should only be shown to their stakeholders.
+The guiding principle for the privacy model of Canton ledgers is that contracts should only be shown to their stakeholders.
 However, ledger projections can cause contracts to become visible to other parties as well.
 Showing contracts to non-stakeholders through ledger projections is called **divulgence**.
 Divulgence is a deliberate choice in the design of Canton Ledgers and comes in two forms:
