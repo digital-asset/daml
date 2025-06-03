@@ -96,7 +96,8 @@ class Engine(val config: EngineConfig) {
 
   config.profileDir.foreach(Files.createDirectories(_))
 
-  private[this] val compiledPackages = ConcurrentCompiledPackages(config.getCompilerConfig)
+  private[this] val compiledPackages = ConcurrentCompiledPackages(
+    config.getCompilerConfig)
 
   private[this] val stablePackageIds = StablePackages.ids(config.allowedLanguageVersions)
 
