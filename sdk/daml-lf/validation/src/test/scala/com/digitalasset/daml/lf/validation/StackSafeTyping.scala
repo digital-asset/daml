@@ -9,7 +9,6 @@ import com.digitalasset.daml.lf.data.Struct
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.PackageInterface
-import com.digitalasset.daml.lf.stablepackages.StablePackages
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -83,7 +82,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val ctx: Context = Context.None
       val env = Typing.Env(
         languageVersion = langVersion,
-        stablePackages = StablePackages(langVersion.major),
         pkgInterface = pkgInterface,
         ctx = ctx,
       )
@@ -254,7 +252,6 @@ class StackSafeTyping extends AnyFreeSpec with Matchers with TableDrivenProperty
       val ctx: Context = Context.None
       val env = Typing.Env(
         languageVersion = langVersion,
-        stablePackages = StablePackages(langVersion.major),
         pkgInterface = pkgInterface,
         ctx = ctx,
       )

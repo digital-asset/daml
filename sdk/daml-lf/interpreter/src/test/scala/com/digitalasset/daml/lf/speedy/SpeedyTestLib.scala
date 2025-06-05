@@ -198,7 +198,6 @@ private[speedy] object SpeedyTestLib {
       },
     )
     Validation.unsafeCheckPackages(
-      StablePackages(majorLanguageVersion),
       PackageInterface(pkgs),
       pkgs,
     )

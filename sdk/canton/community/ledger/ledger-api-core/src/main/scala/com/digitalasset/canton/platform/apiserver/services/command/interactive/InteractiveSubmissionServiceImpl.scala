@@ -170,12 +170,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       disclosedContracts.groupMap(_.fatContractInstance.contractId)(_.fatContractInstance)
 
     def enrich(instance: FatContractInstance) =
-      lfValueTranslation
-        .enrichCreateNode(instance.toCreateNode)
-        .map(enrichedCreate =>
-          FatContractInstance
-            .fromCreateNode(enrichedCreate, instance.createdAt, instance.cantonData)
-        )
+      lfValueTranslation.enrichContract(instance)
         .map(instance.contractId -> _)
 
     MonadUtil

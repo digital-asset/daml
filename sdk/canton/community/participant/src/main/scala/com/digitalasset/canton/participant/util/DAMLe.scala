@@ -28,7 +28,7 @@ import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPar
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.engine.{Enricher => LfEnricher, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -159,7 +159,7 @@ class DAMLe(
   private lazy val engineForEnrichment = new Engine(
     engine.config.copy(requireSuffixedGlobalContractId = false)
   )
-  private lazy val valueEnricher = new ValueEnricher(engineForEnrichment)
+  private lazy val valueEnricher = new LfEnricher(engineForEnrichment)
 
   /** Enrich transaction values by re-hydrating record labels and identifiers
     */
@@ -183,22 +183,13 @@ class DAMLe(
     EitherT {
       handleResult(
         ContractLookupAndVerification.noContracts(loggerFactory),
-        valueEnricher.enrichNode(createNode),
+        valueEnricher.enrichCreate(createNode),
         // This should not happen as value enrichment should only request lookups
         () =>
           EngineController.EngineAbortStatus(
             Some("Unexpected engine interruption while enriching create node")
           ),
-      ).flatMap {
-        case Right(createNode: LfNodeCreate) => FutureUnlessShutdown.pure(Right(createNode))
-        case Right(otherNode) =>
-          FutureUnlessShutdown.failed(
-            new RuntimeException(
-              s"Enrichment of create node produced another node type: $otherNode"
-            )
-          )
-        case Left(value) => FutureUnlessShutdown.pure(Left(value))
-      }
+      )
     }
   }
 

@@ -1,0 +1,41 @@
+# Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+extends: capitalization
+message: "'%s' should use sentence-style capitalization."
+level: error
+scope: heading
+match: $sentence
+indicators:
+  - ":"
+exceptions:
+  - Azure
+  - CLI
+  - Cosmos
+  - Docker
+  - Emmet
+  - gRPC
+  - I
+  - Kubernetes
+  - Linux
+  - macOS
+  - Marketplace
+  - MongoDB
+  - REPL
+  - Studio
+  - TypeScript
+  - URLs
+  - Visual
+  - VS
+  - Windows
+  - JSON
+  - Daml
+  - Hoogle
+  - Canton Network Portfolio
+  - Global Synchronizers?
+  - Participant Nodes?
+  - Super Validators?
+  - Synchronizers?
+  - Validator Nodes?
+  - Mediator
+  - Sequencer

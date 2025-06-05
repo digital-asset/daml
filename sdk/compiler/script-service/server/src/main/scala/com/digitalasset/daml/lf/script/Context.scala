@@ -21,13 +21,12 @@ import com.digitalasset.daml.lf.engine.script.ledgerinteraction.IdeLedgerClient
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.script.api.v1.{ScriptModule => ProtoScriptModule}
 import com.digitalasset.daml.lf.speedy.{Compiler, SDefinition, Speedy}
-import com.digitalasset.daml.lf.speedy.SExpr.{SDefinitionRef}
+import com.digitalasset.daml.lf.speedy.SExpr.SDefinitionRef
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.script.converter
 import com.google.protobuf.ByteString
 import com.digitalasset.daml.lf.engine.script.{Runner, Script}
 import com.daml.logging.LoggingContext
-import com.digitalasset.daml.lf.stablepackages.StablePackages
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.ExecutionContext
@@ -138,7 +137,7 @@ class Context(
       if (!omitValidation)
         assertRight(
           Validation
-            .checkModule(StablePackages(languageVersion.major), pkgInterface, homePackageId, mod)
+            .checkModule(pkgInterface, homePackageId, mod)
             .left
             .map(_.pretty)
         )

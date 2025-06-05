@@ -29,7 +29,7 @@ jobs:
 
         prefix=$(git show ${{ parameters.commit }}:sdk/NIGHTLY_PREFIX)
         if [ "${{ parameters.version }}" = "snapshot" ]; then
-            release=$(./release.sh snapshot ${{ parameters.commit }} $prefix | awk '{print $2}')
+            release=$(./release.sh snapshot ${{ parameters.commit }} $prefix 2>/dev/null | awk '{print $2}')
         else
             release=${{ parameters.version }}
         fi

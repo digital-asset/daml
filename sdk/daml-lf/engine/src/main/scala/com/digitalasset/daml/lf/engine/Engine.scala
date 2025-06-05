@@ -17,6 +17,7 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   Node,
   SubmittedTransaction,
+  TransactionCoder,
   Versioned,
   VersionedTransaction,
   Transaction => Tx,
@@ -32,7 +33,7 @@ import com.digitalasset.daml.lf.language.{
   PackageInterface,
 }
 import com.digitalasset.daml.lf.speedy.Speedy.Machine.newTraceLog
-import com.digitalasset.daml.lf.stablepackages._
+import com.digitalasset.daml.lf.stablepackages.StablePackages
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
@@ -102,6 +103,7 @@ class Engine(val config: EngineConfig) {
   private[engine] val preprocessor =
     new preprocessing.Preprocessor(
       compiledPackages = compiledPackages,
+      loadPackage = loadPackage,
       requireContractIdSuffix = config.requireSuffixedGlobalContractId,
     )
 
@@ -424,6 +426,15 @@ class Engine(val config: EngineConfig) {
     }
   }
 
+  private lazy val enricher = new Enricher(
+    compiledPackages,
+    loadPackage,
+    addTypeInfo = true,
+    addFieldNames = true,
+    addTrailingNoneFields = true,
+    requireContractIdSuffix = false,
+  )
+
   private[engine] def interpretLoop(
       machine: UpdateMachine,
       time: Time.Timestamp,
@@ -439,6 +450,44 @@ class Engine(val config: EngineConfig) {
               UpdateMachine.Result(tx, _, nodeSeeds, globalKeyMapping, disclosedCreateEvents)
             ) =>
           deps(tx).flatMap { deps =>
+            if (config.paranoid) {
+              (for {
+                // check the transaction can be serialized and deserialized
+                encoded <- TransactionCoder
+                  .encodeTransaction(tx)
+                  .left
+                  .map("transaction encoding fails: " + _)
+                decoded <- TransactionCoder
+                  .decodeTransaction(encoded)
+                  .left
+                  .map("transaction decoding fails: " + _)
+                _ <- Either.cond(
+                  tx == decoded,
+                  (),
+                  "transaction encoding/decoding is not idempotent",
+                )
+                // check that impoverishment is indempotent on engine output
+                poor = Enricher.impoverish(tx)
+                _ <- Either.cond(
+                  tx == poor,
+                  (),
+                  "transaction impoverishment is not idempotent on engine output",
+                )
+                // check that impoverishment remove the data added by enrichement
+                rich <- enricher
+                  .enrichVersionedTransaction(tx)
+                  .consume()
+                  .left
+                  .map("transaction enrichment fails: " + _)
+                poor = Enricher.impoverish(rich)
+                _ <- Either.cond(
+                  tx == poor,
+                  (),
+                  "transaction enrichment/impoverishment is not idempotent",
+                )
+              } yield ()).fold(err => throw new java.lang.AssertionError(err), identity)
+            }
+
             val meta = Tx.Metadata(
               submissionSeed = None,
               submissionTime = machine.submissionTime,
@@ -592,7 +641,7 @@ class Engine(val config: EngineConfig) {
           // we trust already loaded packages
           .collect {
             case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
-              Validation.checkPackage(StablePackagesV2, pkgInterface, pkgId, pkg)
+              Validation.checkPackage(pkgInterface, pkgId, pkg)
           }
           .collectFirst { case Left(err) => Error.Package.Validation(err) }
       }.toLeft(())
