@@ -9,6 +9,7 @@ module HexEncodingDecoding where
 
 import DA.Assert ((===))
 import DA.Crypto.Text
+import DA.Optional (fromSome)
 import Daml.Script
 
 main =
@@ -21,4 +22,8 @@ main =
     ((fromHex "4465616442656566") === Some "DeadBeef")
     ((toHex "843d0824-9133-4bc9-b0e8-7cb4e8487dd1") === "38343364303832342d393133332d346263392d623065382d376362346538343837646431")
     ((fromHex "38343364303832342d393133332d346263392d623065382d376362346538343837646431") === Some "843d0824-9133-4bc9-b0e8-7cb4e8487dd1")
+    ((toHex (fromSome ((fromHex "00") : Optional Text))) === "00")
+    ((toHex (fromSome ((fromHex "0001") : Optional Text))) === "0001")
+    ((fromHex "0") === (None : Optional Text))
+    ((fromHex "Hello World!") === (None : Optional Text))
     pure ()
