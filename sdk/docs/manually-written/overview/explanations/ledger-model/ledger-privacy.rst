@@ -108,10 +108,16 @@ Informees should see the changes they are interested in,
 but this does not mean that they have to see the entirety of any transaction that includes such a change.
 This is made precise through *projections* of a transaction,
 which define the view that a group of parties gets on a transaction.
-Intuitively, given a transaction within a commit, a group of parties will see only the subtransaction consisting of all actions on contracts
-whose informees overlap with the parties. Thus, privacy is obtained on the subtransaction level.
+Intuitively, given a transaction within a commit, a group of parties sees only the subtransaction consisting of all actions on contracts
+whose informees include at least one of the parties.
+Thus, privacy is obtained on the subtransaction level.
 
-The next diagram gives an example for the ``AcceptAndSettle`` with the informees shown above.
+This section first defines projections for transactions and then for ledgers.
+
+Transaction projection
+======================
+
+The next diagram gives an example for the ``AcceptAndSettle`` Exercise action with the informees shown above.
 
 .. https://lucid.app/lucidchart/9b3762db-66b4-4e72-94cb-bcefd4c1a5ea/edit
 .. image:: ./images/dvp-acceptandsettle-projection.svg
@@ -134,7 +140,7 @@ The projection to Bank 2 therefore consists of a transaction with these two acti
 This shows that projection can turn a single root action into a list of subactions.
 
 Note the privacy implications of the banks' projections.
-While the banks learns that a ``Transfer`` has occurred from Alice to Bob or vice versa,
+While each bank learns that a ``Transfer`` has occurred from Alice to Bob or vice versa,
 each bank does *not* learn anything about *why* the transfer occurred.
 In particular, Bank 2 does not learn what happens between the Fetch and the Exercise on contract #2.
 In practice, this means that Bank 1 and Bank 2 do not learn what Alice and Bob is exchanging their asset for,
@@ -145,12 +151,15 @@ providing privacy to Alice and Bob with respect to the banks.
 Formally, the **projection** of a transaction `tx = act`\ :sub:`1`\ `, …, act`\ :sub:`n` for a set `P` of parties is the
 subtransaction obtained by doing the following for each action `act`\ :sub:`i`:
 
-#. If `P` overlaps with the informees of `act`\ :sub:`i`, keep `act`\ :sub:`i` as-is.
+#. If `P` contains at least one of the informees of `act`\ :sub:`i`, keep `act`\ :sub:`i` as-is.
 #. Else, if `act`\ :sub:`i` has consequences, replace `act`\ :sub:`i` by the projection (for `P`) of its consequences,
    which might be empty.
 #. Else, drop `act`\ :sub:`i`.
-
+   
 .. _da-model-ledger-projection:
+
+Ledger projection
+=================
 
 Finally, the **projection of a ledger** `l` for a set `P` of parties is a DAG of transactions obtained as follows:
 
@@ -197,13 +206,17 @@ Examine each party's projection in turn:
 #. Banks 1 and 2 only see the commits in which they create their ``SimpleAsset`` and the ``Transfer`` Exercises on them.
    Additionally, Bank 2 sees the Fetch of the ``SimpleAsset`` in the last commit, as already discussed above for transaction projections.
 
+.. note::
+   A user of a Participant Node can request the Ledger projection for the user's parties via the
+   :externalref:`updates tree stream <com.daml.ledger.api.v2.GetUpdateTrees>`.
+
 Witnesses
 *********
 
 The projection of a transaction or ledger for a set of parties `P` includes subactions whose informees are disjoint from `P`.
 For example, Alice sees the Fetch action on Bob's ``SimpleAsset`` (contract #2)
 because it is a consequence of Bob's ``Accept`` Exercise and Alice is an informee of this Exercise.
-Such parties are called witnesses.
+We say that Alice, Bob, and Bank 2 are witnesses of the Fetch action.
 
 Formally, for a given transaction `tx`, the **witnesses** of an subaction `act` of `tx` are all the parties
 whose projection of `tx` contains `act` as a subaction.
@@ -211,13 +224,18 @@ Or equivalently, the witnesses of `act` are the union of the informees of all su
 In particular, every informee of `act` is also a witness.
 
 In terms of privacy, the witnesses are all those parties who learn about a particular action.
-Notably, the informees of an action may not learn about all its witnesses.
-For example, Bank 1 is an informee of the Fetch action and Alice is a witness,
-but Bank 1 cannot learn this from its projection.
+Notably, the informees of an action may not learn about witnesses of the action.
+For example, Bank 2 is an informee of the Fetch action and Alice is a witness,
+but Bank 2 cannot learn from its projection that Alice is a witness.
 This is crucial from a privacy perspective
 as it hides who is involved in the hidden parts of the transaction.
-In particular, this also explains why the projection of a commit is a transaction:
-the requesters cannot be retained.
+
+In particular, this explains why the projection of a commit is a transaction:
+the requesters cannot be retained
+because the requesters are typically witnesses of the actions in the projection,
+but not informees.
+For example, if Bank 2's projection did mention Bob as the requester of the last commit,
+then Bank 1 could infer that Bob is a witness of Alice exercising the ``Transfer`` choice on contract #1.
 
 .. note::
    Alice is not a witness of the Create action for Bob's ``SimpleAsset`` (contract #2)
@@ -253,10 +271,12 @@ Divulgence is a deliberate choice in the design of Canton Ledgers and comes in t
 
   Input divulgence enables Alice to validate the transactions in her projection
   (see :ref:`da-model-consistency` for ledger integrity).
-  That is, Alice can check that Bob does allocate a suitable ``SimpleAsset`` according to what she specified in her proposal.  
+  That is, Alice can check that Bob does allocate a suitable ``SimpleAsset`` according to what she specified in her proposal.
 
-Immediate divulgence is accessible on the Ledger API via the update tree stream.
-In contrast, contracts exposed via input divulgence cannot be accessed on the Ledger API.
+Via the Ledger API's :externalref:`update service <com.daml.ledger.api.v2.GetUpdateTrees>`,
+a user can see the immediately divulged contracts in the trees of the parties' projection
+as these trees contain the Create nodes.
+In contrast, the Ledger API currently does not offer a means for a user to lookup a contract ID of an input divulgence.
   
 
 .. _da-model-disclosure:
@@ -283,10 +303,10 @@ For example, after the DvP has been settled, Alice creates another DvP proposal 
    :start-after: SNIPPET-REVERT-PROPOSAL-BEGIN
    :end-before: SNIPPET-REVERT-PROPOSAL-END
 
-Then, Bob must still disclose Alice's ``SimpleAsset`` even though Bob has witnessed the creation of Alice's ``SimpleAsset``.
-A plain ``submit`` does not work.
+Then, Bob's command submission must include the disclosure of Alice's ``SimpleAsset`` even though Bob has witnessed the creation of Alice's ``SimpleAsset``.
+A plain ``submit`` without disclosure does not work.
 
-The motivation is that using immediate divulgence implicitly for disclosure leads to brittle workflows.
+The motivation for using immediate divulgence implicitly for disclosure is that it leads to brittle workflows.
 The problem is that the non-stakeholders only learn about the creation of the contract,
 but not about subsequent actions on the contract like archivals.
 Accordingly, there is no general rule as to how long the non-stakeholder should long to keep the contract around.
@@ -315,8 +335,8 @@ the two approaches differ in in who learns about the parties that are informed a
 
 Moveover, adding parties as observers scales poorly to large numbers,
 because every observer learns about every other observer:
-A Create event with `N` observers appears in the projection of at least those `N` parties,
-which is already quadratic in `N`.
+A Create event with `N` observers appears in the projection of at least those `N` parties.
+So the size of all projections together is already quadratic in `N` as an action of size at least `N` appears in `N` different projection.
 If the observers are added one by one, then `N` archives and creations are needed,
 which means the size of all projections together is cubic in `N`.
 
