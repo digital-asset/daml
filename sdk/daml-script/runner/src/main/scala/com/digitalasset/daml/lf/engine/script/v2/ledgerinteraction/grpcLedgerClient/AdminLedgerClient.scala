@@ -366,6 +366,7 @@ class AdminLedgerClient private[grpcLedgerClient] (
     val newEntry = protocol.PartyToParticipant.HostingParticipant(
       participantId,
       protocol.Enums.ParticipantPermission.PARTICIPANT_PERMISSION_SUBMISSION,
+      None
     )
     admin_topology.AuthorizeRequest(
       admin_topology.AuthorizeRequest.Type.Proposal(
