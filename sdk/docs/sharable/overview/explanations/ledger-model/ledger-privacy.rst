@@ -23,8 +23,8 @@ and the consequences of those changes.
 The hierarchical structure is key here because it yields a natural notion of sub-transaction privacy.
 To make the sub-transaction privacy notion precise, we introduce the concepts of *informee* and *witness*.
 
-Informees
-*********
+Informee
+********
 
 A party can take different roles in Daml templates and choices;
 the party can be declared as contract or choice ``observer``, ``signatory`` or ``controller``.
@@ -34,16 +34,16 @@ the party can be declared as contract or choice ``observer``, ``signatory`` or `
 * A ``signatory`` is bound by a contract and thus has a stake in it;
   they should learn when the contract is created or used.
 
-* An actor of an exercise, which is the ``controller`` of the choice, has a stake in the action and should therefore see the exercise;
+* An actor of an Exercise, which is the ``controller`` of the choice, has a stake in the action and should therefore see the exercise;
   they may not have a stake in the input contract though.
   
-These observations motivate the following definition of an **informee**, namely the set of parties that should be informed about the action.
-The informees for an action are the union of the sets marked with X in the following table,
+These observations motivate the following definition of an **informee**, namely the set of parties that should be informed about an action.
+The informees for a node are the union of the sets marked with X in the following table,
 where a **stakeholder** of a contract is a signatory or contract observer of the contract.
 
 .. _def-informee:
 
-.. list-table:: Definiton: The **informees** of an action are the union of the sets marked with X.
+.. list-table:: Definiton: The **informees** of a node are the union of the sets marked with X.
    :widths: 20 20 20 20 20
    :header-rows: 1
 
@@ -73,8 +73,8 @@ where a **stakeholder** of a contract is a signatory or contract observer of the
      - X
      - 
 
-For example, the informees of a **Create** action are the stakeholders of the created contract, that is, the signatories and observers.
-For consuming **Exercise** actions, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
+For example, the informees of a **Create** node are the stakeholders of the created contract, that is, the signatories and observers.
+For consuming **Exercise** node, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
 
 As a design decision, a contract observer of the input contract is not informed about non-consuming **Exercise** and **Fetch** actions,
 unless they are explicitly among the actors or choice observers.
@@ -86,23 +86,49 @@ This is because such actions do not change the state of the contract itself.
    Accordingly, contract observers are only informees of the ``Archive`` subaction, but not of the main ``Exercise`` action itself.
 
 To illustrate the concept of informees, we use the :ref:`running example of Alice and Bob swapping their assets <ledger-structure_running_example>`.
-The ``AcceptAndSettle`` action and :ref:`its subactions <da-ledger-subaction>` have the informees shown in the blue hexagons of the next figure.
-For example, Alice is an informee of the root action ① because she is a signatory of the input contract #3, and Bob is an informee because he is the actor of the choice.
-Similarly, Bank 2 and Bob are informees of the **Fetch** action ③ because Bank 2 is a signatory of the input contract #2 and Bob is the actor of the action.
-Had Bob not been the actor, he would not be an informee because contract observers are not automatically informees of non-consuming exercises and fetches.
+The nodes in the ``AcceptAndSettle`` action have the informees shown in the blue hexagons of the next figure.
+For example, Alice is an informee of the root node ① because she is a signatory of the input contract #3, and Bob is an informee because he is the actor of the choice.
+Similarly, Bank 2 and Bob are informees of the Fetch node ③ because Bank 2 is a signatory of the input contract #2 and Bob is the actor.
+Had Bob not been the actor, he would not be an informee because contract observers are not automatically informees of non-consuming Exercises and Fetches.
 
 .. https://lucid.app/lucidchart/3176adad-0474-4755-bfb5-e323e1a65fab/edit
 .. image:: ./images/dvp-acceptandsettle-informees.svg
    :align: center
    :width: 100%
-   :alt: The informees of the ``AcceptAndSettle`` action and its subactions.
+   :alt: The informees of the nodes in the ``AcceptAndSettle`` action.
 
+Importantly, nodes cannot exist without their children on the Ledger, as mentioned in the :ref:`ledger structure section <actions-hierarchical-structure>`;
+only actions can.
+An informee is therefore informed not only about a node,
+but about the whole action corresponding to this node, that is, the whole subtree rooted at this node.
+Accordingly, the informees for an action are the informees of its root node.
+
+
+Witness
+*******
+
+A single node can be part of multiple actions
+For example, the diagram below extends the :ref:`subaction diagram <da-ledger-subaction>` with the informees shown in the top right corner of the borderless box for each subaction.
+Here, the Create node ③ is part of three subactions, namely those rooted at nodes ①, ②, and ③.
+Accordingly, this Create node is shown to the informees of all these actions, even if they are not informees of the node itself.
+Those parties are called witnesses.
+Formally, for a given transaction `tx`, the **witnesses** of a node in `tx` are the union of the informees of all subactions of `tx` that contain the node.
+In particular, every informee of the node is also a witness.
+
+The diagram shows the witnesses of a subaction in purple on its root action.
+For node ③, the witnesses are Alice, Bob, and Bank 1, because Bob is an informee of ① and ③; Bank 1 is an informee of ② and ③; and Alice is an informee of ① and ②.
+
+.. https://lucid.app/lucidchart/e5ee4a5f-3dda-4eec-a773-0ab3dde2c4ff/edit
+.. image:: ./images/dvp-settle-witness.svg
+   :align: center
+   :width: 60%
+   :alt: The informees of the subactions of the ``Settle`` choice and the witnesses of the nodes.
 
 
 .. _da-model-projections:
 
-Projections
-***********
+Projection
+**********
 
 Informees should see the changes they are interested in,
 but this does not mean that they have to see the entirety of any transaction that includes such a change.
@@ -110,6 +136,7 @@ This is made precise through *projections* of a transaction,
 which define the view that a group of parties gets on a transaction.
 Intuitively, given a transaction within a commit, a group of parties sees only the subtransaction consisting of all actions on contracts
 whose informees include at least one of the parties.
+Equivalently, the group of parties sees only those nodes whose witnesses include at least one of the parties.
 Thus, privacy is obtained on the subtransaction level.
 
 This section first defines projections for transactions and then for ledgers.
@@ -117,7 +144,7 @@ This section first defines projections for transactions and then for ledgers.
 Transaction projection
 ======================
 
-The next diagram gives an example for the ``AcceptAndSettle`` Exercise action with the informees shown above.
+The next diagram gives an example for a transaction with the ``AcceptAndSettle`` Exercise action as the only root action, whose informees are shown above.
 
 .. https://lucid.app/lucidchart/9b3762db-66b4-4e72-94cb-bcefd4c1a5ea/edit
 .. image:: ./images/dvp-acceptandsettle-projection.svg
@@ -127,8 +154,8 @@ The next diagram gives an example for the ``AcceptAndSettle`` Exercise action wi
 Since both Alice and Bob are informees of the root action,
 namely Bob exercising the ``AcceptAndSettle`` choice on Alice's ``ProposeSimpleDvP`` contract,
 the projection to either Alice or Bob or both consists of the whole Exercise action.
-As an Exercise action contains the consequences,
-Alice and Bob each see all the subactions, even if they are not an informee of the subaction itself.
+As an action consists of the whole subtree underneath its root node,
+Alice and Bob each see all the nodes they are witnesses of.
 For example, Alice's projection includes the Fetch subaction, Bob's ``Transfer`` exercise of on #2, and the creation of Bob's ``SimpleAsset`` contract #5.
 Similarly, Bob's projection includes Alice's ``Transfer`` Exercise on #1 and the creation of Alice's ``SimpleAsset`` contract #6.
 
@@ -146,16 +173,41 @@ In particular, Bank 2 does not learn what happens between the Fetch and the Exer
 In practice, this means that Bank 1 and Bank 2 do not learn what Alice and Bob is exchanging their asset for,
 providing privacy to Alice and Bob with respect to the banks.
 
+The projection to Bank 1 and Bank 2 at the bottom shows that a projection to several parties may contain strictly more information than the projections to each of the parties together.
+Said differently, it is possible to reconstruct the projection to Bank 1 and Bank 2 from solely from the projection for Bank 1 and the projection for Bank 2.
+Here, this is because the order of the three root actions cannot be uniquely determined from the individual projections.
+For this reason, projection is defined for a set of parties.
+
 .. _def-tx-projection:
 
-Formally, the **projection** of a transaction `tx = act`\ :sub:`1`\ `, …, act`\ :sub:`n` for a set `P` of parties is the
-subtransaction obtained by doing the following for each action `act`\ :sub:`i`:
+Formally, the **projection** of a transaction for a set `P` of parties is the
+subtransaction obtained by doing the following for each root action `act` of the transaciton.
 
-#. If `P` contains at least one of the informees of `act`\ :sub:`i`, keep `act`\ :sub:`i` as-is.
-#. Else, if `act`\ :sub:`i` has consequences, replace `act`\ :sub:`i` by the projection (for `P`) of its consequences,
+#. If `P` contains at least one of the informees of `act`, keep `act` as-is, including its consequences.
+#. Else, if `act` has consequences, replace `act` by the projection (for `P`) of its consequences,
    which might be empty.
-#. Else, drop `act`\ :sub:`i`.
-   
+#. Else, drop `act` including its consequences.
+
+This definition does not operate on nodes, but on actions, that is, subtrees of nodes.
+Accordingly, the projection of a transaction for a set of parties `P` contains a node if and only if `P` contains at least one of the witnesses of the node.
+
+As a projection is a transaction, it is possible to project a projection further.
+The projection operation has the following **absorbtion** property:
+Projection to decreasing subsets of parties is absorbing.
+That is, if a set of parties `P` is a subset of `Q`, then projecting a transaction first to `Q` and then to `P` is the same as projecting it directly to `P`.
+Intuitively, this property expresses the fact that a group of parties jointly learns at least as much about a transaction as any subgroup of these parties learns by themselves.
+The converse is false, as the above example with projection to Banks 1 and 2 has shown.
+
+Conversely, if `P` is not a subset of `Q`, then projecting a transaction first to `Q` and then to `P` will merely result in a subtransaction of the projection to `P`.
+For example, if we project the above projection for Bank 1 to Bob, the resulting transaction consists only of the Create action for contract #5.
+This is a proper subtransaction of Bob's projection.
+
+This difference reflects that Bank 1 learns less about the Exercise node than Bob.
+In particular, Bank 1 cannot infer from its projection that Bob is a witness of the Exercise node.
+This is a general pattern: the informees of an action may not learn about witnesses of nodes therein.
+This is crucial from a privacy perspective
+as it hides who is involved in the hidden parts of the transaction.
+
 .. _da-model-ledger-projection:
 
 Ledger projection
@@ -170,10 +222,16 @@ Finally, the **projection of a ledger** `l` for a set `P` of parties is a DAG of
 * Add an edge between two (non-empty projected) transactions `tx`:sub:`1` and `tx`:sub:`2`
   if `tx2` uses a contract created by or used in `tx`:sub:`1` whose stakeholders overlap with `P`.
 
-Notably, the projection of a ledger is not a ledger, but a DAG of transactions.
-Its edges are a subset of the edges between the commits in the original ledger.
+The edges of the DAG are a subset of the edges between the commits in the original ledger.
 The subtleties of this subset construction are discussed in the :ref:`causality section <local-ledger>`.
 Until then, we pretend that the ledger is totally ordered and projections retain the same ordering.
+
+Notably, the projection of a ledger is not a ledger, but a DAG of transactions.
+The requesters cannot be retained because they are typically witnesses of the actions in the projection,
+but not informees.
+Yet, the informees of the action must not know all the witnesses.
+For example, if Bank 1's projection did mention Bob as the requester of the last commit,
+then Bank 1 could infer that Bob is a witness of Alice exercising the ``Transfer`` choice on contract #1.
 
 Projecting the ledger of the complete DvP example yields the following projections for each
 party:
@@ -210,38 +268,6 @@ Examine each party's projection in turn:
    A user of a Participant Node can request the Ledger projection for the user's parties via the
    :externalref:`updates tree stream <com.daml.ledger.api.v2.GetUpdateTrees>`.
 
-Witnesses
-*********
-
-The projection of a transaction or ledger for a set of parties `P` includes subactions whose informees are disjoint from `P`.
-For example, Alice sees the Fetch action on Bob's ``SimpleAsset`` (contract #2)
-because it is a consequence of Bob's ``Accept`` Exercise and Alice is an informee of this Exercise.
-We say that Alice, Bob, and Bank 2 are witnesses of the Fetch action.
-
-Formally, for a given transaction `tx`, the **witnesses** of an subaction `act` of `tx` are all the parties
-whose projection of `tx` contains `act` as a subaction.
-Or equivalently, the witnesses of `act` are the union of the informees of all subactions of `tx` that contain `act`.
-In particular, every informee of `act` is also a witness.
-
-In terms of privacy, the witnesses are all those parties who learn about a particular action.
-Notably, the informees of an action may not learn about witnesses of the action.
-For example, Bank 2 is an informee of the Fetch action and Alice is a witness,
-but Bank 2 cannot learn from its projection that Alice is a witness.
-This is crucial from a privacy perspective
-as it hides who is involved in the hidden parts of the transaction.
-
-In particular, this explains why the projection of a commit is a transaction:
-the requesters cannot be retained
-because the requesters are typically witnesses of the actions in the projection,
-but not informees.
-For example, if Bank 2's projection did mention Bob as the requester of the last commit,
-then Bank 1 could infer that Bob is a witness of Alice exercising the ``Transfer`` choice on contract #1.
-
-.. note::
-   Alice is not a witness of the Create action for Bob's ``SimpleAsset`` (contract #2)
-   although the contract appears as an input to Alice's projection.
-   
-   
 
 
 .. _da-model-divulgence:
@@ -264,8 +290,8 @@ Divulgence is a deliberate choice in the design of Canton Ledgers and comes in t
   In general, there is no point in hiding the consequences of an action.
   Bob could anyway compute the consequences of the actions it is an informee of, because Daml is deterministic.
 
-* **Input divulgence** refers to an input contract being shown to the non-informee witnesses of an action using this contract.
-  For example, the ``Fetch`` on Bob's ``SimpleAsset`` (contract #2) is visible to Alice
+* **Input divulgence** refers to an input contract being shown to the non-informee witnesses of a node using this contract.
+  For example, the Fetch on Bob's ``SimpleAsset`` (contract #2) is visible to Alice
   and Alice's projection therefore references this contract as an input
   even though the Create action for #2 is not part of Alice's projection.
 
@@ -273,11 +299,17 @@ Divulgence is a deliberate choice in the design of Canton Ledgers and comes in t
   (see :ref:`da-model-consistency` for ledger integrity).
   That is, Alice can check that Bob does allocate a suitable ``SimpleAsset`` according to what she specified in her proposal.
 
+  Input divulgence does not make Alice a witness of the Create action for Bob's ``SimpleAsset`` (contract #2),
+  because an input contract is not the same as its Create action.
+  In the diagrams, this distinction is visualized via the dashed border for input contracts and them being placed to the left.
+  
 Via the Ledger API's :externalref:`update service <com.daml.ledger.api.v2.GetUpdateTrees>`,
 a user can see the immediately divulged contracts in the trees of the parties' projection
 as these trees contain the Create nodes.
 In contrast, the Ledger API currently does not offer a means for a user to lookup a contract ID of an input divulgence.
   
+
+
 
 .. _da-model-disclosure:
 
@@ -295,7 +327,7 @@ Disclosure means that Alice tells Bob via an off-ledger communication channel ab
 In the Daml script running example, the script itself is the communication channel.
 In real-world contexts, Alice would offer an API for Bob to retrieve the relevant data.
 
-It is a design decision that immediate divulgence does not entail disclosure.
+It is a design decision that immediate divulgence does not entail disclosure for subsequent transactions.
 For example, after the DvP has been settled, Alice creates another DvP proposal for Bob to swap the two assets again:
 
 .. literalinclude:: ./daml/SimpleDvP.daml
@@ -339,6 +371,3 @@ A Create event with `N` observers appears in the projection of at least those `N
 So the size of all projections together is already quadratic in `N` as an action of size at least `N` appears in `N` different projection.
 If the observers are added one by one, then `N` archives and creations are needed,
 which means the size of all projections together is cubic in `N`.
-
-
-

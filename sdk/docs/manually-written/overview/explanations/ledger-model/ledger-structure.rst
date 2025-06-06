@@ -22,18 +22,21 @@ Running workflow example
 Most of the examples in this section look at the following Daml Script scenarios
 based on the templates from the :ref:`running example <da-ledgers-running-example>`.
 Two banks first each issue one asset to either Alice or Bob and then Alice proposes a DvP to Bob.
-Bob accepts the proposal and settles the DvP,
-either in one step via ``AcceptAndSettle`` or in two separate steps with ``Accept`` followed by ``Settle``.
+Bob accepts the proposal and settles the DvP.
 
 .. literalinclude:: ./daml/SimpleDvP.daml
    :language: daml
    :start-after: SNIPPET-SCRIPT-BEGIN
    :end-before: SNIPPET-SCRIPT-END
 
+Acceptance and settlement can happen either in a single step via the ``AcceptAndSettle`` choice.
+
 .. literalinclude:: ./daml/SimpleDvP.daml
    :language: daml
    :start-after: SNIPPET-ACCEPT_AND_SETTLE-BEGIN
    :end-before: SNIPPET-ACCEPT_AND_SETTLE-END
+
+Or in two separate steps with ``Accept`` followed by ``Settle``:
 
 .. literalinclude:: ./daml/SimpleDvP.daml
    :language: daml
@@ -46,33 +49,56 @@ either in one step via ``AcceptAndSettle`` or in two separate steps with ``Accep
 Actions
 *******
 
+.. _actions-hierarchical-structure:
+
 Hierarchical structure
 ======================
 
 One of the main features of the Ledger Model is a *hierarchical action structure*.
 This structure is illustrated using Bob settling the DvP by exercising the ``Settle`` choice in the above scenario.
 Alice and Bob have allocated their assets (contracts #1 and #2) on the ledger to a ``SimpleDvp`` contract (#4).
-These contracts appears as inputs in the diagram below.
-
-Exercising the ``Settle`` choice yields an Exercise action that references the ``SimpleDvp`` input contract #4.
-This action contains two consequences, which perform the asset transfers automatically as part of the ``Settle`` choice.
-
-#. Alice exercises the ``Transfer`` choice on her ``SimpleAsset`` contract #1, which archives the contract.
-   This subaction contains another consequence, namely the creation of Bob's new ``SimpleAsset`` contract #5.
-   
-#. Bob exercises the ``Transfer`` choice on his ``SimpleAsset`` contract #2.
-   As a consequence thereof, Alice's new ``SimpleAsset`` contract #6 is created.
-
-The diagram below depicts this hierarchical structure of actions (in blue):
-Every exercise of a choice and create of a contract yields a node in a tree with the consequences as children,
-denoted by the dash-dotted arrows.
-The nodes refer to input contracts shown in gray, which are not part of the action itself.
+These contracts appears as inputs (dashed boxes on the left) in the diagram below.
 
 .. https://lucid.app/lucidchart/f3f49c7c-d257-4136-9dcb-39750f45c24d/edit
 .. image:: ./images/dvp-settle-action.svg
    :alt: The settlement action on the ``SimpleDvp`` contract between Alice and Bob, with the two legs of the swap as consequences.
+         
+Exercising the ``Settle`` choice yields an Exercise action,
+which is the tree of nodes shown in blue.
+The input contracts on the left are not part of the action.
+The root node describes the parameters of the choice and references the ``SimpleDvp`` input contract #4.
+It has two subtrees, which perform the asset transfers automatically as part of the ``Settle`` choice.
 
-Overall, the settlement in this example contains two types of actions:
+#. The left subtree represents Alice exercising the ``Transfer`` choice on her ``SimpleAsset`` contract #1.
+   It consists of two nodes:
+   The root node describes the parameters of the choice and the input contract #1.
+   The child node, which is a one-node subtree of its own, encodes the creation of Bob's new ``SimpleAsset`` contract #5.
+   
+#. The right subtree is analogous:
+   The root node of the subtree describes Bob exercising the ``Transfer`` choice on his ``SimpleAsset`` contract #2,
+   and its child encodes the creation of Alice's new ``SimpleAsset`` contract #6.
+
+Notably, the Exercise action is the whole tree even though the root node already describes all the relevant parameters.
+The Ledger Model focuses on actions rather than nodes because the root node cannot exist on its own, without its children,
+as the choice body in the Daml model must always execute when the choice is exercised.
+The :ref:`integrity section <da-model-integrity>` goes into the details of this.
+
+Nevertheless actions are not indivisible, but hierarchical:
+The left and right subtrees are actions in their own right,
+namely the Exercise actions for Alice and Bob exercising their ``Transfer`` choice on their ``SimpleAsset`` input contracts #1 and #2, respectively.
+And each of the two subtrees contains another subtree,
+namely the creation of Bob's and Alice's new ``SimpleAsset`` contracts #5 and #6.
+Each of these subtrees is an action in its own right.
+This hierarchical structure induces a :ref:`subaction relationship explained below <da-ledger-subaction>`
+and forms the basis for the :ref:`privacy model <da-model-privacy>`.
+
+
+.. _def-action:
+
+Definition
+==========
+
+Overall, the settlement in the above example contains two types of actions:
 
 #. Creating contracts
 
@@ -80,18 +106,13 @@ Overall, the settlement in this example contains two types of actions:
 
 These are also the two main kinds of actions in the Ledger Model.
 
-Definition
-==========
+A **node** is one of the following:
 
-.. _def-action:
-
-An **action** is one of the following:
-
-#. A **Create** action on a template, which records the creation of the contract.
-   A Create action contains the following pieces of information:
+#. A **Create** node records the creation of the contract.
+   It contains the following pieces of information:
 
    * The **contract ID** is a unique identifier of the contract.
-     It is equivalent to the transaction output (TxO) in ledger models based on `unspent transaction outputs (UTxO) <https://en.wikipedia.org/wiki/Unspent_transaction_output>`_.
+     It is equivalent to the transaction output (TxO) in ledgers based on :ref:`unspent transaction outputs (UTxO) <da-ledger-input-output>`.
 
    * The **template ID** identifies the Daml code associated with the contract,
      and its arguments define the **contract instance**, which is the immutable data associated with the contract ID.
@@ -110,9 +131,9 @@ An **action** is one of the following:
       :align: center
       :width: 30%
       :alt: The structure of a **Create** node.
-   
-#. An **Exercise** action on a contract, which records that one or more parties have exercised a choice on the contract.
-   An Exercise action contains the following pieces of information:
+
+#. An **Exercise** node records the parameters of a choice that one or more parties have exercised on a contract.
+   It contains the following pieces of information:
 
    * An exercise **kind**, which is either **consuming** or
      **non-consuming**. Once consumed, a contract cannot be used again;
@@ -136,13 +157,6 @@ An **action** is one of the following:
 
    * The **exercise result** as the Daml value returned by evaluating the choice body.
 
-   * A list of **consequences**, which are themselves actions. Note that
-     the consequences, as well as the kind and the actors, are
-     considered a part of the exercise action itself. This nesting of
-     actions within other actions through consequences of exercises
-     gives rise to the hierarchical structure.
-     The exercise action is the **parent action** of its consequences.
-
    Exercise nodes are depicted as shown below, where the consequences are indicated by arrows ordered left-to-right.
    Diagrams omit the kind if it is consuming, empty field values, and choice observers that are also actors.
 
@@ -152,12 +166,12 @@ An **action** is one of the following:
       :width: 30%
       :alt: The structure of an **Exercise** node.
 
-#. A **Fetch** action on a contract, which demonstrates that the contract exists and is active at the time of fetching.
-   A Fetch behaves like a non-consuming exercise with no consequences, and can be repeated.
-   The action contains the following pieces of information, analogous to Exercise nodes:
+#. A **Fetch** node on a contract, which demonstrates that the contract exists and is active at the time of fetching.
+   A Fetch behaves like a non-consuming Exercise with no consequences, and can be repeated.
+   The fetch node contains the following pieces of information, analogous to Exercise nodes:
    **contract ID**, **interface ID**, **template ID**, and the **actors**, namely the parties who fetch the contract.
 
-   Fetch actions are depicted as shown below.
+   Fetch nodes are depicted as shown below.
 
    .. https://lucid.app/lucidchart/27844d5e-0cdb-4f22-8f67-e97f3839e613/edit
    .. image:: ./images/fetch-node.svg
@@ -165,9 +179,27 @@ An **action** is one of the following:
       :width: 30%
       :alt: The structure of a **Fetch** node.
 
-An **Exercise** or a **Fetch** action on a contract is said to **use** the contract.
-Moreover, a consuming **Exercise** is said to **consume** (or **archive**) its contract.
-Finally, the consequences of a **Fetch** or **Create** node are empty.
+
+An **action** consists of a **root node** and a list of **consequences**, which are themselves actions.
+This gives rise to the tree structure of an action: The root node of an action has as children the root nodes of its consequences.
+
+An action inherits its kind from its root node:
+
+#. A **Create action** has a Create node as the root.
+   The consequences are empty.
+
+#. An **Exercise action** has an Exercise node as the root
+   and the consequences are the subactions.
+   The Exercise action is the **parent action** of its consequences.
+
+#. A **Fetch action** as a Fetch node as the root.
+   The consequences are empty.
+   
+The terminology on nodes extends to actions via the root node.
+For example, the signatories of a Create action are the signatories of the Create node,
+and an Exercise action is (non)consuming if and only if its root node is.
+Moreover, an Exercise or a Fetch action on a contract is said to **use** the contract.
+Finally, a consuming Exercise is said to **consume** (or **archive**) its contract.
 
 Examples
 ========
@@ -184,9 +216,9 @@ The next diagram shows this Exercise action with the Fetch action as its first c
    :width: 100%
    :alt: The accept action on Alice's ``ProposeSimpleDvP`` exercised by Bob.
 
-A non-consuming exercise shows up in the combined ``AcceptAndSettle`` choice on the ``ProposeSimpleDvP`` contract:
+A non-consuming Exercise shows up in the combined ``AcceptAndSettle`` choice on the ``ProposeSimpleDvP`` contract:
 This choice is non-consuming so that the ``Accept`` choice exercised in the choice body can consume the proposal contract.
-As the next diagram shows, non-consuming exercises yield multiple references to the same input contract #3.
+As the next diagram shows, non-consuming Exercises yield multiple references to the same input contract #3.
 The diagram also shows that fetches have the same effect: input contract #2 is used twice.
 
 .. https://lucid.app/lucidchart/fdcc5894-e013-499e-ba85-de16300381a8/edit
@@ -199,7 +231,7 @@ The diagram also shows that fetches have the same effect: input contract #2 is u
          
 Subactions
 ==========
-         
+
 This example again highlights the hierarchical structure of actions:
 The ``AcceptAndSettle`` action contains the corresponding actions for ``Accept`` and ``Settle`` as its consequences.
 
@@ -207,8 +239,8 @@ More generally, for an action `act`, its **proper subactions** are all actions i
 `act`, together with all of their proper subactions.
 Additionally, `act` is a (non-proper) **subaction** of itself.
 
-The subaction relation is visualized below for Bob's ``Settle`` exercise.
-Each box with rounded corners represents an action and the nesting of these boxes encodes the subaction relation.
+The subaction relation is visualized below for Bob's ``Settle`` Exercise.
+Each borderless box contains an action (via its tree of nodes) and the nesting of these boxes encodes the subaction relation.
 In detail, both the blue and purple boxes are proper subactions of Bob's ``Settle`` action shown in grey.
 The green box is a proper subaction of the blue and the grey boxes, and the yellow box is a proper subaction of the purple and the grey boxes.
 
@@ -229,6 +261,8 @@ Those actions are called the **root actions** of the transaction.
 That is, for a transaction `tx = act`:sub:`1`\ `, …, act`:sub:`n`, every `act`:sub:`i` is a **root action**.
 For example, if Alice and Charlie have made one DvP proposal each for Bob, then Bob may want to accept both simulataneously.
 To that end, Bob exercises both ``Accept`` choices in a single transaction with two root actions (blue and purple), as shown next.
+Visually, transactions are delimited by the dashed lines on both sides, to distinguish them from actions.
+Like for actions, the input contracts on the left are not part of the transaction.
 
 .. https://lucid.app/lucidchart/acb71942-2a11-417c-ae0a-003c8ea2da69/edit
 .. image:: ./images/dvp-accept-two.svg
@@ -236,7 +270,7 @@ To that end, Bob exercises both ``Accept`` choices in a single transaction with 
    :width: 100%
    :alt: A transaction with two top-level actions where Bob accepts two DvP proposal, one from Alice and one from Charlie.
 
-For another example, consequences of an exercise form a transaction.
+For another example, consequences of an Exercise action form a transaction.
 In the example of the ``Settle`` action on Alice's and Bob's ``SimpleDvP``,
 the consequences of the ``Settle`` action form the following transaction,
 where actions are ordered left-to-right as before.
@@ -254,7 +288,7 @@ A **proper subtransaction** of a transaction is obtained by (repeatedly) replaci
 and a **subtransaction** of a transaction is either the transaction itself or a proper subtransaction thereof.
 
 For example, given the transaction shown above consisting only of the two consequences of the ``Settle`` action,
-the next diagram shows all its proper non-empty subtransactions, each in its own box.
+the next diagram shows all seven proper non-empty subtransactions, each with their dashed delimiters.
 
 .. https://lucid.app/lucidchart/c5ff472e-3161-42a0-ac2d-275774a2b9b8/edit
 .. image:: ./images/dvp-settle-consequences-subtransactions.svg
@@ -262,11 +296,12 @@ the next diagram shows all its proper non-empty subtransactions, each in its own
    :width: 100%
    :alt: All proper subtransactions of the consequences of the ``Settle`` action.
 
-         
+.. _da-ledger-input-output:
+      
 Inputs and outputs
 ******************
 
-The Ledger Model falls into the category of (extended) UTxO-style ledgers
+The Ledger Model falls into the category of `(extended) UTxO-style ledgers <https://en.wikipedia.org/wiki/Unspent_transaction_output>`_
 where the set of unspent transaction outputs (UTxOs) constitutes the current state of a ledger.
 Here, the **transaction outputs** are the contract IDs of the contracts created in a transaction.
 When a contract is consumed, its contract ID is spent and thus removed from the UTxO set.
@@ -308,7 +343,7 @@ The graph structure of the Ledger induces an *order* on the commits in the ledge
 Visually, a ledger can be represented as a sequence growing from left to right as time progresses.
 Below, dashed vertical lines in purple mark the boundaries of commits,
 and each commit is annotated with its requester(s).
-Blue arrows link each exercise and fetch actions to the create action of the input contract.
+Blue arrows link each Exercise and Fetch action to the Create action of the input contract.
 These arrows highlight that the ledger forms a **transaction graph**.
 
 For example, the following Daml Script encodes the whole workflow of the running DvP example.
