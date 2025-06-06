@@ -112,6 +112,7 @@ jobs:
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
+      name: publish_to_artifactory
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - bash: |
@@ -126,7 +127,7 @@ jobs:
       name: publish_to_oci
       env:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        REGISTRY: "europe-docker.pkg.dev/da-images-dev/oci-private"
+        REGISTRY: "europe-docker.pkg.dev/da-images-dev/private"
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit

@@ -10,9 +10,40 @@ module HexString where
 
 import DA.Assert ((===))
 import DA.Exception (GeneralError (..))
+import DA.Numeric()
 import DA.Optional (fromSome)
 import DA.Crypto.Text
 import Daml.Script
+
+n0_0: Numeric 0
+n0_0 = 0.0
+
+n0_37: Numeric 37
+n0_37 = 0.0
+
+n1_0: Numeric 0
+n1_0 = 1.0
+
+n1_37: Numeric 37
+n1_37 = 1.0
+
+nM1_0: Numeric 0
+nM1_0 = -1.0
+
+nM1_37: Numeric 37
+nM1_37 = -1.0
+
+nMin_0: Numeric 0
+nMin_0 = minBound @(Numeric 0)
+
+nMin_37: Numeric 37
+nMin_37 = minBound @(Numeric 37)
+
+nMax_0: Numeric 0
+nMax_0 = maxBound @(Numeric 0)
+
+nMax_37: Numeric 37
+nMax_37 = maxBound @(Numeric 37)
 
 n3: Numeric 3
 n3 = 0.123
@@ -84,9 +115,29 @@ main =
     fromHex "alice" === (None: Optional Party)
 
     -- `numericViaStringToHex` and `numericViaStringFromHex`
+    numericViaStringToHex n0_0 === "302e30"
+    numericViaStringToHex n0_37 === "302e30"
+    numericViaStringToHex n1_0 === "312e30"
+    numericViaStringToHex n1_37 === "312e30"
+    numericViaStringToHex nM1_0 === "2d312e30"
+    numericViaStringToHex nM1_37 === "2d312e30"
+    numericViaStringToHex nMin_0 === "2d39393939393939393939393939393939393939393939393939393939393939393939393939392e30"
+    numericViaStringToHex nMin_37 === "2d392e39393939393939393939393939393939393939393939393939393939393939393939393939"
+    numericViaStringToHex nMax_0 === "39393939393939393939393939393939393939393939393939393939393939393939393939392e30"
+    numericViaStringToHex nMax_37 === "392e39393939393939393939393939393939393939393939393939393939393939393939393939"
     numericViaStringToHex n3 === "302e313233"
     numericViaStringToHex n7 === "302e31323334353637"
     numericViaStringToHex n10 === "302e313233343536373839"
+    numericViaStringFromHex "302e30" === Some n0_0
+    numericViaStringFromHex "302e30" === Some n0_37
+    numericViaStringFromHex "312e30" === Some n1_0
+    numericViaStringFromHex "312e30" === Some n1_37
+    numericViaStringFromHex "2d312e30" === Some nM1_0
+    numericViaStringFromHex "2d312e30" === Some nM1_37
+    numericViaStringFromHex "2d39393939393939393939393939393939393939393939393939393939393939393939393939392e30" === Some nMin_0
+    numericViaStringFromHex "2d392e39393939393939393939393939393939393939393939393939393939393939393939393939" === Some nMin_37
+    numericViaStringFromHex "39393939393939393939393939393939393939393939393939393939393939393939393939392e30" === Some nMax_0
+    numericViaStringFromHex "392e39393939393939393939393939393939393939393939393939393939393939393939393939" === Some nMax_37
     numericViaStringFromHex "302e313233" === Some n3
     numericViaStringFromHex "302e31323334353637" === Some n7
     numericViaStringFromHex "302e313233343536373839" === Some n10
@@ -115,9 +166,13 @@ main =
           actualMsg === "Expected a hex encoded string but argument was: Hello World!"
 
     -- packHexBytes
+    packHexBytes "01" 0 === Some ""
     packHexBytes "01" 1 === Some "01"
     packHexBytes "01" 2 === Some "0001"
     packHexBytes "01" 3 === Some "000001"
+    packHexBytes "0102" 0 === Some ""
+    packHexBytes "0102" 1 === Some "02"
+    packHexBytes "0102" 2 === Some "0102"
     packHexBytes "0102" 3 === Some "000102"
     packHexBytes "0102030405060708" 4 === Some "05060708"
     packHexBytes "0102030405060708" 7 === Some "02030405060708"
@@ -129,7 +184,10 @@ main =
     packHexBytes "Hello World!" 5 === None
 
     -- sliceHexBytes
+    sliceHexBytes "12" 1 0 === Left "Expected end byte to be >= 1, was: 0"
+    sliceHexBytes "12" 1 1 === Right ""
     sliceHexBytes "12" 1 2 === Right "12"
+    sliceHexBytes "12" 1 3 === Left "Expected end byte to be <= 2, was: 3"
     sliceHexBytes "DeadBeef" 2 3 === Right "ad"
     sliceHexBytes "DeadBeef" 3 4 === Right "Be"
     sliceHexBytes "DeadBeef" 2 4 === Right "adBe"
@@ -154,6 +212,21 @@ main =
     isBytes32Hex maxUInt64Hex === False
     isBytes32Hex minUInt256Hex === True
     isBytes32Hex maxUInt256Hex === True
+    _ <- try do
+           isBytes32Hex "" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: "
+    _ <- try do
+           isBytes32Hex "0" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: 0"
+    _ <- try do
+           isBytes32Hex "Hello World!" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: Hello World!"
 
     isUInt32Hex(fromSome(packHexBytes "00" 4)) === True
     isUInt32Hex(fromSome(packHexBytes "000001" 4)) === True
@@ -169,6 +242,21 @@ main =
     isUInt32Hex maxUInt64Hex === False
     isUInt32Hex minUInt256Hex === False
     isUInt32Hex maxUInt256Hex === False
+    _ <- try do
+           isUInt32Hex "" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: "
+    _ <- try do
+           isUInt32Hex "0" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: 0"
+    _ <- try do
+           isUInt32Hex "Hello World!" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: Hello World!"
 
     isUInt64Hex(fromSome(packHexBytes "00" 8)) === True
     isUInt64Hex(fromSome(packHexBytes "00" 4)) === False
@@ -183,6 +271,21 @@ main =
     isUInt64Hex maxUInt64Hex === True
     isUInt64Hex minUInt256Hex === False
     isUInt64Hex maxUInt256Hex === False
+    _ <- try do
+           isUInt64Hex "" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: "
+    _ <- try do
+           isUInt64Hex "0" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: 0"
+    _ <- try do
+           isUInt64Hex "Hello World!" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: Hello World!"
 
     isUInt256Hex(fromSome(packHexBytes "00" 32)) === True
     isUInt256Hex(fromSome(packHexBytes "00" 8)) === False
@@ -197,5 +300,20 @@ main =
     isUInt256Hex maxUInt64Hex === False
     isUInt256Hex minUInt256Hex === True
     isUInt256Hex maxUInt256Hex === True
+    _ <- try do
+           isUInt256Hex "" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: "
+    _ <- try do
+           isUInt256Hex "0" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: 0"
+    _ <- try do
+           isUInt256Hex "Hello World!" === False
+         catch
+           GeneralError actualMsg ->
+             actualMsg === "Expected a hex encoded string but argument was: Hello World!"
 
     pure ()

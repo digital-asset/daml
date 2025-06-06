@@ -6,7 +6,7 @@ TEMP_DIR="$(mktemp -d)"
 ORAS_VERSION="1.2.2"
 ORAS="oras"
 # Unifi latest url
-UNIFI_URL="${1:-europe-docker.pkg.dev/da-images-dev/oci-private/components/assistant:latest}"
+UNIFI_URL="${1:-europe-docker.pkg.dev/da-images-dev/private/components/assistant:latest}"
 # Get current machine OS type and ARCH
 OS_TYPE="$(uname -s | tr A-Z a-z)"
 if [[ $(uname -m) == 'x86_64' ]]; then
