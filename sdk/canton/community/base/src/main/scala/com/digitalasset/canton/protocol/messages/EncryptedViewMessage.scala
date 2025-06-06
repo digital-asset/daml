@@ -25,7 +25,7 @@ import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.*
@@ -212,7 +212,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     viewHash: ViewHash,
     sessionKeys: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
     encryptedView: EncryptedView[VT],
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     viewEncryptionScheme: SymmetricKeyScheme,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
@@ -230,7 +230,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
       viewHash: ViewHash = this.viewHash,
       sessionKeyRandomness: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]] = this.sessionKeys,
       encryptedView: EncryptedView[A] = this.encryptedView,
-      synchronizerId: SynchronizerId = this.synchronizerId,
+      synchronizerId: PhysicalSynchronizerId = this.synchronizerId,
       viewEncryptionScheme: SymmetricKeyScheme = this.viewEncryptionScheme,
   ): EncryptedViewMessage[A] = new EncryptedViewMessage(
     submittingParticipantSignature,
@@ -247,7 +247,7 @@ final case class EncryptedViewMessage[+VT <: ViewType](
     submittingParticipantSignature = submittingParticipantSignature.map(_.toProtoV30),
     viewHash = viewHash.toProtoPrimitive,
     sessionKeyLookup = sessionKeys.map(EncryptedViewMessage.serializeSessionKeyEntry),
-    synchronizerId = synchronizerId.toProtoPrimitive,
+    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
   )
 
@@ -288,7 +288,7 @@ object EncryptedViewMessage extends VersioningCompanion[EncryptedViewMessage[Vie
       viewHash: ViewHash,
       sessionKeys: NonEmpty[Seq[AsymmetricEncrypted[SecureRandomness]]],
       encryptedView: EncryptedView[VT],
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       viewEncryptionScheme: SymmetricKeyScheme,
       protocolVersion: ProtocolVersion,
   ): EncryptedViewMessage[VT] = EncryptedViewMessage(
@@ -342,14 +342,17 @@ object EncryptedViewMessage extends VersioningCompanion[EncryptedViewMessage[Vie
         "session key",
         sessionKeyMapP,
       )
-      synchronizerUid <- UniqueIdentifier.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "physical_synchronizer_id",
+      )
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield new EncryptedViewMessage(
       signature,
       viewHash,
       sessionKeyRandomnessNE,
       encryptedView,
-      SynchronizerId(synchronizerUid),
+      synchronizerId,
       viewEncryptionScheme,
     )(rpv)
   }
@@ -563,8 +566,8 @@ object EncryptedViewMessageError {
   ) extends EncryptedViewMessageError
 
   final case class WrongSynchronizerIdInEncryptedViewMessage(
-      declaredSynchronizerId: SynchronizerId,
-      containedSynchronizerId: SynchronizerId,
+      declaredSynchronizerId: PhysicalSynchronizerId,
+      containedSynchronizerId: PhysicalSynchronizerId,
   ) extends EncryptedViewMessageError
 
   final case class WrongRandomnessLength(

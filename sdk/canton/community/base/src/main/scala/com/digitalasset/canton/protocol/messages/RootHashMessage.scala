@@ -12,7 +12,7 @@ import com.digitalasset.canton.protocol.messages.RootHashMessage.RootHashMessage
 import com.digitalasset.canton.protocol.{RootHash, v30}
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
@@ -31,7 +31,7 @@ import com.google.protobuf.ByteString
   */
 final case class RootHashMessage[+Payload <: RootHashMessagePayload](
     rootHash: RootHash,
-    override val synchronizerId: SynchronizerId,
+    override val synchronizerId: PhysicalSynchronizerId,
     viewType: ViewType,
     submissionTopologyTimestamp: CantonTimestamp,
     payload: Payload,
@@ -44,7 +44,7 @@ final case class RootHashMessage[+Payload <: RootHashMessagePayload](
 
   def toProtoV30: v30.RootHashMessage = v30.RootHashMessage(
     rootHash = rootHash.toProtoPrimitive,
-    synchronizerId = synchronizerId.toProtoPrimitive,
+    physicalSynchronizerId = synchronizerId.toProtoPrimitive,
     viewType = viewType.toProtoEnum,
     submissionTopologyTime = submissionTopologyTimestamp.toProtoPrimitive,
     payload = payload.getCryptographicEvidence,
@@ -103,8 +103,8 @@ object RootHashMessage
 
   def apply[Payload <: RootHashMessagePayload](
       rootHash: RootHash,
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
+      protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
       viewType: ViewType,
       submissionTopologyTime: CantonTimestamp,
       payload: Payload,
@@ -131,7 +131,10 @@ object RootHashMessage
       rootHashMessageP
     for {
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
-      synchronizerId <- SynchronizerId.fromProtoPrimitive(synchronizerIdP, "synchronizer_id")
+      synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+        synchronizerIdP,
+        "physical_synchronizer_id",
+      )
       viewType <- ViewType.fromProtoEnum(viewTypeP)
       submissionTopologyTime <- CantonTimestamp.fromProtoPrimitive(submissionTopologyTimeP)
       payloadO <- payloadDeserializer(payloadP)

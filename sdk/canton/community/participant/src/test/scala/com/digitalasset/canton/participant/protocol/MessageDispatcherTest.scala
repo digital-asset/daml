@@ -82,7 +82,8 @@ trait MessageDispatcherTest {
 
   import MessageDispatcherTest.*
 
-  private val synchronizerId = SynchronizerId.tryFromString("messageDispatcher::synchronizer")
+  private val synchronizerId =
+    SynchronizerId.tryFromString("messageDispatcher::synchronizer").toPhysical
   private val testTopologyTimestamp = CantonTimestamp.Epoch
   private val participantId =
     ParticipantId.tryFromProtoPrimitive("PAR::messageDispatcher::participant")
@@ -118,7 +119,7 @@ trait MessageDispatcherTest {
     def mk(
         mkMd: (
             ProtocolVersion,
-            SynchronizerId,
+            PhysicalSynchronizerId,
             ParticipantId,
             RequestTracker,
             RequestProcessors,
@@ -372,7 +373,7 @@ trait MessageDispatcherTest {
   protected def messageDispatcher(
       mkMd: (
           ProtocolVersion,
-          SynchronizerId,
+          PhysicalSynchronizerId,
           ParticipantId,
           RequestTracker,
           RequestProcessors,
@@ -815,7 +816,7 @@ trait MessageDispatcherTest {
       val sc = SequencerCounter(1)
       val ts = CantonTimestamp.ofEpochSecond(1)
       val txForeignSynchronizer = TopologyTransactionsBroadcast(
-        SynchronizerId.tryFromString("foo::bar"),
+        SynchronizerId.tryFromString("foo::bar").toPhysical,
         List(factory.ns1k1_k1),
         testedProtocolVersion,
       )

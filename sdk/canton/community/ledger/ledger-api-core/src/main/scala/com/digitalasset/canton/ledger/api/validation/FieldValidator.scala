@@ -99,6 +99,17 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Ref.UserId] =
     requireNonEmptyParsedId(Ref.UserId.fromString)(s, fieldName)
 
+  def optionalUserId(
+      s: String,
+      fieldName: String,
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Either[StatusRuntimeException, Option[Ref.UserId]] =
+    if (s.isEmpty) Right(None)
+    else {
+      Ref.UserId.fromString(s).map(Some(_)).left.map(invalidField(fieldName, _))
+    }
+
   def requireLedgerString(
       s: String,
       fieldName: String,

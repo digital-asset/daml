@@ -227,13 +227,13 @@ class ParticipantPartiesAdministrationGroup(
             partyId,
             participants,
             threshold,
-            synchronizerId,
+            synchronizerId.logical,
             mustFullyAuthorize,
             synchronize,
           ).toEither
 
           _ <- Applicative[Either[String, *]].whenA(synchronize.nonEmpty)(
-            waitForPartyAndSyncWithParticipants(partyId, synchronizerId)
+            waitForPartyAndSyncWithParticipants(partyId, synchronizerId.logical)
           )
         } yield partyId
       }
@@ -247,7 +247,7 @@ class ParticipantPartiesAdministrationGroup(
     */
   private def lookupOrDetectSynchronizerId(
       alias: Option[SynchronizerAlias]
-  ): Either[String, SynchronizerId] = {
+  ): Either[String, PhysicalSynchronizerId] = {
     lazy val singleConnectedSynchronizer = reference.synchronizers.list_connected() match {
       case Seq() =>
         Left("not connected to any synchronizer")
@@ -312,7 +312,7 @@ class ParticipantPartiesAdministrationGroup(
         party,
         removes = List(this.participantId),
         forceFlags = forceFlags,
-        store = TopologyStoreId.Synchronizer(synchronizerId),
+        store = TopologyStoreId.Synchronizer(synchronizerId.logical),
       )
       .discard
   }

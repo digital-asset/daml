@@ -27,7 +27,7 @@ import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
@@ -119,6 +119,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       free: Set[Key] = Set.empty[Key],
       active: Set[Key] = Set.empty[Key],
       lock: Set[Key] = Set.empty[Key],
+      lockMaybeUnknown: Set[Key] = Set.empty[Key],
       prior: Set[Key] = Set.empty[Key],
   ): ActivenessCheck[Key] =
     ActivenessCheck.tryCreate(
@@ -126,6 +127,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       checkFree = free,
       checkActive = active,
       lock = lock,
+      lockMaybeUnknown = lockMaybeUnknown,
       needPriorState = prior,
     )
 
@@ -142,6 +144,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
       checkFree = assign,
       checkActive = deact ++ useOnly,
       lock = create ++ assign ++ deact,
+      lockMaybeUnknown = Set.empty,
       needPriorState = prior,
     )
     ActivenessSet(
@@ -193,7 +196,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
   def mkCommitSet(
       arch: Set[LfContractId] = Set.empty,
       create: Set[LfContractId] = Set.empty,
-      unassign: Map[LfContractId, (SynchronizerId, ReassignmentCounter)] = Map.empty,
+      unassign: Map[LfContractId, (PhysicalSynchronizerId, ReassignmentCounter)] = Map.empty,
       assign: Map[LfContractId, ReassignmentId] = Map.empty,
   ): CommitSet =
     CommitSet(

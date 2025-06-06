@@ -42,7 +42,7 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
 
   private val commitment1 = AcsCommitment
     .create(
-      synchronizerId,
+      synchronizerId.toPhysical,
       sender,
       counterParticipant,
       period1,
@@ -52,7 +52,7 @@ class AcsCommitmentTest extends AnyWordSpec with BaseTest with HasCryptographicE
 
   private val commitment2 = AcsCommitment
     .create(
-      synchronizerId,
+      synchronizerId.toPhysical,
       sender,
       counterParticipant,
       period2,

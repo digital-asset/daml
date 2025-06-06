@@ -359,8 +359,7 @@ class TransactionConfirmationRequestFactory(
 object TransactionConfirmationRequestFactory {
   def apply(
       submitterNode: ParticipantId,
-      synchronizerId: SynchronizerId,
-      protocolVersion: ProtocolVersion,
+      synchronizerId: PhysicalSynchronizerId,
   )(
       cryptoOps: HashOps & HmacOps,
       seedGenerator: SeedGenerator,
@@ -372,7 +371,6 @@ object TransactionConfirmationRequestFactory {
       TransactionTreeFactoryImpl(
         submitterNode,
         synchronizerId,
-        protocolVersion,
         cryptoOps,
         loggerFactory,
       )

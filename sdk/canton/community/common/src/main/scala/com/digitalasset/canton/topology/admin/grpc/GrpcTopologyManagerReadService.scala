@@ -826,31 +826,24 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listTopologyFreeze(
-      request: ListTopologyFreezeRequest
-  ): Future[ListTopologyFreezeResponse] = {
+  override def listSynchronizerMigrationAnnouncement(
+      request: ListSynchronizerMigrationAnnouncementRequest
+  ): Future[ListSynchronizerMigrationAnnouncementResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        TopologyFreeze.code,
-        // do not do UID filtering here, since the suffix of the physical synchronizer id
-        // could cause a non-match on the namespace part of the filter. instead we filter
-        // explicitly below
-        "",
+        SynchronizerMigrationAnnouncement.code,
+        request.filterSynchronizerId,
       )
     } yield {
-      val results = res.collect {
-        case (context, freeze: TopologyFreeze)
-            if freeze.physicalSynchronizerId.toProtoPrimitive.startsWith(
-              request.filterPhysicalSynchronizerId
-            ) =>
-          adminProto.ListTopologyFreezeResponse.Result(
-            context = Some(createBaseResult(context)),
-            item = Some(freeze.toProto),
-          )
+      val results = res.collect { case (context, announcement: SynchronizerMigrationAnnouncement) =>
+        adminProto.ListSynchronizerMigrationAnnouncementResponse.Result(
+          context = Some(createBaseResult(context)),
+          item = Some(announcement.toProto),
+        )
       }
-      adminProto.ListTopologyFreezeResponse(results)
+      adminProto.ListSynchronizerMigrationAnnouncementResponse(results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }

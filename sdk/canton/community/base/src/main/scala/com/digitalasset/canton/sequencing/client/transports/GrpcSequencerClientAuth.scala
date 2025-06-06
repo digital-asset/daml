@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.authentication.{
 }
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth.ChannelTokenFetcher
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{Member, SynchronizerId}
+import com.digitalasset.canton.topology.{Member, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.stub.AbstractStub
@@ -35,7 +35,7 @@ import scala.concurrent.ExecutionContext
   * authentication tokens.
   */
 class GrpcSequencerClientAuth(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     member: Member,
     crypto: SynchronizerCrypto,
     channelPerEndpoint: NonEmpty[Map[Endpoint, ManagedChannel]],

@@ -245,13 +245,13 @@ object TopologyTransactionRejection {
   }
 
   // TODO(#25467): use PhysicalSynchronizerId
-  final case class TopologyFreezeActive(synchronizerId: SynchronizerId)
+  final case class OngoingSynchronizerMigration(synchronizerId: SynchronizerId)
       extends TopologyTransactionRejection {
     override def asString: String =
-      s"The topology state of synchronizer $synchronizerId is frozen and no more topology changes are allowed."
+      s"The topology state of synchronizer $synchronizerId is frozen due to an ongoing synchronizer migration and no more topology changes are allowed."
 
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
-      TopologyManagerError.TopologyFreezeActive.Reject(synchronizerId)
+      TopologyManagerError.OngoingSynchronizerMigration.Reject(synchronizerId)
   }
 
 }

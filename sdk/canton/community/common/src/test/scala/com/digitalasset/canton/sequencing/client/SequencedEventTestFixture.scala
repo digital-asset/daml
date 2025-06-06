@@ -54,18 +54,19 @@ class SequencedEventTestFixture(
     traceContext,
   )
 
-  lazy val defaultSynchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
+  lazy val defaultSynchronizerId: PhysicalSynchronizerId =
+    DefaultTestIdentities.physicalSynchronizerId
   lazy val subscriberId: ParticipantId = ParticipantId("participant1-id")
   lazy val sequencerAlice: SequencerId = DefaultTestIdentities.sequencerId
   lazy val subscriberCryptoApi: SynchronizerCryptoClient =
     TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
       subscriberId,
-      defaultSynchronizerId,
+      defaultSynchronizerId.logical,
     )
   private lazy val sequencerCryptoApi: SynchronizerCryptoClient =
     TestingIdentityFactory(loggerFactory).forOwnerAndSynchronizer(
       sequencerAlice,
-      defaultSynchronizerId,
+      defaultSynchronizerId.logical,
     )
   lazy val updatedCounter: Long = 42L
   val sequencerBob: SequencerId = SequencerId(
@@ -157,7 +158,7 @@ class SequencedEventTestFixture(
     )(executionContext)
 
   def createEvent(
-      synchronizerId: SynchronizerId = defaultSynchronizerId,
+      synchronizerId: PhysicalSynchronizerId = defaultSynchronizerId,
       signatureOverride: Option[Signature] = None,
       serializedOverride: Option[ByteString] = None,
       counter: Long = updatedCounter,

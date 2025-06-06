@@ -41,10 +41,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{BlockSequencerConfig, Seq
 import com.digitalasset.canton.synchronizer.sequencing.traffic.RateLimitManagerTesting
 import com.digitalasset.canton.synchronizer.sequencing.traffic.store.memory.InMemoryTrafficPurchasedStore
 import com.digitalasset.canton.time.{Clock, SimClock}
-import com.digitalasset.canton.topology.client.{
-  IdentityProvidingServiceClient,
-  StoreBasedSynchronizerTopologyClient,
-}
+import com.digitalasset.canton.topology.client.StoreBasedSynchronizerTopologyClient
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
@@ -93,11 +90,11 @@ class BlockSequencerTest
     private val actorSystem = ActorSystem()
     implicit val materializer: Materializer = Materializer(actorSystem)
 
-    private val synchronizerId = topologyTransactionFactory.synchronizerId1
+    private val synchronizerId = topologyTransactionFactory.synchronizerId1.toPhysical
     private val sequencer1 = topologyTransactionFactory.sequencer1
     private val topologyStore =
       new InMemoryTopologyStore(
-        SynchronizerStore(synchronizerId),
+        SynchronizerStore(synchronizerId.logical),
         testedProtocolVersion,
         loggerFactory,
         timeouts,
@@ -123,7 +120,6 @@ class BlockSequencerTest
       synchronizerId,
       topologyStore,
       StoreBasedSynchronizerTopologyClient.NoPackageDependencies,
-      new IdentityProvidingServiceClient(),
       DefaultProcessingTimeouts.testing,
       FutureSupervisor.Noop,
       loggerFactory,
@@ -136,7 +132,7 @@ class BlockSequencerTest
     )
     private val cryptoApi = SynchronizerCryptoClient.create(
       member = sequencer1,
-      synchronizerId,
+      synchronizerId.logical,
       topologyClient,
       defaultStaticSynchronizerParameters,
       topologyTransactionFactory.syncCryptoClient.crypto,

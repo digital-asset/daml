@@ -17,7 +17,7 @@ service SynchronizerTimeService {
 
 message FetchTimeRequest {
   // optional - must be specified for participants but can be defaulted for synchronizer entities as they only have one possible synchronizer
-  optional string synchronizer_id = 1;
+  optional string physical_synchronizer_id = 1;
   google.protobuf.Duration freshness_bound = 2;
 }
 
@@ -27,7 +27,7 @@ message FetchTimeResponse {
 
 message AwaitTimeRequest {
   // optional - must be specified for participants but can be defaulted for synchronizer entities as they only have one possible synchronizer
-  optional string synchronizer_id = 1;
+  optional string physical_synchronizer_id = 1;
   // the synchronizer time to wait for
   google.protobuf.Timestamp timestamp = 2;
 }

@@ -20,6 +20,8 @@ object DefaultTestIdentities {
   val namespace: Namespace = Namespace(Fingerprint.tryFromString("default"))
   val uid: UniqueIdentifier = UniqueIdentifier.tryCreate("da", namespace)
   val synchronizerId: SynchronizerId = SynchronizerId(uid)
+  val physicalSynchronizerId: PhysicalSynchronizerId =
+    PhysicalSynchronizerId(synchronizerId, BaseTest.testedProtocolVersion)
 
   val daSequencerId: SequencerId = SequencerId(uid)
   val daMediator: MediatorId = MediatorId(uid)

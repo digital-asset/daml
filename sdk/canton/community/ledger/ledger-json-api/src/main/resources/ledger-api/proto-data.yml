@@ -24,22 +24,27 @@ messages:
     message:
       comments: 'Required authorization: ``HasRight(ParticipantAdmin) OR IsAuthenticatedIdentityProviderAdmin(identity_provider_id)``'
       fieldComments:
-        party_id_hint: |-
-          A hint to the participant which party ID to allocate. It can be
-          ignored.
-          Must be a valid PartyIdString (as described in ``value.proto``).
+        synchronizer_id: |-
+          The synchronizer, on which the party should be allocated.
+          For backwards compatibility, this field may be omitted, if the participant is connected to only one synchronizer.
+          Otherwise a synchronizer must be specified.
           Optional
         local_metadata: |-
           Formerly "display_name"
           Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
           Optional
+        user_id: |-
+          The user who will get the act_as rights to the newly allocated party.
+          If set to an empty string (the default), no user will get rights to the party.
+          Optional
+        party_id_hint: |-
+          A hint to the participant which party ID to allocate. It can be
+          ignored.
+          Must be a valid PartyIdString (as described in ``value.proto``).
+          Optional
         identity_provider_id: |-
           The id of the ``Identity Provider``
           Optional, if not set, assume the party is managed by the default identity provider or party is not hosted by the participant.
-        synchronizer_id: |-
-          The synchronizer, on which the party should be allocated.
-          For backwards compatibility, this field may be omitted, if the participant is connected to only one synchronizer.
-          Otherwise a synchronizer must be specified.
   AllocatePartyResponse:
     message:
       comments: null
@@ -893,10 +898,10 @@ messages:
           template or wildcard filter means additional events that will match the query.
           The impact of include_interface_view and include_created_event_blob fields in the filters will
           also be accumulated.
-          At least one cumulative filter MUST be specified.
           A template or an interface SHOULD NOT appear twice in the accumulative field.
           A wildcard filter SHOULD NOT be defined more than once in the accumulative field.
-          Optional
+          Optional, if no ``CumulativeFilter`` defined, the default of a single ``WildcardFilter`` with
+          include_created_event_blob unset is used.
   GetActiveContractsRequest:
     message:
       comments: |-

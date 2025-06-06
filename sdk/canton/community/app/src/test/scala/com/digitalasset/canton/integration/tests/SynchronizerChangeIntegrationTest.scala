@@ -223,7 +223,7 @@ abstract class SynchronizerChangeIntegrationTest(config: SynchronizerChangeInteg
       JavaDecodeUtil
         .decodeAllCreated(Iou.COMPANION)(
           P1.ledger_api.javaapi.commands
-            .submit_flat(Seq(bank), createIouCmd)
+            .submit(Seq(bank), createIouCmd)
         )
         .loneElement
     }

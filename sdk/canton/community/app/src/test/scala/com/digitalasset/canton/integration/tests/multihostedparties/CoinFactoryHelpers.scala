@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.ConsoleCommandTimeout
 import com.digitalasset.canton.console.ConsoleMacros.ledger_api_utils
 import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.lfv21.java as M
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.PartyId
@@ -181,7 +182,7 @@ object CoinFactoryHelpers {
       )
     }
 
-    val acceptanceTxTree = futureOwnerParticipant.ledger_api.commands
+    val acceptanceTx = futureOwnerParticipant.ledger_api.commands
       .submit(
         Seq(futureOwner),
         Seq(
@@ -191,8 +192,11 @@ object CoinFactoryHelpers {
       )
 
     if (!sync) {
+      val updateFormat = getUpdateFormat(Set(owner))
       // Wait for the owner to observe the effects of the transfer acceptance transaction
-      ownerParticipant.ledger_api.updates.by_id(Set(owner), acceptanceTxTree.updateId).isDefined
+      ownerParticipant.ledger_api.updates
+        .update_by_id(acceptanceTx.updateId, updateFormat)
+        .isDefined
     }
 
     getCoinsAmount(ownerParticipant, owner) should not contain amount

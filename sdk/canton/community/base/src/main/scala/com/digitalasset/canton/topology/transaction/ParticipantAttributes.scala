@@ -3,20 +3,12 @@
 
 package com.digitalasset.canton.topology.transaction
 
-import cats.syntax.order.*
 import com.digitalasset.canton.data.CantonTimestamp
 
 final case class ParticipantAttributes(
     permission: ParticipantPermission,
     loginAfter: Option[CantonTimestamp] = None,
+    onboarding: Boolean = false,
 ) {
-
-  def canConfirm: Boolean = permission.canConfirm
-
-  def merge(elem: ParticipantAttributes): ParticipantAttributes =
-    ParticipantAttributes(
-      permission = ParticipantPermission.lowerOf(permission, elem.permission),
-      loginAfter = loginAfter.max(elem.loginAfter),
-    )
-
+  def canConfirm: Boolean = permission.canConfirm && !onboarding
 }

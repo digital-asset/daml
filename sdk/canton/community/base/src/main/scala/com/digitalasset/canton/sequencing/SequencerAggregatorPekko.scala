@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
-import com.digitalasset.canton.topology.{SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   ActiveSourceTerminated,
@@ -60,7 +60,7 @@ import scala.concurrent.{ExecutionContext, Future}
   *   [[com.digitalasset.canton.sequencing.client.SequencerSubscriptionPekko]].
   */
 class SequencerAggregatorPekko(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     createEventValidator: NamedLoggerFactory => SequencedEventValidator,
     bufferSize: PositiveInt,
     hashOps: HashOps,
@@ -299,7 +299,7 @@ object SequencerAggregatorPekko {
   }
 
   private[SequencerAggregatorPekko] class SequencerAggregatorHealth(
-      private val synchronizerId: SynchronizerId,
+      private val synchronizerId: PhysicalSynchronizerId,
       override protected val associatedHasRunOnClosing: HasRunOnClosing,
       override protected val logger: TracedLogger,
   ) extends CompositeHealthComponent[SequencerId, HealthComponent]

@@ -32,7 +32,7 @@ import scala.collection.mutable
 
 class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExecutionContext {
 
-  private val synchronizerId = DefaultTestIdentities.synchronizerId
+  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
   private val participantId = DefaultTestIdentities.participant1
 
   private val ts1 = CantonTimestamp.ofEpochSecond(1)
@@ -44,7 +44,7 @@ class TrafficControlProcessorTest extends AnyWordSpec with BaseTest with HasExec
 
   private val synchronizerCrypto = TestingTopology(synchronizerParameters = List.empty)
     .build(loggerFactory)
-    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId.logical)
 
   private val dummySignature = SymbolicCrypto.emptySignature
 

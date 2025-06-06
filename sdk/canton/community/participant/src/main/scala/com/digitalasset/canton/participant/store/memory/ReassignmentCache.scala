@@ -180,7 +180,7 @@ class ReassignmentCache(
 
   override def onClosed(): Unit =
     pendingCompletions.foreach { case (_, promise) =>
-      promise.completion.shutdown()
+      promise.completion.shutdown_()
     }
 
   override def findContractReassignmentId(

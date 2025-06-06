@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import cats.syntax.functor.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Salt, TestHash}
 import com.digitalasset.canton.data.ActionDescription.{
@@ -16,7 +17,7 @@ import com.digitalasset.canton.data.ViewPosition.{MerklePathElement, MerkleSeqIn
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.collection.SeqUtil
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
@@ -61,7 +62,7 @@ final class GeneratorsData(
 
   implicit val commonMetadataArb: Arbitrary[CommonMetadata] = Arbitrary(
     for {
-      synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
+      synchronizerId <- Arbitrary.arbitrary[PhysicalSynchronizerId]
 
       mediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -502,7 +503,7 @@ final class GeneratorsData(
   implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
+      targetSynchronizerId <- Arbitrary.arbitrary[Target[PhysicalSynchronizerId]]
 
       targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -531,7 +532,7 @@ final class GeneratorsData(
   implicit val unassignmentCommonData: Arbitrary[UnassignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      sourceSynchronizerId <- Arbitrary.arbitrary[Source[SynchronizerId]]
+      sourceSynchronizerId <- Arbitrary.arbitrary[Source[PhysicalSynchronizerId]]
 
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -580,7 +581,9 @@ final class GeneratorsData(
 
       contracts <- Arbitrary.arbitrary[ContractsReassignmentBatch]
 
-      targetSynchronizerId <- Arbitrary.arbitrary[Target[SynchronizerId]]
+      targetSynchronizerId <- Arbitrary
+        .arbitrary[Target[PhysicalSynchronizerId]]
+        .map(_.map(_.copy(protocolVersion = protocolVersion)))
       timeProof <- timeProofArb(protocolVersion).arbitrary
 
       hashOps = TestHash // Not used for serialization
@@ -592,7 +595,6 @@ final class GeneratorsData(
         targetSynchronizerId,
         timeProof,
         sourceProtocolVersion,
-        targetProtocolVersion,
       )
   )
 

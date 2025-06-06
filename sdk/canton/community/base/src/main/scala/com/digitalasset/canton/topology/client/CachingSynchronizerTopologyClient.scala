@@ -155,6 +155,7 @@ final class CachingSynchronizerTopologyClient(
   }
 
   override def synchronizerId: SynchronizerId = delegate.synchronizerId
+  override def physicalSynchronizerId: PhysicalSynchronizerId = delegate.physicalSynchronizerId
 
   override def snapshotAvailable(timestamp: CantonTimestamp): Boolean =
     delegate.snapshotAvailable(timestamp)
@@ -238,10 +239,9 @@ object CachingSynchronizerTopologyClient {
 
   def create(
       clock: Clock,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       store: TopologyStore[TopologyStoreId.SynchronizerStore],
       packageDependenciesResolver: PackageDependencyResolverUS,
-      ips: IdentityProvidingServiceClient,
       cachingConfigs: CachingConfigs,
       batchingConfig: BatchingConfig,
       timeouts: ProcessingTimeout,
@@ -260,7 +260,6 @@ object CachingSynchronizerTopologyClient {
         synchronizerId,
         store,
         packageDependenciesResolver,
-        ips,
         timeouts,
         futureSupervisor,
         loggerFactory,
@@ -401,6 +400,10 @@ private class ForwardingTopologySnapshotClient(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
     parent.partyAuthorization(party)
+
+  override def isSynchronizerMigrationOngoing()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] = parent.isSynchronizerMigrationOngoing()
 }
 
 class CachingTopologySnapshot(
@@ -518,6 +521,9 @@ class CachingTopologySnapshot(
     cache = cachingConfigs.partyCache.buildScaffeine(),
     loader = implicit traceContext => party => parent.partyAuthorization(party),
   )(logger, "partyAuthorizationsCache")
+
+  private val topologyFrozenCache =
+    new AtomicReference[Option[FutureUnlessShutdown[Option[PhysicalSynchronizerId]]]](None)
 
   override def allKeys(owner: Member)(implicit
       traceContext: TraceContext
@@ -671,4 +677,9 @@ class CachingTopologySnapshot(
         fetchAll(_).map(_.toSeq)
       )
       .map(_.toMap)
+
+  override def isSynchronizerMigrationOngoing()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] =
+    getAndCache(topologyFrozenCache, parent.isSynchronizerMigrationOngoing())
 }

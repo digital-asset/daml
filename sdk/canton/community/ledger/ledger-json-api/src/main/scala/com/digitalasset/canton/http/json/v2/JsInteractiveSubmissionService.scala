@@ -212,6 +212,16 @@ object JsInteractiveSubmissionServiceCodecs {
       : Codec[interactive_submission_service.ExecuteSubmissionResponse] =
     deriveRelaxedCodec
 
+  implicit val esrDeduplicationDurationRW: Codec[
+    interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod.DeduplicationDuration
+  ] =
+    deriveRelaxedCodec
+
+  implicit val esrDeduplicationOffsetRW: Codec[
+    interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod.DeduplicationOffset
+  ] =
+    deriveRelaxedCodec
+
   implicit val esrDeduplicationPeriodRW
       : Codec[interactive_submission_service.ExecuteSubmissionRequest.DeduplicationPeriod] =
     deriveConfiguredCodec // ADT

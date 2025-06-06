@@ -622,7 +622,7 @@ abstract class TopologyTransactionProcessorTest
         val dnsNamespace =
           DecentralizedNamespaceDefinition.computeNamespace(Set(ns1, ns2))
         val synchronizerId =
-          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace))
+          SynchronizerId(UniqueIdentifier.tryCreate("test-synchronizer", dnsNamespace)).toPhysical
 
         val dns = mkAddMultiKey(
           DecentralizedNamespaceDefinition
@@ -636,7 +636,7 @@ abstract class TopologyTransactionProcessorTest
         )
         val initialSynchronizerParameters = mkAddMultiKey(
           SynchronizerParametersState(
-            synchronizerId,
+            synchronizerId.logical,
             DynamicSynchronizerParameters.defaultValues(testedProtocolVersion),
           ),
           signingKeys = NonEmpty(Set, key1, key2),
@@ -647,7 +647,7 @@ abstract class TopologyTransactionProcessorTest
         val updatedTopologyChangeDelay = initialTopologyChangeDelay.plusMillis(50)
 
         val updatedSynchronizerParams = SynchronizerParametersState(
-          synchronizerId,
+          synchronizerId.logical,
           DynamicSynchronizerParameters.initialValues(
             topologyChangeDelay = NonNegativeFiniteDuration.tryCreate(updatedTopologyChangeDelay),
             testedProtocolVersion,
@@ -692,7 +692,7 @@ abstract class TopologyTransactionProcessorTest
         // in block3 we should see the new topology change delay being used to compute the effective time
         val block3 = mkEnvelope(ns3k3_k3)
 
-        val store = mkStore(synchronizerId)
+        val store = mkStore(synchronizerId.logical)
 
         store
           .update(
@@ -704,7 +704,7 @@ abstract class TopologyTransactionProcessorTest
           )
           .futureValueUS
 
-        val (proc, _) = mk(store, synchronizerId)
+        val (proc, _) = mk(store, synchronizerId.logical)
 
         val synchronizerTimeTrackerMock = mock[SynchronizerTimeTracker]
         when(synchronizerTimeTrackerMock.awaitTick(any[CantonTimestamp])(anyTraceContext))

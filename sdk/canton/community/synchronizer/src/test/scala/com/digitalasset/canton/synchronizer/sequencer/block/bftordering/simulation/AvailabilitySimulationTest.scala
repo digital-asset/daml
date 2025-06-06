@@ -6,6 +6,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ProcessingTimeout, TlsClientConfig}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
@@ -72,6 +73,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.onboarding.EmptyOnboardingManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology.{
+  NodeSimulationTopologyDataFactory,
   SimulationOrderingTopologyProvider,
   SimulationTopologyHelpers,
 }
@@ -410,6 +412,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
     val simSettings = SimulationSettings(
       LocalSettings(RandomSeed),
       NetworkSettings(RandomSeed),
+      TopologySettings(RandomSeed),
       SimulationVirtualDuration,
     )
 
@@ -448,16 +451,16 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       val simulationModels = range.map(_ => new SimulationModel).toArray
       val clock = new SimClock(loggerFactory = loggerFactory)
 
-      val endpointsToOnboardingTimes = endpoints.map { endpoint =>
+      val endpointsToTopologyDataFactories = endpoints.map { endpoint =>
         P2PEndpoint.fromEndpointConfig(
           endpoint
-        ) -> Genesis.GenesisTopologyActivationTime
+        ) -> NodeSimulationTopologyDataFactory(maybeOnboardingDelay = None)
       }.toMap
 
       val endpointsSimulationTopologyData =
         SimulationTopologyHelpers.generateSimulationTopologyData(
-          endpointsToOnboardingTimes,
-          loggerFactory,
+          stageStart = CantonTimestamp.Epoch,
+          endpointsToTopologyDataFactories,
         )
 
       val topologyInit = range.map { n =>

@@ -399,7 +399,7 @@ class TrafficPurchasedManager(
   }
 
   override def onClosed(): Unit =
-    autoPruningPromise.getAndSet(None).foreach(_.shutdown())
+    autoPruningPromise.getAndSet(None).foreach(_.shutdown_())
 }
 
 object TrafficPurchasedManager {

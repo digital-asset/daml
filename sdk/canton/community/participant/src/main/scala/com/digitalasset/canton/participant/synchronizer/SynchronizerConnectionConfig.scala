@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.synchronizer
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
+import com.daml.nonempty.catsinstances.`cats nonempty traverse`
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
@@ -18,11 +19,12 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias}
 import com.google.protobuf.ByteString
+import monocle.syntax.all.*
 
 import java.net.URI
 
@@ -61,8 +63,7 @@ final case class SynchronizerConnectionConfig(
     synchronizerAlias: SynchronizerAlias,
     sequencerConnections: SequencerConnections,
     manualConnect: Boolean = false,
-    // TODO(#25388) Switch to PSId
-    synchronizerId: Option[SynchronizerId] = None,
+    synchronizerId: Option[PhysicalSynchronizerId] = None,
     priority: Int = 0,
     initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
     maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -70,6 +71,104 @@ final case class SynchronizerConnectionConfig(
     initializeFromTrustedSynchronizer: Boolean = false,
 ) extends HasVersionedWrapper[SynchronizerConnectionConfig]
     with PrettyPrinting {
+
+  /** Merges this connection config with provided config, but only if the provided config is
+    * subsumed by this config. The provided configuration is considered subsumed, if all its
+    * settings are also included in this configuration, with the following exceptions:
+    *
+    *   - the field `synchronizerId` may be set in either or none of the configs, but if it's set in
+    *     both, it must be the same synchronizer id.
+    *   - the provided sequencer connections must all be included in this config's sequencer
+    *     connections with the same sequencer alias. The SequencerConnections' sequencerId fields
+    *     may be set in either or none of the two configs, but if it's set in both, it must be the
+    *     same sequencer id.
+    * @return
+    *   either the merged configuration if the other configuration is subsumed by this
+    *   configuration, or an error
+    */
+  def subsumeMerge(
+      other: SynchronizerConnectionConfig
+  ): Either[String, SynchronizerConnectionConfig] =
+    other match {
+      case SynchronizerConnectionConfig(
+            `synchronizerAlias`,
+            SequencerConnections(
+              otherAliasToConnection,
+              `sequencerConnections`.sequencerTrustThreshold,
+              `sequencerConnections`.submissionRequestAmplification,
+            ),
+            `manualConnect`,
+            otherSynchronizerId,
+            `priority`,
+            `initialRetryDelay`,
+            `maxRetryDelay`,
+            `timeTracker`,
+            `initializeFromTrustedSynchronizer`,
+          ) =>
+        for {
+          updatedSynchronizerId <- mergeOrRequireEqual(synchronizerId, otherSynchronizerId)
+          _ <- Either.cond(
+            otherAliasToConnection.keySet
+              .diff(sequencerConnections.aliasToConnection.keySet)
+              .isEmpty,
+            (),
+            "new synchronizer connection does not contain all previous sequencer connections",
+          )
+          updatedConnections <- sequencerConnections.aliasToConnection.toSeq.toNEF
+            .traverse { case (_, thisConnection: GrpcSequencerConnection) =>
+              otherAliasToConnection
+                .get(thisConnection.sequencerAlias)
+                .traverse {
+                  case GrpcSequencerConnection(
+                        otherEndPoints,
+                        `thisConnection`.transportSecurity,
+                        `thisConnection`.customTrustCertificates,
+                        `thisConnection`.sequencerAlias,
+                        otherSequencerId,
+                      ) =>
+                    for {
+                      updatedSequencerId <- mergeOrRequireEqual(
+                        thisConnection.sequencerId,
+                        otherSequencerId,
+                      )
+                      _ <- Either.cond(
+                        (otherEndPoints.toSet -- thisConnection.endpoints).isEmpty,
+                        (),
+                        "new sequencer connection does not contain all endpoints of the previously configured sequencer connection",
+                      )
+                    } yield thisConnection
+                      .focus(_.endpoints)
+                      .modify(_.++(otherEndPoints).distinct)
+                      .focus(_.sequencerId)
+                      .replace(updatedSequencerId)
+                  case otherConnection =>
+                    Left(
+                      s"new sequencer connection $thisConnection not subsume the previously existing sequencer connection $otherConnection"
+                    )
+                }
+                .map(_.getOrElse(thisConnection))
+            }
+          updatedSequencerConnections <- SequencerConnections.many(
+            updatedConnections,
+            sequencerConnections.sequencerTrustThreshold,
+            sequencerConnections.submissionRequestAmplification,
+          )
+        } yield this.copy(
+          synchronizerId = updatedSynchronizerId,
+          sequencerConnections = updatedSequencerConnections,
+        )
+      case _ =>
+        Left("the new synchronizer config does not subsume the existing synchronizer config")
+    }
+
+  /** If both options are Some, then both need to contain the same value, otherwise return the value
+    * that was Some or None, if neither option contains a value.
+    */
+  private def mergeOrRequireEqual[A](a: Option[A], b: Option[A]): Either[String, Option[A]] =
+    (a, b) match {
+      case (Some(aa), Some(bb)) => Either.cond(aa == bb, a, "Mismatch")
+      case _ => Right(a.orElse(b))
+    }
 
   override protected def companionObj = SynchronizerConnectionConfig
 
@@ -116,7 +215,7 @@ final case class SynchronizerConnectionConfig(
       param("synchronizer", _.synchronizerAlias),
       param("sequencerConnections", _.sequencerConnections),
       param("manualConnect", _.manualConnect),
-      paramIfDefined("synchronizerId", _.synchronizerId),
+      paramIfDefined("physicalSynchronizerId", _.synchronizerId),
       paramIfDefined("priority", x => Option.when(x.priority != 0)(x.priority)),
       paramIfDefined("initialRetryDelay", _.initialRetryDelay),
       paramIfDefined("maxRetryDelay", _.maxRetryDelay),
@@ -133,7 +232,7 @@ final case class SynchronizerConnectionConfig(
       synchronizerAlias = synchronizerAlias.unwrap,
       sequencerConnections = sequencerConnections.toProtoV30.some,
       manualConnect = manualConnect,
-      synchronizerId = synchronizerId.fold("")(_.toProtoPrimitive),
+      physicalSynchronizerId = synchronizerId.fold("")(_.toProtoPrimitive),
       priority = priority,
       initialRetryDelay = initialRetryDelay.map(_.toProtoPrimitive),
       maxRetryDelay = maxRetryDelay.map(_.toProtoPrimitive),
@@ -159,7 +258,7 @@ object SynchronizerConnectionConfig
       synchronizerAlias: SynchronizerAlias,
       connection: String,
       manualConnect: Boolean = false,
-      synchronizerId: Option[SynchronizerId] = None,
+      synchronizerId: Option[PhysicalSynchronizerId] = None,
       certificates: Option[ByteString] = None,
       priority: Int = 0,
       initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
@@ -205,7 +304,7 @@ object SynchronizerConnectionConfig
         .flatMap(SequencerConnections.fromProtoV30)
       synchronizerId <- OptionUtil
         .emptyStringAsNone(synchronizerId)
-        .traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
+        .traverse(PhysicalSynchronizerId.fromProtoPrimitive(_, "physical_synchronizer_id"))
       initialRetryDelay <- initialRetryDelayP.traverse(
         NonNegativeFiniteDuration.fromProtoPrimitive("initialRetryDelay")
       )

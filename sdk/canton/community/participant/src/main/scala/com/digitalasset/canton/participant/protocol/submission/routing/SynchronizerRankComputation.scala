@@ -20,7 +20,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
@@ -30,7 +30,7 @@ import TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 
 private[routing] class SynchronizerRankComputation(
     participantId: ParticipantId,
-    priorityOfSynchronizer: SynchronizerId => Int,
+    priorityOfSynchronizer: PhysicalSynchronizerId => Int,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -40,7 +40,7 @@ private[routing] class SynchronizerRankComputation(
       synchronizerState: RoutingSynchronizerState,
       contracts: Seq[ContractData],
       readers: Set[LfPartyId],
-      synchronizerIds: NonEmpty[Set[SynchronizerId]],
+      synchronizerIds: NonEmpty[Set[PhysicalSynchronizerId]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] =
@@ -72,7 +72,7 @@ private[routing] class SynchronizerRankComputation(
   // Includes check that submitting party has a participant with submission rights on source and target synchronizer
   def compute(
       contracts: Seq[ContractData],
-      targetSynchronizer: Target[SynchronizerId],
+      targetSynchronizer: Target[PhysicalSynchronizerId],
       readers: Set[LfPartyId],
       synchronizerState: RoutingSynchronizerState,
   )(implicit
@@ -80,7 +80,7 @@ private[routing] class SynchronizerRankComputation(
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, TransactionRoutingError, SynchronizerRank] = {
     // (contract id, (reassignment submitter, target synchronizer id))
-    type SingleReassignment = (LfContractId, (LfPartyId, SynchronizerId))
+    type SingleReassignment = (LfContractId, (LfPartyId, PhysicalSynchronizerId))
 
     val targetSnapshotET =
       EitherT.fromEither[FutureUnlessShutdown](
@@ -124,9 +124,9 @@ private[routing] class SynchronizerRankComputation(
 
   private def findReaderThatCanReassignContract(
       sourceSnapshot: Source[TopologySnapshot],
-      sourceSynchronizerId: Source[SynchronizerId],
+      sourceSynchronizerId: Source[PhysicalSynchronizerId],
       targetSnapshot: Target[TopologySnapshot],
-      targetSynchronizerId: Target[SynchronizerId],
+      targetSynchronizerId: Target[PhysicalSynchronizerId],
       contract: ContractData,
       readers: Set[LfPartyId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, LfPartyId] = {

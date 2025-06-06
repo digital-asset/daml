@@ -267,7 +267,7 @@ abstract class CantonNodeBootstrapImpl[
   // This absolutely must be a "def", because it is used during class initialization.
   protected def connectionPoolForParticipant: Boolean = false
 
-  protected val ips = new IdentityProvidingServiceClient()
+  protected val ips = new IdentityProvidingServiceClient(loggerFactory)
 
   private val adminApiConfig = config.adminApi
   protected def adminTokenConfig: Option[String]

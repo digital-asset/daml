@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{
   MediatorId,
   ParticipantId,
-  SynchronizerId,
+  PhysicalSynchronizerId,
   UniqueIdentifier,
 }
 import com.digitalasset.canton.util.ShowUtil
@@ -24,7 +24,7 @@ import java.time.Duration
 
 final case class SequencerStatus(
     uid: UniqueIdentifier,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     uptime: Duration,
     ports: Map[String, Port],
     connectedParticipants: Seq[ParticipantId],
@@ -95,9 +95,9 @@ object SequencerStatus {
             "SequencerStatusResponse.SequencerHealthStatus.sequencer",
             sequencerStatusP.sequencer,
           )
-          synchronizerId <- SynchronizerId.fromProtoPrimitive(
-            sequencerStatusP.synchronizerId,
-            "SequencerStatusResponse.synchronizer_id",
+          synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
+            sequencerStatusP.physicalSynchronizerId,
+            "SequencerStatusResponse.physical_synchronizer_id",
           )
           adminP <- ProtoConverter.required("admin", sequencerStatusP.admin)
           admin <- SequencerAdminStatus.fromProtoV30(adminP)

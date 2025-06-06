@@ -48,6 +48,7 @@ class DisseminationProtocolStateTest
           disseminatedBatchMetadataWith(AnEpochNumber, ANodeId, ABatchId, noSignature, SomeStats)
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
+          Node0,
           orderingTopology,
         ) shouldBe empty
       }
@@ -62,6 +63,7 @@ class DisseminationProtocolStateTest
         val newTopology = orderingTopology.copy(nodesTopologyInfo = Map.empty)
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
+          Node0,
           newTopology,
         ) shouldBe
           Some(
@@ -71,6 +73,7 @@ class DisseminationProtocolStateTest
                 ABatchId,
                 AnEpochNumber,
                 SomeStats,
+                regressionsToSigning = 1,
               ),
               Set.empty,
             )
@@ -94,6 +97,7 @@ class DisseminationProtocolStateTest
           })
         DisseminationProgress.reviewReadyForOrdering(
           disseminatedBatchMetadata,
+          Node0,
           newTopology,
         ) shouldBe
           Some(
@@ -103,6 +107,7 @@ class DisseminationProtocolStateTest
                 ABatchId,
                 AnEpochNumber,
                 SomeStats,
+                regressionsToSigning = 1,
               ),
               Set.empty,
             )

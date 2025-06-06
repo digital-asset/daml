@@ -18,7 +18,7 @@ import com.digitalasset.canton.synchronizer.mediator.admin.gprc.{
   InitializeMediatorRequest,
   InitializeMediatorResponse,
 }
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
@@ -43,7 +43,7 @@ object MediatorAdministrationCommands {
   }
 
   final case class Initialize(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       sequencerConnections: SequencerConnections,
       validation: SequencerConnectionValidation,
   ) extends BaseMediatorInitializationCommand[

@@ -253,7 +253,7 @@ sealed abstract class SynchronizerRepairIntegrationTest
     // Ensure that we can create new contracts.
     Seq(participant1 -> ((Alice, Bob)), participant2 -> ((Bob, Alice))).foreach {
       case (participant, (payer, owner)) =>
-        participant.ledger_api.javaapi.commands.submit_flat(
+        participant.ledger_api.javaapi.commands.submit(
           Seq(payer),
           new iou.Iou(
             payer.toProtoPrimitive,
@@ -268,7 +268,7 @@ sealed abstract class SynchronizerRepairIntegrationTest
     Seq(participant2 -> ((Bob, iouBob)), participant1 -> ((Alice, iouAlice))).foreach {
       case (participant, (owner, iou)) =>
         participant.ledger_api.javaapi.commands
-          .submit_flat(Seq(owner), iou.id.exerciseCall().commands.asScala.toSeq)
+          .submit(Seq(owner), iou.id.exerciseCall().commands.asScala.toSeq)
     }
     // user-manual-entry-end: VerifyNewSynchronizerWorks
 

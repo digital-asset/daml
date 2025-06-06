@@ -61,7 +61,7 @@ private[reassignment] class UnassignmentValidation(
           .getAssignmentExclusivity(targetTopology, fullTree.targetTimeProof.timestamp)
           .leftMap(
             ReassignmentParametersError(
-              fullTree.targetSynchronizer.unwrap,
+              fullTree.targetSynchronizer.unwrap.logical,
               _,
             ): ReassignmentProcessorError
           )

@@ -36,7 +36,7 @@ message SubmissionTrackingData {
 message TransactionSubmissionTrackingData {
   CompletionInfo completion_info = 1;
   RejectionCause rejection_cause = 2;
-  string synchronizer_id = 3;
+  string physical_synchronizer_id = 3;
 
   message RejectionCause {
     oneof cause {

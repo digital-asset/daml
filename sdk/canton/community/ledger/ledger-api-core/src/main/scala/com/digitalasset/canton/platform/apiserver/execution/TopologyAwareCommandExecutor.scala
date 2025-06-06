@@ -28,7 +28,7 @@ import com.digitalasset.canton.platform.apiserver.execution.TopologyAwareCommand
 }
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPackageName, LfPackageVersion, LfPartyId, checked}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -262,13 +262,14 @@ private[execution] class TopologyAwareCommandExecutor(
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Set[LfPackageId]] =
     for {
-      packageMap: Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]] <- syncService.packageMapFor(
-        submitters = Option.unless(forExternallySigned)(submitterParty).iterator.toSet,
-        informees = Set(submitterParty),
-        vettingValidityTimestamp = CantonTimestamp(vettingValidityTimestamp),
-        prescribedSynchronizer = prescribedSynchronizerIdO,
-        routingSynchronizerState = routingSynchronizerState,
-      )
+      packageMap: Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]] <- syncService
+        .packageMapFor(
+          submitters = Option.unless(forExternallySigned)(submitterParty).iterator.toSet,
+          informees = Set(submitterParty),
+          vettingValidityTimestamp = CantonTimestamp(vettingValidityTimestamp),
+          prescribedSynchronizer = prescribedSynchronizerIdO,
+          routingSynchronizerState = routingSynchronizerState,
+        )
 
       vettedPackagesForTheSubmitter = packageMap.view.mapValues(
         _.getOrElse(
@@ -344,7 +345,7 @@ private[execution] class TopologyAwareCommandExecutor(
       routingSynchronizerState: RoutingSynchronizerState,
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
-  ): FutureUnlessShutdown[(SynchronizerId, Set[LfPackageId])] = {
+  ): FutureUnlessShutdown[(PhysicalSynchronizerId, Set[LfPackageId])] = {
     val draftTransaction = interpretationResultFromPass1.transaction.transaction
     val knownPackagesMap: Map[PackageId, (PackageName, canton.LfPackageVersion)] =
       packageMetadataSnapshot.packageIdVersionMap
@@ -358,7 +359,10 @@ private[execution] class TopologyAwareCommandExecutor(
         }
 
     for {
-      synchronizersPartiesVettingState: Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]] <-
+      synchronizersPartiesVettingState: Map[
+        PhysicalSynchronizerId,
+        Map[LfPartyId, Set[PackageId]],
+      ] <-
         syncService
           .packageMapFor(
             submitters = Option
@@ -403,18 +407,19 @@ private[execution] class TopologyAwareCommandExecutor(
 
   private def computePerSynchronizerPackagePreferenceSet(
       prescribedSynchronizerIdO: Option[SynchronizerId],
-      synchronizersPartiesVettingState: Map[SynchronizerId, Map[LfPartyId, Set[PackageId]]],
+      synchronizersPartiesVettingState: Map[PhysicalSynchronizerId, Map[LfPartyId, Set[PackageId]]],
       knownPackagesMap: Map[PackageId, (PackageName, canton.LfPackageVersion)],
       draftPartyPackages: Map[LfPartyId, Set[LfPackageName]],
       userSpecifiedPreferenceMap: PackagesForName,
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
-  ): Either[StatusRuntimeException, NonEmpty[Map[SynchronizerId, Set[LfPackageId]]]] = {
+  ): Either[StatusRuntimeException, NonEmpty[Map[PhysicalSynchronizerId, Set[LfPackageId]]]] = {
     logTrace(
       s"Computing per-synchronizer package preference sets using the draft transaction's party-packages ($draftPartyPackages)"
     )
 
-    val syncsPartiesPackagePreferencesMap: Map[SynchronizerId, Map[LfPartyId, PackagesForName]] =
+    val syncsPartiesPackagePreferencesMap
+        : Map[PhysicalSynchronizerId, Map[LfPartyId, PackagesForName]] =
       synchronizersPartiesVettingState.view.mapValues {
         _.view
           .mapValues(toOrderedPackagePreferences(_, knownPackagesMap))
@@ -422,7 +427,7 @@ private[execution] class TopologyAwareCommandExecutor(
       }.toMap
 
     val syncsPartiesPackageMapAfterDraftIntersection
-        : Map[SynchronizerId, Map[LfPartyId, PackagesForName]] =
+        : Map[PhysicalSynchronizerId, Map[LfPartyId, PackagesForName]] =
       syncsPartiesPackagePreferencesMap.filter {
         case (syncId, partiesPackageMap: Map[LfPartyId, PackagesForName]) =>
           draftPartyPackages
@@ -462,7 +467,9 @@ private[execution] class TopologyAwareCommandExecutor(
 
     val perSynchronizerPreferenceSetE =
       syncPackageMapAfterDraftIntersection.foldLeft(
-        Either.right[StatusRuntimeException, Map[SynchronizerId, Set[LfPackageId]]](Map.empty)
+        Either.right[StatusRuntimeException, Map[PhysicalSynchronizerId, Set[LfPackageId]]](
+          Map.empty
+        )
       ) { case (syncCandidatesAccE, (syncId, topologyAndDraftTransactionBasedPackageMap)) =>
         for {
           syncCandidatesAcc <- syncCandidatesAccE
@@ -504,13 +511,13 @@ private[execution] class TopologyAwareCommandExecutor(
       )
 
   private def pickVersionsWithRestrictions(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       draftTransactionPackages: Set[LfPackageName],
       topologyPackageMap: PackagesForName,
       userSpecifiedPreferenceMap: PackagesForName,
   )(implicit
       loggingContextWithTrace: LoggingContextWithTrace
-  ): Either[StatusRuntimeException, Option[(SynchronizerId, Set[LfPackageId])]] = {
+  ): Either[StatusRuntimeException, Option[(PhysicalSynchronizerId, Set[LfPackageId])]] = {
     val packageMapAfterDepsVettingRestrictions: PackagesForName =
       preserveOnlyPackagesWithAllDependenciesVetted(topologyPackageMap)
 

@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto
 
 import cats.Order
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{
   LengthLimitedStringWrapper,
@@ -222,9 +223,9 @@ trait PublicKey extends CryptoKeyPairKey {
 object PublicKey {
 
   /** Return the latest key from a sequence of keys */
-  def getLatestKey[A <: PublicKey](availableKeys: Seq[A]): Option[A] =
+  def getLatestKey[A <: PublicKey](availableKeys: NonEmpty[Seq[A]]): A =
     // use lastOption to retrieve latest key (newer keys are at the end) */
-    availableKeys.lastOption
+    availableKeys.last1
 
   def fromProtoPublicKeyV30(publicKeyP: v30.PublicKey): ParsingResult[PublicKey] =
     publicKeyP.key match {

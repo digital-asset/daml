@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.protocol.validation.AuthenticationErr
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.LazyAsyncReInterpretation
 import com.digitalasset.canton.participant.util.DAMLe.{CreateNodeEnricher, TransactionEnricher}
 import com.digitalasset.canton.protocol.{ExternalAuthorization, RequestId}
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -45,7 +45,7 @@ private[protocol] object AuthenticationValidator {
   def verifyViewSignatures(
       parsedRequest: ParsedTransactionRequest,
       reInterpretedTopLevelViewsEval: LazyAsyncReInterpretation,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       protocolVersion: ProtocolVersion,
       transactionEnricher: TransactionEnricher,
       createNodeEnricher: CreateNodeEnricher,
@@ -157,7 +157,7 @@ private[protocol] object AuthenticationValidator {
       topology: SynchronizerSnapshotSyncCryptoApi,
       protocolVersion: ProtocolVersion,
       reInterpretedTopLevelViews: LazyAsyncReInterpretation,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       transactionEnricher: TransactionEnricher,
       createNodeEnricher: CreateNodeEnricher,
       requestId: RequestId,
@@ -191,7 +191,7 @@ private[protocol] object AuthenticationValidator {
                   submitterMetadata.commandId.unwrap,
                   viewTree.transactionUuid,
                   viewTree.mediator.group.value,
-                  synchronizerId,
+                  synchronizerId.logical,
                   protocolVersion,
                   transactionEnricher,
                   createNodeEnricher,

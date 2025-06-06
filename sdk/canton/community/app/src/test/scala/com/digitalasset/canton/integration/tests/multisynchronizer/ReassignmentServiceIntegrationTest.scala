@@ -30,6 +30,7 @@ import com.digitalasset.canton.integration.util.HasCommandRunnersHelpers.{
   userId as defaultUserId,
   workflowId as defaultWorkflowId,
 }
+import com.digitalasset.canton.integration.util.UpdateFormatHelpers.getUpdateFormat
 import com.digitalasset.canton.integration.util.{
   AcsInspection,
   HasCommandRunnersHelpers,
@@ -201,15 +202,17 @@ abstract class ReassignmentServiceIntegrationTest
       val finalLedgerEnd1 = participant1.ledger_api.state.end()
       val finalLedgerEnd2 = participant2.ledger_api.state.end()
 
-      val updatesP1 = participant1.ledger_api.updates.flat(
-        partyIds = Set(signatory),
+      val updateFormat = getUpdateFormat(Set(signatory), includeReassignments = true)
+
+      val updatesP1 = participant1.ledger_api.updates.updates(
+        updateFormat = updateFormat,
         completeAfter = Int.MaxValue,
         beginOffsetExclusive = initialLedgerEnd1,
         endOffsetInclusive = Some(finalLedgerEnd1),
       )
 
-      val updatesP2 = participant2.ledger_api.updates.flat(
-        partyIds = Set(signatory),
+      val updatesP2 = participant2.ledger_api.updates.updates(
+        updateFormat = updateFormat,
         completeAfter = Int.MaxValue,
         beginOffsetExclusive = initialLedgerEnd2,
         endOffsetInclusive = Some(finalLedgerEnd2),
@@ -269,8 +272,8 @@ abstract class ReassignmentServiceIntegrationTest
         participant2.ledger_api.state.end()
       val updates = eventually() {
 
-        participant1.ledger_api.updates.flat(
-          partyIds = Set(notAStakeholder),
+        participant1.ledger_api.updates.updates(
+          updateFormat = getUpdateFormat(Set(notAStakeholder), includeReassignments = true),
           completeAfter = Int.MaxValue,
           beginOffsetExclusive = startOffsetP1,
           endOffsetInclusive = Some(endOffsetP1),
@@ -280,8 +283,8 @@ abstract class ReassignmentServiceIntegrationTest
       updates shouldBe empty
 
       val updatesForObserver = eventually() {
-        participant2.ledger_api.updates.flat(
-          partyIds = Set(observer),
+        participant2.ledger_api.updates.updates(
+          updateFormat = getUpdateFormat(Set(observer), includeReassignments = true),
           completeAfter = Int.MaxValue,
           beginOffsetExclusive = startOffsetP2,
           endOffsetInclusive = Some(endOffsetP2),
@@ -631,10 +634,7 @@ abstract class ReassignmentServiceIntegrationTest
       IouSyntax.createIouComplete(participant1, Some(daId))(signatory, observer)
     createCompletion.status.value shouldBe Status()
 
-    val createdEvent = createUpdateEvent.eventsById.headOption
-      .map { case (_, event) => event }
-      .value
-      .getCreated
+    val createdEvent = createUpdateEvent.events.headOption.value.getCreated
 
     /*
       During the unassignment below, we wait for the update to be published and expect a unassigned event.
@@ -646,7 +646,7 @@ abstract class ReassignmentServiceIntegrationTest
       eventually() {
         val endOffset = submittingParticipantOverride.ledger_api.state.end()
 
-        val updates = submittingParticipantOverride.ledger_api.updates.flat(
+        val updates = submittingParticipantOverride.ledger_api.updates.transactions(
           partyIds = Set(submittingParty.toLf),
           completeAfter = Int.MaxValue,
           beginOffsetExclusive = ledgerEndSubmitterUnassignment,

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.data
 
 import cats.syntax.either.*
-import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.v30
@@ -20,7 +19,7 @@ import java.util.UUID
 /** Information concerning every '''member''' involved in the underlying transaction.
   */
 final case class CommonMetadata private (
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     mediator: MediatorGroupRecipient,
     salt: Salt,
     uuid: UUID,
@@ -48,7 +47,7 @@ final case class CommonMetadata private (
 
   private def toProtoV30: v30.CommonMetadata =
     v30.CommonMetadata(
-      synchronizerId = synchronizerId.toProtoPrimitive,
+      physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       salt = Some(salt.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       mediatorGroup = mediator.group.value,
@@ -73,7 +72,7 @@ object CommonMetadata
       hashOps: HashOps,
       protocolVersion: ProtocolVersion,
   )(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId, // // TODO(#25482) Reduce duplication in parameters
       mediator: MediatorGroupRecipient,
       salt: Salt,
       uuid: UUID,
@@ -86,7 +85,7 @@ object CommonMetadata
       hashOps: HashOps,
       protocolVersion: RepresentativeProtocolVersion[CommonMetadata.type],
   )(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       mediator: MediatorGroupRecipient,
       salt: Salt,
       uuid: UUID,
@@ -102,11 +101,9 @@ object CommonMetadata
   ): ParsingResult[CommonMetadata] = {
     val v30.CommonMetadata(saltP, synchronizerIdP, uuidP, mediatorP) = metaDataP
     for {
-      synchronizerUid <- UniqueIdentifier
-        .fromProtoPrimitive_(synchronizerIdP)
-        .leftMap(e =>
-          ProtoDeserializationError.ValueDeserializationError("synchronizer_id", e.message)
-        )
+      synchronizerId <- PhysicalSynchronizerId
+        .fromProtoPrimitive(synchronizerIdP, "physical_synchronizer_id")
+
       mediatorGroup <- ProtoConverter.parseNonNegativeInt("mediator", mediatorP)
       mediatorGroupRecipient = MediatorGroupRecipient.apply(mediatorGroup)
       salt <- ProtoConverter
@@ -114,7 +111,7 @@ object CommonMetadata
         .leftMap(_.inField("salt"))
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP).leftMap(_.inField("uuid"))
       pv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommonMetadata(SynchronizerId(synchronizerUid), mediatorGroupRecipient, salt, uuid)(
+    } yield CommonMetadata(synchronizerId, mediatorGroupRecipient, salt, uuid)(
       hashOps,
       pv,
       Some(bytes),

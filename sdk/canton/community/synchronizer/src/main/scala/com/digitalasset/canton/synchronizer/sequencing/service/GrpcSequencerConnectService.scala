@@ -43,7 +43,7 @@ import scala.concurrent.{ExecutionContext, Future}
 /** Sequencer connect service on gRPC
   */
 class GrpcSequencerConnectService(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     sequencerId: SequencerId,
     staticSynchronizerParameters: StaticSynchronizerParameters,
     synchronizerTopologyManager: SynchronizerTopologyManager,
@@ -61,7 +61,7 @@ class GrpcSequencerConnectService(
   ): Future[GetSynchronizerIdResponse] =
     Future.successful(
       GetSynchronizerIdResponse(
-        synchronizerId = synchronizerId.toProtoPrimitive,
+        physicalSynchronizerId = synchronizerId.toProtoPrimitive,
         sequencerUid = sequencerId.uid.toProtoPrimitive,
       )
     )

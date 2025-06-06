@@ -73,7 +73,7 @@ private[conflictdetection] class LockableStates[
       state
     }
 
-    val ActivenessCheck(fresh, free, active, lock, needPriorState) = check
+    val ActivenessCheck(fresh, free, active, lock, lockMaybeUnknown, needPriorState) = check
     val toBeFetchedM = mutable.Map.empty[Key, MutableLockableState[Status]]
 
     // always holds a fresh mutable state object that we insert into `states`
@@ -134,6 +134,8 @@ private[conflictdetection] class LockableStates[
     val freeStates = markPending(free, stateWithLocking)
     val activeStates = markPending(active, stateWithLocking)
     val lockOnly = markPending(check.lockOnly, KeyStateLock(_, _, doLock = true))
+    val lockMaybeUnknownOnly =
+      markPending(check.lockMaybeUnknownOnly, KeyStateLock(_, _, doLock = true))
 
     new LockableStatesCheckHandle(
       rc,
@@ -143,6 +145,7 @@ private[conflictdetection] class LockableStates[
       freeStates,
       activeStates,
       lockOnly,
+      lockMaybeUnknownOnly,
       toBeFetchedM,
       priorStates.result(),
     )(check.prettyK)
@@ -305,10 +308,20 @@ private[conflictdetection] class LockableStates[
         unknown += id
       }
 
+    def lockOnlyMaybeUnknown(id: Key)(versionedStateO: Option[StateChange[Status]]): Unit =
+      logger.trace(
+        withRC(
+          rc,
+          s"${lockableStatus.kind} $id to be locked is ${if (versionedStateO.nonEmpty) "known"
+            else "unknown"}.",
+        )
+      )
+
     handle.fresh.foreach(checkLockAnd(_, doFreshUnlocked, doFreshLocked))
     handle.free.foreach(checkLockAnd(_, doFree))
     handle.active.foreach(checkLockAnd(_, doActive))
     handle.lockOnly.foreach(checkLockAnd(_, lockOnly))
+    handle.lockOnlyMaybeUnknown.foreach(checkLockAnd(_, lockOnlyMaybeUnknown))
 
     val result = ActivenessCheckResult(
       alreadyLocked = alreadyLocked.result(),
@@ -647,6 +660,9 @@ private[conflictdetection] object LockableStates {
     * @param lockOnly
     *   The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are
     *   to be locked.
+    * @param lockOnlyMaybeUnknown
+    *   The list of items and their [[MutableLockableState]]s in [[LockableStates.states]] that are
+    *   to be locked while legitimately being potentially unknown.
     * @param toBeFetchedM
     *   The items that must be fetched from the store for this request and their corresponding
     *   [[MutableLockableState]] in [[LockableStates.states]].
@@ -662,6 +678,7 @@ private[conflictdetection] object LockableStates {
       private[LockableStates] val free: Seq[KeyStateLock[Key, Status]],
       private[LockableStates] val active: Seq[KeyStateLock[Key, Status]],
       private[LockableStates] val lockOnly: Seq[KeyStateLock[Key, Status]],
+      private[LockableStates] val lockOnlyMaybeUnknown: Seq[KeyStateLock[Key, Status]],
       private[LockableStates] val toBeFetchedM: mutable.Map[Key, MutableLockableState[Status]],
       private[LockableStates] val priorStates: Seq[KeyStateLock[Key, Status]],
   )(implicit
@@ -675,7 +692,7 @@ private[conflictdetection] object LockableStates {
     lazy val affected: Set[Key] =
       fresh.map(_.id).toSet ++ free.map(_.id).toSet ++ active.map(_.id).toSet ++ lockOnly
         .map(_.id)
-        .toSet
+        .toSet ++ lockOnlyMaybeUnknown.map(_.id).toSet
 
     override protected def pretty: Pretty[LockableStatesCheckHandle.this.type] = prettyOfClass(
       param("request counter", _.requestCounter)

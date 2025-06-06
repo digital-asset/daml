@@ -20,7 +20,7 @@ message ConnectedSynchronizer {
     HEALTH_UNHEALTHY = 2;
   }
 
-  string synchronizer_id = 1;
+  string physical_synchronizer_id = 1;
   Health health = 2;
 }
 

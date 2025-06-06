@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
+import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -36,52 +37,63 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import org.scalatest.Assertions.fail
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContext}
 import scala.util.Try
 
-class SimulationCryptoProvider(
-    val thisNode: BftNodeId,
-    val nodesToTopologyData: Map[BftNodeId, SimulationTopologyData],
-    val crypto: SymbolicCrypto,
-    val timestamp: CantonTimestamp,
-    val loggerFactory: NamedLoggerFactory,
+final case class SimulationCryptoProvider(
+    thisNode: BftNodeId,
+    nodesToTopologyData: Map[BftNodeId, NodeSimulationTopologyData],
+    crypto: SymbolicCrypto,
+    timestamp: CantonTimestamp,
+    loggerFactory: NamedLoggerFactory,
 ) extends CryptoProvider[SimulationEnv] {
 
-  private def fetchSigningKey(): Either[SyncCryptoError, Fingerprint] = {
-    lazy val keyNotFound = Left(
-      SyncCryptoError.KeyNotAvailable(
-        SequencerNodeId
-          .fromBftNodeId(thisNode)
-          .getOrElse(
-            throw new IllegalStateException(
-              s"Failed to convert BFT node ID $thisNode to SequencerId"
-            )
-          ),
-        Signing,
-        timestamp,
-        Seq.empty,
-      )
-    )
-
+  private def fetchSigningKey(): Either[SyncCryptoError, Fingerprint] =
     nodesToTopologyData.get(thisNode) match {
       case Some(topologyData) =>
-        Right(topologyData.signingPublicKey.fingerprint)
+        Right(
+          // We pick the last, to be similar to the real implementation that picks the latest added one (that is still valid)
+          topologyData.keysForTimestamp(timestamp).lastOption match {
+            case Some(value) =>
+              value.publicKey.fingerprint
+            case None =>
+              fail(s"There are no signing keys for $thisNode at $timestamp")
+          }
+        )
       case None =>
+        lazy val keyNotFound = Left(
+          SyncCryptoError.KeyNotAvailable(
+            SequencerNodeId
+              .fromBftNodeId(thisNode)
+              .getOrElse(
+                fail(s"Failed to convert BFT node ID $thisNode to SequencerId")
+              ),
+            Signing,
+            timestamp,
+            Seq.empty,
+          )
+        )
         keyNotFound
     }
-  }
 
   private def validKeys(member: BftNodeId): Map[Fingerprint, SigningPublicKey] =
     nodesToTopologyData.get(member) match {
       case Some(topologyData) =>
-        Map(topologyData.signingPublicKey.fingerprint -> topologyData.signingPublicKey)
+        topologyData
+          .keysForTimestamp(timestamp)
+          .map { keyPair =>
+            keyPair.publicKey.fingerprint -> keyPair.publicKey
+          }
+          .toMap
       case None => Map.empty
     }
 
-  override def signHash(hash: Hash)(implicit
-      traceContext: TraceContext
+  override def signHash(hash: Hash, operationId: String)(implicit
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): SimulationFuture[Either[SyncCryptoError, Signature]] = SimulationFuture(s"sign($hash)") { () =>
     Try {
       innerSign(hash)
@@ -92,7 +104,8 @@ class SimulationCryptoProvider(
       message: MessageT,
       authenticatedMessageType: AuthenticatedMessageType,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): SimulationFuture[Either[SyncCryptoError, SignedMessage[MessageT]]] =
     SimulationFuture("signMessage") { () =>
       Try {
@@ -112,8 +125,10 @@ class SimulationCryptoProvider(
       hash: Hash,
       member: BftNodeId,
       signature: Signature,
+      operationId: String,
   )(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      metricsContext: MetricsContext,
   ): SimulationFuture[Either[SignatureCheckError, Unit]] =
     SimulationFuture(s"verifySignature($hash, $member)") { () =>
       Try {
@@ -121,7 +136,7 @@ class SimulationCryptoProvider(
           hash,
           validKeys(member),
           signature,
-          member.toString,
+          member,
           SigningKeyUsage.ProtocolOnly,
         )
       }
@@ -145,17 +160,18 @@ class SimulationCryptoProvider(
             )
           else
             SignatureWithWrongKey(
-              s"Key ${signature.signedBy} used to generate signature is not a valid key for $signerStr. Valid keys are ${validKeys.values
-                  .map(_.fingerprint.unwrap)}"
+              s"Key ${signature.signedBy.unwrap} used to generate signature is not a valid key for $signerStr. Valid keys are ${validKeys.values
+                  .map(_.fingerprint.unwrap)} at $timestamp"
             )
         Left(error)
     }
 }
 
 object SimulationCryptoProvider {
+
   def create(
       thisNode: BftNodeId,
-      sequencerToTopologyData: Map[BftNodeId, SimulationTopologyData],
+      sequencerToTopologyData: Map[BftNodeId, NodeSimulationTopologyData],
       timestamp: CantonTimestamp,
       loggerFactory: NamedLoggerFactory,
   ): SimulationCryptoProvider = {
@@ -175,10 +191,15 @@ object SimulationCryptoProvider {
     sequencerToTopologyData
       .get(thisNode)
       .foreach { topologyData =>
-        Await.result(
-          cryptoPrivateStore.storePrivateKey(topologyData.signingPrivateKey, None).value.unwrap,
-          10.seconds,
-        )
+        topologyData.keysForTimestamp(timestamp).foreach { keys =>
+          Await.result(
+            cryptoPrivateStore
+              .storePrivateKey(keys.privateKey, None)
+              .value
+              .unwrap,
+            10.seconds,
+          )
+        }
       }
 
     val crypto =
@@ -191,7 +212,7 @@ object SimulationCryptoProvider {
         loggerFactory,
       )
 
-    new SimulationCryptoProvider(
+    SimulationCryptoProvider(
       thisNode,
       sequencerToTopologyData,
       crypto,

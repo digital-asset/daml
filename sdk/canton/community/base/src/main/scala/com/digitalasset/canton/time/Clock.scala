@@ -348,7 +348,7 @@ class SimClock(
   def advanceTo(
       timestamp: CantonTimestamp,
       doFlush: Boolean = true,
-      logAdvancement: Boolean = true,
+      logAdvancementAtInfo: Boolean = true,
   )(implicit
       traceContext: TraceContext
   ): Unit = {
@@ -356,8 +356,11 @@ class SimClock(
       now.isBefore(timestamp) || now == timestamp,
       s"advanceTo failed with time going backwards: current timestamp is $now and request is $timestamp",
     )
-    if (logAdvancement) {
-      logger.info(s"Advancing sim clock to $timestamp")
+    lazy val logMessage = s"Advancing sim clock to $timestamp"
+    if (logAdvancementAtInfo) {
+      logger.info(logMessage)
+    } else {
+      logger.trace(logMessage)
     }
     value.updateAndGet(_.max(timestamp))
     if (doFlush) {
@@ -554,12 +557,14 @@ class DelegatingSimClock(
   override def advanceTo(
       timestamp: CantonTimestamp,
       doFlush: Boolean = true,
-      logAdvancement: Boolean = true,
+      logAdvancementAtInfo: Boolean = true,
   )(implicit
       traceContext: TraceContext
   ): Unit = ErrorUtil.withThrowableLogging {
     super.advanceTo(timestamp, doFlush)
-    currentClocks().foreach(_.advanceTo(now, doFlush = false, logAdvancement = logAdvancement))
+    currentClocks().foreach(
+      _.advanceTo(now, doFlush = false, logAdvancementAtInfo = logAdvancementAtInfo)
+    )
     // avoid race conditions between nodes by first adjusting the time and then flushing the tasks
     if (doFlush)
       currentClocks().foreach(_.flush().discard)

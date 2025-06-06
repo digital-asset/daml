@@ -134,7 +134,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
     }
 
     "take priority into account (multi synchronizer setting)" in {
-      def pickSynchronizer(bestSynchronizer: SynchronizerId): SynchronizerId =
+      def pickSynchronizer(bestSynchronizer: PhysicalSynchronizerId): PhysicalSynchronizerId =
         selectorForExerciseByInterface(
           // da is not in the list to force reassignment
           admissibleSynchronizers = NonEmpty.mk(Set, acme, repair),
@@ -157,13 +157,13 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 
       val selectorOldPV = selectorForExerciseByInterface(
         transactionVersion = transactionVersion, // requires protocol version dev
-        synchronizerProtocolVersion = _ => oldPV,
+        connectedSynchronizers = Set(da.copy(protocolVersion = oldPV)),
+        admissibleSynchronizers = NonEmpty.mk(Set, da.copy(protocolVersion = oldPV)),
       )
 
       // synchronizer protocol version is too low
       val expectedError = UnsupportedMinimumProtocolVersion(
         synchronizerId = da,
-        currentPV = oldPV,
         requiredPV = newPV,
         lfVersion = transactionVersion,
       )
@@ -184,7 +184,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       // Happy path
       val selectorNewPV = selectorForExerciseByInterface(
         transactionVersion = LfLanguageVersion.v2_dev, // requires protocol version dev
-        synchronizerProtocolVersion = _ => newPV,
+        connectedSynchronizers = Set(da.copy(protocolVersion = newPV)),
+        admissibleSynchronizers = NonEmpty.mk(Set, da.copy(protocolVersion = newPV)),
       )
 
       selectorNewPV.forSingleSynchronizer.futureValueUS shouldBe defaultSynchronizerRank
@@ -311,8 +312,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
           .InputContractsNotOnSynchronizer(
-            synchronizerId = acme,
-            inputContractSynchronizerId = da,
+            physicalSynchronizerId = acme,
+            inputContractPhysicalSynchronizerId = da,
           )
 
         // Multi synchronizer
@@ -337,8 +338,8 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
           ""
         ) shouldBe InvalidPrescribedSynchronizerId
           .InputContractsNotOnSynchronizer(
-            synchronizerId = acme,
-            inputContractSynchronizerId = da,
+            physicalSynchronizerId = acme,
+            inputContractPhysicalSynchronizerId = da,
           )
 
         // Multi synchronizer: reassignment proposal (da -> acme)
@@ -372,7 +373,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       val synchronizers = NonEmpty.mk(Set, acme, da, repair)
 
       def selectSynchronizer(
-          synchronizerOfContracts: Map[LfContractId, SynchronizerId]
+          synchronizerOfContracts: Map[LfContractId, PhysicalSynchronizerId]
       ): SynchronizerRank =
         selectorForThreeExercises(
           threeExercises = threeExercises,
@@ -431,7 +432,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       val synchronizers = NonEmpty.mk(Set, acme, da, repair)
 
       def selectSynchronizer(
-          synchronizerOfContracts: Map[LfContractId, (SynchronizerId, ContractStateStatus)]
+          synchronizerOfContracts: Map[LfContractId, (PhysicalSynchronizerId, ContractStateStatus)]
       ): Either[TransactionRoutingError, SynchronizerRank] =
         selectorForThreeExercises(
           threeExercises = treeExercises,
@@ -450,7 +451,7 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
       test1.left.value shouldBe TransactionRoutingError.TopologyErrors.UnknownContractSynchronizers
         .Error(
           notFound = Seq(treeExercises.inputContract3Id.coid),
-          archived = Map(acme -> Seq(treeExercises.inputContract2Id.coid)),
+          archived = Map(acme.logical -> Seq(treeExercises.inputContract2Id.coid)),
         )
 
       val allContractArchived = Map(
@@ -464,8 +465,11 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
         .Error(
           notFound = Nil,
           archived = Map(
-            acme -> Seq(treeExercises.inputContract1Id.coid, treeExercises.inputContract2Id.coid),
-            da -> Seq(treeExercises.inputContract3Id.coid),
+            acme.logical -> Seq(
+              treeExercises.inputContract1Id.coid,
+              treeExercises.inputContract2Id.coid,
+            ),
+            da.logical -> Seq(treeExercises.inputContract3Id.coid),
           ),
         )
 
@@ -480,9 +484,11 @@ class SynchronizerSelectorTest extends AnyWordSpec with BaseTest with HasExecuti
 }
 
 private[routing] object SynchronizerSelectorTest {
-  private def createSynchronizerId(alias: String): SynchronizerId = SynchronizerId(
+  import BaseTest.*
+
+  private def createSynchronizerId(alias: String): PhysicalSynchronizerId = SynchronizerId(
     UniqueIdentifier.tryCreate(alias, DefaultTestIdentities.namespace)
-  )
+  ).toPhysical
 
   private lazy val da = createSynchronizerId("da")
   private lazy val acme = createSynchronizerId("acme")
@@ -492,32 +498,28 @@ private[routing] object SynchronizerSelectorTest {
     import SimpleTopology.*
 
     private val defaultSynchronizerOfContracts
-        : Seq[LfContractId] => Map[LfContractId, (SynchronizerId, ContractStateStatus)] =
+        : Seq[LfContractId] => Map[LfContractId, (PhysicalSynchronizerId, ContractStateStatus)] =
       contracts => contracts.map(_ -> (da, ContractStateStatus.Active)).toMap
 
-    private val defaultPriorityOfSynchronizer: SynchronizerId => Int = _ => 0
+    private val defaultPriorityOfSynchronizer: PhysicalSynchronizerId => Int = _ => 0
 
-    private val defaultSynchronizer: SynchronizerId = da
+    private val defaultSynchronizer: PhysicalSynchronizerId = da
 
-    private val defaultAdmissibleSynchronizers: NonEmpty[Set[SynchronizerId]] =
+    private val defaultAdmissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]] =
       NonEmpty.mk(Set, da)
 
-    private val defaultPrescribedSynchronizerId: Option[SynchronizerId] = None
-
-    private val defaultSynchronizerProtocolVersion: SynchronizerId => ProtocolVersion = _ =>
-      BaseTest.testedProtocolVersion
+    private val defaultPrescribedSynchronizerId: Option[PhysicalSynchronizerId] = None
 
     def selectorForExerciseByInterface(
-        priorityOfSynchronizer: SynchronizerId => Int = defaultPriorityOfSynchronizer,
+        priorityOfSynchronizer: PhysicalSynchronizerId => Int = defaultPriorityOfSynchronizer,
         synchronizerOfContracts: Seq[LfContractId] => Map[
           LfContractId,
-          (SynchronizerId, ContractStateStatus),
+          (PhysicalSynchronizerId, ContractStateStatus),
         ] = defaultSynchronizerOfContracts,
-        connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
-        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleSynchronizers,
-        prescribedSynchronizerId: Option[SynchronizerId] = defaultPrescribedSynchronizerId,
-        synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
-          defaultSynchronizerProtocolVersion,
+        connectedSynchronizers: Set[PhysicalSynchronizerId] = Set(defaultSynchronizer),
+        admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]] =
+          defaultAdmissibleSynchronizers,
+        prescribedSynchronizerId: Option[PhysicalSynchronizerId] = defaultPrescribedSynchronizerId,
         transactionVersion: LfLanguageVersion = fixtureTransactionVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
@@ -542,7 +544,6 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers,
         admissibleSynchronizers,
         prescribedSynchronizerId,
-        synchronizerProtocolVersion,
         vettedPackages,
         exerciseByInterface.tx,
         ledgerTime,
@@ -552,15 +553,14 @@ private[routing] object SynchronizerSelectorTest {
 
     def selectorForThreeExercises(
         threeExercises: ThreeExercises,
-        priorityOfSynchronizer: SynchronizerId => Int = defaultPriorityOfSynchronizer,
+        priorityOfSynchronizer: PhysicalSynchronizerId => Int = defaultPriorityOfSynchronizer,
         synchronizerOfContracts: Seq[LfContractId] => Map[
           LfContractId,
-          (SynchronizerId, ContractStateStatus),
+          (PhysicalSynchronizerId, ContractStateStatus),
         ] = defaultSynchronizerOfContracts,
-        connectedSynchronizers: Set[SynchronizerId] = Set(defaultSynchronizer),
-        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]] = defaultAdmissibleSynchronizers,
-        synchronizerProtocolVersion: SynchronizerId => ProtocolVersion =
-          defaultSynchronizerProtocolVersion,
+        connectedSynchronizers: Set[PhysicalSynchronizerId] = Set(defaultSynchronizer),
+        admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]] =
+          defaultAdmissibleSynchronizers,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
         inputContractStakeholders: Map[LfContractId, Stakeholders] = Map.empty,
@@ -587,7 +587,6 @@ private[routing] object SynchronizerSelectorTest {
         connectedSynchronizers,
         admissibleSynchronizers,
         None,
-        synchronizerProtocolVersion,
         vettedPackages,
         threeExercises.tx,
         ledgerTime,
@@ -597,15 +596,14 @@ private[routing] object SynchronizerSelectorTest {
     }
 
     class Selector(loggerFactory: NamedLoggerFactory)(
-        priorityOfSynchronizer: SynchronizerId => Int,
+        priorityOfSynchronizer: PhysicalSynchronizerId => Int,
         synchronizerOfContracts: Seq[LfContractId] => Map[
           LfContractId,
-          (SynchronizerId, ContractStateStatus),
+          (PhysicalSynchronizerId, ContractStateStatus),
         ],
-        connectedSynchronizers: Set[SynchronizerId],
-        admissibleSynchronizers: NonEmpty[Set[SynchronizerId]],
-        prescribedSubmitterSynchronizerId: Option[SynchronizerId],
-        synchronizerProtocolVersion: SynchronizerId => ProtocolVersion,
+        connectedSynchronizers: Set[PhysicalSynchronizerId],
+        admissibleSynchronizers: NonEmpty[Set[PhysicalSynchronizerId]],
+        prescribedSubmitterSynchronizerId: Option[PhysicalSynchronizerId],
         vettedPackages: Seq[VettedPackage],
         tx: LfVersionedTransaction,
         ledgerTime: CantonTimestamp,
@@ -618,24 +616,22 @@ private[routing] object SynchronizerSelectorTest {
       val inputContractIds: Set[LfContractId] = inputContractStakeholders.keySet
 
       object TestSynchronizerState$ extends RoutingSynchronizerState {
-        override def getTopologySnapshotAndPVFor(
-            synchronizerId: SynchronizerId
-        ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshotLoader, ProtocolVersion)] =
-          Either
-            .cond(
-              connectedSynchronizers.contains(synchronizerId),
-              SimpleTopology.defaultTestingIdentityFactory(
-                topology,
-                vettedPackages,
-              ),
-              UnableToQueryTopologySnapshot.Failed(synchronizerId),
-            )
-            .map((_, synchronizerProtocolVersion(synchronizerId)))
+        override def getTopologySnapshotFor(
+            synchronizerId: PhysicalSynchronizerId
+        ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshotLoader] = Either
+          .cond(
+            connectedSynchronizers.contains(synchronizerId),
+            SimpleTopology.defaultTestingIdentityFactory(
+              topology,
+              vettedPackages,
+            ),
+            UnableToQueryTopologySnapshot.Failed(synchronizerId),
+          )
 
         override def getSynchronizersOfContracts(coids: Seq[LfContractId])(implicit
             ec: ExecutionContext,
             traceContext: TraceContext,
-        ): FutureUnlessShutdown[Map[LfContractId, (SynchronizerId, ContractStateStatus)]] =
+        ): FutureUnlessShutdown[Map[LfContractId, (PhysicalSynchronizerId, ContractStateStatus)]] =
           FutureUnlessShutdown.pure(synchronizerOfContracts(coids))
 
         override val topologySnapshots = Map.empty

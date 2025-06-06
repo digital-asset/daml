@@ -390,7 +390,7 @@ trait TrafficControlTest
 
     eventually() {
       participant1.health.status.trySuccess.connectedSynchronizers
-        .get(daId) should contain(SubmissionReady(true))
+        .get(daId.toPhysical) should contain(SubmissionReady(true))
       participant1.health.ping(participant1.id)
     }
 
@@ -811,7 +811,7 @@ trait TrafficControlTest
       readAs = Seq(alice),
     )
 
-    val contractId = created.eventsById.values
+    val contractId = created.events
       .map(_.getCreated.contractId)
       .headOption
       .value

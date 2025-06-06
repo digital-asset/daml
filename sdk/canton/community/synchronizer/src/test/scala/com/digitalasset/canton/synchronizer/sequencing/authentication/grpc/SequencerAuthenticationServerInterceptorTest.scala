@@ -62,7 +62,9 @@ class SequencerAuthenticationServerInterceptorTest
     lazy val service = new GrpcHelloService()
 
     lazy val store: MemberAuthenticationStore = new MemberAuthenticationStore()
-    lazy val synchronizerId = SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("popo::pipi"))
+    lazy val synchronizerId = SynchronizerId(
+      UniqueIdentifier.tryFromProtoPrimitive("popo::pipi")
+    ).toPhysical
 
     lazy val authService = new MemberAuthenticationService(
       synchronizerId,

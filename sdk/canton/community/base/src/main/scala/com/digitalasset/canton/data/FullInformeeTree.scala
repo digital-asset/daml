@@ -41,7 +41,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   lazy val transactionId: TransactionId = TransactionId.fromRootHash(tree.rootHash)
 
   private lazy val commonMetadata: CommonMetadata = checked(tree.commonMetadata.tryUnwrap)
-  lazy val synchronizerId: SynchronizerId = commonMetadata.synchronizerId
+  lazy val synchronizerId: PhysicalSynchronizerId = commonMetadata.synchronizerId
   lazy val mediator: MediatorGroupRecipient = commonMetadata.mediator
 
   lazy val informeesAndThresholdByViewPosition: Map[ViewPosition, ViewConfirmationParameters] =

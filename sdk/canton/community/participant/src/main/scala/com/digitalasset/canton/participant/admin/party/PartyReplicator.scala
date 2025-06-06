@@ -423,6 +423,7 @@ final class PartyReplicator(
             partyToParticipantMapping.participants :+ HostingParticipant(
               targetParticipantId,
               ParticipantPermission.Observation,
+              onboarding = true,
             ),
           )
         )

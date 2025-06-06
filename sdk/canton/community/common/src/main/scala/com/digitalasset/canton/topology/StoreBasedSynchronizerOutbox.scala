@@ -49,7 +49,7 @@ import scala.util.chaining.*
 
 class StoreBasedSynchronizerOutbox(
     synchronizerAlias: SynchronizerAlias,
-    val synchronizerId: SynchronizerId,
+    val synchronizerId: PhysicalSynchronizerId,
     val memberId: Member,
     val protocolVersion: ProtocolVersion,
     val handle: RegisterTopologyTransactionHandle,
@@ -410,7 +410,7 @@ class SynchronizerOutboxDynamicObserver(val loggerFactory: NamedLoggerFactory)
 }
 
 class SynchronizerOutboxFactory(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     synchronizerTopologyManager: SynchronizerTopologyManager,
@@ -425,7 +425,7 @@ class SynchronizerOutboxFactory(
   private val synchronizerObserverRef = new SingleUseCell[SynchronizerOutboxDynamicObserver]
 
   def create(
-      protocolVersion: ProtocolVersion,
+      protocolVersion: ProtocolVersion, // // TODO(#25482) Reduce duplication in parameters
       targetTopologyClient: SynchronizerTopologyClientWithInit,
       sequencerClient: SequencerClient,
       timeTracker: SynchronizerTimeTracker,
@@ -531,7 +531,7 @@ class SynchronizerOutboxFactory(
 }
 
 class SynchronizerOutboxFactorySingleCreate(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     memberId: Member,
     authorizedTopologyManager: AuthorizedTopologyManager,
     synchronizerTopologyManager: SynchronizerTopologyManager,

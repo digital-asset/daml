@@ -85,7 +85,11 @@ object V2Routes {
     val stateService =
       new JsStateService(ledgerClient, protocolConverters, loggerFactory)
     val partyManagementService =
-      new JsPartyManagementService(ledgerClient.partyManagementClient, loggerFactory)
+      new JsPartyManagementService(
+        ledgerClient.partyManagementClient,
+        protocolConverters,
+        loggerFactory,
+      )
 
     val jsPackageService =
       new JsPackageService(

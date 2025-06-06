@@ -18,6 +18,7 @@ import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigSto
   NoActiveSynchronizer,
   UnknownAlias,
   UnknownId,
+  UnknownPSId,
 }
 import com.digitalasset.canton.participant.store.db.DbSynchronizerConnectionConfigStore
 import com.digitalasset.canton.participant.store.memory.InMemorySynchronizerConnectionConfigStore
@@ -68,9 +69,9 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ConfigAlreadyExists, Unit]
 
-  /** Replaces the config for the given alias and id. Will return an
+  /** Replaces the config for the given alias and physical synchronizer id. Will return an
     * [[SynchronizerConnectionConfigStore.MissingConfigForSynchronizer]] error if there is no config
-    * for the (alias, id)
+    * for the (alias, physicalSynchronizerId).
     */
   def replace(
       configuredPSId: ConfiguredPhysicalSynchronizerId,
@@ -94,6 +95,13 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
       alias: SynchronizerAlias,
       configuredPSId: ConfiguredPhysicalSynchronizerId,
   ): Either[MissingConfigForSynchronizer, StoredSynchronizerConnectionConfig]
+
+  /** Retrieves the config for a given id. Will return an
+    * [[SynchronizerConnectionConfigStore.UnknownPSId]] error if there is no config for id.
+    */
+  def get(
+      synchronizerId: PhysicalSynchronizerId
+  ): Either[UnknownPSId, StoredSynchronizerConnectionConfig]
 
   /** Retrieves the active connection for `alias`. Return an
     * [[SynchronizerConnectionConfigStore.Error]] if the alias is unknown or if no connection is
@@ -271,6 +279,10 @@ object SynchronizerConnectionConfigStore {
       s"Synchronizer with alias `$alias` is unknown. Has the synchronizer been registered?"
   }
   final case class UnknownId(id: SynchronizerId) extends Error {
+    override def message: String =
+      s"Synchronizer with id `$id` is unknown. Has the synchronizer been registered?"
+  }
+  final case class UnknownPSId(id: PhysicalSynchronizerId) extends Error {
     override def message: String =
       s"Synchronizer with id `$id` is unknown. Has the synchronizer been registered?"
   }

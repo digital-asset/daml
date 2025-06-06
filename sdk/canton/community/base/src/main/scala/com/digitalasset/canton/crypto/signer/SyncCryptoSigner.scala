@@ -5,7 +5,8 @@ package com.digitalasset.canton.crypto.signer
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.SessionSigningKeysConfig
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.{
   Hash,
   Signature,
@@ -59,6 +60,8 @@ object SyncCryptoSigner {
       member: Member,
       crypto: SynchronizerCrypto,
       sessionSigningKeysConfig: SessionSigningKeysConfig,
+      futureSupervisor: FutureSupervisor,
+      timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SyncCryptoSigner =
     if (sessionSigningKeysConfig.enabled) {
@@ -68,6 +71,8 @@ object SyncCryptoSigner {
         member,
         crypto.privateCrypto,
         sessionSigningKeysConfig,
+        futureSupervisor: FutureSupervisor,
+        timeouts,
         loggerFactory,
       )
     } else
