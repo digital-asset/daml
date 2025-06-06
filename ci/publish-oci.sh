@@ -31,7 +31,7 @@ fi
 
 STAGING_DIR=$1
 RELEASE_TAG=$2
-REGISTRY=$3
+UNIFI_ASSISTANT_REGISTRY=$3
 
 declare -A publish=(
   [damlc]=publish_damlc
@@ -81,14 +81,13 @@ function publish_artifact {
   local artifact_name="${1}"
   local artifact_path="${2}"
   local artifact_desc="${3}"
-  local platform arch msg
   if [[ "$artifact_path" =~ .jar ]]; then
     declare -a artifact_platforms=( "generic" )
   else
     declare -a artifact_platforms=( "linux-arm,linux/arm64" "linux-intel,linux/amd64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/arm64" "windows,windows/amd64" )
   fi
   declare -a platform_args
-  local artifact
+  local artifact arch search_pattern
 
 cd "${STAGING_DIR}" || exit 1
  (
@@ -122,7 +121,7 @@ cd "${STAGING_DIR}" || exit 1
     "${HOME}"/.unifi/bin/unifi \
       repo publish-component \
         "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
-        --registry "${REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+        --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
   fi
  )
 }

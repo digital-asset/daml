@@ -6,6 +6,7 @@ parameters:
 
 jobs:
 - job: git_sha
+  displayName: 'Get git SHA'
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -26,8 +27,10 @@ jobs:
             setvar fork_point "$(git rev-parse HEAD^1)"
         fi
       name: out
+      displayName: 'Get git sha, branch, fork point'
 
 - job: verify_docs_synchronized
+  displayName: 'Verify docs synchronized'
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -44,6 +47,7 @@ jobs:
         cd sdk
         eval "$(./dev-env/bin/dade-assist)"
         ./ci/verify-docs-synchronized.sh
+      displayName: 'Verify docs synchronized'
 
 - job: Linux
   dependsOn:
@@ -77,6 +81,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
+      displayName: 'Checkout Release Commit'
       condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: clean-up.yml
     - template: build-unix.yml
@@ -107,6 +112,7 @@ jobs:
         bazel build //release:release
         ./bazel-bin/release/release --release-dir "$(mktemp -d)"
       condition: and(succeeded(), ne(variables['is_release'], 'true'))
+      displayName: 'Build release artifacts'
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
@@ -161,10 +167,12 @@ jobs:
           echo "-----"
         done
       name: workdirs
+      displayName: 'Print workdirs'
     - bash: |
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
+      displayName: 'Checkout Release Commit'
       condition: and(succeeded(), eq(variables.is_release, 'true'))
     - template: build-windows.yml
       parameters:
@@ -196,18 +204,22 @@ jobs:
       inputs:
         artifactName: platform-independence-dar-linux-intel
         targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
+      displayName: 'Download platform-independence dar linux-intel pipeline artifact'
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: platform-independence-dar-linux-arm
         targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
+      displayName: 'Download platform-independence dar linux-arm pipeline artifact'
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: platform-independence-dar-windows
         targetPath: $(Build.StagingDirectory)/platform-independence/windows/
+      displayName: 'Download platform-independence dar windows pipeline artifact'
     - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: platform-independence-dar-macos
         targetPath: $(Build.StagingDirectory)/platform-independence/macos/
+      displayName: 'Download platform-independence dar macos pipeline artifact'
     - bash: |
         set -euo pipefail
         eval "$(cd sdk; dev-env/bin/dade-assist)"
@@ -230,6 +242,7 @@ jobs:
       displayName: 'Compare platform-independence dars of different platforms.'
 
 - job: compatibility_ts_libs
+  displayName: 'Compatibility with TypeScript libraries'
   dependsOn:
     - check_for_release
   condition: and(succeeded(),
@@ -247,6 +260,7 @@ jobs:
     - template: report-end.yml
 
 - job: compatibility_linux
+  displayName: 'Compatibility with Linux'
   dependsOn:
     - check_for_release
     - compatibility_ts_libs
@@ -265,6 +279,7 @@ jobs:
     - template: report-end.yml
 
 - job: collect_build_data_failed
+  displayName: 'Collect Build Data Failed'
   condition: failed()
   dependsOn:
     - Linux
@@ -279,6 +294,7 @@ jobs:
     demands: assignment -equals default
 
 - job: collect_build_data
+  displayName: 'Collect Build Data'
   condition: always()
   dependsOn:
     - collect_build_data_failed

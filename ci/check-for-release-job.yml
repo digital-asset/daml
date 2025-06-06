@@ -72,4 +72,5 @@ jobs:
             setvar scala_2_13 false
         fi
       name: out
+      displayName: "Check for Release"
 
