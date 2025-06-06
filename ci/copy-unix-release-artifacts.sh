@@ -14,7 +14,6 @@ mkdir -p $OUTPUT_DIR/github
 mkdir -p $OUTPUT_DIR/artifactory
 # Artifacts that we only use in the split-release process
 mkdir -p $OUTPUT_DIR/split-release
-mkdir -p $OUTPUT_DIR/oci
 
 
 TARBALL=daml-sdk-$RELEASE_TAG-$NAME.tar.gz
@@ -29,7 +28,7 @@ DAMLC=damlc-$RELEASE_TAG-$NAME.tar.gz
 cp bazel-bin/compiler/damlc/damlc-dist.tar.gz $OUTPUT_DIR/split-release/$DAMLC
 
 DAML2JS=daml2js-$RELEASE_TAG-$NAME.tar.gz
-cp bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz $OUTPUT_DIR/oci/$DAML2JS
+cp bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz $OUTPUT_DIR/split-release/$DAML2JS
 
 
 # Platform independent artifacts are only built on Linux.
@@ -41,12 +40,12 @@ if [[ "$NAME" == "linux-intel" ]]; then
     cp bazel-bin/daml-script/runner/daml-script-binary_distribute.jar $OUTPUT_DIR/artifactory/$SCRIPT
 
     CODEGEN=codegen-$RELEASE_TAG.jar
-    cp bazel-bin/language-support/java/codegen/binary.jar $OUTPUT_DIR/oci/$CODEGEN
-    
-    BUNDLED_VSIX=daml-bundled-$RELEASE_TAG.vsix
-    cp bazel-bin/compiler/daml-extension/daml-bundled.vsix $OUTPUT_DIR/oci/$BUNDLED_VSIX
-    cp bazel-bin/compiler/daml-extension/webview-stylesheet.css $OUTPUT_DIR/oci/webview-stylesheet.css
+    cp bazel-bin/language-support/java/codegen/binary.jar $OUTPUT_DIR/artifactory/$CODEGEN
 
+# Publishing of this component is not implemented yet.
+#    BUNDLED_VSIX=daml-bundled-$RELEASE_TAG.vsix
+#    cp bazel-bin/compiler/daml-extension/daml-bundled.vsix $OUTPUT_DIR/oci/$BUNDLED_VSIX
+#    cp bazel-bin/compiler/daml-extension/webview-stylesheet.css $OUTPUT_DIR/oci/webview-stylesheet.css
 
     mkdir -p $OUTPUT_DIR/split-release/daml-libs/daml-script
     cp bazel-bin/daml-script/daml/*.dar $OUTPUT_DIR/split-release/daml-libs/daml-script/

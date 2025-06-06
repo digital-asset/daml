@@ -23,6 +23,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
+      displayName: "Checkout Release Commit"
     - template: bash-lib.yml
       parameters:
         var_name: bash-lib
@@ -39,11 +40,13 @@ jobs:
         else
           setvar skip_arm false
         fi
+      displayName: "Set skip_arm variable"
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-intel-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: "Download Linux Intel Release Artifacts"
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-arm-release
@@ -51,16 +54,19 @@ jobs:
       condition: and(succeeded(),
                      not(eq(variables.skip_arm, 'true')),
                      not(eq(variables['skip-github'], 'TRUE')))
+      displayName: "Download Linux ARM Release Artifacts"
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: macos-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: "Download macOS Release Artifacts"
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: "Download Windows Release Artifacts"
     - bash: |
         set -euo pipefail
         cd sdk
@@ -80,6 +86,7 @@ jobs:
         for f in *; do
             gpg --homedir $GPG_DIR -ab $f
         done
+      displayName: 'Sign Artifactory Artifacts'
       env:
         GPG_KEY: $(gpg-code-signing)
     - bash: |
@@ -94,6 +101,7 @@ jobs:
            --arg trigger $(trigger_sha) \
            '{$commit, $version, $trigger}' \
            > $(Build.StagingDirectory)/split-release/split-release/info.json
+      displayName: "Split Release Artifacts"
     - bash: |
         set -euo pipefail
         cd sdk
@@ -105,6 +113,7 @@ jobs:
           gcs "$GCRED" cp -r "$f" "gs://daml-binaries/split-releases/$(release_tag)/"
         done
       name: gcs_for_canton
+      displayName: "Upload Split Release Artifacts to GCS"
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
     - bash: |
@@ -113,6 +122,7 @@ jobs:
         eval "$(cd sdk; dev-env/bin/dade-assist)"
         ./ci/publish-artifactory.sh $(Build.StagingDirectory) $(release_tag) split
       name: publish_to_artifactory
+      displayName: "Publish Split Release Artifacts to Artifactory"
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
     - bash: |
@@ -125,9 +135,10 @@ jobs:
         ./ci/get-unifi.sh "${REGISTRY}/components/assistant:latest"
         ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${REGISTRY}
       name: publish_to_oci
+      displayName: "Publish Split Release Artifacts to OCI Registry"
       env:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        REGISTRY: "europe-docker.pkg.dev/da-images-dev/private"
+        REGISTRY: "europe-docker.pkg.dev/da-images-dev/oci-private"
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
@@ -137,6 +148,7 @@ jobs:
         short_sha=${sha:0:8}
         tell_slack "SDK release \`$(release_tag)\` (\`$short_sha\`) just pushed to Artifactory." \
                    "$(Slack.team-releases)"
+      displayName: "Notify Slack of Split Release"
     - template: tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'

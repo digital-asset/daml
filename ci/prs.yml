@@ -93,7 +93,7 @@ jobs:
             ;;
           esac
         tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"
-
+      displayName: "Notify Slack about release PR"
 - job: notify_user
   # No Slack tokens on forks
   condition: and(not(canceled()),
@@ -128,7 +128,7 @@ jobs:
                        "$(Slack.team-canton-notifications)"
           fi
         fi
-
+      displayName: "Notify user about PR build status"
 - job: self_service_compat_test
   pool:
     name: 'ubuntu_20_04'
@@ -152,4 +152,5 @@ jobs:
       fi
     env:
       AZURE_TOKEN: $(System.AccessToken)
+    displayName: "Trigger self-service compatibility test"
 
