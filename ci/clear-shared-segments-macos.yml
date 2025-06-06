@@ -39,3 +39,4 @@ steps:
       ipcrm -m $shmid || true
     done
   name: clear_shm
+  displayName: 'Clear shared memory segments'

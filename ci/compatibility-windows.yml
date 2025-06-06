@@ -21,6 +21,7 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
   - task: DownloadPipelineArtifact@0
+    displayName: 'Download TypeScript libraries'
     inputs:
       artifactName: 'typescript-libs'
       targetPath: $(Build.SourcesDirectory)/sdk/compatibility/head_sdk

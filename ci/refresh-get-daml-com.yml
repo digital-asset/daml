@@ -33,6 +33,7 @@ jobs:
           tell_slack "$(echo -e "Change detected in https://get.daml.com (\`<\` is added):\n\`\`\`\n$(diff daml-assistant/get-daml.sh $tmp)\`\`\`")"
         fi
       name: push_if_needed
+      displayName: 'Push get-daml.sh if needed'
       env:
         AWS_ACCESS_KEY_ID: $(AWS_CLIENT_ID)
         AWS_SECRET_ACCESS_KEY: $(AWS_SECRET)

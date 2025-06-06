@@ -10,5 +10,6 @@ steps:
       source $(bash-lib)
       setvar time "$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
     condition: always()
+    displayName: 'Set time variable'
     name: end
 

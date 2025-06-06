@@ -63,6 +63,8 @@ bazel build `
   //compiler/damlc/tests:platform-independence.dar `
   //release:sdk-release-tarball-ce `
   //release:sdk-release-tarball-ee `
+  //compiler/damlc:damlc-dist `
+  //language-support/ts/codegen:daml2js-dist `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
   `-`-build_event_json_file build-events.json `

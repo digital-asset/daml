@@ -21,3 +21,10 @@ cp bazel-bin/release/sdk-release-tarball-ce.tar.gz "$OUTPUT_DIR/github/$TARBALL"
 cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/artifactory/$EE_TARBALL"
 # Used for the split release process.
 cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/split-release/$EE_TARBALL"
+
+DAMLC=damlc-$RELEASE_TAG-windows.tar.gz
+cp bazel-bin/compiler/damlc/damlc-dist.tar.gz "$OUTPUT_DIR/split-release/$DAMLC"
+
+DAML2JS=daml2js-$RELEASE_TAG-windows.tar.gz
+cp bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz "$OUTPUT_DIR/split-release/$DAML2JS"
+

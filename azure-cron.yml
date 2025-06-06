@@ -54,6 +54,7 @@ jobs:
           gcloud auth activate-service-account --key-file=$key
           export BOTO_CONFIG=/dev/null
           ./bazel-bin/ci/cron/cron bazel-cache --age 75 --delete --cache-suffix '**'
+        displayName: 'Fix Bazel Cache'
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
@@ -106,6 +107,7 @@ jobs:
               echo "Done."
             fi
           done
+        displayName: 'Build and Push Docker Image'
         env:
           DOCKER_LOGIN: $(DOCKER_LOGIN)
           DOCKER_PASSWORD: $(DOCKER_PASSWORD)
@@ -187,6 +189,7 @@ jobs:
               echo "Latest version is not ready for marketplace publication."
             fi
           fi
+        displayName: 'Publish to VSCode Marketplace'
         env:
           MARKETPLACE_TOKEN: $(VSCODE_MARKETPLACE_TOKEN)
       - template: ci/tell-slack-failed.yml
@@ -214,6 +217,7 @@ jobs:
           echo "$GOOGLE_APPLICATION_CREDENTIALS_CONTENT" > $GCS_KEY
           gcloud auth activate-service-account --key-file=$GCS_KEY
           BOTO_CONFIG=/dev/null gsutil cp $STATS gs://daml-data/downloads/$(date -u +%Y%m%d_%H%M%SZ).json.gz
+        displayName: 'Download Stats'
         env:
           GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       - template: ci/tell-slack-failed.yml
