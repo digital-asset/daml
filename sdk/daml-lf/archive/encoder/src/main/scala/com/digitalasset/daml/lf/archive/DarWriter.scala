@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.archive
 
+import com.digitalasset.daml.lf.data.Bytes
+
 import java.io.{ByteArrayOutputStream, FileOutputStream, OutputStream}
 import java.nio.file.Path
 import java.util.zip.{ZipEntry, ZipOutputStream}
@@ -13,7 +15,7 @@ object DarWriter {
 
   /** Write the DAR to the given path.
     */
-  def encode(sdkVersion: String, dar: Dar[(String, Array[Byte])], path: Path): Unit = {
+  def encode(sdkVersion: String, dar: Dar[(String, Bytes)], path: Path): Unit = {
     val out = new FileOutputStream(path.toFile)
     encode(sdkVersion, dar, out)
   }
@@ -21,7 +23,7 @@ object DarWriter {
   /** Write the DAR to the given output stream.
     *      The output stream will be closed afterwards.
     */
-  def encode(sdkVersion: String, dar: Dar[(String, Array[Byte])], out: OutputStream): Unit = {
+  def encode(sdkVersion: String, dar: Dar[(String, Bytes)], out: OutputStream): Unit = {
     val zipOut = new ZipOutputStream(out)
     zipOut.putNextEntry(new ZipEntry(manifestPath))
     val bytes = new ByteArrayOutputStream()
@@ -31,7 +33,7 @@ object DarWriter {
     zipOut.closeEntry()
     dar.all.foreach { case (path, bs) =>
       zipOut.putNextEntry(new ZipEntry(path))
-      zipOut.write(bs)
+      zipOut.write(bs.toByteArray)
       zipOut.closeEntry
     }
     zipOut.close

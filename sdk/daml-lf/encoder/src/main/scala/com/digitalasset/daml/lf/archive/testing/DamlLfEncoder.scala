@@ -6,11 +6,12 @@ package com.digitalasset.daml.lf.archive.testing
 import java.io.File
 import java.nio.file.Paths
 import com.digitalasset.daml.lf.archive.{Dar, DarWriter}
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
 import com.digitalasset.daml.lf.testing.parser.{ParserParameters, parsePackage}
 import com.digitalasset.daml.lf.validation.Validation
 import com.daml.SdkVersion
+import com.digitalasset.daml.lf.stablepackages.StablePackagesV2
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
@@ -60,13 +61,13 @@ private[daml] object DamlLfEncoder extends App {
   private def readSources(files: Seq[String]): String =
     files.view.flatMap(file => Source.fromFile(Paths.get(file).toFile, "UTF8")).mkString
 
-  private def makeArchive(
+  private def getAst(
       source: String,
       validation: Boolean,
   )(implicit parserParameters: ParserParameters[this.type]) = {
 
     val pkg = parsePackage[this.type](source).fold(error, identity)
-    val pkgs = PackageInterface(Map(pkgId -> pkg))
+    val pkgs = PackageInterface(StablePackagesV2.packagesMap + (pkgId -> pkg))
 
     if (validation)
       Validation
@@ -78,16 +79,21 @@ private[daml] object DamlLfEncoder extends App {
         .left
         .foreach(e => error(e.pretty))
 
-    encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
+    pkg
   }
 
   private def makeDar(source: String, file: File, validation: Boolean)(implicit
       parserParameters: ParserParameters[this.type]
   ) = {
-    val archive = makeArchive(source, validation = validation)
+    val pkg = getAst(source, validation = validation)
+    val archive = encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
+    val desp = StablePackagesV2.values.collect {
+      case stablePkg if pkg.directDeps(stablePkg.packageId) =>
+        (stablePkg.packageId + ".dalf") -> stablePkg.bytes
+    }.toList
     DarWriter.encode(
       SdkVersion.sdkVersion,
-      Dar(("archive.dalf", archive.toByteArray), List()),
+      Dar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), desp),
       file.toPath,
     )
   }
