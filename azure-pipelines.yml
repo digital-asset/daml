@@ -43,6 +43,7 @@ jobs:
         set -euo pipefail
         git checkout $(release_sha)
       name: checkout_release
+      displayName: 'Checkout Release Commit'
     - template: ci/bash-lib.yml
       parameters:
         var_name: bash-lib
@@ -55,21 +56,25 @@ jobs:
         else
           setvar skip-github TRUE
         fi
+      displayName: 'Create and Push Release Tag'
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: 'Download Linux Release Artifacts'
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: macos-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: 'Download macOS Release Artifacts'
     - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: 'Download Windows Release Artifacts'
     - bash: |
         set -euo pipefail
         if [ -d sdk ]; then
@@ -98,7 +103,9 @@ jobs:
         done
       env:
         GPG_KEY: $(gpg-code-signing)
+      displayName: 'Sign Release Artifacts'
     - task: GitHubRelease@0
+      displayName: 'Create GitHub Release'
       inputs:
         # I have no idea how dependent this is on the existence of my GitHub
         # account or if this is just the name of the connection in Azure
@@ -128,19 +135,21 @@ jobs:
       env:
         AUTH: $(ARTIFACTORY_USERNAME):$(ARTIFACTORY_PASSWORD)
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
+      displayName: 'Publish to Artifactory'
     - bash: |
         set -euo pipefail
         # Note: this gets dev-env from the release commit, not the trigger commit
         eval "$(cd sdk; ./dev-env/bin/dade-assist)"
         # Authorize in GCLOUD
         gcloud beta auth activate-service-account --key-file=<(echo "${GOOGLE_APPLICATION_CREDENTIALS_CONTENT}")
-        gcloud auth configure-docker --quiet ${REGISTRY%%/*}
-        ./ci/get-unifi.sh "${REGISTRY}/components/assistant:latest"
-        ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${REGISTRY}
+        gcloud auth configure-docker --quiet ${UNIFI_ASSISTANT_REGISTRY%%/*}
+        ./ci/get-unifi.sh "${UNIFI_ASSISTANT_REGISTRY}/components/assistant:latest"
+        ./ci/publish-oci.sh $(Build.StagingDirectory) $(release_tag) ${UNIFI_ASSISTANT_REGISTRY}
       name: publish_to_oci
+      displayName: 'Publish to OCI Registry'
       env:
         GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-        REGISTRY: "europe-docker.pkg.dev/da-images-dev/private"
+        UNIFI_ASSISTANT_REGISTRY: "europe-docker.pkg.dev/da-images-dev/private"
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
     - bash: |
         set -euo pipefail
@@ -162,6 +171,7 @@ jobs:
             gcs "$GCRED" cp "$f" "gs://daml-data/releases/$(release_tag)/artifactory/$f"
         done
       name: backup_to_gcs
+      displayName: 'Backup Release Artifacts to GCS'
       env:
         GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
@@ -185,6 +195,7 @@ jobs:
              -H 'Content-Type: application/json' \
              --data "{\"text\":\"${pr_handler} Release \`$(release_tag)\` is ready for testing. See <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|release instructions>. (<https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|build>, <https://github.com/digital-asset/daml/commit/$(trigger_sha)|trigger commit>, <https://github.com/digital-asset/daml/commit/$(release_sha)|target commit>)\"}" \
              $(Slack.team-daml)
+      displayName: 'Notify Slack of Release'
     - template: ci/tell-slack-failed.yml
       parameters:
         trigger_sha: '$(trigger_sha)'
