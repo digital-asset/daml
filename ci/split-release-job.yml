@@ -3,6 +3,7 @@
 
 jobs:
 - job: split_release
+  displayName: "Split Release Artifacts"
   dependsOn: [ "check_for_release", "Linux", "macOS", "Windows" ]
   condition: and(succeeded(),
                  eq(dependencies.check_for_release.outputs['out.is_release'], 'true'),
@@ -41,13 +42,13 @@ jobs:
           setvar skip_arm false
         fi
       displayName: "Set skip_arm variable"
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: linux-intel-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
       displayName: "Download Linux Intel Release Artifacts"
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: linux-arm-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
@@ -55,13 +56,13 @@ jobs:
                      not(eq(variables.skip_arm, 'true')),
                      not(eq(variables['skip-github'], 'TRUE')))
       displayName: "Download Linux ARM Release Artifacts"
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: macos-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
       displayName: "Download macOS Release Artifacts"
-    - task: DownloadPipelineArtifact@0
+    - task: DownloadPipelineArtifact@2
       inputs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts

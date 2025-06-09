@@ -114,6 +114,7 @@ cd "${STAGING_DIR}" || exit 1
         platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     else
         info_fail "Artifact not found: ${search_pattern}"
+        FAILURE=1
     fi
   done
   if [[ "${FAILURE}" == 0 ]]; then
