@@ -80,8 +80,6 @@ private[lf] final case class FatContractInstanceImpl(
   require(signatories.nonEmpty, "signatories should be non empty")
   require(signatories.subsetOf(stakeholders), "signatories should be a subset of stakeholders")
 
-  override protected def self: FatContractInstanceImpl = this
-
   override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
     copy(
       contractId = f(contractId),

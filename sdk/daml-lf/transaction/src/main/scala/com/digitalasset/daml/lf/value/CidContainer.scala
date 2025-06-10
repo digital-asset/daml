@@ -12,8 +12,6 @@ import scala.util.control.NoStackTrace
 
 trait CidContainer[+A] {
 
-  protected def self: A
-
   def mapCid(f: ContractId => ContractId): A
 
   def foreachCid(f: ContractId => Unit) = {
