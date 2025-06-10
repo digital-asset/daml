@@ -87,13 +87,13 @@ private[daml] object DamlLfEncoder extends App {
   ) = {
     val pkg = getAst(source, validation = validation)
     val archive = encodeArchive(pkgId -> pkg, parserParameters.languageVersion)
-    val desp = StablePackagesV2.values.collect {
+    val deps = StablePackagesV2.values.collect {
       case stablePkg if pkg.directDeps(stablePkg.packageId) =>
         (stablePkg.packageId + ".dalf") -> stablePkg.bytes
     }.toList
     DarWriter.encode(
       SdkVersion.sdkVersion,
-      Dar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), desp),
+      Dar(("archive.dalf", Bytes.fromByteString(archive.toByteString)), deps),
       file.toPath,
     )
   }
