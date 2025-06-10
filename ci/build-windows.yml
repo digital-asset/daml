@@ -37,7 +37,7 @@ steps:
       if [ -e sdk/bazel-testlogs ]; then
         rm -rf sdk/bazel-testlogs
       fi
-    displayName: delete old logs
+    displayName: 'Delete old logs'
 
   - powershell: |
       ci\create-dotnetrc.ps1
@@ -97,6 +97,7 @@ steps:
         '$(Build.StagingDirectory)'/release \
         "${{ parameters.is_split_release }}"
     name: publish
+    displayName: 'Copy Windows Release Artifacts'
     env:
       AZURE_KEY_VAULT_URL: $(AZURE_KEY_VAULT_URL)
       AZURE_CLIENT_ID: $(AZURE_CLIENT_ID)
@@ -115,3 +116,4 @@ steps:
     inputs:
       targetPath: $(Build.StagingDirectory)/release
       artifactName: windows-release
+    displayName: 'Publish Windows Release Artifacts'

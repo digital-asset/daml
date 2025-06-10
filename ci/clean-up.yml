@@ -57,4 +57,4 @@ steps:
       fi
     done
     ## End more debugging
-  displayName: clean-up disk cache
+  displayName: 'Check disk space and reset caches if necessary'

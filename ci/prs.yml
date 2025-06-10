@@ -19,6 +19,7 @@ jobs:
 
 
 - job: check_standard_change_label
+  displayName: 'Check for Standard-Change label'
   dependsOn:
     - check_for_release
   condition: and(eq(variables['Build.Reason'], 'PullRequest'),
@@ -38,8 +39,9 @@ jobs:
 # required for collect_build_data
 - job: release
   condition: false
-
+  
 - job: notify_release_pr
+  displayName: "Notify Slack about release PR"
   condition: and(not(canceled()),
                  or(startsWith(variables['Build.SourceBranchName'], 'auto-release-pr-'),
                     startsWith(variables['System.PullRequest.SourceBranch'], 'auto-release-pr-')),
@@ -93,8 +95,9 @@ jobs:
             ;;
           esac
         tell_slack "<@${PR_HANDLER}> <https://dev.azure.com/digitalasset/daml/_build/results?buildId=$(Build.BuildId)|Build $(Build.BuildId)> for release PR <https://github.com/digital-asset/daml/pull/${PR}|#${PR}> $msg"
-
+      displayName: "Notify Slack about release PR"
 - job: notify_user
+  displayName: "Notify user about PR build status"
   # No Slack tokens on forks
   condition: and(not(canceled()),
                  eq(variables['System.PullRequest.IsFork'], 'False'))
@@ -128,8 +131,9 @@ jobs:
                        "$(Slack.team-canton-notifications)"
           fi
         fi
-
+      displayName: "Notify user about PR build status"
 - job: self_service_compat_test
+  displayName: "Trigger self-service compatibility test"
   pool:
     name: 'ubuntu_20_04'
     demands: assignment -equals default
@@ -152,4 +156,5 @@ jobs:
       fi
     env:
       AZURE_TOKEN: $(System.AccessToken)
+    displayName: "Trigger self-service compatibility test"
 

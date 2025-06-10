@@ -51,8 +51,6 @@ object Node {
     def versionedKeyOpt: Option[Versioned[GlobalKeyWithMaintainers]] =
       keyOpt.map(Versioned(version, _))
 
-    final override protected def self: this.type = this
-
     /** Compute the informees of a node based on the ledger model definition.
       *
       * Refer to https://docs.daml.com/concepts/ledger-model/ledger-privacy.html#projections
@@ -76,7 +74,7 @@ object Node {
   }
 
   /** A transaction node with no children */
-  sealed trait LeafOnlyAction extends Action {
+  sealed trait LeafOnlyAction extends Action with CidContainer[LeafOnlyAction] {
     override def mapNodeId(f: NodeId => NodeId): Node = this
   }
 
@@ -91,7 +89,8 @@ object Node {
       keyOpt: Option[GlobalKeyWithMaintainers],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyAction {
+  ) extends LeafOnlyAction
+      with CidContainer[Create] {
 
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
@@ -154,7 +153,8 @@ object Node {
       val interfaceId: Option[TypeConId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyAction {
+  ) extends LeafOnlyAction
+      with CidContainer[Fetch] {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
 
@@ -195,7 +195,8 @@ object Node {
       override val byKey: Boolean,
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends Action {
+  ) extends Action
+      with CidContainer[Exercise] {
 
     def qualifiedChoiceName = QualifiedChoiceId(interfaceId, choiceId)
 
@@ -238,7 +239,8 @@ object Node {
       result: Option[ContractId],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-  ) extends LeafOnlyAction {
+  ) extends LeafOnlyAction
+      with CidContainer[LookupByKey] {
 
     override def keyOpt: Some[GlobalKeyWithMaintainers] = Some(key)
 
@@ -275,13 +277,12 @@ object Node {
 
   final case class Rollback(
       children: ImmArray[NodeId]
-  ) extends Node {
+  ) extends Node
+      with CidContainer[Rollback] {
 
     override def mapCid(f: ContractId => ContractId): Node.Rollback = this
     override def mapNodeId(f: NodeId => NodeId): Node.Rollback =
       copy(children.map(f))
-
-    override protected def self: Node = this
   }
 
   private def rehash(gk: GlobalKeyWithMaintainers) =

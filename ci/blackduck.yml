@@ -3,6 +3,7 @@
 
 jobs:
 - job: blackduck_scan
+  displayName: 'Blackduck Scan'
   timeoutInMinutes: 120
   condition: or(and(or(eq(variables['Build.SourceBranchName'], 'main'),
                        eq(variables['Build.SourceBranchName'], 'main-2.x')),
@@ -158,7 +159,7 @@ jobs:
           open_pr "$branch" "update NOTICES file"
           setvar need_to_build true
       fi
-    displayName: open PR
+    displayName: 'Open PR to update NOTICES file'
     name: out
     condition: and(succeeded(),
                    or(eq(variables['Build.SourceBranchName'], 'main'),
@@ -206,3 +207,4 @@ jobs:
                                  --org "https://dev.azure.com/digitalasset" \
                                  --project daml
       fi
+    displayName: 'Bump Blackduck Script if needed'

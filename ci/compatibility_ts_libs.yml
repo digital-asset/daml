@@ -20,6 +20,7 @@ steps:
       ./sdk/compatibility/build-ts-libs.sh "${BUILD_ARTIFACTSTAGINGDIRECTORY}"
     displayName: 'Build typescript libraries'
   - task: PublishPipelineArtifact@0
+    displayName: 'Publish typescript libraries'
     inputs:
       targetPath: $(Build.StagingDirectory)/
       artifactName: "typescript-libs"
