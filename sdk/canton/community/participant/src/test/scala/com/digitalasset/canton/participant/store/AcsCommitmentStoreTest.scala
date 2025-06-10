@@ -279,12 +279,12 @@ trait AcsCommitmentStoreTest
     "correctly compute matched periods in the outstanding table" in {
       val store = mk()
       for {
-        outstanding <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
+        outstanding <- store.outstanding(ts(0), ts(10), None, includeMatchedPeriods = true)
         _ <- store.markOutstanding(periods(1, 5), remoteId1And2NESet)
         outstandingMarked <- store.outstanding(
           ts(0),
           ts(10),
-          Seq.empty,
+          None,
           includeMatchedPeriods = true,
         )
         _ <- store.markSafe(remoteId, periods(1, 2))
@@ -295,7 +295,7 @@ trait AcsCommitmentStoreTest
         outstandingAfter <- store.outstanding(
           ts(0),
           ts(10),
-          Seq.empty,
+          None,
           includeMatchedPeriods = true,
         )
       } yield {
@@ -316,14 +316,14 @@ trait AcsCommitmentStoreTest
     "correctly store surrounding commits in their correct state when marking period" in {
       val store = mk()
       for {
-        outstanding <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
+        outstanding <- store.outstanding(ts(0), ts(10), None, includeMatchedPeriods = true)
         _ <- store.markOutstanding(periods(1, 5), remoteIdNESet)
         _ <- store.markUnsafe(remoteId, periods(1, 5))
         _ <- store.markSafe(remoteId, periods(2, 4))
         outstandingAfter <- store.outstanding(
           ts(0),
           ts(10),
-          Seq.empty,
+          None,
           includeMatchedPeriods = true,
         )
       } yield {
@@ -339,24 +339,24 @@ trait AcsCommitmentStoreTest
     "correctly perform state transition in the the outstanding table" in {
       val store = mk()
       for {
-        outstanding <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
+        outstanding <- store.outstanding(ts(0), ts(10), None, includeMatchedPeriods = true)
         _ <- store.markOutstanding(periods(1, 5), remoteIdNESet)
         _ <- store.markUnsafe(remoteId, periods(1, 5))
         outstandingUnsafe <- store.outstanding(
           ts(0),
           ts(10),
-          Seq.empty,
+          None,
           includeMatchedPeriods = true,
         )
         // we are allowed to transition from state Mismatched to state Matched
         _ <- store.markSafe(remoteId, periods(1, 5))
-        outstandingSafe <- store.outstanding(ts(0), ts(10), Seq.empty, includeMatchedPeriods = true)
+        outstandingSafe <- store.outstanding(ts(0), ts(10), None, includeMatchedPeriods = true)
         // we are not allowed to transition from state Matched to state Mismatch
         _ <- store.markUnsafe(remoteId, periods(1, 5))
         outstandingStillSafe <- store.outstanding(
           ts(0),
           ts(10),
-          Seq.empty,
+          None,
           includeMatchedPeriods = true,
         )
         _ <- store.markOutstanding(periods(1, 5), remoteIdNESet)
@@ -594,11 +594,11 @@ trait AcsCommitmentStoreTest
             ),
           )
         )
-        found1 <- store.searchComputedBetween(ts(0), ts(1), Seq(remoteId))
+        found1 <- store.searchComputedBetween(ts(0), ts(1), NonEmpty.from(Seq(remoteId)))
         found2 <- store.searchComputedBetween(ts(0), ts(2))
         found3 <- store.searchComputedBetween(ts(1), ts(1))
         found4 <- store.searchComputedBetween(ts(0), ts(0))
-        found5 <- store.searchComputedBetween(ts(2), ts(2), Seq(remoteId, remoteId2))
+        found5 <- store.searchComputedBetween(ts(2), ts(2), NonEmpty.from(Seq(remoteId, remoteId2)))
 
       } yield {
         found1.toSet shouldBe Set((period(0, 1), remoteId, hashedDummyCommitment))
@@ -646,9 +646,9 @@ trait AcsCommitmentStoreTest
         _ <- store.storeReceived(dummySigned3).failOnShutdown
         found1 <- store.searchReceivedBetween(ts(0), ts(1))
         found2 <-
-          store.searchReceivedBetween(ts(0), ts(1), Seq(remoteId))
+          store.searchReceivedBetween(ts(0), ts(1), NonEmpty.from(Seq(remoteId)))
         found3 <-
-          store.searchReceivedBetween(ts(0), ts(3), Seq(remoteId, remoteId2))
+          store.searchReceivedBetween(ts(0), ts(3), NonEmpty.from(Seq(remoteId, remoteId2)))
       } yield {
         found1.toSet shouldBe Set(dummySigned, dummySigned3)
         found2.toSet shouldBe Set(dummySigned)
@@ -835,7 +835,7 @@ trait AcsCommitmentStoreTest
         _ <- store.markOutstanding(periods(0, 1), remoteIdNESet)
         _ <- store.markOutstanding(periods(0, 2), remoteIdNESet)
         _ <- store.markSafe(remoteId, periods(1, 2))
-        outstandingWithId <- store.outstanding(ts(0), ts(2), Seq(remoteId))
+        outstandingWithId <- store.outstanding(ts(0), ts(2), NonEmpty.from(Seq(remoteId)))
 
         outstandingWithoutId <- store.outstanding(ts(0), ts(2))
       } yield {

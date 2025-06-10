@@ -198,7 +198,7 @@ sealed trait ReassignmentConfirmationAdminPartyIntegrationTest
       participant2.ledger_api.state.acs
         .active_contracts_of_party(party = observer)
         .find(_.createdEvent.value.contractId == iou.id.contractId)
-        .map(_.synchronizerId) shouldBe Some(acmeId.toProtoPrimitive)
+        .map(_.synchronizerId) shouldBe Some(acmeId.logical.toProtoPrimitive)
     }
   }
 

@@ -94,7 +94,7 @@ class UnitTestContext[E <: Env[E], MessageT] extends ModuleContext[E, MessageT] 
 
   override def newModuleRef[NewModuleMessageT](
       moduleName: ModuleName
-  ): E#ModuleRefT[NewModuleMessageT] = unsupported()
+  )(moduleNameForMetrics: String = moduleName.name): E#ModuleRefT[NewModuleMessageT] = unsupported()
 
   override def setModule[NewModuleMessageT](
       moduleRef: E#ModuleRefT[NewModuleMessageT],

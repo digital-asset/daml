@@ -23,7 +23,7 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.sequencing.SequencerConnections
-import com.digitalasset.canton.topology.{ForceFlag, PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{ForceFlag, PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SynchronizerAlias, config}
 
@@ -44,8 +44,8 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
   private val synchronizer1: SynchronizerAlias = SynchronizerAlias.tryCreate("bft-synchronizer1")
   private val synchronizer2: SynchronizerAlias = SynchronizerAlias.tryCreate("bft-synchronizer2")
 
-  private var synchronizerId1: SynchronizerId = _
-  private var synchronizerId2: SynchronizerId = _
+  private var synchronizerId1: PhysicalSynchronizerId = _
+  private var synchronizerId2: PhysicalSynchronizerId = _
   private var synchronizerOwnersD2: NonEmpty[Seq[InstanceReference]] = _
 
   private var alice: PartyId = _
@@ -201,7 +201,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       mediatorsD2b.foreach(mediator =>
         mediator.setup
           .assign(
-            synchronizerId2.toPhysical,
+            synchronizerId2,
             SequencerConnections.single(sequencer4.sequencerConnection),
           )
       )
@@ -225,7 +225,7 @@ trait ReassignmentTest extends CommunityIntegrationTest with SharedEnvironment {
       }
 
       // Obtain a new synchronizer timestamp for the reassignment's synchronizer time proof
-      participant1.testing.fetch_synchronizer_time(synchronizerId2.toPhysical)
+      participant1.testing.fetch_synchronizer_time(synchronizerId2)
 
       val unassigned = clue(s"unassign from $synchronizer1 to $synchronizer2") {
         participant1.ledger_api.commands.submit_unassign(

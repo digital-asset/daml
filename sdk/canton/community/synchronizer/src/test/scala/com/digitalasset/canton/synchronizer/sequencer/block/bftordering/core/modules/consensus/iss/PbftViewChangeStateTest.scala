@@ -11,7 +11,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
-  EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -36,7 +35,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val vcState = new PbftViewChangeState(
           fullMembership,
           leader = nextLeader,
-          epoch = EpochNumber.First,
           view = nextView,
           slotNumbers,
           metrics,
@@ -66,7 +64,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val vcState = new PbftViewChangeState(
           fullMembership,
           leader = nextLeader,
-          epoch = EpochNumber.First,
           view = nextView,
           slotNumbers,
           metrics,
@@ -119,7 +116,6 @@ class PbftViewChangeStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         val vcState = new PbftViewChangeState(
           fullMembership,
           leader = nextLeader,
-          epoch = EpochNumber.First,
           view = nextView,
           slotNumbers,
           metrics,

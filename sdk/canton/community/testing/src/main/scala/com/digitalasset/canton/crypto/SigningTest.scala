@@ -6,9 +6,9 @@ package com.digitalasset.canton.crypto
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.SignatureCheckError.{
   InvalidSignature,
-  InvalidSignatureFormat,
   KeyAlgoSpecsMismatch,
   SignatureWithWrongKey,
+  UnsupportedSignatureFormat,
 }
 import com.digitalasset.canton.crypto.SigningError.UnknownSigningKey
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -201,7 +201,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper with
                         // The algo supports the format, but the signature should be bad when interpreted in this other format
                         res shouldBe a[InvalidSignature]
                       } else
-                        res shouldBe a[InvalidSignatureFormat]
+                        res shouldBe a[UnsupportedSignatureFormat]
                     }
                 }
               res = crypto.pureCrypto.verifySignature(

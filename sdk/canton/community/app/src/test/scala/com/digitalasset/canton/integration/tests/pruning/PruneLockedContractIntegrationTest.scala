@@ -53,7 +53,7 @@ trait PruneLockedContractIntegrationTest
             env.daId,
             _.update(
               mediatorDeduplicationTimeout = ledgerTimeRecordTimeTolerance * 2,
-              submissionTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
+              preparationTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
             ),
           )
 

@@ -92,6 +92,12 @@ private[mediator] trait MediatorDeduplicationStore
       .discard[Option[NonEmpty[Set[UUID]]]]
   }
 
+  @VisibleForTesting
+  def allPersistedData()(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Set[DeduplicationData]]
+
   /** Persist data to the database. */
   protected def persist(
       data: DeduplicationData
@@ -208,6 +214,8 @@ private[mediator] class InMemoryMediatorDeduplicationStore(
     override val timeouts: ProcessingTimeout,
 ) extends MediatorDeduplicationStore
     with NamedLogging {
+  // Map used as a set, for its concurrency properties
+  private val storedData = TrieMap[DeduplicationData, Unit]()
 
   override protected def doInitialize(deleteFromInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext,
@@ -217,14 +225,26 @@ private[mediator] class InMemoryMediatorDeduplicationStore(
   override protected def persist(data: DeduplicationData)(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
+  ): FutureUnlessShutdown[Unit] = {
+    storedData.put(data, ()).discard
+    FutureUnlessShutdown.unit
+  }
 
   override protected def prunePersistentData(
       upToInclusive: CantonTimestamp
   )(implicit
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
-  ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
+  ): FutureUnlessShutdown[Unit] = {
+    storedData.filterInPlace { case (data, _) => data.expireAfter > upToInclusive }
+    FutureUnlessShutdown.unit
+  }
+
+  override def allPersistedData()(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Set[DeduplicationData]] =
+    FutureUnlessShutdown.pure(storedData.keySet.toSet)
 }
 
 // Note: this class ignores the inherited close context from the DbStore trait and instead relies purely on
@@ -265,6 +285,21 @@ private[mediator] class DbMediatorDeduplicationStore(
       )(traceContext, callerCloseContext)
     } yield {
       activeUuids.foreach(storeInMemory)
+    }
+
+  override def allPersistedData()(implicit
+      traceContext: TraceContext,
+      callerCloseContext: CloseContext,
+  ): FutureUnlessShutdown[Set[DeduplicationData]] =
+    for {
+      entries <- storage.query(
+        sql"""select uuid, request_time, expire_after from mediator_deduplication_store
+                where mediator_id = $mediatorId"""
+          .as[DeduplicationData],
+        functionFullName,
+      )(traceContext, callerCloseContext)
+    } yield {
+      entries.toSet
     }
 
   override protected def persist(data: DeduplicationData)(implicit
@@ -319,9 +354,39 @@ private[mediator] class DbMediatorDeduplicationStore(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] =
-    storage.update_(
-      sqlu"""delete from mediator_deduplication_store
-          where mediator_id = $mediatorId and expire_after <= $upToInclusive""",
-      functionFullName,
-    )(traceContext, callerCloseContext)
+    pruningBatchAggregator.run(upToInclusive)(executionContext, traceContext, callerCloseContext)
+
+  private val pruningBatchAggregator = {
+    val processor: BatchAggregatorUS.ProcessorUS[CantonTimestamp, Unit] =
+      new BatchAggregatorUS.ProcessorUS[CantonTimestamp, Unit] {
+        override val kind: String = "deduplication data pruning"
+
+        override def logger: TracedLogger = DbMediatorDeduplicationStore.this.logger
+
+        override def executeBatch(items: NonEmpty[Seq[Traced[CantonTimestamp]]])(implicit
+            traceContext: TraceContext,
+            callerCloseContext: CloseContext,
+        ): FutureUnlessShutdown[Seq[Unit]] = {
+          // We only need to delete up to the max.
+          // The max is not necessarily the last one, as pruning requests can come out of order.
+          val maxUpToInclusive = items.map(_.value).max1
+
+          storage
+            .update_(
+              sqlu"""delete from mediator_deduplication_store
+                       where mediator_id = $mediatorId and expire_after <= $maxUpToInclusive""",
+              functionFullName,
+            )(traceContext, callerCloseContext)
+            .map(_ => Seq.fill(items.size)(()))
+        }
+
+        override def prettyItem: Pretty[CantonTimestamp] = implicitly
+      }
+
+    BatchAggregatorUS(
+      processor,
+      batchAggregatorConfig,
+    )
+  }
+
 }

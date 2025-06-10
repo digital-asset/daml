@@ -14,4 +14,4 @@ val synchronizerId = bootstrap.synchronizer(
 // Connect all participants to da using the connect macro.
 participants.local.foreach(_.synchronizers.connect_local(sequencer1, alias = "da"))
 
-better.files.File("synchronizer_id").write(synchronizerId.toProtoPrimitive)
+better.files.File("synchronizer_id").write(synchronizerId.logical.toProtoPrimitive)

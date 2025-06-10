@@ -202,7 +202,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): SimulationModuleRef[NewModuleMessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[NewModuleMessageT] =
       SimulationModuleRef(moduleName, collector)
 
     override def setModule[NewModuleMessageT](
@@ -229,7 +229,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): SimulationModuleRef[NewModuleMessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[NewModuleMessageT] =
       unsupportedForClientModules()
 
     override def setModule[NewModuleMessageT](
@@ -275,7 +275,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): SimulationModuleRef[NewModuleMessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[NewModuleMessageT] =
       SimulationModuleRef(moduleName, collector)
 
     override def setModule[NewModuleMessageT](
@@ -325,7 +325,7 @@ object SimulationModuleSystem {
 
     override def newModuleRef[MessageT](
         moduleName: ModuleName // Must be unique per ref, else it will crash on spawn
-    ): SimulationModuleRef[MessageT] =
+    )(moduleNameForMetrics: String = moduleName.name): SimulationModuleRef[MessageT] =
       SimulationModuleRef(moduleName, collector)
 
     override def setModule[MessageT](

@@ -36,7 +36,7 @@ abstract class AbstractSynchronizerChangeRealClockIntegrationTest
     //   create $ OfferToPaintHouseByOwner with painter = painter; houseOwner = alice; bank = bank; iouId = iouId
     // This time, let P5 create it on the paint synchronizer
     val cmd = createPaintOfferCmd(alice, bank, painter, iouId)
-    P5.ledger_api.commands.submit(Seq(alice), Seq(cmd), Some(paintSynchronizerId))
+    P5.ledger_api.commands.submit(Seq(alice), Seq(cmd), paintSynchronizerId)
     val paintOfferId =
       searchAcsSync(
         Seq(P4, P5),

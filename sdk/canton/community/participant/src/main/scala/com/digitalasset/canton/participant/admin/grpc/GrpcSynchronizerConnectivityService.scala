@@ -140,7 +140,9 @@ class GrpcSynchronizerConnectivityService(
     val v30.ReconnectSynchronizerRequest(synchronizerAlias, keepRetrying) = request
     val ret = for {
       alias <- parseSynchronizerAlias(synchronizerAlias)
-      success <- sync.connectSynchronizer(alias, keepRetrying, ConnectSynchronizer.Connect)
+      success <- sync
+        .connectSynchronizer(alias, keepRetrying, ConnectSynchronizer.Connect)
+        .map(_.isDefined)
       _ <- waitUntilActiveIfSuccess(success, alias)
     } yield v30.ReconnectSynchronizerResponse(connectedSuccessfully = success)
     _mapErrNewEUS(ret)
@@ -241,11 +243,13 @@ class GrpcSynchronizerConnectivityService(
       _ <- sync.addSynchronizer(config, validation)
 
       _ = logger.info(s"Connecting to synchronizer $config")
-      success <- sync.connectSynchronizer(
-        synchronizerAlias = config.synchronizerAlias,
-        keepRetrying = false,
-        connectSynchronizer = ConnectSynchronizer.Connect,
-      )
+      success <- sync
+        .connectSynchronizer(
+          synchronizerAlias = config.synchronizerAlias,
+          keepRetrying = false,
+          connectSynchronizer = ConnectSynchronizer.Connect,
+        )
+        .map(_.isDefined)
       _ <- waitUntilActiveIfSuccess(success, config.synchronizerAlias)
 
     } yield v30.ConnectSynchronizerResponse(success)

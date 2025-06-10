@@ -68,10 +68,10 @@ message LocatePruningTimestampResponse {
 }
 
 // overwrites previous no-wait-configuration on the given synchronizers for the given counter participants
-// the request will fail if the counter_participant_uids or synchronizer_ids is invalid format, or if duplicates are present in the repeated strings
+// the request will fail if the counter_participant_ids or synchronizer_ids has an invalid format, or if duplicates are present in the repeated strings
 message SetNoWaitCommitmentsFromRequest {
   // ignore the given participants; an empty list has no effect
-  repeated string counter_participant_uids = 1;
+  repeated string counter_participant_ids = 1;
   // ignore the given participants on these synchronizers
   // an empty list has no effect
   repeated string synchronizer_ids = 2;
@@ -82,7 +82,7 @@ message SetNoWaitCommitmentsFromResponse {}
 // deletes previous no-wait-configuration on the given synchronizers for the given counter participants
 message ResetNoWaitCommitmentsFromRequest {
   // an empty list has no effect
-  repeated string counter_participant_uids = 1;
+  repeated string counter_participant_ids = 1;
   // an empty list has no effect
   repeated string synchronizer_ids = 2;
 }

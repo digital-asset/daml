@@ -14,12 +14,11 @@ import com.daml.ledger.javaapi.data.{
   TransactionFormat,
   TransactionShape,
 }
-import com.digitalasset.canton.config.DbConfig
+import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.damltests.java.explicitdisclosure.PriceQuotation
-import com.digitalasset.canton.integration.plugins.{
-  UseCommunityReferenceBlockSequencer,
-  UsePostgres,
-}
+import com.digitalasset.canton.integration.util.PartyToParticipantDeclarative
 import com.digitalasset.canton.integration.{
   CommunityIntegrationTest,
   EnvironmentDefinition,
@@ -28,10 +27,11 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.ledger.error.groups.ConsistencyErrors.ContractNotFound
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.topology.transaction.ParticipantPermission as PP
 
 import java.util.Collections
 
-sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
+sealed trait OfflinePartyReplicationExplicitDisclosureIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
@@ -39,6 +39,12 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
 
   private var alice: PartyId = _
   private var bob: PartyId = _
+
+  private val mediatorReactionTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
+  private val confirmationResponseTimeout = config.NonNegativeFiniteDuration.ofSeconds(1)
+  private val waitTimeMs =
+    (mediatorReactionTimeout + confirmationResponseTimeout + config.NonNegativeFiniteDuration
+      .ofMillis(500)).duration.toMillis
 
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1.withSetup { implicit env =>
@@ -55,6 +61,16 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
         "Bob",
         synchronizeParticipants = Seq(participant1),
       )
+
+      sequencers.all.foreach(
+        _.topology.synchronizer_parameters.propose_update(
+          synchronizerId = daId,
+          _.update(
+            mediatorReactionTimeout = mediatorReactionTimeout,
+            confirmationResponseTimeout = confirmationResponseTimeout,
+          ),
+        )
+      )
     }
 
   override def afterAll(): Unit =
@@ -65,7 +81,7 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
       }
     } finally super.afterAll()
 
-  "Explicit disclosure should work on migrated contracts" in { implicit env =>
+  "Explicit disclosure should work on replicated contracts" in { implicit env =>
     import env.*
 
     import scala.language.implicitConversions
@@ -94,18 +110,56 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
       (contract.id, disclosedContract)
     }
 
-    // Migrate `alice` from `participant1` to `participant2`
-    repair.party_migration.step1_hold_and_store_acs(
+    PartyToParticipantDeclarative.forParty(Set(participant1, participant2), daId)(
+      participant1,
       alice,
-      partiesOffboarding = true,
+      PositiveInt.one,
+      Set(
+        (participant1, PP.Submission),
+        (participant2, PP.Submission),
+      ),
+    )
+
+    val onboardingTx = participant1.topology.party_to_participant_mappings
+      .list(
+        synchronizerId = daId,
+        filterParty = alice.filterString,
+        filterParticipant = participant2.filterString,
+      )
+      .loneElement
+      .context
+
+    sequencer1.topology.synchronizer_parameters.propose_update(
+      sequencer1.synchronizer_id,
+      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(0)),
+    )
+
+    eventually() {
+      val confirmationRequestsMaxRate = participant1.topology.synchronizer_parameters
+        .list(store = daId)
+        .map { change =>
+          change.item.participantSynchronizerLimits.confirmationRequestsMaxRate
+        }
+      confirmationRequestsMaxRate.head.unwrap shouldBe 0
+    }
+
+    Threading.sleep(waitTimeMs)
+
+    // Replicate `alice` from `participant1` to `participant2`
+    repair.party_replication.step1_hold_and_store_acs(
+      alice,
+      daId,
       participant1,
       participant2.id,
       acsFilename,
+      onboardingTx.validFrom,
     )
-    repair.party_migration.step2_import_acs(alice, participant2, acsFilename)
-    participant1.synchronizers.disconnect_all()
-    repair.party_migration.step4_clean_up_source(alice, participant1, acsFilename)
-    participant1.synchronizers.reconnect_all()
+    repair.party_replication.step2_import_acs(alice, daId, participant2, acsFilename)
+
+    sequencer1.topology.synchronizer_parameters.propose_update(
+      sequencer1.synchronizer_id,
+      _.update(confirmationRequestsMaxRate = NonNegativeInt.tryCreate(10000)),
+    )
 
     // Verify that `alice` can see the contract with explicit disclosure
     participant2.ledger_api.javaapi.commands.submit(
@@ -153,8 +207,9 @@ sealed trait OfflinePartyMigrationExplicitDisclosureIntegrationTest
 
 }
 
-final class OfflinePartyMigrationExplicitDisclosureIntegrationTestPostgres
-    extends OfflinePartyMigrationExplicitDisclosureIntegrationTest {
-  registerPlugin(new UsePostgres(loggerFactory))
-  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
-}
+// TODO(#25931) – Make this test non-flaky
+//final class OfflinePartyReplicationExplicitDisclosureIntegrationTestPostgres
+//    extends OfflinePartyReplicationExplicitDisclosureIntegrationTest {
+//  registerPlugin(new UsePostgres(loggerFactory))
+//  registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
+//}

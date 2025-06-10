@@ -19,7 +19,7 @@ import com.digitalasset.canton.integration.{
 }
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.synchronizer.sequencer.store.DbSequencerStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import org.slf4j.event.Level
 
 trait SequencerIntegrationTest
@@ -30,7 +30,7 @@ trait SequencerIntegrationTest
   override def environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P3S2M2_Manual
 
-  private var synchronizerId: SynchronizerId = _
+  private var synchronizerId: PhysicalSynchronizerId = _
   private var staticParameters: StaticSynchronizerParameters = _
   private var synchronizerOwners: Seq[InstanceReference] = _
 

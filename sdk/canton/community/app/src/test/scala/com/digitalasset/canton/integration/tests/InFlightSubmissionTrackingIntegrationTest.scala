@@ -137,8 +137,8 @@ trait InFlightSubmissionTrackingIntegrationTest
 
               participant1.ledger_api.completions.list(party, 2, ledgerEnd1)
             },
-            _.warningMessage should include regex maxRequestSizeExceededLog(daId.toPhysical),
-            _.warningMessage should include regex maxRequestSizeExceededLog(daId.toPhysical),
+            _.warningMessage should include regex maxRequestSizeExceededLog(daId),
+            _.warningMessage should include regex maxRequestSizeExceededLog(daId),
           )
           completionFailures should have size 2L
 
@@ -236,7 +236,7 @@ trait InFlightSubmissionTrackingIntegrationTest
         eventually() {
           val recordedLogEntries = loggerFactory.fetchRecordedLogEntries
           recordedLogEntries.exists(
-            _.warningMessage.matches(maxRequestSizeExceededLog(daId.toPhysical))
+            _.warningMessage.matches(maxRequestSizeExceededLog(daId))
           )
         }
 
@@ -261,7 +261,7 @@ trait InFlightSubmissionTrackingIntegrationTest
       LogEntry.assertLogSeq(
         mustContainWithClue = Seq(
           (
-            _.warningMessage should include regex maxRequestSizeExceededLog(daId.toPhysical),
+            _.warningMessage should include regex maxRequestSizeExceededLog(daId),
             "request too large",
           )
         ),

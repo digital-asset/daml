@@ -316,7 +316,7 @@ sealed abstract class SynchronizerRepairIntegrationTest
 
   private def newSynchronizerAlias(implicit env: TestConsoleEnvironment) = env.acmeName
 
-  private def newSynchronizerId(implicit env: TestConsoleEnvironment) = env.acmeId
+  private def newSynchronizerId(implicit env: TestConsoleEnvironment) = env.acmeId.logical
 }
 
 final class SynchronizerRepairReferenceIntegrationTestPostgres

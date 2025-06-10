@@ -24,18 +24,18 @@ object ForceFlag {
   case object AlienMember extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALIEN_MEMBER)
 
   /** Deprecated. Increasing LedgerTimeRecordTimeTolerance does not require a force flag from PV >=
-    * 32 Instead increasing SubmissionTimeRecordTimeTolerance does
+    * 32. Instead increasing PreparationTimeRecordTimeTolerance does
     */
   @deprecated(
     message =
-      "LedgerTimeRecordTimeTolerance does not require a force flag anymore to be increased. Instead, SubmissionTimeRecordTimeTolerance does.",
+      "LedgerTimeRecordTimeTolerance does not require a force flag anymore to be increased. Instead, PreparationTimeRecordTimeTolerance does.",
     since = "3.2",
   )
   case object LedgerTimeRecordTimeToleranceIncrease
       extends ForceFlag(v30.ForceFlag.FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE)
 
-  case object SubmissionTimeRecordTimeToleranceIncrease
-      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_SUBMISSION_TIME_RECORD_TIME_TOLERANCE_INCREASE)
+  case object PreparationTimeRecordTimeToleranceIncrease
+      extends ForceFlag(v30.ForceFlag.FORCE_FLAG_PREPARATION_TIME_RECORD_TIME_TOLERANCE_INCREASE)
 
   case object AllowUnvetPackage extends ForceFlag(v30.ForceFlag.FORCE_FLAG_ALLOW_UNVET_PACKAGE)
 
@@ -81,7 +81,7 @@ object ForceFlag {
       DisablePartyWithActiveContracts,
       AllowUnvalidatedSigningKeys,
       AllowUnvetPackageWithActiveContracts,
-      SubmissionTimeRecordTimeToleranceIncrease,
+      PreparationTimeRecordTimeToleranceIncrease,
       AllowInsufficientParticipantPermissionForSignatoryParty,
       AllowInsufficientSignatoryAssigningParticipantsForParty,
     )

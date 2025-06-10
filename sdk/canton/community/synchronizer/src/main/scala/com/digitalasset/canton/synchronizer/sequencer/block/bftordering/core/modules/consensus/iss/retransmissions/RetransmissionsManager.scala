@@ -27,7 +27,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopologyInfo,
@@ -123,7 +122,7 @@ class RetransmissionsManager[E <: Env[E]](
         currentEpoch = None
         validator = None
         stopRequesting()
-        recordMetricsAndResetRequestCounts(epoch.epoch.info)
+        recordMetricsAndResetRequestCounts()
       case None =>
         abort("Tried to end epoch when there is none in progress")
     }
@@ -133,31 +132,15 @@ class RetransmissionsManager[E <: Env[E]](
     epochStatusBuilder = None
   }
 
-  private def recordMetricsAndResetRequestCounts(epoch: EpochInfo): Unit = {
+  private def recordMetricsAndResetRequestCounts(): Unit = {
     metrics.consensus.retransmissions.incomingRetransmissionsRequestsMeter
-      .mark(incomingRetransmissionsRequestCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(incomingRetransmissionsRequestCount.toLong)
     metrics.consensus.retransmissions.outgoingRetransmissionsRequestsMeter
-      .mark(outgoingRetransmissionsRequestCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(outgoingRetransmissionsRequestCount.toLong)
     metrics.consensus.retransmissions.discardedWrongEpochRetransmissionResponseMeter
-      .mark(discardedWrongEpochRetransmissionsResponseCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(discardedWrongEpochRetransmissionsResponseCount.toLong)
     metrics.consensus.retransmissions.discardedRateLimitedRetransmissionRequestMeter
-      .mark(discardedRateLimitedRetransmissionRequestCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(discardedRateLimitedRetransmissionRequestCount.toLong)
     incomingRetransmissionsRequestCount = 0
     outgoingRetransmissionsRequestCount = 0
     discardedWrongEpochRetransmissionsResponseCount = 0
@@ -278,9 +261,9 @@ class RetransmissionsManager[E <: Env[E]](
       case req @ Consensus.RetransmissionsMessage.RetransmissionRequest(status) =>
         incomingRetransmissionsRequestCount += 1
         if (requestRateLimiter.checkAndUpdateRate(status.from)) {
-          (currentEpoch.zip(validator)) match {
+          currentEpoch.zip(validator) match {
             case Some((epochState, validator))
-                if (epochState.epoch.info.number == status.epochNumber) =>
+                if epochState.epoch.info.number == status.epochNumber =>
               validator.validateRetransmissionRequest(req)
             case _ =>
               previousEpochsRetransmissionsTracker
@@ -301,9 +284,6 @@ class RetransmissionsManager[E <: Env[E]](
               case Left(_: RetransmissionResponseValidationError.MalformedMessage) =>
                 emitNonCompliance(metrics)(
                   response.from,
-                  currentEpoch.map(_.epoch.info.number),
-                  view = None,
-                  block = None,
                   metrics.security.noncompliant.labels.violationType.values.RetransmissionResponseInvalidMessage,
                 )
               case Left(_: RetransmissionResponseValidationError.WrongEpoch) =>

@@ -7,7 +7,7 @@ set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first e
 
 # Setup paths
 # [start-docs-entry: offline root key proto image]
-CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)
 export BUF_PROTO_IMAGE="$CURRENT_DIR/../../scripts/offline-root-key/root_namespace_buf_image.bin"
 source "$CURRENT_DIR/../../scripts/offline-root-key/utils.sh"
 # [end-docs-entry: offline root key proto image]

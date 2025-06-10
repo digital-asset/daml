@@ -8,12 +8,14 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistLeaderSelectionPolicyState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
 final case class SequencerSnapshotAdditionalInfo(
@@ -31,16 +33,20 @@ final case class SequencerSnapshotAdditionalInfo(
           activeAt.startEpochCouldAlterOrderingTopology,
           activeAt.previousBftTime.map(_.toMicros),
           activeAt.previousEpochTopologyQueryTimestamp.map(_.value.toMicros),
+          activeAt.leaderSelectionPolicyState.map(_.toByteString),
         )
     }.toMap
-    v30.BftSequencerSnapshotAdditionalInfo(nodeActiveAtEpochNumbersProto)
+    v30.BftSequencerSnapshotAdditionalInfo.of(
+      nodeActiveAtEpochNumbersProto
+    )
   }
 }
 
 object SequencerSnapshotAdditionalInfo {
 
   def fromProto(
-      byteString: ByteString
+      expectedProtocolVersion: ProtocolVersion,
+      byteString: ByteString,
   ): ParsingResult[SequencerSnapshotAdditionalInfo] =
     for {
       proto <- ProtoConverter.protoParser(v30.BftSequencerSnapshotAdditionalInfo.parseFrom)(
@@ -73,6 +79,14 @@ object SequencerSnapshotAdditionalInfo {
                     .map(Some(_))
                 )
                 .getOrElse(Right(None))
+            leaderSelectionPolicyState <-
+              firstKnownAtProto.leaderSelectionPolicyState
+                .map(x =>
+                  BlacklistLeaderSelectionPolicyState
+                    .fromByteString(expectedProtocolVersion, x)
+                    .map(Some(_))
+                )
+                .getOrElse(Right(None))
           } yield BftNodeId(node) -> NodeActiveAt(
             timestamp,
             epochNumber,
@@ -81,11 +95,14 @@ object SequencerSnapshotAdditionalInfo {
             firstKnownAtProto.startEpochCouldAlterOrderingTopology,
             previousBftTime,
             previousEpochTopologyQueryTimestamp,
+            leaderSelectionPolicyState,
           )
         }
         .toSeq
         .sequence
-    } yield SequencerSnapshotAdditionalInfo(nodeFirstKnownAtEpochNumbers.toMap)
+    } yield SequencerSnapshotAdditionalInfo(
+      nodeFirstKnownAtEpochNumbers.toMap
+    )
 }
 
 final case class NodeActiveAt(
@@ -96,4 +113,5 @@ final case class NodeActiveAt(
     startEpochCouldAlterOrderingTopology: Option[Boolean],
     previousBftTime: Option[CantonTimestamp],
     previousEpochTopologyQueryTimestamp: Option[TopologyActivationTime],
+    leaderSelectionPolicyState: Option[BlacklistLeaderSelectionPolicyState],
 )

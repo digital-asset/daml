@@ -498,7 +498,7 @@ class SynchronizerSnapshotSyncCryptoApi(
     extends SyncCryptoApi
     with NamedLogging {
 
-  override val pureCrypto: CryptoPureApi = crypto.pureCrypto
+  override val pureCrypto: SynchronizerCryptoPureApi = crypto.pureCrypto
 
   override def sign(
       hash: Hash,

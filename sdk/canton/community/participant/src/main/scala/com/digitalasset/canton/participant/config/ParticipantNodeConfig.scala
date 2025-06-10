@@ -219,6 +219,7 @@ final case class LedgerApiServerConfig(
       LedgerApiKeepAliveServerConfig()
     ),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
+    maxInboundMetadataSize: NonNegativeInt = ServerConfig.defaultMaxInboundMetadataSize,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
@@ -480,13 +481,8 @@ object ContractLoaderConfig {
 }
 
 /** Parameters for the Online Party Replication (OPR) preview feature (unsafe for production)
-  *
-  * @param pauseSynchronizerIndexingDuringPartyReplication
-  *   whether to pause synchronizer indexing during party replication
   */
-final case class UnsafeOnlinePartyReplicationConfig(
-    pauseSynchronizerIndexingDuringPartyReplication: Boolean = false
-) extends UniformCantonConfigValidation
+final case class UnsafeOnlinePartyReplicationConfig() extends UniformCantonConfigValidation
 object UnsafeOnlinePartyReplicationConfig {
   implicit val unsafeOnlinePartyReplicationConfigCantonConfigValidator
       : CantonConfigValidator[UnsafeOnlinePartyReplicationConfig] =

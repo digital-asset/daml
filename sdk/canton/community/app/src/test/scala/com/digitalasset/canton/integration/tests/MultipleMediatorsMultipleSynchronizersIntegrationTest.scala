@@ -135,7 +135,7 @@ final class MultipleMediatorsMultipleSynchronizersIntegrationTest
         mediator2,
         participant1,
       ) { () =>
-        participant1.testing.fetch_synchronizer_time(synchronizer2Id.toPhysical)
+        participant1.testing.fetch_synchronizer_time(synchronizer2Id)
 
         a[CommandFailure] shouldBe thrownBy {
           participant1.ledger_api.commands.submit_unassign(

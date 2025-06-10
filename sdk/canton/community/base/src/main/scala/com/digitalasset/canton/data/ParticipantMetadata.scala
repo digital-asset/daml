@@ -17,14 +17,14 @@ import com.google.protobuf.ByteString
   *
   * @param ledgerTime
   *   The ledger time of the transaction
-  * @param submissionTime
-  *   The submission time of the transaction
+  * @param preparationTime
+  *   The preparation time of the transaction
   * @param workflowIdO
   *   optional workflow id associated with the ledger api provided workflow instance
   */
 final case class ParticipantMetadata private (
     ledgerTime: CantonTimestamp,
-    submissionTime: CantonTimestamp,
+    preparationTime: CantonTimestamp,
     workflowIdO: Option[WorkflowId],
     salt: Salt,
 )(
@@ -44,7 +44,7 @@ final case class ParticipantMetadata private (
 
   override protected def pretty: Pretty[ParticipantMetadata] = prettyOfClass(
     param("ledger time", _.ledgerTime),
-    param("submission time", _.submissionTime),
+    param("preparation time", _.preparationTime),
     paramIfDefined("workflow id", _.workflowIdO),
     param("salt", _.salt),
   )
@@ -54,7 +54,7 @@ final case class ParticipantMetadata private (
 
   private def toProtoV30: v30.ParticipantMetadata = v30.ParticipantMetadata(
     ledgerTime = ledgerTime.toProtoPrimitive,
-    submissionTime = submissionTime.toProtoPrimitive,
+    preparationTime = preparationTime.toProtoPrimitive,
     workflowId = workflowIdO.fold("")(_.toProtoPrimitive),
     salt = Some(salt.toProtoV30),
   )
@@ -73,12 +73,12 @@ object ParticipantMetadata
 
   def apply(hashOps: HashOps)(
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       workflowId: Option[WorkflowId],
       salt: Salt,
       protocolVersion: ProtocolVersion,
   ): ParticipantMetadata =
-    ParticipantMetadata(ledgerTime, submissionTime, workflowId, salt)(
+    ParticipantMetadata(ledgerTime, preparationTime, workflowId, salt)(
       hashOps,
       protocolVersionRepresentativeFor(protocolVersion),
       None,
@@ -87,10 +87,10 @@ object ParticipantMetadata
   private def fromProtoV30(hashOps: HashOps, metadataP: v30.ParticipantMetadata)(
       bytes: ByteString
   ): ParsingResult[ParticipantMetadata] = {
-    val v30.ParticipantMetadata(saltP, ledgerTimeP, submissionTimeP, workflowIdP) = metadataP
+    val v30.ParticipantMetadata(saltP, ledgerTimeP, preparationTimeP, workflowIdP) = metadataP
     for {
       let <- CantonTimestamp.fromProtoPrimitive(ledgerTimeP)
-      submissionTime <- CantonTimestamp.fromProtoPrimitive(submissionTimeP)
+      preparationTime <- CantonTimestamp.fromProtoPrimitive(preparationTimeP)
       workflowId <- workflowIdP match {
         case "" => Right(None)
         case wf =>
@@ -103,7 +103,7 @@ object ParticipantMetadata
         .parseRequired(Salt.fromProtoV30, "salt", saltP)
         .leftMap(_.inField("salt"))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield ParticipantMetadata(let, submissionTime, workflowId, salt)(
+    } yield ParticipantMetadata(let, preparationTime, workflowId, salt)(
       hashOps,
       rpv,
       Some(bytes),

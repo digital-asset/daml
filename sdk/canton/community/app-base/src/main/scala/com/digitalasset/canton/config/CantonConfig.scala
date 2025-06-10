@@ -998,6 +998,17 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererPruningConfigReader
         : ConfigReader[BftBlockOrdererConfig.PruningConfig] =
       deriveReader[BftBlockOrdererConfig.PruningConfig]
+    lazy implicit val bftBlockOrdererLeaderSelectionPolicyHowLongToBlacklistConfigReader
+        : ConfigReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist] =
+      deriveEnumerationReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist]
+    lazy implicit val bftBlockOrdererLeaderSelectionPolicyHowManyCanWeBlacklistConfigReader
+        : ConfigReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowManyCanWeBlacklist] =
+      deriveEnumerationReader[
+        BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowManyCanWeBlacklist
+      ]
+    lazy implicit val bftBlockOrdererLeaderSelectionPolicyConfigReader
+        : ConfigReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig] =
+      deriveEnumerationReader[BftBlockOrdererConfig.LeaderSelectionPolicyConfig]
     lazy implicit val bftBlockOrdererConfigReader: ConfigReader[BftBlockOrdererConfig] =
       deriveReader[BftBlockOrdererConfig]
     lazy implicit val sequencerConfigBftSequencerReader
@@ -1607,6 +1618,17 @@ object CantonConfig {
     lazy implicit val bftBlockOrdererPruningConfigWriter
         : ConfigWriter[BftBlockOrdererConfig.PruningConfig] =
       deriveWriter[BftBlockOrdererConfig.PruningConfig]
+    lazy implicit val bftBlockOrdererLeaderSelectionPolicyHowLongToBlacklistConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist] =
+      deriveEnumerationWriter[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowLongToBlacklist]
+    lazy implicit val bftBlockOrdererLeaderSelectionPolicyHowManyCanWeBlacklistConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowManyCanWeBlacklist] =
+      deriveEnumerationWriter[
+        BftBlockOrdererConfig.LeaderSelectionPolicyConfig.HowManyCanWeBlacklist
+      ]
+    lazy implicit val bftBlockOrdererLeaderSelectionPolicyConfigWriter
+        : ConfigWriter[BftBlockOrdererConfig.LeaderSelectionPolicyConfig] =
+      deriveEnumerationWriter[BftBlockOrdererConfig.LeaderSelectionPolicyConfig]
     lazy implicit val bftBlockOrdererConfigWriter: ConfigWriter[BftBlockOrdererConfig] =
       deriveWriter[BftBlockOrdererConfig]
 

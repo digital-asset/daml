@@ -1041,7 +1041,7 @@ class TestingOwnerWithKeys(
       .onShutdown(sys.error("aborted due to shutdown"))
       .getOrElse(sys.error("key should be there"))
 
-  def genEncKey(name: String): EncryptionPublicKey =
+  private def genEncKey(name: String): EncryptionPublicKey =
     Await
       .result(
         syncCryptoClient.crypto

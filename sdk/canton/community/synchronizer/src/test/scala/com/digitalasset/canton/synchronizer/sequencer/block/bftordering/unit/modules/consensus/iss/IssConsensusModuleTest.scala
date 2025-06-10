@@ -867,6 +867,7 @@ class IssConsensusModuleTest
                     startEpochCouldAlterOrderingTopology = None,
                     previousBftTime = None,
                     previousEpochTopologyQueryTimestamp = None,
+                    leaderSelectionPolicyState = None,
                   )
                 )
               )

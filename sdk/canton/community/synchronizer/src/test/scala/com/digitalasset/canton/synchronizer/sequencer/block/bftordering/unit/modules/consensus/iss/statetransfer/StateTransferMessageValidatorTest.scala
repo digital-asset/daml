@@ -40,32 +40,21 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
     new StateTransferMessageValidator[ProgrammableUnitTestEnv](metrics, loggerFactory)
 
   "validate block transfer request" in {
-    Table[BlockTransferRequest, Membership, Either[String, Unit]](
-      ("request", "membership", "expected result"),
-      // negative: not part of the membership
-      (
-        BlockTransferRequest.create(EpochNumber.First, otherId),
-        aMembershipWithOnlySelf,
-        Left(
-          s"'$otherId' is requesting state transfer while not being active, active nodes are: List($myId)"
-        ),
-      ),
+    Table[BlockTransferRequest, Either[String, Unit]](
+      ("request", "expected result"),
       // negative: genesis start epoch
       (
         BlockTransferRequest.create(GenesisEpochNumber, otherId),
-        aMembershipWith2Nodes,
         Left("state transfer is supported only after genesis, but start epoch -1 received"),
       ),
       // positive
       (
         BlockTransferRequest.create(EpochNumber(1L), otherId),
-        aMembershipWith2Nodes,
         Right(()),
       ),
-    ).forEvery { (request, membership, expectedResult) =>
+    ).forEvery { (request, expectedResult) =>
       validator.validateBlockTransferRequest(
-        request,
-        membership,
+        request
       ) shouldBe expectedResult
     }
   }
@@ -77,15 +66,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         "latest locally completed epoch",
         "membership",
         "expected result",
-      ),
-      // negative: inactive node
-      (
-        BlockTransferResponse.create(None, otherId),
-        EpochNumber.First,
-        aMembershipWithOnlySelf,
-        Left(
-          "received a block transfer response from 'other' which has not been active, active nodes: List(self)"
-        ),
       ),
       // negative: unexpected epoch in pre-prepare
       (
@@ -176,7 +156,6 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
 }
 
 object StateTransferMessageValidatorTest {
-  private val aMembershipWithOnlySelf = Membership.forTesting(myId)
   private val aMembershipWithOnlyOtherNode =
     Membership(
       myId,

@@ -36,6 +36,7 @@ object GrpcServer {
       address: Option[String],
       desiredPort: Port,
       maxInboundMessageSize: Int,
+      maxInboundMetadataSize: Int,
       sslContext: Option[SslContext] = None,
       interceptors: List[ServerInterceptor] = List.empty,
       metrics: LedgerApiServerMetrics,
@@ -73,6 +74,7 @@ object GrpcServer {
         .sslContext(sslContext.orNull)
         .executor(servicesExecutor)
         .maxInboundMessageSize(maxInboundMessageSize)
+        .maxInboundMetadataSize(maxInboundMetadataSize)
         .addTransportFilter(GrpcConnectionLogger(loggerFactory))
 
     val builderWithKeepAlive = configureKeepAlive(keepAlive, builder)

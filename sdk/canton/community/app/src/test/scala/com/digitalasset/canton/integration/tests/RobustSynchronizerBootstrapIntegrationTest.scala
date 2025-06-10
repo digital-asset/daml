@@ -197,7 +197,6 @@ sealed trait RobustSynchronizerBootstrapIntegrationTest
           mediators = Seq(mediator),
           staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
         )
-        .toPhysical
 
       clue("bootstrap synchronizer #1")(intercept[RuntimeException] {
         bootstrapSynchronizer

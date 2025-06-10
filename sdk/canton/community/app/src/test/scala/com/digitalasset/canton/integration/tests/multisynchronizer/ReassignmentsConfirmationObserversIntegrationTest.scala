@@ -209,8 +209,8 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
 
       val iou = IouSyntax.createIou(participant1, Some(daId))(signatory, observer2)
       val cid = iou.id.contractId
-      getSynchronizerOfContract(participant1, signatory, cid) shouldBe daId
-      getSynchronizerOfContract(participant2, observer2, cid) shouldBe daId
+      getSynchronizerOfContract(participant1, signatory, cid) shouldBe daId.logical
+      getSynchronizerOfContract(participant2, observer2, cid) shouldBe daId.logical
 
       programmableSequencers(daName).setPolicy_("confirmations count")(
         countConfirmationResponsesPolicy(daConfirmations)
@@ -242,9 +242,9 @@ sealed trait ReassignmentsConfirmationObserversIntegrationTest
       acmeConfirmations.toMap shouldBe Map(participant1.id -> 1)
 
       // reassignment should be completely done
-      getSynchronizerOfContract(participant1, signatory, cid) shouldBe acmeId
+      getSynchronizerOfContract(participant1, signatory, cid) shouldBe acmeId.logical
       eventually() { // p2 might need some more time
-        getSynchronizerOfContract(participant2, observer2, cid) shouldBe acmeId
+        getSynchronizerOfContract(participant2, observer2, cid) shouldBe acmeId.logical
       }
 
       lookupReassignment(participant1, reassignmentId).left.value shouldBe a[ReassignmentCompleted]

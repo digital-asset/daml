@@ -647,9 +647,20 @@ trait MembersTopologySnapshotClient {
 }
 
 trait SynchronizerMigrationClient {
+
+  /** In case the synchronizer owners have announced a synchronizer migration, returns the physical
+    * synchronizer id of the successor of this synchronizer. Otherwise returns None.
+    */
   def isSynchronizerMigrationOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]]
+
+  /** Returns the known sequencer connection details for the successor synchronizer as published by
+    * the sequencers.
+    */
+  def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]]
 }
 
 trait TopologySnapshot

@@ -82,7 +82,7 @@ trait CommandResubmissionIntegrationTest
       userId = "PingService", // ping user id
       filter = completion =>
         completion.updateId.isEmpty && // meaning: rejection
-          completion.synchronizerTime.value.synchronizerId == daId.toProtoPrimitive, // for the da synchronizer
+          completion.synchronizerTime.value.synchronizerId == daId.logical.toProtoPrimitive, // for the da synchronizer
     ) should not be empty
   }
 

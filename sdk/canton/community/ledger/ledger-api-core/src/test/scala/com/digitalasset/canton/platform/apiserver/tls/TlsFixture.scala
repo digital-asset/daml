@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.config.{
   PemFile,
   ServerAuthRequirementConfig,
+  ServerConfig,
   TlsClientCertificate,
   TlsClientConfig,
   TlsServerConfig,
@@ -48,8 +49,6 @@ final case class TlsFixture(
         .stub(channel)
         .hello(testRequest)
     }
-
-  private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
 
   private final class EmptyApiServices extends ApiServices {
     override val services: Iterable[BindableService] = List(
@@ -93,7 +92,8 @@ final case class TlsFixture(
         LedgerApiService(
           apiServices = apiServices,
           desiredPort = Port.Dynamic,
-          maxInboundMessageSize = DefaultMaxInboundMessageSize,
+          maxInboundMessageSize = ServerConfig.defaultMaxInboundMessageSize.unwrap,
+          maxInboundMetadataSize = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
           address = None,
           tlsConfiguration = serverTlsConfiguration,
           servicesExecutor = servicesExecutor,

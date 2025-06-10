@@ -33,6 +33,7 @@ import com.digitalasset.canton.integration.{
   IsolatedEnvironments,
   TestConsoleEnvironment,
 }
+import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SynchronizerWithoutMediatorError
 import com.digitalasset.canton.sequencing.protocol.{
   ClosedEnvelope,
@@ -50,12 +51,11 @@ import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
 import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
 import com.digitalasset.canton.topology.{ForceFlag, MediatorId}
 import org.scalatest.Assertion
-import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =>
+trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
 
   protected def participantSeesMediators(
       ref: ParticipantReference,
@@ -136,27 +136,15 @@ trait MultipleMediatorsBaseTest { this: BaseTest with HasProgrammableSequencer =
 
       loggerFactory.assertLoggedWarningsAndErrorsSeq(
         submit(),
-        logEntries => {
-          logEntries.size should be <= 4
-          if (logEntries.sizeIs == 4) {
-            logEntries.head.errorMessage should include(
-              errorUnknownSender
-            ) // GrpcRequestRefusedByServer: FAILED_PRECONDITION/SEQUENCER_SENDER_UNKNOWN
-            logEntries(1).warningMessage should include(error) // warning
-            // failure of the submission when no tracking is used
-            logEntries(2).warningMessage should include(error)
-          } else if (logEntries.sizeIs == 3) {
-            // we can have either GrpcRequestRefusedByServer: FAILED_PRECONDITION/SEQUENCER_SENDER_UNKNOWN and warning,
-            // or warning and failure of the submission when no tracking is used
-            if (logEntries.head.level == Level.ERROR)
-              logEntries.head.errorMessage should include(errorUnknownSender)
-            else logEntries.head.warningMessage should include(error)
-            logEntries(1).warningMessage should include(error)
-          } else if (logEntries.sizeIs == 2) {
-            logEntries.head.warningMessage should include(error)
-          } else succeed
-          logEntries.last.errorMessage should include(error) // failure of console command
-        },
+        LogEntry.assertLogSeq(
+          mustContainWithClue = Seq(
+            (_.warningMessage should include(error), "warning"), // warning
+            (_.errorMessage should include(error), "error"), // failure of console command
+          ),
+          mayContain = Seq(
+            _.warningMessage should include(errorUnknownSender)
+          ),
+        ),
       )
     }
 
@@ -296,7 +284,7 @@ class MultipleMediatorsIntegrationTest
         )
         val pingCount = 10
         Future
-          .traverse((1 to pingCount)) { i =>
+          .traverse(1 to pingCount) { i =>
             Future {
               participant1.health.ping(participant1, id = s"mediator-round-robin-ping-$i")
             }

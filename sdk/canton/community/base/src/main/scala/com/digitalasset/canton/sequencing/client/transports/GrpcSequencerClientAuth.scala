@@ -69,6 +69,22 @@ class GrpcSequencerClientAuth(
       loggerFactory,
     )
 
+  private val obtainTokenPerEndpoint: NonEmpty[Map[Endpoint, ChannelTokenFetcher]] =
+    grpcChannelPerEndpoint.transform { (_, channel) =>
+      new ChannelTokenFetcher(tokenProvider, channel)
+    }
+
+  private val clientAuthentication =
+    SequencerClientTokenAuthentication(
+      synchronizerId,
+      member,
+      obtainTokenPerEndpoint,
+      tokenProvider.isClosing,
+      tokenManagerConfig,
+      clock,
+      loggerFactory,
+    )
+
   def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     grpcChannelPerEndpoint.forgetNE.toSeq.parTraverse_ { case (_, channel) =>
       val authenticationClient =
@@ -77,23 +93,8 @@ class GrpcSequencerClientAuth(
     }
 
   /** Wrap a grpc client with components to appropriately perform authentication */
-  def apply[S <: AbstractStub[S]](client: S): S = {
-    val obtainTokenPerEndpoint =
-      grpcChannelPerEndpoint.transform { (_, channel) =>
-        new ChannelTokenFetcher(tokenProvider, channel)
-      }
-    val clientAuthentication =
-      SequencerClientTokenAuthentication(
-        synchronizerId,
-        member,
-        obtainTokenPerEndpoint,
-        tokenProvider.isClosing,
-        tokenManagerConfig,
-        clock,
-        loggerFactory,
-      )
+  def apply[S <: AbstractStub[S]](client: S): S =
     clientAuthentication(client)
-  }
 
   override protected def onClosed(): Unit =
     LifeCycle.close(tokenProvider)(logger)

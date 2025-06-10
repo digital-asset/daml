@@ -823,4 +823,18 @@ object ConfigTransforms {
 
   def setDelayLoggingThreshold(duration: config.NonNegativeFiniteDuration): ConfigTransform =
     _.focus(_.monitoring.logging.delayLoggingThreshold).replace(duration)
+
+  /** Use the new sequencer connection pool instead of the former transports if the condition
+    * evaluates to true
+    */
+  def enableConnectionPoolIf(condition: => Boolean): ConfigTransform =
+    if (condition)
+      updateAllSequencerConfigs { case (_name, config) =>
+        config.focus(_.sequencerClient.useNewConnectionPool).replace(true)
+      }.compose(updateAllMediatorConfigs { case (_name, config) =>
+        config.focus(_.sequencerClient.useNewConnectionPool).replace(true)
+      }).compose(updateAllParticipantConfigs { case (_name, config) =>
+        config.focus(_.sequencerClient.useNewConnectionPool).replace(true)
+      })
+    else identity
 }

@@ -24,6 +24,7 @@ import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.http.HttpApiServer
+import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.auth.CachedJwtVerifierLoader
 import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
@@ -60,6 +61,7 @@ import com.digitalasset.canton.platform.config.{
   IndexServiceConfig,
 }
 import com.digitalasset.canton.platform.index.IndexServiceOwner
+import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValueTranslation}
 import com.digitalasset.canton.platform.{PackagePreferenceBackend, ResourceOwnerOps}
@@ -344,6 +346,7 @@ class StartableStoppableLedgerApiServer(
         tls = config.serverConfig.tls,
         address = Some(config.serverConfig.address),
         maxInboundMessageSize = config.serverConfig.maxInboundMessageSize.unwrap,
+        maxInboundMetadataSize = config.serverConfig.maxInboundMetadataSize.unwrap,
         port = config.serverConfig.port,
         seeding = config.cantonParameterConfig.ledgerApiServerParameters.contractIdSeeding,
         syncService = timedSyncService,
@@ -374,7 +377,21 @@ class StartableStoppableLedgerApiServer(
         authenticateFatContractInstance = contractAuthenticator.authenticateFat,
         dynParamGetter = config.syncService.dynamicSynchronizerParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
-        lfValueTranslation = lfValueTranslationForInteractiveSubmission,
+        interactiveSubmissionEnricher = {
+          val packageLoader = new DeduplicatingPackageLoader()
+          new InteractiveSubmissionEnricher(
+            new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
+            packageResolver = packageId =>
+              traceContext =>
+                FutureUnlessShutdown.outcomeF(
+                  packageLoader.loadPackage(
+                    packageId = packageId,
+                    delegate = packageId => timedSyncService.getLfArchive(packageId)(traceContext),
+                    metric = config.metrics.index.db.translation.getLfPackage,
+                  )
+                ),
+          )
+        },
         keepAlive = config.serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
       )

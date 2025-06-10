@@ -390,7 +390,7 @@ trait TrafficControlTest
 
     eventually() {
       participant1.health.status.trySuccess.connectedSynchronizers
-        .get(daId.toPhysical) should contain(SubmissionReady(true))
+        .get(daId) should contain(SubmissionReady(true))
       participant1.health.ping(participant1.id)
     }
 
