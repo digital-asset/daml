@@ -17,61 +17,7 @@ import scalaz.syntax.semigroup._
 import java.nio.{ByteBuffer, ByteOrder}
 
 /** Values */
-sealed abstract class Value extends CidContainer[Value] with Product with Serializable {
-  import Value._
-
-  final override protected def self: this.type = this
-
-  final override def mapCid(f: ContractId => ContractId): Value = {
-    def go(v0: Value): Value =
-      // TODO (FM) make this tail recursive
-      v0 match {
-        case ValueContractId(coid) => ValueContractId(f(coid))
-        case ValueRecord(id, fs) =>
-          ValueRecord(
-            id,
-            fs.map({ case (lbl, value) =>
-              (lbl, go(value))
-            }),
-          )
-        case ValueVariant(id, variant, value) =>
-          ValueVariant(id, variant, go(value))
-        case x: ValueCidlessLeaf => x
-        case ValueList(vs) =>
-          ValueList(vs.map(go))
-        case ValueOptional(x) => ValueOptional(x.map(go))
-        case ValueTextMap(x) => ValueTextMap(x.mapValue(go))
-        case ValueGenMap(entries) =>
-          ValueGenMap(entries.map { case (k, v) => go(k) -> go(v) })
-      }
-    go(this)
-  }
-
-  // TODO (FM) make this tail recursive
-  private[lf] def foreach1(f: ContractId => Unit): Value => Unit = {
-    def go(v0: Value): Unit =
-      v0 match {
-        case ValueContractId(coid) =>
-          f(coid)
-        case ValueRecord(id @ _, fs) =>
-          fs.foreach { case (_, value) => go(value) }
-        case ValueVariant(id @ _, variant @ _, value) =>
-          go(value)
-        case _: ValueCidlessLeaf =>
-        case ValueList(vs) =>
-          vs.foreach(go)
-        case ValueOptional(x) =>
-          x.foreach(go)
-        case ValueTextMap(x) =>
-          x.foreach { case (_, value) => go(value) }
-        case ValueGenMap(entries) =>
-          entries.foreach { case (k, v) => go(k); go(v) }
-      }
-
-    go
-  }
-
-}
+sealed abstract class Value extends CidContainer[Value] with Product with Serializable
 
 object Value {
 
@@ -91,12 +37,24 @@ object Value {
     * NB: use only in pattern-matching [[Value]]; the ''type'' of a cid-less
     * Value is `Value[Nothing]`.
     */
-  sealed abstract class ValueCidlessLeaf extends Value
+  sealed abstract class ValueCidlessLeaf extends Value with CidContainer[ValueCidlessLeaf] {
+    final override def mapCid(f: ContractId => ContractId): this.type = this
+  }
 
   final case class ValueRecord(
       tycon: Option[Identifier],
       fields: ImmArray[(Option[Name], Value)],
   ) extends Value
+      with CidContainer[ValueRecord] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: ContractId => ContractId): ValueRecord =
+      ValueRecord(
+        tycon,
+        fields.map { case (lbl, value) =>
+          (lbl, value.mapCid(f))
+        },
+      )
+  }
 
   class ValueArithmeticError(stablePackages: StablePackages) {
     val tyCon: TypeConId = stablePackages.ArithmeticError
@@ -117,22 +75,42 @@ object Value {
 
   final case class ValueVariant(tycon: Option[Identifier], variant: Name, value: Value)
       extends Value
-  final case class ValueEnum(tycon: Option[Identifier], value: Name) extends ValueCidlessLeaf
+      with CidContainer[ValueVariant] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: ContractId => ContractId): ValueVariant =
+      ValueVariant(tycon, variant, value.mapCid(f))
+  }
+  final case class ValueEnum(tycon: Option[Identifier], value: Name)
+      extends ValueCidlessLeaf
+      with CidContainer[ValueEnum]
 
-  final case class ValueContractId(value: ContractId) extends Value
+  final case class ValueContractId(value: ContractId)
+      extends Value
+      with CidContainer[ValueContractId] {
+    override def mapCid(f: ContractId => ContractId): ValueContractId = ValueContractId(f(value))
+  }
 
   /** Daml-LF lists are basically linked lists. However we use FrontQueue since we store list-literals in the Daml-LF
     * packages and FrontQueue lets prepend chunks rather than only one element.
     */
-  final case class ValueList(values: FrontStack[Value]) extends Value
-  final case class ValueInt64(value: Long) extends ValueCidlessLeaf
-  final case class ValueNumeric(value: Numeric) extends ValueCidlessLeaf
+  final case class ValueList(values: FrontStack[Value]) extends Value with CidContainer[ValueList] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: ContractId => ContractId): ValueList = ValueList(values.map(_.mapCid(f)))
+  }
+  final case class ValueInt64(value: Long) extends ValueCidlessLeaf with CidContainer[ValueInt64]
+  final case class ValueNumeric(value: Numeric)
+      extends ValueCidlessLeaf
+      with CidContainer[ValueNumeric]
   // Note that Text are assume to be UTF8
-  final case class ValueText(value: String) extends ValueCidlessLeaf
-  final case class ValueTimestamp(value: Time.Timestamp) extends ValueCidlessLeaf
-  final case class ValueDate(value: Time.Date) extends ValueCidlessLeaf
-  final case class ValueParty(value: Ref.Party) extends ValueCidlessLeaf
-  final case class ValueBool(value: Boolean) extends ValueCidlessLeaf
+  final case class ValueText(value: String) extends ValueCidlessLeaf with CidContainer[ValueText]
+  final case class ValueTimestamp(value: Time.Timestamp)
+      extends ValueCidlessLeaf
+      with CidContainer[ValueTimestamp]
+  final case class ValueDate(value: Time.Date) extends ValueCidlessLeaf with CidContainer[ValueDate]
+  final case class ValueParty(value: Ref.Party)
+      extends ValueCidlessLeaf
+      with CidContainer[ValueParty]
+  final case class ValueBool(value: Boolean) extends ValueCidlessLeaf with CidContainer[ValueBool]
   object ValueBool {
     val True = new ValueBool(true)
     val False = new ValueBool(false)
@@ -141,9 +119,29 @@ object Value {
   }
   case object ValueUnit extends ValueCidlessLeaf
 
-  final case class ValueOptional(value: Option[Value]) extends Value
-  final case class ValueTextMap(value: SortedLookupList[Value]) extends Value
-  final case class ValueGenMap(entries: ImmArray[(Value, Value)]) extends Value {
+  final case class ValueOptional(value: Option[Value])
+      extends Value
+      with CidContainer[ValueOptional] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: ContractId => ContractId): ValueOptional = ValueOptional(
+      value.map(_.mapCid(f))
+    )
+  }
+  final case class ValueTextMap(value: SortedLookupList[Value])
+      extends Value
+      with CidContainer[ValueTextMap] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: ContractId => ContractId): ValueTextMap = ValueTextMap(
+      value.mapValue(_.mapCid(f))
+    )
+  }
+  final case class ValueGenMap(entries: ImmArray[(Value, Value)])
+      extends Value
+      with CidContainer[ValueGenMap] {
+    // TODO (FM) make this tail recursive
+    override def mapCid(f: ContractId => ContractId): ValueGenMap = ValueGenMap(entries.map {
+      case (k, v) => k.mapCid(f) -> v.mapCid(f)
+    })
     override def toString: String = entries.iterator.mkString("ValueGenMap(", ",", ")")
   }
 
@@ -157,8 +155,6 @@ object Value {
       template: Identifier,
       arg: Value,
   ) extends CidContainer[ThinContractInstance] {
-
-    override protected def self: this.type = this
 
     def map(f: Value => Value): ThinContractInstance =
       copy(arg = f(arg))
@@ -189,11 +185,13 @@ object Value {
 
   type NodeIdx = Int
 
-  sealed abstract class ContractId extends Product with Serializable {
+  sealed abstract class ContractId extends Product with Serializable with CidContainer[ContractId] {
     def coid: String
     def toBytes: Bytes
     def version: ContractIdVersion
     def isAbsolute: Boolean
+
+    final override def mapCid(f: ContractId => ContractId): ContractId = f(this)
   }
 
   object ContractId {

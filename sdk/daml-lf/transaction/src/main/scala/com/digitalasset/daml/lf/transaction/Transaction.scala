@@ -22,8 +22,6 @@ final case class VersionedTransaction private[lf] (
     with value.CidContainer[VersionedTransaction]
     with NoCopy {
 
-  override protected def self: this.type = this
-
   override def mapCid(f: ContractId => ContractId): VersionedTransaction =
     VersionedTransaction(
       version,
@@ -64,7 +62,6 @@ final case class Transaction(
 
   import Transaction._
 
-  override protected def self: this.type = this
   override def mapCid(f: ContractId => ContractId): Transaction =
     copy(nodes = nodes.map { case (nodeId, node) => nodeId -> node.mapCid(f) })
   def mapNodeId(f: NodeId => NodeId): Transaction =
