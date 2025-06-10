@@ -19,7 +19,7 @@ steps:
       set -euo pipefail
       ./sdk/compatibility/build-ts-libs.sh "${BUILD_ARTIFACTSTAGINGDIRECTORY}"
     displayName: 'Build typescript libraries'
-  - task: PublishPipelineArtifact@0
+  - task: PublishPipelineArtifact@1
     displayName: 'Publish typescript libraries'
     inputs:
       targetPath: $(Build.StagingDirectory)/
