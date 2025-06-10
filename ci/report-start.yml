@@ -11,5 +11,7 @@ steps:
       setvar time "$(date -u +"%Y-%m-%dT%H:%M:%S+00:00")"
       setvar machine "$(Agent.MachineName)"
     condition: always()
+    displayName: 'Set time and machine variables'
     name: start
+
 
