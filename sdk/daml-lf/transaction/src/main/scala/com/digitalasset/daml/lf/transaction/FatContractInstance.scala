@@ -79,6 +79,10 @@ private[lf] final case class FatContractInstanceImpl(
   require(maintainers.subsetOf(signatories), "maintainers should be a subset of signatories")
   require(signatories.nonEmpty, "signatories should be non empty")
   require(signatories.subsetOf(stakeholders), "signatories should be a subset of stakeholders")
+  require(
+    createdAt != CreationTime.Now || (!contractId.isAbsolute && !contractId.isLocal),
+    "Creation time 'now' is not allowed for local and absolute contract ids",
+  )
 
   override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
     copy(
@@ -143,12 +147,19 @@ object FatContractInstance {
 
 }
 
+/** Trait for specifying the creation time of a contract */
 sealed trait CreationTime extends Product with Serializable
 object CreationTime {
+
+  /** The creation time of a contract as an absolute timestamp.
+    * This is ledger time of the creating transaction.
+    */
   final case class CreatedAt(time: Time.Timestamp) extends CreationTime
 
+  /** A symbolic point in time for contracts created in the same transaction,
+    * when the ledger time of the transaction is not yet known.
+    */
   case object Now extends CreationTime
-  type Now = Now.type
 
   def encode(creationTime: CreationTime): Long =
     creationTime match {

@@ -396,7 +396,6 @@ object TransactionCoder {
       nodeVersion <- decodeActionNodeVersion(txVersion, nodeVersionStr)
       contract <- decodeFatContractInstance(nodeVersion, msg)
       _ <- Either.cond(
-        // TODO Discuss with Remy whether it would make sense to encode create nodes with CreationTime.Now instead of 0
         contract.createdAt == CreationTime.CreatedAt(Time.Timestamp.Epoch),
         (),
         DecodeError("unexpected created_at field in create node"),
