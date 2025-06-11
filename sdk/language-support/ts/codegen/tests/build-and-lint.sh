@@ -48,17 +48,26 @@ SDK_VERSION=${9}
 UPLOAD_DAR=$(rlocation "$TEST_WORKSPACE/${10}")
 HIDDEN_DAR=$(rlocation "$TEST_WORKSPACE/${11}")
 GRPCURL=$(rlocation "$TEST_WORKSPACE/${12}" | xargs dirname)
-DIFF="${13}"
+OPENAPI_TS=$(rlocation "$TEST_WORKSPACE/${13}")
+DIFF="${14}"
 
 TMP_DAML_TYPES=$TMP_DIR/daml-types
 TMP_DAML_LEDGER=$TMP_DIR/daml-ledger
+TMP_OPENAPI=$TMP_DIR/daml-openapi
 
 mkdir -p $TMP_DAML_TYPES
 mkdir -p $TMP_DAML_LEDGER
+mkdir -p $TMP_OPENAPI
 
 cp -rL $TS_DIR/* $TMP_DIR
 cp -rL $DAML_TYPES/* $TMP_DAML_TYPES
 cp -rL $DAML_LEDGER/* $TMP_DAML_LEDGER
+
+unzip -d $TMP_OPENAPI $OPENAPI_TS
+
+pushd $TMP_OPENAPI
+#$YARN install
+popd
 
 cd $TMP_DIR
 

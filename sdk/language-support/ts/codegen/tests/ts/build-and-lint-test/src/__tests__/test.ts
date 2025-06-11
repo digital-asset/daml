@@ -23,6 +23,10 @@ import {
   lookupTemplate,
   templateIdWithPackageId,
 } from "@daml/types";
+import { createConfiguration, DefaultApi } from "@daml/openapi";
+import { ConfigurationParameters } from "@daml/openapi/configuration";
+import { ServerConfiguration } from "@daml/openapi/servers";
+
 import pEvent from "p-event";
 import _ from "lodash";
 import WebSocket from "ws";
@@ -74,6 +78,11 @@ let jsonApiPort: number | undefined = undefined;
 const JSON_API_PORT_FILE = "json-api.port";
 const COMPLETION_FILE = "completion_marker";
 const httpBaseUrl: () => string = () => `http://localhost:${jsonApiPort}/`;
+
+const conf: ConfigurationParameters = {
+  baseServer: new ServerConfiguration("http://localhost:5019/", {}),
+};
+const configuration = createConfiguration(conf);
 
 let sandboxProcess: ChildProcess | undefined = undefined;
 
@@ -138,6 +147,8 @@ beforeAll(async () => {
   const upDar = await fs.readFile(getEnv("DAR"));
   await ledger.uploadDarFile(upDar);
 
+  const jsonLedger = new DefaultApi(configuration);
+
   // Only the participant party should exist on the ledger at this point
   PARTICIPANT_PARTY_DETAILS = (await ledger.listKnownParties())[0];
 
@@ -148,6 +159,17 @@ beforeAll(async () => {
     return party.identifier;
   }
 
+  async function allocateParty2(partyName: string): Promise<string> {
+    const resp = await jsonLedger.postV2Parties({
+      partyIdHint: partyName,
+      identityProviderId: "",
+      synchronizerId: "",
+    });
+    return resp.partyDetails
+      ? resp.partyDetails.party
+      : Promise.reject("no party details");
+  }
+
   async function createUser(userName: string, party: string): Promise<string> {
     const userRights = [UserRightHelper.canActAs(party)];
     await ledger.createUser(userName, userRights, party);
@@ -156,7 +178,7 @@ beforeAll(async () => {
   }
 
   console.log("Explicitly allocating parties");
-  ALICE_PARTY = await allocateParty(ALICE_PARTY);
+  ALICE_PARTY = await allocateParty2(ALICE_PARTY);
   BOB_PARTY = await allocateParty(BOB_PARTY);
   CHARLIE_PARTY = await allocateParty(CHARLIE_PARTY);
 
