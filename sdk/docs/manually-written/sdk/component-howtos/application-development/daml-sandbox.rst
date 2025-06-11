@@ -116,7 +116,7 @@ There are two ways to run the Daml Sandbox:
    **Note**: To forward an option to the underlying ``daml sandbox`` call, use
    the ``--sandbox-option`` flag.
 
-   For example, to change the sandbox's ledger-api port, the normal command would be
+   For example, to change the sandbox's Ledger API port, the normal command would be
 
    .. code-block:: none
 
