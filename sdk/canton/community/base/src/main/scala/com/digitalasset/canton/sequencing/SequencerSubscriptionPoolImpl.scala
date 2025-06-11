@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.sequencing
 
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.lifecycle.LifeCycle
@@ -88,7 +90,8 @@ final class SequencerSubscriptionPoolImpl private[sequencing] (
             logger.debug(s"Requesting $nbToRequest additional connection(s)")
 
             val currentSeqIds = current.map(_.connection.attributes.sequencerId)
-            val newConnections = pool.getConnections(nbToRequest, currentSeqIds)
+            val newConnections =
+              pool.getConnections(checked(PositiveInt.tryCreate(nbToRequest)), currentSeqIds)
             logger.debug(
               s"Received ${newConnections.size} new connection(s): ${newConnections.map(_.name)}"
             )

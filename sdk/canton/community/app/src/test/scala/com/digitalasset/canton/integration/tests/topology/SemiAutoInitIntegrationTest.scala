@@ -26,7 +26,6 @@ import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.{Namespace, UniqueIdentifier}
 import com.digitalasset.canton.util.SingleUseCell
-import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 import scala.util.Random
@@ -157,7 +156,7 @@ class SemiAutoInitIntegrationTest
     )
 
     val storeId = offsite.topology.stores
-      .create_temporary_topology_store("root-key-signing-" + name, ProtocolVersion.latest)
+      .create_temporary_topology_store("root-key-signing-" + name, testedProtocolVersion)
     val rootNd = offsite.topology.namespace_delegations.propose_delegation(
       Namespace(rootKey.id),
       rootKey,

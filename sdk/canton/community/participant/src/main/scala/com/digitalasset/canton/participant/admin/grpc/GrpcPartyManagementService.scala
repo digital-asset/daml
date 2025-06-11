@@ -20,11 +20,13 @@ import com.digitalasset.canton.participant.admin.data.ActiveContract as ActiveCo
 import com.digitalasset.canton.participant.admin.party.PartyReplicationAdminWorkflow.PartyReplicationArguments
 import com.digitalasset.canton.participant.admin.party.{
   PartyManagementServiceError,
+  PartyParticipantPermission,
   PartyReplicationAdminWorkflow,
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, OptionUtil, ResourceUtil}
@@ -89,7 +91,20 @@ class GrpcPartyManagementService(
       serial <- ProtoConverter
         .parsePositiveInt("topology_serial", request.topologySerial)
         .leftMap(_.message)
-    } yield PartyReplicationArguments(partyId, synchronizerId, sourceParticipantId, serial)
+      participantPermission <- ProtoConverter
+        .parseEnum[ParticipantPermission, v30.ParticipantPermission](
+          PartyParticipantPermission.fromProtoV30,
+          "participant_permission",
+          request.participantPermission,
+        )
+        .leftMap(_.message)
+    } yield PartyReplicationArguments(
+      partyId,
+      synchronizerId,
+      sourceParticipantId,
+      serial,
+      participantPermission,
+    )
 
   private def convert[T](
       rawId: String,
@@ -125,6 +140,8 @@ class GrpcPartyManagementService(
         sourceParticipantUid = status.params.sourceParticipantId.uid.toProtoPrimitive,
         targetParticipantUid = status.params.targetParticipantId.uid.toProtoPrimitive,
         topologySerial = status.params.serial.unwrap,
+        participantPermission =
+          PartyParticipantPermission.toProtoPrimitive(status.params.participantPermission),
         status = Some(statusP),
       )
     })

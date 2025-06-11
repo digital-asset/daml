@@ -399,7 +399,7 @@ final class AvailabilityModule[E <: Env[E]](
       disseminationProtocolState.disseminationProgress.updateWith(batchId) {
         case None =>
           val fromNodeString = voteToAdd.map(_._1).map(node => s"'$node'").getOrElse("this node")
-          logger.info(
+          logger.debug(
             s"$actingOnMessageType: got a store-response for batch $batchId " +
               s"from $fromNodeString but the batch is unknown (potentially already proposed), ignoring"
           )
@@ -972,33 +972,41 @@ final class AvailabilityModule[E <: Env[E]](
             )
             return
         }
-        val (node, remainingNodes) = status.remainingNodesToTry.headOption match {
-          case None =>
-            logger.warn(
-              s"$messageType: got fetch timeout for $batchId but no nodes to try left, " +
-                "restarting fetch from the beginning"
-            )
-            // We tried all nodes and all timed out so we retry all again in the hope that we are just
-            //  experiencing temporarily network outage.
-            //  We have to keep retrying because the output module is blocked until we get these batches.
-            //  If these batches cannot be retrieved, e.g. because the topology has changed too much and/or
-            //  the nodes in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
-            //  to state transfer incl. the batch payloads (when it is implemented).
-            if (status.mode.isStateTransfer)
-              extractNodes(None, useActiveTopology = true)
-            else
-              extractNodes(Some(status.originalProof.acks))
+        val (node, remainingNodes) =
+          status.remainingNodesToTry.headOption match {
+            case None =>
+              val logMessage =
+                s"$messageType: got fetch timeout for $batchId but no nodes to try left, " +
+                  "restarting fetch from the beginning"
+              if (
+                status.numberOfAttempts % config.availabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning == 0
+              ) {
+                logger.warn(logMessage)
+              } else {
+                logger.info(logMessage)
+              }
+              // We tried all nodes and all timed out so we retry all again in the hope that we are just
+              //  experiencing temporarily network outage.
+              //  We have to keep retrying because the output module is blocked until we get these batches.
+              //  If these batches cannot be retrieved, e.g. because the topology has changed too much and/or
+              //  the nodes in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
+              //  to state transfer incl. the batch payloads (when it is implemented).
+              if (status.mode.isStateTransfer)
+                extractNodes(None, useActiveTopology = true)
+              else
+                extractNodes(Some(status.originalProof.acks))
 
-          case Some(node) =>
-            logger.debug(s"$messageType: got fetch timeout for $batchId, trying fetch from $node")
-            (node, status.remainingNodesToTry.drop(1))
-        }
+            case Some(node) =>
+              logger.debug(s"$messageType: got fetch timeout for $batchId, trying fetch from $node")
+              (node, status.remainingNodesToTry.drop(1))
+          }
         outputFetchProtocolState.localOutputMissingBatches.update(
           batchId,
           MissingBatchStatus(
             batchId,
             status.originalProof,
             remainingNodes,
+            status.numberOfAttempts + (if (status.remainingNodesToTry.isEmpty) 1 else 0),
             status.mode,
           ),
         )
@@ -1109,6 +1117,7 @@ final class AvailabilityModule[E <: Env[E]](
         proofOfAvailability.batchId,
         proofOfAvailability,
         remainingNodes,
+        numberOfAttempts = 1,
         mode,
       ),
     )

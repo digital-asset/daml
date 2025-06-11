@@ -201,14 +201,17 @@ class GrpcInspectionService(
         request.synchronizerIds.traverse(SynchronizerId.fromProtoPrimitive(_, "synchronizer_id"))
       )
       participants <- wrapErrUS(
-        request.counterParticipantUids.traverse(
-          ParticipantId.fromProtoPrimitive(_, "counter_participant_uid")
+        request.counterParticipantIds.traverse(
+          ParticipantId.fromProtoPrimitive(_, "counter_participant_id")
         )
       )
       intervals <- EitherTUtil
         .fromFuture(
           syncStateInspection
-            .getIntervalsBehindForParticipants(synchronizers, participants),
+            .getIntervalsBehindForParticipants(
+              NonEmpty.from(synchronizers),
+              NonEmpty.from(participants),
+            ),
           err => InspectionServiceError.InternalServerError.Error(err.toString),
         )
         .leftWiden[RpcError]
@@ -243,9 +246,9 @@ class GrpcInspectionService(
           request.timeRanges
             .traverse(dtr => validateSynchronizerTimeRange(dtr))
       result <- for {
-        counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
+        counterParticipantIds <- request.counterParticipantIds.traverse(pId =>
           ParticipantId
-            .fromProtoPrimitive(pId, s"counter_participant_uids")
+            .fromProtoPrimitive(pId, s"counter_participant_ids")
             .leftMap(err => err.message)
         )
         states <- request.commitmentState
@@ -258,7 +261,7 @@ class GrpcInspectionService(
         } yield syncStateInspection
           .crossSynchronizerSentCommitmentMessages(
             synchronizerSearchPeriods,
-            counterParticipantIds,
+            NonEmpty.from(counterParticipantIds),
             states,
             request.verbose,
           )
@@ -296,9 +299,9 @@ class GrpcInspectionService(
             .traverse(dtr => validateSynchronizerTimeRange(dtr))
 
       result <- for {
-        counterParticipantIds <- request.counterParticipantUids.traverse(pId =>
+        counterParticipantIds <- request.counterParticipantIds.traverse(pId =>
           ParticipantId
-            .fromProtoPrimitive(pId, s"counter_participant_uids")
+            .fromProtoPrimitive(pId, "counter_participant_ids")
             .leftMap(err => err.message)
         )
         states <- request.commitmentState
@@ -311,7 +314,7 @@ class GrpcInspectionService(
         } yield syncStateInspection
           .crossSynchronizerReceivedCommitmentMessages(
             synchronizerSearchPeriods,
-            counterParticipantIds,
+            NonEmpty.from(counterParticipantIds),
             states,
             request.verbose,
           )
@@ -333,7 +336,7 @@ class GrpcInspectionService(
   private def fetchDefaultSynchronizerTimeRanges()(implicit
       traceContext: TraceContext
   ): Either[String, Seq[Future[SynchronizerSearchCommitmentPeriod]]] = {
-    val searchPeriods = synchronizerAliasManager.ids.map(synchronizerId =>
+    val searchPeriods = synchronizerAliasManager.logicalSynchronizerIds.map(synchronizerId =>
       for {
         synchronizerAlias <- synchronizerAliasManager
           .aliasForSynchronizerId(synchronizerId)
@@ -639,14 +642,13 @@ class GrpcInspectionService(
                 request.downloadPayload,
                 syncStateInspection,
                 indexedStringStore,
-                pv,
               ),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[RpcError]
 
       } yield {
-        contractStates.foreach(c => c.writeDelimitedTo(out).foreach(_ => out.flush()))
+        contractStates.foreach(_.writeDelimitedTo(pv, out).foreach(_ => out.flush()))
       }
     CantonGrpcUtil.mapErrNewEUS(result)
   }

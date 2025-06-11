@@ -27,6 +27,8 @@ trait DbOutputMetadataStoreTest
       DBIO.seq(
         sqlu"truncate table ord_metadata_output_blocks",
         sqlu"truncate table ord_metadata_output_epochs",
+        sqlu"truncate table ord_output_lower_bound",
+        sqlu"truncate table ord_leader_selection_state",
       ),
       functionFullName,
     )

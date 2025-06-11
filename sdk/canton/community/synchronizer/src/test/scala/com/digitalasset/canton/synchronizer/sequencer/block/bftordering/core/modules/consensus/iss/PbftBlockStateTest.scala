@@ -854,7 +854,6 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       clock,
       pbftMessageValidator,
       leader,
-      EpochNumber.First,
       viewNumber,
       abort = fail(_),
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,

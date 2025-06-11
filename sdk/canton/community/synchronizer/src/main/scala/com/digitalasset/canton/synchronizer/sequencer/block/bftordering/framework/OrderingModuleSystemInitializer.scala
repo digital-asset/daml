@@ -25,16 +25,16 @@ class OrderingModuleSystemInitializer[E <: Env[E]](moduleFactories: ModuleFactor
       moduleSystem: ModuleSystem[E],
       p2pNetworkManager: ClientP2PNetworkManager[E, BftOrderingServiceReceiveRequest],
   ): SystemInitializationResult[BftOrderingServiceReceiveRequest, Mempool.Message] = {
-    val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))
+    val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))()
     val p2pNetworkInRef =
-      moduleSystem.newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))
+      moduleSystem.newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))()
     val p2pNetworkOutRef =
-      moduleSystem.newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))
+      moduleSystem.newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))()
     val availabilityRef =
-      moduleSystem.newModuleRef[Availability.Message[E]](ModuleName("availability"))
-    val consensusRef = moduleSystem.newModuleRef[Consensus.Message[E]](ModuleName("consensus"))
-    val outputRef = moduleSystem.newModuleRef[Output.Message[E]](ModuleName("output"))
-    val pruningRef = moduleSystem.newModuleRef[Pruning.Message](ModuleName("pruning"))
+      moduleSystem.newModuleRef[Availability.Message[E]](ModuleName("availability"))()
+    val consensusRef = moduleSystem.newModuleRef[Consensus.Message[E]](ModuleName("consensus"))()
+    val outputRef = moduleSystem.newModuleRef[Output.Message[E]](ModuleName("output"))()
+    val pruningRef = moduleSystem.newModuleRef[Pruning.Message](ModuleName("pruning"))()
 
     val mempool = moduleFactories.mempool(availabilityRef)
     val p2pNetworkIn = moduleFactories.p2pNetworkIn(availabilityRef, consensusRef)

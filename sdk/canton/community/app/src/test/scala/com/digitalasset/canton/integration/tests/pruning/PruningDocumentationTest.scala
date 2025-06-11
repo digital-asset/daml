@@ -55,13 +55,38 @@ abstract class PruningDocumentationIntegrationTest
       val retention = 90.days
 
       // user-manual-entry-begin: PruningScheduleExamples
-      set_schedule("0 0 20 * * ?", 2.hours, retention) // run every evening at 8pm GMT for two hours
-      set_schedule("0 /5 * * * ?", 1.minute, retention) // run every 5 minutes for one minute
-      set_schedule("0 0 0 31 12 ? 2023", 1.day, retention) // run for one specific day
+      // Prune every evening at 8pm GMT for two hours
+      set_schedule("0 0 20 * * ?", 2.hours, retention)
+
+      // Prune every 5 minutes for one minute
+      set_schedule("0 /5 * * * ?", 1.minute, retention)
+
+      // Prune for one specific day
+      set_schedule("0 0 0 31 12 ? 2025", 1.day, retention)
     // user-manual-entry-end: PruningScheduleExamples
 
   }
 
+  "test that ensures the 3.x participant documentation is up to date with how to configure scheduled pruning" in {
+    implicit env =>
+      import env.*
+      val participant = participant1
+      import scala.concurrent.duration.*
+
+      val _ = participant
+
+      @scala.annotation.unused
+      def checkCompiles(): Unit =
+        // user-manual-entry-begin: AutoPruneParticipantNode
+        participant.pruning.set_participant_schedule(
+          cron = "0 0 8 ? * SAT",
+          maxDuration = 8.hours,
+          retention = 90.days,
+          pruneInternallyOnly = false,
+        )
+    // user-manual-entry-end: AutoPruneParticipantNode
+
+  }
 }
 
 class PruningDocumentationIntegrationTestH2 extends PruningDocumentationIntegrationTest {

@@ -104,7 +104,6 @@ class SegmentState(
             clock,
             pbftMessageValidator,
             currentLeader,
-            epochNumber,
             viewNumber,
             abort,
             metrics,
@@ -402,7 +401,6 @@ class SegmentState(
             new PbftViewChangeState(
               membership,
               computeLeader(viewNumber),
-              epochNumber,
               viewNumber,
               segment.slotNumbers,
               metrics,
@@ -469,7 +467,6 @@ class SegmentState(
           new PbftViewChangeState(
             membership,
             computeLeader(nextViewNumber),
-            epochNumber,
             nextViewNumber,
             segment.slotNumbers,
             metrics,

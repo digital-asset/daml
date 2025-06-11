@@ -39,6 +39,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.admin.ResourceLimits
 import com.digitalasset.canton.participant.admin.data.ContractIdImportMode
+import com.digitalasset.canton.participant.admin.party.PartyParticipantPermission
 import com.digitalasset.canton.participant.admin.traffic.TrafficStateAdmin
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   ReceivedCmtState,
@@ -51,6 +52,7 @@ import com.digitalasset.canton.sequencing.SequencerConnectionValidation
 import com.digitalasset.canton.sequencing.protocol.TrafficState
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.time.PositiveSeconds
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{
   ConfiguredPhysicalSynchronizerId,
   ParticipantId,
@@ -477,6 +479,7 @@ object ParticipantAdminCommands {
         synchronizerId: SynchronizerId,
         sourceParticipant: ParticipantId,
         serial: PositiveInt,
+        participantPermission: ParticipantPermission,
     ) extends GrpcAdminCommand[
           v30.AddPartyAsyncRequest,
           v30.AddPartyAsyncResponse,
@@ -494,6 +497,8 @@ object ParticipantAdminCommands {
             synchronizerId = synchronizerId.toProtoPrimitive,
             sourceParticipantUid = sourceParticipant.uid.toProtoPrimitive,
             topologySerial = serial.value,
+            participantPermission =
+              PartyParticipantPermission.toProtoPrimitive(participantPermission),
           )
         )
 

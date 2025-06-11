@@ -96,7 +96,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
           when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
             .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
           val indexedSynchronizer = IndexedSynchronizer.tryCreate(synchronizerId1, 1)
-          when(syncPersistentState.indexedSynchronizer).thenReturn(indexedSynchronizer)
+          when(syncPersistentState.synchronizerIdx).thenReturn(indexedSynchronizer)
 
           packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
             err =>

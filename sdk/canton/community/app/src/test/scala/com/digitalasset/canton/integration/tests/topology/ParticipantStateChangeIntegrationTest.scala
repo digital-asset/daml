@@ -228,7 +228,7 @@ trait ParticipantStateChangeIntegrationTest
       ),
     )
 
-    val synchronizerId = sequencer1.synchronizer_id
+    val synchronizerId = sequencer1.physical_synchronizer_id
     participant3.synchronizers.connect_by_config(
       conConfig.copy(synchronizerId = Some(synchronizerId))
     )

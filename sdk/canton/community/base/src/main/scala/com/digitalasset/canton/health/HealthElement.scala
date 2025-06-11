@@ -239,10 +239,14 @@ object HealthElement {
     *     updates ([[RefreshingState.Poked]]), it runs another update with the queued `newState`
     *     method. Otherwise, the state returns back to [[RefreshingState.Idle]].
     *
-    * <pre> ┌──────┐ refreshState ┌────────────┐ refreshState ┌──────────┐ │
-    * ├───────────────────────► ├────────────────────► ├───────┐ │ Idle │ │ Refreshing │ │ Poked │
-    * │refresh │ │ │ │ │ newState │ │State │ ◄───────────────────────┤ ◄────────────────────┤
-    * ◄───────┘ └──────┘ done refreshing └────────────┘ done refreshing └──────────┘ </pre>
+    * {{{
+    * ┌──────┐    refreshState       ┌────────────┐     refreshState   ┌──────────┐
+    * │      ├───────────────────────►            ├────────────────────►          ├───────┐
+    * │ Idle │                       │ Refreshing │                    │  Poked   │       │refresh
+    * │      │                       │            │                    │ newState │       │State
+    * │      ◄───────────────────────┤            ◄────────────────────┤          ◄───────┘
+    * └──────┘    done refreshing    └────────────┘  done refreshing   └──────────┘
+    * }}}
     *
     * Listeners are notified after each state update that does change the state, even if further
     * state updates are queued. This ensures that continuous state changes propagate to the

@@ -169,17 +169,17 @@ object SyncServiceError extends SyncServiceErrorGroup {
   }
 
   @Explanation(
-    "This error results on an attempt to register a new synchronizer under an alias already in use."
+    "This error results on an attempt to register a new synchronizer."
   )
-  object SyncServiceAlreadyAdded
+  object SynchronizerRegistration
       extends ErrorCode(
-        "SYNC_SERVICE_ALREADY_ADDED",
+        "SYNCHRONIZER_REGISTRATION",
         ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
       ) {
-    final case class Error(synchronizerAlias: SynchronizerAlias)(implicit
+    final case class Error(synchronizerAlias: SynchronizerAlias, error: String)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = "The synchronizer with the given alias has already been added."
+          cause = s"The synchronizer with alias $synchronizerAlias cannot be registered: $error"
         )
         with SyncServiceError
   }

@@ -12,8 +12,10 @@ import com.digitalasset.canton.config.{
   KeepAliveServerConfig,
   NonNegativeDuration,
   NonNegativeFiniteDuration,
+  ServerConfig,
   TlsServerConfig,
 }
+import com.digitalasset.canton.interactive.InteractiveSubmissionEnricher
 import com.digitalasset.canton.ledger.api.IdentityProviderConfig
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthInterceptor
@@ -49,7 +51,6 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
-import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
@@ -68,6 +69,7 @@ object ApiServiceOwner {
       // configuration parameters
       address: Option[String] = DefaultAddress, // This defaults to "localhost" when set to `None`.
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
+      maxInboundMetadataSize: Int = ServerConfig.defaultMaxInboundMetadataSize.unwrap,
       port: Port = DefaultPort,
       tls: Option[TlsServerConfig] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
@@ -112,7 +114,7 @@ object ApiServiceOwner {
       authenticateFatContractInstance: AuthenticateFatContractInstance,
       dynParamGetter: DynamicSynchronizerParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
-      lfValueTranslation: LfValueTranslation,
+      interactiveSubmissionEnricher: InteractiveSubmissionEnricher,
       keepAlive: Option[KeepAliveServerConfig],
       packagePreferenceBackend: PackagePreferenceBackend,
   )(implicit
@@ -194,7 +196,7 @@ object ApiServiceOwner {
         authenticateFatContractInstance = authenticateFatContractInstance,
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
-        lfValueTranslation = lfValueTranslation,
+        interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         packagePreferenceBackend = packagePreferenceBackend,
         logger = loggerFactory.getTracedLogger(this.getClass),
       )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
@@ -203,6 +205,7 @@ object ApiServiceOwner {
         apiServicesOwner,
         port,
         maxInboundMessageSize,
+        maxInboundMetadataSize,
         address,
         tls,
         new UserBasedAuthInterceptor(
@@ -233,7 +236,7 @@ object ApiServiceOwner {
   val DefaultPort: Port = Port.tryCreate(6865)
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsServerConfig] = None
-  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
+  val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024 // Larger than ServerConfig default
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofMinutes(2)

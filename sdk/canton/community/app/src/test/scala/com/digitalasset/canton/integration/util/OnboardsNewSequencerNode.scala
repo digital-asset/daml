@@ -8,7 +8,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.console.{InstanceReference, SequencerReference}
 import com.digitalasset.canton.integration.TestConsoleEnvironment
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.topology.{ForceFlag, SequencerId, SynchronizerId}
+import com.digitalasset.canton.topology.{ForceFlag, PhysicalSynchronizerId, SequencerId}
 import com.typesafe.scalalogging.Logger
 import org.scalatest.LoneElement.*
 
@@ -26,7 +26,7 @@ trait OnboardsNewSequencerNode {
     import env.*
     BaseTest.eventually() {
       existingSequencer.topology.sequencers
-        .list(existingSequencer.synchronizer_id.logical)
+        .list(existingSequencer.synchronizer_id)
         .loneElement
         .item
         .allSequencers
@@ -40,7 +40,7 @@ trait OnboardsNewSequencerNode {
   ): Unit = ()
 
   protected def onboardNewSequencer(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       newSequencer: SequencerReference,
       existingSequencer: SequencerReference,
       synchronizerOwners: Set[InstanceReference],
@@ -72,7 +72,7 @@ trait OnboardsNewSequencerNode {
     synchronizerOwnersNE
       .foreach(
         _.topology.sequencers.propose(
-          synchronizerId,
+          synchronizerId.logical,
           threshold = seqState1.threshold,
           active = seqState1.active :+ newSequencer.id,
         )

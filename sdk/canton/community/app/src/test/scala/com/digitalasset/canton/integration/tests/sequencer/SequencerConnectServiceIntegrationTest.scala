@@ -156,7 +156,7 @@ trait SequencerConnectServiceIntegrationTest
         .getSynchronizerClientBootstrapInfo(alias)
         .futureValueUS
         .value
-      bi shouldBe SynchronizerClientBootstrapInfo(daId.toPhysical, sequencer1.id)
+      bi shouldBe SynchronizerClientBootstrapInfo(daId, sequencer1.id)
     }
 
     "respond to GetSynchronizerId requests" in { implicit env =>
@@ -167,7 +167,7 @@ trait SequencerConnectServiceIntegrationTest
       grpcSequencerConnectClient
         .getSynchronizerId(daName.unwrap)
         .futureValueUS
-        .value shouldBe daId.toPhysical
+        .value shouldBe daId
     }
 
     "respond to is active requests" in { implicit env =>

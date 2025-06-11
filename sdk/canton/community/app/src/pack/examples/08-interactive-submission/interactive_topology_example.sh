@@ -7,7 +7,7 @@ set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first e
 
 # Setup
 # [start-docs-entry: set buf image path]
-CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)
 BUF_PROTO_IMAGE="$CURRENT_DIR/interactive_topology_buf_image.json.gz"
 # [end-docs-entry: set buf image path]
 # If we're in the release artifact

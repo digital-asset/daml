@@ -16,7 +16,8 @@ import com.digitalasset.canton.config.{
   * @param bongTestMaxLevel
   *   Upper bound (exclusive) on the level of a bong that the participant can participate. Any bong
   *   with higher level will be vacuumed immediately. Default 0, which means it won't participate in
-  *   any bongs.
+  *   any bongs. For security reasons, do not change in production. (If changed, the node could
+  *   suffer a denial-of-service attack.)
   * @param pingResponseTimeout
   *   How long we will attempt to respond to a ping request before giving up
   * @param maxBongDuration

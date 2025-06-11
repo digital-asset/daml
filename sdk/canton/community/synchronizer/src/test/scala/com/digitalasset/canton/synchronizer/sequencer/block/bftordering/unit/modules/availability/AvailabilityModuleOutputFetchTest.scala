@@ -481,14 +481,14 @@ class AvailabilityModuleOutputFetchTest
                 (
                   AMissingBatchStatusNode1And2AcksWithNoAttemptsLeft,
                   Set.from(AMissingBatchStatusNode1And2AcksWithNode1ToTry.remainingNodesToTry),
-                  AMissingBatchStatusNode1And2AcksWithNode2ToTry,
+                  AMissingBatchStatusNode1And2AcksWithNode2ToTry.copy(numberOfAttempts = 2),
                   Node1,
                 ),
                 // Ignore nodes from the PoA, use the current topology
                 (
                   AMissingBatchStatusFromStateTransferWithNoAttemptsLeft,
                   Set(Node3),
-                  AMissingBatchStatusFromStateTransferWithNoAttemptsLeft,
+                  AMissingBatchStatusFromStateTransferWithNoAttemptsLeft.copy(numberOfAttempts = 2),
                   Node3,
                 ),
               )
@@ -593,6 +593,7 @@ class AvailabilityModuleOutputFetchTest
                 ABatchId,
                 ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
                 Seq(Node1),
+                numberOfAttempts = 1,
                 mode = OrderedBlockForOutput.Mode.FromConsensus,
               )
             )
@@ -675,6 +676,7 @@ class AvailabilityModuleOutputFetchTest
                   ABatchId,
                   ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
                   Seq(Node1),
+                  numberOfAttempts = 1,
                   mode = OrderedBlockForOutput.Mode.FromConsensus,
                 )
               )
@@ -724,6 +726,7 @@ class AvailabilityModuleOutputFetchTest
                   ABatchId,
                   ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
                   Seq(Node1),
+                  numberOfAttempts = 1,
                   mode = OrderedBlockForOutput.Mode.FromConsensus,
                 )
               )

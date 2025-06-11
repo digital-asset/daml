@@ -690,7 +690,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     private def in_synchronizer(
         sequencers: NonEmpty[Seq[SequencerReference]],
         mediators: NonEmpty[Seq[MediatorReference]],
-    )(synchronizerId: SynchronizerId): Either[String, Option[SynchronizerId]] = {
+    )(synchronizerId: PhysicalSynchronizerId): Either[String, Option[PhysicalSynchronizerId]] = {
       def isNotInitializedOrSuccessWithSynchronizer(
           instance: InstanceReference
       ): Either[String, Boolean /* isInitializedWithSynchronizer */ ] =
@@ -699,17 +699,15 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             Left(s"${instance.id.member} is currently not active")
           case NodeStatus.Success(status: SequencerStatus) =>
             // sequencer is already fully initialized for this synchronizer
-            // TODO(#25483) This comparison should be physical
             Either.cond(
-              status.synchronizerId.logical == synchronizerId,
+              status.synchronizerId == synchronizerId,
               true,
               s"${instance.id.member} has already been initialized for synchronizer ${status.synchronizerId} instead of $synchronizerId.",
             )
           case NodeStatus.Success(status: MediatorStatus) =>
             // mediator is already fully initialized for this synchronizer
-            // TODO(#25483) This comparison should be physical
             Either.cond(
-              status.synchronizerId.logical == synchronizerId,
+              status.synchronizerId == synchronizerId,
               true,
               s"${instance.id.member} has already been initialized for synchronizer ${status.synchronizerId} instead of $synchronizerId",
             )
@@ -739,7 +737,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         owners: Seq[InstanceReference],
         sequencers: Seq[SequencerReference],
         mediators: Seq[MediatorReference],
-    ): Either[String, Option[SynchronizerId]] =
+        staticSynchronizerParameters: data.StaticSynchronizerParameters,
+    ): Either[String, Option[PhysicalSynchronizerId]] =
       for {
         neOwners <- NonEmpty
           .from(owners.distinct)
@@ -754,7 +753,10 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           DecentralizedNamespaceDefinition.computeNamespace(
             owners.map(_.namespace).toSet
           )
-        expectedId = SynchronizerId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive))
+        expectedId = PhysicalSynchronizerId(
+          SynchronizerId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)),
+          staticSynchronizerParameters.toInternal,
+        )
         actualIdIfAllNodesAreInitialized <- in_synchronizer(neSequencers, neMediators)(expectedId)
       } yield actualIdIfAllNodesAreInitialized
 
@@ -766,11 +768,14 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         sequencers: Seq[SequencerReference],
         mediatorsToSequencers: Map[MediatorReference, (Seq[SequencerReference], PositiveInt)],
         mediatorRequestAmplification: SubmissionRequestAmplification,
-    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId = {
+    )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId = {
       val synchronizerNamespace =
         DecentralizedNamespaceDefinition.computeNamespace(synchronizerOwners.map(_.namespace).toSet)
-      val synchronizerId = SynchronizerId(
-        UniqueIdentifier.tryCreate(synchronizerName, synchronizerNamespace)
+      val synchronizerId = PhysicalSynchronizerId(
+        SynchronizerId(
+          UniqueIdentifier.tryCreate(synchronizerName, synchronizerNamespace)
+        ),
+        staticSynchronizerParameters.toInternal,
       )
 
       val tempStoreForBootstrap = synchronizerOwners
@@ -861,7 +866,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .filter(!_._1.health.initialized())
         .foreach { case (mediator, (mediatorSequencers, threshold)) =>
           mediator.setup.assign(
-            PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters.toInternal),
+            synchronizerId,
             SequencerConnections.tryMany(
               mediatorSequencers
                 .map(s => s.sequencerConnection.withAlias(SequencerAlias.tryCreate(s.name))),
@@ -890,7 +895,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         |Any participants as synchronizer owners must still manually connect to the synchronizer afterwards.
         """
     )
-    // TODO(#25483) This one should return the physical id
     def synchronizer(
         synchronizerName: String,
         sequencers: Seq[SequencerReference],
@@ -900,7 +904,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         staticSynchronizerParameters: data.StaticSynchronizerParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
-    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId =
+    )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId =
       synchronizer(
         synchronizerName,
         sequencers,
@@ -927,7 +931,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         synchronizerThreshold: PositiveInt,
         staticSynchronizerParameters: data.StaticSynchronizerParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification,
-    )(implicit consoleEnvironment: ConsoleEnvironment): SynchronizerId = {
+    )(implicit consoleEnvironment: ConsoleEnvironment): PhysicalSynchronizerId = {
       // skip over HA sequencers
       val uniqueSequencers =
         sequencers.groupBy(_.id).flatMap(_._2.headOption.toList).toList
@@ -940,6 +944,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         synchronizerOwnersOrDefault,
         uniqueSequencers,
         mediators,
+        staticSynchronizerParameters,
       ) match {
         case Right(Some(synchronizerId)) =>
           logger.info(

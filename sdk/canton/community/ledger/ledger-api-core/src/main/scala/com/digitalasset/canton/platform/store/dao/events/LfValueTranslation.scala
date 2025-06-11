@@ -181,8 +181,8 @@ final class LfValueTranslation(
     consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
 
   def enrichContract(contract: FatContractInstance)(implicit
-                                                ec: ExecutionContext,
-                                                loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
   ): Future[FatContractInstance] =
     consumeEnricherResult(enricher.enrichContract(contract))
 

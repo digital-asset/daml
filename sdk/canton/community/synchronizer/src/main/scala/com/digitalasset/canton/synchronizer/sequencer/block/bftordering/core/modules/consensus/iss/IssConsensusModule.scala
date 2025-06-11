@@ -28,10 +28,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferBehavior.StateTransferType
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusSignatureVerifier
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.{
-  LeaderSelectionPolicy,
-  SimpleLeaderSelectionPolicy,
-}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
   shortType,
@@ -667,15 +663,11 @@ final class IssConsensusModule[E <: Env[E]](
     val blockMetadata = underlyingNetworkMessage.message.blockMetadata
     val epochNumber = blockMetadata.epochNumber
     val blockNumber = blockMetadata.blockNumber
-    val viewNumber = underlyingNetworkMessage.message.viewNumber
     lazy val messageType = shortType(message)
 
     def emitNonComplianceMetric(): Unit =
       emitNonCompliance(metrics)(
         from,
-        Some(epochNumber),
-        Some(viewNumber),
-        Some(blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
       )
 
@@ -834,8 +826,6 @@ object IssConsensusModule {
   )
 
   val DefaultDatabaseReadTimeout: FiniteDuration = 10.seconds
-
-  val DefaultLeaderSelectionPolicy: LeaderSelectionPolicy = SimpleLeaderSelectionPolicy
 
   def parseNetworkMessage(
       protoSignedMessage: v30.SignedMessage

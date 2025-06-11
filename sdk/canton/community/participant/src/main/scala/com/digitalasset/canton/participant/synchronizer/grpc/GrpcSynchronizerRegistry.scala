@@ -112,7 +112,7 @@ class GrpcSynchronizerRegistry(
         SyncCloseable("SyncCryptoClient", syncCrypto.close()),
         SyncCloseable(
           "topologyOutbox",
-          topologyDispatcher.synchronizerDisconnected(synchronizerAlias),
+          topologyDispatcher.synchronizerDisconnected(synchronizerId),
         ),
         // Close the sequencer client so that the processors won't receive or handle events when
         // their shutdown is initiated.

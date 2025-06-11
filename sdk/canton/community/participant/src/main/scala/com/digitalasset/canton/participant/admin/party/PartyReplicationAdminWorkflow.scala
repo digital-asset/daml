@@ -31,6 +31,7 @@ import com.digitalasset.canton.participant.ledger.api.client.{
 }
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.time.Clock
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
@@ -65,6 +66,7 @@ class PartyReplicationAdminWorkflow(
       sourceParticipantId: ParticipantId,
       sequencerCandidates: NonEmpty[Seq[SequencerId]],
       serial: PositiveInt,
+      participantPermission: ParticipantPermission,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Unit] = {
     val partyReplicationIdS = partyReplicationId.toHexString
     val proposal = new M.partyreplication.PartyReplicationProposal(
@@ -74,6 +76,7 @@ class PartyReplicationAdminWorkflow(
       participantId.adminParty.toProtoPrimitive,
       sequencerCandidates.forgetNE.map(_.uid.toProtoPrimitive).asJava,
       serial.unwrap,
+      PartyParticipantPermission.toDaml(participantPermission),
     )
     EitherT(
       retrySubmitter
@@ -307,6 +310,7 @@ object PartyReplicationAdminWorkflow {
       synchronizerId: SynchronizerId,
       sourceParticipantId: ParticipantId,
       serial: PositiveInt,
+      participantPermission: ParticipantPermission,
   )
   private def userId = "PartyReplicationAdminWorkflow"
 

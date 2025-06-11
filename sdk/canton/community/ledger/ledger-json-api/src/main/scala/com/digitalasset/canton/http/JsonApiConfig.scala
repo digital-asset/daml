@@ -14,11 +14,10 @@ import scala.concurrent.duration.*
 // users should extend StartSettings or DefaultStartSettings themselves
 final case class JsonApiConfig(
     server: HttpServerConfig,
-    allowInsecureTokens: Boolean = false,
     websocketConfig: Option[WebsocketConfig] = None,
-    debugLoggingOfHttpBodies: Boolean = false,
+    debugLoggingOfHttpBodies: Boolean = false, // v1 only
     damlDefinitionsServiceEnabled: Boolean = false,
-    userManagementWithoutAuthorization: Boolean = false,
+    userManagementWithoutAuthorization: Boolean = false, // v1 only
 ) extends StartSettings
 
 object JsonApiConfig {
@@ -28,12 +27,12 @@ object JsonApiConfig {
 
 // It is public for Daml Hub
 final case class WebsocketConfig(
-    maxDuration: FiniteDuration = WSC.DefaultMaxDuration,
-    throttleElem: Int = WSC.DefaultThrottleElem,
-    throttlePer: FiniteDuration = WSC.DefaultThrottlePer,
-    maxBurst: Int = WSC.DefaultMaxBurst,
-    mode: ThrottleMode = WSC.DefaultThrottleMode,
-    heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod,
+    maxDuration: FiniteDuration = WSC.DefaultMaxDuration, // v1 only
+    throttleElem: Int = WSC.DefaultThrottleElem, // v1 only
+    throttlePer: FiniteDuration = WSC.DefaultThrottlePer, // v1 only
+    maxBurst: Int = WSC.DefaultMaxBurst, // v1 only
+    mode: ThrottleMode = WSC.DefaultThrottleMode, // v1 only
+    heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod, // v1 only
     httpListMaxElementsLimit: Long = WSC.DefaultHttpListMaxElementsLimit,
     httpListWaitTime: FiniteDuration = WSC.DefaultHttpListWaitTime,
 )

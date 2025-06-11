@@ -29,6 +29,8 @@ class SymbolicPrivateCrypto(
 ) extends CryptoPrivateStoreApi
     with NamedLogging {
 
+  override private[crypto] def getInitialHealthState: ComponentHealthState = this.initialHealthState
+
   private val keyCounter = new AtomicInteger
 
   private val randomKeys = new AtomicBoolean(false)

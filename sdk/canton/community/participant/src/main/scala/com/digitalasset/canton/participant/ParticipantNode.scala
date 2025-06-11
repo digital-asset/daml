@@ -13,7 +13,7 @@ import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.common.sequencer.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.{
@@ -801,14 +801,7 @@ class ParticipantNodeBootstrap(
         adminServerRegistry
           .addServiceU(
             v30.PruningServiceGrpc.bindService(
-              new GrpcPruningService(
-                participantId,
-                sync,
-                pruningScheduler,
-                syncPersistentStateManager,
-                ips,
-                loggerFactory,
-              ),
+              new GrpcPruningService(participantId, sync, pruningScheduler, loggerFactory),
               executionContext,
             )
           )
@@ -991,7 +984,8 @@ class ParticipantNode(
   }
 
   override def status: ParticipantStatus = {
-    val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port)
+    val ports = Map("ledger" -> config.ledgerApi.port, "admin" -> config.adminApi.port) ++
+      config.httpLedgerApi.flatMap(_.server.port).flatMap(Port.create(_).toOption).map("json" -> _)
     val synchronizers = readySynchronizers
     val topologyQueues = identityPusher.queueStatus
 

@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
 import com.digitalasset.canton.participant.protocol.validation.TimeValidator.{
   LedgerTimeRecordTimeDeltaTooLargeError,
-  SubmissionTimeRecordTimeDeltaTooLargeError,
+  PreparationTimeRecordTimeDeltaTooLargeError,
 }
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, TransactionId}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -20,20 +20,20 @@ import java.time.Duration
 class TimeValidatorTest extends AnyWordSpec with BaseTest {
   private val ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(10)
-  private val submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+  private val preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
   private val transactionId: TransactionId = ExampleTransactionFactory.transactionId(0)
 
   private def checkTimestamps(
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       sequencerTimestamp: CantonTimestamp,
   ) =
     TimeValidator.checkTimestamps(
-      CommonData(transactionId, ledgerTime, submissionTime),
+      CommonData(transactionId, ledgerTime, preparationTime),
       sequencerTimestamp,
       ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
-      submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,
       amSubmitter = false,
       logger,
     )
@@ -43,7 +43,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
     "valid" should {
       "yield a Right" in {
         val sequencerTime = CantonTimestamp.Epoch
-        val submissionTime = CantonTimestamp.Epoch
+        val preparationTime = CantonTimestamp.Epoch
 
         val ledgerTimeEarliest = sequencerTime - ledgerTimeRecordTimeTolerance
         val ledgerTimeLatest = sequencerTime + ledgerTimeRecordTimeTolerance
@@ -51,12 +51,12 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
         val earliestRes =
           checkTimestamps(
             ledgerTimeEarliest,
-            submissionTime,
+            preparationTime,
             sequencerTime,
           )
         val latestRes = checkTimestamps(
           ledgerTimeLatest,
-          submissionTime,
+          preparationTime,
           sequencerTime,
         )
 
@@ -67,7 +67,7 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
 
     "too far from sequencer timestamp" should {
       "yield an error" in {
-        val submissionTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9)
+        val preparationTime: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9)
         val ledgerTime = CantonTimestamp.Epoch
 
         val futureSeqTimestamp =
@@ -79,13 +79,13 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
         val tooLate =
           checkTimestamps(
             ledgerTime,
-            submissionTime,
+            preparationTime,
             sequencerTimestamp = futureSeqTimestamp,
           )
         val tooEarly =
           checkTimestamps(
             ledgerTime,
-            submissionTime,
+            preparationTime,
             pastSeqTimestamp,
           )
 
@@ -107,24 +107,24 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
     }
   }
 
-  "submission time " when {
+  "preparation time " when {
     val ledgerTime = CantonTimestamp.Epoch
     val sequencerTime = CantonTimestamp.Epoch
 
     "valid" should {
       "yield a Right" in {
-        val submissionTimeEarliest = sequencerTime - submissionTimeRecordTimeTolerance
-        val submissionTimeLatest = sequencerTime + submissionTimeRecordTimeTolerance
+        val preparationTimeEarliest = sequencerTime - preparationTimeRecordTimeTolerance
+        val preparationTimeLatest = sequencerTime + preparationTimeRecordTimeTolerance
 
         val earliestRes =
           checkTimestamps(
             ledgerTime,
-            submissionTimeEarliest,
+            preparationTimeEarliest,
             sequencerTime,
           )
         val latestRes = checkTimestamps(
           ledgerTime,
-          submissionTimeLatest,
+          preparationTimeLatest,
           sequencerTime,
         )
 
@@ -134,41 +134,41 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
     }
 
     "too far from sequencer timestamp" should {
-      val submissionTimeBeforeSeq: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9)
+      val preparationTimeBeforeSeq: CantonTimestamp = CantonTimestamp.Epoch.minusMillis(9)
       val futureSeqTimestamp =
-        (submissionTimeBeforeSeq + submissionTimeRecordTimeTolerance).add(Duration.ofMillis(1))
+        (preparationTimeBeforeSeq + preparationTimeRecordTimeTolerance).add(Duration.ofMillis(1))
 
-      val submissionTimeAfterSeq = CantonTimestamp.ofEpochSecond(1)
+      val preparationTimeAfterSeq = CantonTimestamp.ofEpochSecond(1)
       val pastSeqTimestamp =
-        (submissionTimeAfterSeq - submissionTimeRecordTimeTolerance).minus(Duration.ofMillis(1))
+        (preparationTimeAfterSeq - preparationTimeRecordTimeTolerance).minus(Duration.ofMillis(1))
 
       "yield an error" in {
         val tooLate =
           checkTimestamps(
             ledgerTime = futureSeqTimestamp, // Set the ledger time to the seq time to make it valid
-            submissionTimeBeforeSeq,
+            preparationTimeBeforeSeq,
             futureSeqTimestamp,
           )
 
         val tooEarly =
           checkTimestamps(
             ledgerTime = pastSeqTimestamp, // Set the ledger time to the seq time to make it valid
-            submissionTimeAfterSeq,
+            preparationTimeAfterSeq,
             pastSeqTimestamp,
           )
 
         tooLate shouldBe Left(
-          SubmissionTimeRecordTimeDeltaTooLargeError(
-            submissionTimeBeforeSeq,
+          PreparationTimeRecordTimeDeltaTooLargeError(
+            preparationTimeBeforeSeq,
             futureSeqTimestamp,
-            submissionTimeRecordTimeTolerance,
+            preparationTimeRecordTimeTolerance,
           )
         )
         tooEarly shouldBe Left(
-          SubmissionTimeRecordTimeDeltaTooLargeError(
-            submissionTimeAfterSeq,
+          PreparationTimeRecordTimeDeltaTooLargeError(
+            preparationTimeAfterSeq,
             pastSeqTimestamp,
-            submissionTimeRecordTimeTolerance,
+            preparationTimeRecordTimeTolerance,
           )
         )
       }

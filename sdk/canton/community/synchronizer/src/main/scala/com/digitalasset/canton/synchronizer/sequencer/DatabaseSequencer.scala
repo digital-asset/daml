@@ -40,6 +40,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
+  SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
@@ -112,6 +113,7 @@ object DatabaseSequencer {
       metrics,
       loggerFactory,
       blockSequencerMode = false,
+      rateLimitManagerO = None,
     )
   }
 }
@@ -137,6 +139,7 @@ class DatabaseSequencer(
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     blockSequencerMode: Boolean,
+    rateLimitManagerO: Option[SequencerRateLimitManager],
 )(implicit ec: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends BaseSequencer(
       loggerFactory,
@@ -159,6 +162,7 @@ class DatabaseSequencer(
     timeouts,
     storage,
     sequencerStore,
+    rateLimitManagerO,
     clock,
     eventSignaller,
     protocolVersion,

@@ -74,7 +74,7 @@ class SyncEphemeralState(
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from synchronizer")
 
-  val synchronizerId = persistentState.indexedSynchronizer.synchronizerId
+  val synchronizerId = persistentState.synchronizerIdx.synchronizerId
   // Key is the root hash of the reassignment tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
     TrieMap.empty[RootHash, PendingReassignmentSubmission]

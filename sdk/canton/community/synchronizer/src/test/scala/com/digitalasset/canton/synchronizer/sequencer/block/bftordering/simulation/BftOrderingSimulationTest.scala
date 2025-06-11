@@ -312,7 +312,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       initializeImmediately: Boolean,
   ): SimulationInitializerT = {
 
-    val logger = loggerFactory.append("endpoint", s"$endpoint")
+    val logger = loggerFactory.append("endpoint", s"${endpoint.address}")
 
     val thisNode = endpointToTestBftNodeId(endpoint)
     val orderingTopologyProvider =

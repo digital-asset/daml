@@ -11,7 +11,6 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidator
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
-  EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -46,7 +45,6 @@ final class PbftBlockState(
     clock: Clock,
     messageValidator: PbftMessageValidator,
     leader: BftNodeId,
-    epoch: EpochNumber,
     view: ViewNumber,
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
@@ -256,9 +254,6 @@ final class PbftBlockState(
     if (pp.message.viewNumber == view && pp.from != leader) {
       emitNonCompliance(metrics)(
         pp.from,
-        Some(epoch),
-        Some(view),
-        Some(pp.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(
@@ -297,9 +292,6 @@ final class PbftBlockState(
         if (prepare.message.hash != p.message.hash) {
           emitNonCompliance(metrics)(
             p.from,
-            Some(epoch),
-            Some(view),
-            Some(p.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(
@@ -322,9 +314,6 @@ final class PbftBlockState(
         if (commit.message.hash != c.message.hash) {
           emitNonCompliance(metrics)(
             c.from,
-            Some(epoch),
-            Some(view),
-            Some(c.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(

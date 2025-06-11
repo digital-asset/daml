@@ -8,6 +8,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistLeaderSelectionPolicyState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
@@ -33,6 +34,9 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
 
   private val lowerBound: AtomicReference[Option[OutputMetadataStore.LowerBound]] =
     new AtomicReference(None)
+
+  private val leaderSelectionState: TrieMap[EpochNumber, BlacklistLeaderSelectionPolicyState] =
+    TrieMap.empty
 
   protected def createFuture[T](action: String)(value: () => Try[T]): E#FutureUnlessShutdownT[T]
 
@@ -115,6 +119,21 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
       Success(sortedBlocksForEpoch(epochNumber).lastOption)
     }
 
+  override def insertLeaderSelectionPolicyState(
+      epochNumber: EpochNumber,
+      leaderSelectionPolicy: BlacklistLeaderSelectionPolicyState,
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
+    createFuture(insertLeaderSelectionPolicyStateActionName(epochNumber)) { () =>
+      putIfAbsentAndLogErrorIfDifferent(leaderSelectionState, epochNumber, leaderSelectionPolicy)
+    }
+
+  override def getLeaderSelectionPolicyState(epochNumber: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Option[BlacklistLeaderSelectionPolicyState]] =
+    createFuture(getLeaderSelectionPolicyStateActionName(epochNumber)) { () =>
+      Success(leaderSelectionState.get(epochNumber))
+    }
+
   protected def reportError(errorMessage: String)(implicit traceContext: TraceContext): Unit
 
   private def putIfAbsentAndLogErrorIfDifferent[K, V](map: TrieMap[K, V], key: K, value: V)(implicit
@@ -176,6 +195,10 @@ abstract class GenericInMemoryOutputMetadataStore[E <: Env[E]] extends OutputMet
 
       val blocksToDelete = blocks.filter(_._2.epochNumber < epochNumberExclusive).keys
       blocksToDelete.foreach(blocks.remove(_).discard)
+
+      val leaderSelectionStatesToDelete =
+        leaderSelectionState.filter(_._1 < epochNumberExclusive).keys
+      leaderSelectionState --= leaderSelectionStatesToDelete
 
       Success(
         OutputMetadataStore.NumberOfRecords(

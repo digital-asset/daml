@@ -324,3 +324,20 @@ object ListSynchronizerMigrationAnnouncementResult {
       item <- SynchronizerMigrationAnnouncement.fromProtoV30(itemProto)
     } yield ListSynchronizerMigrationAnnouncementResult(context, item)
 }
+
+final case class ListSequencerConnectionSuccessorResult(
+    context: BaseResult,
+    item: SequencerConnectionSuccessor,
+)
+
+object ListSequencerConnectionSuccessorResult {
+  def fromProtoV30(
+      value: v30.ListSequencerConnectionSuccessorResponse.Result
+  ): ParsingResult[ListSequencerConnectionSuccessorResult] =
+    for {
+      contextProto <- ProtoConverter.required("context", value.context)
+      context <- BaseResult.fromProtoV30(contextProto)
+      itemProto <- ProtoConverter.required("item", value.item)
+      item <- SequencerConnectionSuccessor.fromProtoV30(itemProto)
+    } yield ListSequencerConnectionSuccessorResult(context, item)
+}

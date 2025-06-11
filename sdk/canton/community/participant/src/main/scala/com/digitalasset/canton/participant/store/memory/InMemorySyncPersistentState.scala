@@ -45,7 +45,7 @@ class InMemorySyncPersistentState(
     participantId: ParticipantId,
     clock: Clock,
     crypto: SynchronizerCrypto,
-    override val indexedSynchronizer: IndexedSynchronizer,
+    override val synchronizerIdx: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
@@ -68,12 +68,12 @@ class InMemorySyncPersistentState(
       loggerFactory,
     )
   val reassignmentStore =
-    new InMemoryReassignmentStore(Target(indexedSynchronizer.item), loggerFactory)
+    new InMemoryReassignmentStore(Target(synchronizerIdx.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =
     new InMemoryAcsCommitmentStore(
-      indexedSynchronizer.synchronizerId,
+      synchronizerIdx.synchronizerId,
       acsCounterParticipantConfigStore,
       loggerFactory,
     )
@@ -83,7 +83,7 @@ class InMemorySyncPersistentState(
 
   override val topologyStore =
     new InMemoryTopologyStore(
-      SynchronizerStore(indexedSynchronizer.synchronizerId),
+      SynchronizerStore(synchronizerIdx.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       loggerFactory,
       timeouts,
@@ -114,7 +114,7 @@ class InMemorySyncPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+        acsInspections = () => Map(synchronizerIdx.synchronizerId -> acsInspection),
         forceFlags,
       )
     override def checkCannotDisablePartyWithActiveContracts(
@@ -126,7 +126,7 @@ class InMemorySyncPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+        acsInspections = () => Map(synchronizerIdx.synchronizerId -> acsInspection),
       )
 
     override def checkInsufficientSignatoryAssigningParticipantsForParty(
@@ -144,7 +144,7 @@ class InMemorySyncPersistentState(
         nextThreshold,
         nextConfirmingParticipants,
         forceFlags,
-        () => Map(indexedSynchronizer.synchronizerId -> reassignmentStore),
+        () => Map(synchronizerIdx.synchronizerId -> reassignmentStore),
         () => ledgerApiStore.value.ledgerEnd,
       )
 
@@ -157,7 +157,7 @@ class InMemorySyncPersistentState(
       checkInsufficientParticipantPermissionForSignatoryParty(
         partyId,
         forceFlags,
-        acsInspections = () => Map(indexedSynchronizer.synchronizerId -> acsInspection),
+        acsInspections = () => Map(synchronizerIdx.synchronizerId -> acsInspection),
       )
 
   }
@@ -168,7 +168,7 @@ class InMemorySyncPersistentState(
 
   override def acsInspection: AcsInspection =
     new AcsInspection(
-      indexedSynchronizer.synchronizerId,
+      synchronizerIdx.synchronizerId,
       activeContractStore,
       contractStore,
       ledgerApiStore,

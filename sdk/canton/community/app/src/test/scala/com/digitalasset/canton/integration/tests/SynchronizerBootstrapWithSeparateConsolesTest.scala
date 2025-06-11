@@ -23,6 +23,8 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 
+import scala.concurrent.duration.DurationInt
+
 /** This test simulates the case when the mediator and sequencer nodes are in separate consoles and
   * we want to bootstrap the synchronizer. We do that by exchanging the essential information via
   * files.
@@ -33,16 +35,12 @@ trait SynchronizerBootstrapWithSeparateConsolesIntegrationTest
     with HasExecutionContext {
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition
-      .buildBaseEnvironmentDefinition(
-        numParticipants = 1,
-        numSequencers = 1,
-        numMediators = 1,
-      )
+    EnvironmentDefinition.P2S2M2_Config
 
   // in this test we interleave various consoles, but we can assume that the individual nodes all have
   // the synchronizerId in scope after the decentralized namespace definition
-  protected var synchronizerId: PhysicalSynchronizerId = _
+  protected var synchronizerId: SynchronizerId = _
+  protected var physicalSynchronizerId: PhysicalSynchronizerId = _
 
   "Nodes in separate consoles" should {
     "be able to bootstrap distributed synchronizer by exchanging files" in { implicit env =>
@@ -54,9 +52,9 @@ trait SynchronizerBootstrapWithSeparateConsolesIntegrationTest
       // bootstrap.synchronizer(
       //   daName.unwrap,
       //   StaticSynchronizerParameters(EnvironmentDefinition.defaultStaticSynchronizerParameters),
-      //   synchronizerOwners = Seq(sequencer1, mediator1),
-      //   sequencers = Seq(sequencer1),
-      //   mediators = Seq(mediator1),
+      //   synchronizerOwners = Seq(sequencer1, sequencer2),
+      //   sequencers = Seq(sequencer1, sequencer2),
+      //   mediators = Seq(mediator1, mediator2),
       // )
       for {
         // this file will contain the static synchronizer params
@@ -65,18 +63,15 @@ trait SynchronizerBootstrapWithSeparateConsolesIntegrationTest
         decentralizedNamespaceFile <- File
           .temporaryFile("decentralized_namespace", ".proto")
           .map(_.canonicalPath)
-        // this file will be used for sharing identity transactions
-        identityFile <- File.temporaryFile("identity", ".proto").map(_.canonicalPath)
+        // these files will be used for sharing identity transactions
+        identityFileSeq <- File.temporaryFile("identitySeq", ".proto").map(_.canonicalPath)
+        identityFileMed <- File.temporaryFile("identityMed", ".proto").map(_.canonicalPath)
         // this file will be used for synchronizer bootstrap transactions
         synchronizerBootstrapFile <- File.temporaryFile("identity", ".proto").map(_.canonicalPath)
-        // this file will be used to share the sequencer connection
-        sequencerConnectionFile <- File
-          .temporaryFile("sequencer_connection", ".proto")
-          .map(_.canonicalPath)
       } yield {
-        // all synchronizer founders share their identifiers
-        val mediatorId = mediator1.id
-        val sequencerId = sequencer1.id
+        // all synchronizer founders, sequencers and mediators share their identifiers
+        val sequencer1Id = sequencer1.id
+        val sequencer2Id = sequencer2.id
 
         // All synchronizer founders need to agree on the static synchronizer parameters. They don't have to be passed around as file,
         // but for the sake of this test, we do it here.
@@ -86,140 +81,172 @@ trait SynchronizerBootstrapWithSeparateConsolesIntegrationTest
           )
         }
 
-        // Sequencer's console:
-        // * extract the sequencer's identity topology transactions and share via identityFile
-        {
-          sequencer1.topology.transactions.export_identity_transactions(identityFile)
-        }
+        // load the static synchronizer parameters
+        val synchronizerParams = StaticSynchronizerParameters.tryReadFromFile(paramsFile)
 
-        // Mediator's console:
-        // * load the sequencer's identity topology transactions
-        // * share its own identity topology transactions via identityFile
-        {
-          mediator1.topology.transactions
-            .import_topology_snapshot_from(identityFile, TopologyStoreId.Authorized)
-
-          mediator1.topology.transactions.export_identity_transactions(identityFile)
-        }
-
-        // Sequencer's console:
+        // Sequencer1 console:
+        // * extract the sequencer's and mediator's identity topology transactions and share via files
         // * load the mediator's identity topology transactions
+        {
+          sequencer1.topology.transactions.export_identity_transactions(identityFileSeq)
+          mediator1.topology.transactions.export_identity_transactions(identityFileMed)
+
+          sequencer1.topology.transactions
+            .import_topology_snapshot_from(identityFileMed, TopologyStoreId.Authorized)
+        }
+
+        // Sequencer2 console:
+        // * load sequencer1's and mediator1's identity topology transactions
+        // * share its own and mediator's identity topology transactions via identityFile
+        // * load the mediator's identity topology transactions
+        {
+          sequencer2.topology.transactions
+            .import_topology_snapshot_from(identityFileSeq, TopologyStoreId.Authorized)
+          sequencer2.topology.transactions
+            .import_topology_snapshot_from(identityFileMed, TopologyStoreId.Authorized)
+
+          sequencer2.topology.transactions.export_identity_transactions(identityFileSeq)
+          mediator2.topology.transactions.export_identity_transactions(identityFileMed)
+
+          sequencer2.topology.transactions
+            .import_topology_snapshot_from(identityFileMed, TopologyStoreId.Authorized)
+        }
+
+        // Sequencer1 console:
+        // * load sequencer2's identity topology transactions
         // * generate the decentralized namespace declaration and share via decentralizedNamespaceFile
         {
-          // load mediator's identity
+          // load sequencer2's identity
           sequencer1.topology.transactions
-            .import_topology_snapshot_from(identityFile, TopologyStoreId.Authorized)
+            .import_topology_snapshot_from(identityFileSeq, TopologyStoreId.Authorized)
+          sequencer1.topology.transactions
+            .import_topology_snapshot_from(identityFileMed, TopologyStoreId.Authorized)
 
           // propose the decentralized namespace declaration with the sequencer's signature
-          val seqDND = sequencer1.topology.decentralized_namespaces.propose_new(
-            owners = Set(sequencerId.namespace, mediatorId.namespace),
+          val seq1DND = sequencer1.topology.decentralized_namespaces.propose_new(
+            owners = Set(sequencer1Id.namespace, sequencer2Id.namespace),
             threshold = PositiveInt.one,
             store = TopologyStoreId.Authorized,
           )
 
           // share the decentralized namespace declaration
-          seqDND.writeToFile(decentralizedNamespaceFile)
+          seq1DND.writeToFile(decentralizedNamespaceFile)
+
           synchronizerId = SynchronizerId(
-            UniqueIdentifier.tryCreate(synchronizerName, seqDND.mapping.namespace.toProtoPrimitive)
-          ).toPhysical
+            UniqueIdentifier.tryCreate(synchronizerName, seq1DND.mapping.namespace.toProtoPrimitive)
+          )
+
+          physicalSynchronizerId =
+            PhysicalSynchronizerId(synchronizerId, synchronizerParams.toInternal)
         }
 
-        // Mediator's console:
-        // * load the sequencer's decentralized namespace declaration
-        // * sign the decentralized namespace declaration and share it again (this time including the mediator's signature) via decentralizedNamespaceFile
-        // * generate the synchronizer bootstrap transactions with the mediator's signature and share via synchronizerBootstrapFile
+        // Sequencer2 console:
+        // * load sequencer1's decentralized namespace declaration
+        // * sign the decentralized namespace declaration and share it again (this time including sequencer1's signature) via decentralizedNamespaceFile
+        // * generate the synchronizer bootstrap transactions with the sequencer1's signature and share via synchronizerBootstrapFile
         {
-          // load sequencer's decentralized namespace declaration
-          mediator1.topology.transactions.load_single_from_file(
+          // load sequencer1's decentralized namespace declaration
+          sequencer2.topology.transactions.load_single_from_file(
             decentralizedNamespaceFile,
             TopologyStoreId.Authorized,
             ForceFlag.AlienMember,
           )
 
-          // propose the same decentralized namespace declaration, but this time with the mediator's signature
-          val medDND = mediator1.topology.decentralized_namespaces.propose_new(
-            owners = Set(sequencerId.namespace, mediatorId.namespace),
+          // propose the same decentralized namespace declaration, but this time with sequencer2's signature
+          val seq2DND = sequencer2.topology.decentralized_namespaces.propose_new(
+            owners = Set(sequencer1Id.namespace, sequencer2Id.namespace),
             threshold = PositiveInt.one,
             store = TopologyStoreId.Authorized,
           )
-          medDND.writeToFile(decentralizedNamespaceFile)
+          seq2DND.writeToFile(decentralizedNamespaceFile)
 
-          // generate the synchronizer bootstrap transactions with the mediator's signature
-          mediator1.topology.synchronizer_bootstrap.download_genesis_topology(
-            synchronizerId,
-            synchronizerOwners = Seq(mediatorId, sequencerId),
-            sequencers = Seq(sequencerId),
-            mediators = Seq(mediatorId),
+          // generate and export the synchronizer bootstrap transactions with the sequencer2's signature
+          sequencer2.topology.synchronizer_bootstrap.download_genesis_topology(
+            physicalSynchronizerId,
+            synchronizerOwners = Seq(sequencer1Id, sequencer2Id),
+            sequencers = Seq(sequencer1Id, sequencer2Id),
+            mediators = Seq(mediator1.id, mediator2.id),
             outputFile = synchronizerBootstrapFile,
             store = TopologyStoreId.Authorized,
           )
+
+          // create the initial topology snapshot by loading all transactions from the sequencer's authorized store
+          val initialSnapshot =
+            sequencer2.topology.transactions
+              .export_topology_snapshot(store = TopologyStoreId.Authorized)
+
+          // and finally initialize the sequencer with the topology snapshot
+          sequencer2.setup.assign_from_genesis_state(initialSnapshot, synchronizerParams)
         }
 
-        // Sequencer's console:
-        // * load the mediator's decentralized namespace declaration
-        // * load the mediator's synchronizer bootstrap transactions
-        // * generate the sequencer's synchronizer bootstrap transactions, merging signatures from the sequencer and the mediator
+        // Sequencer1's console:
+        // * load sequencer2's decentralized namespace declaration
+        // * load sequencer2's synchronizer bootstrap transactions
+        // * generate the sequencer's synchronizer bootstrap transactions, merging signatures from the sequencers
         // * bootstrap the sequencer with the fully authorized initial topology snapshot
-        // * share the sequencer connection via sequencerConnectionFile
         {
-          // load mediator's identity and decentralized namespace declaration
+          // load sequencer2's identity and decentralized namespace declaration
           sequencer1.topology.transactions.load_single_from_file(
             decentralizedNamespaceFile,
             TopologyStoreId.Authorized,
             ForceFlag.AlienMember,
           )
 
-          // load mediator's synchronizer bootstrap
+          // load sequencer2's synchronizer bootstrap
           sequencer1.topology.transactions.load_multiple_from_file(
             synchronizerBootstrapFile,
             TopologyStoreId.Authorized,
             ForceFlag.AlienMember,
           )
 
-          // create sequencer's synchronizer bootstrap, effectively signing the mediator's
+          // create sequencer's synchronizer bootstrap, effectively signing sequencer2's
           // bootstrap transactions with the sequencer's signature
           sequencer1.topology.synchronizer_bootstrap.generate_genesis_topology(
-            synchronizerId,
-            synchronizerOwners = Seq(mediatorId, sequencerId),
-            sequencers = Seq(sequencerId),
-            mediators = Seq(mediatorId),
+            physicalSynchronizerId,
+            synchronizerOwners = Seq(sequencer1Id, sequencer2Id),
+            sequencers = Seq(sequencer1Id, sequencer2Id),
+            mediators = Seq(mediator1.id, mediator2.id),
             store = TopologyStoreId.Authorized,
           )
 
           // create the initial topology snapshot by loading all transactions from the sequencer's authorized store
-          val initialSnapshot = sequencer1.topology.transactions
-            .export_topology_snapshot(store = TopologyStoreId.Authorized)
+          val initialSnapshot =
+            sequencer1.topology.transactions
+              .export_topology_snapshot(store = TopologyStoreId.Authorized)
 
           // load the static synchronizer parameters
           val synchronizerParams = StaticSynchronizerParameters.tryReadFromFile(paramsFile)
 
           // and finally initialize the sequencer with the topology snapshot
           sequencer1.setup.assign_from_genesis_state(initialSnapshot, synchronizerParams)
-
-          // share the sequencer connection via sequencerConnectionFile
-          SequencerConnections
-            .single(sequencer1.sequencerConnection)
-            .writeToFile(sequencerConnectionFile)
         }
 
-        // Mediator's console:
-        // * read the sequencer connection and synchronizer parameters
-        // * initialize the mediator with the sequencer connection and synchronizer parameters
+        // Sequencer1 console:
+        // * initialize mediator1 with the sequencer connection and synchronizer parameters
         {
-          val sequencerConnections =
-            SequencerConnections.tryReadFromTrustedFile(sequencerConnectionFile)
-
           mediator1.setup.assign(
-            synchronizerId,
-            sequencerConnections,
+            physicalSynchronizerId,
+            SequencerConnections.single(sequencer1.sequencerConnection),
           )
           mediator1.health.wait_for_initialized()
         }
+
+        // Sequencer2 console:
+        // * initialize mediator2 with the sequencer connection and synchronizer parameters
+        {
+          mediator2.setup.assign(
+            physicalSynchronizerId,
+            SequencerConnections.single(sequencer2.sequencerConnection),
+          )
+          mediator2.health.wait_for_initialized()
+        }
       }
 
-      // verify that the synchronizer is properly bootstrapped
+      // verify that the synchronizer is properly bootstrapped by pinging between two participants
+      //  connected to different sequencers
       participant1.synchronizers.connect_local(sequencer1, alias = daName)
-      participant1.health.ping(participant1)
+      participant2.synchronizers.connect_local(sequencer2, alias = daName)
+      participant1.health.ping(participant2, timeout = 30.seconds)
     }
   }
 }

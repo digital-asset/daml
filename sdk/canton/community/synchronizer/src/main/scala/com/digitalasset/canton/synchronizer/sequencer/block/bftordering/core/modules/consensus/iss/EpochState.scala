@@ -11,12 +11,17 @@ import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch.{
+  blockToLeaderFromSegments,
+  computeSegments,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.retransmissions.EpochStatusBuilder
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
   BlockNumber,
+  EpochLength,
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -108,18 +113,11 @@ class EpochState[E <: Env[E]](
   private lazy val mySegmentModule = segmentModules.get(epoch.currentMembership.myId)
   private val mySegment = epoch.segments.find(_.originalLeader == epoch.currentMembership.myId)
 
-  private lazy val blockToSegmentModule
-      : Map[BlockNumber, E#ModuleRefT[ConsensusSegment.Message]] = {
-    val blockToLeader = (for {
-      segment <- epoch.segments
-      number <- segment.slotNumbers
-    } yield (number, segment.originalLeader)).toMap
-
+  private lazy val blockToSegmentModule: Map[BlockNumber, E#ModuleRefT[ConsensusSegment.Message]] =
     (epoch.info.startBlockNumber to epoch.info.lastBlockNumber).map { n =>
       val blockNumber = BlockNumber(n)
-      blockNumber -> segmentModules(blockToLeader(BlockNumber(blockNumber)))
+      blockNumber -> segmentModules(epoch.blockToLeader(BlockNumber(blockNumber)))
     }.toMap
-  }
 
   def requestSegmentStatuses(): EpochStatusBuilder = {
     epoch.segments.zipWithIndex.foreach { case (segment, segmentIndex) =>
@@ -247,19 +245,37 @@ object EpochState {
       currentMembership: Membership,
       previousMembership: Membership,
   ) {
+    val segments: Seq[Segment] =
+      computeSegments(currentMembership.leaders, info.startBlockNumber, info.length)
+
+    lazy val blockToLeader: Map[BlockNumber, BftNodeId] = blockToLeaderFromSegments(segments)
+  }
+
+  object Epoch {
     // Using `take` below, we select either a subset of leaders (if leaders.size > epoch length),
     // or the entire leaders collection. In general, having leaders.size > epoch length seems like
     // poor parameters configuration.
-    val segments: Seq[Segment] = currentMembership.leaders
-      .take(info.length.toInt)
-      .zipWithIndex
-      .map { case (node, index) =>
-        createSegment(node, index)
-      }
+    def computeSegments(
+        leaders: Seq[BftNodeId],
+        startBlockNumber: BlockNumber,
+        epochLength: EpochLength,
+    ): Seq[Segment] =
+      leaders
+        .take(epochLength.toInt)
+        .zipWithIndex
+        .map { case (node, index) =>
+          computeSegment(leaders, startBlockNumber, epochLength, node, index)
+        }
 
-    private def createSegment(leader: BftNodeId, leaderIndex: Int): Segment = {
-      val firstSlot = BlockNumber(info.startBlockNumber + leaderIndex)
-      val stepSize = currentMembership.leaders.size
+    private def computeSegment(
+        leaders: Seq[BftNodeId],
+        startBlockNumber: BlockNumber,
+        epochLength: EpochLength,
+        leader: BftNodeId,
+        leaderIndex: Int,
+    ): Segment = {
+      val firstSlot = BlockNumber(startBlockNumber + leaderIndex)
+      val stepSize = leaders.size
       Segment(
         originalLeader = leader,
         slotNumbers = NonEmpty.mk(
@@ -267,11 +283,23 @@ object EpochState {
           firstSlot,
           LazyList
             .iterate(firstSlot + stepSize)(_ + stepSize)
-            .takeWhile(_ < info.startOfNextEpochBlockNumber)
+            .takeWhile(_ < (startBlockNumber + epochLength))
             .map(BlockNumber(_))*
         ),
       )
     }
+
+    def blockToLeaderFromSegments(segments: Seq[Segment]): Map[BlockNumber, BftNodeId] = (for {
+      segment <- segments
+      number <- segment.slotNumbers
+    } yield (number, segment.originalLeader)).toMap
+
+    def blockToLeadersFromEpochInfo(
+        leaders: Seq[BftNodeId],
+        startBlockNumber: BlockNumber,
+        epochLength: EpochLength,
+    ): Map[BlockNumber, BftNodeId] =
+      blockToLeaderFromSegments(computeSegments(leaders, startBlockNumber, epochLength))
   }
 
   final case class Segment(

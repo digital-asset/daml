@@ -194,7 +194,7 @@ trait MessageDispatcherTest {
           any[Traced[List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]]],
         )
       )
-        .thenReturn(FutureUnlessShutdown.unit)
+        .thenReturn(HandlerResult.done)
 
       val requestCounterAllocator =
         new RequestCounterAllocatorImpl(initRc, cleanReplaySequencerCounter, loggerFactory)
@@ -674,7 +674,7 @@ trait MessageDispatcherTest {
           any[Traced[List[OpenEnvelope[SignedProtocolMessage[AcsCommitment]]]]],
         )
       )
-        .thenReturn(FutureUnlessShutdown.unit)
+        .thenReturn(HandlerResult.done)
 
       val event = mkDeliver(
         Batch.of[ProtocolMessage](testedProtocolVersion, idTx -> Recipients.cc(participantId)),

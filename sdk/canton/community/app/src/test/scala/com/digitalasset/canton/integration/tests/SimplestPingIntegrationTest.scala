@@ -16,6 +16,7 @@ import com.digitalasset.canton.integration.{
   EnvironmentDefinition,
   SharedEnvironment,
 }
+import com.digitalasset.canton.version.ProtocolVersion
 import monocle.macros.syntax.lens.*
 
 import scala.concurrent.duration.*
@@ -24,7 +25,9 @@ import scala.concurrent.duration.*
 trait SimplestPingIntegrationTest extends CommunityIntegrationTest with SharedEnvironment {
 
   override def environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1
+    EnvironmentDefinition.P2_S1M1.addConfigTransform(
+      ConfigTransforms.enableConnectionPoolIf(testedProtocolVersion >= ProtocolVersion.dev)
+    )
 
   "we can run a trivial ping" in { implicit env =>
     import env.*

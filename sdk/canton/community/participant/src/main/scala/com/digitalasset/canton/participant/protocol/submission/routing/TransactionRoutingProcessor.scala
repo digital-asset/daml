@@ -16,7 +16,6 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.TransactionRoutingError
 import com.digitalasset.canton.error.TransactionRoutingError.ConfigurationErrors.{
   InvalidPrescribedSynchronizerId,
-  MultiSynchronizerSupportNotEnabled,
   SubmissionSynchronizerNotReady,
 }
 import com.digitalasset.canton.error.TransactionRoutingError.TopologyErrors.{
@@ -65,7 +64,6 @@ class TransactionRoutingProcessor(
     contractsReassigner: ContractsReassigner,
     connectedSynchronizersLookup: ConnectedSynchronizersLookup,
     serializableContractAuthenticator: ContractAuthenticator,
-    enableAutomaticReassignments: Boolean,
     synchronizerRankComputation: SynchronizerRankComputation,
     synchronizerSelectorFactory: SynchronizerSelectorFactory,
     override protected val timeouts: ProcessingTimeout,
@@ -219,17 +217,9 @@ class TransactionRoutingProcessor(
             s"Choosing the synchronizer as single-synchronizer workflow for ${submitterInfo.commandId}"
           )
           synchronizerSelector.forSingleSynchronizer
-        } else if (enableAutomaticReassignments) {
-          logger.debug(
-            s"Choosing the synchronizer as multi-synchronizer workflow for ${submitterInfo.commandId}"
-          )
-          chooseSynchronizerForMultiSynchronizer(synchronizerSelector)
         } else
-          EitherT.leftT[FutureUnlessShutdown, SynchronizerRank](
-            MultiSynchronizerSupportNotEnabled.Error(
-              transactionData.inputContractsSynchronizerData.synchronizers.map(_.logical)
-            ): TransactionRoutingError
-          )
+          chooseSynchronizerForMultiSynchronizer(synchronizerSelector)
+
     } yield synchronizerRankTarget
 
   /** Computes the highest ranked synchronizer from the given admissible synchronizers without
@@ -252,7 +242,7 @@ class TransactionRoutingProcessor(
       .fromEither[FutureUnlessShutdown](
         TransactionMetadata.fromTransactionMeta(
           metaLedgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
-          metaSubmissionTime = transactionMeta.submissionTime,
+          metaPreparationTime = transactionMeta.preparationTime,
           metaOptNodeSeeds = transactionMeta.optNodeSeeds,
         )
       )
@@ -421,7 +411,6 @@ object TransactionRoutingProcessor {
       reassigner,
       connectedSynchronizersLookup,
       serializableContractAuthenticator,
-      enableAutomaticReassignments = parameters.enablePreviewFeatures,
       synchronizerRankComputation,
       synchronizerSelectorFactory,
       parameters.processingTimeouts,

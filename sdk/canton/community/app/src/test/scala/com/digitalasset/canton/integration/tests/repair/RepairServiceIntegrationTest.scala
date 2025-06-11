@@ -247,7 +247,7 @@ sealed trait RepairServiceIntegrationTestStableLf
         import env.*
         def queryCids(): Seq[String] =
           participant1.ledger_api.state.acs.of_all().collect {
-            case entry if entry.synchronizerId.contains(daId) => entry.contractId
+            case entry if entry.synchronizerId.contains(daId.logical) => entry.contractId
           }
 
         withParticipantsInitialized { (alice, bob) =>

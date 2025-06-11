@@ -498,6 +498,38 @@ object TopologyAdminCommands {
           .leftMap(_.toString)
     }
 
+    final case class ListSequencerConnectionSuccessor(
+        query: BaseQuery,
+        filterSequencerId: String,
+    ) extends BaseCommand[
+          v30.ListSequencerConnectionSuccessorRequest,
+          v30.ListSequencerConnectionSuccessorResponse,
+          Seq[ListSequencerConnectionSuccessorResult],
+        ] {
+
+      override protected def createRequest()
+          : Either[String, v30.ListSequencerConnectionSuccessorRequest] =
+        Right(
+          new ListSequencerConnectionSuccessorRequest(
+            baseQuery = Some(query.toProtoV1),
+            filterSequencerId = filterSequencerId,
+          )
+        )
+
+      override protected def submitRequest(
+          service: TopologyManagerReadServiceStub,
+          request: v30.ListSequencerConnectionSuccessorRequest,
+      ): Future[v30.ListSequencerConnectionSuccessorResponse] =
+        service.listSequencerConnectionSuccessor(request)
+
+      override protected def handleResponse(
+          response: v30.ListSequencerConnectionSuccessorResponse
+      ): Either[String, Seq[ListSequencerConnectionSuccessorResult]] =
+        response.results
+          .traverse(ListSequencerConnectionSuccessorResult.fromProtoV30)
+          .leftMap(_.toString)
+    }
+
     final case class ListStores()
         extends BaseCommand[v30.ListAvailableStoresRequest, v30.ListAvailableStoresResponse, Seq[
           TopologyStoreId

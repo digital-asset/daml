@@ -5,23 +5,49 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mo
 
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
+  BlockNumber,
   EpochNumber,
+  ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  Env,
+  FutureContext,
+}
+import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.immutable.SortedSet
 
-import LeaderSelectionPolicy.rotateLeaders
+trait LeaderSelectionPolicy[E <: Env[E]] {
 
-trait LeaderSelectionPolicy {
+  def getLeaders(
+      orderingTopology: OrderingTopology,
+      epochNumber: EpochNumber,
+  ): Seq[BftNodeId]
 
-  def selectLeaders(nodes: Set[BftNodeId]): SortedSet[BftNodeId]
+  def addBlock(
+      epochNumber: EpochNumber,
+      orderedBlockNumber: BlockNumber,
+      viewNumber: ViewNumber,
+  ): Unit
 
-  def getLeaders(orderingTopology: OrderingTopology, epochNumber: EpochNumber): Seq[BftNodeId] = {
-    val selectedLeaders =
-      selectLeaders(orderingTopology.nodes)
-    rotateLeaders(selectedLeaders, epochNumber)
-  }
+  /** Computes the first block we need to [[addBlock]] from. We are snapshotting the state at the
+    * epoch boundary so this will usually be the first block in the epoch. If we don't rely on
+    * replaying old blocks this will return [[scala.None$]].
+    */
+  def firstBlockWeNeedToAdd: Option[BlockNumber]
+
+  def getHistoricState(
+      epochNumber: EpochNumber
+  )(implicit
+      futureContext: FutureContext[E],
+      traceContext: TraceContext,
+  ): E#FutureUnlessShutdownT[Option[BlacklistLeaderSelectionPolicyState]]
+
+  def saveStateFor(epochNumber: EpochNumber, orderingTopology: OrderingTopology)(implicit
+      futureContext: FutureContext[E],
+      traceContext: TraceContext,
+  ): E#FutureUnlessShutdownT[Unit]
 }
 
 object LeaderSelectionPolicy {

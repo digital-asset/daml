@@ -14,7 +14,6 @@ import com.digitalasset.canton.tracing.NoTracing
 import io.grpc.Channel
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
-import scalaz.std.anyVal.*
 import scalaz.std.option.*
 import scalaz.syntax.show.*
 
@@ -60,7 +59,6 @@ object HttpApiServer extends NoTracing {
           s", assigned httpPort=${serverBinding.localAddress.getPort}" +
           s", portFile=${config.server.portFile: Option[Path]}" +
           s", pathPrefix=${config.server.pathPrefix}" +
-          s", allowNonHttps=${config.allowInsecureTokens.shows}" +
           s", wsConfig=${config.websocketConfig.shows}" +
           ")"
       )
