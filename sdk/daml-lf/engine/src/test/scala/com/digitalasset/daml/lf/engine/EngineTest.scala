@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.Util._
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKey,
   GlobalKeyWithMaintainers,
@@ -195,7 +196,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             keyOpt = None,
             version = basicTestsPkg.languageVersion,
           ),
-          Time.Timestamp.now(),
+          CreationTime.CreatedAt(Time.Timestamp.now()),
           Bytes.Empty,
         )
 
@@ -257,7 +258,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion, contractIdVersion: 
             keyOpt = None,
             version = basicTestsPkg.languageVersion,
           ),
-          Time.Timestamp.now(),
+          CreationTime.CreatedAt(Time.Timestamp.now()),
           Bytes.Empty,
         )
 
@@ -2946,7 +2947,8 @@ class EngineTestHelpers(
           (
             contracts.updated(
               create.coid,
-              FatContractInstance.fromCreateNode(create, meta.submissionTime, Bytes.Empty),
+              FatContractInstance
+                .fromCreateNode(create, CreationTime.CreatedAt(meta.submissionTime), Bytes.Empty),
             ),
             create.keyOpt.fold(keys)(k => keys.updated(k, create.coid)),
           )
@@ -2989,7 +2991,7 @@ class EngineTestHelpers(
           ),
           version = version,
         ),
-        Time.Timestamp.now(),
+        CreationTime.CreatedAt(Time.Timestamp.now()),
         Bytes.Empty,
       ),
       arg,

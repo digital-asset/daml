@@ -8,7 +8,7 @@ import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 
 trait ContractAuthenticator {
@@ -64,7 +64,10 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
       driverMetadata <- DriverContractMetadata
         .fromLfBytes(contract.cantonData.toByteArray)
         .leftMap(_.toString)
-      createTime <- CantonTimestamp.fromInstant(contract.createdAt.toInstant)
+      createTime <- contract.createdAt match {
+        case CreationTime.CreatedAt(time) => Right(CantonTimestamp(time))
+        case CreationTime.Now => Left(s"Cannot determine creation time for contract ${contract.contractId}.")
+      }
       contractInstance <- SerializableRawContractInstance
         .create(
           Versioned(

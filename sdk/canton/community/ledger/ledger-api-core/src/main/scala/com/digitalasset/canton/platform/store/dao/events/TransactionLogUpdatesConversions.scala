@@ -56,6 +56,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
@@ -794,7 +795,7 @@ private[events] object TransactionLogUpdatesConversions {
   ): Future[apiEvent.CreatedEvent] = {
 
     def getFatContractInstance: Right[Nothing, FatContractInstance] =
-      Right(FatContractInstance.fromCreateNode(create, ledgerEffectiveTime, driverMetadata))
+      Right(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(ledgerEffectiveTime), driverMetadata))
 
     val witnesses = requestingPartiesO
       .fold(createdEventWitnesses)(_.view.filter(createdEventWitnesses).toSet)

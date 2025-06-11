@@ -20,7 +20,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val signatories: TreeSet[Ref.Party]
   val stakeholders: TreeSet[Ref.Party]
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
-  val createdAt: Time.Timestamp
+  val createdAt: CreationTime
   val cantonData: Bytes
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
@@ -69,7 +69,7 @@ private[lf] final case class FatContractInstanceImpl(
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
-    createdAt: Time.Timestamp,
+    createdAt: CreationTime,
     cantonData: Bytes,
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl] {
@@ -88,7 +88,7 @@ private[lf] final case class FatContractInstanceImpl(
   }
 
   override def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstanceImpl =
-    copy(createdAt = updatedTime)
+    copy(createdAt = CreationTime.CreatedAt(updatedTime))
 
   override def setSalt(cantonData: Bytes): FatContractInstanceImpl = {
     assert(cantonData.nonEmpty)
@@ -100,7 +100,7 @@ object FatContractInstance {
 
   def fromCreateNode(
       create: Node.Create,
-      createTime: Time.Timestamp,
+      createTime: CreationTime,
       cantonData: Bytes,
   ): FatContractInstance =
     FatContractInstanceImpl(
@@ -137,8 +137,29 @@ object FatContractInstance {
       signatories = DummyParties,
       stakeholders = DummyParties,
       contractKeyWithMaintainers = None,
-      createdAt = Time.Timestamp.MinValue,
+      createdAt = CreationTime.CreatedAt(Time.Timestamp.MinValue),
       cantonData = Bytes.Empty,
     )
 
+}
+
+sealed trait CreationTime extends Product with Serializable
+object CreationTime {
+  final case class CreatedAt(time: Time.Timestamp) extends CreationTime
+
+  case object Now extends CreationTime
+  type Now = Now.type
+
+  def encode(creationTime: CreationTime): Long =
+    creationTime match {
+      case CreatedAt(time) => time.micros
+      case Now => Long.MinValue
+    }
+
+  def decode(encoded: Long): Either[String, CreationTime] =
+    if (encoded == Long.MinValue) Right(Now)
+    else Time.Timestamp.fromLong(encoded).map(CreatedAt)
+
+  def assertDecode(encoded: Long): CreationTime =
+    data.assertRight(decode(encoded))
 }
