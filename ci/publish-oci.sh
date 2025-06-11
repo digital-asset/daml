@@ -91,7 +91,7 @@ function publish_artifact {
   if [[ "$artifact_path" =~ .jar ]]; then
     declare -a artifact_platforms=( "generic" )
   else
-    declare -a artifact_platforms=( "linux-arm,linux/arm64" "linux-intel,linux/amd64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/arm64" "windows,windows/amd64" )
+    declare -a artifact_platforms=( "linux-arm,linux/arm64" "linux-intel,linux/amd64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/amd64" )
   fi
   declare -a platform_args
   local artifact arch search_pattern
