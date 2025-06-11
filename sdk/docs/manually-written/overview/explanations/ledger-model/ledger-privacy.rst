@@ -6,7 +6,7 @@
 Privacy
 #######
 
-.. note::
+.. wip::
 
    It makes sense to have privacy before integrity, because this introduces projection.
    But this text was written with the opposite order in mind.

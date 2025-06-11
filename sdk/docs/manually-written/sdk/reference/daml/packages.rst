@@ -1,6 +1,7 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _reference-daml-packages:
 
 Reference: Daml Packages
 ########################
@@ -180,7 +181,6 @@ When importing packages this way, the Daml compiler will try to reconstruct the 
 
 .. TODO (#4932): Add warnings for advanced features that aren't supported, and add a comment on item #4.
 
-Because of their flexibility, data-dependencies are a tool that is recommended for performing Daml model upgrades. See the :ref:`upgrade documentation <upgrade-overview>` for more details.
 
 Transitive dependency management
 ================================

@@ -3,7 +3,7 @@
 
 load("@build_bazel_rules_nodejs//:index.bzl", "nodejs_binary")
 load("@os_info//:os_info.bzl", "is_windows")
-load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_test")
+load("//rules_daml:daml.bzl", "daml_build_test", "daml_compile", "daml_multi_package_test", "daml_test")
 load("@rules_pkg//:pkg.bzl", "pkg_tar")
 load("@build_environment//:configuration.bzl", "mvn_version", "sdk_version")
 load("@scala_version//:index.bzl", "scala_major_version")
@@ -69,7 +69,7 @@ genrule(
         exclude = ["**/.daml/**"],
     ) + [
         "//compiler/damlc:daml-base-rst.tar.gz",
-        "//daml-script/daml:daml-script-rst.tar.gz",
+        # "//daml-script/daml:daml-script-rst.tar.gz",
         "//:LICENSE",
         "//:NOTICES",
     ],
@@ -84,10 +84,10 @@ genrule(
             -C source/sdk/reference/daml/stdlib
 
         # Copy in daml-script documentation
-        mkdir -p source/sdk/reference/daml-script/api/
-        tar xf $(location //daml-script/daml:daml-script-rst.tar.gz) \\
-            --strip-components 1 \\
-            -C source/sdk/reference/daml-script/api/
+        # mkdir -p source/sdk/reference/daml-script/api/
+        # tar xf $$(location //daml-script/daml:daml-script-rst.tar.gz) \\
+        #     --strip-components 1 \\
+        #     -C source/sdk/reference/daml-script/api/
 
         # Copy in License and Notices
         cp -L $(location //:LICENSE) source/LICENSE
@@ -108,7 +108,7 @@ genrule(
         "configs/pdf/logo.png",
         "//templates:templates-tarball",
         "//compiler/damlc:daml-base-rst.tar.gz",
-        "//daml-script/daml:daml-script-rst.tar.gz",
+        # "//daml-script/daml:daml-script-rst.tar.gz",
         "//:LICENSE",
         "//:NOTICES",
     ],
@@ -128,7 +128,7 @@ genrule(
     cp $(location //templates:templates-tarball) $$DIR/deps/
 
     cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
-    cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
+    # cp $$(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
     cp -L $(location //:LICENSE) $$DIR/deps/
     cp -L $(location //:NOTICES) $$DIR/deps/
 
@@ -492,94 +492,25 @@ daml_test(
 )
 
 daml_test(
-    name = "daml-intro-daml-test-excl-8-9-10-12-13",
+    name = "daml-intro-daml-test-base",
     srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/**/*.daml"],
+        ["source/sdk/tutorials/smart-contracts/daml/**/*.daml"],
         exclude = [
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-8/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-9/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-10/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part1/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part2/**",
-            "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-13/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-11/**",
         ],
     ),
-    # TODO(https://github.com/digital-asset/daml/issues/18457): remove contract keys from the
-    #  docs, delete the explicit target, and revert the daml-script.dar to the non-dev version.
-    target = "2.dev",
-    deps = ["//daml-script/daml:daml-script-2.dev.dar"],
-)
-
-daml_test(
-    name = "daml-intro-daml-13-test",
-    srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-13/**/*.daml"],
-    ),
-    additional_compiler_flags = ["-Wupgrade-interfaces"],
-    enable_interfaces = True,
     target = "2.1",
     deps = ["//daml-script/daml:daml-script-2.1.dar"],
-)
-
-daml_test(
-    name = "daml-intro-daml-12-part1-test",
-    srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part1/**/*.daml"],
-    ),
-    additional_compiler_flags = [
-        "-Wupgrade-interfaces",
-        "-Wupgrade-exceptions",
-    ],
-    enable_interfaces = True,
-    target = "2.1",
-    deps = ["//daml-script/daml:daml-script-2.1.dar"],
-)
-
-daml_compile(
-    name = "daml-intro12-part1",
-    srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part1/**/*.daml"],
-    ),
-    dependencies = ["//daml-script/daml:daml-script-2.1.dar"],
-    enable_interfaces = True,
-    target = "2.1",
-)
-
-daml_test(
-    name = "daml-intro-daml-12-part2-test",
-    srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-12-part2/**/*.daml"],
-    ),
-    additional_compiler_flags = [
-        "-Wupgrade-interfaces",
-        "-Wupgrade-exceptions",
-    ],
-    data_deps = ["daml-intro12-part1.dar"],
-    enable_interfaces = True,
-    target = "2.1",
-    deps = ["//daml-script/daml:daml-script-2.1.dar"],
-)
-
-daml_test(
-    name = "daml-intro-daml-10-test",
-    srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-10/**/*.daml"],
-    ),
-    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
-    deps = ["//daml-script/daml:daml-script.dar"],
-)
-
-daml_test(
-    name = "daml-intro-9-daml-test",
-    srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-9/**/*.daml"]),
-    data_deps = [":daml-intro-7.dar"],
-    deps = ["//daml-script/daml:daml-script.dar"],
 )
 
 [
     daml_test(
-        name = "daml-intro-8-daml-test-{}".format(version),
-        srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-8/**/*.daml"]),
+        name = "daml-intro-exceptions-daml-test-{}".format(version),
+        srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-exceptions/**/*.daml"]),
         additional_compiler_flags = ["-Wupgrade-exceptions"],
         target = version,
         deps = ["//daml-script/daml:daml-script-{}.dar".format(version)],
@@ -587,13 +518,36 @@ daml_test(
     for version in ENGINE_LF_DEV_VERSIONS
 ]
 
+daml_test(
+    name = "daml-intro-9-daml-test",
+    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**/*.daml"]),
+    data_deps = [":daml-intro-compose.dar"],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
+daml_test(
+    name = "daml-intro-daml-functional-101-test",
+    srcs = glob(
+        ["source/sdk/tutorials/smart-contracts/daml/daml-intro-functional-101/**/*.daml"],
+    ),
+    additional_compiler_flags = ["--ghc-option=-Wwarn=incomplete-patterns"],
+    deps = ["//daml-script/daml:daml-script.dar"],
+)
+
 daml_build_test(
-    name = "daml-intro-7",
-    daml_yaml = ":daml-intro-7.yaml",
+    name = "daml-intro-compose",
+    daml_yaml = ":daml-intro-compose.yaml",
     dar_dict = {
         "//daml-script/daml:daml-script.dar": "daml-script.dar",
     },
-    project_dir = "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/daml-intro-7",
+    project_dir = "source/sdk/tutorials/smart-contracts/daml/daml-intro-compose",
+)
+
+daml_multi_package_test(
+    name = "daml-intro-test",
+    srcs = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/*.daml"]),
+    build_files = glob(["source/sdk/tutorials/smart-contracts/daml/daml-intro-test/**/daml.yaml.template"]),
+    multi_package_file = ":source/sdk/tutorials/smart-contracts/daml/daml-intro-test/multi-package.yaml",
 )
 
 daml_build_test(
@@ -643,24 +597,16 @@ daml_build_test(
     project_dir = "source/sdk/sdlc-howtos/smart-contracts/upgrade/example/carbon-initiate-upgrade",
 )
 
-filegroup(
-    name = "daml-intro-1",
-    srcs = glob(
-        ["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/1_Token/**/*"],
-        # excluding quickstart-java stuff
-        exclude = [
-            "source/sdk/tutorials/quickstart/template-root/src",
-            "source/sdk/tutorials/quickstart/template-root/pom.xml",
-        ],
-        exclude_directories = 0,
-    ),
-    visibility = ["//visibility:public"],
-)
-
 pkg_tar(
     name = "daml-intro-templates",
-    srcs = glob(["source/sdk/sdlc-howtos/smart-contracts/develop/language/daml/**"]),
-    strip_prefix = "source/sdk/sdlc-howtos/smart-contracts/develop/language/daml",
+    srcs = glob(
+        ["source/sdk/tutorials/smart-contracts/daml/**"],
+        exclude = [
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-9/**",
+            "source/sdk/tutorials/smart-contracts/daml/daml-intro-11/**",
+        ],
+    ),
+    strip_prefix = "source/sdk/tutorials/smart-contracts/daml",
     visibility = ["//visibility:public"],
 )
 

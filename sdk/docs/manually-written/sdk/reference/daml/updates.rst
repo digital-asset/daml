@@ -1,6 +1,8 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _reference-updates:
+
 Reference: Updates
 ##################
 
@@ -105,7 +107,7 @@ exerciseByKey
    exerciseByKey @ContractType contractKey NameOfChoiceOnContract with choiceArgument1 = value1
 
 - ``exerciseByKey`` function.
-- Like ``exercise``, but the contract is specified by :doc:`contract key </daml/reference/contract-keys>`, instead of contract ID.
+- Like ``exercise``, but the contract is specified by :ref:`contract key <contractkeys>`, instead of contract ID.
 - For details see :ref:`Reference: Contract Keys: exerciseByKey<exercisebykey>`
 
 .. _daml-ref-fetch:
@@ -133,7 +135,7 @@ fetchByKey
    fetchedContract <- fetchByKey @ContractType contractKey
 
 - ``fetchByKey`` function.
-- Like ``fetch``, but fetches the contract with that :doc:`contract key </daml/reference/contract-keys>`, instead of the contract ID.
+- Like ``fetch``, but fetches the contract with that :ref:`contract key <contractkeys>`, instead of the contract ID.
 - For details see :ref:`Reference: Contract Keys: fetchByKey<fetchbykey>`.
 
 .. _daml-ref-lookup-by-key:
@@ -146,7 +148,7 @@ visibleByKey
    isVisible <- visibleByKey @ContractType contractKey
 
 - ``visibleByKey`` function.
-- Use this to check whether a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
+- Use this to check whether a contract with the given :ref:`contract key <contractkeys>` exists.
 - For details see :ref:`Reference: Contract Keys: visibleByKey<visiblebykey>`
 
 lookupByKey
@@ -157,7 +159,7 @@ lookupByKey
    fetchedContractId <- lookupByKey @ContractType contractKey
 
 - ``lookupByKey`` function.
-- Use this to confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
+- Use this to confirm that a contract with the given :ref:`contract key <contractkeys>` exists.
 - For details see :ref:`Reference: Contract Keys: lookupByKey<lookupbykey>`
 
 .. _daml-ref-abort:

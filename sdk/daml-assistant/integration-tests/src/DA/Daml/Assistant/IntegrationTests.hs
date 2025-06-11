@@ -531,8 +531,16 @@ templateTests = testGroup "templates" $
   -- NOTE (MK) We might want to autogenerate this list at some point but for now
   -- this should be good enough.
   where templateNames =
-            [ -- daml-intro-1 - daml-intro-6 are not full projects.
-              "daml-intro-7"
+            [ "daml-intro-choices"
+            , "daml-intro-compose"
+            , "daml-intro-constraints"
+            , "daml-intro-contracts"
+            , "daml-intro-daml-scripts"
+            , "daml-intro-data"
+--            , "daml-intro-exceptions"    -- warn for deprecated exceptions
+            , "daml-intro-functional-101"
+            , "daml-intro-parties"
+--            , "daml-intro-test"          -- multi-package
             , "daml-patterns"
             , "quickstart-java"
             , "script-example"

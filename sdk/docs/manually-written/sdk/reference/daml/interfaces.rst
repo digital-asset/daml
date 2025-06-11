@@ -201,10 +201,13 @@ For context, a simple template definition:
 ``interface instance`` clause in the interface
 ----------------------------------------------
 
-.. literalinclude:: code-snippets-dev/Interfaces.daml
-   :language: daml
-   :start-after: -- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
-   :end-before: -- INTERFACE_INSTANCE_IN_INTERFACE_END
+.. todo:: Fix or remove this literal include
+
+.. INTERFACE_INSTANCE_IN_INTERFACE_BEGIN no longer exists in the daml file
+    .. literalinclude:: code-snippets-dev/Interfaces.daml
+       :language: daml
+       :start-after: -- INTERFACE_INSTANCE_IN_INTERFACE_BEGIN
+       :end-before: -- INTERFACE_INSTANCE_IN_INTERFACE_END
 
 - To make an *existing* template an instance of a new interface, the
   ``interface instance`` clause must be defined in the *interface* declaration.

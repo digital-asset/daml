@@ -6,7 +6,7 @@
 Integrity
 #########
 
-.. note::
+.. wip::
 
    * Key consistency (should be transaction-internal only: consistent lookups)
 
@@ -18,6 +18,62 @@ Integrity
 
 This section addresses the question of who can request which
 changes.
+
+Parking lot
+***********
+
+To answer the next question, "who can request which changes",
+a precise definition is needed of which ledgers are permissible,
+and which are not. For example, the above
+paint offer ledger is intuitively permissible, while all of the
+following ledgers are not.
+
+.. figure:: ./images/double-spend.svg
+   :align: center
+   :alt: Described in the caption.
+
+   Alice spending her IOU twice ("double spend"), once transferring it
+   to `B` and once to `P`.
+
+.. figure:: ./images/non-conformant-action.svg
+   :align: center
+   :name: alice-changes-offer
+   :alt: Described in the caption.
+
+   Alice changing the offer's outcome by removing the transfer of the `Iou`.
+
+.. figure:: ./images/invalid-obligation.svg
+   :align: center
+   :name: obligation-imposed-on-painter
+   :alt: Described in the caption.
+
+   An obligation imposed on the painter without his consent.
+
+.. figure:: ./images/stealing-ious.svg
+   :align: center
+   :name: painter-stealing-ious
+   :alt: Described in the caption.
+
+   Painter stealing Alice's IOU. Note that the ledger would be
+   intuitively permissible if it was Alice performing the last commit.
+
+.. figure:: ./images/failed-key-assertion.svg
+   :align: center
+   :name: alice-claiming-retracted-offer
+   :alt: Described in the caption.
+
+   Painter falsely claiming that there is no offer.
+
+.. figure:: ./images/double-key-creation.svg
+   :align: center
+   :name: painter-creating-two-offers-with-same-key
+   :alt: Described in the caption.
+
+   Painter trying to create two different paint offers with the same reference number.
+
+   
+The next section discusses the criteria that rule out the above examples as
+invalid ledgers.
 
 
 
@@ -204,7 +260,8 @@ in isolation.
 For example, the acceptance transaction from the paint offer example is not consistent as a ledger, because `PaintOffer A P Bank`
 and the `Iou Bank A` contracts are used without being created before:
 
-.. image:: ./images/action-structure-paint-offer.svg
+..
+   .. image:: ./images/action-structure-paint-offer.svg
    :align: center
    :width: 60%
    :alt: The flowchart of Alice's original paint deal, first described in the Structure section.

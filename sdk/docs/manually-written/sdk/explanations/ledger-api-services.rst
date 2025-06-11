@@ -3,17 +3,15 @@
 
 .. _ledger-api-services:
 
-The Ledger API Services
-#######################
+The gRPC Ledger API Services
+############################
 
-.. note::
+.. todo:
     MOVE ME INTO THE CANTON REPO
 
-The Ledger API is structured as a set of services. The core services are implemented using `gRPC <https://grpc.io/>`__ and `Protobuf <https://developers.google.com/protocol-buffers/>`__, but most applications access this API through the mediation of the language bindings.
+The Ledger API is structured as a set of services. This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
 
-This page gives more detail about each of the services in the API, and will be relevant whichever way you're accessing it.
-
-If you want to read low-level detail about each service, see the protobuf documentation of the API </sdk/reference/grpc/proto-docs> (TODO FIX BUILD SCRIPT AS THE DOCUMENTATION IS NOT GENERATED).
+If you want to read low-level detail about each service, see :subsiteref:`the protobuf documentation of the API <build-reference-lapi-proto-docs>`.
 
 Overview
 ********
@@ -21,7 +19,7 @@ Overview
 The API is structured as two separate data streams:
 
 -  A stream of **commands** TO the ledger that allow an application to submit transactions and change state.
--  A stream of **transactions** and corresponding **events** FROM the ledger that indicate all state changes that have taken place on the ledger.
+-  A stream of **updates** and corresponding **events** FROM the ledger that indicate all state changes that have taken place on the ledger.
 
 Commands are the only way an application can cause the state of the ledger to change, and events are the only mechanism to read those changes.
 
@@ -33,13 +31,46 @@ For an application, the most important consequence of these architectural decisi
 
 The need to handle these issues is a major determinant of application architecture. Understanding the consequences of the API characteristics is important for a successful application design.
 
-For more help understanding these issues so you can build correct, performant and maintainable applications, read the :doc:`application architecture guide </app-dev/app-arch>`.
+For more help understanding these issues so you can build correct, performant and maintainable applications, read the :brokenref:`application architecture guide <build_sdlc_howtos_daml_app_arch_design>`.
+
+Services
+********
+
+The gRPC Ledger API exposes the following services:
+
+- Submitting commands to the ledger
+
+  - Use the :ref:`Command Submission Service <command-submission-service>` to submit commands (create a contract or exercise a choice) to the ledger.
+  - Use the :ref:`Command Completion Service <command-completion-service>` to track the status of submitted commands.
+  - Use the :ref:`Command Service <command-service>` for a convenient service that combines the command submission and completion.
+  - Use the :ref:`Interactive Submission Service <interactive-submission-service>` to prepare and submit an externally signed transaction.
+
+- Reading from the ledger
+
+  - Use the :ref:`Update Service <update-service>` to stream committed transactions and the resulting events (choices exercised, and contracts created or archived), and to look up transactions.
+  - Use the :ref:`State Service <state-service>` to quickly bootstrap an application with the currently active contracts. It saves you the work to process the ledger from the beginning to obtain its current state.
+  - Use the :ref:`Event Query Service <event-query-service>` to obtain a party-specific view of contract events.
+
+- Utility services
+
+  - Use the :ref:`Party Management Service <party-service>` to allocate and find information about parties on the Daml ledger.
+  - Use the :ref:`User Management Service <user-management-service>` to manage users and their rights.
+  - Use the :ref:`Identity Provider Config Service <identity-provider-config-service>` to define and manage external IDP systems configured to issue tokens for a Participant Node.
+  - Use the :ref:`Package Management Service <package-management-service>` to upload packages the Daml ledger.
+  - Use the :ref:`Package Service <package-service>` to query the Daml packages deployed to the ledger.
+  - Use the :ref:`Version Service <version-service>` to retrieve information about the Ledger API version.
+  - Use the :ref:`Pruning Service <pruning-service>` to prune archived contracts and transactions before or at a given offset.
+
+- Testing services (configured for testing only, *not* for production ledgers)
+
+  - Use the :ref:`Time Service <time-service>` to obtain the time as known by the ledger.
 
 Glossary
 ========
 
-- The ledger is a list of ``transactions``. The transaction service returns these.
-- A ``transaction`` is a tree of ``actions``, also called ``events``, which are of type ``create``, ``exercise`` or ``archive``. The transaction service can return the whole tree, or a flattened list.
+- The ledger is a list of ``updates``.
+- An ``update`` can be a Daml ``transaction``, a ``reassignment``, or ``topology transaction`` such as change of permission of Participant to a party.
+- A ``transaction`` is a tree of ``actions``, also called ``events``, which are of type ``create``, ``exercise`` or ``archive``. The Update Service can return the whole tree, or a flattened list.
 - A ``submission`` is a proposed transaction, consisting of a list of ``commands``, which correspond to the top-level ``actions`` in that transaction.
 - A ``completion`` indicates the success or failure of a ``submission``.
 
@@ -53,101 +84,133 @@ Submit Commands to the Ledger
 Command Submission Service
 ==========================
 
-Use the **command submission service** to submit commands to the ledger. Commands either create a new contract, or exercise a choice on an existing contract.
+Use the **Command Submission Service** to submit commands to the ledger. Commands either create a new contract, or exercise a choice on an existing contract.
 
-A call to the command submission service will return as soon as the ledger server has parsed the command, and has either accepted or rejected it. This does not mean the command has been executed, only that the server has looked at the command and decided that its format is acceptable, or has rejected it for syntactic or content reasons.
+A call to the Command Submission Service returns as soon as the ledger server has parsed the command, and has either accepted or rejected it. This does not mean the command has been executed, only that the server has looked at the command and decided that its format is acceptable, or has rejected it for syntactic or content reasons.
 
-The on-ledger effect of the command execution will be reported via the `transaction service <#transaction-service>`__, described below. The completion status of the command is reported via the `command completion service <#command-completion-service>`__. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. Alternatively, you can use the `command service <#command-service>`__, which conveniently wraps the command submission and completion services.
+The on-ledger effect of the command execution is reported via the :ref:`Update Service <update-service>`, described below. The completion status of the command is reported via the :ref:`Command Completion Service <command-completion-service>`. Your application should receive completions, correlate them with command submission, and handle errors and failed commands. Alternatively, you can use the :ref:`Command Service <command-service>`, which conveniently wraps the Command Submission and Command Completion Services.
 
-.. _change-id:
+.. _change-ID:
 
 Change ID
 ---------
 
 Each intended ledger change is identified by its **change ID**, consisting of the following three components:
 
-- The submitting parties, i.e., the union of :ref:`party <com.daml.ledger.api.v1.Commands.party>` and :ref:`act_as <com.daml.ledger.api.v1.Commands.act_as>`
-- the :ref:`application ID <com.daml.ledger.api.v1.Commands.application_id>`
-- The :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`
+- The submitting parties, that is :subsiteref:`act_as <com.daml.ledger.api.v2.Commands.act_as>`
+- the :subsiteref:`user ID <com.daml.ledger.api.v2.Commands.user_id>`
+- The :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`
 
 Application-specific IDs
 ------------------------
 
 The following application-specific IDs, all of which are included in completion events, can be set in commands:
 
-- A :ref:`submission ID <com.daml.ledger.api.v1.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
-- A :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
-- A :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
+- A :subsiteref:`submission ID <com.daml.ledger.api.v2.Commands.submission_id>`, returned to the submitting application only. It may be used to correlate specific submissions to specific completions.
+- A :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`, returned to the submitting application only; it can be used to correlate commands to completions.
+- A :subsiteref:`workflow ID <com.daml.ledger.api.v2.Commands.workflow_id>`, returned as part of the resulting transaction to all applications receiving it. It can be used to track workflows between parties, consisting of several transactions.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandSubmissionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandSubmissionService>`.
 
 .. _command-submission-service-deduplication:
 
 Command Deduplication
 ---------------------
 
-The command submission service deduplicates submitted commands based on their :ref:`change ID <change-id>`.
+The Command Submission Service deduplicates submitted commands based on their :ref:`change ID <change-ID>`.
 
 - Applications can provide a deduplication period for each command. If this parameter is not set, the default maximum deduplication duration is used.
-- A command submission is considered a duplicate submission if the Ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-id>`.
+- A command submission is considered a duplicate submission if the Ledger API server is aware of another command within the deduplication period and with the same :ref:`change ID <change-ID>`.
 - A command resubmission will generate a rejection until the original submission was rejected (i.e. the command failed and resulted in a rejected transaction) or until the effective deduplication period has elapsed since the completion of the original command, whichever comes first.
-- Command deduplication is only *guaranteed* to work if all commands are submitted to the same participant. Ledgers are free to perform additional command deduplication across participants. Consult the respective ledger's manual for more details.
+- Command deduplication is only *guaranteed* to work if all commands are submitted to the same Participant Node.
 
-For details on how to use command deduplication, see the :doc:`Command Deduplication Guide <command-deduplication>`.
+For details on how to use command deduplication, see the :ref:`Command Deduplication Guide <command-deduplication>`.
 
 .. _command-explicit-contract-disclosure:
 
-Explicit contract disclosure (experimental)
--------------------------------------------
+Explicit contract disclosure
+----------------------------
 
 Starting with Canton 2.7, Ledger API clients can use explicit contract disclosure to submit commands with attached
 disclosed contracts received from third parties. For more details,
-see :doc:`Explicit contract disclosure <explicit-contract-disclosure>`.
+see :ref:`Explicit contract disclosure <explicit-contract-disclosure>`.
 
 .. _command-completion-service:
 
 Command Completion Service
 ==========================
 
-Use the **command completion service** to find out the completion status of commands you have submitted.
+Use the **Command Completion Service** to find out the completion status of commands you have submitted.
 
-Completions contain the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
+Completions contain the :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>` of the completed command, and the completion status of the command. This status indicates failure or success, and your application should use it to update what it knows about commands in flight, and implement any application-specific error recovery.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandCompletionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandCompletionService>`.
 
 .. _command-service:
 
 Command Service
 ===============
 
-Use the **command service** when you want to submit a command and wait for it to be executed. This service is similar to the command submission service, but also receives completions and waits until it knows whether or not the submitted command has completed. It returns the completion status of the command execution.
+Use the **Command Service** when you want to submit a command and wait for it to be executed. This service is similar to the Command Submission Service, but also receives completions and waits until it knows whether or not the submitted command has completed. It returns the completion status of the command execution.
 
-You can use either the command or command submission services to submit commands to effect a ledger change. The command service is useful for simple applications, as it handles a basic form of coordination between command submission and completion, correlating submissions with completions, and returning a success or failure status. This allow simple applications to be completely stateless, and alleviates the need for them to track command submissions.
+You can use either the command or command submission services to submit commands to effect a ledger change. The Command Service is useful for simple applications, as it handles a basic form of coordination between command submission and completion, correlating submissions with completions, and returning a success or failure status. This allow simple applications to be completely stateless, and alleviates the need for them to track command submissions.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.CommandService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.CommandService>`.
+
+.. _interactive-submission-service:
+
+Interactive Submission Service
+==============================
+
+Use **Interactive Submission Service** to prepare and submit daml transactions signed with your own signing keys.
+
+Service allows interactive construction of command submissions It contains two endpoints allowing a two-step command submission:
+The prepare and execute endpoints allow to submit commands in steps:
+
+- prepare transaction from the supplied list of commands
+- inspect proposed transaction and sign it using own key
+- submit the prepared transaction
+
+For more information, refer to the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.interactive.InteractiveSubmissionService>`.
+
+.. _reading-from-the-ledger:
 
 Read From the Ledger
 ********************
 
-.. _transaction-service:
+.. _update-service:
 
-Transaction Service
-===================
+Update Service
+==============
 
-Use the **transaction service** to listen to changes in the ledger state, reported via a stream of transactions.
+Use the **Update Service** to listen to changes in the ledger state, reported via a stream of updates.
 
-Transactions detail the changes on the ledger, and contains all the events (create, exercise, archive of contracts) that had an effect in that transaction.
+Updates can contain transactions, reassignments and topology transactions. A transaction in turn can contain all the events (create, exercise, archive of contracts) that had an effect in that transaction.
 
-Transactions contain a :ref:`transaction ID <com.daml.ledger.api.v1.Transaction.transaction_id>` (assigned by the server), the :ref:`workflow ID <com.daml.ledger.api.v1.Commands.workflow_id>`, the :ref:`command ID <com.daml.ledger.api.v1.Commands.command_id>`, and the events in the transaction.
+Transactions contain an :subsiteref:`update ID <com.daml.ledger.api.v2.Transaction.update_id>` (assigned by the server), a :subsiteref:`workflow ID <com.daml.ledger.api.v2.Commands.workflow_id>`, a :subsiteref:`command ID <com.daml.ledger.api.v2.Commands.command_id>`, and the events in the transaction.
 
-Subscribe to the transaction service to read events from an arbitrary point on the ledger. This arbitrary point is specified by the ledger offset. This is important when starting or restarting and application, and to work in conjunction with the `active contracts service <#active-contract-service>`__.
+Subscribe to the Update Service to read events from an arbitrary point on the ledger. This arbitrary point is specified by the :ref:`offset<ledger-api-offset>`. This is important when starting or restarting an application, and to work in conjunction with the :ref:`State Service <state-service>`.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.TransactionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.UpdateService>`.
 
-Transaction and transaction Trees
----------------------------------
+Transactions and transaction Trees
+----------------------------------
 
-``TransactionService`` offers several different subscriptions. The most commonly used is ``GetTransactions``. If you need more details, you can use ``GetTransactionTrees`` instead, which returns transactions as flattened trees, represented as a map of event IDs to events and a list of root event IDs.
+``UpdateService`` offers several different subscriptions. The most commonly used is ``GetUpdates`` configured to deliver ``TRANSACTION_SHAPE_ACS_DELTA``. It returns a stream of changes to the active contract set: contracts created and archived. If you need the entire transactions visible to a set of parties, you can use ``TRANSACTION_SHAPE_LEDGER_EFFECTS`` instead, which returns transactions as trees, represented list of events with descendant information.
+
+.. _event-format:
+
+Event format
+------------
+``UpdateService`` offers transaction subscriptions filtered by templates and interfaces using ``GetUpdates`` calls. An :subsiteref:`event format <com.daml.ledger.api.v2.EventFormat>` embedded in ``GetUpdatesRequest.update_format.include_transactions`` allows:
+
+- filtering by a party
+- filtering by a party and template ID
+- filtering by a party and interface ID
+- exposing an interface view
+- exposing a created event blob to be used for a disclosed contract in command submission
+
+To learn more see :subsiteref:`Ledger API reference <build_reference_ledger_api>`.
 
 .. _verbosity:
 
@@ -160,79 +223,55 @@ The service works in a non-verbose mode by default, which means that some identi
 - Record field labels
 - Variant IDs
 
-You can get these included in requests related to Transactions by setting the ``verbose`` field in message ``GetTransactionsRequest`` or ``GetActiveContractsRequest`` to ``true``.
+You can get these included in requests related to Transactions by setting the ``verbose`` field in the :subsiteref:`event format <com.daml.ledger.api.v2.EventFormat>` message to ``true``.
 
-.. _transaction-filter:
+.. _state-service:
 
-Transaction Filter
-------------------
-``TransactionService`` offers transaction subscriptions filtered by templates and interfaces using ``GetTransactions`` calls. A :ref:`transaction filter <com.daml.ledger.api.v1.TransactionFilter>` in ``GetTransactionsRequest`` allows:
+State Service
+=============
 
-- filtering by a party, when the :ref:`inclusive <com.daml.ledger.api.v1.Filters.inclusive>` field is left empty
-- filtering by a party and :ref:`template ID <com.daml.ledger.api.v1.InclusiveFilters.template_filters>`
-- filtering by a party and :ref:`interface ID <com.daml.ledger.api.v1.InclusiveFilters.interface_filters>`
-- exposing an interface view, when the :ref:`include_interface_view <com.daml.ledger.api.v1.InterfaceFilter.include_interface_view>` is set to ``true``
-- exposing a created event blob to be used for a disclosed contract in command submission when ``include_created_event_blob`` is set to ``true`` in either :ref:`TemplateFilter <com.daml.ledger.api.v1.TemplateFilter>` or :ref:`InterfaceFilter <com.daml.ledger.api.v1.InterfaceFilter>`
+Use the **State Service** to obtain a party-specific view of all contracts that are active on the ledger at the time of the request.
 
-.. note::
+The State Service returns a stream of the created events that re-creates the state being reported. The state is always requested as of a certain offset. This offset can be used to subscribe to the ``updates`` stream to keep a consistent view of the active contract set without querying the State Service further.
 
-  The :ref:`template_ids <com.daml.ledger.api.v1.InclusiveFilters.template_ids>` field is deprecated as of Canton 2.8.0 and will be removed in future releases. Use :ref:`template_filter <com.daml.ledger.api.v1.InclusiveFilters.template_filters>` instead.
+This is most important at application start, if the application needs to synchronize its initial state with a known view of the ledger. Without this service, the only way to do this would be to read the Update Stream from the beginning of the ledger, which can be prohibitively expensive with a large ledger.
 
-.. _active-contract-service:
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.StateService>`.
 
-Active Contracts Service
-========================
+The :ref:`verbosity` and  :ref:`event-format` are defined in the same manner as for the Update Service.
 
-Use the **active contracts service** to obtain a party-specific view of all contracts that are active on the ledger at the time of the request.
+.. _ledger-api-offset:
 
-The active contracts service returns its response as a stream of batches of the created events that would re-create the state being reported (the size of these batches is left to the ledger implementation). As part of the last message, the offset at which the reported active contract set was valid is included. This offset can be used to subscribe to the "flat transactions" stream to keep a consistent view of the active contract set without querying the active contract service further.
+Offset
+======
 
-This is most important at application start, if the application needs to synchronize its initial state with a known view of the ledger. Without this service, the only way to do this would be to read the Transaction Stream from the beginning of the ledger, which can be prohibitively expensive with a large ledger.
+The methods exposed as part of the Update and State Services make use of offsets.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.ActiveContractsService>`.
+An offset describes a specific point in the stream of updates observed by the Participant Node. An offset is meaningful
+only in the context of its original Participant Node. Different Participant Nodes associate different offsets to the same
+change synchronized over a Synchronizer. Conversely, the same literal participant offset may refer to different changes on
+different Participant Nodes.
 
-Verbosity
----------
+An offset is also a unique index of the changes which happened on the virtual shared ledger. The order of offsets is
+reflected in the order the updates that are visible when subscribing to the Update Service. This ordering is also fully
+causal for any specific Synchronizer: for two updates synchronized by the same Synchronizer, the one with a bigger offset
+happened after than the one with a smaller offset. This is not true for updates synchronized by different Synchronizers.
+Accordingly, the offset order may deviate from the order of the changes on the virtual shared ledger.
 
-See :ref:`verbosity` above.
-
-Transaction Filter
-------------------
-See :ref:`transaction-filter` above.
-
-.. note::
-
-  The RPCs exposed as part of the transaction and active contracts services make use of offsets.
-
-  An offset is an opaque string of bytes assigned by the participant to each transaction as they are received from the ledger.
-  Two offsets returned by the same participant are guaranteed to be lexicographically ordered: while interacting with a single participant, the offset of two transactions can be compared to tell which was committed earlier.
-  The state of a ledger (i.e. the set of active contracts) as exposed by the Ledger API is valid at a specific offset, which is why the last message your application receives when calling the ``ActiveContractsService`` is precisely that offset.
-  In this way, the client can keep track of the relevant state without needing to invoke the ``ActiveContractsService`` again, by starting to read transactions from the given offset.
-
-  Offsets are also useful to perform crash recovery and failover as documented more in depth in the :ref:`application architecture <dealing-with-failures>` page.
-
-  You can read more about offsets in the `protobuf documentation of the API <../app-dev/grpc/proto-docs.html#ledgeroffset>`__.
-
-.. event-query-service:
+.. _event-query-service:
 
 Event Query Service
-==================================
+===================
 
 Use the **event query service** to obtain a party-specific view of contract events.
 
-The gRPC API provides ledger streams to off-ledger components that maintain a queryable state. This service allows you to make simple event queries without off-ledger components like the JSON API.
+The gRPC API provides ledger streams to off-ledger components that maintain a queryable state. This service allows you to make simple event queries without off-ledger components like the Participant Query Store.
 
-Using the Event Query Service, you can create, retrieve, and archive events associated with a contract ID or contract key. The API returns only those events where at least one of the requesting parties is a stakeholder of the contract. If the contract is still active, the ``archive_event`` is unset.
-
-Contract keys can be used by multiple contracts over time. The latest contract events are returned first. To access earlier contract key events, use the ``continuation_token`` returned in the ``GetEventsByContractKeyResponse`` in a subsequent ``GetEventsByContractKeyRequest``.
+Using the Event Query Service, you can create, retrieve, and archive events associated with a contract ID. The API returns only those events where at least one of the requesting parties is a stakeholder of the contract. If the contract is still active, the ``archive_event`` is unset.
 
 If no events match the request criteria or the requested events are not visible to the requesting parties, an empty structure is returned. Events associated with consumed contracts are returned until they are pruned.
 
-.. note::
-
-  When querying by contract key, the key value must be structured in the same way as the key returned in the create event.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.EventQueryService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.EventQueryService>`.
 
 .. _ledger-api-utility-services:
 
@@ -244,123 +283,94 @@ Utility Services
 Party Management Service
 ========================
 
-Use the **party management service** to allocate parties on the ledger, update party properties local to the participant and retrieve information about allocated parties.
+Use the **Party Management Service** to allocate parties on the ledger, update party properties local to the participant and retrieve information about allocated parties.
 
-Parties govern on-ledger access control as per :ref:`Daml's privacy model <da-model-privacy>`
-and :ref:`authorization rules <da-ledgers-authorization-rules>`.
+Parties govern on-ledger access control as per :externalref:`Daml's privacy model <da-model-privacy>`
+and :externalref:`authorization rules <da-ledgers-authorization-rules>`.
 Applications and their operators are expected to allocate and use parties to manage on-ledger access control as per their business requirements.
 
-For more information, refer to the pages on :doc:`Identity Management</concepts/identity-and-package-management>` and :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.PartyManagementService>`.
+For more information, refer to the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.PartyManagementService>`.
 
 .. _user-management-service:
 
 User Management Service
 =======================
 
-Use the **user management service** to manage the set of users on a participant node and
+Use the **User Management Service** to manage the set of users on a Participant Node and
 their :ref:`access rights <authorization-claims>` to that node's Ledger API services
 and as the integration point for your organization's IAM (Identity and Access Management) framework.
 
-Daml 2.0 introduced the concept of the user in Daml. While a party represents a single individual with a single set of rights and is universal across participant nodes, a user is local to a specific participant node. Each user is typically associated with a primary party and is given the right to act as or read as other parties. Every participant node will maintain its own mapping from its user ids to the parties that they can act and/or read as. Also, when used, the user's ids will serve as application ids. Thus, participant users can be used to manage the permissions of Daml applications (i.e. to authorize applications to read as or act as certain parties). Unlike a JWT token-based system, the user management system does not limit the number of parties that the user can act or read as.
+While a party represents a single individual with a single set of rights and is universal across Participant Nodes, a user is local to a specific Participant Node. Each user is typically associated with a primary party and is given the right to act as or read as other parties. Every Participant Node maintains its own mapping from its user IDs to the parties that they can act and/or read as. The user IDs are referenced as subjects in the JWT tokens allowing authorization of ledger clients to read as or act as certain parties. The user management system does not limit the number of parties that the user can act or read as.
 
-The relation between a participant node's users and Daml parties is best understood by analogy to classical databases: a participant node's users are analogous to database users while Daml parties are analogous to database roles. Further, the rights granted to a user are analogous to the user's assigned database roles.
+The relation between a Participant Node's users and Daml parties is best understood by analogy to classical databases: a Participant Node's users are analogous to database users while Daml parties are analogous to database roles. Further, the rights granted to a user are analogous to the user's assigned database roles.
 
-For more information, consult the :ref:`the API reference documentation <com.daml.ledger.api.v1.admin.UserManagementService>` for how to list, create, update, and delete users and their rights.
-See the :ref:`UserManagementFeature descriptor <com.daml.ledger.api.v1.UserManagementFeature>` to learn about the limits of the user management service, e.g., the maximum number of rights per user.
-The feature descriptor can be retrieved using the :ref:`Version service <version-service>`.
+For more information, consult the :subsiteref:`the API reference documentation <com.daml.ledger.api.v2.admin.UserManagementService>` for how to list, create, update, and delete users and their rights.
+See the :subsiteref:`UserManagementFeature descriptor <com.daml.ledger.api.v2.UserManagementFeature>` to learn about the limits of the User Management Service, e.g., the maximum number of rights per user.
+The feature descriptor can be retrieved using the :ref:`Version Service <version-service>`.
 
-With user management enabled you can use both new user-based and old custom Daml authorization tokens.
-Consult the :doc:`Authorization documentation </app-dev/authorization>` to understand how Ledger API requests are authorized, and how to use user management to dynamically change an application's rights.
-
-User management is available in Canton-enabled drivers and not yet available in the Daml for VMware Blockchain driver.
-
+Consult the :ref:`Authorization documentation <authorization>` to understand how Ledger API requests are authorized, and how to use User Management to dynamically change an application's rights.
 
 .. _identity-provider-config-service:
 
 Identity Provider Config Service
 ================================
 
-Use **identity provider config service** to define and manage the parameters of an external IDP systems configured to issue tokens for a participant node.
+Use **Identity Provider Config Service** to define and manage the parameters of an external IDP systems configured to issue tokens for a Participant Node.
 
-The **identity provider config service** makes it possible for participant node administrators to set up and manage additional identity providers at runtime. This allows using access tokens from identity providers unknown at deployment time. When an identity provider is configured, independent IDP administrators can manage their own set of parties and users.
+The **Identity Provider Config Service** makes it possible for Participant Node administrators to set up and manage additional identity providers at runtime. This allows using access tokens from identity providers unknown at deployment time. When an identity provider is configured, independent IDP administrators can manage their own set of parties and users.
 
-Such parties and users have a matching identity_provider_id defined and are inaccessible to administrators from other identity providers. A user will only be authenticated if the corresponding JWT token is issued by the appropriate identity provider. Users and parties without identity_provider_id defined are assumed to be using the default identity provider, which is configured statically when the participant node is deployed.
+Such parties and users have a matching ``identity_provider_id`` defined and are inaccessible to administrators from other identity providers. A user is only be authenticated if the corresponding JWT token is issued by the appropriate identity provider. Users and parties without ``identity_provider_id`` defined are assumed to be using the default identity provider, which is configured statically when the Participant Node is deployed.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.IdentityProviderConfigService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.admin.IdentityProviderConfigService>`.
+
+.. _package-management-service:
+
+Package Management Service
+==========================
+
+Use the **Package Management Service** to query the Daml-LF packages supported by the Participant Node and to upload and validate .dar files.
 
 .. _package-service:
 
 Package Service
 ===============
 
-Use the **package service** to obtain information about Daml packages available on the ledger.
+Use the **Package Service** to obtain information about Daml packages available on the ledger.
 
 This is useful for obtaining type and metadata information that allow you to interpret event data in a more useful way.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.PackageService>`.
-
-.. _ledger-identity-service:
-
-Ledger Identity Service (DEPRECATED)
-=====================================
-
-Use the **ledger identity service** to get the identity string of the ledger that your application is connected to.
-
-Including identity string is optional for all Ledger API requests.
-If you include it, commands with an incorrect identity string will be rejected.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerIdentityService>`.
-
-.. _ledger-configuration-service:
-
-Ledger Configuration Service
-============================
-
-Use the **ledger configuration service** to subscribe to changes in ledger configuration.
-
-This configuration includes the maximum command deduplication period (see `Command Deduplication <#command-submission-service-deduplication>`__ for details).
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.LedgerConfigurationService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.PackageService>`.
 
 .. _version-service:
 
 Version Service
 ===============
 
-Use the **version service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
+Use the **Version Service** to retrieve information about the Ledger API version and what optional features are supported by the ledger server.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.VersionService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.VersionService>`.
 
 .. _pruning-service:
 
 Pruning Service
 ===============
 
-Use the **pruning service** to prune archived contracts and transactions before or at a given offset.
+Use the **Pruning Service** to prune archived contracts and transactions before or at a given offset.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.ParticipantPruningService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.admin.ParticipantPruningService>`.
 
 .. _metering-report-service:
-
-Metering Report Service
-=======================
-
-Use the **metering report service** to retrieve a participant metering report.
-
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.admin.MeteringReportService>`.
-
-.. _ledger-api-testing-services:
 
 Testing Services
 ****************
 
-**These are only for use for testing with the Sandbox, not for on production ledgers.**
+**These are only for use for testing, not for on production ledgers.**
 
 .. _time-service:
 
 Time Service
 ============
 
-Use the **time service** to obtain the time as known by the ledger server.
+Use the **Time Service** to get and set the ledger time. This service is only available if the Canton has been set up to to work in the static time mode which only makes sense in testing.
 
-For full details, see :ref:`the proto documentation for the service <com.daml.ledger.api.v1.testing.TimeService>`.
+For full details, see :subsiteref:`the proto documentation for the service <com.daml.ledger.api.v2.testing.TimeService>`.

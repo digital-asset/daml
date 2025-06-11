@@ -1,12 +1,14 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. _daml-lf-translation:
+
 How Daml Types are Translated to Daml-LF
 ########################################
 
 This page shows how types in Daml are translated into Daml-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a Daml-based application that uses the Ledger API or client bindings in other languages.
 
-For an introduction to Daml-LF, see :ref:`daml-lf-intro`.
+.. todo: add back this link once we write the daml lf overview section: For an introduction to Daml-LF, see :ref:`daml-lf-intro`.
 
 Primitive Types
 ***************
