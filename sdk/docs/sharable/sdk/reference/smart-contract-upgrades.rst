@@ -8,8 +8,8 @@
 
 .. _upgrade-model-reference:
 
-Smart Contract Upgrade Reference
-================================
+Smart contract upgrading reference
+==================================
 
 This document describes in detail what rules govern package validation upon
 upload and how contracts, choice arguments and choice results are upgraded or
