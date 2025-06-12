@@ -150,6 +150,7 @@ decodePackage version selfPackageRef (LF2.Package mods internedStringsV interned
       let internedStrings = V.map decodeMangledString internedStringsV
       let internedDottedNames = V.empty
       let internedTypes = V.empty
+      -- TODO https://github.com/digital-asset/daml/issues/21155
       -- for internedTypes we do something with the matched internedTypesV but
       -- for kinds this is not yet needed as, for now, they are always empty
       let internedKinds = V.empty

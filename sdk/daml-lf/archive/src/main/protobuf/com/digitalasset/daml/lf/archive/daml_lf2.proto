@@ -142,7 +142,7 @@ message Kind {
     // kind of TNat type;
     Unit nat = 3;
     // interned kinds
-    uint32 interned = 4;
+    uint32 interned = 4; // *Available in versions >= 2.dev*
   }
 }
 
@@ -1390,5 +1390,5 @@ message Package {
   // Types in the interning table are only allowed to refer to interned types
   // at smaller indices.
   repeated Type interned_types = 5;
-  repeated Kind interned_kinds = 6;
+  repeated Kind interned_kinds = 6; // *Available in versions >= 2.dev*
 }
