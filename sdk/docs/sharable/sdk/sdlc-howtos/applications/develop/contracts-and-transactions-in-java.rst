@@ -154,4 +154,4 @@ Use OpenAPI definitions
 
 The OpenAPI definitions provide a definition for each Ledger API service and allows you to access it via the JSON
 Ledger API. Use those definitions to encode/decode the gRPC messages as/from JSON payloads required by the JSON Ledger
-API. For more details see :brokenref:`Get started with Canton and the JSON Ledger API < TODO(#369): add link to it>`.
+API. For more details see :externalref:`Get started with Canton and the JSON Ledger API <tutorial-canton-and-the-json-ledger-api>`.

@@ -18,7 +18,7 @@ The model in this section is not a single Daml file, but a Daml project consisti
 
 .. hint::
 
-  Remember that you can load all the code for this section into a folder called ``intro7`` by running ``daml new intro7 --template daml-intro-7``
+  Remember that you can load all the code for this section into a folder called ``intro7`` by running ``daml new intro-compose  --template daml-intro-compose``
 
 Daml projects
 -------------
@@ -29,7 +29,7 @@ You can start a new project with a skeleton structure using ``daml new project-n
 
  Take a look at the ``daml.yaml`` for the this chapter's project:
 
-.. literalinclude:: daml/daml-intro-7/daml.yaml.template
+.. literalinclude:: daml/daml-intro-compose/daml.yaml.template
   :language: yaml
 
 You can generally set ``name`` and ``version`` freely to describe your project. ``dependencies`` does what the name suggests: it includes dependencies. You should always include ``daml-prim`` and ``daml-stdlib``. The former contains internals of the compiler and the Daml Runtime, the latter gives access to the Daml standard library. ``daml-script`` contains the types and functions for Daml Script.
@@ -64,14 +64,14 @@ All but the last ``.``-separated segment in module names correspond to paths rel
 
 Each file contains a module header. For example, ``daml/Intro/Asset/Role.daml``:
 
-.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Role.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Intro/Asset/Role.daml
   :language: daml
   :start-after: -- PRAGMA_BEGIN
   :end-before: -- PRAGMA_END
 
 You can import one module into another using the ``import`` keyword. The ``LibraryModules`` module imports all six modules:
 
-.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Role.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Intro/Asset/Role.daml
   :language: daml
   :start-after: -- IMPORT_BEGIN
   :end-before: -- IMPORT_END
@@ -110,7 +110,7 @@ This project showcases how you can put the ``Update`` and ``Script`` actions you
 - Two create actions in case of ``Split``
 - One create and one archive action in case of ``Merge``
 
-.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Intro/Asset.daml
   :language: daml
   :start-after: -- MERGE_SPLIT_BEGIN
   :end-before: -- MERGE_SPLIT_END
@@ -119,7 +119,7 @@ The ``return`` function used in ``Split`` is available in any ``Action`` context
 
 Taking transaction composition a step further, the ``Trade_Settle`` choice on ``Trade`` composes two ``exercise`` actions:
 
-.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset/Trade.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Intro/Asset/Trade.daml
   :language: daml
   :start-after: -- TRADE_SETTLE_BEGIN
   :end-before: -- TRADE_SETTLE_END
@@ -194,7 +194,7 @@ The resulting transaction, with its two nested levels of consequences, can be se
 
 Similar to choices, you can see how the scripts in this project are built up from each other:
 
-.. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Role.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Test/Intro/Asset/Role.daml
   :language: daml
   :start-after: -- TEST_ISSUANCE_BEGIN
   :end-before: -- TEST_ISSUANCE_END
@@ -249,14 +249,14 @@ Observers
 
 *Observers* are Daml's mechanism to disclose contracts to other parties. They are declared just like signatories, but using the ``observer`` keyword, as shown in the ``Asset`` template:
 
-.. literalinclude:: daml/daml-intro-7/daml/Intro/Asset.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Intro/Asset.daml
   :language: daml
   :start-after: -- ASSET_BEGIN
   :end-before: -- ASSET_END
 
 The ``Asset`` template also gives the ``owner`` a choice to set the observers, and you can see how Alice uses it to show her ``Asset`` to Bob just before proposing the trade. You can try out what happens if she didn't do that by removing that transaction:
 
-.. literalinclude:: daml/daml-intro-7/daml/Test/Intro/Asset/Trade.daml
+.. literalinclude:: daml/daml-intro-compose/daml/Test/Intro/Asset/Trade.daml
   :language: daml
   :start-after: -- SET_OBSERVER_BEGIN
   :end-before: -- SET_OBSERVER_END

@@ -3,9 +3,7 @@
 Java client libraries
 =====================
 
-.. TODO: fix link to gRPC Ledger API reference
-
-The Java client libraries simplify using the gRPC Ledger API (:brokenref:`gRPC Ledger API reference <component-howtos-application-development-ledger-api>`).
+The Java client libraries simplify using the :externalref:`gRPC Ledger API <ledger-api-services>`.
 Read :ref:`How to work with contracts and transactions in Java <howto-applications-work-with-contracts-java>` for
 guidance on how to use them. Read below to learn about their code architecture, installation, and reference materials.
 

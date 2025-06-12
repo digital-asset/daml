@@ -76,7 +76,7 @@ limitedTimeCoinTransfer =
     coin <- owner `submit` do createCmd Coin with owner; issuer; amount=150.0
 
     t1 <- getTime
-    transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t0 (minutes 5)
+    transferProposal <- owner `submit` do exerciseCmd coin1 Transfer with newOwner; timeLimit=addRelTime t1 (minutes 5)
 
     -- simulate waiting for over 5 minutes
     _ <- passTime (minutes 6)
