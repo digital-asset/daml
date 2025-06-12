@@ -27,7 +27,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopologyInfo,
@@ -123,7 +122,7 @@ class RetransmissionsManager[E <: Env[E]](
         currentEpoch = None
         validator = None
         stopRequesting()
-        recordMetricsAndResetRequestCounts(epoch.epoch.info)
+        recordMetricsAndResetRequestCounts()
       case None =>
         abort("Tried to end epoch when there is none in progress")
     }
@@ -133,31 +132,15 @@ class RetransmissionsManager[E <: Env[E]](
     epochStatusBuilder = None
   }
 
-  private def recordMetricsAndResetRequestCounts(epoch: EpochInfo): Unit = {
+  private def recordMetricsAndResetRequestCounts(): Unit = {
     metrics.consensus.retransmissions.incomingRetransmissionsRequestsMeter
-      .mark(incomingRetransmissionsRequestCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(incomingRetransmissionsRequestCount.toLong)
     metrics.consensus.retransmissions.outgoingRetransmissionsRequestsMeter
-      .mark(outgoingRetransmissionsRequestCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(outgoingRetransmissionsRequestCount.toLong)
     metrics.consensus.retransmissions.discardedWrongEpochRetransmissionResponseMeter
-      .mark(discardedWrongEpochRetransmissionsResponseCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(discardedWrongEpochRetransmissionsResponseCount.toLong)
     metrics.consensus.retransmissions.discardedRateLimitedRetransmissionRequestMeter
-      .mark(discardedRateLimitedRetransmissionRequestCount.toLong)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> epoch.toString
-        )
-      )
+      .mark(discardedRateLimitedRetransmissionRequestCount.toLong)
     incomingRetransmissionsRequestCount = 0
     outgoingRetransmissionsRequestCount = 0
     discardedWrongEpochRetransmissionsResponseCount = 0
@@ -201,19 +184,19 @@ class RetransmissionsManager[E <: Env[E]](
         case Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus) =>
           currentEpoch.filter(_.epoch.info.number == epochStatus.epochNumber) match {
             case Some(currentEpoch) =>
-              logger.info(
+              logger.debug(
                 s"Got a retransmission request from ${epochStatus.from} for current epoch ${currentEpoch.epoch.info}"
               )
               currentEpoch.processRetransmissionsRequest(epochStatus)
             case None =>
-              logger.info(
+              logger.debug(
                 s"Got a retransmission request from ${epochStatus.from} for a previous epoch ${epochStatus.epochNumber}"
               )
               previousEpochsRetransmissionsTracker.processRetransmissionsRequest(
                 epochStatus
               ) match {
                 case Right(commitCertsToRetransmit) =>
-                  logger.info(
+                  logger.debug(
                     s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
                   )
                   retransmitCommitCertificates(
@@ -255,7 +238,7 @@ class RetransmissionsManager[E <: Env[E]](
     case segStatus: Consensus.RetransmissionsMessage.SegmentStatus =>
       epochStatusBuilder.foreach(_.receive(segStatus))
       epochStatusBuilder.flatMap(_.epochStatus).foreach { epochStatus =>
-        logger.info(
+        logger.debug(
           s"Broadcasting epoch status at epoch ${epochStatus.epochNumber} in order to request retransmissions"
         )
 
@@ -278,9 +261,9 @@ class RetransmissionsManager[E <: Env[E]](
       case req @ Consensus.RetransmissionsMessage.RetransmissionRequest(status) =>
         incomingRetransmissionsRequestCount += 1
         if (requestRateLimiter.checkAndUpdateRate(status.from)) {
-          (currentEpoch.zip(validator)) match {
+          currentEpoch.zip(validator) match {
             case Some((epochState, validator))
-                if (epochState.epoch.info.number == status.epochNumber) =>
+                if epochState.epoch.info.number == status.epochNumber =>
               validator.validateRetransmissionRequest(req)
             case _ =>
               previousEpochsRetransmissionsTracker
@@ -301,9 +284,6 @@ class RetransmissionsManager[E <: Env[E]](
               case Left(_: RetransmissionResponseValidationError.MalformedMessage) =>
                 emitNonCompliance(metrics)(
                   response.from,
-                  currentEpoch.map(_.epoch.info.number),
-                  view = None,
-                  block = None,
                   metrics.security.noncompliant.labels.violationType.values.RetransmissionResponseInvalidMessage,
                 )
               case Left(_: RetransmissionResponseValidationError.WrongEpoch) =>
@@ -320,10 +300,12 @@ class RetransmissionsManager[E <: Env[E]](
 
   private def startRetransmissionsRequest()(implicit traceContext: TraceContext): Unit =
     currentEpoch.foreach { epoch =>
-      logger.info(
-        s"Started gathering segment status at epoch ${epoch.epoch.info.number} in order to broadcast epoch status"
-      )
-      epochStatusBuilder = Some(epoch.requestSegmentStatuses())
+      if (epoch.epoch.currentMembership.otherNodes.nonEmpty) {
+        logger.debug(
+          s"Started gathering segment status at epoch ${epoch.epoch.info.number} in order to broadcast epoch status"
+        )
+        epochStatusBuilder = Some(epoch.requestSegmentStatuses())
+      }
     }
 
   private def sendStatus(

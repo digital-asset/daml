@@ -301,6 +301,7 @@ private[availability] trait AvailabilityModuleTestUtils { self: BftSequencerBase
       ABatchId,
       ProofOfAvailabilityNode1And2AcksNode1And2InTopology,
       remainingNodesToTry = Seq(Node1),
+      numberOfAttempts = 1,
       mode = OrderedBlockForOutput.Mode.FromConsensus,
     )
   protected val AMissingBatchStatusNode1And2AcksWithNode2ToTry =

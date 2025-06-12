@@ -133,6 +133,7 @@ class SequencerTest
         DefaultProcessingTimeouts.testing,
         storage,
         sequencerStore,
+        minimumSequencingTime = CantonTimestamp.MinValue,
         clock,
         synchronizerId,
         topologyClientMember,

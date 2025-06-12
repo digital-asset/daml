@@ -136,7 +136,14 @@ final case class SynchronizerCrypto(
   override val pureCrypto: SynchronizerCryptoPureApi =
     new SynchronizerCryptoPureApi(staticSynchronizerParameters, crypto.pureCrypto)
 
-  override val privateCrypto: CryptoPrivateApi = crypto.privateCrypto
+  override val privateCrypto: SynchronizerCryptoPrivateApi =
+    new SynchronizerCryptoPrivateApi(
+      staticSynchronizerParameters,
+      crypto.privateCrypto,
+      crypto.timeouts,
+      crypto.loggerFactory,
+    )
+
   override val cryptoPrivateStore: CryptoPrivateStore = crypto.cryptoPrivateStore
   override val cryptoPublicStore: CryptoPublicStore = crypto.cryptoPublicStore
   override protected val loggerFactory: NamedLoggerFactory = crypto.loggerFactory
@@ -162,7 +169,11 @@ object CryptoPureApiError {
 trait CryptoPrivateApi
     extends EncryptionPrivateOps
     with SigningPrivateOps
-    with CloseableHealthComponent
+    with CloseableHealthComponent {
+
+  private[crypto] def getInitialHealthState: ComponentHealthState
+
+}
 
 trait CryptoPrivateStoreApi
     extends CryptoPrivateApi
@@ -238,7 +249,7 @@ object SyncCryptoError {
   */
 trait SyncCryptoApi {
 
-  def pureCrypto: CryptoPureApi
+  def pureCrypto: SynchronizerCryptoPureApi
 
   def ipsSnapshot: TopologySnapshot
 

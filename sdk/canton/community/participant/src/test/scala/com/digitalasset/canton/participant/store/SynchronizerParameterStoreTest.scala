@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
-import com.digitalasset.canton.topology.{SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, UniqueIdentifier}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, FailOnShutdown}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -12,7 +12,7 @@ trait SynchronizerParameterStoreTest extends FailOnShutdown { this: AsyncWordSpe
 
   private val synchronizerId = SynchronizerId(
     UniqueIdentifier.tryFromProtoPrimitive("synchronizerId::synchronizerId")
-  )
+  ).toPhysical
 
   private def anotherProtocolVersion(testedProtocolVersion: ProtocolVersion): ProtocolVersion =
     if (testedProtocolVersion.isDev)
@@ -20,7 +20,7 @@ trait SynchronizerParameterStoreTest extends FailOnShutdown { this: AsyncWordSpe
     else
       ProtocolVersion.dev
 
-  def synchronizerParameterStore(mk: SynchronizerId => SynchronizerParameterStore): Unit = {
+  def synchronizerParameterStore(mk: PhysicalSynchronizerId => SynchronizerParameterStore): Unit = {
 
     "setParameters" should {
       "store new parameters" in {

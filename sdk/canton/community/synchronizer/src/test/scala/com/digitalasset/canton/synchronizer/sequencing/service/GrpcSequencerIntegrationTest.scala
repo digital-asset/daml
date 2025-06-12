@@ -8,28 +8,39 @@ import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveDouble
+import com.digitalasset.canton.config.RequireTypes.{Port, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{
   DefaultProcessingTimeouts,
   LoggingConfig,
   ProcessingTimeout,
   TestingConfigInternal,
 }
+import com.digitalasset.canton.connection.GrpcApiInfoService
+import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SigningKeyUsage, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{
   AsyncOrSyncCloseable,
+  CloseContext,
+  FlagCloseable,
   FutureUnlessShutdown,
   LifeCycle,
   SyncCloseable,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  LogEntry,
+  NamedLoggerFactory,
+  NamedLogging,
+  SuppressingLogger,
+  SuppressionRule,
+  TracedLogger,
+}
 import com.digitalasset.canton.metrics.CommonMockMetrics
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.SynchronizerParametersLookup.SequencerSynchronizerParameters
 import com.digitalasset.canton.protocol.messages.UnsignedProtocolMessage
 import com.digitalasset.canton.protocol.{
@@ -42,10 +53,16 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.sequencer.api.v30
 import com.digitalasset.canton.sequencer.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationService
 import com.digitalasset.canton.sequencing.*
-import com.digitalasset.canton.sequencing.authentication.AuthenticationToken
+import com.digitalasset.canton.sequencing.ConnectionX.ConnectionXConfig
+import com.digitalasset.canton.sequencing.SequencerConnectionXPool.SequencerConnectionXPoolConfig
+import com.digitalasset.canton.sequencing.authentication.{
+  AuthenticationToken,
+  AuthenticationTokenManagerConfig,
+}
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.HasCryptographicEvidence
+import com.digitalasset.canton.store.SequencedEventStore.SequencedEventWithTraceContext
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.synchronizer.metrics.SequencerTestMetrics
 import com.digitalasset.canton.synchronizer.sequencer.Sequencer
@@ -53,6 +70,7 @@ import com.digitalasset.canton.synchronizer.sequencer.config.SequencerParameters
 import com.digitalasset.canton.synchronizer.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.time.{SimClock, SynchronizerTimeTracker}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.DefaultTestIdentities.namespace
 import com.digitalasset.canton.topology.client.{SynchronizerTopologyClient, TopologySnapshot}
 import com.digitalasset.canton.topology.store.TopologyStateForInitializationService
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
@@ -63,27 +81,28 @@ import com.digitalasset.canton.version.{
   ReleaseVersion,
   RepresentativeProtocolVersion,
 }
+import com.digitalasset.canton.{config, *}
 import io.grpc.netty.NettyServerBuilder
+import io.grpc.{Server, StatusRuntimeException}
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
 import org.mockito.ArgumentMatchersSugar
 import org.scalatest.Outcome
-import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.FixtureAnyWordSpec
+import org.slf4j.event.Level
 
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.*
-import scala.concurrent.duration.*
 
-final case class Env(loggerFactory: NamedLoggerFactory)(implicit
+class Env(override val loggerFactory: SuppressingLogger)(implicit
     ec: ExecutionContextExecutor,
     tracer: Tracer,
     traceContext: TraceContext,
 ) extends AutoCloseable
     with NamedLogging
     with org.mockito.MockitoSugar
-    with ArgumentMatchersSugar
-    with Matchers {
+    with ArgumentMatchersSugar { self =>
   implicit val actorSystem: ActorSystem =
     PekkoUtil.createActorSystem("GrpcSequencerIntegrationTest")
   implicit val executionSequencerFactory: ExecutionSequencerFactory =
@@ -91,15 +110,15 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   val sequencer = mock[Sequencer]
   private val participant = ParticipantId("testing")
   val anotherParticipant = ParticipantId("another")
-  private val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
-  private val sequencerId = DefaultTestIdentities.daSequencerId
+  val synchronizerId = DefaultTestIdentities.physicalSynchronizerId
+  val sequencerId = DefaultTestIdentities.daSequencerId
   private val cryptoApi =
     TestingTopology()
       .withSimpleParticipants(participant, anotherParticipant)
       .build()
       .forOwnerAndSynchronizer(participant, synchronizerId.logical)
-  private val clock = new SimClock(loggerFactory = loggerFactory)
-  private val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
+  val clock = new SimClock(loggerFactory = loggerFactory)
+  val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
   def timeouts = DefaultProcessingTimeouts.testing
   private val futureSupervisor = FutureSupervisor.Noop
   private val topologyClient = mock[SynchronizerTopologyClient]
@@ -108,7 +127,11 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
   private val confirmationRequestsMaxRate =
     DynamicSynchronizerParameters.defaultConfirmationRequestsMaxRate
   private val maxRequestSize = DynamicSynchronizerParameters.defaultMaxRequestSize
-  private val topologyStateForInitializationService = mock[TopologyStateForInitializationService]
+  val topologyStateForInitializationService = mock[TopologyStateForInitializationService]
+  implicit val closeContext: CloseContext = CloseContext(new FlagCloseable {
+    override protected def timeouts: ProcessingTimeout = self.timeouts
+    override protected[this] def logger: TracedLogger = self.logger
+  })
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -137,16 +160,15 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       )
     )
 
-  private val synchronizerParamsLookup
+  val synchronizerParamsLookup
       : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
     SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-      BaseTest.defaultStaticSynchronizerParameters,
       None,
       topologyClient,
       loggerFactory,
     )
 
-  private val authenticationCheck = new AuthenticationCheck {
+  val authenticationCheck = new AuthenticationCheck {
 
     override def authenticate(
         member: Member,
@@ -160,7 +182,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
 
     override def lookupCurrentMember(): Option[Member] = None
   }
-  private val params = new SequencerParameters {
+  val params = new SequencerParameters {
     override def maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.1)
     override def processingTimeouts: ProcessingTimeout = timeouts
   }
@@ -181,8 +203,15 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
       params,
       topologyStateForInitializationService,
       BaseTest.testedProtocolVersion,
-    )
-  private val connectService = new GrpcSequencerConnectService(
+    ) {
+      override def getTrafficStateForMember(
+          request: v30.GetTrafficStateForMemberRequest
+      ): Future[v30.GetTrafficStateForMemberResponse] =
+        Future.successful(
+          v30.GetTrafficStateForMemberResponse(None)
+        )
+    }
+  def makeConnectService(sequencerId: SequencerId) = new GrpcSequencerConnectService(
     synchronizerId = synchronizerId,
     sequencerId = sequencerId,
     staticSynchronizerParameters = BaseTest.defaultStaticSynchronizerParameters,
@@ -190,8 +219,9 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     synchronizerTopologyManager = mockSynchronizerTopologyManager,
     loggerFactory = loggerFactory,
   )
+  private val connectService = makeConnectService(sequencerId)
 
-  private val authService = new SequencerAuthenticationService {
+  lazy val authService = new SequencerAuthenticationService {
     override def challenge(
         request: v30.SequencerAuthentication.ChallengeRequest
     ): Future[v30.SequencerAuthentication.ChallengeResponse] =
@@ -218,87 +248,159 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     ): Future[v30.SequencerAuthentication.LogoutResponse] =
       Future.successful(v30.SequencerAuthentication.LogoutResponse())
   }
+
+  private val apiInfoService = new GrpcApiInfoService(CantonGrpcUtil.ApiName.SequencerPublicApi)
+
   private val serverPort = UniquePortGenerator.next
   logger.debug(s"Using port $serverPort for integration test")
-  private val server = NettyServerBuilder
-    .forPort(serverPort.unwrap)
-    .addService(v30.SequencerConnectServiceGrpc.bindService(connectService, ec))
-    .addService(v30.SequencerServiceGrpc.bindService(service, ec))
-    .addService(v30.SequencerAuthenticationServiceGrpc.bindService(authService, ec))
-    .build()
-    .start()
 
-  private val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
+  def spinUpSequencer(
+      service: GrpcSequencerService,
+      connectService: GrpcSequencerConnectService,
+      port: Port,
+  ): Server = {
+    val server = NettyServerBuilder
+      .forPort(port.unwrap)
+      .addService(v30.SequencerConnectServiceGrpc.bindService(connectService, ec))
+      .addService(v30.SequencerServiceGrpc.bindService(service, ec))
+      .addService(v30.SequencerAuthenticationServiceGrpc.bindService(authService, ec))
+      .addService(ApiInfoServiceGrpc.bindService(apiInfoService, ec))
+      .build()
+      .start()
+    servers.updateAndGet(server +: _)
+    server
+  }
+
+  private val servers = new AtomicReference[Seq[Server]](Seq.empty)
+  // Start default server
+  spinUpSequencer(service, connectService, serverPort)
+
+  val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
   private val sendTrackerStore = new InMemorySendTrackerStore()
-  private val connection =
+  def makeConnection(port: Port, alias: SequencerAlias = SequencerAlias.Default) =
     GrpcSequencerConnection(
-      NonEmpty(Seq, Endpoint("localhost", serverPort)),
+      NonEmpty(Seq, Endpoint("localhost", port)),
       transportSecurity = false,
       None,
-      SequencerAlias.Default,
+      alias,
       None,
     )
+  val connection = makeConnection(serverPort)
   private val connections = SequencerConnections.single(connection)
-  private val expectedSequencers = NonEmpty.mk(Set, SequencerAlias.Default -> sequencerId).toMap
+  private val expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]] =
+    NonEmpty.mk(Set, SequencerAlias.Default -> sequencerId).toMap
 
-  val client = Await
-    .result(
-      SequencerClientFactory(
-        synchronizerId,
-        cryptoApi,
-        cryptoApi.crypto,
-        SequencerClientConfig(),
-        TracingConfig.Propagation.Disabled,
-        TestingConfigInternal(),
-        BaseTest.defaultStaticSynchronizerParameters,
-        DefaultProcessingTimeouts.testing,
-        clock,
-        topologyClient,
-        futureSupervisor,
-        _ => None,
-        _ => None,
-        CommonMockMetrics.sequencerClient,
-        LoggingConfig(),
-        exitOnFatalErrors = false,
-        loggerFactory,
-        ProtocolVersionCompatibility.supportedProtocols(
-          includeAlphaVersions = BaseTest.testedProtocolVersion.isAlpha,
-          includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
-          release = ReleaseVersion.current,
-        ),
-      ).create(
-        participant,
-        sequencedEventStore,
-        sendTrackerStore,
-        new RequestSigner {
-          override def signRequest[A <: HasCryptographicEvidence](
-              request: A,
-              hashPurpose: HashPurpose,
-              snapshot: Option[SyncCryptoApi],
-          )(implicit ec: ExecutionContext, traceContext: TraceContext)
-              : EitherT[FutureUnlessShutdown, String, SignedContent[A]] =
-            EitherT.rightT(
-              SignedContent(
-                request,
-                SymbolicCrypto.emptySignature,
-                None,
-                BaseTest.testedProtocolVersion,
-              )
-            )
-        },
-        connections,
-        expectedSequencers,
-      ).value,
-      10.seconds,
+  private val poolConfig = SequencerConnectionXPoolConfig(
+    connections = NonEmpty(
+      Seq,
+      ConnectionXConfig(
+        name = SequencerAlias.Default.toString,
+        endpoint = Endpoint("localhost", serverPort),
+        transportSecurity = false,
+        customTrustCertificates = None,
+        tracePropagation = TracingConfig.Propagation.Disabled,
+      ),
+    ),
+    trustThreshold = PositiveInt.one,
+  )
+  val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
+    clientProtocolVersions = NonEmpty(Seq, BaseTest.testedProtocolVersion),
+    minimumProtocolVersion = None,
+    authConfig = new AuthenticationTokenManagerConfig(),
+    member = participant,
+    clock = clock,
+    crypto = cryptoApi.crypto.crypto,
+    seedForRandomnessO = None,
+    futureSupervisor = futureSupervisor,
+    timeouts = timeouts,
+    loggerFactory = loggerFactory,
+  )
+
+  lazy val authConfig = AuthenticationTokenManagerConfig()
+
+  private val clients = new AtomicReference[Seq[SequencerClient]](Seq.empty)
+
+  def makeClient(
+      connections: SequencerConnections,
+      expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
+      useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev,
+  ): EitherT[FutureUnlessShutdown, String, RichSequencerClient] = {
+    val clientFactory = SequencerClientFactory(
+      synchronizerId,
+      cryptoApi,
+      cryptoApi.crypto,
+      SequencerClientConfig(authToken = authConfig, useNewConnectionPool = useNewConnectionPool),
+      TracingConfig.Propagation.Disabled,
+      TestingConfigInternal(),
+      BaseTest.defaultStaticSynchronizerParameters,
+      DefaultProcessingTimeouts.testing,
+      clock,
+      topologyClient,
+      futureSupervisor,
+      _ => None,
+      _ => None,
+      CommonMockMetrics.sequencerClient,
+      LoggingConfig(),
+      exitOnFatalErrors = false,
+      loggerFactory,
+      ProtocolVersionCompatibility.supportedProtocols(
+        includeAlphaVersions = BaseTest.testedProtocolVersion.isAlpha,
+        includeBetaVersions = BaseTest.testedProtocolVersion.isBeta,
+        release = ReleaseVersion.current,
+      ),
     )
-    .onShutdown(fail("Shutting down"))
-    .fold(fail(_), Predef.identity)
+
+    for {
+      connectionPool <- EitherT.fromEither[FutureUnlessShutdown](
+        connectionPoolFactory.create(poolConfig).leftMap(error => error.toString)
+      )
+      _ <-
+        if (useNewConnectionPool)
+          connectionPool.start().leftMap(error => error.toString)
+        else EitherTUtil.unitUS
+      client <- clientFactory
+        .create(
+          participant,
+          sequencedEventStore,
+          sendTrackerStore,
+          new RequestSigner {
+            override def signRequest[A <: HasCryptographicEvidence](
+                request: A,
+                hashPurpose: HashPurpose,
+                snapshot: Option[SyncCryptoApi],
+            )(implicit
+                ec: ExecutionContext,
+                traceContext: TraceContext,
+            ): EitherT[FutureUnlessShutdown, String, SignedContent[A]] =
+              EitherT.rightT(
+                SignedContent(
+                  request,
+                  SymbolicCrypto.emptySignature,
+                  None,
+                  BaseTest.testedProtocolVersion,
+                )
+              )
+          },
+          connections,
+          expectedSequencers,
+          connectionPool = connectionPool,
+        )
+    } yield {
+      clients.updateAndGet(client +: _)
+      client
+    }
+  }
+
+  def makeDefaultClient = makeClient(connections, expectedSequencers)
 
   override def close(): Unit =
     LifeCycle.close(
-      client,
+      SyncCloseable("sequencer-clients", clients.get().foreach(_.close())),
       service,
-      LifeCycle.toCloseableServer(server, logger, "test"),
+      SyncCloseable(
+        "sequencer-clients",
+        servers.get().foreach(s => LifeCycle.toCloseableServer(s, logger, "test").close()),
+      ),
       executionSequencerFactory,
       LifeCycle.toCloseableActorSystem(actorSystem, logger, timeouts),
     )(logger)
@@ -344,7 +446,7 @@ class GrpcSequencerIntegrationTest
   override type FixtureParam = Env
 
   override def withFixture(test: OneArgTest): Outcome = {
-    val env = Env(loggerFactory)
+    val env = new Env(loggerFactory)
     try super.withFixture(test.toNoArgTest(env))
     finally env.close()
   }
@@ -353,6 +455,7 @@ class GrpcSequencerIntegrationTest
     "cancel the sequencer subscription when the client connection is cancelled" in { env =>
       val subscribePromise = Promise[Unit]()
       val unsubscribePromise = Promise[Unit]()
+      val client = env.makeDefaultClient.futureValueUS.value
 
       // when a subscription is made resolve the subscribe promise
       // return to caller a subscription that will resolve the unsubscribe promise on close
@@ -363,7 +466,7 @@ class GrpcSequencerIntegrationTest
         .thenAnswer(Predef.identity[OrdinaryApplicationHandler[Envelope[_]]] _)
 
       // kick of subscription
-      val initF = env.client.subscribeAfter(
+      val initF = client.subscribeAfter(
         CantonTimestamp.MinValue,
         None,
         ApplicationHandler.success(),
@@ -374,7 +477,7 @@ class GrpcSequencerIntegrationTest
       val result = for {
         _ <- initF.failOnShutdown
         _ <- subscribePromise.future
-        _ = env.client.close()
+        _ = client.close()
         _ <- unsubscribePromise.future
       } yield succeed // just getting here is good enough
 
@@ -385,8 +488,9 @@ class GrpcSequencerIntegrationTest
       when(env.sequencer.sendAsyncSigned(any[SignedContent[SubmissionRequest]])(anyTraceContext))
         .thenReturn(EitherTUtil.unitUS[SequencerDeliverError])
       implicit val metricsContext: MetricsContext = MetricsContext.Empty
+      val client = env.makeDefaultClient.futureValueUS.value
       val result = for {
-        response <- env.client
+        response <- client
           .sendAsync(
             Batch
               .of(
@@ -403,6 +507,88 @@ class GrpcSequencerIntegrationTest
 
       result.futureValue
     }
+
+    "retry sequencer client creation if traffic state BFT read is unsuccessful" in { env =>
+      import env.*
+      val sequencerId2 = SequencerId(UniqueIdentifier.tryCreate("sequencer2", namespace))
+      val sequencer2ConnectService = env.makeConnectService(sequencerId2)
+      val port2 = UniquePortGenerator.next
+      val sequencerAlias2 = SequencerAlias.tryCreate("Sequencer2")
+      val trafficStateRpcCalled = new AtomicInteger(0)
+      val service2 =
+        new GrpcSequencerService(
+          sequencer,
+          SequencerTestMetrics,
+          env.loggerFactory,
+          authenticationCheck,
+          new SubscriptionPool[GrpcManagedSubscription[_]](
+            clock,
+            SequencerTestMetrics,
+            env.timeouts,
+            env.loggerFactory,
+          ),
+          sequencerSubscriptionFactory,
+          synchronizerParamsLookup,
+          params,
+          topologyStateForInitializationService,
+          BaseTest.testedProtocolVersion,
+        ) {
+          override def getTrafficStateForMember(
+              request: v30.GetTrafficStateForMemberRequest
+          ): Future[v30.GetTrafficStateForMemberResponse] =
+            if (trafficStateRpcCalled.getAndIncrement() == 0) {
+              // Return an empty traffic state instead of a None at the start
+              // We should observe retries of the client factory until both sequencers report the same traffic state
+              Future.successful(
+                v30.GetTrafficStateForMemberResponse(Some(TrafficState.empty.toProtoV30))
+              )
+            } else {
+              Future.successful(
+                v30.GetTrafficStateForMemberResponse(None)
+              )
+            }
+        }
+
+      env.spinUpSequencer(service2, sequencer2ConnectService, port2)
+
+      // We need an event in the event store otherwise the factory will skip the traffic state call
+      val now = clock.now
+      val dummyEvent = SequencedEventWithTraceContext(
+        SignedContent(
+          SequencerTestUtils.mockDeliver(now, synchronizerId = synchronizerId),
+          SymbolicCrypto.emptySignature,
+          None,
+          testedProtocolVersion,
+        )
+      )(
+        TraceContext.empty
+      )
+      sequencedEventStore.store(Seq(dummyEvent))(traceContext, closeContext).futureValueUS
+
+      env.loggerFactory.assertLogs(SuppressionRule.Level(Level.INFO))(
+        makeClient(
+          SequencerConnections
+            .many(
+              NonEmpty.mk(Seq, connection, makeConnection(port2, sequencerAlias2)),
+              sequencerTrustThreshold = PositiveInt.two,
+              submissionRequestAmplification = SubmissionRequestAmplification.NoAmplification,
+            )
+            .value,
+          expectedSequencers = NonEmpty
+            .mk(Set, SequencerAlias.Default -> sequencerId, sequencerAlias2 -> sequencerId2)
+            .toMap,
+          useNewConnectionPool = false, // Assertions become more complicated otherwise
+        ).futureValueUS,
+        assertions = _.infoMessage should include(
+          "Cannot reach threshold for Retrieving traffic state from synchronizer"
+        ),
+        _.infoMessage should include(
+          "The operation 'Traffic State Initialization' was not successful"
+        ),
+        _.infoMessage should include("Now retrying operation 'Traffic State Initialization'"),
+      )
+
+    }
   }
 
   private case object MockProtocolMessage extends UnsignedProtocolMessage {
@@ -416,5 +602,68 @@ class GrpcSequencerIntegrationTest
 
     override def toProtoSomeEnvelopeContentV30: protocolV30.EnvelopeContent.SomeEnvelopeContent =
       protocolV30.EnvelopeContent.SomeEnvelopeContent.Empty
+  }
+}
+
+final class EnvWithFailingTokenRefresh(override val loggerFactory: SuppressingLogger)(implicit
+    ec: ExecutionContextExecutor,
+    tracer: Tracer,
+    traceContext: TraceContext,
+) extends Env(loggerFactory) {
+  override lazy val authConfig =
+    AuthenticationTokenManagerConfig(pauseRetries = config.NonNegativeFiniteDuration.ofMillis(10))
+
+  override lazy val authService = new SequencerAuthenticationService {
+    override def challenge(
+        request: v30.SequencerAuthentication.ChallengeRequest
+    ): Future[v30.SequencerAuthentication.ChallengeResponse] =
+      Future.failed(new StatusRuntimeException(io.grpc.Status.UNAVAILABLE.withDescription("test")))
+
+    override def authenticate(
+        request: v30.SequencerAuthentication.AuthenticateRequest
+    ): Future[v30.SequencerAuthentication.AuthenticateResponse] =
+      Future.failed(new StatusRuntimeException(io.grpc.Status.UNAVAILABLE.withDescription("test")))
+
+    override def logout(
+        request: v30.SequencerAuthentication.LogoutRequest
+    ): Future[v30.SequencerAuthentication.LogoutResponse] =
+      Future.failed(new StatusRuntimeException(io.grpc.Status.UNAVAILABLE.withDescription("test")))
+  }
+}
+
+class GrpcSequencerIntegrationWithFailingTokenRefreshTest
+    extends FixtureAnyWordSpec
+    with BaseTest
+    with HasExecutionContext {
+  override type FixtureParam = EnvWithFailingTokenRefresh
+
+  override def withFixture(test: OneArgTest): Outcome = {
+    val env = new EnvWithFailingTokenRefresh(loggerFactory)
+    try super.withFixture(test.toNoArgTest(env))
+    finally env.close()
+  }
+
+  "the sequencer client's downloadTopologyStateForInit" when {
+    "the token refresh fails" should {
+      "handle it gracefully" in { env =>
+        val client = env.makeDefaultClient.futureValueUS.value
+
+        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          inside(client.downloadTopologyStateForInit().value.futureValue) { case Left(message) =>
+            message shouldBe
+              "Status{code=UNAVAILABLE, description=Authentication token refresh error: test, cause=null}"
+          },
+          LogEntry.assertLogSeq(
+            Seq(
+              (
+                _.warningMessage shouldBe
+                  "Token refresh encountered error: Status{code=UNAVAILABLE, description=test, cause=null}",
+                "Failing token refresh",
+              )
+            )
+          ),
+        )
+      }
+    }
   }
 }

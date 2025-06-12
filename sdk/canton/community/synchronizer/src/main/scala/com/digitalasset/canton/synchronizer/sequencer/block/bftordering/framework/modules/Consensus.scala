@@ -47,6 +47,7 @@ object Consensus {
   object Admin {
     final case class GetOrderingTopology(callback: (EpochNumber, Set[BftNodeId]) => Unit)
         extends Admin
+    final case class SetPerformanceMetricsEnabled(enabled: Boolean) extends Admin
   }
 
   sealed trait ProtocolMessage extends Message[Nothing]

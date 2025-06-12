@@ -14,7 +14,7 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
@@ -112,6 +112,51 @@ object IndexedSynchronizer extends IndexedStringFromDb[IndexedSynchronizer, Sync
     SynchronizerId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
 }
 
+final case class IndexedPhysicalSynchronizer private (
+    synchronizerId: PhysicalSynchronizerId,
+    index: Int,
+) extends IndexedString.Impl[PhysicalSynchronizerId](synchronizerId) {
+  require(
+    index > 0,
+    s"Illegal index $index. The index must be positive to prevent clashes with participant event log ids.",
+  )
+}
+
+object IndexedPhysicalSynchronizer
+    extends IndexedStringFromDb[IndexedPhysicalSynchronizer, PhysicalSynchronizerId] {
+
+  /** @throws java.lang.IllegalArgumentException
+    *   if `index <= 0`.
+    */
+  @VisibleForTesting
+  def tryCreate(
+      synchronizerId: PhysicalSynchronizerId,
+      index: Int,
+  ): IndexedPhysicalSynchronizer =
+    IndexedPhysicalSynchronizer(synchronizerId, index)
+
+  override protected def dbTyp: IndexedStringType = IndexedStringType.physicalSynchronizerId
+
+  override protected def buildIndexed(
+      item: PhysicalSynchronizerId,
+      index: Int,
+  ): IndexedPhysicalSynchronizer =
+    // save, because buildIndexed is only called with indices created by IndexedStringStores.
+    // These indices are positive by construction.
+    checked(tryCreate(item, index))
+
+  override protected def asString(item: PhysicalSynchronizerId): String300 =
+    item.toLengthLimitedString
+
+  override protected def fromString(
+      str: String300,
+      index: Int,
+  ): Either[String, IndexedPhysicalSynchronizer] =
+    // save, because fromString is only called with indices created by IndexedStringStores.
+    // These indices are positive by construction.
+    PhysicalSynchronizerId.fromString(str.unwrap).map(checked(tryCreate(_, index)))
+}
+
 final case class IndexedStringType private (source: Int, description: String)
 object IndexedStringType {
 
@@ -130,7 +175,7 @@ object IndexedStringType {
   }
 
   val synchronizerId: IndexedStringType = IndexedStringType(1, "synchronizerId")
-
+  val physicalSynchronizerId: IndexedStringType = IndexedStringType(2, "physicalSynchronizerId")
 }
 
 /** uid index such that we can store integers instead of long strings in our database */

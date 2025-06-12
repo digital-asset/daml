@@ -36,7 +36,7 @@ class DbMediatorSynchronizerConfigurationStore(
   // see create table sql for more details
   protected val singleRowLockValue: String1 = String1.fromChar('X')
 
-  override def fetchConfiguration(implicit
+  override def fetchConfiguration()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]] =
     for {
@@ -84,6 +84,31 @@ class DbMediatorSynchronizerConfigurationStore(
         "save-configuration",
       )
   }
+
+  override def setTopologyInitialized()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    storage
+      .update_(
+        sqlu"""update mediator_synchronizer_configuration
+              set is_topology_initialized = true
+              where lock = $singleRowLockValue""",
+        "set-topology-initialized",
+      )
+
+  override def isTopologyInitialized()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Boolean] =
+    for {
+      rowO <-
+        storage
+          .query(
+            sql"""select is_topology_initialized
+            from mediator_synchronizer_configuration #${storage
+                .limit(1)}""".as[Boolean].headOption,
+            "is-topology-initialized",
+          )
+    } yield rowO.getOrElse(false)
 
   private def serialize(config: MediatorSynchronizerConfiguration): SerializedRow = {
     val MediatorSynchronizerConfiguration(

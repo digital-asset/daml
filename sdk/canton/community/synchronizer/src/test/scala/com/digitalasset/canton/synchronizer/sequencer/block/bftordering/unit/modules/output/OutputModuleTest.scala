@@ -17,8 +17,11 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.Bft
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStoreReader
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.{
+  EpochStoreReader,
+  Genesis,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.{
   DefaultRequestInspector,
   RequestInspector,
@@ -26,6 +29,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.time.BftTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.{
   OutputModule,
@@ -83,7 +87,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{HasActorSystem, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, HasActorSystem, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.scaladsl.Sink
 import org.mockito.Mockito.clearInvocations
@@ -630,15 +634,15 @@ class OutputModuleTest
             when(topologyProviderMock.getOrderingTopologyAt(topologyActivationTime))
               .thenReturn(() => Some((newOrderingTopology, newCryptoProvider)))
             val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
+            implicit val context
+                : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
+              new ProgrammableUnitTestContext(resolveAwaits = true)
             val output = createOutputModule[ProgrammableUnitTestEnv](
               store = store,
               consensusRef = consensusRef,
               orderingTopologyProvider = topologyProviderMock,
               requestInspector = new AccumulatingRequestInspector,
             )(blockSubscription = new EnqueueingBlockSubscription(subscriptionBlocks))
-            implicit val context
-                : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
-              new ProgrammableUnitTestContext(resolveAwaits = true)
 
             val blockData1 = // lastInEpoch = false, isRequestToAllMembersOfSynchronizer = true
               completeBlockData(
@@ -685,6 +689,15 @@ class OutputModuleTest
               OutputEpochMetadata(EpochNumber.First, couldAlterOrderingTopology = true)
             )
 
+            context.runPipedMessagesThenVerifyAndReceiveOnModule(output) {
+              _ shouldBe Output.UpdateLeaderSelection(
+                Output.TopologyFetched(
+                  EpochNumber(1L), // Epoch number
+                  newOrderingTopology,
+                  newCryptoProvider,
+                )
+              )
+            }
             val piped3 = context.runPipedMessages()
             piped3 should contain only
               Output.TopologyFetched(
@@ -746,9 +759,9 @@ class OutputModuleTest
     "process NewEpochTopology messages sequentially in order" when {
       "new topologies are fetched out-of-order" in {
         val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
-        val output = createOutputModule[ProgrammableUnitTestEnv](consensusRef = consensusRef)()
         implicit val context: ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
           new ProgrammableUnitTestContext(resolveAwaits = true)
+        val output = createOutputModule[ProgrammableUnitTestEnv](consensusRef = consensusRef)()
 
         output.receive(Output.Start)
 
@@ -912,7 +925,16 @@ class OutputModuleTest
         output.receive(Output.BlockDataFetched(blockData))
         output.currentEpochCouldAlterOrderingTopology shouldBe false
 
-        context.runPipedMessages().foreach(output.receive) // Fetch the topology
+        context.runPipedMessagesThenVerifyAndReceiveOnModule(output) { msg =>
+          msg shouldBe Output.BlockDataStored(
+            blockData,
+            BlockNumber.First,
+            aTimestamp,
+            epochCouldAlterOrderingTopology = false,
+          )
+        }
+
+        context.runPipedMessages() shouldBe Seq.empty
 
         verify(topologyProviderSpy, never).getOrderingTopologyAt(any[TopologyActivationTime])(
           any[TraceContext]
@@ -1068,6 +1090,7 @@ class OutputModuleTest
                       startEpochCouldAlterOrderingTopology = None,
                       previousBftTime = None,
                       previousEpochTopologyQueryTimestamp = None,
+                      leaderSelectionPolicyState = None,
                     ),
                 node2 ->
                   v30.BftSequencerSnapshotAdditionalInfo
@@ -1083,6 +1106,7 @@ class OutputModuleTest
                       ),
                       previousEpochTopologyQueryTimestamp =
                         Some(previousTopologyActivationTime.value.toMicros),
+                      leaderSelectionPolicyState = None,
                     ),
               )
             )
@@ -1181,6 +1205,7 @@ class OutputModuleTest
 
   private def createOutputModule[E <: BaseIgnoringUnitTestEnv[E]](
       initialHeight: Long = BlockNumber.First,
+      initialEpochForTopology: Long = Genesis.GenesisEpochNumber,
       initialOrderingTopology: OrderingTopology = OrderingTopology.forTesting(nodes = Set.empty),
       availabilityRef: ModuleRef[Availability.Message[E]] = fakeModuleExpectingSilence,
       consensusRef: ModuleRef[Consensus.Message[E]] = fakeModuleExpectingSilence,
@@ -1197,11 +1222,13 @@ class OutputModuleTest
       StartupState[E](
         BftNodeId("node1"),
         BlockNumber(initialHeight),
+        EpochNumber(initialEpochForTopology),
         previousBftTimeForOnboarding,
         areTherePendingTopologyChangesInOnboardingEpoch,
         failingCryptoProvider,
         initialOrderingTopology,
         initialLowerBound = None,
+        new SimpleLeaderSelectionPolicy[E],
       )
     new OutputModule(
       startupState,
@@ -1216,19 +1243,6 @@ class OutputModuleTest
       timeouts,
       requestInspector,
     )(new BftBlockOrdererConfig(), synchronizerProtocolVersion, MetricsContext.Empty)
-  }
-
-  private class TestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
-      extends GenericInMemoryOutputMetadataStore[E] {
-
-    override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
-      () => value().getOrElse(fail())
-
-    override def close(): Unit = ()
-
-    override protected def reportError(errorMessage: String)(implicit
-        traceContext: TraceContext
-    ): Unit = fail(errorMessage)
   }
 
   private def createOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]] =
@@ -1261,6 +1275,20 @@ object OutputModuleTest {
       outcome = !outcome
       result
     }
+  }
+
+  class TestOutputMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
+      extends GenericInMemoryOutputMetadataStore[E]
+      with BaseTest {
+
+    override protected def createFuture[T](action: String)(value: () => Try[T]): () => T =
+      () => value().getOrElse(fail())
+
+    override def close(): Unit = ()
+
+    override protected def reportError(errorMessage: String)(implicit
+        traceContext: TraceContext
+    ): Unit = fail(errorMessage)
   }
 
   private class EnqueueingBlockSubscription(

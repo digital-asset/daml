@@ -13,9 +13,12 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.RefinedDuration
 import com.digitalasset.canton.util.TryUtil
 import com.google.protobuf.timestamp.Timestamp as ProtoTimestamp
+import pureconfig.error.{CannotConvert, FailureReason}
+import pureconfig.{ConfigReader, ConfigWriter}
 import slick.jdbc.{GetResult, SetParameter}
 
-import java.time.{Duration, Instant}
+import java.time.format.{DateTimeFormatter, DateTimeParseException}
+import java.time.{Duration, Instant, ZoneId}
 import java.util.Date
 import scala.concurrent.duration.*
 import scala.jdk.DurationConverters.ScalaDurationOps
@@ -140,4 +143,23 @@ object CantonTimestamp {
     GetResult(r => CantonTimestamp.assertFromLong(r.nextLong()))
   implicit val getResultOptionTimestamp: GetResult[Option[CantonTimestamp]] =
     GetResult(r => r.nextLongOption().map(CantonTimestamp.assertFromLong))
+
+  private val isoFormat = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.of("Z"))
+
+  implicit val cantonTimestampReader: ConfigReader[CantonTimestamp] =
+    ConfigReader.fromNonEmptyString { str =>
+      Either
+        .catchOnly[DateTimeParseException](
+          isoFormat.parse(str, Instant.from(_))
+        )
+        .leftMap(_.getMessage)
+        .flatMap(CantonTimestamp.fromInstant)
+        .leftMap[FailureReason](error =>
+          CannotConvert(str, classOf[CantonTimestamp].getName, error)
+        )
+    }
+
+  implicit val cantonTimestampWriter: ConfigWriter[CantonTimestamp] =
+    ConfigWriter.toString[CantonTimestamp](ts => isoFormat.format(ts.toInstant))
+
 }

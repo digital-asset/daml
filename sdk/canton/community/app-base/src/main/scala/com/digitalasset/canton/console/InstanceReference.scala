@@ -841,8 +841,12 @@ abstract class SequencerReference(
   override def traffic_control: TrafficControlSequencerAdministrationGroup =
     sequencerTrafficControl
 
-  @Help.Summary("Return synchronizer id of the synchronizer")
-  def synchronizer_id: PhysicalSynchronizerId =
+  @Help.Summary("Returns the logical synchronizer id of the synchronizer")
+  def synchronizer_id: SynchronizerId =
+    physical_synchronizer_id.logical
+
+  @Help.Summary("Returns the physical synchronizer id of the synchronizer")
+  def physical_synchronizer_id: PhysicalSynchronizerId =
     synchronizerId.get() match {
       case Some(id) => id
       case None =>
@@ -870,7 +874,7 @@ abstract class SequencerReference(
           observers: Seq[MediatorReference] = Nil,
       ): Unit = {
 
-        val synchronizerId = synchronizer_id
+        val synchronizerId = physical_synchronizer_id
 
         val mediators = active ++ observers
 
@@ -915,7 +919,7 @@ abstract class SequencerReference(
           additionalActive: Seq[MediatorReference],
           additionalObservers: Seq[MediatorReference] = Nil,
       ): Unit = {
-        val synchronizerId = synchronizer_id
+        val synchronizerId = physical_synchronizer_id
 
         val currentMediators = topology.mediators
           .list(synchronizerId.logical, group = Some(group))
@@ -1217,7 +1221,7 @@ abstract class SequencerReference(
 
     @Help.Summary("Get peer network status")
     def get_peer_network_status(
-        endpoints: Option[Iterable[BftBlockOrdererConfig.EndpointId]]
+        endpoints: Option[Iterable[BftBlockOrdererConfig.EndpointId]] = None
     ): PeerNetworkStatus =
       consoleEnvironment.run {
         runner.adminCommand(
@@ -1229,6 +1233,18 @@ abstract class SequencerReference(
     def get_ordering_topology(): OrderingTopology =
       consoleEnvironment.run {
         runner.adminCommand(SequencerBftAdminCommands.GetOrderingTopology())
+      }
+
+    @Help.Summary("Enable BFT ordering performance metrics")
+    def enable_performance_metrics(): Unit =
+      consoleEnvironment.run {
+        runner.adminCommand(SequencerBftAdminCommands.SetPerformanceMetricsEnabled(true))
+      }
+
+    @Help.Summary("Disable BFT ordering performance metrics")
+    def disable_performance_metrics(): Unit =
+      consoleEnvironment.run {
+        runner.adminCommand(SequencerBftAdminCommands.SetPerformanceMetricsEnabled(false))
       }
 
     private def toInternal(endpoint: BftBlockOrdererConfig.EndpointId): P2PEndpoint.Id =

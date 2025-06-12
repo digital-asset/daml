@@ -29,7 +29,9 @@ import RawLedgerBlock.RawBlockEvent
 /** Trait that generalizes over the kind of events that could be observed from a
   * [[com.digitalasset.canton.synchronizer.sequencer.block.BlockOrderer]].
   */
-sealed trait LedgerBlockEvent extends Product with Serializable
+sealed trait LedgerBlockEvent extends Product with Serializable {
+  def timestamp: CantonTimestamp
+}
 
 object LedgerBlockEvent extends HasLoggerName {
 
@@ -42,8 +44,10 @@ object LedgerBlockEvent extends HasLoggerName {
     lazy val signedSubmissionRequest: SignedContent[SubmissionRequest] =
       signedOrderingRequest.signedSubmissionRequest
   }
-  final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
-      extends LedgerBlockEvent
+  final case class Acknowledgment(
+      timestamp: CantonTimestamp,
+      request: SignedContent[AcknowledgeRequest],
+  ) extends LedgerBlockEvent
 
   def fromRawBlockEvent(
       protocolVersion: ProtocolVersion,
@@ -62,10 +66,18 @@ object LedgerBlockEvent extends HasLoggerName {
               .fromLong(microsecondsSinceEpoch)
               .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
         } yield LedgerBlockEvent.Send(CantonTimestamp(timestamp), deserializedRequest, request.size)
-      case RawBlockEvent.Acknowledgment(acknowledgement) =>
-        deserializeSignedAcknowledgeRequest(protocolVersion)(acknowledgement).map(
-          LedgerBlockEvent.Acknowledgment.apply
-        )
+      case RawBlockEvent.Acknowledgment(acknowledgement, microsecondsSinceEpoch) =>
+        for {
+          deserializedRequest <- deserializeSignedAcknowledgeRequest(protocolVersion)(
+            acknowledgement
+          )
+          timestamp <-
+            LfTimestamp
+              .fromLong(microsecondsSinceEpoch)
+              .leftMap(e => ProtoDeserializationError.TimestampConversionError(e))
+
+        } yield LedgerBlockEvent.Acknowledgment(CantonTimestamp(timestamp), deserializedRequest)
+
     }
 
   def deserializeSignedOrderingRequest(

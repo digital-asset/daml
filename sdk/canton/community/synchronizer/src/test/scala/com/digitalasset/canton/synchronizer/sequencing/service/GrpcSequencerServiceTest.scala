@@ -121,7 +121,6 @@ class GrpcSequencerServiceTest
     private val synchronizerParamLookup
         : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
       SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-        BaseTest.defaultStaticSynchronizerParameters,
         None,
         topologyClient,
         loggerFactory,

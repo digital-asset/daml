@@ -47,6 +47,8 @@ class KmsPrivateCrypto(
     with FlagCloseable
     with CompositeHealthElement[String, HealthQuasiComponent] {
 
+  override private[crypto] def getInitialHealthState: ComponentHealthState = this.initialHealthState
+
   override def name: String = "kms-private-crypto"
 
   setDependency("kms", kms)
@@ -155,8 +157,7 @@ class KmsPrivateCrypto(
                     usage,
                     pubKey.usage,
                     pubKey.id,
-                    _ =>
-                      SigningError.InvalidKeyUsage(pubKey.id, pubKey.usage.forgetNE, usage.forgetNE),
+                    SigningError.InvalidKeyUsage.apply,
                   )
                   .toEitherT[FutureUnlessShutdown]
                 signatureRaw <- kms

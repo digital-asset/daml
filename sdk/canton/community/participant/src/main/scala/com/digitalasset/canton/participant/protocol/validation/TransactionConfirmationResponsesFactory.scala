@@ -213,13 +213,13 @@ class TransactionConfirmationResponsesFactory(
                     LocalRejectError.TimeRejects.LedgerTime.Reject(
                       s"ledgerTime=$ledgerTime, recordTime=$recordTime, maxDelta=$maxDelta"
                     )
-                  case TimeValidator.SubmissionTimeRecordTimeDeltaTooLargeError(
-                        submissionTime,
+                  case TimeValidator.PreparationTimeRecordTimeDeltaTooLargeError(
+                        preparationTime,
                         recordTime,
                         maxDelta,
                       ) =>
-                    LocalRejectError.TimeRejects.SubmissionTime.Reject(
-                      s"submissionTime=$submissionTime, recordTime=$recordTime, maxDelta=$maxDelta"
+                    LocalRejectError.TimeRejects.PreparationTime.Reject(
+                      s"preparationTime=$preparationTime, recordTime=$recordTime, maxDelta=$maxDelta"
                     )
                 }
                 .map(logged(requestId, _))

@@ -56,7 +56,7 @@ trait HashUtilsTest { this: Matchers =>
         Time.Timestamp.assertFromLong(0xbbbb),
       )
     ),
-    submissionTime = Time.Timestamp.Epoch,
+    preparationTime = Time.Timestamp.Epoch,
     disclosedContracts = SortedMap(
       cid1 -> node1,
       cid2 -> node2,

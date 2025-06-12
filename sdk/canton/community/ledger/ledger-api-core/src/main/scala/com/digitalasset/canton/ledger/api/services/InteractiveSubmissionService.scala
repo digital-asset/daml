@@ -35,6 +35,7 @@ object InteractiveSubmissionService {
       transaction: SubmittedTransaction,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       inputContracts: Map[ContractId, FatContractInstance],
+      // TODO(#25483) Should that be physical?
       synchronizerId: SynchronizerId,
   )
 

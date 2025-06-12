@@ -198,19 +198,19 @@ class ValidatingTopologyMappingChecks(
     for {
       _ <- checkFirstIsNotRemove
       _ <- checkRemoveDoesNotChangeMapping
-      _ <- checkNoOngoingSynchronizerMigration(effective, toValidate, pendingChangesLookup)
+      _ <- checkNoOngoingSynchronizerUpgrade(effective, toValidate, pendingChangesLookup)
       _ <- checkOpt.getOrElse(EitherTUtil.unitUS)
     } yield ()
 
   }
 
-  private val mappingsAllowedDuringSynchronizerMigration =
-    Set[Code](Code.SynchronizerMigrationAnnouncement)
+  private val mappingsAllowedDuringSynchronizerUpgrade =
+    Set[Code](Code.SynchronizerUpgradeAnnouncement, Code.SequencerConnectionSuccessor)
 
   /** Check that the topology state is not frozen if this store is a synchronizer store. All other
     * stores are not subject to freezing the topology state.
     */
-  private def checkNoOngoingSynchronizerMigration(
+  private def checkNoOngoingSynchronizerUpgrade(
       effective: EffectiveTime,
       toValidate: GenericSignedTopologyTransaction,
       pendingChangesLookup: PendingChangesLookup,
@@ -222,19 +222,19 @@ class ValidatingTopologyMappingChecks(
     )(for {
       results <- loadFromStore(
         effective,
-        Set(Code.SynchronizerMigrationAnnouncement),
+        Set(Code.SynchronizerUpgradeAnnouncement),
         pendingChangesLookup,
       )
       announcements = NonEmpty.from(
-        results.flatMap(_.selectMapping[SynchronizerMigrationAnnouncement].toList)
+        results.flatMap(_.selectMapping[SynchronizerUpgradeAnnouncement].toList)
       )
       _ <- announcements match {
         case None => EitherTUtil.unitUS[TopologyTransactionRejection]
         case Some(announcement) =>
           EitherTUtil.condUnitET[FutureUnlessShutdown](
-            mappingsAllowedDuringSynchronizerMigration.contains(toValidate.mapping.code),
-            TopologyTransactionRejection.OngoingSynchronizerMigration(
-              announcement.head1.mapping.synchronizerId.logical
+            mappingsAllowedDuringSynchronizerUpgrade.contains(toValidate.mapping.code),
+            TopologyTransactionRejection.OngoingSynchronizerUpgrade(
+              announcement.head1.mapping.synchronizerId
             ): TopologyTransactionRejection,
           )
       }

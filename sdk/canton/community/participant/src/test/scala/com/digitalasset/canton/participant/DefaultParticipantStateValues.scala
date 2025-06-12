@@ -56,13 +56,13 @@ object DefaultParticipantStateValues {
   def transactionMeta(
       ledgerEffectiveTime: CantonTimestamp = CantonTimestamp.Epoch,
       workflowId: Option[WorkflowId] = None,
-      submissionTime: CantonTimestamp = CantonTimestamp.Epoch,
+      preparationTime: CantonTimestamp = CantonTimestamp.Epoch,
       submissionSeed: LfHash = lfhash(),
   ): TransactionMeta =
     TransactionMeta(
       ledgerEffectiveTime.toLf,
       workflowId.map(_.unwrap),
-      submissionTime.toLf,
+      preparationTime.toLf,
       submissionSeed,
       timeBoundaries = LedgerTimeBoundaries.unconstrained,
       optUsedPackages = None,

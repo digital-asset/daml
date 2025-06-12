@@ -96,13 +96,13 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
           when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
             .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
           val indexedSynchronizer = IndexedSynchronizer.tryCreate(synchronizerId1, 1)
-          when(syncPersistentState.indexedSynchronizer).thenReturn(indexedSynchronizer)
+          when(syncPersistentState.synchronizerIdx).thenReturn(indexedSynchronizer)
 
           packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
             err =>
               err.pkg shouldBe pkgId1
               err.contract shouldBe contractId
-              err.synchronizerId shouldBe synchronizerId1
+              err.synchronizerId shouldBe synchronizerId1.logical
           }
       }.failOnShutdown
     }
@@ -115,30 +115,34 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     val participantId = ParticipantId(UniqueIdentifier.tryCreate("participant", "one"))
 
     val headAuthorizedTopologySnapshot = mock[TopologySnapshot]
-    val anotherSynchronizerTopologySnapshot = mock[TopologySnapshot]
+    private val anotherSynchronizerTopologySnapshot = mock[TopologySnapshot]
 
     val pkgId1 = LfPackageId.assertFromString("pkgId1")
     val pkgId2 = LfPackageId.assertFromString("pkgId2")
     val pkgId3 = LfPackageId.assertFromString("pkgId3")
 
-    val packagesToBeVetted = Seq(pkgId1, pkgId2)
-    val packagesToBeUnvetted = List(pkgId1, pkgId2)
-
-    val missingPkgId = LfPackageId.assertFromString("missing")
-    val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "one"))
-    val synchronizerId2 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", "two"))
+    val synchronizerId1 = SynchronizerId(
+      UniqueIdentifier.tryCreate("synchronizer", "one")
+    ).toPhysical
+    private val synchronizerId2 = SynchronizerId(
+      UniqueIdentifier.tryCreate("synchronizer", "two")
+    ).toPhysical
 
     val syncPersistentState: SyncPersistentState = mock[SyncPersistentState]
+    when(syncPersistentState.physicalSynchronizerId).thenReturn(synchronizerId1)
+
     when(stateManager.getAll).thenReturn(Map(synchronizerId1 -> syncPersistentState))
-    val topologyComponentFactory = mock[TopologyComponentFactory]
+    when(stateManager.getAllLatest).thenReturn(Map(synchronizerId1.logical -> syncPersistentState))
+
+    private val topologyComponentFactory = mock[TopologyComponentFactory]
     when(topologyComponentFactory.createHeadTopologySnapshot()(any[ExecutionContext]))
       .thenReturn(anotherSynchronizerTopologySnapshot)
 
     val contractStore = mock[ContractStore]
 
-    when(stateManager.topologyFactoryFor(synchronizerId1, testedProtocolVersion))
+    when(stateManager.topologyFactoryFor(synchronizerId1))
       .thenReturn(Some(topologyComponentFactory))
-    when(stateManager.topologyFactoryFor(synchronizerId2, testedProtocolVersion)).thenReturn(None)
+    when(stateManager.topologyFactoryFor(synchronizerId2)).thenReturn(None)
     when(stateManager.contractStore).thenReturn(Eval.now(contractStore))
 
     val activeContractStore = mock[ActiveContractStore]

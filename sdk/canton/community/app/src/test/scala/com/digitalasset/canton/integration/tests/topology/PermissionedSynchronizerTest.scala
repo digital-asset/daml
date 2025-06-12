@@ -38,7 +38,7 @@ trait PermissionedSynchronizerTest
       .propose_update(sequencer1.synchronizer_id, _.update(onboardingRestriction = restriction))
     eventually() {
       val params = sequencer1.topology.synchronizer_parameters
-        .list(store = sequencer1.synchronizer_id.logical)
+        .list(store = sequencer1.synchronizer_id)
       params.loneElement.item.onboardingRestriction
         .transformInto[OnboardingRestriction] shouldBe restriction
     }
@@ -162,7 +162,7 @@ trait PermissionedSynchronizerTest
         mustContainWithClue = Seq(
           (
             _.warningMessage should include(
-              s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer $daId"
+              s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer ${daId.logical}"
             ),
             "warn about missing participant synchronizer permission",
           ),
@@ -209,7 +209,7 @@ trait PermissionedSynchronizerTest
         Nil,
         mayContain = Seq(
           _.warningMessage should include(
-            s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer $daId"
+            s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer ${daId.logical}"
           )
         ),
       ),

@@ -122,8 +122,8 @@ abstract class RepairServiceIntegrationTest
                 s"Unable to find an unassigned event for contract ID ${iou.coid}"
               )
 
-          unassigned.source shouldBe daId.toProtoPrimitive
-          unassigned.target shouldBe acmeId.toProtoPrimitive
+          unassigned.source shouldBe daId.logical.toProtoPrimitive
+          unassigned.target shouldBe acmeId.logical.toProtoPrimitive
           unassigned.submitter shouldBe empty
 
           val assigned =
@@ -133,8 +133,8 @@ abstract class RepairServiceIntegrationTest
                 s"Unable to find an assigned event for unassign ID ${unassigned.unassignId}"
               )
 
-          assigned.source shouldBe daId.toProtoPrimitive
-          assigned.target shouldBe acmeId.toProtoPrimitive
+          assigned.source shouldBe daId.logical.toProtoPrimitive
+          assigned.target shouldBe acmeId.logical.toProtoPrimitive
           assigned.submitter shouldBe empty
 
         }
@@ -156,7 +156,7 @@ abstract class RepairServiceIntegrationTest
           .filter(_.createdEvent.value.contractId == cid.coid)
           .loneElement
 
-        beforeAssignation.synchronizerId shouldBe daId.toProtoPrimitive
+        beforeAssignation.synchronizerId shouldBe daId.logical.toProtoPrimitive
         beforeAssignation.reassignmentCounter shouldBe 4
 
         participant1.synchronizers.disconnect_all()
@@ -191,7 +191,7 @@ abstract class RepairServiceIntegrationTest
               .filter(_.createdEvent.value.contractId == cid.coid)
               .loneElement
 
-            afterAssignation.synchronizerId shouldBe acmeId.toProtoPrimitive
+            afterAssignation.synchronizerId shouldBe acmeId.logical.toProtoPrimitive
             afterAssignation.reassignmentCounter shouldBe 2
 
             val archiveCmd = participant1.ledger_api.javaapi.state.acs

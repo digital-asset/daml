@@ -501,14 +501,14 @@ class LocalParticipantTestingGroup(
       |
       |Fails if the participant has never connected to the synchronizer.""")
   def sequencer_messages(
-      synchronizerAlias: SynchronizerAlias,
+      physicalSynchronizerId: PhysicalSynchronizerId,
       from: Option[Instant] = None,
       to: Option[Instant] = None,
       limit: PositiveInt = defaultLimit,
   ): Seq[PossiblyIgnoredProtocolEvent] =
     state_inspection
-      .findMessages(synchronizerAlias, from, to, Some(limit.value))
-      .map(_.valueOr(e => throw new IllegalStateException(e.toString)))
+      .findMessages(physicalSynchronizerId, from, to, Some(limit.value))
+      .map(_.valueOr(e => consoleEnvironment.raiseError(s"Cannot retrieve sequencer messages: $e")))
 
   @Help.Summary(
     "Return the sync crypto api provider, which provides access to all cryptographic methods",
@@ -806,7 +806,7 @@ class CommitmentsAdministrationGroup(
       | Returns an error if the participant cannot retrieve the data for the given commitment anymore.
       | The arguments are:
       | - commitment: The commitment to be opened
-      | - synchronizerId: The synchronizer for which the commitment was computed
+      | - physicalSynchronizerId: The synchronizer for which the commitment was computed
       | - timestamp: The timestamp of the commitment. Needs to correspond to a commitment tick.
       | - counterParticipant: The counter participant to whom we previously sent the commitment
       | - timeout: Time limit for the grpc call to complete
@@ -814,7 +814,7 @@ class CommitmentsAdministrationGroup(
   )
   def open_commitment(
       commitment: AcsCommitment.HashedCommitmentType,
-      synchronizerId: SynchronizerId,
+      physicalSynchronizerId: PhysicalSynchronizerId,
       timestamp: CantonTimestamp,
       counterParticipant: ParticipantId,
       timeout: NonNegativeDuration = timeouts.unbounded,
@@ -829,7 +829,7 @@ class CommitmentsAdministrationGroup(
             ParticipantAdminCommands.Inspection.OpenCommitment(
               responseObserver,
               commitment,
-              synchronizerId,
+              physicalSynchronizerId,
               counterParticipant,
               timestamp,
             )
@@ -852,7 +852,7 @@ class CommitmentsAdministrationGroup(
           case Right(output) => output
         }
       logger.debug(
-        s"Retrieved metadata for ${counterContractsMetadata.size} contracts shared with $counterParticipant at time $timestamp on synchronizer $synchronizerId"
+        s"Retrieved metadata for ${counterContractsMetadata.size} contracts shared with $counterParticipant at time $timestamp on synchronizer $physicalSynchronizerId"
       )
       counterContractsMetadata
     }

@@ -108,8 +108,8 @@ trait SequencerOnboardingTombstoneTest
     onboardNewSequencer(
       // synchronizerId,
       initializedSynchronizers(daName).synchronizerId,
-      newSequencer = sequencer2,
-      existingSequencer = sequencer1,
+      newSequencerReference = sequencer2,
+      existingSequencerReference = sequencer1,
       synchronizerOwners = initializedSynchronizers(daName).synchronizerOwners,
     )
 

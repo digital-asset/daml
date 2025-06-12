@@ -11,7 +11,6 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.validation.PbftMessageValidator
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
-  EpochNumber,
   ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -46,7 +45,6 @@ final class PbftBlockState(
     clock: Clock,
     messageValidator: PbftMessageValidator,
     leader: BftNodeId,
-    epoch: EpochNumber,
     view: ViewNumber,
     abort: String => Nothing,
     metrics: BftOrderingMetrics,
@@ -256,9 +254,6 @@ final class PbftBlockState(
     if (pp.message.viewNumber == view && pp.from != leader) {
       emitNonCompliance(metrics)(
         pp.from,
-        Some(epoch),
-        Some(view),
-        Some(pp.message.blockMetadata.blockNumber),
         metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
       )
       logger.warn(
@@ -267,7 +262,7 @@ final class PbftBlockState(
       )
       false
     } else if (prePrepare.isDefined) {
-      logger.info(
+      logger.debug(
         s"PrePrepare for block ${pp.message.blockMetadata.blockNumber} already exists; ignoring new one"
       )
       false
@@ -297,16 +292,13 @@ final class PbftBlockState(
         if (prepare.message.hash != p.message.hash) {
           emitNonCompliance(metrics)(
             p.from,
-            Some(epoch),
-            Some(view),
-            Some(p.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(
             s"$baseLogMsg stored Prepare has hash ${prepare.message.hash}, found different hash ${p.message.hash}"
           )
         } else {
-          logger.info(s"$baseLogMsg new Prepare has matching hash (${prepare.message.hash})")
+          logger.debug(s"$baseLogMsg new Prepare has matching hash (${prepare.message.hash})")
         }
         false
       case None =>
@@ -322,16 +314,13 @@ final class PbftBlockState(
         if (commit.message.hash != c.message.hash) {
           emitNonCompliance(metrics)(
             c.from,
-            Some(epoch),
-            Some(view),
-            Some(c.message.blockMetadata.blockNumber),
             metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
           )
           logger.warn(
             s"$baseLogMsg stored Commit has hash ${commit.message.hash}, found different hash ${c.message.hash}"
           )
         } else {
-          logger.info(s"$baseLogMsg new Commit has matching hash (${commit.message.hash})")
+          logger.debug(s"$baseLogMsg new Commit has matching hash (${commit.message.hash})")
         }
         false
       case None =>

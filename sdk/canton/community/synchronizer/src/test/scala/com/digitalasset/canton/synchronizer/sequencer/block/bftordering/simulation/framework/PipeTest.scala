@@ -120,13 +120,13 @@ object PipeTest {
       timeouts: ProcessingTimeout,
   ): SystemInitializer[E, String, String] = (system, _) => {
     val module = new PipeNode[E](pipeStore, reporter, loggerFactory, timeouts)
-    val ref = system.newModuleRef[String](ModuleName("module"))
+    val ref = system.newModuleRef[String](ModuleName("module"))()
     system.setModule(ref, module)
-    val p2PAdminModuleRef = system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))
+    val p2PAdminModuleRef = system.newModuleRef[P2PNetworkOut.Admin](ModuleName("p2PAdminModule"))()
     val consensusAdminModuleRef =
-      system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))
+      system.newModuleRef[Consensus.Admin](ModuleName("consensusAdminModule"))()
     val outputModuleRef =
-      system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))
+      system.newModuleRef[Output.SequencerSnapshotMessage](ModuleName("outputModule"))()
     ref.asyncSend("init")
     SystemInitializationResult(
       ref,

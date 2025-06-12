@@ -1159,6 +1159,11 @@ paths:
         required: true
         schema:
           type: string
+      - name: identity-provider-id
+        in: query
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: ''
@@ -1167,7 +1172,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetUserResponse'
         '400':
-          description: 'Invalid value for: headers'
+          description: 'Invalid value for: query parameter identity-provider-id, Invalid
+            value for: headers'
           content:
             text/plain:
               schema:
@@ -1236,6 +1242,39 @@ paths:
                 $ref: '#/components/schemas/UpdateUserResponse'
         '400':
           description: 'Invalid value for: body, Invalid value for: headers'
+          content:
+            text/plain:
+              schema:
+                type: string
+        default:
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JsCantonError'
+      security:
+      - httpAuth: []
+      - apiKeyAuth: []
+  /v2/authenticated-user:
+    get:
+      description: Get current user details (uses user for JWT).
+      operationId: getV2Authenticated-user
+      parameters:
+      - name: identity-provider-id
+        in: query
+        required: false
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetUserResponse'
+        '400':
+          description: 'Invalid value for: query parameter identity-provider-id, Invalid
+            value for: headers'
           content:
             text/plain:
               schema:

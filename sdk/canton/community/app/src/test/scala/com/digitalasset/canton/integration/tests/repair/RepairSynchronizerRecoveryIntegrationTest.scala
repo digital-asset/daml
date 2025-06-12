@@ -200,7 +200,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
 
             val cleanTimeOfRequest =
               participant1.testing.state_inspection
-                .lookupCleanTimeOfRequest(daName)
+                .lookupCleanTimeOfRequest(daId)
                 .value
                 .futureValueUS
                 .value
@@ -253,7 +253,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
             eventually() {
               val newCleanRequestIndex =
                 participant1.testing.state_inspection
-                  .lookupCleanTimeOfRequest(daName)
+                  .lookupCleanTimeOfRequest(daId)
                   .value
                   .futureValueUS
                   .value
@@ -276,7 +276,7 @@ trait RepairSynchronizerRecoveryIntegrationTest
 
             clue("Check the clean sequencer index") {
               val deliverErrorP1 = participant1.testing.state_inspection
-                .findMessage(daName, LatestUpto(afterRefusedRequest))
+                .findMessage(daId, LatestUpto(afterRefusedRequest))
                 .value
                 .value
               deliverErrorP1.timestamp shouldBe >(beforeRefusedRequest)

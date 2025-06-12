@@ -663,7 +663,6 @@ class SequencerNodeBootstrap(
 
           synchronizerParamsLookup = SynchronizerParametersLookup
             .forSequencerSynchronizerParameters(
-              staticSynchronizerParameters,
               config.publicApi.overrideMaxRequestSize,
               topologyClient,
               loggerFactory,
@@ -679,7 +678,6 @@ class SequencerNodeBootstrap(
             SequencerSynchronizerParameters
           ] =
             SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-              staticSynchronizerParameters,
               config.publicApi.overrideMaxRequestSize,
               topologyClient,
               loggerFactory,
@@ -746,6 +744,7 @@ class SequencerNodeBootstrap(
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,
+                config.parameters.minimumSequencingTime,
                 runtimeReadyPromise.futureUS,
                 topologyAndSequencerSnapshot.flatMap { case (_, sequencerSnapshot) =>
                   sequencerSnapshot
@@ -768,6 +767,15 @@ class SequencerNodeBootstrap(
           )
           _ = sequencerServiceCell.putIfAbsent(sequencerService)
 
+          directPool = new DirectSequencerConnectionXPool(
+            sequencer,
+            synchronizerId,
+            sequencerId,
+            staticSynchronizerParameters,
+            parameters.processingTimeouts,
+            loggerFactory,
+          )
+
           _ = addCloseable(sequencedEventStore)
           sequencerClient = new SequencerClientImplPekko[
             DirectSequencerClientTransport.SubscriptionError
@@ -783,6 +791,7 @@ class SequencerNodeBootstrap(
                 staticSynchronizerParameters.protocolVersion,
               ),
             ),
+            connectionPool = directPool,
             parameters.sequencerClient,
             arguments.testingConfig,
             staticSynchronizerParameters.protocolVersion,

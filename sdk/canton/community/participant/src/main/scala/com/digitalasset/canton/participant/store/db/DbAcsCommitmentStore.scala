@@ -214,15 +214,15 @@ class DbAcsCommitmentStore(
   override def outstanding(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipants: Seq[ParticipantId],
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
       includeMatchedPeriods: Boolean,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, ParticipantId, CommitmentPeriodState)]] = {
-    val participantFilter: SQLActionBuilderChain = counterParticipants match {
-      case Seq() => sql""
-      case list =>
-        sql" AND counter_participant IN (" ++ list
+    val participantFilter: SQLActionBuilderChain = counterParticipantsFilter match {
+      case None => sql""
+      case Some(list) =>
+        sql" AND counter_participant IN (" ++ list.forgetNE
           .map(part => sql"$part")
           .intercalate(sql", ") ++ sql")"
     }
@@ -401,17 +401,17 @@ class DbAcsCommitmentStore(
   override def searchComputedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipants: Seq[ParticipantId],
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
     Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
   ] = {
 
-    val participantFilter: SQLActionBuilderChain = counterParticipants match {
-      case Seq() => sql""
-      case list =>
-        sql" AND counter_participant IN (" ++ list
+    val participantFilter: SQLActionBuilderChain = counterParticipantsFilter match {
+      case None => sql""
+      case Some(list) =>
+        sql" AND counter_participant IN (" ++ list.forgetNE
           .map(part => sql"$part")
           .intercalate(sql", ") ++ sql")"
     }
@@ -431,15 +431,15 @@ class DbAcsCommitmentStore(
   override def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipants: Seq[ParticipantId] = Seq.empty,
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
 
-    val participantFilter: SQLActionBuilderChain = counterParticipants match {
-      case Seq() => sql""
-      case list =>
-        sql" AND sender IN (" ++ list
+    val participantFilter: SQLActionBuilderChain = counterParticipantsFilter match {
+      case None => sql""
+      case Some(list) =>
+        sql" AND sender IN (" ++ list.forgetNE
           .map(part => sql"$part")
           .intercalate(sql", ") ++ sql")"
     }

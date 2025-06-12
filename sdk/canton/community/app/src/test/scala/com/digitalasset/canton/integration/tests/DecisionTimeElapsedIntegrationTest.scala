@@ -56,11 +56,11 @@ trait DecisionTimeElapsedIntegrationTest
     participant2.synchronizers.connect_local(sequencer1, daName)
 
     participant1.testing.state_inspection
-      .lookupCleanTimeOfRequest(daName)
+      .lookupCleanTimeOfRequest(daId)
       .value
       .futureValueUS shouldBe None
     participant2.testing.state_inspection
-      .lookupCleanTimeOfRequest(daName)
+      .lookupCleanTimeOfRequest(daId)
       .value
       .futureValueUS shouldBe None
 
@@ -118,14 +118,14 @@ trait DecisionTimeElapsedIntegrationTest
 
       eventually() {
         participant1.testing.state_inspection
-          .lookupCleanTimeOfRequest(daName)
+          .lookupCleanTimeOfRequest(daId)
           .value
           .futureValueUS
           .value
           .rc
           .unwrap shouldBe 0L
         participant2.testing.state_inspection
-          .lookupCleanTimeOfRequest(daName)
+          .lookupCleanTimeOfRequest(daId)
           .value
           .futureValueUS
           .value

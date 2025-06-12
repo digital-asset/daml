@@ -28,7 +28,7 @@ import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPar
 import com.digitalasset.daml.lf.VersionRange
 import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.engine.{Enricher => LfEnricher, *}
+import com.digitalasset.daml.lf.engine.{Enricher as LfEnricher, *}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -55,7 +55,8 @@ object DAMLe {
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
-        10000, // 10000 is the default value in the engine configuration
+        10000, // 10000 is the default value in the engine configuration,
+      paranoidMode: Boolean,
   ): Engine =
     new Engine(
       EngineConfig(
@@ -70,6 +71,7 @@ object DAMLe {
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        paranoid = paranoidMode,
       )
     )
 
@@ -118,7 +120,7 @@ object DAMLe {
         submitters: Set[LfPartyId],
         command: LfCommand,
         ledgerTime: CantonTimestamp,
-        submissionTime: CantonTimestamp,
+        preparationTime: CantonTimestamp,
         rootSeed: Option[LfHash],
         packageResolution: Map[Ref.PackageName, Ref.PackageId],
         expectFailure: Boolean,
@@ -198,7 +200,7 @@ class DAMLe(
       submitters: Set[LfPartyId],
       command: LfCommand,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       rootSeed: Option[LfHash],
       packageResolution: Map[PackageName, PackageId],
       expectFailure: Boolean,
@@ -257,7 +259,7 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = rootSeed,
-        submissionTime = submissionTime.toLf,
+        submissionTime = preparationTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
         engineLogger =

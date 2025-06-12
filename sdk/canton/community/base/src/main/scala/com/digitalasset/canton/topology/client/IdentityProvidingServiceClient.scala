@@ -95,6 +95,8 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
   def physicalSynchronizerId: PhysicalSynchronizerId
   def synchronizerId: SynchronizerId
 
+  def protocolVersion: ProtocolVersion = physicalSynchronizerId.protocolVersion
+
   /** Our current snapshot approximation
     *
     * As topology transactions are future dated (to prevent sequential bottlenecks), we do have to
@@ -646,10 +648,21 @@ trait MembersTopologySnapshotClient {
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]]
 }
 
-trait SynchronizerMigrationClient {
-  def isSynchronizerMigrationOngoing()(implicit
+trait SynchronizerUpgradeClient {
+
+  /** In case the synchronizer owners have announced a synchronizer upgrade, returns the physical
+    * synchronizer id of the successor of this synchronizer. Otherwise, returns None.
+    */
+  def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]]
+
+  /** Returns the known sequencer connection details for the successor synchronizer as published by
+    * the sequencers.
+    */
+  def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]]
 }
 
 trait TopologySnapshot
@@ -663,7 +676,7 @@ trait TopologySnapshot
     with SynchronizerGovernanceSnapshotClient
     with MembersTopologySnapshotClient
     with PartyKeyTopologySnapshotClient
-    with SynchronizerMigrationClient { this: BaseTopologySnapshotClient with NamedLogging => }
+    with SynchronizerUpgradeClient { this: BaseTopologySnapshotClient with NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 

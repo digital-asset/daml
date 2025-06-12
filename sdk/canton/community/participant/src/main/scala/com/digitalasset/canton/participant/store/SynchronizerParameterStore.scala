@@ -10,7 +10,7 @@ import com.digitalasset.canton.participant.store.db.DbSynchronizerParameterStore
 import com.digitalasset.canton.participant.store.memory.InMemorySynchronizerParameterStore
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
@@ -36,7 +36,7 @@ trait SynchronizerParameterStore {
 object SynchronizerParameterStore {
   def apply(
       storage: Storage,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       processingTimeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
   )(implicit executionContext: ExecutionContext): SynchronizerParameterStore =

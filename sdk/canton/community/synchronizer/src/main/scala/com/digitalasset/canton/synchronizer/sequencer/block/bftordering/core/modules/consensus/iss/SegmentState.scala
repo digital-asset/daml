@@ -104,7 +104,6 @@ class SegmentState(
             clock,
             pbftMessageValidator,
             currentLeader,
-            epochNumber,
             viewNumber,
             abort,
             metrics,
@@ -324,7 +323,8 @@ class SegmentState(
       discardedViewMessagesCount += 1
     } else if (msg.message.viewNumber > currentViewNumber || inViewChange) {
       logger.info(
-        s"Segment received early PbftNormalCaseMessage; message view = ${msg.message.viewNumber}, " +
+        s"Segment received early PbftNormalCaseMessage; peer = ${msg.from}, " +
+          s"message view = ${msg.message.viewNumber}, " +
           s"current view = $currentViewNumber, inViewChange = $inViewChange"
       )
       futureViewMessagesQueue.enqueue(msg.from, msg) match {
@@ -402,7 +402,6 @@ class SegmentState(
             new PbftViewChangeState(
               membership,
               computeLeader(viewNumber),
-              epochNumber,
               viewNumber,
               segment.slotNumbers,
               metrics,
@@ -469,7 +468,6 @@ class SegmentState(
           new PbftViewChangeState(
             membership,
             computeLeader(nextViewNumber),
-            epochNumber,
             nextViewNumber,
             segment.slotNumbers,
             metrics,

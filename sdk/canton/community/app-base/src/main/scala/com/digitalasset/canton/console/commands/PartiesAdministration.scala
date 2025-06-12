@@ -344,6 +344,7 @@ class ParticipantPartiesAdministrationGroup(
       synchronizerId: SynchronizerId,
       sourceParticipant: ParticipantId,
       serial: PositiveInt,
+      participantPermission: ParticipantPermission,
   ): String = check(FeatureFlag.Preview) {
     consoleEnvironment.run {
       reference.adminCommand(
@@ -352,6 +353,7 @@ class ParticipantPartiesAdministrationGroup(
           synchronizerId,
           sourceParticipant,
           serial,
+          participantPermission,
         )
       )
     }
@@ -659,7 +661,7 @@ object TopologySynchronisation {
         val partiesWithId = partyAssignment.map { case (party, participantRef) =>
           (party, participantRef.id)
         }
-        env.sequencers.all.map(_.synchronizer_id).distinct.forall { synchronizerId =>
+        env.sequencers.all.map(_.physical_synchronizer_id).distinct.forall { synchronizerId =>
           !participant.synchronizers.is_connected(synchronizerId) || {
             val timestamp = participant.testing.fetch_synchronizer_time(synchronizerId)
             partiesWithId.subsetOf(

@@ -9,6 +9,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.db.DbOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.InMemoryOutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistLeaderSelectionPolicyState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
@@ -134,6 +135,23 @@ trait OutputMetadataStore[E <: Env[E]] extends AutoCloseable {
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputMetadataStore.LowerBound]]
   protected val getLowerBoundActionName: String = s"get lower bound"
+
+  def insertLeaderSelectionPolicyState(
+      epochNumber: EpochNumber,
+      leaderSelectionPolicy: BlacklistLeaderSelectionPolicyState,
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit]
+
+  protected final def insertLeaderSelectionPolicyStateActionName(epochNumber: EpochNumber): String =
+    s"insert leader selection policy state for epoch $epochNumber"
+
+  def getLeaderSelectionPolicyState(
+      epochNumber: EpochNumber
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Option[BlacklistLeaderSelectionPolicyState]]
+
+  protected final def getLeaderSelectionPolicyStateActionName(epochNumber: EpochNumber): String =
+    s"get leader selection policy state for epoch $epochNumber"
 }
 
 object OutputMetadataStore {

@@ -26,7 +26,7 @@ import com.digitalasset.canton.synchronizer.sequencer.{
   SendDecision,
 }
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
+import com.digitalasset.canton.topology.{ParticipantId, PartyId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{SynchronizerAlias, config}
 import org.scalatest.Assertions.fail
@@ -213,10 +213,10 @@ abstract class LedgerPruningIntegrationTest
 
     def requestJournalSize(
         p: LocalParticipantReference,
-        synchronizerAlias: SynchronizerAlias,
+        psid: PhysicalSynchronizerId,
         end: Option[CantonTimestamp],
     ): Int = {
-      val size = p.testing.state_inspection.requestJournalSize(synchronizerAlias, end = end).value
+      val size = p.testing.state_inspection.requestJournalSize(psid, end = end).value
       size.failOnShutdown
     }
 
@@ -270,13 +270,13 @@ abstract class LedgerPruningIntegrationTest
         // The only contracts pruned from the pcs should be those of the first bong.
         pcsCount(participant) shouldBe expectedPcsCount
 
-        val msgs = participant.testing.sequencer_messages(daName)
+        val msgs = participant.testing.sequencer_messages(daId)
         msgs should not be empty
         forAll(msgs) { msg =>
           msg.timestamp should be >= lastSeenTxTsBeforePruning
         }
 
-        requestJournalSize(participant, daName, end = Some(lastSeenTxTsBeforePruning)) shouldBe 0
+        requestJournalSize(participant, daId, end = Some(lastSeenTxTsBeforePruning)) shouldBe 0
       }
     }
 

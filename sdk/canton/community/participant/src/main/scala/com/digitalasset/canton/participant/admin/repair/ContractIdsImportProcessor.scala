@@ -12,17 +12,17 @@ import com.digitalasset.canton.crypto.{HashOps, HmacOps}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.*
+import com.digitalasset.canton.participant.sync.StaticSynchronizerParametersGetter
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 sealed abstract class ContractIdsImportProcessor(
-    protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion]
+    staticParametersGetter: StaticSynchronizerParametersGetter
 ) extends NamedLogging {
   def process(contracts: Seq[RepairContract])(implicit
       ec: ExecutionContext,
@@ -36,8 +36,9 @@ sealed abstract class ContractIdsImportProcessor(
    */
   protected def getMaximumSupportedContractIdVersion(
       synchronizerId: SynchronizerId
-  )(implicit tc: TraceContext): Either[String, CantonContractIdVersion] =
-    protocolVersionGetter(Traced(synchronizerId))
+  ): Either[String, CantonContractIdVersion] =
+    staticParametersGetter
+      .latestKnownProtocolVersion(synchronizerId)
       .toRight(
         s"Protocol version for synchronizer with ID $synchronizerId cannot be resolved"
       )
@@ -51,25 +52,23 @@ object ContractIdsImportProcessor {
     * any contract ID fails, the whole process fails.
     */
   private final class VerifyContractIdSuffixes(
-      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
+      staticParametersGetter: StaticSynchronizerParametersGetter,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends ContractIdsImportProcessor(protocolVersionGetter) {
+  ) extends ContractIdsImportProcessor(staticParametersGetter) {
 
     private def verifyContractIdSuffix(
         contract: RepairContract
-    )(implicit tc: TraceContext): Either[String, RepairContract] =
+    ): Either[String, RepairContract] =
       for {
         maxSynchronizerVersion <- getMaximumSupportedContractIdVersion(contract.synchronizerId)
         activeContractVersion <- CantonContractIdVersion
           .extractCantonContractIdVersion(contract.contract.contractId)
           .leftMap(_.toString)
-        _ <-
-          if (maxSynchronizerVersion >= activeContractVersion)
-            Either.unit
-          else
-            Left(
-              s"Contract ID ${contract.contract.contractId} has version ${activeContractVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} only supports up to ${maxSynchronizerVersion.v}"
-            )
+        _ <- Either.cond(
+          maxSynchronizerVersion >= activeContractVersion,
+          (),
+          s"Contract ID ${contract.contract.contractId} has version ${activeContractVersion.v} but synchronizer ${contract.synchronizerId.toProtoPrimitive} only supports up to ${maxSynchronizerVersion.v}",
+        )
       } yield contract
 
     override def process(contracts: Seq[RepairContract])(implicit
@@ -94,10 +93,10 @@ object ContractIdsImportProcessor {
     *     the one in the contract is not)
     */
   private final class RecomputeContractIdSuffixes(
-      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
+      staticParametersGetter: StaticSynchronizerParametersGetter,
       cryptoOps: HashOps & HmacOps,
       override val loggerFactory: NamedLoggerFactory,
-  ) extends ContractIdsImportProcessor(protocolVersionGetter) {
+  ) extends ContractIdsImportProcessor(staticParametersGetter) {
 
     private val unicumGenerator = new UnicumGenerator(cryptoOps)
 
@@ -258,7 +257,7 @@ object ContractIdsImportProcessor {
     */
   def apply(
       loggerFactory: NamedLoggerFactory,
-      protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion],
+      staticParametersGetter: StaticSynchronizerParametersGetter,
       cryptoOps: HashOps & HmacOps,
       contractIdImportMode: ContractIdImportMode,
   )(contracts: Seq[RepairContract])(implicit
@@ -269,10 +268,10 @@ object ContractIdsImportProcessor {
       // Accept contract IDs as they are.
       case ContractIdImportMode.Accept => EitherT.rightT((contracts, Map.empty))
       case ContractIdImportMode.Validation =>
-        new VerifyContractIdSuffixes(protocolVersionGetter, loggerFactory)
+        new VerifyContractIdSuffixes(staticParametersGetter, loggerFactory)
           .process(contracts)
       case ContractIdImportMode.Recomputation =>
-        new RecomputeContractIdSuffixes(protocolVersionGetter, cryptoOps, loggerFactory)
+        new RecomputeContractIdSuffixes(staticParametersGetter, cryptoOps, loggerFactory)
           .process(contracts)
     }
 

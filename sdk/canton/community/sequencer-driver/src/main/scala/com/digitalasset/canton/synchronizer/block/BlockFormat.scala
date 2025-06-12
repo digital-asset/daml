@@ -38,7 +38,7 @@ object BlockFormat {
               event.traceContext // Preserve the request trace ID in the log
             tag match {
               case AcknowledgeTag =>
-                Traced(RawLedgerBlock.RawBlockEvent.Acknowledgment(body))
+                Traced(RawLedgerBlock.RawBlockEvent.Acknowledgment(body, orderingTime))
               case SendTag =>
                 Traced(RawLedgerBlock.RawBlockEvent.Send(body, orderingTime))
               case _ =>

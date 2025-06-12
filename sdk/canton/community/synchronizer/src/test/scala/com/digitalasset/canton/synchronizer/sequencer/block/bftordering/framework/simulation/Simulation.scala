@@ -318,6 +318,8 @@ class Simulation[OnboardingDataT, SystemNetworkMessageT, SystemInputMessageT, Cl
         network.tick()
         val _ = currentHistory.addOne(whatToDo.command)
 
+        logger.trace(s"Simulation will run ${whatToDo.command}")
+
         whatToDo.command match {
           case InternalEvent(machineName, to, _, msg) =>
             executeEvent(machineName, ModuleAddress.ViaName(to), msg)

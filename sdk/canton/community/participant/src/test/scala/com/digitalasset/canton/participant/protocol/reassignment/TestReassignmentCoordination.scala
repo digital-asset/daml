@@ -19,6 +19,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   UnknownSynchronizer,
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryReassignmentStore
+import com.digitalasset.canton.participant.sync.StaticSynchronizerParametersGetter
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.time.TimeProofTestUtil
@@ -33,7 +34,7 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
   TestingTopology,
 }
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
@@ -45,7 +46,9 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
-  val pendingUnassignments: TrieMap[Source[SynchronizerId], ReassignmentSynchronizer] =
+  import BaseTest.*
+
+  private val pendingUnassignments: TrieMap[Source[SynchronizerId], ReassignmentSynchronizer] =
     TrieMap.empty[Source[SynchronizerId], ReassignmentSynchronizer]
 
   def apply(
@@ -75,14 +78,21 @@ private[reassignment] object TestReassignmentCoordination {
         )
         .toMap
     val assignmentBySubmission = { (_: SynchronizerId) => None }
-    val protocolVersionGetter = (_: Traced[SynchronizerId]) =>
-      Some(BaseTest.testedStaticSynchronizerParameters)
+
+    val staticSynchronizerParametersGetter = new StaticSynchronizerParametersGetter {
+      override def staticSynchronizerParameters(
+          synchronizerId: PhysicalSynchronizerId
+      ): Option[StaticSynchronizerParameters] = Some(BaseTest.testedStaticSynchronizerParameters)
+
+      override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
+        ???
+    }
 
     val reassignmentSynchronizer = { (id: Source[SynchronizerId]) =>
       pendingUnassignments.getOrElse(
         id, {
           val reassignmentSynchronizer =
-            new ReassignmentSynchronizer(id, loggerFactory, new ProcessingTimeout)
+            new ReassignmentSynchronizer(id.map(_.toPhysical), loggerFactory, new ProcessingTimeout)
           pendingUnassignments.put(id, reassignmentSynchronizer)
           reassignmentSynchronizer
         },
@@ -95,7 +105,7 @@ private[reassignment] object TestReassignmentCoordination {
       recentTimeProofFor = recentTimeProofProvider,
       reassignmentSubmissionFor = assignmentBySubmission,
       pendingUnassignments = reassignmentSynchronizer.map(Option(_)),
-      staticSynchronizerParameterFor = protocolVersionGetter,
+      staticSynchronizerParametersGetter = staticSynchronizerParametersGetter,
       syncCryptoApi =
         defaultSyncCryptoApi(synchronizers.toSeq.map(_.unwrap), packages, loggerFactory),
       loggerFactory,

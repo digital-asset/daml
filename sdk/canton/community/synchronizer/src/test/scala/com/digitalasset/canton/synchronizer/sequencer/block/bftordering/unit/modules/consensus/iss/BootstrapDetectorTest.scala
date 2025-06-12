@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss
 
+import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.DefaultEpochLength
@@ -108,7 +109,7 @@ class BootstrapDetectorTest extends AnyWordSpec with BftSequencerBaseTest {
   }
 }
 
-object BootstrapDetectorTest {
+object BootstrapDetectorTest extends TestEssentials {
 
   private val myId = BftNodeId("self")
   private val otherId = BftNodeId("other")
@@ -125,6 +126,7 @@ object BootstrapDetectorTest {
         startEpochCouldAlterOrderingTopology = None,
         previousBftTime = None,
         previousEpochTopologyQueryTimestamp = None,
+        leaderSelectionPolicyState = None,
       )
     )
   )

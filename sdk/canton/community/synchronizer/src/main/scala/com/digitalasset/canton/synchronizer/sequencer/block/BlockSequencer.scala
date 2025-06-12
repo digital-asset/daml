@@ -81,6 +81,7 @@ class BlockSequencer(
     protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
+    minimumSequencingTime: CantonTimestamp,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -113,6 +114,8 @@ class BlockSequencer(
       metrics,
       loggerFactory,
       blockSequencerMode = true,
+      minimumSequencingTime = minimumSequencingTime,
+      rateLimitManagerO = Some(blockRateLimitManager),
     )
     with DatabaseSequencerIntegration
     with NamedLogging
@@ -147,6 +150,7 @@ class BlockSequencer(
       sequencerId,
       blockRateLimitManager,
       orderingTimeFixMode,
+      minimumSequencingTime = minimumSequencingTime,
       metrics,
       loggerFactory,
       memberValidator = memberValidator,
@@ -276,7 +280,7 @@ class BlockSequencer(
             s"Rejecting submission request because not enough traffic is available: $notEnoughTraffic"
           )
           SequencerErrors.TrafficCredit(
-            s"Submission was rejected because not traffic is available: $notEnoughTraffic"
+            s"Submission was rejected because no traffic is available: $notEnoughTraffic"
           )
         // If the cost is outdated, we bounce the request with a specific SendAsyncError so the
         // sender has the required information to retry the request with the correct cost

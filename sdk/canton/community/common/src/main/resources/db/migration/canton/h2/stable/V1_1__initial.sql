@@ -224,10 +224,9 @@ create table par_synchronizer_connection_configs(
 );
 
 -- used to register all synchronizers that a participant connects to
-create table par_synchronizers(
-    synchronizer_alias varchar not null unique,
-    synchronizer_id varchar not null unique,
-    primary key (synchronizer_alias, synchronizer_id)
+create table par_registered_synchronizers(
+    physical_synchronizer_id varchar not null primary key,
+    synchronizer_alias varchar not null
 );
 
 create table par_reassignments (
@@ -356,7 +355,7 @@ create index idx_par_commitment_queue_by_time on par_commitment_queue (synchroni
 
 -- the (current) synchronizer parameters for the given synchronizer
 create table par_static_synchronizer_parameters (
-    synchronizer_id varchar primary key,
+    physical_synchronizer_id varchar primary key,
     -- serialized form
     params binary large object not null
 );
@@ -389,7 +388,7 @@ create table mediator_deduplication_store (
     request_time bigint not null,
     expire_after bigint not null
 );
-create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after, mediator_id);
+create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(mediator_id, expire_after);
 
 create type pruning_phase as enum ('started', 'completed');
 
@@ -431,7 +430,8 @@ create table mediator_synchronizer_configuration (
   lock char(1) not null default 'X' primary key check (lock = 'X'),
   synchronizer_id varchar not null,
   static_synchronizer_parameters binary large object not null,
-  sequencer_connection binary large object not null
+  sequencer_connection binary large object not null,
+  is_topology_initialized bool not null default false
 );
 
 -- the last recorded head clean sequencer counter for each synchronizer
@@ -858,6 +858,12 @@ create table ord_output_lower_bound (
     single_row_lock char(1) not null default 'X' primary key check(single_row_lock = 'X'),
     epoch_number bigint not null,
     block_number bigint not null
+);
+
+create table ord_leader_selection_state (
+    epoch_number bigint not null,
+    state binary large object not null,
+    primary key (epoch_number)
 );
 
 -- Stores P2P endpoints from the configuration or admin command

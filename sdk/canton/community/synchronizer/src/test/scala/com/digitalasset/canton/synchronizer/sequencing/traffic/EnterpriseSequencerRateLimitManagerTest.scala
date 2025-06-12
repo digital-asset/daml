@@ -170,6 +170,7 @@ class EnterpriseSequencerRateLimitManagerTest
       expectedTrafficConsumed: NonNegativeLong = NonNegativeLong.zero,
       expectedBaseTrafficRemainder: NonNegativeLong = maxBaseTrafficRemainder,
       expectedSerial: Option[PositiveInt] = None,
+      timestamp: CantonTimestamp = sequencingTs,
   )(implicit f: Env) = for {
     states <- f.rlm
       .getStates(Set(sender), Some(sequencingTs), None, warnIfApproximate = false)
@@ -181,7 +182,7 @@ class EnterpriseSequencerRateLimitManagerTest
         expectedTrafficConsumed,
         expectedBaseTrafficRemainder,
         NonNegativeLong.zero,
-        sequencingTs,
+        timestamp,
         expectedSerial,
       )
     )
@@ -632,59 +633,91 @@ class EnterpriseSequencerRateLimitManagerTest
         }
     }
 
-    "support replaying events that have already been consumed" in { implicit f =>
-      for {
-        _ <- purchaseTraffic
-        // Consume at sequencingTs (default)
-        res1 <- consume(correctCost = NonNegativeLong.one, cost = Some(NonNegativeLong.one))
-        _ <- assertTrafficConsumed(
-          expectedTrafficConsumed = NonNegativeLong.zero,
-          expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(4),
-          expectedLastConsumedCost = NonNegativeLong.one,
-        )
-        // then at sequencingTs.plusMillis(1)
-        res2 <- consume(
-          correctCost = NonNegativeLong.one,
-          sequencingTimestamp = sequencingTs.plusMillis(1),
-          cost = Some(NonNegativeLong.one),
-        )
-        _ <- assertTrafficConsumed(
-          expectedTrafficConsumed = NonNegativeLong.zero,
-          expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
-          expectedLastConsumedCost = NonNegativeLong.one,
-          timestamp = sequencingTs.plusMillis(1),
-        )
-        // then repeat consume at sequencingTs, which simulates a crash recovery that replays the event
-        res3 <- consume(correctCost = NonNegativeLong.one, cost = Some(NonNegativeLong.one))
-        // Traffic consumed should stay the same
-        _ <- assertTrafficConsumed(
-          expectedTrafficConsumed = NonNegativeLong.zero,
-          expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
-          expectedLastConsumedCost = NonNegativeLong.one,
-          timestamp = sequencingTs.plusMillis(1),
-        )
-      } yield {
-        res1 shouldBe Right(
-          Some(
-            TrafficReceipt(
-              consumedCost = NonNegativeLong.one,
-              extraTrafficConsumed = NonNegativeLong.zero,
-              baseTrafficRemainder = NonNegativeLong.tryCreate(maxBaseTrafficRemainder.value - 1),
+    "support replaying events only after resetStateForCrashRecoveryTo and throw otherwise" in {
+      implicit f =>
+        for {
+          _ <- purchaseTraffic
+          // Consume at sequencingTs (default)
+          res1 <- consume(correctCost = NonNegativeLong.one, cost = Some(NonNegativeLong.one))
+          _ <- assertTrafficConsumed(
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(4),
+            expectedLastConsumedCost = NonNegativeLong.one,
+          )
+          // then at sequencingTs.plusMillis(1)
+          res2 <- consume(
+            correctCost = NonNegativeLong.one,
+            sequencingTimestamp = sequencingTs.plusMillis(1),
+            cost = Some(NonNegativeLong.one),
+          )
+          _ <- assertTrafficConsumed(
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+            expectedLastConsumedCost = NonNegativeLong.one,
+            timestamp = sequencingTs.plusMillis(1),
+          )
+          // then repeat consume at sequencingTs, which is not allowed
+          _ <- loggerFactory.assertInternalErrorAsync[IllegalStateException](
+            consume(correctCost = NonNegativeLong.one, cost = Some(NonNegativeLong.one)),
+            _.getMessage should include(
+              "Unexpected sequencer rate limiter state"
+            ),
+          )
+          // Traffic consumed should stay the same
+          _ <- assertTrafficConsumed(
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+            expectedLastConsumedCost = NonNegativeLong.one,
+            timestamp = sequencingTs.plusMillis(1),
+          )
+          // Consume with insufficient traffic
+          insufficientTrafficRes <- consume(
+            correctCost = NonNegativeLong.tryCreate(20),
+            sequencingTimestamp = sequencingTs.plusMillis(3),
+            cost = Some(NonNegativeLong.tryCreate(20)),
+          )
+          // Make sure it returns an error
+          _ <- assertTrafficNotConsumed(
+            expectedExtraTrafficPurchased = trafficPurchased,
+            expectedTrafficConsumed = NonNegativeLong.zero,
+            expectedBaseTrafficRemainder = NonNegativeLong.tryCreate(3),
+            expectedSerial = Some(PositiveInt.one),
+            timestamp = sequencingTs.plusMillis(3),
+          )
+          _ = {
+            // This method will be called during the crash recovery
+            f.rlm.resetStateTo(
+              sequencingTs.plusMillis(3).immediatePredecessor
+            )
+          }
+          // Consume again with insufficient traffic (simulate a crash recovery replay)
+          insufficientTrafficResAgain <- consume(
+            correctCost = NonNegativeLong.tryCreate(20),
+            sequencingTimestamp = sequencingTs.plusMillis(3),
+            cost = Some(NonNegativeLong.tryCreate(20)),
+          )
+        } yield {
+          res1 shouldBe Right(
+            Some(
+              TrafficReceipt(
+                consumedCost = NonNegativeLong.one,
+                extraTrafficConsumed = NonNegativeLong.zero,
+                baseTrafficRemainder = NonNegativeLong.tryCreate(maxBaseTrafficRemainder.value - 1),
+              )
             )
           )
-        )
-        res2 shouldBe Right(
-          Some(
-            TrafficReceipt(
-              consumedCost = NonNegativeLong.one,
-              extraTrafficConsumed = NonNegativeLong.zero,
-              baseTrafficRemainder = NonNegativeLong.tryCreate(maxBaseTrafficRemainder.value - 2),
+          res2 shouldBe Right(
+            Some(
+              TrafficReceipt(
+                consumedCost = NonNegativeLong.one,
+                extraTrafficConsumed = NonNegativeLong.zero,
+                baseTrafficRemainder = NonNegativeLong.tryCreate(maxBaseTrafficRemainder.value - 2),
+              )
             )
           )
-        )
-        // Make sure the receipt is the same as for res1
-        res3 shouldBe res1
-      }
+          // Make sure theat consume returns the same also in case of replaying insufficient traffic errors
+          insufficientTrafficResAgain shouldBe insufficientTrafficRes
+        }
     }
 
     "succeed if the cost is incorrect according to sequencing time but correct according to submission time and within the tolerance window" in {

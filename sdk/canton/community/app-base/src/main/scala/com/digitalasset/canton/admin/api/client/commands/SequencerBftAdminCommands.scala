@@ -15,6 +15,8 @@ import com.digitalasset.canton.sequencer.admin.v30.{
   RemovePeerEndpointRequest,
   RemovePeerEndpointResponse,
   SequencerBftAdministrationServiceGrpc,
+  SetPerformanceMetricsEnabledRequest,
+  SetPerformanceMetricsEnabledResponse,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.admin.SequencerBftAdminData.{
   OrderingTopology,
@@ -49,7 +51,7 @@ object SequencerBftAdminCommands {
       ] {
 
     override protected def createRequest(): Either[String, AddPeerEndpointRequest] = Right(
-      AddPeerEndpointRequest.of(Some(endpointToProto(endpoint)))
+      AddPeerEndpointRequest(Some(endpointToProto(endpoint)))
     )
 
     override protected def submitRequest(
@@ -95,7 +97,7 @@ object SequencerBftAdminCommands {
       ] {
 
     override protected def createRequest(): Either[String, GetPeerNetworkStatusRequest] = Right(
-      GetPeerNetworkStatusRequest.of(
+      GetPeerNetworkStatusRequest(
         endpoints.getOrElse(Iterable.empty).map(endpointIdToProto).toSeq
       )
     )
@@ -120,7 +122,7 @@ object SequencerBftAdminCommands {
       ] {
 
     override protected def createRequest(): Either[String, GetOrderingTopologyRequest] = Right(
-      GetOrderingTopologyRequest.of()
+      GetOrderingTopologyRequest()
     )
 
     override protected def submitRequest(
@@ -133,5 +135,27 @@ object SequencerBftAdminCommands {
         response: GetOrderingTopologyResponse
     ): Either[String, OrderingTopology] =
       OrderingTopology.fromProto(response)
+  }
+
+  final case class SetPerformanceMetricsEnabled(enabled: Boolean)
+      extends BaseSequencerBftAdministrationCommand[
+        SetPerformanceMetricsEnabledRequest,
+        SetPerformanceMetricsEnabledResponse,
+        Unit,
+      ] {
+
+    override protected def createRequest(): Either[String, SetPerformanceMetricsEnabledRequest] =
+      Right(SetPerformanceMetricsEnabledRequest(enabled))
+
+    override protected def submitRequest(
+        service: SequencerBftAdministrationServiceStub,
+        request: SetPerformanceMetricsEnabledRequest,
+    ): Future[SetPerformanceMetricsEnabledResponse] =
+      service.setPerformanceMetricsEnabled(request)
+
+    override protected def handleResponse(
+        response: SetPerformanceMetricsEnabledResponse
+    ): Either[String, Unit] =
+      Either.unit
   }
 }

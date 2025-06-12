@@ -27,7 +27,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManager.assignExpectedUsageToKeys
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
-  IncreaseOfSubmissionTimeRecordTimeTolerance,
+  IncreaseOfPreparationTimeRecordTimeTolerance,
   ParticipantTopologyManagerError,
 }
 import com.digitalasset.canton.topology.processing.{
@@ -764,7 +764,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
     case SynchronizerParametersState(synchronizerId, newSynchronizerParameters) =>
-      checkSubmissionTimeRecordTimeToleranceNotIncreasing(
+      checkPreparationTimeRecordTimeToleranceNotIncreasing(
         synchronizerId,
         newSynchronizerParameters,
         forceChanges,
@@ -801,7 +801,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
       DangerousCommandRequiresForce.AlienMember(member, topologyMappingCode),
     )
 
-  private def checkSubmissionTimeRecordTimeToleranceNotIncreasing(
+  private def checkPreparationTimeRecordTimeToleranceNotIncreasing(
       synchronizerId: SynchronizerId,
       newSynchronizerParameters: DynamicSynchronizerParameters,
       forceChanges: ForceFlags,
@@ -831,19 +831,19 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +CryptoType <: BaseC
         case None => Either.unit
         case Some(synchronizerParameters) =>
           val changeIsDangerous =
-            newSynchronizerParameters.submissionTimeRecordTimeTolerance > synchronizerParameters.submissionTimeRecordTimeTolerance
-          val force = forceChanges.permits(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease)
+            newSynchronizerParameters.preparationTimeRecordTimeTolerance > synchronizerParameters.preparationTimeRecordTimeTolerance
+          val force = forceChanges.permits(ForceFlag.PreparationTimeRecordTimeToleranceIncrease)
           if (changeIsDangerous && force) {
             logger.info(
-              s"Forcing dangerous increase of submission time record time tolerance from ${synchronizerParameters.submissionTimeRecordTimeTolerance} to ${newSynchronizerParameters.submissionTimeRecordTimeTolerance}"
+              s"Forcing dangerous increase of preparation time record time tolerance from ${synchronizerParameters.preparationTimeRecordTimeTolerance} to ${newSynchronizerParameters.preparationTimeRecordTimeTolerance}"
             )
           }
           Either.cond(
             !changeIsDangerous || force,
             (),
-            IncreaseOfSubmissionTimeRecordTimeTolerance.TemporarilyInsecure(
-              synchronizerParameters.submissionTimeRecordTimeTolerance,
-              newSynchronizerParameters.submissionTimeRecordTimeTolerance,
+            IncreaseOfPreparationTimeRecordTimeTolerance.TemporarilyInsecure(
+              synchronizerParameters.preparationTimeRecordTimeTolerance,
+              newSynchronizerParameters.preparationTimeRecordTimeTolerance,
             ),
           )
       }

@@ -28,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.SequencerWriter.*
 import com.digitalasset.canton.synchronizer.sequencer.WriterStartupError.FailedToInitializeFromSnapshot
 import com.digitalasset.canton.synchronizer.sequencer.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.synchronizer.sequencer.store.{SequencerStore, SequencerWriterStore}
+import com.digitalasset.canton.synchronizer.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
@@ -111,6 +112,7 @@ class SequencerWriter(
     writerFlowFactory: SequencerWriterFlowFactory,
     storage: Storage,
     val generalStore: SequencerStore,
+    rateLimitManagerO: Option[SequencerRateLimitManager],
     clock: Clock,
     expectedCommitMode: Option[CommitMode],
     override protected val timeouts: ProcessingTimeout,
@@ -339,6 +341,16 @@ class SequencerWriter(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[CantonTimestamp] =
     for {
       pastWatermarkO <- store.deleteEventsPastWatermark()
+      _ <- resetWatermarkTo match {
+        case SequencerWriter.ResetWatermarkToTimestamp(timestamp) =>
+          // Only `BlockSequencer` mode will
+          // reset the watermark due to events being deterministic after ordering. It is used for
+          // crash recovery when rehydrating from an earlier block.
+          MonadUtil.sequentialTraverse_(rateLimitManagerO.toList)(
+            _.resetStateTo(timestamp)
+          )
+        case _ => FutureUnlessShutdown.unit
+      }
       goOnlineAt = resetWatermarkTo match {
         case SequencerWriter.ResetWatermarkToClockNow =>
           clock.now
@@ -500,11 +512,13 @@ object SequencerWriter {
       processingTimeout: ProcessingTimeout,
       storage: Storage,
       sequencerStore: SequencerStore,
+      rateLimitManagerO: Option[SequencerRateLimitManager],
       clock: Clock,
       eventSignaller: EventSignaller,
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
       blockSequencerMode: Boolean,
+      minimumSequencingTime: CantonTimestamp,
       metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     implicit val loggingContext: ErrorLoggingContext = ErrorLoggingContext(
@@ -528,6 +542,7 @@ object SequencerWriter {
           protocolVersion,
           metrics,
           blockSequencerMode,
+          minimumSequencingTime,
         )
           .toMat(Sink.ignore)(Keep.both)
           .mapMaterializedValue(m => new RunningSequencerWriterFlow(m._1, m._2.void))
@@ -545,6 +560,7 @@ object SequencerWriter {
       DefaultSequencerWriterFlowFactory,
       storage,
       sequencerStore,
+      rateLimitManagerO,
       clock,
       writerConfig.commitModeValidation,
       processingTimeout,

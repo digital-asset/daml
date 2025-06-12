@@ -401,9 +401,14 @@ private class ForwardingTopologySnapshotClient(
   ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
     parent.partyAuthorization(party)
 
-  override def isSynchronizerMigrationOngoing()(implicit
+  override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] = parent.isSynchronizerMigrationOngoing()
+  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] = parent.isSynchronizerUpgradeOngoing()
+
+  override def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]] =
+    parent.sequencerConnectionSuccessors()
 }
 
 class CachingTopologySnapshot(
@@ -678,8 +683,13 @@ class CachingTopologySnapshot(
       )
       .map(_.toMap)
 
-  override def isSynchronizerMigrationOngoing()(implicit
+  override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] =
-    getAndCache(topologyFrozenCache, parent.isSynchronizerMigrationOngoing())
+    getAndCache(topologyFrozenCache, parent.isSynchronizerUpgradeOngoing())
+
+  override def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]] =
+    parent.sequencerConnectionSuccessors()
 }

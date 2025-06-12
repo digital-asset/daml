@@ -77,7 +77,7 @@ class ParticipantTopologyDispatcher(
     * topology state onto the synchronizers
     */
   private[topology] val synchronizers =
-    new TrieMap[SynchronizerAlias, NonEmpty[Seq[SynchronizerOutbox]]]()
+    new TrieMap[PhysicalSynchronizerId, NonEmpty[Seq[SynchronizerOutbox]]]()
 
   def queueStatus: TopologyQueueStatus = {
     val (dispatcher, clients) = synchronizers.values.foldLeft((0, 0)) {
@@ -95,21 +95,21 @@ class ParticipantTopologyDispatcher(
   }
 
   def synchronizerDisconnected(
-      synchronizerAlias: SynchronizerAlias
+      synchronizerId: PhysicalSynchronizerId
   )(implicit traceContext: TraceContext): Unit =
-    synchronizers.remove(synchronizerAlias) match {
+    synchronizers.remove(synchronizerId) match {
       case Some(outboxes) =>
-        state.synchronizerIdForAlias(synchronizerAlias).foreach(disconnectOutboxes)
+        disconnectOutboxes(synchronizerId)
         outboxes.foreach(_.close())
       case None =>
-        logger.debug(s"Topology pusher already disconnected from $synchronizerAlias")
+        logger.debug(s"Topology pusher already disconnected from $synchronizerId")
     }
 
-  def awaitIdle(synchronizerAlias: SynchronizerAlias, timeout: Duration)(implicit
+  def awaitIdle(synchronizerId: PhysicalSynchronizerId, timeout: Duration)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
     synchronizers
-      .get(synchronizerAlias)
+      .get(synchronizerId)
       .fold(
         EitherT.leftT[FutureUnlessShutdown, Boolean](
           SynchronizerRegistryError.SynchronizerRegistryInternalError
@@ -129,7 +129,7 @@ class ParticipantTopologyDispatcher(
     EitherT
       .fromEither[FutureUnlessShutdown](
         state
-          .get(synchronizerId.logical)
+          .get(synchronizerId)
           .toRight(
             SynchronizerRegistryError.SynchronizerRegistryInternalError
               .InvalidState("No persistent state for synchronizer")
@@ -297,11 +297,11 @@ class ParticipantTopologyDispatcher(
               futureSupervisor = futureSupervisor,
             )
             ErrorUtil.requireState(
-              !synchronizers.contains(synchronizerAlias),
-              s"topology pusher for $synchronizerAlias already exists",
+              !synchronizers.contains(synchronizerId),
+              s"topology pusher for $synchronizerId already exists",
             )
             val outboxes = NonEmpty(Seq, queueBasedSynchronizerOutbox, storeBasedSynchronizerOutbox)
-            synchronizers += synchronizerAlias -> outboxes
+            synchronizers += synchronizerId -> outboxes
 
             state.topologyManager.addObserver(new TopologyManagerObserver {
               override def addedNewTransactions(
@@ -316,20 +316,19 @@ class ParticipantTopologyDispatcher(
 
             outboxes.forgetNE.parTraverse_(
               _.startup().leftMap(
-                SynchronizerRegistryError.InitialOnboardingError.Error(_)
+                SynchronizerRegistryError.InitialOnboardingError.Error(_): SynchronizerRegistryError
               )
             )
           }
     }
   }
 
-  private def disconnectOutboxes(synchronizerId: SynchronizerId)(implicit
+  private def disconnectOutboxes(synchronizerId: PhysicalSynchronizerId)(implicit
       traceContext: TraceContext
   ): Unit = {
     logger.debug("Clearing synchronizer topology manager observers")
     state.get(synchronizerId).foreach(_.topologyManager.clearObservers())
   }
-
 }
 
 /** Utility class to dispatch the initial set of onboarding transactions to a synchronizer

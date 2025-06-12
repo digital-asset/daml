@@ -477,7 +477,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           participants.all.foreach(p =>
             p.testing
               .await_synchronizer_time(
-                daId.toPhysical,
+                daId,
                 firstNoCommTick.forgetRefinement.immediateSuccessor,
               )
           )
@@ -588,7 +588,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     "participant can open a commitment it previously sent" in { implicit env =>
       import env.*
 
-      val (createdCids, period, commitment) = deployThreeAndCheck(daId)
+      val (_, period, commitment) = deployThreeAndCheck(daId)
 
       val contractsAndTransferCounters = participant1.commitments.open_commitment(
         commitment,
@@ -780,7 +780,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
       logger.info("Wait that ACS background pruning advanced past the timestamp of the commitment")
       eventually() {
-        val pruningTs = participant1.testing.state_inspection.acsPruningStatus(daName)
+        val pruningTs = participant1.testing.state_inspection.acsPruningStatus(daId)
         pruningTs.map(_.lastSuccess.forall(_ >= period.toInclusive)) shouldBe Some(true)
       }
 
@@ -945,9 +945,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
               synchronizerId: SynchronizerId,
           ): ReassignmentStore =
             participant.underlying.value.sync.syncPersistentStateManager
-              .get(synchronizerId)
+              .reassignmentStore(synchronizerId)
               .value
-              .reassignmentStore
 
           // Retrieve the reassignment data
           val reassignmentStoreP1Acme = reassignmentStore(participant1, acmeId)
@@ -1005,7 +1004,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
               s.contract.isDefined &&
               s.state.sizeIs == 1 &&
               s.state.count(cs =>
-                cs.contractState.isInstanceOf[ContractCreated] && cs.synchronizerId == acmeId
+                cs.contractState
+                  .isInstanceOf[ContractCreated] && cs.synchronizerId == acmeId.logical
               ) == 1
           ) should have size (createdCidsAcme.size).toLong
 
@@ -1020,10 +1020,11 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           reassigned.filter(states =>
             states.activeOnExpectedSynchronizer &&
               states.state.count(s =>
-                s.contractState.isInstanceOf[ContractCreated] && s.synchronizerId == daId
+                s.contractState.isInstanceOf[ContractCreated] && s.synchronizerId == daId.logical
               ) == 1 &&
               states.state.count(s =>
-                s.contractState.isInstanceOf[ContractUnassigned] && s.synchronizerId == daId &&
+                s.contractState
+                  .isInstanceOf[ContractUnassigned] && s.synchronizerId == daId.logical &&
                   s.contractState
                     .asInstanceOf[ContractUnassigned]
                     .reassignmentId
@@ -1042,7 +1043,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           reassigned.filter(states =>
             states.activeOnExpectedSynchronizer &&
               states.state.count(s =>
-                s.contractState.isInstanceOf[ContractAssigned] && s.synchronizerId == acmeId &&
+                s.contractState
+                  .isInstanceOf[ContractAssigned] && s.synchronizerId == acmeId.logical &&
                   s.contractState
                     .asInstanceOf[ContractAssigned]
                     .reassignmentId
@@ -1076,10 +1078,10 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           reassigned2.filter(states =>
             !states.activeOnExpectedSynchronizer &&
               states.state.count(s =>
-                s.contractState.isInstanceOf[ContractCreated] && s.synchronizerId == daId
+                s.contractState.isInstanceOf[ContractCreated] && s.synchronizerId == daId.logical
               ) == 1 &&
               states.state.count(s =>
-                s.contractState.isInstanceOf[ContractUnassigned] && s.synchronizerId == daId
+                s.contractState.isInstanceOf[ContractUnassigned] && s.synchronizerId == daId.logical
               ) == 1 &&
               states.state.sizeIs == 2
           ) should have size 1
@@ -1091,7 +1093,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           reassigned2.filter(states =>
             !states.activeOnExpectedSynchronizer &&
               states.state.count(s =>
-                s.contractState.isInstanceOf[ContractAssigned] && s.synchronizerId == acmeId
+                s.contractState.isInstanceOf[ContractAssigned] && s.synchronizerId == acmeId.logical
               ) == 1 &&
               states.state.sizeIs == 1
           ) should have size 1

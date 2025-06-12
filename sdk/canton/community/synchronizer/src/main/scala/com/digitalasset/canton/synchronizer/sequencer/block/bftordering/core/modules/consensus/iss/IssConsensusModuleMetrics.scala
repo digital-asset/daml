@@ -8,32 +8,33 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
-  BlockNumber,
   EpochLength,
-  EpochNumber,
-  ViewNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 
 import java.time.{Duration, Instant}
+import scala.concurrent.blocking
 
 import EpochState.Epoch
 
 private[iss] object IssConsensusModuleMetrics {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  @volatile private var lastConsensusCommitInstant: Option[Instant] = None
+  private var lastConsensusCommitInstant: Option[Instant] = None
 
   def emitConsensusLatencyStats(
       metrics: BftOrderingMetrics
-  )(implicit mc: MetricsContext): Unit = {
-    val now = Instant.now
-    lastConsensusCommitInstant.foreach { instant =>
-      val duration = Duration.between(instant, now)
-      metrics.consensus.commitLatency.update(duration)
+  )(implicit mc: MetricsContext): Unit =
+    blocking {
+      synchronized {
+        val now = Instant.now()
+        lastConsensusCommitInstant.foreach { instant =>
+          val duration = Duration.between(instant, now)
+          metrics.consensus.commitLatency.update(duration)
+        }
+        lastConsensusCommitInstant = Some(now)
+      }
     }
-    lastConsensusCommitInstant = Some(now)
-  }
 
   def emitEpochStats(
       metrics: BftOrderingMetrics,
@@ -57,22 +58,10 @@ private[iss] object IssConsensusModuleMetrics {
     metrics.consensus.epoch.updateValue(epoch.number)
     metrics.consensus.epochLength.updateValue(epoch.length)
 
-    metrics.consensus.votes.discardedRepeatedMessageMeter.mark(prevEpochDiscardedMessageCount)(
-      mc.withExtraLabels(
-        metrics.consensus.votes.labels.Epoch -> prevEpoch.info.toString
-      )
-    )
-    metrics.consensus.retransmissions.retransmittedMessagesMeter.mark(retransmittedMessagesCount)(
-      mc.withExtraLabels(
-        metrics.consensus.votes.labels.Epoch -> prevEpoch.info.toString
-      )
-    )
+    metrics.consensus.votes.discardedRepeatedMessageMeter.mark(prevEpochDiscardedMessageCount)
+    metrics.consensus.retransmissions.retransmittedMessagesMeter.mark(retransmittedMessagesCount)
     metrics.consensus.retransmissions.retransmittedCommitCertificatesMeter
-      .mark(retransmittedCommitCertificatesCount)(
-        mc.withExtraLabels(
-          metrics.consensus.votes.labels.Epoch -> prevEpoch.info.toString
-        )
-      )
+      .mark(retransmittedCommitCertificatesCount)
 
     emitVoteStats(
       totalConsensusStageVotes,
@@ -97,37 +86,13 @@ private[iss] object IssConsensusModuleMetrics {
 
   def emitNonCompliance(metrics: BftOrderingMetrics)(
       from: BftNodeId,
-      epoch: Option[EpochNumber],
-      view: Option[ViewNumber],
-      block: Option[BlockNumber],
       kind: metrics.security.noncompliant.labels.violationType.values.ViolationTypeValue,
   )(implicit mc: MetricsContext): Unit = {
     val mcWithLabels = mc.withExtraLabels(
       metrics.security.noncompliant.labels.Sequencer -> from,
       metrics.security.noncompliant.labels.violationType.Key -> kind,
     )
-    val mcWithEpoch = epoch
-      .map(epochNumber =>
-        mcWithLabels.withExtraLabels(
-          metrics.security.noncompliant.labels.Epoch -> epochNumber.toString
-        )
-      )
-      .getOrElse(mcWithLabels)
-    val mcWithView = view
-      .map(viewNumber =>
-        mcWithEpoch.withExtraLabels(
-          metrics.security.noncompliant.labels.View -> viewNumber.toString
-        )
-      )
-      .getOrElse(mcWithEpoch)
-    val mcWithBlock = block
-      .map(blockNumber =>
-        mcWithView.withExtraLabels(
-          metrics.security.noncompliant.labels.Block -> blockNumber.toString
-        )
-      )
-      .getOrElse(mcWithView)
-    metrics.security.noncompliant.behavior.mark()(mcWithBlock)
+    metrics.security.noncompliant.behavior.mark()(mcWithLabels)
   }
 
   private final case class VoteStatsSpec(

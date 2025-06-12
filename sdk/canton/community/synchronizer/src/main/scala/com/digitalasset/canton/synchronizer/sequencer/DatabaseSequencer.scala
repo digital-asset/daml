@@ -40,6 +40,7 @@ import com.digitalasset.canton.synchronizer.sequencer.store.{
 import com.digitalasset.canton.synchronizer.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.synchronizer.sequencer.traffic.{
   SequencerRateLimitError,
+  SequencerRateLimitManager,
   SequencerTrafficStatus,
 }
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SynchronizerTimeTracker}
@@ -68,6 +69,7 @@ object DatabaseSequencer {
       timeouts: ProcessingTimeout,
       storage: Storage,
       sequencerStore: SequencerStore,
+      minimumSequencingTime: CantonTimestamp,
       clock: Clock,
       synchronizerId: PhysicalSynchronizerId,
       topologyClientMember: Member,
@@ -112,6 +114,8 @@ object DatabaseSequencer {
       metrics,
       loggerFactory,
       blockSequencerMode = false,
+      minimumSequencingTime = minimumSequencingTime,
+      rateLimitManagerO = None,
     )
   }
 }
@@ -137,6 +141,8 @@ class DatabaseSequencer(
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
     blockSequencerMode: Boolean,
+    minimumSequencingTime: CantonTimestamp,
+    rateLimitManagerO: Option[SequencerRateLimitManager],
 )(implicit ec: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends BaseSequencer(
       loggerFactory,
@@ -159,11 +165,13 @@ class DatabaseSequencer(
     timeouts,
     storage,
     sequencerStore,
+    rateLimitManagerO,
     clock,
     eventSignaller,
     protocolVersion,
     loggerFactory,
     blockSequencerMode,
+    minimumSequencingTime,
     metrics,
   )
 

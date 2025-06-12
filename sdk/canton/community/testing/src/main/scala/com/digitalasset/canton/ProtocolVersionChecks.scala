@@ -247,6 +247,11 @@ trait ProtocolVersionChecksAnyWordSpec {
 
     def onlyRunWith(protocolVersion: ProtocolVersion): OnlyRunWhenWordSpecStringWrapper =
       new OnlyRunWhenWordSpecStringWrapper(verb, testedProtocolVersion == protocolVersion)
+
+    def onlyRunWhen(
+        condition: ProtocolVersion => Boolean
+    ): OnlyRunWhenWordSpecStringWrapper =
+      new OnlyRunWhenWordSpecStringWrapper(verb, condition(testedProtocolVersion))
   }
 
   protected final class OnlyRunWhenWordSpecStringWrapper(

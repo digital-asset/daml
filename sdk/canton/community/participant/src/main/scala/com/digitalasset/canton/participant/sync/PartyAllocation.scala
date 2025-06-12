@@ -82,7 +82,7 @@ private[sync] class PartyAllocation(
         // Allow party allocation via ledger API only if the participant is connected to the synchronizer.
         // Otherwise the gRPC call will just timeout without a meaningful error message
         _ <- EitherT.cond[FutureUnlessShutdown](
-          connectedSynchronizersLookup.get(synchronizerId).nonEmpty,
+          connectedSynchronizersLookup.isConnected(synchronizerId),
           (),
           SubmissionResult.SynchronousError(
             SyncServiceInjectionError.NotConnectedToSynchronizer

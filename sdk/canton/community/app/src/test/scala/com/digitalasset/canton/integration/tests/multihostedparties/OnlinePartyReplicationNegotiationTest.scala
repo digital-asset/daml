@@ -118,13 +118,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
       .addConfigTransforms(
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.parameters.unsafeOnlinePartyReplication)
-            .replace(
-              Some(
-                UnsafeOnlinePartyReplicationConfig(pauseSynchronizerIndexingDuringPartyReplication =
-                  true
-                )
-              )
-            )
+            .replace(Some(UnsafeOnlinePartyReplicationConfig()))
         ),
         ConfigTransforms.updateAllSequencerConfigs(selectivelyEnablePartyReplicationOnSequencers),
       )
@@ -183,16 +177,12 @@ sealed trait OnlinePartyReplicationNegotiationTest
       val partyOwners = Seq[LocalInstanceReference](sourceParticipant)
       partyOwners.foreach(
         _.topology.party_to_participant_mappings
-          .propose(
+          .propose_delta(
             party = alice,
-            newParticipants = Seq(
-              (sourceParticipant, ParticipantPermission.Submission),
-              (targetParticipant, ParticipantPermission.Observation),
-            ),
-            participantsRequiringPartyToBeOnboarded = Seq(targetParticipant),
-            threshold = PositiveInt.one,
+            adds = Seq((targetParticipant, ParticipantPermission.Confirmation)),
             store = daId,
             serial = Some(serial),
+            requiresPartyToBeOnboarded = true,
           )
       )
       eventually() {
@@ -213,6 +203,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
             synchronizerId = daId,
             sourceParticipant = sourceParticipant,
             serial = serial,
+            participantPermission = ParticipantPermission.Confirmation,
           )
         ).tap { _ =>
           def partyToReplicate(create: CreatedEvent) = create.createArguments
@@ -363,6 +354,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
               synchronizerId = synchronizerId,
               sourceParticipant = sourceParticipant.id,
               serial = serial,
+              participantPermission = ParticipantPermission.Observation,
             ),
             LogEntryOptionality.Required -> (_.errorMessage should include regex errorRegex),
             LogEntryOptionality.Optional -> (_.warningMessage should include regex channelServiceNotImplementedWarning),
@@ -433,6 +425,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
                 targetParticipant.adminParty.toProtoPrimitive,
                 sequencerStringUids.asJava,
                 serial,
+                M.partyreplication.ParticipantPermission.CONFIRMATION,
               )
               targetParticipant.ledger_api.commands
                 .submit(
@@ -459,6 +452,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
                 participantWithParty2.adminParty.toProtoPrimitive,
                 Seq.empty.asJava,
                 dummyTopologySerial,
+                M.partyreplication.ParticipantPermission.CONFIRMATION,
               )
               participantWithParty2.ledger_api.commands
                 .submit(
