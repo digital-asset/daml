@@ -2948,7 +2948,7 @@ class EngineTestHelpers(
             contracts.updated(
               create.coid,
               FatContractInstance
-                .fromCreateNode(create, CreationTime.CreatedAt(meta.submissionTime), Bytes.Empty),
+                .fromCreateNode(create, CreationTime.CreatedAt(meta.preparationTime), Bytes.Empty),
             ),
             create.keyOpt.fold(keys)(k => keys.updated(k, create.coid)),
           )
