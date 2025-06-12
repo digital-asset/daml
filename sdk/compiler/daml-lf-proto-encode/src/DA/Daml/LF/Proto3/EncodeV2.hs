@@ -965,6 +965,7 @@ encodePackage (Package version mods metadata) =
             V.fromList $ map (P.InternedDottedName . V.fromList . fst) $ L.sortOn snd $ HMS.toList internedDottedNames
         packageInternedTypes =
             V.fromList $ map (P.Type . Just . fst) $ L.sortOn snd $ Map.toList internedTypes
+        packageInternedKinds = V.empty
     in
     P.Package{..}
 

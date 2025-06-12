@@ -15,6 +15,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
@@ -627,7 +628,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
               None,
           version = txVersion,
         ),
-        Time.Timestamp.now(),
+        CreationTime.CreatedAt(Time.Timestamp.now()),
         Bytes.Empty,
       ),
       payload,

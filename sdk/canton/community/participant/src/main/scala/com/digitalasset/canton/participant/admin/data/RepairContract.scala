@@ -12,7 +12,7 @@ import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.{LfVersioned, ReassignmentCounter}
 import com.digitalasset.daml.lf.transaction
-import com.digitalasset.daml.lf.transaction.TransactionCoder
+import com.digitalasset.daml.lf.transaction.{CreationTime, TransactionCoder}
 import com.google.protobuf.ByteString
 
 import java.io.ByteArrayInputStream
@@ -95,7 +95,10 @@ object RepairContract {
         maybeKeyWithMaintainersVersioned,
       )
 
-      ledgerCreateTime = LedgerCreateTime(CantonTimestamp(fattyContract.createdAt))
+      ledgerCreateTime <- fattyContract.createdAt match {
+        case CreationTime.CreatedAt(time) => Right(LedgerCreateTime(CantonTimestamp(time)))
+        case CreationTime.Now => Left("Unable to determine create time.")
+      }
 
       driverContractMetadata <-
         DriverContractMetadata

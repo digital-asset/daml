@@ -264,7 +264,7 @@ object Hash {
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>
             builder
-              .withContext("Created At")(_.addLong(fatInstance.createdAt.micros))
+              .withContext("Created At")(_.addLong(CreationTime.encode(fatInstance.createdAt)))
               .withContext("Create Contract")(builder =>
                 builder.addHash(
                   builder.hashNode(
