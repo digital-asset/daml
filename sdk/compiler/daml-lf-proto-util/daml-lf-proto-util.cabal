@@ -29,8 +29,12 @@ library
       daml-lf-proto-types,
       -- @@stackage//:either
       either,
+      -- @@stackage//:proto3-suite
+      proto3-suite,
       -- @@stackage//:text
       text,
+      -- @@stackage//:vector
+      vector,
     exposed-modules:
       DA.Daml.LF.Mangling
       DA.Daml.LF.Proto3.Error
