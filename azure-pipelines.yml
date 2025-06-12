@@ -57,19 +57,19 @@ jobs:
           setvar skip-github TRUE
         fi
       displayName: 'Create and Push Release Tag'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: linux-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
       displayName: 'Download Linux Release Artifacts'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: macos-release
         targetPath: $(Build.StagingDirectory)/release-artifacts
       condition: and(succeeded(), not(eq(variables['skip-github'], 'TRUE')))
       displayName: 'Download macOS Release Artifacts'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: windows-release
         targetPath: $(Build.StagingDirectory)/release-artifacts

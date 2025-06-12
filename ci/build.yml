@@ -201,22 +201,22 @@ jobs:
     - checkout: self
     - bash: ci/dev-env-install.sh
       displayName: 'Build/Install the Developer Environment'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: platform-independence-dar-linux-intel
         targetPath: $(Build.StagingDirectory)/platform-independence/linux-intel/
       displayName: 'Download platform-independence dar linux-intel pipeline artifact'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: platform-independence-dar-linux-arm
         targetPath: $(Build.StagingDirectory)/platform-independence/linux-arm/
       displayName: 'Download platform-independence dar linux-arm pipeline artifact'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: platform-independence-dar-windows
         targetPath: $(Build.StagingDirectory)/platform-independence/windows/
       displayName: 'Download platform-independence dar windows pipeline artifact'
-    - task: DownloadPipelineArtifact@2
+    - task: DownloadPipelineArtifact@0
       inputs:
         artifactName: platform-independence-dar-macos
         targetPath: $(Build.StagingDirectory)/platform-independence/macos/

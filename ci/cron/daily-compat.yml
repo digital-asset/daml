@@ -106,7 +106,7 @@ jobs:
         name: out
         env:
           GCRED: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
-      - task: PublishPipelineArtifact@1
+      - task: PublishPipelineArtifact@0
         inputs:
           targetPath: $(Build.StagingDirectory)/perf-results-speedy.json
           artifactName: perf-speedy
