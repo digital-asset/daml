@@ -236,18 +236,20 @@ class IdeLedgerClient(
       readAs = parties.toSet,
       effectiveAt = ledger.currentTime,
     )
-    val filtered: Seq[FatContractInstance] = acs.collect {
-      case IdeLedger.LookupOk(contract)
-          if implements(contract.templateId, interfaceId) && parties.any(
-            contract.stakeholders.contains(_)
-          ) =>
-        contract
-    }
-    val res: Seq[(ContractId, Option[Value])] =
-      filtered.map { contract =>
-        val viewOpt = computeView(contract.templateId, interfaceId, contract.createArg)
-        (contract.contractId, viewOpt)
+    val reversePackageIdMap = getPackageIdReverseMap()
+    val packageMap = calculatePackageMap(List(), reversePackageIdMap)
+    val res = for {
+      contract <- acs.collect {
+        case IdeLedger.LookupOk(contract) if parties.any(contract.stakeholders.contains(_)) =>
+          contract
       }
+      preferredPkgId <- packageMap.get(PackageName.assertFromString(contract.packageName))
+      upgradedTemplateId = contract.templateId.copy(pkg = preferredPkgId)
+      if implements(upgradedTemplateId, interfaceId)
+    } yield {
+      val viewOpt = computeView(upgradedTemplateId, interfaceId, contract.createArg)
+      (contract.contractId, viewOpt)
+    }
     Future.successful(res)
   }
 

@@ -206,9 +206,7 @@ interfacesV3 = getPackageId "interfaces-3.0.0"
 
 -- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
 main : TestTree
-main = tests [ brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1) ]
-
-xmain = tests
+main = tests
   [ ("Calling an interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationCommand)
   , ("Calling an interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationUpdate)
   , ("Package map preference is used for interface implementation selection at command level", interfaceChoicePackagePreferenceCommand)
@@ -385,12 +383,19 @@ multipleInterfaceChoicePackagePreferenceUpdate =
 queryInterfaceUpgrades : Test
 queryInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndInterface
+  [(resCid, Some resView)] <- queryInterface @I alice
+  resCid === icid
+  resView.payload === None
   res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
   res.payload === None
 
 queryNewInterfaceUpgrades : Test
 queryNewInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndV1NewInterface
+  [(resCid, Some resView)] <- queryInterface @INew alice
+  resCid === icid
+  resView.version === "GetNewVersionV3"
+  resView.owner === alice
   res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
   res.version === "GetNewVersionV3" -- Always uses the latest preferred package
   res.owner === alice
