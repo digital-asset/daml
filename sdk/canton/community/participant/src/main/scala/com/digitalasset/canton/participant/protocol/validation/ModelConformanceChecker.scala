@@ -49,7 +49,7 @@ import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.canton.{LfCreateCommand, LfKeyResolver, LfPartyId, LfValue, checked}
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.{CommandId, Identifier, PackageId, PackageName}
-import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -95,7 +95,7 @@ class ModelConformanceChecker(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ErrorWithSubTransaction, Result] = {
-    val CommonData(transactionId, ledgerTime, submissionTime) = commonData
+    val CommonData(transactionId, ledgerTime, preparationTime) = commonData
 
     // Previous checks in Phase 3 ensure that all the root views are sent to the same
     // mediator, and that they all have the same correct root hash, and therefore the
@@ -120,7 +120,7 @@ class ModelConformanceChecker(
             transactionUuid,
             keyResolverFor(view),
             ledgerTime,
-            submissionTime,
+            preparationTime,
             submittingParticipantO,
             topologySnapshot,
             getEngineAbortStatus,
@@ -248,7 +248,7 @@ class ModelConformanceChecker(
       view: TransactionView,
       resolverFromView: LfKeyResolver,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
@@ -277,7 +277,7 @@ class ModelConformanceChecker(
           authorizers,
           cmd,
           ledgerTime,
-          submissionTime,
+          preparationTime,
           seed,
           packagePreference,
           failed,
@@ -299,7 +299,7 @@ class ModelConformanceChecker(
       transactionUuid: UUID,
       resolverFromView: LfKeyResolver,
       ledgerTime: CantonTimestamp,
-      submissionTime: CantonTimestamp,
+      preparationTime: CantonTimestamp,
       submitterMetadataO: Option[SubmitterMetadata],
       topologySnapshot: TopologySnapshot,
       getEngineAbortStatus: GetEngineAbortStatus,
@@ -323,7 +323,7 @@ class ModelConformanceChecker(
             view,
             resolverFromView,
             ledgerTime,
-            submissionTime,
+            preparationTime,
             getEngineAbortStatus,
           )
         )
@@ -478,7 +478,7 @@ object ModelConformanceChecker {
             createNodeEnricher(storedContract.toLf)(traceContext).map { enrichedNode =>
               cid -> FatContractInstance.fromCreateNode(
                 enrichedNode,
-                storedContract.ledgerCreateTime.toLf,
+                CreationTime.CreatedAt(storedContract.ledgerCreateTime.toLf),
                 saltFromSerializedContract(storedContract),
               )
             }
@@ -497,7 +497,7 @@ object ModelConformanceChecker {
                 mediatorGroup,
                 synchronizerId,
                 reInterpretationResult.timeBoundaries,
-                reInterpretationResult.metadata.submissionTime.toLf,
+                reInterpretationResult.metadata.preparationTime.toLf,
                 enrichedInputContracts,
               ),
               reInterpretationResult.metadata.seeds,

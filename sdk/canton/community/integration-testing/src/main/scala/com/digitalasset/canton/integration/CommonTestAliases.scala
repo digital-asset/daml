@@ -18,7 +18,7 @@ import com.digitalasset.canton.console.{
 }
 import com.digitalasset.canton.integration.bootstrap.InitializedSynchronizer
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 
 /** Aliases used by our typical single synchronizer and multi synchronizer tests. If a test attempts
   * to use an aliases against an environment without that node configured it will immediately throw.
@@ -62,9 +62,8 @@ trait CommonTestAliases {
 
   // synchronizer1
   lazy val daName: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer1")
-  // TODO(#25483) Such values should be physical
-  lazy val daId: SynchronizerId = getInitializedSynchronizer(daName).synchronizerId
-  lazy val synchronizer1Id: SynchronizerId = daId
+  lazy val daId: PhysicalSynchronizerId = getInitializedSynchronizer(daName).physicalSynchronizerId
+  lazy val synchronizer1Id: PhysicalSynchronizerId = daId
   lazy val staticSynchronizerParameters1: StaticSynchronizerParameters = getInitializedSynchronizer(
     daName
   ).staticSynchronizerParameters
@@ -74,25 +73,27 @@ trait CommonTestAliases {
 
   // synchronizer2
   lazy val acmeName: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer2")
-  lazy val acmeId: SynchronizerId = getInitializedSynchronizer(acmeName).synchronizerId
-  lazy val synchronizer2Id: SynchronizerId = acmeId
+  lazy val acmeId: PhysicalSynchronizerId = getInitializedSynchronizer(
+    acmeName
+  ).physicalSynchronizerId
+  lazy val synchronizer2Id: PhysicalSynchronizerId = acmeId
   lazy val synchronizerOwners2: Set[InstanceReference] = getInitializedSynchronizer(
     acmeName
   ).synchronizerOwners
 
   // synchronizer3
   lazy val repairSynchronizerName: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer3")
-  lazy val repairSynchronizerId: SynchronizerId = getInitializedSynchronizer(
+  lazy val repairSynchronizerId: PhysicalSynchronizerId = getInitializedSynchronizer(
     repairSynchronizerName
-  ).synchronizerId
-  lazy val synchronizer3Id: SynchronizerId = repairSynchronizerId
+  ).physicalSynchronizerId
+  lazy val synchronizer3Id: PhysicalSynchronizerId = repairSynchronizerId
   lazy val synchronizerOwners3: Set[InstanceReference] = getInitializedSynchronizer(
     repairSynchronizerName
   ).synchronizerOwners
 
   // synchronizer4
   lazy val devSynchronizerName: SynchronizerAlias = SynchronizerAlias.tryCreate("synchronizer4")
-  lazy val devSynchronizerId: SynchronizerId = getInitializedSynchronizer(
+  lazy val devSynchronizerId: PhysicalSynchronizerId = getInitializedSynchronizer(
     devSynchronizerName
-  ).synchronizerId
+  ).physicalSynchronizerId
 }

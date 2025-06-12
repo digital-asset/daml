@@ -26,7 +26,7 @@ class SequencerSubscriptionPoolTest
         index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
         livenessMargin = livenessMargin,
       ) { (connectionPool, subscriptionPool, listener) =>
-        connectionPool.start()
+        connectionPool.start().futureValueUS.valueOrFail("initialization")
         subscriptionPool.start()
 
         clue("normal start") {
@@ -57,7 +57,7 @@ class SequencerSubscriptionPoolTest
         index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
         livenessMargin = livenessMargin,
       ) { (connectionPool, subscriptionPool, listener) =>
-        connectionPool.start()
+        connectionPool.start().futureValueUS.valueOrFail("initialization")
         subscriptionPool.start()
 
         listener.shouldStabilizeOn(ComponentHealthState.Ok())
@@ -99,7 +99,7 @@ class SequencerSubscriptionPoolTest
         index => mkConnectionAttributes(synchronizerIndex = 1, sequencerIndex = index),
         livenessMargin = livenessMargin,
       ) { (connectionPool, subscriptionPool, listener) =>
-        connectionPool.start()
+        connectionPool.start().futureValueUS.valueOrFail("initialization")
         subscriptionPool.start()
 
         clue("normal start") {

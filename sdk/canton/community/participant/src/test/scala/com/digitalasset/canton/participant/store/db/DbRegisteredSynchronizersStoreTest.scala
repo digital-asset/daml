@@ -22,7 +22,7 @@ trait DbRegisteredSynchronizersStoreTest
       storage: DbStorage
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     import storage.api.*
-    storage.update(sqlu"truncate table par_synchronizers", functionFullName)
+    storage.update(sqlu"truncate table par_registered_synchronizers", functionFullName)
   }
 
   "DbRegisteredSynchronizersStore" should {

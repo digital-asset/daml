@@ -29,10 +29,10 @@ There are two classes extending this trait:
  */
 sealed trait PartyToParticipantDeclarativeCommon[P] {
   def participants: Set[ParticipantReference]
-  def synchronizerIds: Set[SynchronizerId]
+  def synchronizerIds: Set[PhysicalSynchronizerId]
   def targetTopology: Map[
     P,
-    Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
+    Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
   ]
 
   protected def partyReference: PartyId => P
@@ -53,11 +53,14 @@ sealed trait PartyToParticipantDeclarativeCommon[P] {
 
   protected def getTopology(
       participant: ParticipantReference
-  ): Map[P, Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])]] =
+  ): Map[P, Map[
+    PhysicalSynchronizerId,
+    (PositiveInt, Set[(ParticipantId, ParticipantPermission)]),
+  ]] =
     synchronizerIds
       .flatMap { synchronizerId =>
         val relevantPtp = participant.topology.party_to_participant_mappings
-          .list(synchronizerId)
+          .list(synchronizerId.logical)
           .map(_.item)
           .filter(item => targetTopology.contains(partyReference(item.partyId)))
 
@@ -98,12 +101,12 @@ sealed trait PartyToParticipantDeclarativeCommon[P] {
   */
 class PartyToParticipantDeclarative(
     val participants: Set[ParticipantReference],
-    val synchronizerIds: Set[SynchronizerId],
+    val synchronizerIds: Set[PhysicalSynchronizerId],
 )(
     owningParticipants: Map[PartyId, ParticipantId],
     val targetTopology: Map[
       PartyId,
-      Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
+      Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
     ],
 )(implicit executionContext: ExecutionContext)
     extends PartyToParticipantDeclarativeCommon[PartyId] {
@@ -117,9 +120,12 @@ class PartyToParticipantDeclarative(
   private def flatten(
       topology: Map[
         PartyId,
-        Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
+        Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
       ]
-  ): Map[(PartyId, SynchronizerId), (PositiveInt, Set[(ParticipantId, ParticipantPermission)])] =
+  ): Map[
+    (PartyId, PhysicalSynchronizerId),
+    (PositiveInt, Set[(ParticipantId, ParticipantPermission)]),
+  ] =
     topology.flatMap { case (partyId, topology) =>
       topology.map { case (synchronizer, partyInfo) => (partyId, synchronizer) -> partyInfo }
     }
@@ -207,12 +213,12 @@ class PartyToParticipantDeclarative(
 object PartyToParticipantDeclarative {
   def apply(
       participants: Set[ParticipantReference],
-      synchronizerIds: Set[SynchronizerId],
+      synchronizerIds: Set[PhysicalSynchronizerId],
   )(
       owningParticipants: Map[PartyId, ParticipantId],
       targetTopology: Map[
         PartyId,
-        Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
+        Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
       ],
       forceFlags: ForceFlags = ForceFlags.none,
   )(implicit executionContext: ExecutionContext): Unit =
@@ -223,7 +229,7 @@ object PartyToParticipantDeclarative {
 
   def forParty(
       participants: Set[ParticipantReference],
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
   )(
       owningParticipant: ParticipantId,
       partyId: PartyId,
@@ -261,12 +267,13 @@ class PartiesAllocator(
     newParties: Seq[(String, ParticipantId)],
     val targetTopology: Map[
       String,
-      Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
+      Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
     ],
 )(implicit executionContext: ExecutionContext)
     extends PartyToParticipantDeclarativeCommon[String] {
 
-  override def synchronizerIds: Set[SynchronizerId] = targetTopology.values.flatMap(_.keys).toSet
+  override def synchronizerIds: Set[PhysicalSynchronizerId] =
+    targetTopology.values.flatMap(_.keys).toSet
 
   override protected def partyReference: PartyId => String = _.identifier.str
 
@@ -313,7 +320,7 @@ class PartiesAllocator(
     // synchronization
     participants.toSeq.foreach { p =>
       val connectedSynchronizers =
-        p.synchronizers.list_connected().map(_.synchronizerId.logical).toSet
+        p.synchronizers.list_connected().map(_.synchronizerId).toSet
       val topologyOnConnectedSynchronizers =
         targetTopology.view
           .mapValues(_.view.filterKeys(connectedSynchronizers.contains).toMap)
@@ -333,7 +340,7 @@ object PartiesAllocator {
       newParties: Seq[(String, ParticipantId)],
       targetTopology: Map[
         String,
-        Map[SynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
+        Map[PhysicalSynchronizerId, (PositiveInt, Set[(ParticipantId, ParticipantPermission)])],
       ],
   )(implicit executionContext: ExecutionContext): Seq[PartyId] =
     new PartiesAllocator(participants)(newParties, targetTopology).run()

@@ -29,6 +29,7 @@ import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKey,
   Node,
@@ -293,7 +294,7 @@ final class PreparedTransactionEncoder(
             }
         },
       )
-      .withFieldComputed(_.createdAt, _.createdAt.transformInto[Long])
+      .withFieldComputed(_.createdAt, fci => CreationTime.encode(fci.createdAt))
       .withFieldComputed(_.driverMetadata, _.cantonData.transformInto[ByteString])
       .buildTransformer
 
@@ -314,7 +315,7 @@ final class PreparedTransactionEncoder(
   ): PartialTransformer[TransactionData, iss.Metadata] =
     Transformer
       .definePartial[TransactionData, iss.Metadata]
-      .withFieldComputed(_.submissionTime, _.transactionMeta.submissionTime.transformInto[Long])
+      .withFieldComputed(_.preparationTime, _.transactionMeta.preparationTime.transformInto[Long])
       .withFieldConstPartial(
         _.inputContracts,
         // The hashing algorithm expects disclosed contracts to be sorted by contract ID, so pre-sort them for the client

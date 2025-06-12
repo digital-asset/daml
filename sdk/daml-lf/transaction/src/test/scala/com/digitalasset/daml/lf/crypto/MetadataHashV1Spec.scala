@@ -6,7 +6,7 @@ package com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, TransactionSpec}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, TransactionSpec}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -29,12 +29,12 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
   private val bob = Ref.Party.assertFromString("bob")
   private val node1 = FatContractInstance.fromCreateNode(
     TransactionSpec.dummyCreateNode(cid1, Set(alice), Set(alice)),
-    Time.Timestamp.Epoch.add(Duration.ofDays(10)),
+    CreationTime.CreatedAt(Time.Timestamp.Epoch.add(Duration.ofDays(10))),
     Bytes.assertFromString("0010"),
   )
   private val node2 = FatContractInstance.fromCreateNode(
     TransactionSpec.dummyCreateNode(cid2, Set(bob), Set(bob)),
-    Time.Timestamp.Epoch.add(Duration.ofDays(20)),
+    CreationTime.CreatedAt(Time.Timestamp.Epoch.add(Duration.ofDays(20))),
     Bytes.assertFromString("0050"),
   )
   private val metadata = Hash.TransactionMetadataBuilderV1.Metadata(

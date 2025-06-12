@@ -748,7 +748,7 @@ private[participant] object MessageDispatcher {
   final case class ResultKind(viewType: ViewType, run: () => HandlerResult) extends MessageKind {
     override protected def pretty: Pretty[ResultKind] = prettyOfParam(_.viewType)
   }
-  final case class AcsCommitment(run: () => FutureUnlessShutdown[Unit]) extends MessageKind
+  final case class AcsCommitment(run: () => HandlerResult) extends MessageKind
   final case class MalformedMessage(run: () => FutureUnlessShutdown[Unit]) extends MessageKind
   final case class UnspecifiedMessageKind(run: () => FutureUnlessShutdown[Unit]) extends MessageKind
   final case class CausalityMessageKind(run: () => FutureUnlessShutdown[Unit]) extends MessageKind

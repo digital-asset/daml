@@ -232,7 +232,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     assertThrowsAndLogsCommandFailures(
       participant1.repair.migrate_synchronizer(
         source = daName,
-        target = config.copy(synchronizerId = Some(daId.toPhysical)),
+        target = config.copy(synchronizerId = daId),
       ),
       _.shouldBeCantonErrorCode(SynchronizerMigrationError.InvalidArgument),
     )
@@ -293,7 +293,9 @@ final class ParticipantMigrateSynchronizerIntegrationTest
                 Seq(participant1, participant2).foreach(_.synchronizers.reconnect(acmeName))
 
                 val expectedAssignationAfter =
-                  reassignmentCounterBefore.map(counter => (acmeId.toProtoPrimitive, counter + 1))
+                  reassignmentCounterBefore.map(counter =>
+                    (acmeId.logical.toProtoPrimitive, counter + 1)
+                  )
                 val assignationAfter = participant1.ledger_api.state.acs
                   .active_contracts_of_party(alice)
                   .map(c => (c.synchronizerId, c.reassignmentCounter))
@@ -372,7 +374,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     store
       .setStatus(
         daName,
-        KnownPhysicalSynchronizerId(daId.toPhysical),
+        KnownPhysicalSynchronizerId(daId),
         SynchronizerConnectionConfigStore.Vacating,
       )
       .value
@@ -381,7 +383,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
     store
       .setStatus(
         acmeName,
-        KnownPhysicalSynchronizerId(acmeId.toPhysical),
+        KnownPhysicalSynchronizerId(acmeId),
         SynchronizerConnectionConfigStore.MigratingTo,
       )
       .value
@@ -660,7 +662,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     store
       .setStatus(
         daName,
-        KnownPhysicalSynchronizerId(daId.toPhysical),
+        KnownPhysicalSynchronizerId(daId),
         SynchronizerConnectionConfigStore.Vacating,
       )
       .value
@@ -670,7 +672,7 @@ final class ParticipantMigrateSynchronizerCrashRecoveryIntegrationTest
     store
       .setStatus(
         acmeName,
-        KnownPhysicalSynchronizerId(acmeId.toPhysical),
+        KnownPhysicalSynchronizerId(acmeId),
         SynchronizerConnectionConfigStore.MigratingTo,
       )
       .value

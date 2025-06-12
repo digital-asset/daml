@@ -804,4 +804,19 @@ class StoreBasedTopologySnapshot(
       case _moreThanOne =>
         ErrorUtil.invalidState("Found more than one SynchronizerMigrationAnnouncement mapping")
     })
+
+  override def sequencerConnectionSuccessors()(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Map[SequencerId, SequencerConnectionSuccessor]] =
+    findTransactions(
+      types = Seq(TopologyMapping.Code.SequencerConnectionSuccessor),
+      filterUid = None,
+      filterNamespace = None,
+    ).map(txs =>
+      txs
+        .collectOfMapping[SequencerConnectionSuccessor]
+        .toTopologyState
+        .map(m => m.sequencerId -> m)
+        .toMap
+    )
 }

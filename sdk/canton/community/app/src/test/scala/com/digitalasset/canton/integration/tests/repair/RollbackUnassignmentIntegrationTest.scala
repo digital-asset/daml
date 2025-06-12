@@ -129,8 +129,8 @@ sealed trait RollbackUnassignmentIntegrationTest
       case other => fail(s"Expected 2 unassigned events, but got: $other")
     }
 
-    assigned1.target shouldBe daId.toProtoPrimitive
-    assigned1.source shouldBe acmeId.toProtoPrimitive
+    assigned1.target shouldBe daId.logical.toProtoPrimitive
+    assigned1.source shouldBe acmeId.logical.toProtoPrimitive
     assigned1.target shouldBe assigned2.source
     unassigned1.target shouldBe unassigned2.source
     unassigned1.source shouldBe unassigned2.target

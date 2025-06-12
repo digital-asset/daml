@@ -226,7 +226,7 @@ final case class DynamicSynchronizerParameters(
     onboardingRestriction: OnboardingRestriction,
     acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpParameters],
     participantSynchronizerLimits: ParticipantSynchronizerLimits,
-    submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+    preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration,
 ) extends PrettyPrinting {
 
   def decisionTimeout: config.NonNegativeFiniteDuration =
@@ -235,23 +235,23 @@ final case class DynamicSynchronizerParameters(
   @inline def confirmationRequestsMaxRate: NonNegativeInt =
     participantSynchronizerLimits.confirmationRequestsMaxRate
 
-  if (submissionTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
+  if (preparationTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
     throw new InvalidDynamicSynchronizerParameters(
-      s"The submissionTimeRecordTimeTolerance ($submissionTimeRecordTimeTolerance) must be at most half of the " +
+      s"The preparationTimeRecordTimeTolerance ($preparationTimeRecordTimeTolerance) must be at most half of the " +
         s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
     )
 
   // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
-  // Originally the validation was done on ledgerTimeRecordTimeTolerance, but was moved to submissionTimeRecordTimeTolerance
+  // Originally the validation was done on ledgerTimeRecordTimeTolerance, but was moved to preparationTimeRecordTimeTolerance
   // instead when the parameter was introduced
-  private[canton] def compatibleWithNewSubmissionTimeRecordTimeTolerance(
-      newSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration
+  private[canton] def compatibleWithNewPreparationTimeRecordTimeTolerance(
+      newPreparationTimeRecordTimeTolerance: NonNegativeFiniteDuration
   ): Boolean =
     // If false, a new request may receive the same submission time as a previous request and the previous
     // request may be evicted too early from the mediator's deduplication store.
     // Thus, an attacker may assign the same UUID to both requests.
     // See i9028 for a detailed design. (This is the second clause of item 2 of Lemma 2).
-    submissionTimeRecordTimeTolerance + newSubmissionTimeRecordTimeTolerance <= mediatorDeduplicationTimeout
+    preparationTimeRecordTimeTolerance + newPreparationTimeRecordTimeTolerance <= mediatorDeduplicationTimeout
 
   override protected def pretty: Pretty[DynamicSynchronizerParameters] =
     prettyOfClass(
@@ -268,7 +268,7 @@ final case class DynamicSynchronizerParameters(
       paramIfDefined("traffic control", _.trafficControl),
       paramIfDefined("ACS commitment catchup", _.acsCommitmentsCatchUp),
       param("participant synchronizer limits", _.participantSynchronizerLimits),
-      param("submission time record time tolerance", _.submissionTimeRecordTimeTolerance),
+      param("preparation time record time tolerance", _.preparationTimeRecordTimeTolerance),
       param("onboarding restriction", _.onboardingRestriction),
     )
 
@@ -288,8 +288,8 @@ final case class DynamicSynchronizerParameters(
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
       acsCommitmentsCatchUpParameters: Option[AcsCommitmentsCatchUpParameters] =
         acsCommitmentsCatchUp,
-      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
-        submissionTimeRecordTimeTolerance,
+      preparationTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+        preparationTimeRecordTimeTolerance,
   ): DynamicSynchronizerParameters = this.copy(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -304,7 +304,7 @@ final case class DynamicSynchronizerParameters(
     onboardingRestriction = onboardingRestriction,
     acsCommitmentsCatchUp = acsCommitmentsCatchUpParameters,
     participantSynchronizerLimits = ParticipantSynchronizerLimits(confirmationRequestsMaxRate),
-    submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
+    preparationTimeRecordTimeTolerance = preparationTimeRecordTimeTolerance,
   )
 
   private[canton] def toInternal: Either[String, DynamicSynchronizerParametersInternal] =
@@ -334,8 +334,8 @@ final case class DynamicSynchronizerParameters(
           acsCommitmentsCatchUpParameters = acsCommitmentsCatchUp
             .map(_.transformInto[AcsCommitmentsCatchUpParametersInternal]),
           participantSynchronizerLimits = participantSynchronizerLimits.toInternal,
-          submissionTimeRecordTimeTolerance =
-            InternalNonNegativeFiniteDuration.fromConfig(submissionTimeRecordTimeTolerance),
+          preparationTimeRecordTimeTolerance =
+            InternalNonNegativeFiniteDuration.fromConfig(preparationTimeRecordTimeTolerance),
         )(rpv)
       }
 }

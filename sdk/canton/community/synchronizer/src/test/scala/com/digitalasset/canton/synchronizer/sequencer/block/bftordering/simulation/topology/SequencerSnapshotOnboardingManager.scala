@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulation.topology
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.TestEssentials
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftOrderingModuleSystemInitializer.BftOrderingStores
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.P2PEndpoint
@@ -51,9 +52,8 @@ class SequencerSnapshotOnboardingManager(
     stores: Map[BftNodeId, BftOrderingStores[SimulationEnv]],
     model: BftOrderingVerifier,
     simulationSettings: SimulationSettings,
-) extends OnboardingManager[BftOnboardingData] {
-
-  implicit private val traceContext: TraceContext = TraceContext.empty
+) extends OnboardingManager[BftOnboardingData]
+    with TestEssentials {
 
   private var onboardedNodes = initialNodes
 
@@ -176,7 +176,10 @@ class SequencerSnapshotOnboardingManager(
               msg match {
                 case SnapshotMessage.AdditionalInfo(info) =>
                   val snapshot = SequencerSnapshotAdditionalInfo
-                    .fromProto(info.toByteString) // silly to convert to ByteString
+                    .fromProto(
+                      testedProtocolVersion,
+                      info.toByteString,
+                    ) // silly to convert to ByteString
                     .getOrElse(sys.error(s"Can't parse sequencerSnapshot $info"))
 
                   if (snapshot.nodeActiveAt.contains(node)) {

@@ -56,6 +56,7 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
@@ -91,9 +92,7 @@ private[events] object TransactionLogUpdatesConversions {
                 transactionFormat.internalEventFormat.templatePartiesFilter.allFilterParties,
               )
               val nonTransient = removeTransient(filteredEvents)
-              // Allows emitting AcsDelta transactions with no events, a use-case needed
-              // for the functioning of Daml triggers.
-              // (more details in https://github.com/digital-asset/daml/issues/6975)
+              // Allows emitting AcsDelta transactions with no events for providing completion evidence for submitter-witnesses.
               Option.when(nonTransient.nonEmpty || commandId.nonEmpty)(
                 transaction.copy(
                   commandId = commandId,
@@ -794,7 +793,7 @@ private[events] object TransactionLogUpdatesConversions {
   ): Future[apiEvent.CreatedEvent] = {
 
     def getFatContractInstance: Right[Nothing, FatContractInstance] =
-      Right(FatContractInstance.fromCreateNode(create, ledgerEffectiveTime, driverMetadata))
+      Right(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(ledgerEffectiveTime), driverMetadata))
 
     val witnesses = requestingPartiesO
       .fold(createdEventWitnesses)(_.view.filter(createdEventWitnesses).toSet)

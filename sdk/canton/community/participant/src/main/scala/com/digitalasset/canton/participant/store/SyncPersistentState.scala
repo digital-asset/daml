@@ -21,6 +21,7 @@ import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.{
   ParticipantId,
   PhysicalSynchronizerId,
+  SynchronizerId,
   SynchronizerOutboxQueue,
   SynchronizerTopologyManager,
 }
@@ -36,7 +37,7 @@ trait SyncPersistentState extends NamedLogging with AutoCloseable {
 
   /** The crypto operations used on the synchronizer */
   def pureCryptoApi: CryptoPureApi
-  def indexedSynchronizer: IndexedSynchronizer
+  def synchronizerIdx: IndexedSynchronizer
   def staticSynchronizerParameters: StaticSynchronizerParameters
   def enableAdditionalConsistencyChecks: Boolean
   def reassignmentStore: ReassignmentStore
@@ -55,7 +56,9 @@ trait SyncPersistentState extends NamedLogging with AutoCloseable {
   def acsInspection: AcsInspection
 
   lazy val physicalSynchronizerId: PhysicalSynchronizerId =
-    PhysicalSynchronizerId(indexedSynchronizer.synchronizerId, staticSynchronizerParameters)
+    PhysicalSynchronizerId(synchronizerIdx.synchronizerId, staticSynchronizerParameters)
+
+  lazy val logicalSynchronizerId: SynchronizerId = synchronizerIdx.synchronizerId
 }
 
 object SyncPersistentState {

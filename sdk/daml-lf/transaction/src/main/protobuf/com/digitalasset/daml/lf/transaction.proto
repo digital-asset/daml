@@ -96,15 +96,17 @@ message Versioned {
   bytes payload = 2;
 }
 
-// A self contains representation of a committed contract.
+// A self contained representation of a committed contract.
 message FatContractInstance {
   bytes contract_id = 1;
   string package_name = 2;
-  repeated int32 package_version = 9; // required *since dev(
+  repeated int32 package_version = 9; // required *since dev*
   com.digitalasset.daml.lf.value.Identifier template_id = 3;
   bytes create_arg = 4;
   repeated string non_maintainer_signatories = 5;
   repeated string non_signatory_stakeholders = 6;
+  // Long.MinValue denotes that the creation time is unknown and should be derived from the context
+  // For Create nodes, this must be set to 0.
   sfixed64 created_at = 7;
   bytes canton_data = 8;
   KeyWithMaintainers contract_key_with_maintainers = 1001; // optional *since dev*

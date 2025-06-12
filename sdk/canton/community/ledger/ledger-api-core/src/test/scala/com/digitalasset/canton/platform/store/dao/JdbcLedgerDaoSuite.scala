@@ -14,7 +14,7 @@ import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Decode}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, PackageName, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
@@ -132,7 +132,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     ),
   )
   protected final val someChoiceResult =
-    LfValue.ValueContractId(ContractId.V1(Hash.hashPrivateKey("#1")))
+    LfValue.ValueContractId(ContractId.V1(Hash.hashPrivateKey("#1"), Bytes.assertFromString("00")))
 
   protected final def someContractKey(party: Party, value: String): LfValue.ValueRecord =
     LfValue.ValueRecord(

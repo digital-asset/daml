@@ -66,7 +66,7 @@ object AddPartyStatus {
       statusP: v30.GetAddPartyStatusResponse.Status.Status
   ): ParsingResult[Status] =
     statusP match {
-      case v30.GetAddPartyStatusResponse.Status.Status.ProposalProcessed(status) =>
+      case v30.GetAddPartyStatusResponse.Status.Status.ProposalProcessed(_) =>
         Right(ProposalProcessed)
       case v30.GetAddPartyStatusResponse.Status.Status.AgreementAccepted(status) =>
         for {

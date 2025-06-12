@@ -275,7 +275,6 @@ private[reassignment] class AssignmentProcessingSteps(
   ] =
     EncryptedViewMessage
       .decryptFor(
-        staticSynchronizerParameters.unwrap,
         snapshot,
         sessionKeyStore,
         envelope.protocolMessage,

@@ -9,7 +9,7 @@ The example application below illustrates the relationship between blockchain an
 The Example Minimal Settlement System
 *************************************
 
-This section defines the requirements that the example application should fulfill, as well as how to measure its performance and where contention might occur. Assume that there are initial processes already in place to issue assets to parties. All of the concrete numbers in the example are realistic order-of-magnitude figures that are for illustrative purposes only. 
+This section defines the requirements that the example application should fulfill, as well as how to measure its performance and where contention might occur. Assume that there are initial processes already in place to issue assets to parties. All of the concrete numbers in the example are realistic order-of-magnitude figures that are for illustrative purposes only.
 
 Basic functional requirements for the example application
 =========================================================
@@ -39,7 +39,7 @@ The following list adds some practical matters to complete the rough functional 
 Performance measurement in the example application
 ==================================================
 
-Performance in the example can be measured by latency and throughput; specifically, settlement latency and settlement throughput. Another important factor in measuring performance is the ledger transaction latency. 
+Performance in the example can be measured by latency and throughput; specifically, settlement latency and settlement throughput. Another important factor in measuring performance is the ledger transaction latency.
 
 * **Settlement latency**: the time it takes from one party wanting to settle (just before the proposal step) to the time that party receives final confirmation that the settlement was committed (after the settlement step). For this example, assume that the best possible path occurs and that parties take zero time to make decisions.
 * **Settlement throughput**: the maximum number of settlements per second that the system as a whole can process over a long period.
@@ -95,7 +95,7 @@ then
 
   ``dlt_var_tx = 0.04 * dlt_min_tx``
 
-Even with good parallelism, ledgers have limitations. The limitations might involve CPUs, databases, or networks. Calculate and design for whatever ceiling you hit first. Specifically, there is a maximum throughput ``max_throughput`` (measured in ``dlt_min_tx/second``) and a maximum transaction size ``max_transaction`` (measured in ``dlt_min_tx``). For this example, assume that ``max_throughput`` is limited by being CPU-bound. Assume that there are 10 CPUs available and that an empty transaction takes 10ms of CPU time. For each second: 
+Even with good parallelism, ledgers have limitations. The limitations might involve CPUs, databases, or networks. Calculate and design for whatever ceiling you hit first. Specifically, there is a maximum throughput ``max_throughput`` (measured in ``dlt_min_tx/second``) and a maximum transaction size ``max_transaction`` (measured in ``dlt_min_tx``). For this example, assume that ``max_throughput`` is limited by being CPU-bound. Assume that there are 10 CPUs available and that an empty transaction takes 10ms of CPU time. For each second:
 
   ``max_throughput = 10 * each CPU’s capacity``
 
@@ -163,7 +163,7 @@ If the latency limit is too small or this latency is unacceptable, the trading p
 * 100 * $10
 * 1,000 * $1
 
-and perform the 1,000 settlements in parallel. Latency would then be theoretically around: 
+and perform the 1,000 settlements in parallel. Latency would then be theoretically around:
 
   ``3 * fixed_tx + (fixed_tx + var_tx) = 1.01s``
 
@@ -209,12 +209,12 @@ In addition, the validation step is difficult to optimize. Command evaluation ma
 Simple Strategies for UTXO Ledger Models
 ****************************************
 
-To attain high throughput and scalability, UTXO is the best option for a ledger model. However, you need strategies to reduce contention so that you can parallelize settlement processing. 
+To attain high throughput and scalability, UTXO is the best option for a ledger model. However, you need strategies to reduce contention so that you can parallelize settlement processing.
 
 Batch transactions sequentially
 ===============================
 
-Since ``(var_tx << fixed_tx)``, processing two settlements in one transaction is much cheaper than processing them in two transactions. One strategy is to batch transactions and submit one batch at a time in series. 
+Since ``(var_tx << fixed_tx)``, processing two settlements in one transaction is much cheaper than processing them in two transactions. One strategy is to batch transactions and submit one batch at a time in series.
 
 **Pros**
 
@@ -264,7 +264,7 @@ Since you typically only need to touch one owner’s asset of one type at a time
       where
         signatory assetType.issuer, owner
 
-An asset position is a contract containing a triple (owner, asset type, and quantity). The total asset position of an asset type for an owner is the sum of the quantities for all asset positions with that owner and asset type. If the settlement transaction touches two total asset positions for the buy-side and two total asset positions for the sell-side, batching by asset type and owner does not help much. 
+An asset position is a contract containing a triple (owner, asset type, and quantity). The total asset position of an asset type for an owner is the sum of the quantities for all asset positions with that owner and asset type. If the settlement transaction touches two total asset positions for the buy-side and two total asset positions for the sell-side, batching by asset type and owner does not help much.
 
 Imagine that Alice wants to settle USD for EUR with Bob, Bob wants to settle EUR for GBP with Carol, and Carol wants to settle GBP for USD with Alice. The three settlement transactions all experience contention, so you cannot do better than sequential batching.
 
@@ -276,19 +276,19 @@ However, if you could ensure that each transaction only touches one total asset 
 #. **Buy-side merge**: the buy-side merges their new position back into the total asset position.
 #. **Sell-side merge**: the sell-side merges their new position back into the total asset position.
 
-This does not need to result in five transactions. 
+This does not need to result in five transactions.
 
-* Buy-side allocation is usually done as part of a settlement proposal. 
-* Sell-side allocation is typically handled as part of the settlement. 
+* Buy-side allocation is usually done as part of a settlement proposal.
+* Sell-side allocation is typically handled as part of the settlement.
 * Buy-side merge and sell-side merge technically do not need any action. By definition of total asset positions, merging is an optional step. It is easy to keep things organized without extra transactions. Every time a total asset position is touched as part of buy-side allocation or sell-side allocation above, you merge all positions into a single one. As long as there is a similar amount of inbound and outbound traffic on the total asset position, the number of individual positions stays low.
 
 **Pros**
 
-Assuming that a settlement is considered complete after the settlement step and that you bundle the allocation steps above into the proposal and settlement steps, the system performance will stay at the optimum settlement latency of 510ms. 
+Assuming that a settlement is considered complete after the settlement step and that you bundle the allocation steps above into the proposal and settlement steps, the system performance will stay at the optimum settlement latency of 510ms.
 
 Also, if there are enough open settlements on distinct total asset positions, the total throughput may reach up to the optimal 490 settlements per second.
 
-With batch sizes of ``N=50`` for both proposals and settlements and sufficient total asset positions with open settlements, the maximum theoretical settlement throughput is: 
+With batch sizes of ``N=50`` for both proposals and settlements and sufficient total asset positions with open settlements, the maximum theoretical settlement throughput is:
 
 ``50 stls * 1,000 dlt_min_tx/s / (2 * dlt_fixed_tx + 50 * dlt_var_tx) = 12,500 stls/s``
 
@@ -300,7 +300,7 @@ Using higher batch sizes, you have the same tradeoffs as for sequential batching
 
 Using a batch size of 50, you would get settlement latencies of around 1.5s and a maximum throughput per total asset position of 67 settlements per second, per total asset position.
 
-Another disadvantage is that allocating the buy-side asset in a transaction before the settlement means that asset positions can be locked up for short periods. 
+Another disadvantage is that allocating the buy-side asset in a transaction before the settlement means that asset positions can be locked up for short periods.
 
 Additionally, if the settlement fails, the already allocated asset needs to be merged back into the total asset position.
 
@@ -331,13 +331,13 @@ Shard total asset positions with global constraints
 
 As an example of a global constraint, assume that the total asset position has to stay positive. This is usually done by ensuring that each individual asset position is positive. If that is the case, the strategy is to define a sharding scheme where the total position is decomposed into ``N`` smaller shard positions and then run sequential processing or batching per shard position.
 
-Each asset position has to be clearly assignable to a single shard position so that there is no contention between shards. The partitioning of the total asset position does not have to be done on-ledger. If the automation for all shards can communicate off-ledger, it is possible to run a sharding strategy where you simply set the total number of desired asset positions. 
+Each asset position has to be clearly assignable to a single shard position so that there is no contention between shards. The partitioning of the total asset position does not have to be done on-ledger. If the automation for all shards can communicate off-ledger, it is possible to run a sharding strategy where you simply set the total number of desired asset positions.
 
-For example, assume that there should be 100 asset positions for a total asset position with some minimal value. 
+For example, assume that there should be 100 asset positions for a total asset position with some minimal value.
 
-* The automation keeps track of a synchronized pending set of asset positions, which marks asset positions that are in use. 
-* Every time the automation triggers (which may happen concurrently), it looks at how many asset positions there are relative to the desired 100 and how much quantity is needed to allocate the open settlements. 
-* It then selects an appropriate set of non-pending asset positions so that it can allocate the open settlements and return new asset positions to move the total number closer to 100. 
+* The automation keeps track of a synchronized pending set of asset positions, which marks asset positions that are in use.
+* Every time the automation triggers (which may happen concurrently), it looks at how many asset positions there are relative to the desired 100 and how much quantity is needed to allocate the open settlements.
+* It then selects an appropriate set of non-pending asset positions so that it can allocate the open settlements and return new asset positions to move the total number closer to 100.
 * Before sending the transaction, it adds those positions to the pending set to make sure that another thread does not also use them.
 
 Alternatively, if you have a sufficiently large total position compared to settlement values, you can pick the 99th percentile ``p_99`` of settlement values and maintain ``N-1`` positions of value between ``p_99`` and ``2 * p_99`` and one of the (still large) remainder. 99% of transactions will be processed in the ``N-1`` shard positions, and the remaining 1% will be processed against the remaining pool. Whenever a shard moves out of the desired range, it is balanced against the pool.
@@ -348,7 +348,7 @@ Assuming that there is always enough liquidity in the total asset position, the 
 
 **Cons**
 
-If settlement values are large compared to total asset holdings, this technique helps little. In an extreme case, if every settlement needs more than 50% of the total holding, it does not perform any better than the sequential processing or batching per asset type and owner technique. 
+If settlement values are large compared to total asset holdings, this technique helps little. In an extreme case, if every settlement needs more than 50% of the total holding, it does not perform any better than the sequential processing or batching per asset type and owner technique.
 
 In realistic scenarios where settlement values are distributed on a broad range relative to total asset position and those relativities change as holdings go up and down, developing strategies that perform optimally is complex. There are competing priorities that need to be balanced carefully:
 

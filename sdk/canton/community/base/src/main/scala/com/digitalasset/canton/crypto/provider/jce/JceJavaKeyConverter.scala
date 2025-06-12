@@ -36,7 +36,7 @@ object JceJavaKeyConverter {
         _ <- CryptoKeyValidation.ensureFormat(
           publicKey.format,
           Set(expectedFormat),
-          _ => JceJavaKeyConversionError.UnsupportedKeyFormat(publicKey.format, expectedFormat),
+          JceJavaKeyConversionError.UnsupportedKeyFormat.apply,
         )
         x509KeySpec = new X509EncodedKeySpec(x509PublicKey)
         keyFactory <- Either
@@ -82,7 +82,7 @@ object JceJavaKeyConverter {
         _ <- CryptoKeyValidation.ensureFormat(
           privateKey.format,
           Set(expectedFormat),
-          _ => JceJavaKeyConversionError.UnsupportedKeyFormat(privateKey.format, expectedFormat),
+          JceJavaKeyConversionError.UnsupportedKeyFormat.apply,
         )
         pkcs8KeySpec = new PKCS8EncodedKeySpec(pkcs8PrivateKey)
         keyFactory <- Either
@@ -138,10 +138,12 @@ object JceJavaKeyConversionError {
       prettyOfClass(unnamedParam(_.error))
   }
 
-  final case class UnsupportedKeyFormat(format: CryptoKeyFormat, expectedFormat: CryptoKeyFormat)
-      extends JceJavaKeyConversionError {
+  final case class UnsupportedKeyFormat(
+      format: CryptoKeyFormat,
+      supportedKeyFormats: Set[CryptoKeyFormat],
+  ) extends JceJavaKeyConversionError {
     override protected def pretty: Pretty[UnsupportedKeyFormat] =
-      prettyOfClass(param("format", _.format), param("expected format", _.expectedFormat))
+      prettyOfClass(param("format", _.format), param("supportedKeyFormats", _.supportedKeyFormats))
   }
 
   final case class InvalidKey(error: String) extends JceJavaKeyConversionError {

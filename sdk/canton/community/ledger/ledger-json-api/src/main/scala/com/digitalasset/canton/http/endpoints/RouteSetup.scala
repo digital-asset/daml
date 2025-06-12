@@ -179,7 +179,7 @@ object RouteSetup {
   import Endpoints.IntoEndpointsError
 
   private val nonHttpsErrorMessage =
-    "missing HTTPS reverse-proxy request headers; for development launch with --allow-insecure-tokens"
+    "missing HTTPS reverse-proxy request headers"
 
   def withJwtPayloadLoggingContext[A](jwtPayload: JwtPayloadG)(
       fn: TraceContext => LoggingContextOf[JwtPayloadTag with InstanceUUID with RequestID] => A

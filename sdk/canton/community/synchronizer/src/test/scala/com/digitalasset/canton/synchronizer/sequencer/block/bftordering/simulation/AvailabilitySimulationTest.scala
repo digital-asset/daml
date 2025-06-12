@@ -275,19 +275,19 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
   ] = (moduleSystem, p2pNetworkManager) => {
     val loggerFactoryWithSequencerId = loggerFactory.append("sequencerId", thisNode)
 
-    val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))
+    val mempoolRef = moduleSystem.newModuleRef[Mempool.Message](ModuleName("mempool"))()
     val p2pNetworkInRef = moduleSystem
-      .newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))
+      .newModuleRef[BftOrderingServiceReceiveRequest](ModuleName("p2p-network-in"))()
     val p2pNetworkOutRef = moduleSystem
-      .newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))
+      .newModuleRef[P2PNetworkOut.Message](ModuleName("p2p-network-out"))()
     val availabilityRef = moduleSystem
-      .newModuleRef[Availability.Message[SimulationEnv]](ModuleName("availability"))
+      .newModuleRef[Availability.Message[SimulationEnv]](ModuleName("availability"))()
     val consensusRef = moduleSystem
-      .newModuleRef[Consensus.Message[SimulationEnv]](ModuleName("consensus"))
+      .newModuleRef[Consensus.Message[SimulationEnv]](ModuleName("consensus"))()
     val outputRef = moduleSystem
-      .newModuleRef[Output.Message[SimulationEnv]](ModuleName("output"))
+      .newModuleRef[Output.Message[SimulationEnv]](ModuleName("output"))()
     val pruningRef = moduleSystem
-      .newModuleRef[Pruning.Message](ModuleName("pruning"))
+      .newModuleRef[Pruning.Message](ModuleName("pruning"))()
 
     implicit val bftOrdererConfig: BftBlockOrdererConfig = new BftBlockOrdererConfig()
 

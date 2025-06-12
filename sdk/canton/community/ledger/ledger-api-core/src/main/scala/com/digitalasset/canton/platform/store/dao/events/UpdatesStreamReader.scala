@@ -361,7 +361,10 @@ class UpdatesStreamReader(
         )
       )
       .mapConcat { (groupOfPayloads: Seq[Entry[Event]]) =>
-        val responses = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
+        val responses = TransactionConversions.toGetTransactionsResponse(
+          events = groupOfPayloads,
+          transactionShape = AcsDelta,
+        )
         responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
   }
@@ -511,7 +514,11 @@ class UpdatesStreamReader(
         }
       )
       .mapConcat { events =>
-        val responses = TransactionConversions.toGetTransactionsResponse(events)
+        val responses =
+          TransactionConversions.toGetTransactionsResponse(
+            events = events,
+            transactionShape = LedgerEffects,
+          )
         responses.map { case (offset, response) => Offset.tryFromLong(offset) -> response }
       }
   }

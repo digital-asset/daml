@@ -648,6 +648,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                 Ret((kinds foldRight base)(KArrow))
               }
             }
+          case PLF.Kind.SumCase.INTERNED =>
+            throw Error.Parsing(s"Unexpected filed result_interned_kind")
           case PLF.Kind.SumCase.SUM_NOT_SET =>
             throw Error.Parsing("Kind.SUM_NOT_SET")
         }

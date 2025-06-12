@@ -13,17 +13,13 @@ import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
-import com.digitalasset.canton.protocol.hash.{
-  HashTracer,
-  TransactionHash,
-  TransactionMetadataHashBuilder,
-}
+import com.digitalasset.canton.protocol.hash.{HashTracer, TransactionHash, TransactionMetadataHashBuilder}
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, SerializableContract}
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, NodeId, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.util.UUID
@@ -58,7 +54,7 @@ object InteractiveSubmission {
         mediatorGroup: Int,
         synchronizerId: SynchronizerId, // TODO(#25483) Should that be physical?
         timeBoundaries: LedgerTimeBoundaries,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, FatContractInstance],
     ) = new TransactionMetadataForHashing(
       actAs = SortedSet.from(actAs),
@@ -67,7 +63,7 @@ object InteractiveSubmission {
       mediatorGroup = mediatorGroup,
       synchronizerId = synchronizerId,
       timeBoundaries = timeBoundaries,
-      submissionTime = submissionTime,
+      preparationTime = preparationTime,
       disclosedContracts = SortedMap.from(disclosedContracts),
     )
 
@@ -81,7 +77,7 @@ object InteractiveSubmission {
         mediatorGroup: Int,
         synchronizerId: SynchronizerId,
         timeBoundaries: LedgerTimeBoundaries,
-        submissionTime: Time.Timestamp,
+        preparationTime: Time.Timestamp,
         disclosedContracts: Map[ContractId, SerializableContract],
     ): TransactionMetadataForHashing = {
 
@@ -89,7 +85,7 @@ object InteractiveSubmission {
         .map { case (contractId, serializedNode) =>
           contractId -> FatContractInstance.fromCreateNode(
             serializedNode.toLf,
-            serializedNode.ledgerCreateTime.toLf,
+            CreationTime.CreatedAt(serializedNode.ledgerCreateTime.toLf),
             saltFromSerializedContract(serializedNode),
           )
         }
@@ -101,7 +97,7 @@ object InteractiveSubmission {
         mediatorGroup,
         synchronizerId,
         timeBoundaries,
-        submissionTime,
+        preparationTime,
         SortedMap.from(asFatContracts),
       )
     }
@@ -115,7 +111,7 @@ object InteractiveSubmission {
       // TODO(#25483) Should this be physical?
       synchronizerId: SynchronizerId,
       timeBoundaries: LedgerTimeBoundaries,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
@@ -142,7 +138,7 @@ object InteractiveSubmission {
       metadata.mediatorGroup,
       metadata.synchronizerId.toProtoPrimitive,
       metadata.timeBoundaries,
-      metadata.submissionTime,
+      metadata.preparationTime,
       metadata.disclosedContracts,
     )
 
@@ -265,7 +261,6 @@ object InteractiveSubmission {
               .find(_.fingerprint == signature.signedBy)
               .toRight(s"Signing key ${signature.signedBy} is not a valid key for $party")
               .flatMap(key =>
-                // TODO(#23551) Add new usage for interactive submission
                 cryptoSnapshot.pureCrypto
                   .verifySignature(hash.unwrap, key, signature, SigningKeyUsage.ProtocolOnly)
                   .map(_ => key.fingerprint)

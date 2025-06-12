@@ -53,12 +53,12 @@ template body
     :ref:`a contract key <daml-ref-contract-keys>`
         ``key`` keyword
 
-        Optional. Lets you specify a combination of a party and other data that uniquely identifies a contract of this template. See :doc:`/daml/reference/contract-keys`.
+        Optional. Lets you specify a combination of a party and other data that uniquely identifies a contract of this template. See :ref:`contractkeys`.
 
     :ref:`maintainers <daml-ref-maintainers>`
         ``maintainer`` keyword
 
-        Required if you have specified a ``key``. Keys are only unique to a ``maintainer``. See :doc:`/daml/reference/contract-keys`.
+        Required if you have specified a ``key``. Keys are only unique to a ``maintainer``. See :ref:`contractkeys`.
 
     :ref:`choices <daml-ref-choice-structure>`
         ``choice NameOfChoice : ReturnType controller nameOfParty do``
@@ -137,12 +137,12 @@ The update expressions are:
     ``fetchedContract <- fetch IdOfContract``
 
 :ref:`fetchByKey <daml-ref-fetch-by-key>`
-    Like ``fetch``, but uses a :doc:`contract key </daml/reference/contract-keys>` rather than an ID.
+    Like ``fetch``, but uses a :ref:`contract key <contractkeys>` rather than an ID.
 
     ``fetchedContract <- fetchByKey @ContractType contractKey``
 
 :ref:`lookupByKey <daml-ref-lookup-by-key>`
-    Confirm that a contract with the given :doc:`contract key </daml/reference/contract-keys>` exists.
+    Confirm that a contract with the given :ref:`contract key <contractkeys>` exists.
 
     ``fetchedContractId <- lookupByKey @ContractType contractKey``
 

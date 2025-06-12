@@ -15,7 +15,10 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.{
   AtMostOnePhysicalActive,
   ConfigAlreadyExists,
+  Error,
+  InconsistentLogicalSynchronizerIds,
   MissingConfigForSynchronizer,
+  SynchronizerIdAlreadyAdded,
   UnknownAlias,
   UnknownPSId,
 }
@@ -37,7 +40,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.ExecutionContext
+import scala.concurrent.{ExecutionContext, blocking}
 
 class InMemorySynchronizerConnectionConfigStore(
     val aliasResolution: SynchronizerAliasResolution,
@@ -57,21 +60,79 @@ class InMemorySynchronizerConnectionConfigStore(
       configuredPSId: ConfiguredPhysicalSynchronizerId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ConfigAlreadyExists, Unit] =
-    EitherT.fromEither[FutureUnlessShutdown](
-      configuredSynchronizerMap
-        .putIfAbsent(
-          (config.synchronizerAlias, configuredPSId),
-          StoredSynchronizerConnectionConfig(config, status, configuredPSId),
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
+
+    val alias = config.synchronizerAlias
+
+    val res = blocking {
+      synchronized {
+        for {
+          _ <- configuredPSId match {
+            case KnownPhysicalSynchronizerId(psid) =>
+              for {
+                _ <- checkAliasConsistent(psid, alias)
+                _ <- checkLogicalIdConsistent(psid, alias)
+              } yield ()
+
+            case UnknownPhysicalSynchronizerId => ().asRight
+          }
+
+          _ <- configuredSynchronizerMap
+            .putIfAbsent(
+              (config.synchronizerAlias, configuredPSId),
+              StoredSynchronizerConnectionConfig(config, status, configuredPSId),
+            )
+            .fold(Either.unit[ConfigAlreadyExists])(existingConfig =>
+              Either.cond(
+                config == existingConfig.config,
+                (),
+                ConfigAlreadyExists(config.synchronizerAlias, configuredPSId),
+              )
+            )
+        } yield ()
+      }
+    }
+
+    EitherT.fromEither[FutureUnlessShutdown](res)
+  }
+
+  // Check that a new PSId is consistent with stored IDs for that alias
+  private def checkLogicalIdConsistent(
+      psid: PhysicalSynchronizerId,
+      alias: SynchronizerAlias,
+  ): Either[Error, Unit] = {
+    val configuredPsidsForAlias = configuredSynchronizerMap.keySet.collect { case (`alias`, id) =>
+      id
+    }
+
+    configuredPsidsForAlias
+      .collectFirst {
+        case KnownPhysicalSynchronizerId(existingPSId) if existingPSId.logical != psid.logical =>
+          existingPSId
+      }
+      .map(existing =>
+        InconsistentLogicalSynchronizerIds(
+          alias = alias,
+          newPSId = psid,
+          existingPSId = existing,
         )
-        .fold(Either.unit[ConfigAlreadyExists])(existingConfig =>
-          Either.cond(
-            config == existingConfig.config,
-            (),
-            ConfigAlreadyExists(config.synchronizerAlias, configuredPSId),
-          )
-        )
-    )
+      )
+      .toLeft(())
+      .leftWiden[Error]
+  }
+
+  // Ensure this PSId is not already registered with another alias
+  private def checkAliasConsistent(
+      psid: PhysicalSynchronizerId,
+      alias: SynchronizerAlias,
+  ): Either[Error, Unit] =
+    configuredSynchronizerMap.keySet
+      .collectFirst {
+        case (existingAlias, id)
+            if id == KnownPhysicalSynchronizerId(psid) && existingAlias != alias =>
+          SynchronizerIdAlreadyAdded(psid, existingAlias)
+      }
+      .toLeft(())
 
   override def replace(
       configuredPSId: ConfiguredPhysicalSynchronizerId,
@@ -79,21 +140,21 @@ class InMemorySynchronizerConnectionConfigStore(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit] =
-    replaceInternal(config.synchronizerAlias, configuredPSId, _.copy(config = config))
+    EitherT.fromEither(
+      replaceInternal(config.synchronizerAlias, configuredPSId, _.copy(config = config))
+    )
 
   private def replaceInternal(
       alias: SynchronizerAlias,
       configuredPSId: ConfiguredPhysicalSynchronizerId,
       modifier: StoredSynchronizerConnectionConfig => StoredSynchronizerConnectionConfig,
-  ): EitherT[FutureUnlessShutdown, MissingConfigForSynchronizer, Unit] =
-    EitherT.fromEither[FutureUnlessShutdown](
-      Either.cond(
-        configuredSynchronizerMap
-          .updateWith((alias, configuredPSId))(_.map(modifier))
-          .isDefined,
-        (),
-        MissingConfigForSynchronizer(alias, configuredPSId),
-      )
+  ): Either[MissingConfigForSynchronizer, Unit] =
+    Either.cond(
+      configuredSynchronizerMap
+        .updateWith((alias, configuredPSId))(_.map(modifier))
+        .isDefined,
+      (),
+      MissingConfigForSynchronizer(alias, configuredPSId),
     )
 
   override def get(
@@ -105,12 +166,12 @@ class InMemorySynchronizerConnectionConfigStore(
       .toRight(MissingConfigForSynchronizer(alias, configuredPSId))
 
   override def get(
-      synchronizerId: PhysicalSynchronizerId
+      psid: PhysicalSynchronizerId
   ): Either[UnknownPSId, StoredSynchronizerConnectionConfig] = {
-    val id = KnownPhysicalSynchronizerId(synchronizerId)
+    val id = KnownPhysicalSynchronizerId(psid)
     configuredSynchronizerMap
       .collectFirst { case ((_, `id`), config) => config }
-      .toRight(UnknownPSId(synchronizerId))
+      .toRight(UnknownPSId(psid))
   }
 
   override def getAll(): Seq[StoredSynchronizerConnectionConfig] =
@@ -144,9 +205,9 @@ class InMemorySynchronizerConnectionConfigStore(
       status: SynchronizerConnectionConfigStore.Status,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerConnectionConfigStore.Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
 
-    def ensureSinglePhysicalActive(): Either[SynchronizerConnectionConfigStore.Error, Unit] =
+    def ensureSinglePhysicalActive(): Either[Error, Unit] =
       for {
         configs <- getAllFor(alias)
 
@@ -162,22 +223,27 @@ class InMemorySynchronizerConnectionConfigStore(
         _ <- Either.cond(activeNew.sizeIs == 1, (), AtMostOnePhysicalActive(alias, activeNew))
       } yield ()
 
-    for {
-      _ <-
-        if (status.isActive) EitherT.fromEither[FutureUnlessShutdown](ensureSinglePhysicalActive())
-        else EitherTUtil.unitUS
+    val res = blocking {
+      synchronized {
+        for {
+          _ <-
+            if (status.isActive) ensureSinglePhysicalActive()
+            else ().asRight
 
-      _ <- replaceInternal(alias, configuredPSId, _.copy(status = status))
-        .leftWiden[SynchronizerConnectionConfigStore.Error]
-    } yield ()
+          _ <- replaceInternal(alias, configuredPSId, _.copy(status = status)).leftWiden[Error]
+        } yield ()
+      }
+    }
+
+    EitherT.fromEither(res)
   }
 
   override def setPhysicalSynchronizerId(
       alias: SynchronizerAlias,
-      physicalSynchronizerId: PhysicalSynchronizerId,
+      psid: PhysicalSynchronizerId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SynchronizerConnectionConfigStore.Error, Unit] = {
+  ): EitherT[FutureUnlessShutdown, Error, Unit] = {
     /*
     Checks whether changes need to be applied to the DB.
     Fails if both (alias, None) (alias, physicalSynchronizerId) are unknown.
@@ -185,14 +251,14 @@ class InMemorySynchronizerConnectionConfigStore(
     def changeNeeded(): Either[MissingConfigForSynchronizer, Boolean] = {
       val psidOld = get(alias, UnknownPhysicalSynchronizerId).map(_.configuredPSId)
       val psidNew =
-        get(alias, KnownPhysicalSynchronizerId(physicalSynchronizerId)).map(_.configuredPSId)
+        get(alias, KnownPhysicalSynchronizerId(psid)).map(_.configuredPSId)
 
       // Check that there exist one entry for this alias without psid or the change is already applied
       (psidOld, psidNew) match {
         case (Right(_), _) => Right(true)
         case (
               Left(_: MissingConfigForSynchronizer),
-              Right(KnownPhysicalSynchronizerId(`physicalSynchronizerId`)),
+              Right(KnownPhysicalSynchronizerId(`psid`)),
             ) =>
           Right(false)
         case (Left(_: MissingConfigForSynchronizer), _) =>
@@ -200,37 +266,41 @@ class InMemorySynchronizerConnectionConfigStore(
       }
     }
 
-    def performChange() =
-      for {
-        // Check that there exist one entry for this alias without psid
-        config <- EitherT.fromEither[FutureUnlessShutdown](
-          get(alias, UnknownPhysicalSynchronizerId)
-        )
-      } yield {
-        configuredSynchronizerMap.addOne(
-          (
-            (alias, KnownPhysicalSynchronizerId(physicalSynchronizerId)),
-            config.copy(configuredPSId = KnownPhysicalSynchronizerId(physicalSynchronizerId)),
-          )
-        )
-        configuredSynchronizerMap.remove((alias, UnknownPhysicalSynchronizerId)).discard
+    def performChange(): Either[Error, Unit] =
+      blocking {
+        synchronized {
+          for {
+            _ <- checkAliasConsistent(psid, alias)
+            _ <- checkLogicalIdConsistent(psid, alias)
 
-        ()
+            // Check that there exist one entry for this alias without psid
+            config <- get(alias, UnknownPhysicalSynchronizerId)
+
+          } yield {
+            configuredSynchronizerMap.addOne(
+              (
+                (alias, KnownPhysicalSynchronizerId(psid)),
+                config.copy(configuredPSId = KnownPhysicalSynchronizerId(psid)),
+              )
+            )
+            configuredSynchronizerMap.remove((alias, UnknownPhysicalSynchronizerId)).discard
+
+            ()
+          }
+        }
       }
 
     for {
-      isChangeNeeded <- EitherT
-        .fromEither[FutureUnlessShutdown](changeNeeded())
-        .leftWiden[SynchronizerConnectionConfigStore.Error]
+      isChangeNeeded <- EitherT.fromEither[FutureUnlessShutdown](changeNeeded()).leftWiden[Error]
 
-      _ =
+      _ <-
         if (isChangeNeeded)
-          performChange()
+          EitherT.fromEither[FutureUnlessShutdown](performChange())
         else {
           logger.debug(
-            s"Physical synchronizer id for $alias is already set to $physicalSynchronizerId"
+            s"Physical synchronizer id for $alias is already set to $psid"
           )
-          EitherTUtil.unitUS
+          EitherTUtil.unitUS[Error]
         }
     } yield ()
   }

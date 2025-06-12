@@ -7,7 +7,6 @@ import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.TimeoutManager
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -145,12 +144,11 @@ class StateTransferManager[E <: Env[E]](
   ): StateTransferMessageResult =
     message match {
       case StateTransferMessage.UnverifiedStateTransferMessage(unverifiedMessage) =>
-        validator.verifyStateTransferMessage(
+        validator.validateUnverifiedStateTransferNetworkMessage(
           unverifiedMessage,
-          topologyInfo.currentMembership,
-          topologyInfo.currentCryptoProvider,
+          latestCompletedEpoch.info.number,
+          topologyInfo,
         )
-        StateTransferMessageResult.Continue
 
       case StateTransferMessage.VerifiedStateTransferMessage(message) =>
         handleStateTransferNetworkMessage(message, topologyInfo, latestCompletedEpoch)(abort)
@@ -194,30 +192,13 @@ class StateTransferManager[E <: Env[E]](
   ): StateTransferMessageResult =
     message match {
       case request @ StateTransferMessage.BlockTransferRequest(epoch, from) =>
-        validator
-          .validateBlockTransferRequest(request, orderingTopologyInfo.currentMembership)
-          .fold(
-            { validationError =>
-              logger.warn(s"State transfer: $validationError, dropping...")
-              emitNonCompliance(metrics)(
-                from,
-                Some(epoch),
-                view = None,
-                block = None,
-                metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
-              )
-            },
-            { _ =>
-              logger.info(s"State transfer: '$from' is requesting block transfer for epoch $epoch")
-
-              messageSender.sendBlockTransferResponses(
-                orderingTopologyInfo.currentCryptoProvider,
-                to = from,
-                request.epoch,
-                latestCompletedEpoch,
-              )(abort)
-            },
-          )
+        logger.info(s"State transfer: '$from' is requesting block transfer for epoch $epoch")
+        messageSender.sendBlockTransferResponses(
+          orderingTopologyInfo.currentCryptoProvider,
+          to = from,
+          request.epoch,
+          latestCompletedEpoch,
+        )(abort)
         StateTransferMessageResult.Continue
 
       case response: StateTransferMessage.BlockTransferResponse =>
@@ -225,7 +206,6 @@ class StateTransferManager[E <: Env[E]](
         if (inStateTransfer) {
           handleBlockTransferResponse(
             response,
-            latestCompletedEpoch.info.number,
             orderingTopologyInfo,
           )
         } else {
@@ -272,42 +252,20 @@ class StateTransferManager[E <: Env[E]](
 
   private def handleBlockTransferResponse(
       response: StateTransferMessage.BlockTransferResponse,
-      latestLocallyCompletedEpoch: EpochNumber,
       orderingTopologyInfo: OrderingTopologyInfo[E],
   )(implicit
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
-  ): StateTransferMessageResult =
-    validator
-      .validateBlockTransferResponse(
-        response,
-        latestLocallyCompletedEpoch,
-        orderingTopologyInfo.currentMembership,
-      )
-      .fold(
-        { validationError =>
-          logger.warn(s"State transfer: $validationError, dropping...")
-          val blockMetadata = response.commitCertificate.map(_.prePrepare.message.blockMetadata)
-          emitNonCompliance(metrics)(
-            response.from,
-            blockMetadata.map(_.epochNumber),
-            view = None,
-            blockMetadata.map(_.blockNumber),
-            metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
-          )
-          StateTransferMessageResult.Continue
-        },
-        { _ =>
-          val from = response.from
-          response.commitCertificate match {
-            case None =>
-              StateTransferMessageResult.NothingToStateTransfer(from)
-            case Some(commitCert) =>
-              validator.verifyCommitCertificateSignatures(commitCert, from, orderingTopologyInfo)
-              StateTransferMessageResult.Continue
-          }
-        },
-      )
+  ): StateTransferMessageResult = {
+    val from = response.from
+    response.commitCertificate match {
+      case None =>
+        StateTransferMessageResult.NothingToStateTransfer(from)
+      case Some(commitCert) =>
+        validator.verifyCommitCertificateSignatures(commitCert, from, orderingTopologyInfo)
+        StateTransferMessageResult.Continue
+    }
+  }
 
   private def storeBlock(
       commitCert: CommitCertificate,
@@ -341,11 +299,8 @@ class StateTransferManager[E <: Env[E]](
 }
 
 sealed trait StateTransferMessageResult extends Product with Serializable
-
 object StateTransferMessageResult {
-
   // Signals that state transfer is in progress
   case object Continue extends StateTransferMessageResult
-
   final case class NothingToStateTransfer(from: BftNodeId) extends StateTransferMessageResult
 }

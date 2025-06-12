@@ -435,13 +435,12 @@ class JcePureCrypto(
           usage,
           signingKey.usage,
           signingKey.id,
-          _ =>
-            SigningError.InvalidKeyUsage(signingKey.id, signingKey.usage.forgetNE, usage.forgetNE),
+          SigningError.InvalidKeyUsage.apply,
         )
       _ <- CryptoKeyValidation.ensureFormat(
         signingKey.format,
         Set(CryptoKeyFormat.DerPkcs8Pki),
-        err => SigningError.InvalidSigningKey(err),
+        SigningError.UnsupportedKeyFormat.apply,
       )
       algoSpec <- CryptoKeyValidation
         .selectSigningAlgorithmSpec(
@@ -456,15 +455,8 @@ class JcePureCrypto(
         signingAlgorithmSpec,
         signingAlgorithmSpec.supportedSigningKeySpecs,
         supportedSigningAlgorithmSpecs,
-        algorithmSpec =>
-          SigningError
-            .UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
-        keySpec =>
-          SigningError.KeyAlgoSpecsMismatch(
-            keySpec,
-            signingAlgorithmSpec,
-            signingAlgorithmSpec.supportedSigningKeySpecs,
-          ),
+        SigningError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
+        SigningError.UnsupportedAlgorithmSpec.apply,
       )
       signer <- algoSpec match {
         case SigningAlgorithmSpec.Ed25519 => edDsaSigner(signingKey)
@@ -523,37 +515,25 @@ class JcePureCrypto(
         usage,
         publicKey.usage,
         publicKey.id,
-        _ =>
-          SignatureCheckError.InvalidKeyUsage(
-            publicKey.id,
-            publicKey.usage.forgetNE,
-            usage.forgetNE,
-          ),
+        SignatureCheckError.InvalidKeyUsage.apply,
       )
       _ <- CryptoKeyValidation.ensureFormat(
         publicKey.format,
         Set(CryptoKeyFormat.DerX509Spki),
-        err => SignatureCheckError.InvalidKeyError(err),
+        SignatureCheckError.UnsupportedKeyFormat.apply,
       )
       _ <- CryptoKeyValidation.ensureSignatureFormat(
         signature.format,
         signingAlgorithmSpec.supportedSignatureFormats,
-        err => SignatureCheckError.InvalidSignatureFormat(err),
+        SignatureCheckError.UnsupportedSignatureFormat.apply,
       )
       _ <- CryptoKeyValidation.ensureCryptoSpec(
         publicKey.keySpec,
         signingAlgorithmSpec,
         signingAlgorithmSpec.supportedSigningKeySpecs,
         supportedSigningAlgorithmSpecs,
-        algorithmSpec =>
-          SignatureCheckError
-            .UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
-        keySpec =>
-          SignatureCheckError.KeyAlgoSpecsMismatch(
-            keySpec,
-            signingAlgorithmSpec,
-            signingAlgorithmSpec.supportedSigningKeySpecs,
-          ),
+        SignatureCheckError.KeyAlgoSpecsMismatch(_, signingAlgorithmSpec, _),
+        SignatureCheckError.UnsupportedAlgorithmSpec.apply,
       )
       verifier <- signingAlgorithmSpec match {
         case SigningAlgorithmSpec.Ed25519 => edDsaVerifier(publicKey)
@@ -820,15 +800,8 @@ class JcePureCrypto(
         encrypted.encryptionAlgorithmSpec,
         encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
         supportedEncryptionAlgorithmSpecs,
-        algorithmSpec =>
-          DecryptionError
-            .UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
-        keySpec =>
-          DecryptionError.KeyAlgoSpecsMismatch(
-            keySpec,
-            encrypted.encryptionAlgorithmSpec,
-            encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
-          ),
+        DecryptionError.KeyAlgoSpecsMismatch(_, encrypted.encryptionAlgorithmSpec, _),
+        DecryptionError.UnsupportedAlgorithmSpec.apply,
       )
       .flatMap { _ =>
         encrypted.encryptionAlgorithmSpec match {
@@ -970,7 +943,7 @@ class JcePureCrypto(
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),
-            EncryptionError.InvalidSymmetricKey.apply,
+            EncryptionError.UnsupportedKeyFormat.apply,
           )
           ciphertext <- encryptAes128Gcm(data, symmetricKey.key)
         } yield ciphertext
@@ -985,7 +958,7 @@ class JcePureCrypto(
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),
-            DecryptionError.InvalidSymmetricKey.apply,
+            DecryptionError.UnsupportedKeyFormat.apply,
           )
           plaintext <- decryptAes128Gcm(encrypted.ciphertext, symmetricKey.key)
           message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize.apply)

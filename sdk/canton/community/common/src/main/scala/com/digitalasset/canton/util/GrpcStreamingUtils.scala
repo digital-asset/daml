@@ -7,7 +7,12 @@ import better.files.*
 import better.files.File.newTemporaryFile
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.grpc.ByteStringStreamObserverWithContext
-import com.digitalasset.canton.version.{HasRepresentativeProtocolVersion, VersioningCompanion}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.version.{
+  HasRepresentativeProtocolVersion,
+  HasVersionedMessageCompanion,
+  VersioningCompanion,
+}
 import com.google.protobuf.ByteString
 import io.grpc.Context
 import io.grpc.stub.StreamObserver
@@ -160,14 +165,38 @@ object GrpcStreamingUtils {
     *   either an error, or a list of versioned message instances in reverse order as appeared in
     *   the given stream
     */
-  def parseDelimitedFromTrusted[T <: HasRepresentativeProtocolVersion](
+  def parseDelimitedFromTrusted[ValueClass <: HasRepresentativeProtocolVersion](
       stream: InputStream,
-      objectType: VersioningCompanion[T],
-  ): Either[String, List[T]] = {
+      objectType: VersioningCompanion[ValueClass],
+  ): Either[String, List[ValueClass]] =
+    parseDelimitedFromTrustedInternal(stream, objectType.parseDelimitedFromTrusted)
+
+  /** Deserializes versioned message instances from a given stream.
+    *
+    * IMPORTANT: Expects data in the input stream that has been serialized with
+    * [[com.digitalasset.canton.version.HasVersionedWrapper#writeDelimitedTo]]! Otherwise, you'll
+    * get weird deserialization behaviour without errors, or you'll observe misaligned message
+    * fields and message truncation errors result from having used
+    * [[scalapb.GeneratedMessage#writeDelimitedTo]] directly.
+    *
+    * @return
+    *   either an error, or a list of versioned message instances in reverse order as appeared in
+    *   the given stream
+    */
+  def parseDelimitedFromTrusted[ValueClass](
+      stream: InputStream,
+      objectType: HasVersionedMessageCompanion[ValueClass],
+  ): Either[String, List[ValueClass]] =
+    parseDelimitedFromTrustedInternal(stream, objectType.parseDelimitedFromTrusted)
+
+  private def parseDelimitedFromTrustedInternal[ValueClass](
+      stream: InputStream,
+      parser: InputStream => Option[ParsingResult[ValueClass]],
+  ): Either[String, List[ValueClass]] = {
     // Assume we can load all parsed messages into memory
     @tailrec
-    def read(acc: List[T]): Either[String, List[T]] =
-      objectType.parseDelimitedFromTrusted(stream) match {
+    def read(acc: List[ValueClass]): Either[String, List[ValueClass]] =
+      parser(stream) match {
         case Some(parsed) =>
           parsed match {
             case Left(parseError) =>

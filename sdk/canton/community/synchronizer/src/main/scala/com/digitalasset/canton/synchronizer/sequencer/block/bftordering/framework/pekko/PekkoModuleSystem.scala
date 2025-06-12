@@ -44,6 +44,7 @@ object PekkoModuleSystem {
   private def pekkoBehavior[MessageT](
       moduleSystem: PekkoModuleSystem,
       moduleName: ModuleName,
+      moduleNameForMetrics: String,
       loggerFactory: NamedLoggerFactory,
   ): Behavior[ModuleControl[PekkoEnv, MessageT]] =
     Behaviors.setup { context =>
@@ -66,7 +67,7 @@ object PekkoModuleSystem {
                   case Send(message, traceContext, metricsContext, maybeSendInstant, maybeDelay) =>
                     maybeSendInstant.foreach(
                       moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
-                        moduleName,
+                        moduleNameForMetrics,
                         _,
                         maybeDelay,
                       )(metricsContext)
@@ -86,7 +87,7 @@ object PekkoModuleSystem {
                   case Some(module) =>
                     maybeSendInstant.foreach(
                       moduleSystem.metrics.performance.orderingStageLatency.emitModuleQueueLatency(
-                        moduleName,
+                        moduleNameForMetrics,
                         _,
                         maybeDelay,
                       )(metricsContext)
@@ -158,8 +159,8 @@ object PekkoModuleSystem {
 
     override def newModuleRef[NewModuleMessageT](
         moduleName: ModuleName
-    ): PekkoModuleRef[NewModuleMessageT] =
-      moduleSystem.newModuleRefImpl(moduleName, underlying)
+    )(moduleNameForMetrics: String = moduleName.name): PekkoModuleRef[NewModuleMessageT] =
+      moduleSystem.newModuleRefImpl(moduleName, moduleNameForMetrics, underlying)
 
     override def setModule[OtherModuleMessageT](
         moduleRef: PekkoModuleRef[OtherModuleMessageT],
@@ -367,16 +368,17 @@ object PekkoModuleSystem {
 
     override def newModuleRef[AcceptedMessageT](
         moduleName: ModuleName
-    ): PekkoModuleRef[AcceptedMessageT] =
-      newModuleRefImpl(moduleName, rootActorContext.underlying)
+    )(moduleNameForMetrics: String = moduleName.name): PekkoModuleRef[AcceptedMessageT] =
+      newModuleRefImpl(moduleName, moduleNameForMetrics, rootActorContext.underlying)
 
     protected[pekko] def newModuleRefImpl[AcceptedMessageT, ContextMessageT](
         moduleName: ModuleName,
+        moduleNameForMetrics: String,
         actorContext: ActorContext[ModuleControl[PekkoEnv, ContextMessageT]],
     ): PekkoModuleRef[AcceptedMessageT] = {
       val actorRef =
         actorContext.spawn(
-          pekkoBehavior[AcceptedMessageT](this, moduleName, loggerFactory),
+          pekkoBehavior[AcceptedMessageT](this, moduleName, moduleNameForMetrics, loggerFactory),
           moduleName.name,
           MailboxSelector.fromConfig("bft-ordering.control-mailbox"),
         )

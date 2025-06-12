@@ -114,7 +114,7 @@ abstract class ReassignmentBackdatingIntegrationTest
               painters.forall(
                 _.participants.forall(pd =>
                   pd.participant != P4.id || pd.synchronizers.forall(
-                    _.synchronizerId != iouSynchronizerId
+                    _.synchronizerId != iouSynchronizerId.logical
                   )
                 )
               )

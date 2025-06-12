@@ -190,6 +190,7 @@ object Value {
     def toBytes: Bytes
     def version: ContractIdVersion
     def isAbsolute: Boolean
+    def isLocal: Boolean
 
     final override def mapCid(f: ContractId => ContractId): ContractId = f(this)
   }
@@ -203,6 +204,7 @@ object Value {
       override def toString: String = s"ContractId($coid)"
       override def version: ContractIdVersion = ContractIdVersion.V1
       override def isAbsolute: Boolean = suffix.nonEmpty
+      override def isLocal: Boolean = !isAbsolute
     }
 
     object V1 {
@@ -256,6 +258,7 @@ object Value {
 
       def isRelative: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) >= 0
       override def isAbsolute: Boolean = suffix.nonEmpty && suffix.toByteString.byteAt(0) < 0
+      override def isLocal: Boolean = suffix.isEmpty
     }
 
     object V2 {

@@ -40,7 +40,7 @@ import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, NodeId}
 import com.digitalasset.daml.lf.value.Value
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -369,7 +369,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         createTime <- src.createdAt.transformIntoPartial[Time.Timestamp]
       } yield FatContractInstance.fromCreateNode(
         createNode,
-        createTime,
+        CreationTime.CreatedAt(createTime),
         src.driverMetadata.transformInto[Bytes],
       )
     }
@@ -492,6 +492,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
             _.ledgerEffectiveTime,
             ledgerEffectiveTime,
           )
+          .withFieldRenamed(_.preparationTime, _.preparationTime)
           .transform
           .toFutureWithLoggedFailures("Failed to deserialize transaction meta", logger)
       transaction <- transactionProto

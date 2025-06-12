@@ -127,7 +127,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
     participant2.ledger_api.state.acs
       .active_contracts_of_party(party = decentralizedParty)
       .find(_.createdEvent.value.contractId == iou.id.contractId)
-      .map(_.synchronizerId) shouldBe Some(acmeId.toProtoPrimitive)
+      .map(_.synchronizerId) shouldBe Some(acmeId.logical.toProtoPrimitive)
   }
 
   "check that reassignment can be submitted by any participant hosting a stakeholder" in {
@@ -151,7 +151,7 @@ sealed trait ReassignmentSubmissionIntegrationTest
       participant2.ledger_api.state.acs
         .active_contracts_of_party(party = observer1)
         .find(_.createdEvent.value.contractId == iou.id.contractId)
-        .map(_.synchronizerId) shouldBe Some(acmeId.toProtoPrimitive)
+        .map(_.synchronizerId) shouldBe Some(acmeId.logical.toProtoPrimitive)
 
       loggerFactory.assertThrowsAndLogsSeq[CommandFailure](
         participant1.ledger_api.commands

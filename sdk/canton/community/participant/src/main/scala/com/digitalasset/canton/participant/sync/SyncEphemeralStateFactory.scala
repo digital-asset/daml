@@ -74,10 +74,10 @@ class SyncEphemeralStateFactoryImpl(
   ): FutureUnlessShutdown[SyncEphemeralState] =
     for {
       _ <- ledgerApiIndexer.value.ensureNoProcessingForSynchronizer(
-        persistentState.indexedSynchronizer.synchronizerId
+        persistentState.synchronizerIdx.synchronizerId
       )
       synchronizerIndex <- ledgerApiIndexer.value.ledgerApiStore.value
-        .cleanSynchronizerIndex(persistentState.indexedSynchronizer.synchronizerId)
+        .cleanSynchronizerIndex(persistentState.synchronizerIdx.synchronizerId)
       startingPoints <- SyncEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
@@ -87,7 +87,7 @@ class SyncEphemeralStateFactoryImpl(
       _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, synchronizerIndex)
 
       recordOrderPublisher = new RecordOrderPublisher(
-        persistentState.indexedSynchronizer.synchronizerId,
+        persistentState.synchronizerIdx.synchronizerId,
         startingPoints.processing.nextSequencerCounter,
         startingPoints.processing.currentRecordTime,
         ledgerApiIndexer.value,

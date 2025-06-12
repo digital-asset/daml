@@ -54,7 +54,7 @@ class MetadataHashV1Test extends BaseTest with AnyWordSpecLike with Matchers wit
                                    |# Max Time Boundary
                                    |'01' # Some
                                    |'000000000000bbbb' # 48059 (long)
-                                   |# Submission Time
+                                   |# Preparation Time
                                    |'0000000000000000' # 0 (long)
                                    |# Disclosed Contracts
                                    |'00000002' # 2 (int)

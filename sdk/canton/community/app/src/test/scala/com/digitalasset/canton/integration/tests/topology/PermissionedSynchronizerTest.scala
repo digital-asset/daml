@@ -162,7 +162,7 @@ trait PermissionedSynchronizerTest
         mustContainWithClue = Seq(
           (
             _.warningMessage should include(
-              s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer $daId"
+              s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer ${daId.logical}"
             ),
             "warn about missing participant synchronizer permission",
           ),
@@ -209,7 +209,7 @@ trait PermissionedSynchronizerTest
         Nil,
         mayContain = Seq(
           _.warningMessage should include(
-            s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer $daId"
+            s"Unable to find ParticipantSynchronizerPermission for participant ${participant1.id} on synchronizer ${daId.logical}"
           )
         ),
       ),

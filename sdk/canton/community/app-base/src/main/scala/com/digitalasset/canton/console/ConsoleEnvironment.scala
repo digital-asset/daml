@@ -658,6 +658,40 @@ object ConsoleEnvironment {
         synchronizerId: PhysicalSynchronizerId
     ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId.logical)
 
+    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
+      * [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]]
+      */
+    implicit def physicalSynchronizerIdIsSomeLogical(
+        synchronizerId: PhysicalSynchronizerId
+    ): Option[SynchronizerId] = Some(synchronizerId.logical)
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
+      * [[scala.Option]] of
+      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
+      */
+    implicit def physicalSynchronizerIdIsSomeTopologyStoreId(
+        synchronizerId: PhysicalSynchronizerId
+    ): Option[TopologyStoreId.Synchronizer] = Some(
+      TopologyStoreId.Synchronizer(synchronizerId.logical)
+    )
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
+      * [[scala.collection.immutable.Set]] of [[com.digitalasset.canton.topology.SynchronizerId]]
+      */
+    implicit def physicalSynchronizerIdIsLogicalSet(
+        synchronizerId: PhysicalSynchronizerId
+    ): Set[SynchronizerId] = Set(
+      synchronizerId.logical
+    )
+
+    /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
+      * [[scala.collection.immutable.Set]] of
+      * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]]
+      */
+    implicit def physicalSynchronizerIdIsSome(
+        synchronizerId: PhysicalSynchronizerId
+    ): Option[PhysicalSynchronizerId] = Some(synchronizerId)
+
     /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
       * of [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
       */

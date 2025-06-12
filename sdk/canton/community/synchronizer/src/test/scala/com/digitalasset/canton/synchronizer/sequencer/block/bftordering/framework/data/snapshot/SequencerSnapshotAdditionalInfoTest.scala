@@ -5,6 +5,10 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewo
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.{
+  BlacklistLeaderSelectionPolicyState,
+  BlacklistStatus,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.topology.TopologyActivationTime
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BftNodeId,
@@ -28,6 +32,7 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
             startEpochCouldAlterOrderingTopology = None,
             previousBftTime = None,
             previousEpochTopologyQueryTimestamp = None,
+            leaderSelectionPolicyState = None,
           ),
           BftNodeId("sequencer2") -> NodeActiveAt(
             aTopologyActivationTime,
@@ -37,6 +42,18 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
             Some(true),
             Some(CantonTimestamp.MinValue),
             Some(TopologyActivationTime(aTopologyActivationTime.value.minusSeconds(1L))),
+            Some(
+              BlacklistLeaderSelectionPolicyState.create(
+                EpochNumber(7L),
+                BlockNumber(70L),
+                Map[BftNodeId, BlacklistStatus.BlacklistStatusMark](
+                  BftNodeId("node1") -> BlacklistStatus.OnTrial(1L),
+                  BftNodeId("node2") -> BlacklistStatus.Blacklisted(1L, 2L),
+                ),
+              )(
+                testedProtocolVersion
+              )
+            ),
           ),
         )
       )
@@ -44,7 +61,8 @@ class SequencerSnapshotAdditionalInfoTest extends AnyWordSpec with BftSequencerB
       val serializedSnapshotAdditionalInfo = snapshotAdditionalInfo.toProto30.toByteString
 
       SequencerSnapshotAdditionalInfo.fromProto(
-        serializedSnapshotAdditionalInfo
+        testedProtocolVersion,
+        serializedSnapshotAdditionalInfo,
       ) shouldBe Right(snapshotAdditionalInfo)
     }
   }

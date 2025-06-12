@@ -16,6 +16,7 @@ import com.digitalasset.canton.crypto.{
 }
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.GeneratorsProtocol
+import com.digitalasset.canton.sequencing.GeneratorsSequencing
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllButNamespaceDelegations,
   CanSignAllMappings,
@@ -47,16 +48,14 @@ final class GeneratorsTransaction(
   import GeneratorsCrypto.*
   import GeneratorsLf.*
   import generatorsProtocol.*
+  import GeneratorsSequencing.*
   import GeneratorsTopology.*
+  import Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
 
   implicit val topologyChangeOpArb: Arbitrary[TopologyChangeOp] = Arbitrary(
-    Gen.oneOf(
-      Arbitrary.arbitrary[TopologyChangeOp.Replace],
-      Arbitrary.arbitrary[TopologyChangeOp.Remove],
-    )
+    Gen.oneOf(TopologyChangeOp.Replace, TopologyChangeOp.Remove)
   )
-
   implicit val topologyTransactionNamespacesArb: Arbitrary[NonEmpty[Set[Namespace]]] =
     Generators.nonEmptySet[Namespace]
   implicit val topologyTransactionMediatorIdsArb: Arbitrary[NonEmpty[Seq[MediatorId]]] =

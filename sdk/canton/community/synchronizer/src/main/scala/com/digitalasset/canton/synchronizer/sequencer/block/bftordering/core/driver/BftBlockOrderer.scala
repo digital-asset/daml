@@ -255,7 +255,7 @@ final class BftBlockOrderer(
   private val sequencerSnapshotAdditionalInfo = sequencerSnapshotInfo.map { snapshot =>
     implicit val traceContext: TraceContext = TraceContext.empty
     SequencerSnapshotAdditionalInfo
-      .fromProto(snapshot.info)
+      .fromProto(protocolVersion, snapshot.info)
       .fold(
         error =>
           sys.error(

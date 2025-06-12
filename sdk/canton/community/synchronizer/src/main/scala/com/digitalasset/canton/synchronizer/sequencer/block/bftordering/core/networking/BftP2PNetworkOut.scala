@@ -185,7 +185,7 @@ final class BftP2PNetworkOut[E <: Env[E]](
           implicit val mc: MetricsContext = mc1
           emitSendStats(metrics, serializedMessage)
         }
-        logger.info(
+        logger.debug(
           s"Dropping $message to $to because it is unknown (possibly unauthenticated as of yet)"
         )
       },

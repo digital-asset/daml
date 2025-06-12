@@ -5,10 +5,12 @@ package com.digitalasset.canton.participant.admin.party
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Hash, HashPurpose}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -17,6 +19,7 @@ import com.digitalasset.canton.participant.admin.party.PartyReplicationStatus.{
   AuthorizedReplicationParams,
   ConnectionEstablished,
   PartyReplicationStatus,
+  PartyReplicationStatusCode,
 }
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantProcessor,
@@ -149,16 +152,7 @@ final class PartyReplicator(
               .add(synchronizerId.toProtoPrimitive)
               .add(sourceParticipantId.toProtoPrimitive)
               .finish()
-          _ <- EitherT.fromEither[FutureUnlessShutdown](
-            partyReplications.headOption.fold(Right(()): Either[String, Unit]) {
-              case (id, status) =>
-                Left(
-                  s"Only a single party replication can be in progress: $status, but found party replication $id" +
-                    s" of party ${status.params.partyId} on synchronizer ${status.params.synchronizerId}" +
-                    s" with status ${status.code}"
-                )
-            }
-          )
+          _ <- ensureCanAddParty()
           _ <- adminWorkflow.proposePartyReplication(
             requestId,
             partyId,
@@ -183,6 +177,36 @@ final class PartyReplicator(
       },
       s"add party ${args.partyId} on ${args.synchronizerId}",
     )
+
+  private def ensureCanAddParty(): EitherT[FutureUnlessShutdown, String, Unit] = for {
+    _ <- EitherT.fromEither[FutureUnlessShutdown](
+      partyReplications
+        .collectFirst { case (id, error @ PartyReplicationStatus.Error(_, _)) =>
+          id -> error
+        }
+        .fold(Right(()): Either[String, Unit]) {
+          case (id, PartyReplicationStatus.Error(errorMsg, previousStatus)) =>
+            Left(
+              s"Participant $participantId has encountered previous error \"$errorMsg\" during add_party_async" +
+                s" request $id after status $previousStatus and needs to be repaired"
+            )
+        }
+    )
+    _ <- EitherT.fromEither[FutureUnlessShutdown](
+      partyReplications
+        .collectFirst {
+          case (id, status) if status.code != PartyReplicationStatusCode.Completed =>
+            id -> status
+        }
+        .fold(Right(()): Either[String, Unit]) { case (id, status) =>
+          Left(
+            s"Only a single party replication can be in progress: $status, but found party replication $id" +
+              s" of party ${status.params.partyId} on synchronizer ${status.params.synchronizerId}" +
+              s" with status ${status.code}"
+          )
+        }
+    )
+  } yield ()
 
   private[admin] def getAddPartyStatus(
       addPartyRequestId: AddPartyRequestId
@@ -562,6 +586,43 @@ final class PartyReplicator(
         )
     )
 
+  private def partiesHostedByParticipant(
+      participantId: ParticipantId,
+      except: PartyId,
+      topologyStore: TopologyStore[SynchronizerStore],
+      asOfExclusive: CantonTimestamp,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Set[LfPartyId]] =
+    // TODO(#25766): add topology client endpoint
+    EitherT(
+      topologyStore
+        .inspect(
+          proposals = false,
+          timeQuery = TimeQuery.Snapshot(asOfExclusive),
+          asOfExclusiveO = None, // ignored for TimeQuery.Snapshot; always exclusive
+          op = Some(TopologyChangeOp.Replace),
+          types = Seq(TopologyMapping.Code.PartyToParticipant),
+          idFilter = None,
+          namespaceFilter = None,
+        )
+        .map(topologyTxns =>
+          Right(
+            topologyTxns
+              .collectOfMapping[PartyToParticipant]
+              .collectOfType[TopologyChangeOp.Replace]
+              .result
+              .filter { x =>
+                val ptp = x.mapping
+                ptp.partyId != except &&
+                ptp.participants.exists(_.participantId == participantId)
+              }
+              .map(_.mapping.partyId.toLf)
+              .toSet
+          ): Either[String, Set[LfPartyId]]
+        )
+    )
+
   private def connectToSequencerChannel(
       requestId: AddPartyRequestId
   )(implicit traceContext: TraceContext): Unit =
@@ -587,15 +648,22 @@ final class PartyReplicator(
           ) = status.authorizedParams
           processorInfo <-
             if (participantId == sourceParticipantId) {
-              EitherT.rightT[FutureUnlessShutdown, String](
+              partiesHostedByParticipant(
+                status.params.targetParticipantId,
+                partyId,
+                connectedSynchronizer.synchronizerHandle.syncPersistentState.topologyStore,
+                effectiveAt,
+              ).map(partiesAlreadyHostedByTargetParticipant =>
                 (
                   PartyReplicationSourceParticipantProcessor(
                     synchronizerId,
                     partyId,
                     effectiveAt,
+                    partiesAlreadyHostedByTargetParticipant,
                     connectedSynchronizer.synchronizerHandle.syncPersistentState.acsInspection,
                     updateProgress(requestId, traceContext),
                     markComplete(requestId, traceContext),
+                    recordError(requestId, traceContext),
                     connectedSynchronizer.staticSynchronizerParameters.protocolVersion,
                     timeouts,
                     loggerFactory,
@@ -613,6 +681,7 @@ final class PartyReplicator(
                     effectiveAt,
                     updateProgress(requestId, traceContext),
                     markComplete(requestId, traceContext),
+                    recordError(requestId, traceContext),
                     (_, _) => EitherTUtil.unitUS,
                     syncService.participantNodePersistentState,
                     connectedSynchronizer,
@@ -710,6 +779,17 @@ final class PartyReplicator(
           )
           partyReplications.put(requestId, newStatus).discard
         },
+      )
+    }
+  }
+
+  private def recordError(requestId: AddPartyRequestId, tc: TraceContext)(error: String): Unit = {
+    implicit val traceContext: TraceContext = tc
+    logger.error(s"Party replication $requestId failed: $error")
+    executeAsync(s"progress party replication $requestId") {
+      recordIfError(
+        requestId,
+        EitherT.leftT[FutureUnlessShutdown, Unit](error),
       )
     }
   }

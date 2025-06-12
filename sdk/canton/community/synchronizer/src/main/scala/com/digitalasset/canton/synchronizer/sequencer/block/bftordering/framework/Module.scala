@@ -80,6 +80,15 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
   //  made available by FlagCloseable, they must not hold resources and don't need to be closed.
   override protected def onClosed(): Unit = ()
 
+  final def pipeToSelfOpt[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
+      fun: Try[X] => Option[MessageT]
+  )(implicit
+      context: E#ActorContextT[MessageT],
+      traceContext: TraceContext,
+      merticsContext: MetricsContext,
+  ): Unit =
+    context.pipeToSelf(futureUnlessShutdown)(fun)
+
   final def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => MessageT
   )(implicit
@@ -87,7 +96,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       traceContext: TraceContext,
       merticsContext: MetricsContext,
   ): Unit =
-    context.pipeToSelf(futureUnlessShutdown)(fun.andThen(Some(_)))
+    pipeToSelfOpt(futureUnlessShutdown)(fun.andThen(Some(_)))
 
   final def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X], timer: Timer)(
       fun: Try[X] => MessageT
@@ -96,7 +105,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): Unit =
-    context.pipeToSelf(context.timeFuture(timer, futureUnlessShutdown))(fun.andThen(Some(_)))
+    pipeToSelf(context.timeFuture(timer, futureUnlessShutdown))(fun)
 
   final protected def abort(
       msg: String
@@ -251,8 +260,8 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
 
   // Client API, used by system construction logic
 
-  def newModuleRef[NewModuleMessageT](
-      moduleName: ModuleName
+  def newModuleRef[NewModuleMessageT](moduleName: ModuleName)(
+      moduleNameForMetrics: String = moduleName.name
   ): E#ModuleRefT[NewModuleMessageT]
 
   /** Spawns a new module. The `module` handler object must not be spawned more than once, lest it
@@ -383,7 +392,7 @@ trait ModuleSystem[E <: Env[E]] {
 
   def newModuleRef[AcceptedMessageT](
       moduleName: ModuleName
-  ): E#ModuleRefT[AcceptedMessageT]
+  )(moduleNameForMetrics: String = moduleName.name): E#ModuleRefT[AcceptedMessageT]
 
   def setModule[AcceptedMessageT](
       moduleRef: E#ModuleRefT[AcceptedMessageT],

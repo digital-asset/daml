@@ -133,7 +133,7 @@ abstract class DynamicOnboardingIntegrationTest(val name: String)
         testedProtocolVersion,
         RootHashMessage(
           RootHash(TestHash.digest(1)),
-          daId.toPhysical,
+          daId,
           testedProtocolVersion,
           TransactionViewType,
           CantonTimestamp.Epoch,

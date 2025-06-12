@@ -13,7 +13,9 @@ import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.dbEitherT
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.BlacklistLeaderSelectionPolicyState
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -23,7 +25,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   PekkoFutureUnlessShutdown,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import slick.jdbc.GetResult
+import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
 
@@ -42,6 +44,7 @@ class DbOutputMetadataStore(
   import storage.api.*
 
   private val profile = storage.profile
+  private val converters = storage.converters
 
   private implicit val readBlock: GetResult[OutputBlockMetadata] =
     GetResult { r =>
@@ -67,6 +70,23 @@ class DbOutputMetadataStore(
         BlockNumber(r.nextLong()),
       )
     }
+
+  private implicit val readLeaderSelectionPolicy: GetResult[BlacklistLeaderSelectionPolicyState] =
+    converters.getResultByteArray.andThen { bytes =>
+      BlacklistLeaderSelectionPolicyState.fromTrustedByteArray((), bytes) match {
+        case Left(error) =>
+          throw new DbDeserializationException(
+            s"Could not deserialize proto leader selection state: $error"
+          )
+        case Right(value) => value
+      }
+    }
+
+  private implicit val setLeaderSelectionPolicy
+      : SetParameter[BlacklistLeaderSelectionPolicyState] = { (ls, pp) =>
+    val array = ls.toByteArray
+    converters.setParameterByteArray(array, pp)
+  }
 
   override def insertBlockIfMissing(metadata: OutputBlockMetadata)(implicit
       traceContext: TraceContext
@@ -366,6 +386,10 @@ class DbOutputMetadataStore(
           sqlu""" delete from ord_metadata_output_blocks where epoch_number < $epochNumberExclusive """,
           functionFullName,
         )
+        _ <- storage.update(
+          sqlu""" delete from ord_leader_selection_state where epoch_number < $epochNumberExclusive""",
+          functionFullName,
+        )
       } yield NumberOfRecords(
         epochsDeleted.toLong,
         blocksDeleted.toLong,
@@ -424,6 +448,73 @@ class DbOutputMetadataStore(
         functionFullName,
       ),
   )
+
+  override def insertLeaderSelectionPolicyState(
+      epochNumber: EpochNumber,
+      leaderSelectionPolicyState: BlacklistLeaderSelectionPolicyState,
+  )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] = {
+    val name = insertLeaderSelectionPolicyStateActionName(epochNumber)
+    val future = () => {
+      storage.performUnlessClosingUSF(name) {
+        storage.update_(
+          profile match {
+            case _: Postgres =>
+              sqlu"""insert into
+                     ord_leader_selection_state(
+                       epoch_number,
+                       state
+                     )
+                     values (
+                       $epochNumber,
+                       $leaderSelectionPolicyState
+                     )
+                     on conflict (epoch_number) do nothing"""
+            case _: H2 =>
+              sqlu"""merge into
+                     ord_leader_selection_state using dual on (
+                       ord_leader_selection_state.epoch_number =
+                         $epochNumber
+                     )
+                     when not matched then
+                       insert (
+                         epoch_number,
+                         state
+                       )
+                       values (
+                         $epochNumber,
+                         $leaderSelectionPolicyState
+                       )"""
+          },
+          functionFullName,
+        )
+      }
+    }
+    PekkoFutureUnlessShutdown(name, future)
+  }
+
+  override def getLeaderSelectionPolicyState(epochNumber: EpochNumber)(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[Option[BlacklistLeaderSelectionPolicyState]] = {
+    val name = getLeaderSelectionPolicyStateActionName(epochNumber)
+    val future = () => {
+      storage
+        .performUnlessClosingUSF(name) {
+          storage
+            .query(
+              sql"""
+          select
+            state
+          from ord_leader_selection_state
+          where epoch_number = $epochNumber
+          """
+                .as[BlacklistLeaderSelectionPolicyState]
+                .map(_.headOption),
+              functionFullName,
+            )
+        }
+    }
+    PekkoFutureUnlessShutdown(name, future)
+  }
 
   def saveOnboardedNodeLowerBound(epoch: EpochNumber, blockNumber: BlockNumber)(implicit
       traceContext: TraceContext

@@ -1,0 +1,117 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+
+module SimpleDvP where
+
+import Daml.Script
+import DA.Optional
+import SimpleAsset
+
+-- SNIPPET-DVP-BEGIN
+template SimpleDvP with
+    party1 : Party
+    party2 : Party
+    asset1 : ContractId SimpleAsset
+    asset2 : ContractId SimpleAsset
+  where
+    signatory party1
+    signatory party2
+
+    choice Settle : (ContractId SimpleAsset, ContractId SimpleAsset)
+      with
+        actor : Party
+      controller actor
+      do
+        assert $ actor == party1 || actor == party2
+        new1 <- exercise asset1 Transfer with newOwner = party2
+        new2 <- exercise asset2 Transfer with newOwner = party1
+        pure (new1, new2)
+-- SNIPPET-DVP-END
+
+-- SNIPPET-PROPOSAL-BEGIN
+template ProposeSimpleDvP with
+    proposer : Party
+    counterparty : Party
+    allocated : ContractId SimpleAsset
+    expected : SimpleAsset
+  where
+    signatory proposer
+    observer counterparty
+
+    choice Accept : ContractId SimpleDvP
+      with
+        toBeAllocated : ContractId SimpleAsset
+      controller counterparty
+      do
+        fetchedAsset <- fetch toBeAllocated
+        assert $ fetchedAsset == expected
+        create $ SimpleDvP with
+          party1 = proposer
+          party2 = counterparty
+          asset1 = allocated
+          asset2 = toBeAllocated
+
+    nonconsuming choice AcceptAndSettle : (ContractId SimpleAsset, ContractId SimpleAsset)
+      with
+        toBeAllocated: ContractId SimpleAsset
+      controller counterparty
+      do
+        dvp <- exercise self $ Accept with ..
+        exercise dvp $ Settle with actor = counterparty
+-- SNIPPET-PROPOSAL-END
+
+setup alice bob bank1 bank2 = script do
+    -- SNIPPET-SCRIPT-BEGIN
+  let eurAsset = SimpleAsset with
+        issuer = bank1
+        owner = alice
+        asset = "1 EUR"
+  eur <- submit bank1 do createCmd eurAsset
+    
+  let usdAsset = SimpleAsset with
+        issuer = bank2
+        owner = bob
+        asset = "1 USD"
+  usd <- submit bank2 do createCmd usdAsset
+    
+  proposeDvP <- submit alice $ do
+    createCmd ProposeSimpleDvP with
+        proposer = alice
+        counterparty = bob
+        allocated = eur
+        expected = usdAsset
+  disclosedEur <- fromSome <$> queryDisclosure alice eur
+  -- SNIPPET-SCRIPT-END
+
+  pure (eur, usd, proposeDvP, disclosedEur)
+
+simpleDvp = script do
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  bank1 <- allocateParty "Bank1"
+  bank2 <- allocateParty "Bank2"
+
+  (eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
+
+  -- SNIPPET-ACCEPT_AND_SETTLE-BEGIN
+  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+      exerciseCmd proposeDvP $ AcceptAndSettle with toBeAllocated = usd
+  -- SNIPPET-ACCEPT_AND_SETTLE-END
+    
+  submit bank2 do exerciseCmd newEur Archive
+  submit bank1 do exerciseCmd newUsd Archive
+
+  (eur, usd, proposeDvp, disclosedEur) <- setup alice bob bank1 bank2
+
+  -- SNIPPET-ACCEPT_THEN_SETTLE-BEGIN
+  dvp <- submit bob $
+    do exerciseCmd proposeDvp $ Accept with toBeAllocated = usd
+
+  (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
+      exerciseCmd dvp $ Settle with actor = bob
+  -- SNIPPET-ACCEPT_THEN_SETTLE-END
+
+  submit bank2 do exerciseCmd newEur Archive
+  submit bank1 do exerciseCmd newUsd Archive
+

@@ -118,13 +118,7 @@ sealed trait OnlinePartyReplicationNegotiationTest
       .addConfigTransforms(
         ConfigTransforms.updateAllParticipantConfigs_(
           _.focus(_.parameters.unsafeOnlinePartyReplication)
-            .replace(
-              Some(
-                UnsafeOnlinePartyReplicationConfig(pauseSynchronizerIndexingDuringPartyReplication =
-                  true
-                )
-              )
-            )
+            .replace(Some(UnsafeOnlinePartyReplicationConfig()))
         ),
         ConfigTransforms.updateAllSequencerConfigs(selectivelyEnablePartyReplicationOnSequencers),
       )

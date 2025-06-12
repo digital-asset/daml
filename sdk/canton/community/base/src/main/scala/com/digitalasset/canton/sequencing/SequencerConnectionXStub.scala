@@ -25,20 +25,25 @@ import scala.concurrent.ExecutionContextExecutor
 trait SequencerConnectionXStub {
   import SequencerConnectionXStub.*
 
-  def getApiName(retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry)(implicit
+  def getApiName(
+      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
+  )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, String]
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError.ConnectionError, String]
 
   def performHandshake(
       clientProtocolVersions: NonEmpty[Seq[ProtocolVersion]],
       minimumProtocolVersion: Option[ProtocolVersion],
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, HandshakeResponse]
 
   def getSynchronizerAndSequencerIds(
-      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry
+      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -48,7 +53,8 @@ trait SequencerConnectionXStub {
   ]
 
   def getStaticSynchronizerParameters(
-      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry
+      retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, StaticSynchronizerParameters]

@@ -224,7 +224,7 @@ sealed trait CommandRejectionConcurrentRequestTopologyChangeIntegrationTest
       )
 
       val commandStatus = NoViewWithValidRecipients.Error(CantonTimestamp.now())
-      commandCompletion.synchronizerTime.value.synchronizerId shouldBe daId.toProtoPrimitive
+      commandCompletion.synchronizerTime.value.synchronizerId shouldBe daId.logical.toProtoPrimitive
       commandCompletion.status.value.code shouldBe Code.ABORTED.value()
       commandCompletion.status.value.message should include(commandStatus.cause)
 
@@ -350,7 +350,7 @@ sealed trait CommandRejectionConcurrentRequestTopologyChangeIntegrationTest
           .list(charlie, atLeastNumCompletions = 1, beginOffsetExclusive = ledgerEnd)
           .loneElement
 
-        commandCompletion.synchronizerTime.value.synchronizerId shouldBe daId.toProtoPrimitive
+        commandCompletion.synchronizerTime.value.synchronizerId shouldBe daId.logical.toProtoPrimitive
         commandCompletion.status.value.code shouldBe Code.INVALID_ARGUMENT.value()
 
         participant1.topology.party_to_participant_mappings.is_known(
@@ -410,7 +410,7 @@ sealed trait CommandRejectionConcurrentRequestTopologyChangeIntegrationTest
         .list(aliceId, atLeastNumCompletions = 1, beginOffsetExclusive = ledgerEnd)
         .loneElement
 
-      commandCompletion.synchronizerTime.value.synchronizerId shouldBe daId.toProtoPrimitive
+      commandCompletion.synchronizerTime.value.synchronizerId shouldBe daId.logical.toProtoPrimitive
       commandCompletion.status.value.code shouldBe Code.INVALID_ARGUMENT.value()
 
       participantsHostingPartyFor(eve, participant2) shouldBe Seq(participant2.id)

@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package transaction
 
-import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.data.{BackStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.digitalasset.daml.lf.data.Ref.{Name, Party}
 import com.digitalasset.daml.lf.value.ValueCoder.decodeCoid
@@ -165,7 +165,7 @@ object TransactionCoder {
             case nc: Node.Create =>
               val fatContractInstance = FatContractInstance.fromCreateNode(
                 create = nc,
-                createTime = data.Time.Timestamp.Epoch,
+                createTime = CreationTime.CreatedAt(data.Time.Timestamp.Epoch),
                 cantonData = data.Bytes.Empty,
               )
               for {
@@ -396,7 +396,7 @@ object TransactionCoder {
       nodeVersion <- decodeActionNodeVersion(txVersion, nodeVersionStr)
       contract <- decodeFatContractInstance(nodeVersion, msg)
       _ <- Either.cond(
-        contract.createdAt.micros == 0L,
+        contract.createdAt == CreationTime.CreatedAt(Time.Timestamp.Epoch),
         (),
         DecodeError("unexpected created_at field in create node"),
       )
@@ -742,7 +742,7 @@ object TransactionCoder {
       encodedKeyOpt.foreach(builder.setContractKeyWithMaintainers)
       nonMaintainerSignatories.foreach(builder.addNonMaintainerSignatories)
       nonSignatoryStakeholders.foreach(builder.addNonSignatoryStakeholders)
-      discard(builder.setCreatedAt(createdAt.micros))
+      discard(builder.setCreatedAt(CreationTime.encode(createdAt)))
       discard(builder.setCantonData(cantonData.toByteString))
       builder.build()
     }
@@ -802,7 +802,7 @@ object TransactionCoder {
           Left(DecodeError(s"party $p is declared as signatory and nonSignatoryStakeholder"))
         case None => Right(signatories | nonSignatoryStakeholders)
       }
-      createdAt <- data.Time.Timestamp.fromLong(msg.getCreatedAt).left.map(DecodeError)
+      createdAt <- CreationTime.decode(msg.getCreatedAt).left.map(DecodeError)
       cantonData = msg.getCantonData
     } yield FatContractInstanceImpl(
       version = txVersion,

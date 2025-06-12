@@ -181,8 +181,8 @@ final class LfValueTranslation(
     consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
 
   def enrichContract(contract: FatContractInstance)(implicit
-                                                ec: ExecutionContext,
-                                                loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
   ): Future[FatContractInstance] =
     consumeEnricherResult(enricher.enrichContract(contract))
 
@@ -369,7 +369,7 @@ final class LfValueTranslation(
           keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
           version = createArgument.version,
         ),
-        createTime = rawCreatedEvent.ledgerEffectiveTime,
+        createTime = CreationTime.CreatedAt(rawCreatedEvent.ledgerEffectiveTime),
         cantonData = Bytes.fromByteArray(rawCreatedEvent.driverMetadata),
       )
 
