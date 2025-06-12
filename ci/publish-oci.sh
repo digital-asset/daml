@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 set -eo pipefail
 script_name="$(basename "$0")"
-FAILURE=0
+
 err() {
   (>&2 echo -e "\e[90m${script_name}\e[97m: [\e[1;31mERROR\e[97m]:\e[0m $1")
 }
@@ -14,8 +14,8 @@ info_done() {
   (>&2 echo -n -e "\e[97m[\e[1;32mDONE\e[97m]\e[0m\n")
 }
 info_fail() {
-  FAILURE=1
   (>&2 echo -n -e "\e[90m${script_name}\e[97m: \e[97m[\e[1;31mFAIL\e[97m]\e[0m $1\n")
+  echo "$1" >> "${logs}/failed_artifacts.log"
 }
 
 if [ ! -f "${HOME}/.unifi/bin/unifi" ]; then
@@ -51,11 +51,19 @@ else
   move="mv -f"
   makedir="mkdir -p"
 fi
+
 logs="${STAGING_DIR}/logs"
-errors="${logs}/errors.log"
 ${makedir} "${logs}"
 
 function on_exit() {
+  if [[ -f "${logs}/failed_artifacts.log" ]]; then
+    err "Some artifacts failed to publish. See the log below:"
+    cat "${logs}/failed_artifacts.log" | while read -r line; do
+      err "\e[1;31m${line}\e[0m"
+    done
+    rm -f "${logs}/failed_artifacts.log"
+    printf "\n"
+  fi
   info "Cleanup...\t\t\t\t"
   rm -rf "${STAGING_DIR}"/dist && info_done
 }
@@ -66,7 +74,6 @@ function gen_manifest() {
   local arch="${1}"
   local artifact_name="${2}"
   local artifact_path="${3}"
-  local artifact_desc="${4}"
   local commands="commands"
   if [[ "${arch}" =~ "windows" ]]; then
     artifact_path="${3}.exe"
@@ -74,6 +81,7 @@ function gen_manifest() {
   if [[ "$artifact_path" =~ .jar ]]; then
     commands="jar-commands"
   fi
+  local artifact_desc="${4}"
   echo '
 apiVersion: digitalasset.com/v1
 kind: Component
@@ -84,6 +92,7 @@ spec:
       desc: '"${artifact_desc}"'
   '
 }
+
 function publish_artifact {
   local artifact_name="${1}"
   local artifact_path="${2}"
@@ -116,25 +125,24 @@ cd "${STAGING_DIR}" || exit 1
         else
           ${unarchive} "${artifact}" --unlink-first -C "dist/${arch}/${artifact_name}"
           ${move} "dist/${arch}/${artifact_name}/${artifact_name}" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
+          # Fix symlinks in the artifact: replace them with real files
           find "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}" -type l | while read link; do
-            realpath="$(realpath "${link}")"
-             rm "${link}" && cp -r --dereference "${realpath}" "${link}"
+            real_path="$(realpath "${link}")"
+            rm "${link}"
+            cp -r --dereference "${real_path}" "${link}"
           done
         fi
         gen_manifest "${arch}" "${artifact_name}" "${artifact_path}" "${artifact_desc}" > "dist/${arch}/${artifact_name}/component.yaml"
         platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     else
         info_fail "Artifact not found: ${search_pattern}"
-        FAILURE=1
     fi
   done
-  if [[ "${FAILURE}" == 0 ]]; then
     info "Uploading ${artifact_name} to oci registry...\n"
     "${HOME}"/.unifi/bin/unifi \
       repo publish-component \
         "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
         --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
-  fi
  )
 }
 
