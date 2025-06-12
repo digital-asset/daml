@@ -16,8 +16,20 @@ mkdir -p $OUTPUT_DIR/split-release
 
 TARBALL=daml-sdk-$RELEASE_TAG-windows.tar.gz
 EE_TARBALL=daml-sdk-$RELEASE_TAG-windows-ee.tar.gz
-cp bazel-bin/release/sdk-release-tarball-ce.tar.gz "$OUTPUT_DIR/github/$TARBALL"
+echo "Copyring SDK tarball CE to $OUTPUT_DIR/github/$TARBALL"
+cp -v bazel-bin/release/sdk-release-tarball-ce.tar.gz "$OUTPUT_DIR/github/$TARBALL"
 # Used for the non-split release process.
-cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/artifactory/$EE_TARBALL"
+echo "Copying SDK tarball EE to $OUTPUT_DIR/artifactory/$TARBALL"
+cp -v bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/artifactory/$EE_TARBALL"
 # Used for the split release process.
-cp bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/split-release/$EE_TARBALL"
+echo "Copying SDK tarball EE to $OUTPUT_DIR/split-release/$EE_TARBALL"
+cp -v bazel-bin/release/sdk-release-tarball-ee.tar.gz "$OUTPUT_DIR/split-release/$EE_TARBALL"
+
+DAMLC=damlc-$RELEASE_TAG-windows.tar.gz
+echo "Copying damlc to $OUTPUT_DIR/split-release/$DAMLC"
+cp -v bazel-bin/compiler/damlc/damlc-dist.tar.gz "$OUTPUT_DIR/split-release/$DAMLC"
+
+DAML2JS=daml2js-$RELEASE_TAG-windows.tar.gz
+echo "Copying daml2js to $OUTPUT_DIR/split-release/$DAML2JS"
+cp -v bazel-bin/language-support/ts/codegen/daml2js-dist.tar.gz "$OUTPUT_DIR/split-release/$DAML2JS"
+

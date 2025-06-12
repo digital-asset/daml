@@ -14,6 +14,7 @@ schedules:
 
 jobs:
 - job: open_release_pr
+  displayName: 'Open release rotation PR'
   timeoutInMinutes: 60
   pool:
     name: 'ubuntu_20_04'
@@ -52,3 +53,4 @@ jobs:
       open_pr "$BRANCH" "$TITLE" "$BODY" "$PR_NUMBER"
       trigger_azure $(System.AccessToken) "PRs" --branch $BRANCH
       request_pr_review $(cat "$PR_NUMBER") "$NEXT_GH"
+    displayName: 'Open release rotation PR'
