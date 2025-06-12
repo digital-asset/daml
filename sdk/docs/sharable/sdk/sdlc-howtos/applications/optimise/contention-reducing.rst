@@ -4,7 +4,7 @@
 Reduce Contention
 #################
 
-Contention is natural and expected when programming within a distributed system like Daml in which every action is asynchronous. It is important to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid contention by designing contracts appropriately. 
+Contention is natural and expected when programming within a distributed system like Daml in which every action is asynchronous. It is important to understand the different causes of contention, be able to diagnose the root cause if errors of this type occur, and be able to avoid contention by designing contracts appropriately.
 
 You can use different techniques to manage contention and to improve performance by increasing throughput and decreasing latency. These techniques include the following:
 
@@ -25,6 +25,6 @@ You can use different techniques to manage contention and to improve performance
 
   * Think carefully about storing ``ContractIds``. Imagine that you create a sharded user directory according to the first bullet in this list. Each user has a ``User`` contract that stores their display name and party. Now assume that you write a chat application, where each ``Message`` contract refers to the sender by ``ContractId`` User.
 
-    If a user changes the display name, that reference goes stale. You either have to modify all messages that the user ever sent, or you cannot use the sender contract in Daml. 
+    If a user changes the display name, that reference goes stale. You either have to modify all messages that the user ever sent, or you cannot use the sender contract in Daml.
 
     Contract keys can be used to make this link inside Daml. If the only place you need to link ``Party`` to ``User`` is in the user interface, it might be best to not store contract references in Daml at all.

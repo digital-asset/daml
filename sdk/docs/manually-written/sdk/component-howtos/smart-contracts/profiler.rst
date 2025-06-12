@@ -1,8 +1,10 @@
 .. Copyright (c) 2023 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
-Measure: Daml Profiler
-######################
+.. _measure-daml-profiler:
+
+Daml Profiler
+################
 
 The Daml Profiler is only available in
 `Daml Enterprise <https://www.digitalasset.com/products/daml-enterprise>`_.

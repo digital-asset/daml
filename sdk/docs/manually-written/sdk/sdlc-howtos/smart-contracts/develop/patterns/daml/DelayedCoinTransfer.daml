@@ -1,0 +1,79 @@
+-- Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE PartialTypeSignatures #-}
+
+module DelayedCoinTransfer where
+
+import Daml.Script
+import DA.Assert (assertDeadlineExceeded)
+import DA.Time (addRelTime, minutes)
+import Utilities
+
+template Coin
+  with
+    owner: Party
+    issuer: Party
+    amount: Decimal
+  where
+    signatory issuer
+    signatory owner
+
+    ensure amount > 0.0
+
+-- BEGIN_DELAYED_COIN_TRANSFER
+    choice Transfer : ContractId TransferProposal
+      with
+        newOwner: Party
+        delay: Time
+      controller owner
+      do create TransferProposal
+            with coin=this; newOwner; delay
+-- END_DELAYED_COIN_TRANSFER
+
+-- TransferProposal contract needs additional logic to time limit when transfers are accepted
+template TransferProposal
+  with
+    coin: Coin
+    newOwner: Party
+    delay: Time
+  where
+    signatory coin.owner
+    signatory coin.issuer
+    observer newOwner
+
+    choice WithdrawTransfer : ContractId Coin
+      controller coin.owner
+      do
+        create coin
+
+-- BEGIN_DELAYED_ACCEPT_COIN_TRANSFER
+    choice AcceptTransfer : ContractId Coin
+      controller newOwner
+      do
+        assertDeadlineExceeded "delayed-transfer" delay
+        create coin with owner = newOwner
+-- END_DELAYED_ACCEPT_COIN_TRANSFER
+
+-- test
+delayedCoinTransfer : Script ()
+delayedCoinTransfer =
+  script do
+
+    [issuer, owner, newOwner] <- makePartiesFrom ["Bank", "Me", "You"]
+
+    --test 1: owner's coin fails to transfer to a new owner within the first 5 minutes
+
+    coin <- owner `submit` do createCmd Coin with owner; issuer; amount=100.0
+
+    t0 <- getTime
+    transferProposal <- owner `submit` do exerciseCmd coin Transfer with newOwner; delay=addRelTime t0 (minutes 5)
+
+    newOwner `submitMustFail` do exerciseCmd transferProposal AcceptTransfer
+
+    --test 2: owner's coin can be transferred to a new owner after a 5 minute delay
+
+    -- simulate waiting for over 5 minutes
+    _ <- passTime (minutes 6)
+
+    newOwner `submit` do exerciseCmd transferProposal AcceptTransfer
