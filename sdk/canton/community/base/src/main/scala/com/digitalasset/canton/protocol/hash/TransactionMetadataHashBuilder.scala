@@ -9,7 +9,7 @@ import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.transaction.FatContractInstance
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.util.UUID
@@ -65,7 +65,7 @@ object TransactionMetadataHashBuilder {
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>
             builder
-              .withContext("Created At")(_.add(fatInstance.createdAt.micros))
+              .withContext("Created At")(_.add(CreationTime.encode(fatInstance.createdAt)))
               .withContext("Create Contract")(builder =>
                 builder.addHash(
                   builder.hashNode(

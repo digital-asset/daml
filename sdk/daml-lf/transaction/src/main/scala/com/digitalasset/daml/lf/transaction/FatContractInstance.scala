@@ -20,7 +20,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val signatories: TreeSet[Ref.Party]
   val stakeholders: TreeSet[Ref.Party]
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
-  val createdAt: Time.Timestamp
+  val createdAt: CreationTime
   val cantonData: Bytes
   private[lf] def toImplementation: FatContractInstanceImpl =
     this.asInstanceOf[FatContractInstanceImpl]
@@ -69,7 +69,7 @@ private[lf] final case class FatContractInstanceImpl(
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
-    createdAt: Time.Timestamp,
+    createdAt: CreationTime,
     cantonData: Bytes,
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl] {
@@ -79,6 +79,10 @@ private[lf] final case class FatContractInstanceImpl(
   require(maintainers.subsetOf(signatories), "maintainers should be a subset of signatories")
   require(signatories.nonEmpty, "signatories should be non empty")
   require(signatories.subsetOf(stakeholders), "signatories should be a subset of stakeholders")
+  require(
+    createdAt != CreationTime.Now || (!contractId.isAbsolute && !contractId.isLocal),
+    "Creation time 'now' is not allowed for local and absolute contract ids",
+  )
 
   override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
     copy(
@@ -88,7 +92,7 @@ private[lf] final case class FatContractInstanceImpl(
   }
 
   override def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstanceImpl =
-    copy(createdAt = updatedTime)
+    copy(createdAt = CreationTime.CreatedAt(updatedTime))
 
   override def setSalt(cantonData: Bytes): FatContractInstanceImpl = {
     assert(cantonData.nonEmpty)
@@ -100,7 +104,7 @@ object FatContractInstance {
 
   def fromCreateNode(
       create: Node.Create,
-      createTime: Time.Timestamp,
+      createTime: CreationTime,
       cantonData: Bytes,
   ): FatContractInstance =
     FatContractInstanceImpl(
@@ -137,8 +141,38 @@ object FatContractInstance {
       signatories = DummyParties,
       stakeholders = DummyParties,
       contractKeyWithMaintainers = None,
-      createdAt = Time.Timestamp.MinValue,
+      createdAt = CreationTime.CreatedAt(Time.Timestamp.MinValue),
       cantonData = Bytes.Empty,
     )
 
+}
+
+/** Trait for specifying the creation time of a contract */
+sealed trait CreationTime extends Product with Serializable
+object CreationTime {
+
+  /** The creation time of a contract as an absolute timestamp.
+    * This is ledger time of the creating transaction.
+    */
+  final case class CreatedAt(time: Time.Timestamp) extends CreationTime
+
+  /** A symbolic point in time for contracts created in the same transaction,
+    * when the ledger time of the transaction is not yet known.
+    */
+  case object Now extends CreationTime
+
+  def encode(creationTime: CreationTime): Long =
+    creationTime match {
+      case CreatedAt(time) => time.micros
+      case Now =>
+        // Long.MinValue is outside of the range of valid micros for Timestamps
+        Long.MinValue
+    }
+
+  def decode(encoded: Long): Either[String, CreationTime] =
+    if (encoded == Long.MinValue) Right(Now)
+    else Time.Timestamp.fromLong(encoded).map(CreatedAt)
+
+  def assertDecode(encoded: Long): CreationTime =
+    data.assertRight(decode(encoded))
 }

@@ -36,6 +36,7 @@ data DecodeEnv = DecodeEnv
     { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
     , internedTypes :: !(V.Vector Type)
+    , internedKinds :: !(V.Vector Kind)
     , selfPackageRef :: SelfOrImportedPackageId
     }
 
@@ -142,13 +143,17 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: LF.Version -> LF.SelfOrImportedPackageId -> LF2.Package -> Either Error Package
-decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV)
+decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV _internedKindsV)
   | Nothing <- mMetadata  =
       throwError (ParseError "missing package metadata")
   | Just metadata <- mMetadata = do
       let internedStrings = V.map decodeMangledString internedStringsV
       let internedDottedNames = V.empty
       let internedTypes = V.empty
+      -- TODO https://github.com/digital-asset/daml/issues/21155
+      -- for internedTypes we do something with the matched internedTypesV but
+      -- for kinds this is not yet needed as, for now, they are always empty
+      let internedKinds = V.empty
       let env0 = DecodeEnv{..}
       internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
       let env1 = env0{internedDottedNames}
@@ -739,6 +744,7 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
+  LF2.KindSumInterned _ -> error "Should not be populated"
 
 decodeBuiltin :: LF2.BuiltinType -> Decode BuiltinType
 decodeBuiltin = \case

@@ -104,6 +104,18 @@ class DecodeV2Spec
         moduleDecoder(version).decodeKindForTest(input) shouldBe Ast.KNat
       }
     }
+
+    "reject Arrow if result_interned_kind is set" in {
+      val input = DamlLf2.Kind
+        .newBuilder()
+        .setInterned(32)
+        .build()
+
+      forEveryVersion { version =>
+        an[Error.Parsing] shouldBe thrownBy(moduleDecoder(version).decodeKindForTest(input))
+      }
+    }
+
   }
 
   "uncheckedDecodeType" should {

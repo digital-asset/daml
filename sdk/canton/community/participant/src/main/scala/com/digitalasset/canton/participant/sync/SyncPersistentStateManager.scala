@@ -318,6 +318,11 @@ class SyncPersistentStateManager(
   override def aliasForSynchronizerId(synchronizerId: SynchronizerId): Option[SynchronizerAlias] =
     aliasResolution.aliasForSynchronizerId(synchronizerId)
 
+  def synchronizerIdsForAlias(
+      synchronizerAlias: SynchronizerAlias
+  ): Option[NonEmpty[Set[PhysicalSynchronizerId]]] =
+    aliasResolution.synchronizerIdsForAlias(synchronizerAlias)
+
   private def mkPersistentState(
       physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
       synchronizerIdx: IndexedSynchronizer,

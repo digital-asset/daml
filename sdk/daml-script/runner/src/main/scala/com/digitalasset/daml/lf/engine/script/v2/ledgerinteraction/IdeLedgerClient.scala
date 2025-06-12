@@ -29,6 +29,7 @@ import com.digitalasset.daml.lf.script
 import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKey,
   IncompleteTransaction,
@@ -40,7 +41,6 @@ import com.digitalasset.daml.lf.transaction.{
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import scalaz.OneAnd
@@ -124,7 +124,7 @@ class IdeLedgerClient(
     Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
 
   private[this] def blob(create: Node.Create, createAt: Time.Timestamp): Bytes =
-    blob(FatContractInstance.fromCreateNode(create, createAt, Bytes.Empty))
+    blob(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(createAt), Bytes.Empty))
 
   override def query(
       parties: OneAnd[Set, Ref.Party],
