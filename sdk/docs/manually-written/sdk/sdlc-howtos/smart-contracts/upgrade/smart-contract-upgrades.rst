@@ -1309,6 +1309,8 @@ Making the new ``sideLen`` field optional fixes the error:
   ...
   Created .daml/dist/my-pkg-1.1.0.dar
 
+.. _limitations-in-upgrading-variants:
+
 Limitations in Upgrading Variants
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
