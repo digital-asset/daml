@@ -206,9 +206,7 @@ interfacesV3 = getPackageId "interfaces-3.0.0"
 
 -- cant upgrade contracts in interface choice argument - i dont think this is possible in daml-script
 main : TestTree
-main = tests [ brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1) ]
-
-xmain = tests
+main = tests
   [ ("Calling an interface choice uses the highest version implementation at command level by default", defaultHighestVersionChoiceImplementationCommand)
   , ("Calling an interface choice uses the highest version implementation at choice body level by default", defaultHighestVersionChoiceImplementationUpdate)
   , ("Package map preference is used for interface implementation selection at command level", interfaceChoicePackagePreferenceCommand)
