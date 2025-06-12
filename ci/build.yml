@@ -135,6 +135,8 @@ jobs:
 - template: blackduck.yml
 
 - job: Windows
+  # Temporarily disable windows as windows machines fail to register
+  condition: false
   dependsOn:
     - check_for_release
   variables:
