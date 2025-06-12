@@ -204,7 +204,7 @@ object Value {
       override def toString: String = s"ContractId($coid)"
       override def version: ContractIdVersion = ContractIdVersion.V1
       override def isAbsolute: Boolean = suffix.nonEmpty
-      override def isLocal: Boolean = suffix.isEmpty
+      override def isLocal: Boolean = !isAbsolute
     }
 
     object V1 {

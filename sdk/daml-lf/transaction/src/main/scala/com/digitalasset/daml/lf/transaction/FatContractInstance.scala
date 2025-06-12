@@ -164,7 +164,9 @@ object CreationTime {
   def encode(creationTime: CreationTime): Long =
     creationTime match {
       case CreatedAt(time) => time.micros
-      case Now => Long.MinValue
+      case Now =>
+        // Long.MinValue is outside of the range of valid micros for Timestamps
+        Long.MinValue
     }
 
   def decode(encoded: Long): Either[String, CreationTime] =
