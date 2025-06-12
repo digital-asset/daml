@@ -274,19 +274,6 @@ message ListSequencerConnectionSuccessorResponse {
   repeated Result results = 1;
 }
 
-message ListSequencerConnectionSuccessorRequest {
-  BaseQuery base_query = 1;
-  string filter_sequencer_id = 2;
-}
-
-message ListSequencerConnectionSuccessorResponse {
-  message Result {
-    BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.SequencerConnectionSuccessor item = 2;
-  }
-  repeated Result results = 1;
-}
-
 message ListAvailableStoresRequest {}
 
 message ListAvailableStoresResponse {
