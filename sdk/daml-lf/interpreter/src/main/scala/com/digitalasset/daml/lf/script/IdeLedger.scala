@@ -10,6 +10,7 @@ import com.digitalasset.daml.lf.ledger._
 import com.digitalasset.daml.lf.transaction.{
   BlindingInfo,
   CommittedTransaction,
+  CreationTime,
   FatContractInstance,
   GlobalKey,
   Node,
@@ -183,7 +184,13 @@ object IdeLedger {
     def toFatContractInstance: Option[FatContractInstance] =
       node match {
         case create: Node.Create =>
-          Some(FatContractInstance.fromCreateNode(create, effectiveAt, Bytes.Empty))
+          Some(
+            FatContractInstance.fromCreateNode(
+              create,
+              CreationTime.CreatedAt(effectiveAt),
+              Bytes.Empty,
+            )
+          )
         case _ =>
           None
       }
@@ -614,7 +621,11 @@ final case class IdeLedger(
       case Some(info) =>
         info.toFatContractInstance match {
           case Some(contract) =>
-            if (contract.createdAt.compareTo(effectiveAt) > 0)
+            val isEffective = contract.createdAt match {
+              case CreationTime.Now => true
+              case CreationTime.CreatedAt(createdAt) => createdAt <= effectiveAt
+            }
+            if (!isEffective)
               LookupContractNotEffective(coid, contract.templateId, info.effectiveAt)
             else if (!ledgerData.activeContracts.contains(coid))
               LookupContractNotActive(

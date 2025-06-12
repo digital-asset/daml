@@ -2404,7 +2404,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           keyOpt = keyOpt,
           version = txVersion,
         ),
-        createTime = Time.Timestamp.now(),
+        createTime = CreationTime.CreatedAt(Time.Timestamp.now()),
         cantonData = Bytes.Empty,
       ),
       sarg,

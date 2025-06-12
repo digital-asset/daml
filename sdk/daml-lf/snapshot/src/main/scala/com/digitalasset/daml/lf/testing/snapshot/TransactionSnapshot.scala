@@ -11,6 +11,7 @@ import com.digitalasset.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import com.digitalasset.daml.lf.testing.snapshot.Snapshot.SubmissionEntry.EntryCase
 import com.digitalasset.daml.lf.transaction.Transaction.ChildrenRecursion
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
@@ -169,7 +170,11 @@ private[snapshot] object TransactionSnapshot {
       val relevantCreateNodes = activeCreates.view.filterKeys(tx.inputContracts).toList
       val contracts = relevantCreateNodes.view.map { case (cid, create) =>
         val ledgerTime = Time.Timestamp.assertFromLong(txEntry.getLedgerTime)
-        cid -> FatContractInstance.fromCreateNode(create, ledgerTime, Bytes.Empty)
+        cid -> FatContractInstance.fromCreateNode(
+          create,
+          CreationTime.CreatedAt(ledgerTime),
+          Bytes.Empty,
+        )
       }.toMap
       val contractKeys = relevantCreateNodes.view.flatMap { case (cid, create) =>
         create.keyOpt.map(_ -> cid).toList

@@ -1819,7 +1819,7 @@ object UpgradeTest {
       signatories = immutable.TreeSet(alice),
       stakeholders = immutable.TreeSet(alice),
       contractKeyWithMaintainers = Some(globalContractKeyWithMaintainers),
-      createdAt = Time.Timestamp.Epoch,
+      createdAt = CreationTime.CreatedAt(Time.Timestamp.Epoch),
       cantonData = Bytes.assertFromString("00"),
     )
 
