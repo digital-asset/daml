@@ -248,7 +248,7 @@ where
 * ``∥`` is the concatenation operation;
 * ``versionPrefix`` is 1 byte (equal to `0x01`) used to identify the
   contract ID V2 scheme;
-* ``time prefix``` is a sequence of 5 bytes that encodes the submission time
+* ``time prefix``` is a sequence of 5 bytes that encodes the preparation time
   with a resolution of 286981 microseconds;
 * ``shortened seed`` consists of the first 7 bytes of the node seed;
 * ``suffix`` is a sequence of 0 to 33 bytes used to enforce global
@@ -259,10 +259,10 @@ Time prefix
 
 The time prefix is the 40-bit big-endian encoding of the value
 
-  submission time in microseconds since 0001-01-01T00:00:00.000000Z / 286981
+  preparation time in microseconds since 0001-01-01T00:00:00.000000Z / 286981
 
 Note that 286981 microseconds is the finest resolution that ensures
-that all valid submission times between 0001-01-01T00:00:00.000000Z and
+that all valid preparation times between 0001-01-01T00:00:00.000000Z and
 9999-12-31T23:59:59.999999Z can be encoded in 40 bytes.
 
 Relative and absolute suffixes
