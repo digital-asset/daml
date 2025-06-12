@@ -221,9 +221,47 @@ from a record to a variant:
    // Flavour changed from a record to a variant
    variant Foo ↦ Foo Foo.Foo | NewConstructor
 
+Note that, as above, a variant with fields will desugar to a single variant and a record for each constructor, such as the following:
+
+.. code::
+
+   -- Add a constructor to Foo in version
+   data Foo
+     = Bar { bar1: Int; bar2: Decimal }
+     | Baz { baz1: Text; baz2: Date }
+
+.. code::
+
+   // Desugars to a variant datatype and two record datatypes, one for each
+   // of the variant's constructors
+   variant Foo ↦ Bar Foo.Bar | Baz Foo.Baz
+   record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }
+   record Foo.Baz ↦ { baz1: Text; baz2: Date }
+
+This means that we can upgrade the fields of a constructor and add a new
+constructor to this particular datatype at the same time, because the changes
+are valid upgrades to the underlying Daml-LF definitions.
+
+For example, if we add a field ``bar3`` and a constructor ``Bat``:
+
+.. code::
+
+   data Foo
+     = Bar { bar1: Int; bar2: Decimal, bar3: Text } -- Add a bar3 field
+     | Baz { baz1: Text; baz2: Date }
+     | Bat { bat1: Int } -- Add a Bat constructor
+
+.. code::
+
+   variant Foo ↦ Bar Foo.Bar | Baz Foo.Baz | Bat Foo.Bat // Variant adds a constructor - allowed under upgrades
+   record Foo.Bar ↦ { bar1: Int64; bar2: Decimal; bar3: Text } // Record adds a variant - allowed under upgrades
+   record Foo.Baz ↦ { baz1: Text; baz2: Date }
+   record Foo.Bat ↦ { bat1: Int64 } // New variant constructor's underlying datatype
+
 In short: If the datatype is planned to gradually add more constructors over
 time, it should be defined as a variant. If the datatype is planned to add
-fields over time, it should be defined as a record.
+fields over time, it should be defined as a record. If the datatype is planned
+to do both, it should be defined as a variant with fields.
 
 More information about restrictions imposed on different flavours of datatypes
 by smart contract upgrades is available in :ref:`Limitations in Upgrading Variants <limitations-in-upgrading-variants>`.
