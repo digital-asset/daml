@@ -366,12 +366,11 @@ cantonConfig CantonOptions{..} =
                      | StaticTime True <- [cantonStaticTime]
                      ] <>
                      [ "http-ledger-api" Aeson..= Aeson.object
-                             [ "allow-insecure-tokens" Aeson..= True
-                             , "server" Aeson..= Aeson.object ( concat
-                               [ [ "port" Aeson..= port | Just port <- [cantonJsonApi] ]
-                               , [ "port-file" Aeson..= portFile | Just portFile <- [cantonJsonApiPortFileM] ]
-                               ])
-                             ]
+                        [ "server" Aeson..= Aeson.object ( concat
+                            [ [ "port" Aeson..= port | Just port <- [cantonJsonApi] ]
+                            , [ "port-file" Aeson..= portFile | Just portFile <- [cantonJsonApiPortFileM] ]
+                            ])
+                        ]
                      ]
                     )
                 ]
