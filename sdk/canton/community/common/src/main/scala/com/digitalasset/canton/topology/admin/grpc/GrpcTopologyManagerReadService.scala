@@ -847,4 +847,27 @@ class GrpcTopologyManagerReadService(
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
+
+  override def listSequencerConnectionSuccessor(
+      request: ListSequencerConnectionSuccessorRequest
+  ): Future[ListSequencerConnectionSuccessorResponse] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val ret = for {
+      res <- collectFromStoresByFilterString(
+        request.baseQuery,
+        SequencerConnectionSuccessor.code,
+        request.filterSequencerId,
+      )
+    } yield {
+      val results = res.collect { case (context, successor: SequencerConnectionSuccessor) =>
+        adminProto.ListSequencerConnectionSuccessorResponse.Result(
+          context = Some(createBaseResult(context)),
+          item = Some(successor.toProto),
+        )
+      }
+      adminProto.ListSequencerConnectionSuccessorResponse(results)
+    }
+    CantonGrpcUtil.mapErrNewEUS(ret)
+  }
+
 }

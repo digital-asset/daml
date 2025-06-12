@@ -1582,6 +1582,16 @@ object SigningError {
     )
   }
 
+  final case class UnsupportedKeyFormat(
+      keyFormat: CryptoKeyFormat,
+      supportedKeyFormats: Set[CryptoKeyFormat],
+  ) extends SigningError {
+    override def pretty: Pretty[UnsupportedKeyFormat] = prettyOfClass(
+      param("keyFormat", _.keyFormat),
+      param("supportedKeyFormats", _.supportedKeyFormats),
+    )
+  }
+
   final case class KeyAlgoSpecsMismatch(
       signingKeySpec: SigningKeySpec,
       algorithmSpec: SigningAlgorithmSpec,
@@ -1729,6 +1739,16 @@ object SignatureCheckError {
     )
   }
 
+  final case class UnsupportedHashAlgorithm(
+      hashAlgorithm: HashAlgorithm,
+      supportedHashAlgorithms: Set[HashAlgorithm],
+  ) extends SignatureCheckError {
+    override def pretty: Pretty[UnsupportedHashAlgorithm] = prettyOfClass(
+      param("hashAlgorithm", _.hashAlgorithm),
+      param("supportedHashAlgorithms", _.supportedHashAlgorithms),
+    )
+  }
+
   final case class InvalidKeyUsage(
       keyId: Fingerprint,
       keyUsage: Set[SigningKeyUsage],
@@ -1741,9 +1761,23 @@ object SignatureCheckError {
     )
   }
 
-  final case class InvalidSignatureFormat(message: String) extends SignatureCheckError {
-    override protected def pretty: Pretty[InvalidSignatureFormat] = prettyOfClass(
-      unnamedParam(_.message.unquoted)
+  final case class UnsupportedSignatureFormat(
+      signatureFormat: SignatureFormat,
+      supportedSignatureFormats: Set[SignatureFormat],
+  ) extends SignatureCheckError {
+    override def pretty: Pretty[UnsupportedSignatureFormat] = prettyOfClass(
+      param("signatureFormat", _.signatureFormat),
+      param("supportedSignatureFormats", _.supportedSignatureFormats),
+    )
+  }
+
+  final case class UnsupportedKeyFormat(
+      keyFormat: CryptoKeyFormat,
+      supportedKeyFormats: Set[CryptoKeyFormat],
+  ) extends SignatureCheckError {
+    override def pretty: Pretty[UnsupportedKeyFormat] = prettyOfClass(
+      param("keyFormat", _.keyFormat),
+      param("supportedKeyFormats", _.supportedKeyFormats),
     )
   }
 

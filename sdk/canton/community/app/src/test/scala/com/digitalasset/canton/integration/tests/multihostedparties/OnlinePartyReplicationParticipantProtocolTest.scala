@@ -30,7 +30,6 @@ import com.digitalasset.canton.lifecycle.{
   PromiseUnlessShutdown,
   UnlessShutdown,
 }
-import com.digitalasset.canton.participant.config.UnsafeOnlinePartyReplicationConfig
 import com.digitalasset.canton.participant.protocol.party.{
   PartyReplicationSourceParticipantProcessor,
   PartyReplicationTargetParticipantProcessor,
@@ -84,27 +83,15 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
   override lazy val environmentDefinition: EnvironmentDefinition =
     EnvironmentDefinition.P2_S1M1_S1M1
       .addConfigTransforms(
-        ConfigTransforms.updateAllParticipantConfigs_(
-          _.focus(_.parameters.unsafeOnlinePartyReplication)
-            .replace(
-              Some(
-                UnsafeOnlinePartyReplicationConfig(pauseSynchronizerIndexingDuringPartyReplication =
-                  true
-                )
-              )
-            )
-        ),
-        ConfigTransforms.updateAllSequencerConfigs_(
-          _.focus(_.parameters.unsafeEnableOnlinePartyReplication).replace(true)
-        ),
-        // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
-        //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
-        //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
-        //  in this test.
-        ConfigTransforms.updateParticipantConfig("participant1")(
-          _.focus(_.parameters.journalGarbageCollectionDelay)
-            .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
-        ),
+        (ConfigTransforms.unsafeEnableOnlinePartyReplication :+
+          // TODO(#24326): While the SourceParticipant (SP=P1) uses AcsInspection to consume the
+          //  ACS snapshot (rather than the Ledger Api), ensure ACS pruning does not trigger AcsInspection
+          //  TimestampBeforePruning. Allow a generous 5 minutes for the SP to consume all active contracts
+          //  in this test.
+          ConfigTransforms.updateParticipantConfig("participant1")(
+            _.focus(_.parameters.journalGarbageCollectionDelay)
+              .replace(config.NonNegativeFiniteDuration.ofMinutes(5))
+          ))*
       )
       .withSetup { implicit env =>
         import env.*
@@ -211,13 +198,15 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
       val replicatedContracts =
         mutable.Buffer.empty[(NonNegativeInt, NonEmpty[Seq[SerializableContract]])]
 
-      def noOpProgressAndCompletionCallback: NonNegativeInt => Unit = _ => ()
+      def noOpProgressAndCompletionCallback[T]: T => Unit = _ => ()
 
       val sourceProcessor = PartyReplicationSourceParticipantProcessor(
         daId,
         alice,
         partyToTargetParticipantEffectiveAt,
+        Set.empty,
         sourceParticipant.testing.state_inspection.getAcsInspection(daId).value,
+        noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
         testedProtocolVersion,
@@ -233,6 +222,7 @@ sealed trait OnlinePartyReplicationParticipantProtocolTest
         daId,
         alice,
         partyToTargetParticipantEffectiveAt,
+        noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
         noOpProgressAndCompletionCallback,
         { (acsChunkId, contracts) =>

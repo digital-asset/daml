@@ -768,6 +768,15 @@ class SequencerNodeBootstrap(
           )
           _ = sequencerServiceCell.putIfAbsent(sequencerService)
 
+          directPool = new DirectSequencerConnectionXPool(
+            sequencer,
+            synchronizerId,
+            sequencerId,
+            staticSynchronizerParameters,
+            parameters.processingTimeouts,
+            loggerFactory,
+          )
+
           _ = addCloseable(sequencedEventStore)
           sequencerClient = new SequencerClientImplPekko[
             DirectSequencerClientTransport.SubscriptionError
@@ -783,6 +792,7 @@ class SequencerNodeBootstrap(
                 staticSynchronizerParameters.protocolVersion,
               ),
             ),
+            connectionPool = directPool,
             parameters.sequencerClient,
             arguments.testingConfig,
             staticSynchronizerParameters.protocolVersion,

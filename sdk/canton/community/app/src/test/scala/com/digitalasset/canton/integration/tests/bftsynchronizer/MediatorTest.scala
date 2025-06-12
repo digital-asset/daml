@@ -58,7 +58,6 @@ sealed trait MediatorTest extends CommunityIntegrationTest with SharedEnvironmen
         synchronizerThreshold = PositiveInt.two,
         staticSynchronizerParameters = EnvironmentDefinition.defaultStaticSynchronizerParameters,
       )
-      .toPhysical
   }
 
   "Connect synchronizer owners to the synchronizer" in { implicit env =>

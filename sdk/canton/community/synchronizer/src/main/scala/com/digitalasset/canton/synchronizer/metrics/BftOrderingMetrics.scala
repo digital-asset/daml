@@ -16,7 +16,6 @@ import com.digitalasset.canton.metrics.{
   DbStorageMetrics,
   DeclarativeApiMetrics,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.ModuleName
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
 
 import java.time.{Duration, Instant}
@@ -245,14 +244,14 @@ class BftOrderingMetrics private[metrics] (
         openTelemetryMetricsFactory.timer(histograms.performance.orderingStageLatency.info)
 
       def emitModuleQueueLatency(
-          moduleName: ModuleName,
+          moduleName: String,
           sendInstant: Instant,
           maybeDelay: Option[FiniteDuration],
       )(implicit metricsContext: MetricsContext): Unit = {
         val latency =
           Duration.between(sendInstant, Instant.now).minus(maybeDelay.fold(Duration.ZERO)(_.toJava))
         timer.update(latency)(
-          metricsContext.withExtraLabels(labels.stage.Key -> s"module-queue-${moduleName.name}")
+          metricsContext.withExtraLabels(labels.stage.Key -> s"module-queue-$moduleName")
         )
       }
 
@@ -507,9 +506,6 @@ class BftOrderingMetrics private[metrics] (
       object labels {
         val Endpoint: String = "endpoint"
         val Sequencer: String = "sequencer"
-        val Epoch: String = "epoch"
-        val View: String = "view"
-        val Block: String = "block"
 
         object violationType {
           val Key: String = "violationType"
@@ -631,7 +627,6 @@ class BftOrderingMetrics private[metrics] (
 
       object labels {
         val VotingSequencer: String = "voting-sequencer"
-        val Epoch: String = "epoch"
       }
 
       private val prepareGauges = mutable.Map[BftNodeId, Gauge[Double]]()

@@ -58,7 +58,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
         usage,
         signingKey.usage,
         signingKey.id,
-        _ => SigningError.InvalidKeyUsage(signingKey.id, signingKey.usage.forgetNE, usage.forgetNE),
+        SigningError.InvalidKeyUsage.apply,
       )
       .flatMap { _ =>
         val counter = signatureCounter.getAndIncrement()
@@ -82,26 +82,18 @@ class SymbolicPureCrypto extends CryptoPureApi {
       _ <- CryptoKeyValidation.ensureFormat(
         publicKey.format,
         Set(CryptoKeyFormat.Symbolic),
-        _ => SignatureCheckError.InvalidKeyError(s"Public key $publicKey is not a symbolic key"),
+        SignatureCheckError.UnsupportedKeyFormat.apply,
       )
       _ <- CryptoKeyValidation.ensureSignatureFormat(
         signature.format,
         Set(SignatureFormat.Symbolic),
-        _ =>
-          SignatureCheckError.InvalidSignatureFormat(
-            s"Signature format ${signature.format} is not a symbolic signature"
-          ),
+        SignatureCheckError.UnsupportedSignatureFormat.apply,
       )
       _ <- CryptoKeyValidation.ensureUsage(
         usage,
         publicKey.usage,
         publicKey.id,
-        _ =>
-          SignatureCheckError.InvalidKeyUsage(
-            publicKey.id,
-            publicKey.usage.forgetNE,
-            usage.forgetNE,
-          ),
+        SignatureCheckError.InvalidKeyUsage.apply,
       )
       signedContent <- Either.cond(
         signature.unwrap.size() >= 4,

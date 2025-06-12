@@ -937,7 +937,7 @@ abstract class CommandDeduplicationPruningIntegrationTest
 
       // After advancing the time a bit, and wait for a timeproof (needed that the participants publication time moves higher) we should be able to prune more and resubmit
       simClock.advance(java.time.Duration.ofMillis(1L))
-      participant1.testing.fetch_synchronizer_time(daId.toPhysical)
+      participant1.testing.fetch_synchronizer_time(daId)
       val safe2 = eventually() {
         val safe = participant1.pruning.find_safe_offset().value
         safe should be >= after2

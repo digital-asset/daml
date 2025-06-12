@@ -205,7 +205,7 @@ class ValidatingTopologyMappingChecks(
   }
 
   private val mappingsAllowedDuringSynchronizerMigration =
-    Set[Code](Code.SynchronizerMigrationAnnouncement)
+    Set[Code](Code.SynchronizerMigrationAnnouncement, Code.SequencerConnectionSuccessor)
 
   /** Check that the topology state is not frozen if this store is a synchronizer store. All other
     * stores are not subject to freezing the topology state.

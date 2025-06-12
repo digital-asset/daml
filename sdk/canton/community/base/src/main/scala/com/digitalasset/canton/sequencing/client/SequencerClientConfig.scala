@@ -50,6 +50,8 @@ import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenMana
   *   throughput, but at the cost of higher memory consumption and longer processing times for each
   *   batch. A lower value of `maximumInFlightEventBatches` may limit throughput, but can result in
   *   more stable and predictable system behavior.
+  * @param useNewConnectionPool
+  *   Use the new sequencer connection pool instead of the former transports.
   */
 final case class SequencerClientConfig(
     eventInboxSize: PositiveInt = PositiveInt.tryCreate(100),
@@ -67,6 +69,7 @@ final case class SequencerClientConfig(
     skipSequencedEventValidation: Boolean = false,
     overrideMaxRequestSize: Option[NonNegativeInt] = None,
     maximumInFlightEventBatches: PositiveInt = PositiveInt.tryCreate(20),
+    useNewConnectionPool: Boolean = false,
 ) extends UniformCantonConfigValidation
 
 object SequencerClientConfig {

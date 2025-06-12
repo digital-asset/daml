@@ -43,9 +43,10 @@ class GrpcUserSequencerConnectionXStub(
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
       retryPolicy: GrpcError => Boolean,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError.ConnectionError, Unit] = {
     val messageId = request.content.messageId
     for {
       _ <- connection
@@ -53,13 +54,14 @@ class GrpcUserSequencerConnectionXStub(
           requestDescription = s"send-async-versioned/$messageId",
           stubFactory = sequencerSvcFactory,
           retryPolicy = retryPolicy,
+          logPolicy = logPolicy,
           timeout = timeout,
         )(
           _.sendAsync(
             SendAsyncRequest(signedSubmissionRequest = request.toByteString)
           )
         )
-        .leftMap[SequencerConnectionXStubError](
+        .leftMap(
           SequencerConnectionXStubError.ConnectionError.apply
         )
     } yield ()
@@ -69,6 +71,7 @@ class GrpcUserSequencerConnectionXStub(
       signedRequest: SignedContent[AcknowledgeRequest],
       timeout: Duration,
       retryPolicy: GrpcError => Boolean,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, AcknowledgeSignedResponse] = {
@@ -79,6 +82,7 @@ class GrpcUserSequencerConnectionXStub(
           requestDescription = s"acknowledge-signed/${signedRequest.content.timestamp}",
           stubFactory = sequencerSvcFactory,
           retryPolicy = retryPolicy,
+          logPolicy = logPolicy,
           timeout = timeout,
         )(_.acknowledgeSigned(acknowledgeRequest))
         .leftMap[SequencerConnectionXStubError](
@@ -91,6 +95,7 @@ class GrpcUserSequencerConnectionXStub(
       request: GetTrafficStateForMemberRequest,
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -103,6 +108,7 @@ class GrpcUserSequencerConnectionXStub(
         requestDescription = s"get-traffic-state/${request.member}",
         stubFactory = sequencerSvcFactory,
         retryPolicy = retryPolicy,
+        logPolicy = logPolicy,
         timeout = timeout,
       )(_.getTrafficStateForMember(request.toProtoV30))
       .leftMap[SequencerConnectionXStubError](

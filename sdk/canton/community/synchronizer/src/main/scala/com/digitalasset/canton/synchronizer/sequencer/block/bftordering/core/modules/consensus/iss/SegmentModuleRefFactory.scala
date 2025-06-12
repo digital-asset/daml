@@ -71,7 +71,7 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
       ModuleName(
         s"segment-module-${segmentState.epoch.info.number}-${segmentState.segment.slotNumbers.head1}"
       )
-    )
+    )(moduleNameForMetrics = "segment-module")
     context.setModule(moduleRef, module)
     module.ready(moduleRef)
     moduleRef

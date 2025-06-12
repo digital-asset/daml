@@ -199,7 +199,7 @@ trait SynchronizerBootstrapWithSeparateConsolesIntegrationTest
           // share the sequencer connection via sequencerConnectionFile
           SequencerConnections
             .single(sequencer1.sequencerConnection)
-            .writeToFile(sequencerConnectionFile)
+            .writeToFile(sequencerConnectionFile, testedProtocolVersion)
         }
 
         // Mediator's console:

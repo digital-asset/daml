@@ -73,6 +73,15 @@ object FutureTraverse extends WartTraverser {
     val traverseFilterOps = typeOf[TraverseFilter.Ops[Seq, Int]].typeSymbol
     require(traverseFilterOps != NoSymbol)
 
+    // There are two implicits for Traverse[Option]:
+    // - cats.instances.OptionInstances.catsStdInstancesForOption
+    // - cats.UnorderedFoldable.catsTraverseForOption
+    // the latter actually delegates to the former, but for the sake of this check,
+    // they are different symbols and therefore need to be handled separately
+    val optionInstancesTrait = typeOf[cats.instances.OptionInstances]
+    val stdInstancesForOptionSymbol =
+      optionInstancesTrait.decl(TermName("catsStdInstancesForOption"))
+    require(stdInstancesForOptionSymbol != NoSymbol)
     val unorderedFoldableCompanion = typeOf[cats.UnorderedFoldable[List]].companion
     val traverseInstanceOptionSymbol =
       unorderedFoldableCompanion.decl(TermName("catsTraverseForOption"))
@@ -144,6 +153,7 @@ object FutureTraverse extends WartTraverser {
       traverseInstanceOptionSymbol,
       traverseInstanceEitherSymbol,
       traverseFilterInstanceOptionSymbol,
+      stdInstancesForOptionSymbol,
     )
     val futureLikeType = typeOf[DoNotTraverseLikeFuture]
     val futureLikeTester = FutureLikeTester.tester(u)(futureLikeType)

@@ -12,6 +12,7 @@ import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   SequencerConnectionXHealth,
 }
 import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
@@ -51,7 +52,7 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Unit]
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit]
 
   def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest], timeout: Duration)(
       implicit traceContext: TraceContext

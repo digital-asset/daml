@@ -20,7 +20,6 @@ import com.digitalasset.canton.integration.util.BackgroundWorkloadRunner
 import com.digitalasset.canton.protocol.DynamicSynchronizerParameters
 import com.digitalasset.canton.scheduler.IgnoresTransientSchedulerErrors
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.util.chaining.*
 
@@ -109,7 +108,7 @@ abstract class ScheduledMediatorPruningTest
         // In the second half, the pruning test is able to prune a lot more aggressively according to the 4 second
         // timeout set as a dynamic synchronizer parameter.
         val secondsWorstCaseUntilFirstPrune = DynamicSynchronizerParameters
-          .initialValues(env.environment.clock, ProtocolVersion.latest)
+          .initialValues(env.environment.clock, testedProtocolVersion)
           .confirmationResponseTimeout // == 30.seconds
           .unwrap
           .getSeconds

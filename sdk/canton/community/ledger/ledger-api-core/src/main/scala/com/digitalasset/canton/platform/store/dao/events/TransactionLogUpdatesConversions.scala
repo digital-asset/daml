@@ -92,9 +92,7 @@ private[events] object TransactionLogUpdatesConversions {
                 transactionFormat.internalEventFormat.templatePartiesFilter.allFilterParties,
               )
               val nonTransient = removeTransient(filteredEvents)
-              // Allows emitting AcsDelta transactions with no events, a use-case needed
-              // for the functioning of Daml triggers.
-              // (more details in https://github.com/digital-asset/daml/issues/6975)
+              // Allows emitting AcsDelta transactions with no events for providing completion evidence for submitter-witnesses.
               Option.when(nonTransient.nonEmpty || commandId.nonEmpty)(
                 transaction.copy(
                   commandId = commandId,

@@ -43,6 +43,7 @@ import com.digitalasset.canton.synchronizer.sequencing.traffic.store.TrafficCons
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
@@ -626,18 +627,9 @@ class EnterpriseSequencerRateLimitManager(
               )
               .leftWiden[SequencerRateLimitError]
           } else {
-            // If not, we will NOT consume, because we assume the event has already been consumed
-            // We then fetch the traffic consumed state at the sequencing time from the store
-            // This should not really happen, as messages are processed in order
-            logger.debug(
-              s"Tried to consume traffic at $sequencingTime for $sender, but the traffic consumed state is already at $currentTrafficConsumedTs"
+            ErrorUtil.invalidState(
+              s"Unexpected sequencer rate limiter state: currently at $currentTrafficConsumedTs that is not strictly before the next provided sequencing timestamp $sequencingTime."
             )
-            EitherT
-              .fromOptionF[FutureUnlessShutdown, SequencerRateLimitError, TrafficConsumed](
-                trafficConsumedStore
-                  .lookupAt(sender, sequencingTime),
-                SequencerRateLimitError.TrafficNotFound(sender),
-              )
           }
       } yield {
         // Here we correctly consumed the traffic, so submitted cost and consumed cost are the same
@@ -831,6 +823,13 @@ class EnterpriseSequencerRateLimitManager(
       }
       .map(_.toMap)
   }
+
+  override def resetStateTo(
+      timestampExclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    trafficConsumedStore
+      .deleteRecordsPastTimestamp(timestampExclusive)
+      .map(_ => trafficConsumedPerMember.clear())
 }
 
 object EnterpriseSequencerRateLimitManager {

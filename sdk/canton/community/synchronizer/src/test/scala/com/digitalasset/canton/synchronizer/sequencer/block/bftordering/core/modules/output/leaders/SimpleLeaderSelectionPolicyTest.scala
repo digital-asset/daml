@@ -8,6 +8,8 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BftNodeId,
   EpochNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.OrderingTopology
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.IgnoringUnitTestEnv
 import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.util.Random
@@ -29,8 +31,11 @@ class SimpleLeaderSelectionPolicyTest extends AsyncWordSpec with BaseTest {
       // Note that the seed is fixed and so are the nodes. The following assertions check the test itself.
       shuffledIndexes shouldNot be(indexes)
       nodes shouldNot be(sortedNodes)
+      val orderingTopology = OrderingTopology.forTesting(nodes.toSet)
 
-      SimpleLeaderSelectionPolicy.selectLeaders(nodes.toSet).toSeq shouldBe sortedNodes
+      new SimpleLeaderSelectionPolicy[IgnoringUnitTestEnv]
+        .selectLeaders(orderingTopology)
+        .toSeq shouldBe sortedNodes
     }
 
     "rotate leaders" in {
@@ -88,7 +93,9 @@ class SimpleLeaderSelectionPolicyTest extends AsyncWordSpec with BaseTest {
         val nodes = nodeIndexes.map { index =>
           BftNodeId(s"node$index")
         }
-        val selectedLeaders = SimpleLeaderSelectionPolicy.selectLeaders(nodes)
+        val orderingTopology = OrderingTopology.forTesting(nodes)
+        val selectedLeaders = new SimpleLeaderSelectionPolicy[IgnoringUnitTestEnv]
+          .selectLeaders(orderingTopology)
         val rotatedLeaders =
           LeaderSelectionPolicy.rotateLeaders(selectedLeaders, EpochNumber(epochNumber))
 

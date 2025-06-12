@@ -59,8 +59,11 @@ import com.digitalasset.canton.participant.synchronizer.{
   SynchronizerHandle,
   SynchronizerRegistryError,
 }
-import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
+import com.digitalasset.canton.participant.topology.{
+  ParticipantTopologyDispatcher,
+  SequencerConnectionSuccessorListener,
+}
 import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubscriber
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
@@ -126,6 +129,7 @@ class ConnectedSynchronizer(
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessor: TopologyTransactionProcessor,
     missingKeysAlerter: MissingKeysAlerter,
+    sequencerConnectionListener: SequencerConnectionSuccessorListener,
     reassignmentCoordination: ReassignmentCoordination,
     commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
@@ -480,6 +484,7 @@ class ConnectedSynchronizer(
     for {
       // Prepare missing key alerter
       _ <- EitherT.right(missingKeysAlerter.init())
+      _ <- EitherT.right(sequencerConnectionListener.init())
 
       // Phase 0: Initialise topology client at current clean head
       _ <- EitherT.right(initializeClientAtCleanHead())
@@ -964,6 +969,7 @@ object ConnectedSynchronizer {
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
+        sequencerConnectionSuccessorListener: SequencerConnectionSuccessorListener,
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
@@ -989,6 +995,7 @@ object ConnectedSynchronizer {
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
+        sequencerConnectionSuccessorListener: SequencerConnectionSuccessorListener,
         reassignmentCoordination: ReassignmentCoordination,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
@@ -1062,6 +1069,7 @@ object ConnectedSynchronizer {
         identityPusher,
         topologyProcessor,
         missingKeysAlerter,
+        sequencerConnectionSuccessorListener,
         reassignmentCoordination,
         commandProgressTracker,
         ParallelMessageDispatcherFactory,

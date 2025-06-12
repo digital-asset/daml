@@ -6,6 +6,8 @@ package com.digitalasset.canton.participant.sync
 import cats.Eval
 import cats.data.EitherT
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.SynchronizerAlias
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCrypto
@@ -28,7 +30,7 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.StampedLockWithHandle
 import com.digitalasset.canton.version.ProtocolVersion
@@ -41,6 +43,23 @@ import scala.concurrent.ExecutionContext
 /** Read-only interface to the [[SyncPersistentStateManager]] */
 trait SyncPersistentStateLookup {
   def getAll: Map[SynchronizerId, SyncPersistentState]
+
+  /** Return the latest [[com.digitalasset.canton.participant.store.SyncPersistentState]] (wrt to
+    * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]]) for each
+    * [[com.digitalasset.canton.topology.SynchronizerId]]
+    */
+  def getAllLatest: Map[SynchronizerId, SyncPersistentState] =
+    getAll.values.toSeq
+      .groupBy1(_.physicalSynchronizerId.logical)
+      .view
+      .mapValues(_.maxBy1(_.physicalSynchronizerId))
+      .toMap
+
+  def aliasForSynchronizerId(id: SynchronizerId): Option[SynchronizerAlias]
+
+  def acsInspection(synchronizerAlias: SynchronizerAlias): Option[AcsInspection]
+
+  def reassignmentStore(synchronizerId: SynchronizerId): Option[ReassignmentStore]
 }
 
 /** Manages participant-relevant state for a synchronizer that needs to survive reconnects
@@ -92,19 +111,16 @@ class SyncPersistentStateManager(
           "No synchronizer parameters in store",
         )
 
-    aliasResolution.aliases.toList.parTraverse_ { alias =>
+    aliasResolution.physicalSynchronizerIds.toList.parTraverse_ { psid =>
       val resultE = for {
-        synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-          aliasResolution.synchronizerIdForAlias(alias).toRight("Unknown synchronizer id")
-        )
         synchronizerIdIndexed <- EitherT.right(
-          IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId)
+          IndexedSynchronizer.indexed(indexedStringStore)(psid.logical)
         )
-        staticSynchronizerParameters <- getStaticSynchronizerParameters(synchronizerId)
+        staticSynchronizerParameters <- getStaticSynchronizerParameters(psid.logical)
         persistentState = createPersistentState(synchronizerIdIndexed, staticSynchronizerParameters)
-        _ = logger.debug(s"Discovered existing state for $alias")
+        _ = logger.debug(s"Discovered existing state for $psid")
       } yield {
-        val synchronizerId = persistentState.indexedSynchronizer.synchronizerId
+        val synchronizerId = persistentState.synchronizerIdx.synchronizerId
         val previous = persistentStates.putIfAbsent(synchronizerId, persistentState)
         if (previous.isDefined)
           throw new IllegalArgumentException(
@@ -112,11 +128,11 @@ class SyncPersistentStateManager(
           )
       }
 
-      resultE.valueOr(error => logger.debug(s"No state for $alias discovered: $error"))
+      resultE.valueOr(error => logger.debug(s"No state for $psid discovered: $error"))
     }
   }
 
-  def indexedSynchronizerId(
+  def getSynchronizerIdx(
       synchronizerId: SynchronizerId
   ): FutureUnlessShutdown[IndexedSynchronizer] =
     IndexedSynchronizer.indexed(this.indexedStringStore)(synchronizerId)
@@ -149,7 +165,7 @@ class SyncPersistentStateManager(
         )
       } yield {
         persistentStates
-          .putIfAbsent(persistentState.indexedSynchronizer.synchronizerId, persistentState)
+          .putIfAbsent(persistentState.synchronizerIdx.synchronizerId, persistentState)
           .getOrElse(persistentState)
       }
     }
@@ -188,6 +204,20 @@ class SyncPersistentStateManager(
       }
     } yield ()
 
+  def acsInspection(synchronizerAlias: SynchronizerAlias): Option[AcsInspection] =
+    for {
+      // Taking any of the PSIds is fine since ACS is logical
+      psid <- synchronizerIdsForAlias(synchronizerAlias).map(_.head1)
+      res <- get(psid)
+    } yield res.acsInspection
+
+  override def reassignmentStore(synchronizerId: SynchronizerId): Option[ReassignmentStore] =
+    for {
+      // Taking any of the PSIds is fine since ACS is logical
+      psid <- aliasResolution.physicalSynchronizerIds(synchronizerId).headOption
+      res <- get(psid)
+    } yield res.reassignmentStore
+
   // TODO(#25483): This should be per PSId
   def staticSynchronizerParameters(
       synchronizerId: SynchronizerId
@@ -204,6 +234,12 @@ class SyncPersistentStateManager(
   def get(synchronizerId: SynchronizerId): Option[SyncPersistentState] =
     lock.withReadLock[Option[SyncPersistentState]](persistentStates.get(synchronizerId))
 
+  // TODO(#25483) This should be physical
+  def get(synchronizerId: PhysicalSynchronizerId): Option[SyncPersistentState] =
+    lock.withReadLock[Option[SyncPersistentState]](persistentStates.collectFirst {
+      case (id, state) if id == synchronizerId.logical => state
+    })
+
   override def getAll: Map[SynchronizerId, SyncPersistentState] =
     // no lock needed here. just return the current snapshot
     persistentStates.toMap
@@ -218,6 +254,11 @@ class SyncPersistentStateManager(
     aliasResolution.synchronizerIdForAlias(synchronizerAlias)
   def aliasForSynchronizerId(synchronizerId: SynchronizerId): Option[SynchronizerAlias] =
     aliasResolution.aliasForSynchronizerId(synchronizerId)
+
+  def synchronizerIdsForAlias(
+      synchronizerAlias: SynchronizerAlias
+  ): Option[NonEmpty[Set[PhysicalSynchronizerId]]] =
+    aliasResolution.synchronizerIdsForAlias(synchronizerAlias)
 
   private def mkPersistentState(
       indexedSynchronizer: IndexedSynchronizer,

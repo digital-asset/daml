@@ -279,11 +279,11 @@ create or replace view debug.par_synchronizer_connection_configs as
     status
   from par_synchronizer_connection_configs;
 
-create or replace view debug.par_synchronizers as
+create or replace view debug.par_registered_synchronizers as
   select
     synchronizer_alias,
-    synchronizer_id
-  from par_synchronizers;
+    physical_synchronizer_id
+  from par_registered_synchronizers;
 
 create or replace view debug.par_reassignments as
   select
@@ -669,6 +669,12 @@ create or replace view debug.ord_output_lower_bound as
     epoch_number,
     block_number
   from ord_output_lower_bound;
+
+create or replace view debug.ord_leader_selection_state as
+  select
+    epoch_number,
+    state
+  from ord_leader_selection_state;
 
 create or replace view debug.common_static_strings as
   select

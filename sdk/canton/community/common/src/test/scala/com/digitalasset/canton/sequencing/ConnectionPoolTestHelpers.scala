@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
@@ -30,7 +31,7 @@ import com.digitalasset.canton.topology.{
   SequencerId,
   SynchronizerId,
 }
-import com.digitalasset.canton.tracing.TracingConfig
+import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.{
   ProtocolVersion,
@@ -188,6 +189,50 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
     ResourceUtil.withResource(connection)(f(_, listener))
   }
 
+  private class TestSequencerConnectionXPoolFactory(
+      attributesForConnection: Int => ConnectionAttributes,
+      testTimeouts: ProcessingTimeout,
+  ) extends SequencerConnectionXPoolFactory {
+    import SequencerConnectionXPool.{SequencerConnectionXPoolConfig, SequencerConnectionXPoolError}
+
+    private val connectionFactory = new TestInternalSequencerConnectionXFactory(
+      attributesForConnection
+    )
+
+    val createdConnections: CreatedConnections = connectionFactory.createdConnections
+
+    override def create(
+        initialConfig: SequencerConnectionXPoolConfig
+    )(implicit
+        ec: ExecutionContextExecutor
+    ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] =
+      for {
+        _ <- initialConfig.validate
+      } yield {
+        new SequencerConnectionXPoolImpl(
+          initialConfig,
+          connectionFactory,
+          wallClock,
+          authConfig,
+          testMember,
+          testCrypto.crypto,
+          Some(seedForRandomness),
+          futureSupervisor,
+          testTimeouts,
+          loggerFactory,
+        )
+      }
+
+    override def createFromOldConfig(
+        sequencerConnections: SequencerConnections,
+        expectedPSIdO: Option[PhysicalSynchronizerId],
+        tracingConfig: TracingConfig,
+    )(implicit
+        ec: ExecutionContextExecutor,
+        traceContext: TraceContext,
+    ): Either[SequencerConnectionXPoolError, SequencerConnectionXPool] = ???
+  }
+
   protected def mkPoolConfig(
       nbConnections: PositiveInt,
       trustThreshold: PositiveInt,
@@ -208,32 +253,17 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       trustThreshold: PositiveInt,
       attributesForConnection: Int => ConnectionAttributes,
       expectedSynchronizerIdO: Option[PhysicalSynchronizerId] = None,
-  )(f: (SequencerConnectionXPoolImpl, CreatedConnections, TestHealthListener) => V): V = {
+      testTimeouts: ProcessingTimeout = timeouts,
+  )(f: (SequencerConnectionXPool, CreatedConnections, TestHealthListener) => V): V = {
     val config = mkPoolConfig(nbConnections, trustThreshold, expectedSynchronizerIdO)
 
-    val connectionFactory =
-      new TestInternalSequencerConnectionXFactory(
-        attributesForConnection
-      )
-    val pool =
-      SequencerConnectionXPoolFactory
-        .create(
-          config,
-          connectionFactory,
-          wallClock,
-          authConfig,
-          testMember,
-          testCrypto,
-          seedForRandomnessO = Some(seedForRandomness),
-          timeouts,
-          loggerFactory,
-        )
-        .valueOrFail("create connection pool")
+    val poolFactory = new TestSequencerConnectionXPoolFactory(attributesForConnection, testTimeouts)
+    val pool = poolFactory.create(config).valueOrFail("create connection pool")
 
     val listener = new TestHealthListener(pool.health)
     pool.health.registerOnHealthChange(listener)
 
-    ResourceUtil.withResource(pool)(f(_, connectionFactory.createdConnections, listener))
+    ResourceUtil.withResource(pool)(f(_, poolFactory.createdConnections, listener))
   }
 
   protected def mkSubscriptionPoolConfig(
@@ -296,7 +326,7 @@ trait ConnectionPoolTestHelpers { this: BaseTest & HasExecutionContext =>
       val attributes = attributesForConnection(index)
       val correctSynchronizerIdResponse = Right(
         SequencerConnect.GetSynchronizerIdResponse(
-          attributes.synchronizerId.toProtoPrimitive,
+          attributes.physicalSynchronizerId.toProtoPrimitive,
           attributes.sequencerId.uid.toProtoPrimitive,
         )
       )

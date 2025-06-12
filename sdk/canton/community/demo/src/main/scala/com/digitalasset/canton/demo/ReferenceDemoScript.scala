@@ -624,26 +624,30 @@ object ReferenceDemoScript {
 
     val bankingSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerBanking)
     val bankingMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorBanking")
-    val bankingSynchronizerId = ConsoleMacros.bootstrap.synchronizer(
-      synchronizerName = SequencerBanking,
-      sequencers = bankingSequencers,
-      mediators = bankingMediators,
-      synchronizerOwners = bankingSequencers ++ bankingMediators,
-      synchronizerThreshold = PositiveInt.one,
-      staticSynchronizerParameters =
-        StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-    )
+    val bankingSynchronizerId = ConsoleMacros.bootstrap
+      .synchronizer(
+        synchronizerName = SequencerBanking,
+        sequencers = bankingSequencers,
+        mediators = bankingMediators,
+        synchronizerOwners = bankingSequencers ++ bankingMediators,
+        synchronizerThreshold = PositiveInt.one,
+        staticSynchronizerParameters =
+          StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
+      )
+      .logical
     val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
     val medicalMediators = consoleEnvironment.mediators.all.filter(_.name == "mediatorMedical")
-    val medicalSynchronizerId = ConsoleMacros.bootstrap.synchronizer(
-      synchronizerName = SequencerMedical,
-      sequencers = medicalSequencers,
-      mediators = medicalMediators,
-      synchronizerOwners = medicalSequencers ++ medicalMediators,
-      synchronizerThreshold = PositiveInt.one,
-      staticSynchronizerParameters =
-        StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
-    )
+    val medicalSynchronizerId = ConsoleMacros.bootstrap
+      .synchronizer(
+        synchronizerName = SequencerMedical,
+        sequencers = medicalSequencers,
+        mediators = medicalMediators,
+        synchronizerOwners = medicalSequencers ++ medicalMediators,
+        synchronizerThreshold = PositiveInt.one,
+        staticSynchronizerParameters =
+          StaticSynchronizerParameters.defaultsWithoutKMS(ProtocolVersion.forSynchronizer),
+      )
+      .logical
 
     val banking = getSequencer(SequencerBanking)
     val medical = getSequencer(SequencerMedical)

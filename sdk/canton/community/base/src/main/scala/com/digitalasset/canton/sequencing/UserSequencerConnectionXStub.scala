@@ -35,14 +35,16 @@ trait UserSequencerConnectionXStub {
       request: SignedContent[SubmissionRequest],
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Unit]
+  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError.ConnectionError, Unit]
 
   def acknowledgeSigned(
       signedRequest: SignedContent[AcknowledgeRequest],
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, AcknowledgeSignedResponse]
@@ -51,6 +53,7 @@ trait UserSequencerConnectionXStub {
       request: GetTrafficStateForMemberRequest,
       timeout: Duration,
       retryPolicy: GrpcError => Boolean = CantonGrpcUtil.RetryPolicy.noRetry,
+      logPolicy: CantonGrpcUtil.GrpcLogPolicy = CantonGrpcUtil.DefaultGrpcLogPolicy,
   )(implicit
       traceContext: TraceContext
   ): EitherT[

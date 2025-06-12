@@ -46,6 +46,10 @@ object Output {
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]
 
+  final case class UpdateLeaderSelection[E <: Env[E]](
+      topologyFetched: TopologyFetched[E]
+  ) extends Message[E]
+
   final case class MetadataStoredForNewEpoch[E <: Env[E]](
       newEpochNumber: EpochNumber,
       orderingTopology: OrderingTopology,

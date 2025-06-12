@@ -30,11 +30,16 @@ import com.google.protobuf.ByteString
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.ExecutionContext
+import scala.util.chaining.scalaUtilChainingOps
 
-/** Helper trait to name parameters
+/** Helper trait for test hook providing ProgrammableSequencer-like control in tests. Not sealed to
+  * allow inheritance in tests.
   */
-trait PersistsContracts {
-  def persistIndexedContracts(
+trait InterceptReceivedAcsChunkForTesting {
+
+  // TODO(#25765): Mark as VisibleForTesting in a way that does not run afoul of the EnforceVisibleForTesting
+  //  guidelines.
+  def onAcsChunkReceivedForTesting(
       acsChunkId: NonNegativeInt,
       contracts: NonEmpty[Seq[SerializableContract]],
   ): EitherT[FutureUnlessShutdown, String, Unit]
@@ -63,17 +68,20 @@ trait PersistsContracts {
   *   Callback to update progress wrt the number of active contracts received.
   * @param onComplete
   *   Callback notification that the target participant has received the entire ACS.
+  * @param onError
+  *   Callback notification that the target participant has errored.
   * @param protocolVersion
   *   The protocol version to use for now for the party replication protocol. Technically the online
   *   party replication protocol is a different protocol from the canton protocol.
   */
-class PartyReplicationTargetParticipantProcessor(
+final class PartyReplicationTargetParticipantProcessor(
     synchronizerId: SynchronizerId,
     partyId: PartyId,
     partyToParticipantEffectiveAt: CantonTimestamp,
     onProgress: NonNegativeInt => Unit,
     onComplete: NonNegativeInt => Unit,
-    persistContracts: PersistsContracts,
+    onError: String => Unit,
+    interceptorForTestingOnly: InterceptReceivedAcsChunkForTesting,
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     connectedSynchronizer: ConnectedSynchronizer,
     protected val protocolVersion: ProtocolVersion,
@@ -108,7 +116,7 @@ class PartyReplicationTargetParticipantProcessor(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     val recordOrderPublisher = connectedSynchronizer.ephemeral.recordOrderPublisher
-    for {
+    (for {
       acsChunkOrStatus <- EitherT.fromEither[FutureUnlessShutdown](
         PartyReplicationSourceMessage
           .fromByteString(protocolVersion, payload)
@@ -124,7 +132,7 @@ class PartyReplicationTargetParticipantProcessor(
           )
           val contractsToAdd = contracts.map(_.contract)
           for {
-            _ <- persistContracts.persistIndexedContracts(chunkId, contractsToAdd)
+            _ <- interceptorForTestingOnly.onAcsChunkReceivedForTesting(chunkId, contractsToAdd)
             _ <- EitherT.right(
               participantNodePersistentState.value.contractStore.storeContracts(contractsToAdd)
             )
@@ -185,7 +193,10 @@ class PartyReplicationTargetParticipantProcessor(
               )
           )
       }
-    } yield ()
+    } yield ()).leftMap(_.tap { error =>
+      logger.warn(s"Error while processing payload: $error")
+      onError(error)
+    })
   }
 
   private def requestNextSetOfChunks()(implicit
@@ -271,7 +282,8 @@ object PartyReplicationTargetParticipantProcessor {
       partyToParticipantEffectiveAt: CantonTimestamp,
       onProgress: NonNegativeInt => Unit,
       onComplete: NonNegativeInt => Unit,
-      persistContracts: PersistsContracts,
+      onError: String => Unit,
+      interceptorForTestingOnly: InterceptReceivedAcsChunkForTesting,
       participantNodePersistentState: Eval[ParticipantNodePersistentState],
       connectedSynchronizer: ConnectedSynchronizer,
       protocolVersion: ProtocolVersion,
@@ -284,7 +296,8 @@ object PartyReplicationTargetParticipantProcessor {
       partyToParticipantEffectiveAt,
       onProgress,
       onComplete,
-      persistContracts,
+      onError,
+      interceptorForTestingOnly,
       participantNodePersistentState,
       connectedSynchronizer,
       protocolVersion,

@@ -202,7 +202,7 @@ trait AcsCommitmentLookup {
   def outstanding(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipants: Seq[ParticipantId] = Seq.empty,
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
       includeMatchedPeriods: Boolean = false,
   )(implicit
       traceContext: TraceContext
@@ -214,7 +214,7 @@ trait AcsCommitmentLookup {
   def searchComputedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipants: Seq[ParticipantId] = Seq.empty,
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
@@ -227,7 +227,7 @@ trait AcsCommitmentLookup {
   def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipants: Seq[ParticipantId] = Seq.empty,
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]]

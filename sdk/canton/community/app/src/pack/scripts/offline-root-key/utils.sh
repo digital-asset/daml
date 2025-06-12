@@ -5,7 +5,7 @@
 
 set -euo pipefail  # Exit on error, prevent unset vars, fail pipeline on first error
 
-CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+CURRENT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null && pwd)
 
 BUF_PROTO_IMAGE=${BUF_PROTO_IMAGE:="${CURRENT_DIR}/root_namespace_buf_image.json.gz"}
 if [[ -n "$BUF_PROTO_IMAGE" && -f "$BUF_PROTO_IMAGE" ]]; then

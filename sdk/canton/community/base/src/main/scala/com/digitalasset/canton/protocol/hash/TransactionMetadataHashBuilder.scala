@@ -23,7 +23,7 @@ object TransactionMetadataHashBuilder {
       mediatorGroup: Int,
       synchronizerId: String,
       timeBoundaries: LedgerTimeBoundaries,
-      submissionTime: Time.Timestamp,
+      preparationTime: Time.Timestamp,
       disclosedContracts: SortedMap[ContractId, FatContractInstance],
   )
 
@@ -60,7 +60,7 @@ object TransactionMetadataHashBuilder {
           b => (v: Time.Timestamp) => b.add(v.micros),
         )
       )
-      .withContext("Submission Time")(_.add(metadata.submissionTime.micros))
+      .withContext("Preparation Time")(_.add(metadata.preparationTime.micros))
       .withContext("Disclosed Contracts")(
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>

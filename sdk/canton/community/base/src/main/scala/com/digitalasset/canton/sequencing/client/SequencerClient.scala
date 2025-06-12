@@ -209,6 +209,7 @@ abstract class SequencerClientImpl(
     val synchronizerId: PhysicalSynchronizerId,
     val member: Member,
     sequencerTransports: SequencerTransports[?],
+    connectionPool: SequencerConnectionXPool,
     val config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     val protocolVersion: ProtocolVersion,
@@ -234,6 +235,11 @@ abstract class SequencerClientImpl(
     with NamedLogging
     with Spanning
     with HasCloseContext {
+  import SequencerClientImpl.LinkDetails
+
+  noTracingLogger.debug(
+    s"[$member] Using connection pool: ${config.useNewConnectionPool} for synchronizer $synchronizerId"
+  )
 
   override def logout()(implicit
       traceContext: TraceContext
@@ -452,6 +458,48 @@ abstract class SequencerClientImpl(
     }
   }
 
+  private def getNextPoolConnection(
+      exclusions: Seq[SequencerId]
+  )(implicit
+      traceContext: TraceContext
+  ): (Option[LinkDetails], Option[NonNegativeFiniteDuration]) = {
+    val SubmissionRequestAmplification(factor, patience) =
+      sequencersTransportState.getSubmissionRequestAmplification // TODO(i25218): centralize configuration
+    val patienceO = Option.when(exclusions.sizeIs < factor.value - 1)(patience)
+
+    val linkDetailsO = connectionPool
+      .getConnections(1, exclusions.toSet)
+      .headOption
+      .orElse(
+        // No connection available with exclusions -- try without exclusions
+        connectionPool
+          .getConnections(1, Set.empty)
+          .headOption
+      )
+      .map(connection =>
+        LinkDetails(
+          SequencerAlias.tryCreate(connection.name),
+          connection.attributes.sequencerId,
+          Right(connection),
+        )
+      )
+
+    (linkDetailsO, patienceO)
+  }
+
+  private def getNextLink(
+      exclusions: Seq[SequencerId]
+  )(implicit traceContext: TraceContext): (Option[LinkDetails], Option[NonNegativeFiniteDuration]) =
+    if (config.useNewConnectionPool) getNextPoolConnection(exclusions)
+    else {
+      val (sequencerAlias, sequencerId, transport, patienceO) =
+        sequencersTransportState.nextAmplifiedTransport(exclusions)
+      (
+        Some(LinkDetails(sequencerAlias, sequencerId, Left(transport))),
+        patienceO,
+      )
+    }
+
   /** Perform the send, without any check.
     */
   private def performSend(
@@ -466,8 +514,8 @@ abstract class SequencerClientImpl(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
     EitherTUtil
       .timed(metrics.submissions.sends) {
-        val (sequencerAlias, sequencerId, transport, patienceO) =
-          sequencersTransportState.nextAmplifiedTransport(Seq.empty)
+        val (linkDetailsO, patienceO) = getNextLink(Seq.empty)
+
         // Do not add an aggregation rule for amplifiable requests if amplification has not been configured
         val amplifiableRequest =
           if (amplify && request.aggregationRule.isEmpty && patienceO.isDefined) {
@@ -494,9 +542,7 @@ abstract class SequencerClientImpl(
 
           _ <- amplifiedSend(
             signedContent,
-            sequencerAlias,
-            sequencerId,
-            transport,
+            linkDetailsO,
             if (amplify) patienceO else None,
             peekAtSendResult,
           )
@@ -522,9 +568,7 @@ abstract class SequencerClientImpl(
     */
   private def amplifiedSend(
       signedRequest: SignedContent[SubmissionRequest],
-      firstSequencerAlias: SequencerAlias,
-      firstSequencer: SequencerId,
-      firstTransport: SequencerClientTransportCommon,
+      firstLinkDetailsO: Option[LinkDetails],
       firstPatienceO: Option[NonNegativeFiniteDuration],
       peekAtSendResult: () => Option[UnlessShutdown[SendResult]],
   )(implicit
@@ -539,17 +583,17 @@ abstract class SequencerClientImpl(
     def step(
         state: State
     ): FutureUnlessShutdown[Either[State, Either[SendAsyncClientError, Unit]]] = {
-      val State(previousSequencers, sequencerAlias, sequencerId, transport, patienceO) = state
+      val State(previousSequencers, linkDetailsO, patienceO, isFirstStep) = state
 
       def nextState: State = {
-        val sequencers = sequencerId +: previousSequencers
-        val (nextSequencerAlias, nextSequencerId, nextTransport, nextPatienceO) =
-          sequencersTransportState.nextAmplifiedTransport(sequencers)
-        State(sequencers, nextSequencerAlias, nextSequencerId, nextTransport, nextPatienceO)
+        val sequencers = linkDetailsO.map(_.sequencerId).toList ++ previousSequencers
+        val (nextLinkDetailsO, nextPatienceO) = getNextLink(sequencers)
+        State(sequencers, nextLinkDetailsO, nextPatienceO, isFirstStep = false)
       }
 
       def handleSyncError(
-          error: SendAsyncClientResponseError
+          error: SendAsyncClientResponseError,
+          sequencerId: SequencerId,
       ): Either[State, Either[SendAsyncClientError, Unit]] =
         error match {
           case _: SendAsyncClientError.RequestFailed =>
@@ -619,33 +663,53 @@ abstract class SequencerClientImpl(
             )
         }
 
-      performUnlessClosingEitherUSF(s"sending message $messageId to sequencer $sequencerId") {
-        NonEmpty.from(previousSequencers) match {
-          case None =>
-            logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
-          case Some(previousNE) =>
-            logger.info(
-              s"Amplifying submission request with message ID $messageId (attempt ${previousSequencers.size + 1}). Sending now to sequencer $sequencerId. Previous attempted sequencer ${previousNE.head1}."
+      linkDetailsO match {
+        case Some(LinkDetails(sequencerAlias, sequencerId, transportOrPoolConnection)) =>
+          performUnlessClosingEitherUSF(s"sending message $messageId to sequencer $sequencerId") {
+            NonEmpty.from(previousSequencers) match {
+              case None =>
+                logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
+              case Some(previousNE) =>
+                logger.info(
+                  s"Amplifying submission request with message ID $messageId (attempt ${previousSequencers.size + 1}). Sending now to sequencer $sequencerId. Previous attempted sequencer ${previousNE.head1}."
+                )
+            }
+            val submissionCostOrZero =
+              signedRequest.content.submissionCost.map(_.cost.value).getOrElse(0L)
+            metrics.trafficConsumption.trafficCostOfSubmittedEvent.mark(submissionCostOrZero)(
+              metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
             )
-        }
-        val submissionCostOrZero =
-          signedRequest.content.submissionCost.map(_.cost.value).getOrElse(0L)
-        metrics.trafficConsumption.trafficCostOfSubmittedEvent.mark(submissionCostOrZero)(
-          metricsContext.withExtraLabels("target-sequencer" -> sequencerAlias.toString)
-        )
-        transport.sendAsyncSigned(signedRequest, timeout)
-      }.value.map {
-        case Right(()) =>
-          // Do not await the patience. This would defeat the point of asynchronous send.
-          scheduleAmplification()
-          Right(Either.unit)
-        case Left(error) =>
-          handleSyncError(error)
+
+            transportOrPoolConnection match {
+              case Right(connection) => connection.sendAsync(signedRequest, timeout)
+              case Left(transport) => transport.sendAsyncSigned(signedRequest, timeout)
+            }
+          }.value.map {
+            case Right(()) =>
+              // Do not await the patience. This would defeat the point of asynchronous send.
+              scheduleAmplification()
+              Right(Either.unit)
+            case Left(error) =>
+              handleSyncError(error, sequencerId)
+          }
+
+        case None =>
+          // We don't have any connection available
+          val result = if (isFirstStep && patienceO.isEmpty) {
+            // We are at the first step for a non-amplifiable request -> fail
+            Left(SendAsyncClientError.RequestFailed("No connection available"))
+          } else {
+            // Otherwise, skip this step and retry later
+            logger.debug(s"No connection available -- skip sending message $messageId")
+            scheduleAmplification()
+            Either.unit
+          }
+
+          FutureUnlessShutdown.pure(Right(result))
       }
     }
 
-    val initialState =
-      State(Seq.empty, firstSequencerAlias, firstSequencer, firstTransport, firstPatienceO)
+    val initialState = State(Seq.empty, firstLinkDetailsO, firstPatienceO, isFirstStep = true)
 
     EitherT(
       Monad[FutureUnlessShutdown].tailRecM(initialState)(step)
@@ -782,12 +846,16 @@ abstract class SequencerClientImpl(
 }
 
 object SequencerClientImpl {
+  private final case class LinkDetails(
+      sequencerAlias: SequencerAlias,
+      sequencerId: SequencerId,
+      transportOrPoolConnection: Either[SequencerClientTransportCommon, SequencerConnectionX],
+  )
   private final case class AmplifiedSendState(
       previousSequencers: Seq[SequencerId],
-      nextSequencerAlias: SequencerAlias,
-      nextSequencer: SequencerId,
-      nextTransport: SequencerClientTransportCommon,
+      nextLinkDetailsO: Option[LinkDetails],
       nextPatienceO: Option[NonNegativeFiniteDuration],
+      isFirstStep: Boolean,
   )
 }
 
@@ -800,6 +868,7 @@ class RichSequencerClientImpl(
     synchronizerId: PhysicalSynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[?],
+    connectionPool: SequencerConnectionXPool,
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
@@ -826,6 +895,7 @@ class RichSequencerClientImpl(
       synchronizerId,
       member,
       sequencerTransports,
+      connectionPool,
       config,
       testingConfig,
       protocolVersion,
@@ -1436,6 +1506,7 @@ class RichSequencerClientImpl(
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
       SyncCloseable("sequencer-client-subscription", sequencersTransportState.close()),
+      SyncCloseable("connection-pool", connectionPool.close()),
       SyncCloseable("sequencer-aggregator", sequencerAggregator.close()),
       SyncCloseable("sequencer-send-tracker", sendTracker.close()),
       // see comments above why we need two flushes
@@ -1507,6 +1578,7 @@ class SequencerClientImplPekko[E: Pretty](
     synchronizerId: PhysicalSynchronizerId,
     member: Member,
     sequencerTransports: SequencerTransports[E],
+    connectionPool: SequencerConnectionXPool,
     config: SequencerClientConfig,
     testingConfig: TestingConfigInternal,
     protocolVersion: ProtocolVersion,
@@ -1533,6 +1605,7 @@ class SequencerClientImplPekko[E: Pretty](
       synchronizerId,
       member,
       sequencerTransports,
+      connectionPool,
       config,
       testingConfig,
       protocolVersion,

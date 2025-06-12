@@ -312,6 +312,11 @@ class MediatorEventDeduplicatorTest
           callerCloseContext: CloseContext,
       ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.unit
 
+      override def allPersistedData()(implicit
+          traceContext: TraceContext,
+          callerCloseContext: CloseContext,
+      ): FutureUnlessShutdown[Set[DeduplicationData]] = FutureUnlessShutdown.pure(Set.empty)
+
       override protected val timeouts: ProcessingTimeout = DefaultProcessingTimeouts.testing
     }
     store.initialize(CantonTimestamp.MinValue).futureValueUS

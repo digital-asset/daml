@@ -17,7 +17,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
   ClientP2PNetworkManager,
-  ModuleName,
   ModuleRef,
   P2PNetworkRef,
 }
@@ -160,7 +159,7 @@ object PekkoGrpcP2PNetworking {
       message match {
         case SendMessage(_, metricsContext, sendInstant, maybeDelay) =>
           metrics.performance.orderingStageLatency.emitModuleQueueLatency(
-            ModuleName(this.getClass.getSimpleName),
+            this.getClass.getSimpleName,
             sendInstant,
             maybeDelay,
           )(metricsContext)
@@ -175,7 +174,7 @@ object PekkoGrpcP2PNetworking {
         case _ =>
           logger.info(
             s"Connection-managing actor for endpoint in server role $endpointId " +
-              s"couldn't obtain connection yet, retrying in $SendRetryDelay"
+              s"couldn't obtain connection yet for send operation, retrying it in $SendRetryDelay"
           )
           // Retrying after a delay due to not being connected:
           //  record the send instant and delay to emit the actor queue latency when processing the message

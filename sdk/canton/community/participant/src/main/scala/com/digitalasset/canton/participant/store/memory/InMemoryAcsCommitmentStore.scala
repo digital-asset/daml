@@ -209,7 +209,7 @@ class InMemoryAcsCommitmentStore(
   override def outstanding(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Seq[ParticipantId],
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
       includeMatchedPeriods: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -217,8 +217,7 @@ class InMemoryAcsCommitmentStore(
     FutureUnlessShutdown.pure(
       _outstanding.get
         .filter { case (period, participant, state, _) =>
-          (counterParticipant.isEmpty ||
-            counterParticipant.contains(participant)) &&
+          counterParticipantsFilter.fold(true)(_.contains(participant)) &&
           period.fromExclusive < end &&
           period.toInclusive >= start &&
           (includeMatchedPeriods || state != CommitmentPeriodState.Matched)
@@ -229,15 +228,15 @@ class InMemoryAcsCommitmentStore(
   override def searchComputedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Seq[ParticipantId] = Seq.empty,
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[
     Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.HashedCommitmentType)]
   ] = {
-    val filteredByCounterParty =
-      if (counterParticipant.isEmpty) computed
-      else computed.filter(c => counterParticipant.contains(c._1))
+    val filteredByCounterParty = counterParticipantsFilter.fold(computed)(participants =>
+      computed.filter { case (counterParticipant, _) => participants.contains(counterParticipant) }
+    )
 
     FutureUnlessShutdown.pure(
       filteredByCounterParty.flatMap { case (p, m) =>
@@ -256,13 +255,17 @@ class InMemoryAcsCommitmentStore(
   override def searchReceivedBetween(
       start: CantonTimestamp,
       end: CantonTimestamp,
-      counterParticipant: Seq[ParticipantId] = Seq.empty,
+      counterParticipantsFilter: Option[NonEmpty[Seq[ParticipantId]]] = None,
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Iterable[SignedProtocolMessage[AcsCommitment]]] = {
-    val filteredByCounterParty = (if (counterParticipant.isEmpty) received
-                                  else
-                                    received.filter(c => counterParticipant.contains(c._1))).values
+    val filteredByCounterParty = counterParticipantsFilter
+      .fold(received)(participants =>
+        received.filter { case (counterParticipant, _) =>
+          participants.contains(counterParticipant)
+        }
+      )
+      .values
 
     FutureUnlessShutdown.pure(
       filteredByCounterParty.flatMap(msgs =>

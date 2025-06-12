@@ -399,7 +399,7 @@ final class AvailabilityModule[E <: Env[E]](
       disseminationProtocolState.disseminationProgress.updateWith(batchId) {
         case None =>
           val fromNodeString = voteToAdd.map(_._1).map(node => s"'$node'").getOrElse("this node")
-          logger.info(
+          logger.debug(
             s"$actingOnMessageType: got a store-response for batch $batchId " +
               s"from $fromNodeString but the batch is unknown (potentially already proposed), ignoring"
           )
