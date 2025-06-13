@@ -1,7 +1,7 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal", "da_haskell_test")
 
 da_haskell_library(
     name = "daml-lf-proto",
@@ -29,6 +29,39 @@ da_haskell_library(
         "//compiler/daml-lf-proto-encode",
         "//compiler/daml-lf-proto-util",
         "//libs-haskell/da-hs-base",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+    ],
+)
+
+da_haskell_test(
+    name = "daml-lf-proto-test",
+    srcs = [
+        "test/DA/Daml/LF/Proto3/Test.hs",
+    ],
+    main_function = "DA.Daml.LF.Proto3.Test.entry",
+    hackage_deps = [
+        "base",
+        # "containers",
+        # "cryptonite",
+        # "memory",
+        # "bytestring",
+        # "mtl",
+        # "lens",
+        # "text",
+        # "vector",
+        # "proto3-suite",
+        # "unordered-containers",
+        "pretty-simple",
+    ],
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-proto-decode",
+        "//compiler/daml-lf-proto-encode",
+        "//compiler/daml-lf-ast",
+        # "//compiler/daml-lf-proto-util",
+        "//libs-haskell/da-hs-base",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
     ],
 )
 

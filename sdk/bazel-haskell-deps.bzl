@@ -542,6 +542,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "path-io",
             "pcre-utils",
             "pretty",
+            "pretty-simple",
             "prettyprinter",
             "pretty-show",
             "process",
