@@ -11,10 +11,11 @@ info() {
   (>&2 echo -n -e "\e[90m${script_name}\e[97m: [\e[0;36mINFO\e[97m]:\e[0m $1")
 }
 info_done() {
-  (>&2 printf "\t\t\e[97m[\e[1;32mDONE\e[97m]\e[0m\n")
+  (>&2 echo -n -e "\e[97m[\e[1;32mDONE\e[97m]\e[0m\n")
 }
 info_fail() {
-  (>&2 printf "\t\t\e[97m[\e[1;31mFAIL\e[97m]\e[0m\n")
+  (>&2 echo -n -e "\e[90m${script_name}\e[97m: \e[97m[\e[1;31mFAIL\e[97m]\e[0m $1\n")
+  echo "$1" >> "${logs}/failed_artifacts.log"
 }
 
 if [ ! -f "${HOME}/.unifi/bin/unifi" ]; then
@@ -30,7 +31,7 @@ fi
 
 STAGING_DIR=$1
 RELEASE_TAG=$2
-REGISTRY=$3
+UNIFI_ASSISTANT_REGISTRY=$3
 
 declare -A publish=(
   [damlc]=publish_damlc
@@ -50,21 +51,37 @@ else
   move="mv -f"
   makedir="mkdir -p"
 fi
+
 logs="${STAGING_DIR}/logs"
 ${makedir} "${logs}"
 
 function on_exit() {
+  if [[ -f "${logs}/failed_artifacts.log" ]]; then
+    err "Some artifacts failed to publish. See the log below:"
+    cat "${logs}/failed_artifacts.log" | while read -r line; do
+      err "\e[1;31m${line}\e[0m"
+    done
+    rm -f "${logs}/failed_artifacts.log"
+    printf "\n"
+  fi
   info "Cleanup...\t\t\t\t"
   rm -rf "${STAGING_DIR}"/dist && info_done
 }
 
 trap on_exit SIGHUP SIGINT SIGQUIT SIGABRT EXIT
 
-gen_manifest() {
+function gen_manifest() {
+  local arch="${1}"
+  local artifact_name="${2}"
+  local artifact_path="${3}"
   local commands="commands"
+  if [[ "${arch}" =~ "windows" ]]; then
+    artifact_path="${3}.exe"
+  fi
   if [[ "$artifact_path" =~ .jar ]]; then
     commands="jar-commands"
   fi
+  local artifact_desc="${4}"
   echo '
 apiVersion: digitalasset.com/v1
 kind: Component
@@ -75,18 +92,18 @@ spec:
       desc: '"${artifact_desc}"'
   '
 }
+
 function publish_artifact {
   local artifact_name="${1}"
   local artifact_path="${2}"
   local artifact_desc="${3}"
-  local platform arch
   if [[ "$artifact_path" =~ .jar ]]; then
     declare -a artifact_platforms=( "generic" )
   else
-    declare -a artifact_platforms=( "linux-arm,linux/arm64" "linux-intel,linux/amd64" "macos,darwin/arm64" "macos,darwin/amd64" )
+    declare -a artifact_platforms=( "linux-arm,linux/arm64" "linux-intel,linux/amd64" "macos,darwin/arm64" "macos,darwin/amd64" "windows,windows/amd64" )
   fi
   declare -a platform_args
-  local artifact
+  local artifact arch search_pattern
 
 cd "${STAGING_DIR}" || exit 1
  (
@@ -101,27 +118,32 @@ cd "${STAGING_DIR}" || exit 1
     fi
     info "Processing ${artifact_name} for ${arch}...\n"
     artifact="$(find . -type f -name ${search_pattern} | head -1)"
-    if [ -f "${artifact}" ]; then
+    if [[ -f "${artifact}" ]]; then
       ${makedir} "dist/${arch}/${artifact_name}"
-      if [[ "$artifact_path" =~ .jar ]]; then
-        ${copy} ${artifact} "dist/${arch}/${artifact_name}"
-      else
-        ${unarchive} "${artifact}" -C "dist/${arch}/${artifact_name}"
-        ${move} "dist/${arch}/${artifact_name}/${artifact_name}" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
-      fi
-      gen_manifest > "dist/${arch}/${artifact_name}/component.yaml"
-      platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
+        if [[ "$artifact_path" =~ .jar ]]; then
+          ${copy} ${artifact} "dist/${arch}/${artifact_name}"
+        else
+          ${unarchive} "${artifact}" --unlink-first -C "dist/${arch}/${artifact_name}"
+          ${move} "dist/${arch}/${artifact_name}/${artifact_name}" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
+          # Fix symlinks in the artifact: replace them with real files
+          find "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}" -type l | while read link; do
+            real_path="$(realpath "${link}")"
+            rm "${link}"
+            cp -r --dereference "${real_path}" "${link}"
+          done
+        fi
+        gen_manifest "${arch}" "${artifact_name}" "${artifact_path}" "${artifact_desc}" > "dist/${arch}/${artifact_name}/component.yaml"
+        platform_args+=( "--platform ${arch}=dist/${arch}/${artifact_name} " )
     else
-      err "Artifact not found: ${artifact}"
+        info_fail "Artifact not found: ${search_pattern}"
     fi
-  done && info_done
-
-  info "Uploading ${artifact_name} to oci registry...\n"
-  "${HOME}"/.unifi/bin/unifi \
-    repo publish-component \
-      "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
-      --registry "${REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
- ) && info_done || info_fail
+  done
+    info "Uploading ${artifact_name} to oci registry...\n"
+    "${HOME}"/.unifi/bin/unifi \
+      repo publish-component \
+        "${artifact_name}" "${RELEASE_TAG}" --extra-tags latest ${platform_args[@]} \
+        --registry "${UNIFI_ASSISTANT_REGISTRY}" 2>&1 | tee "${logs}/${artifact_name}-${RELEASE_TAG}.log"
+ )
 }
 
 ###
@@ -148,7 +170,6 @@ function publish_daml2js {
   publish_artifact "daml2js" "daml2js-${RELEASE_TAG}/daml2js" "Daml to JavaScript compiler"
 }
 
-
 ###
 # Publish component "codegen"
 # target: "//language-support/java/codegen:binary"
@@ -161,4 +182,3 @@ function publish_codegen {
 for component in "${!publish[@]}"; do
  "${publish[$component]}"
 done
-
