@@ -34,8 +34,8 @@ it is an imaginary database that represents the union of all parties' databases.
 
 The Ledger Model defines:
 
-  #. What the ledger looks like - the structure of the Canton Ledger
-  #. Who sees which changes and data - the privacy model for the Canton Ledger
+  #. What the ledger looks like - the :ref:`structure <ledger-structure>` of the Canton Ledger
+  #. Who sees which changes and data - the :ref:`privacy model <da-model-privacy>` for the Canton Ledger
   #. What changes to the ledger are allowed and who can request them - the integrity model for the Canton Ledger
 
 The sections below review these concepts of the Ledger Model in turn and how they relate to Daml smart contracts.

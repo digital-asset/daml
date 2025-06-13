@@ -84,7 +84,7 @@ setup alice bob bank1 bank2 = script do
   disclosedEur <- fromSome <$> queryDisclosure alice eur
   -- SNIPPET-SCRIPT-END
 
-  pure (eur, usd, proposeDvP, disclosedEur)
+  pure (eurAsset, eur, usd, proposeDvP, disclosedEur)
 
 simpleDvp = script do
   alice <- allocateParty "Alice"
@@ -92,7 +92,7 @@ simpleDvp = script do
   bank1 <- allocateParty "Bank1"
   bank2 <- allocateParty "Bank2"
 
-  (eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
+  (_, eur, usd, proposeDvP, disclosedEur) <- setup alice bob bank1 bank2
 
   -- SNIPPET-ACCEPT_AND_SETTLE-BEGIN
   (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
@@ -102,7 +102,7 @@ simpleDvp = script do
   submit bank2 do exerciseCmd newEur Archive
   submit bank1 do exerciseCmd newUsd Archive
 
-  (eur, usd, proposeDvp, disclosedEur) <- setup alice bob bank1 bank2
+  (eurAsset, eur, usd, proposeDvp, disclosedEur) <- setup alice bob bank1 bank2
 
   -- SNIPPET-ACCEPT_THEN_SETTLE-BEGIN
   dvp <- submit bob $
@@ -111,6 +111,15 @@ simpleDvp = script do
   (newUsd, newEur) <- submitWithDisclosures bob [disclosedEur] do
       exerciseCmd dvp $ Settle with actor = bob
   -- SNIPPET-ACCEPT_THEN_SETTLE-END
+
+  -- SNIPPET-REVERT-PROPOSAL-BEGIN
+  proposeDvP2 <- submit alice $ do
+    createCmd ProposeSimpleDvP with
+        proposer = alice
+        counterparty = bob
+        allocated = newUsd
+        expected = eurAsset
+  -- SNIPPET-REVERT-PROPOSAL-END
 
   submit bank2 do exerciseCmd newEur Archive
   submit bank1 do exerciseCmd newUsd Archive

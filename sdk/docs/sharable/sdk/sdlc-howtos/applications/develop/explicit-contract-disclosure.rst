@@ -202,8 +202,7 @@ over the contracts.
   of the submitting party over the respective contract.
   However, the authorization restrictions of the Daml model still apply:
   the submitted command still needs to be well authorized. The actors
-  need to be properly authorized to execute the action,
-  as described in :externalref:`Privacy Through Authorization <da-model-privacy-authorization>`.
+  need to be properly authorized to execute the action.
 
 .. _stakeholder-contract-share:
 
