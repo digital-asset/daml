@@ -81,8 +81,9 @@ def _collect_maven_info_impl(_target, ctx):
                 maven_dependencies = [],
             )]
         if MavenInfo not in jar:
-            fail("Expected maven info for jar dependency: {}".format(jar.label))
-        return [jar[MavenInfo]]
+            return []
+        else:
+            return [jar[MavenInfo]]
     elif ctx.rule.kind == "scala_library":
         # For builtin libraries defined in the replacements section in dependencies.yaml.
         if len(exports) == 1:

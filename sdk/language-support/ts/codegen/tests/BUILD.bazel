@@ -151,6 +151,7 @@ sh_test(
         "$(location @jq_dev_env//:jq)",
         "$(location :npmcheck1.dar)",
         "$(location :npmcheck2.dar)",
+        "$(location @nodejs//:node)",
         sdk_version,
     ],
     data = [
@@ -158,6 +159,7 @@ sh_test(
         ":npmcheck2.dar",
         "//:daml2js",
         "@jq_dev_env//:jq",
+        "@nodejs//:node",
         "@nodejs//:npm_bin",
     ],
     deps = [
