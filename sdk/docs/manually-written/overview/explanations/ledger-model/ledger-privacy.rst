@@ -13,7 +13,7 @@ Privacy
 
 
 The :ref:`ledger structure section <ledger-structure>` answered the question "What the Ledger looks like?" by introducing a hierarchical format to record the changes.
-This section addresses the question "who sees which changes and data".
+This section addresses the question "Who sees which changes and data?".
 That is, it explains the privacy model for Canton Ledgers.
 
 The privacy model of Canton Ledgers is based on a **need-to-know basis**,
@@ -27,7 +27,8 @@ Informee
 ********
 
 A party can take different roles in Daml templates and choices;
-the party can be declared as contract or choice ``observer``, ``signatory`` or ``controller``.
+the party can be declared as ``signatory``, choice ``controller``, or contract or choice ``observer``.
+For a contract, a party is a **stakeholder** if it is a signatory or contract observer of the contract.
 
 * Every contract and choice ``observer`` should observe changes to the contract (creation or archival) and exercises of a choice, respectively, as the name suggests.
   
@@ -35,11 +36,11 @@ the party can be declared as contract or choice ``observer``, ``signatory`` or `
   they should learn when the contract is created or used.
 
 * An actor of an Exercise, which is the ``controller`` of the choice, has a stake in the action and should therefore see the exercise;
-  they may not have a stake in the input contract though.
+  they may not have a stake in the contract though.
   
 These observations motivate the following definition of an **informee**, namely the set of parties that should be informed about an action.
 The informees for a node are the union of the sets marked with X in the following table,
-where a **stakeholder** of a contract is a signatory or contract observer of the contract.
+
 
 .. _def-informee:
 
@@ -76,7 +77,7 @@ where a **stakeholder** of a contract is a signatory or contract observer of the
 For example, the informees of a **Create** node are the stakeholders of the created contract, that is, the signatories and observers.
 For consuming **Exercise** node, the informees consist of the stakeholders of the consumed contract, the action's actors and choice observers.
 
-As a design decision, a contract observer of the input contract is not informed about non-consuming **Exercise** and **Fetch** actions,
+As a design decision, a contract observer is not informed about non-consuming **Exercise** and **Fetch** actions,
 unless they are explicitly among the actors or choice observers.
 This is because such actions do not change the state of the contract itself.
 
