@@ -23,6 +23,7 @@ da_haskell_library(
         "vector",
         "proto3-suite",
         "unordered-containers",
+        "pretty-show",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],

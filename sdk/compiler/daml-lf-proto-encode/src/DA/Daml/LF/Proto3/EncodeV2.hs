@@ -263,11 +263,16 @@ encodeKind = \case
       internKind arr
 
 internKind :: P.Kind -> Encode P.Kind
-internKind = \case
-  (P.Kind (Just k)) -> do
-    n <- IM.internState k internedKindsMap
-    return $ (P.Kind . Just . P.KindSumInterned) n
-  (P.Kind Nothing) -> error "nothing kind during encoding"
+internKind k =
+  do
+    EncodeEnv{version} <- get
+    if isDevVersion version
+      then case k of
+        (P.Kind (Just k)) -> do
+            n <- IM.internState k internedKindsMap
+            return $ (P.Kind . Just . P.KindSumInterned) n
+        (P.Kind Nothing) -> error "nothing kind during encoding"
+      else return k
 
 ------------------------------------------------------------------------
 -- Encoding of types

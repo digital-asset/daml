@@ -46,7 +46,7 @@ newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
 runDecode :: DecodeEnv -> Decode a -> Either Error a
 runDecode env act = runExcept $ runReaderT (unDecode act) env
 
-lookupInterned :: V.Vector a -> (Int32 -> Error) -> Int32 -> Decode a
+lookupInterned :: Integral b => V.Vector a -> (b -> Error) -> b -> Decode a
 lookupInterned interned mkError id = do
     case interned V.!? fromIntegral id of
           Nothing -> throwError $ mkError id
@@ -143,24 +143,24 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     pure (mangled, sequence unmangledOrErr)
 
 decodePackage :: LF.Version -> LF.SelfOrImportedPackageId -> LF2.Package -> Either Error Package
-decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV _internedKindsV)
+decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV internedKindsV)
   | Nothing <- mMetadata  =
       throwError (ParseError "missing package metadata")
   | Just metadata <- mMetadata = do
       let internedStrings = V.map decodeMangledString internedStringsV
       let internedDottedNames = V.empty
       let internedTypes = V.empty
-      -- TODO https://github.com/digital-asset/daml/issues/21155
-      -- for internedTypes we do something with the matched internedTypesV but
-      -- for kinds this is not yet needed as, for now, they are always empty
       let internedKinds = V.empty
       let env0 = DecodeEnv{..}
       internedDottedNames <- runDecode env0 $ mapM decodeInternedDottedName internedDottedNamesV
       let env1 = env0{internedDottedNames}
+      internedKinds <- V.constructNE (V.length internedKindsV) $ \prefix i ->
+          runDecode env1{internedKinds = prefix} $ decodeKind (internedKindsV V.! i)
+      let env2 = env1{internedKinds}
       internedTypes <- V.constructNE (V.length internedTypesV) $ \prefix i ->
-          runDecode env1{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
-      let env2 = env1{internedTypes}
-      runDecode env2 $ do
+          runDecode env2{internedTypes = prefix} $ decodeType (internedTypesV V.! i)
+      let env3 = env2{internedTypes}
+      runDecode env3 $ do
         Package version <$> decodeNM DuplicateModule decodeModule mods <*> decodePackageMetadata metadata
 
 decodeUpgradedPackageId :: LF2.UpgradedPackageId -> Decode UpgradedPackageId
@@ -734,7 +734,9 @@ decodeKind LF2.Kind{..} = mayDecode "kindSum" kindSum $ \case
   LF2.KindSumArrow (LF2.Kind_Arrow params mbResult) -> do
     result <- mayDecode "kind_ArrowResult" mbResult decodeKind
     foldr KArrow result <$> traverse decodeKind (V.toList params)
-  LF2.KindSumInterned _ -> error "Should not be populated"
+  LF2.KindSumInterned n -> do
+    DecodeEnv{internedKinds} <- ask
+    lookupInterned internedKinds BadKindId n
 
 decodeBuiltin :: LF2.BuiltinType -> Decode BuiltinType
 decodeBuiltin = \case
