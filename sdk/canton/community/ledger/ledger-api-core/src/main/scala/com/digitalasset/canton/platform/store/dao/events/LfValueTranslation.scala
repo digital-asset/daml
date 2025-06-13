@@ -369,7 +369,7 @@ final class LfValueTranslation(
           keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
           version = createArgument.version,
         ),
-        createTime = rawCreatedEvent.ledgerEffectiveTime,
+        createTime = CreationTime.CreatedAt(rawCreatedEvent.ledgerEffectiveTime),
         cantonData = Bytes.fromByteArray(rawCreatedEvent.driverMetadata),
       )
 

@@ -387,7 +387,7 @@ private[platform] object InMemoryStateUpdater {
             },
             version = createdEvent.createArgument.version,
           ),
-          createTime = createdEvent.ledgerEffectiveTime,
+          createTime = CreationTime.CreatedAt(createdEvent.ledgerEffectiveTime),
           cantonData = createdEvent.driverMetadata,
         ),
         eventOffset = createdEvent.eventOffset,
