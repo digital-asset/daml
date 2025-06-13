@@ -780,16 +780,16 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
   @Resolution(
     "Contact the owners of the synchronizer about the ongoing synchronizer migration."
   )
-  object OngoingSynchronizerMigration
+  object OngoingSynchronizerUpgrade
       extends ErrorCode(
-        id = "TOPOLOGY_ONGOING_SYNCHRONIZER_MIGRATION",
+        id = "TOPOLOGY_ONGOING_SYNCHRONIZER_UPGRADE",
         InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Reject(synchronizerId: SynchronizerId)(implicit
+    final case class Reject(synchronizerId: PhysicalSynchronizerId)(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
           cause =
-            s"The topology state of synchronizer $synchronizerId is frozen due to an ongoing synchronizer migration and no more topology changes are allowed."
+            s"The topology state of synchronizer $synchronizerId is frozen due to an ongoing synchronizer upgrade and no more topology changes are allowed."
         )
         with TopologyManagerError
   }

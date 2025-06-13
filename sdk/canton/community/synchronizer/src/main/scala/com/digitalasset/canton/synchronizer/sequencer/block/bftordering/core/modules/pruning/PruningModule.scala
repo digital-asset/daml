@@ -119,7 +119,7 @@ final class PruningModule[E <: Env[E]](
         }
       case Pruning.PerformPruning(epochNumber) =>
         logger.info(s"Pruning at epoch $epochNumber starting")
-        val pruneFuture = context.zipFuture(
+        val pruneFuture = context.zipFuture3(
           stores.outputStore.prune(epochNumber),
           stores.epochStore.prune(epochNumber),
           stores.availabilityStore.prune(

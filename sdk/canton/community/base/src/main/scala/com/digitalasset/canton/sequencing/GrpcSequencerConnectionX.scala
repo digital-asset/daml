@@ -42,6 +42,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
+import io.grpc.Status
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
@@ -180,7 +181,7 @@ class GrpcSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Boolean] = {
+  ): EitherT[FutureUnlessShutdown, String, Boolean] = {
     val timestamp = signedRequest.content.timestamp
     stub
       .acknowledgeSigned(
@@ -198,6 +199,7 @@ class GrpcSequencerConnectionX(
             if x.status == io.grpc.Status.UNAVAILABLE =>
           false
       }
+      .leftMap(_.toString)
   }
 
   override def getTrafficStateForMember(
@@ -205,20 +207,23 @@ class GrpcSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    SequencerConnectionXStubError,
-    GetTrafficStateForMemberResponse,
-  ] = stub
-    .getTrafficStateForMember(
-      request,
-      timeout,
-      retryPolicy = retryPolicy(retryOnUnavailable = true),
-    )
-    .map { res =>
-      logger.debug(s"Got traffic state ${res.trafficState}")
-      res
-    }
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
+    stub
+      .getTrafficStateForMember(
+        request,
+        timeout,
+        retryPolicy = retryPolicy(retryOnUnavailable = true),
+      )
+      .map { res =>
+        logger.debug(s"Got traffic state ${res.trafficState}")
+        res
+      }
+      .leftMap(_.toString)
+
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
+    clientAuth.logout()
 
   override def downloadTopologyStateForInit(
       request: TopologyStateForInitRequest,

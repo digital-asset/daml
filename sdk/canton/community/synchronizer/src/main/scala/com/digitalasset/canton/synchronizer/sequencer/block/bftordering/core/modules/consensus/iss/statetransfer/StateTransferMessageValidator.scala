@@ -10,6 +10,7 @@ import com.digitalasset.canton.synchronizer.metrics.BftOrderingMetrics
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferMessageValidator.StateTransferValidationResult.{
+  DropResult,
   InvalidResult,
   ValidResult,
 }
@@ -67,18 +68,27 @@ final class StateTransferMessageValidator[E <: Env[E]](
             case Right(()) => ValidResult
           }
         case response: StateTransferMessage.BlockTransferResponse =>
-          validateBlockTransferResponse(
-            response,
-            latestLocallyCompletedEpoch,
-            orderingTopologyInfo.currentMembership,
-          ) match {
-            case Left(error) =>
-              val respError = s"State transfer: invalid BlockTransferResponse: $error, dropping..."
-              InvalidResult(
-                respError,
-                response.from,
-              )
-            case Right(()) => ValidResult
+          response.commitCertificate match {
+            case Some(cc)
+                if cc.prePrepare.message.blockMetadata.epochNumber < latestLocallyCompletedEpoch =>
+              val respReason =
+                s"State transfer: old BlockTransferResponse: from epoch ${cc.prePrepare.message.blockMetadata.epochNumber} we are in epoch $latestLocallyCompletedEpoch, dropping..."
+              DropResult(respReason)
+            case _ =>
+              validateBlockTransferResponse(
+                response,
+                latestLocallyCompletedEpoch,
+                orderingTopologyInfo.currentMembership,
+              ) match {
+                case Left(error) =>
+                  val respError =
+                    s"State transfer: invalid BlockTransferResponse: $error, dropping..."
+                  InvalidResult(
+                    respError,
+                    response.from,
+                  )
+                case Right(()) => ValidResult
+              }
           }
       }
 
@@ -95,6 +105,8 @@ final class StateTransferMessageValidator[E <: Env[E]](
           from,
           metrics.security.noncompliant.labels.violationType.values.StateTransferInvalidMessage,
         )
+      case DropResult(reason) =>
+        logger.info(reason)
     }
 
     StateTransferMessageResult.Continue
@@ -239,6 +251,9 @@ object StateTransferMessageValidator {
     final case class InvalidResult(
         error: String,
         from: BftNodeId,
+    ) extends StateTransferValidationResult
+    final case class DropResult(
+        reason: String
     ) extends StateTransferValidationResult
   }
 }

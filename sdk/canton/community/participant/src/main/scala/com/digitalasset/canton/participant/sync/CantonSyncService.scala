@@ -101,7 +101,6 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -315,26 +314,17 @@ class CantonSyncService(
 
   private val reassignmentCoordination: ReassignmentCoordination =
     ReassignmentCoordination(
-      parameters.reassignmentTimeProofFreshnessProportion,
-      syncPersistentStateManager,
-      connectedSynchronizersLookup.get,
+      reassignmentTimeProofFreshnessProportion =
+        parameters.reassignmentTimeProofFreshnessProportion,
+      syncPersistentStateManager = syncPersistentStateManager,
+      submissionHandles = connectedSynchronizersLookup.get,
       synchronizerId =>
         connectedSynchronizersLookup
           .get(synchronizerId.unwrap)
           .map(_.ephemeral.reassignmentSynchronizer),
-      syncCrypto,
+      syncCryptoApi = syncCrypto,
       loggerFactory,
     )(ec)
-
-  // TODO(#25483) This should be physical
-  val protocolVersionGetter: Traced[SynchronizerId] => Option[ProtocolVersion] =
-    (tracedSynchronizerId: Traced[SynchronizerId]) =>
-      syncPersistentStateManager.protocolVersionFor(tracedSynchronizerId.value)
-
-  override def getProtocolVersionForSynchronizer(
-      synchronizerId: Traced[SynchronizerId]
-  ): Option[ProtocolVersion] =
-    protocolVersionGetter(synchronizerId)
 
   if (isActive()) {
     TraceContext.withNewTraceContext { implicit traceContext =>
@@ -366,29 +356,24 @@ class CantonSyncService(
     aliasManager,
     parameters,
     new SynchronizerLookup {
-      override def isConnected(synchronizerId: SynchronizerId): Boolean =
+      override def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean =
         connectedSynchronizersLookup.isConnected(synchronizerId)
 
       override def isConnectedToAnySynchronizer: Boolean =
         connectedSynchronizersMap.nonEmpty
 
       override def persistentStateFor(
-          synchronizerId: SynchronizerId
+          synchronizerId: PhysicalSynchronizerId
       ): Option[SyncPersistentState] =
         syncPersistentStateManager.get(synchronizerId)
 
-      override def topologyFactoryFor(
-          synchronizerId: SynchronizerId
-      )(implicit traceContext: TraceContext): Option[TopologyComponentFactory] =
-        protocolVersionGetter(Traced(synchronizerId)) match {
-          case Some(protocolVersion) =>
-            syncPersistentStateManager.topologyFactoryFor(synchronizerId, protocolVersion)
+      override def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
+          traceContext: TraceContext
+      ): Option[TopologyComponentFactory] =
+        syncPersistentStateManager.topologyFactoryFor(synchronizerId)
 
-          case None =>
-            logger.warn(s"Unable to get protocol version for synchronizer $synchronizerId")
-            None
-        }
-
+      override def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId] =
+        syncPersistentStateManager.latestKnownPSId(synchronizerId)
     },
     connectQueue,
     loggerFactory,
@@ -409,7 +394,6 @@ class CantonSyncService(
   val dynamicSynchronizerParameterGetter =
     new CantonDynamicSynchronizerParameterGetter(
       syncCrypto,
-      syncPersistentStateManager.protocolVersionFor,
       aliasManager,
       synchronizerConnectionConfigStore,
       loggerFactory,
@@ -471,18 +455,18 @@ class CantonSyncService(
     parameters.processingTimeouts,
     new JournalGarbageCollectorControl {
       override def disable(
-          synchronizerId: SynchronizerId
+          synchronizerId: PhysicalSynchronizerId
       )(implicit traceContext: TraceContext): Future[Unit] =
-        logicalToPhysical(synchronizerId)
-          .flatMap(connectedSynchronizersMap.get)
+        connectedSynchronizersMap
+          .get(synchronizerId)
           .map(_.addJournalGarageCollectionLock())
           .getOrElse(Future.unit)
 
       override def enable(
-          synchronizerId: SynchronizerId
+          synchronizerId: PhysicalSynchronizerId
       )(implicit traceContext: TraceContext): Unit =
-        logicalToPhysical(synchronizerId)
-          .flatMap(connectedSynchronizersMap.get)
+        connectedSynchronizersMap
+          .get(synchronizerId)
           .foreach(_.removeJournalGarageCollectionLock())
     },
     connectedSynchronizersLookup,
@@ -1991,24 +1975,10 @@ class CantonSyncService(
         .leftMap(error => SubmissionResult.SynchronousError(error.asGrpcStatus))
         .merge
 
-      def getStaticSynchronizerParameter(
-          synchronizerId: SynchronizerId
-      ): Future[StaticSynchronizerParameters] =
-        syncPersistentStateManager.staticSynchronizerParameters(synchronizerId) match {
-          case Some(p) => Future.successful(p)
-          case None =>
-            Future.failed(
-              RequestValidationErrors.InvalidArgument
-                .Reject(s"Synchronizer id's protocol version not found: $synchronizerId")
-                .asGrpcError
-            )
-        }
-
       ReassignmentCommandsBatch.create(reassignmentCommands) match {
         case Right(unassigns: ReassignmentCommandsBatch.Unassignments) =>
-          getStaticSynchronizerParameter(unassigns.target.unwrap)
-            .map(Target(_))
-            .flatMap { staticSynchronizerParameters =>
+          logicalToPhysical(unassigns.target.unwrap) match {
+            case Some(targetPSId) =>
               doReassignment(
                 synchronizerId = unassigns.source.unwrap
               )(
@@ -2022,11 +1992,18 @@ class CantonSyncService(
                     workflowId = workflowId,
                   ),
                   contractIds = unassigns.contractIds,
-                  targetSynchronizer = unassigns.target
-                    .map(PhysicalSynchronizerId(_, staticSynchronizerParameters.unwrap)),
+                  targetSynchronizer = Target(targetPSId),
                 )
               )
-            }
+
+            case None =>
+              Future.failed(
+                RequestValidationErrors.InvalidArgument
+                  .Reject(s"Unable to resolve ${unassigns.target} to a connected synchronizer id")
+                  .asGrpcError
+              )
+          }
+
         case Right(assigns: ReassignmentCommandsBatch.Assignments) =>
           doReassignment(
             synchronizerId = assigns.target.unwrap
@@ -2099,15 +2076,19 @@ class CantonSyncService(
       validAt: Offset,
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] =
-    syncPersistentStateManager.getAll.values.toList
-      .parTraverse {
-        _.reassignmentStore.findIncomplete(
+    MonadUtil
+      .sequentialTraverse(
+        syncPersistentStateManager.allKnownLSIds
+          .flatMap(syncPersistentStateManager.reassignmentStore)
+          .toSeq
+      )(
+        _.findIncomplete(
           sourceSynchronizer = None,
           validAt = validAt,
           stakeholders = NonEmpty.from(stakeholders),
           limit = NonNegativeInt.maxValue,
         )
-      }
+      )
       .map(
         _.flatten
           .map(_.reassignmentEventGlobalOffset.globalOffset)

@@ -10,7 +10,10 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{RawArchivedContract, RawCreatedContract}
+import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
+  RawArchivedContract,
+  RawCreatedContract,
+}
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.platform.store.dao.events.ContractsReader.*
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
@@ -18,7 +21,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.canton.platform.store.serialization.{Compression, ValueSerializer}
 import com.digitalasset.daml.lf.data.Bytes
 import com.digitalasset.daml.lf.data.Ref.PackageName
-import com.digitalasset.daml.lf.transaction.{CreationTime, GlobalKeyWithMaintainers, Node}
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value.VersionedValue
 
 import java.io.{ByteArrayInputStream, InputStream}
@@ -137,7 +140,7 @@ private[dao] sealed class ContractsReader(
                   keyOpt = keyOpt,
                   version = createArg.version,
                 ),
-                createTime = CreationTime.CreatedAt(raw.ledgerEffectiveTime),
+                createTime = raw.ledgerEffectiveTime,
                 cantonData = Bytes.fromByteArray(raw.driverMetadata),
               )
             )

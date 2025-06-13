@@ -663,7 +663,6 @@ class SequencerNodeBootstrap(
 
           synchronizerParamsLookup = SynchronizerParametersLookup
             .forSequencerSynchronizerParameters(
-              staticSynchronizerParameters,
               config.publicApi.overrideMaxRequestSize,
               topologyClient,
               loggerFactory,
@@ -679,7 +678,6 @@ class SequencerNodeBootstrap(
             SequencerSynchronizerParameters
           ] =
             SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-              staticSynchronizerParameters,
               config.publicApi.overrideMaxRequestSize,
               topologyClient,
               loggerFactory,
@@ -746,6 +744,7 @@ class SequencerNodeBootstrap(
                 syncCryptoWithOptionalSessionKeys,
                 futureSupervisor,
                 config.trafficConfig,
+                config.parameters.minimumSequencingTime,
                 runtimeReadyPromise.futureUS,
                 topologyAndSequencerSnapshot.flatMap { case (_, sequencerSnapshot) =>
                   sequencerSnapshot

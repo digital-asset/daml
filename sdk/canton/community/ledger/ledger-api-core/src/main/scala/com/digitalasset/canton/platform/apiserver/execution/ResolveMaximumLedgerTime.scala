@@ -4,12 +4,15 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.participant.state.index.{MaximumLedgerTime, MaximumLedgerTimeService}
+import com.digitalasset.canton.ledger.participant.state.index.{
+  MaximumLedgerTime,
+  MaximumLedgerTimeService,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance}
+import com.digitalasset.daml.lf.transaction.FatContractInstance
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
@@ -50,7 +53,6 @@ class ResolveMaximumLedgerTime(
   ): MaximumLedgerTime =
     processedDisclosedContracts.iterator
       .map(_.createdAt)
-      .collect { case CreationTime.CreatedAt(time) => time }
       .maxOption
       .fold(lookupMaximumLet)(adjust(lookupMaximumLet, _))
 

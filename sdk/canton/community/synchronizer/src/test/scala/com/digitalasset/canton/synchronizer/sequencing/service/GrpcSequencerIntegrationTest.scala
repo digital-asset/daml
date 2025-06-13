@@ -163,7 +163,6 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   val synchronizerParamsLookup
       : DynamicSynchronizerParametersLookup[SequencerSynchronizerParameters] =
     SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-      BaseTest.defaultStaticSynchronizerParameters,
       None,
       topologyClient,
       loggerFactory,
@@ -650,7 +649,12 @@ class GrpcSequencerIntegrationWithFailingTokenRefreshTest
         val client = env.makeDefaultClient.futureValueUS.value
 
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
-          inside(client.downloadTopologyStateForInit().value.futureValue) { case Left(message) =>
+          inside(
+            client
+              .downloadTopologyStateForInit(maxRetries = 5, retryLogLevel = Some(Level.WARN))
+              .value
+              .futureValueUS
+          ) { case Left(message) =>
             message shouldBe
               "Status{code=UNAVAILABLE, description=Authentication token refresh error: test, cause=null}"
           },
@@ -660,7 +664,19 @@ class GrpcSequencerIntegrationWithFailingTokenRefreshTest
                 _.warningMessage shouldBe
                   "Token refresh encountered error: Status{code=UNAVAILABLE, description=test, cause=null}",
                 "Failing token refresh",
-              )
+              ),
+              (
+                _.warningMessage should include(
+                  "The operation 'Download topology state for init' was not successful."
+                ),
+                "Attempt failure",
+              ),
+              (
+                _.warningMessage should include(
+                  "Now retrying operation 'Download topology state for init'."
+                ),
+                "Retry message",
+              ),
             )
           ),
         )

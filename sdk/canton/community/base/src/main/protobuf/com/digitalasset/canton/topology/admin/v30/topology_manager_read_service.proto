@@ -31,7 +31,7 @@ service TopologyManagerReadService {
 
   rpc ListPurgeTopologyTransaction(ListPurgeTopologyTransactionRequest) returns (ListPurgeTopologyTransactionResponse);
 
-  rpc ListSynchronizerMigrationAnnouncement(ListSynchronizerMigrationAnnouncementRequest) returns (ListSynchronizerMigrationAnnouncementResponse);
+  rpc ListSynchronizerUpgradeAnnouncement(ListSynchronizerUpgradeAnnouncementRequest) returns (ListSynchronizerUpgradeAnnouncementResponse);
   rpc ListSequencerConnectionSuccessor(ListSequencerConnectionSuccessorRequest) returns (ListSequencerConnectionSuccessorResponse);
 
   rpc ListAvailableStores(ListAvailableStoresRequest) returns (ListAvailableStoresResponse);
@@ -248,15 +248,15 @@ message ListPurgeTopologyTransactionResponse {
   repeated Result results = 1;
 }
 
-message ListSynchronizerMigrationAnnouncementRequest {
+message ListSynchronizerUpgradeAnnouncementRequest {
   BaseQuery base_query = 1;
   string filter_synchronizer_id = 2;
 }
 
-message ListSynchronizerMigrationAnnouncementResponse {
+message ListSynchronizerUpgradeAnnouncementResponse {
   message Result {
     BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.SynchronizerMigrationAnnouncement item = 2;
+    com.digitalasset.canton.protocol.v30.SynchronizerUpgradeAnnouncement item = 2;
   }
   repeated Result results = 1;
 }

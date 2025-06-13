@@ -128,14 +128,14 @@ class ParticipantNodeBootstrap(
     )
 
   override protected def sequencedTopologyStores: Seq[TopologyStore[SynchronizerStore]] =
-    cantonSyncService.get.toList.flatMap(_.syncPersistentStateManager.getAll.values).collect {
-      case s: SyncPersistentState => s.topologyStore
-    }
+    cantonSyncService.get.toList
+      .flatMap(_.syncPersistentStateManager.getAll.values)
+      .map(_.topologyStore)
 
   override protected def sequencedTopologyManagers: Seq[SynchronizerTopologyManager] =
-    cantonSyncService.get.toList.flatMap(_.syncPersistentStateManager.getAll.values).collect {
-      case s: SyncPersistentState => s.topologyManager
-    }
+    cantonSyncService.get.toList
+      .flatMap(_.syncPersistentStateManager.getAll.values)
+      .map(_.topologyManager)
 
   override protected def lookupTopologyClient(
       storeId: TopologyStoreId
@@ -184,20 +184,16 @@ class ParticipantNodeBootstrap(
       loggerFactory,
     )
 
-    val _ = packageDependencyResolver.putIfAbsent(resolver)
+    packageDependencyResolver.putIfAbsent(resolver).discard
 
     def acsInspectionPerSynchronizer(): Map[SynchronizerId, AcsInspection] =
       cantonSyncService.get
-        .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
-          synchronizerId -> state.acsInspection
-        })
+        .map(_.syncPersistentStateManager.getAllLatest.view.mapValues(_.acsInspection).toMap)
         .getOrElse(Map.empty)
 
     def reassignmentStore(): Map[SynchronizerId, ReassignmentStore] =
       cantonSyncService.get
-        .map(_.syncPersistentStateManager.getAll.map { case (synchronizerId, state) =>
-          synchronizerId -> state.reassignmentStore
-        })
+        .map(_.syncPersistentStateManager.getAllLatest.view.mapValues(_.reassignmentStore).toMap)
         .getOrElse(Map.empty)
 
     def ledgerEnd(): FutureUnlessShutdown[Option[ParameterStorageBackend.LedgerEnd]] =
@@ -676,6 +672,18 @@ class ParticipantNodeBootstrap(
             )
             .mapK(FutureUnlessShutdown.outcomeK)
 
+        /*
+        Returns the topology manager corresponding to an active configuration. Restricting to active is fine since
+        the topology manager is used for party allocation which would fail for inactive configurations.
+         */
+        activeTopologyManagerGetter = (id: SynchronizerId) =>
+          synchronizerConnectionConfigStore
+            .getActive(id, singleExpected = false)
+            .toOption
+            .flatMap(_.configuredPSId.toOption)
+            .flatMap(syncPersistentStateManager.get)
+            .map(_.topologyManager)
+
         // Sync Service
         sync = cantonSyncServiceFactory.create(
           participantId,
@@ -686,7 +694,7 @@ class ParticipantNodeBootstrap(
           ephemeralState,
           syncPersistentStateManager,
           packageServiceContainer.asEval,
-          new PartyOps(syncPersistentStateManager.get(_).map(_.topologyManager), loggerFactory),
+          new PartyOps(activeTopologyManagerGetter, loggerFactory),
           topologyDispatcher,
           partyNotifier,
           syncCryptoSignerWithSessionKeys,

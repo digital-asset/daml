@@ -101,7 +101,7 @@ class CantonCryptoProvider(
       metricsContext: MetricsContext
   ) =
     FutureUnlessShutdown(
-      metrics.performance.orderingStageLatency.timer
+      metrics.performance.orderingStageLatency
         .timeFuture(call.unwrap)(
           metricsContext.withExtraLabels(
             metrics.performance.orderingStageLatency.labels.stage.Key -> operationId

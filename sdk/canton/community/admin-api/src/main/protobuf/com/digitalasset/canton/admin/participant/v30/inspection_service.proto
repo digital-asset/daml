@@ -58,7 +58,7 @@ message LookupOffsetByTimeResponse {
 message OpenCommitmentRequest {
   // the commitment to be opened
   bytes commitment = 1;
-  string synchronizer_id = 2;
+  string physical_synchronizer_id = 2;
   // the participant for whom the receiving participant computed the commitment
   string computed_for_counter_participant_uid = 3;
   // interval end tick which the commitment corresponds to

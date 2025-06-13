@@ -4,10 +4,14 @@
 package com.digitalasset.canton.platform.index
 
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore, MaximumLedgerTime, MaximumLedgerTimeService}
+import com.digitalasset.canton.ledger.participant.state.index.{
+  ContractState,
+  ContractStore,
+  MaximumLedgerTime,
+  MaximumLedgerTimeService,
+}
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 
@@ -42,11 +46,10 @@ class ContractStoreBasedMaximumLedgerTimeService(
                 Future.successful(MaximumLedgerTime.Archived(Set(contractId)))
 
               case active: ContractState.Active =>
-                val createdAt = active.contractInstance.createdAt match {
-                  case CreationTime.CreatedAt(time) => Some(time)
-                  case CreationTime.Now => None
-                }
-                val newMaximumLedgerTime = Ordering[Option[Timestamp]].max(resultSoFar, createdAt)
+                val newMaximumLedgerTime = resultSoFar
+                  .getOrElse(Timestamp.MinValue)
+                  .pipe(Ordering[Timestamp].max(_, active.contractInstance.createdAt))
+                  .pipe(Some(_))
                 goAsync(newMaximumLedgerTime, otherContractIds)
             }(directEc)
       }

@@ -8,6 +8,7 @@ import cats.data.EitherT
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
+import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
@@ -15,6 +16,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.Pruning
 import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.SynchronizerOffset
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -27,7 +29,12 @@ import scala.math.Ordering.Implicits.*
   * @param participantNodePersistentState
   *   the persistent state of the participant node that is not specific to a synchronizer
   */
-// TODO(#24716) This class should be revisited to check physical <> logical
+/*
+ TODO(#24716) This class should be revisited to check physical <> logical.
+ Split physical and logical pruning. In particular, many pruning computations are logical
+ (because they relate to contracts) but some of them are not (e.g., because they use the
+ sequenced event store).
+ */
 class FirstUnsafeOffsetComputation(
     participantNodePersistentState: Eval[ParticipantNodePersistentState],
     sortedReconciliationIntervalsProviderFactory: SortedReconciliationIntervalsProviderFactory,
@@ -40,18 +47,28 @@ class FirstUnsafeOffsetComputation(
     with HasCloseContext {
   import PruningProcessor.*
 
+  /*
+  TODO(#24716) considering the guarantees that we have, it probably does not make sense to have this physical
+  We can probably do one query per logical synchronizer
+   */
   def perform(
-      allSynchronizers: List[(SynchronizerId, SyncPersistentState)],
+      allSynchronizers: Seq[SyncPersistentState],
       pruneUptoInclusive: Offset,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
 
+    // Keep only one persistent state per logical id
+    // TODO(#24716) See comment at the the of the class. This should be revisited.
+    val synchronizers: Map[SynchronizerId, SyncPersistentState] = allSynchronizers
+      .groupBy1(_.physicalSynchronizerId)
+      .map { case (psid, states) => psid.logical -> states.maxBy1(_.physicalSynchronizerId) }
+
     val allActiveSynchronizersE = {
       // Check that no migration is running concurrently.
       // This is just a sanity check; it does not prevent a migration from being started concurrently with pruning
       import SynchronizerConnectionConfigStore.*
-      allSynchronizers.filterA { case (synchronizerId, _state) =>
+      synchronizers.toList.filterA { case (synchronizerId, _state) =>
         synchronizerConnectionConfigStore.getAllStatusesFor(synchronizerId) match {
           case Left(_: UnknownId) =>
             Left(LedgerPruningInternalError(s"No synchronizer status for $synchronizerId"))
@@ -71,6 +88,7 @@ class FirstUnsafeOffsetComputation(
         }
       }
     }
+
     for {
       _ <- EitherT.cond[FutureUnlessShutdown](
         participantNodePersistentState.value.ledgerApiStore
@@ -97,7 +115,7 @@ class FirstUnsafeOffsetComputation(
       unsafeSynchronizerOffsets <- affectedSynchronizerOffsets.parTraverseFilter {
         case (_, persistent) => firstUnsafeEventFor(persistent)
       }
-      unsafeIncompleteReassignmentOffsets <- allSynchronizers.parTraverseFilter {
+      unsafeIncompleteReassignmentOffsets <- synchronizers.toList.parTraverseFilter {
         case (_, persistent) => firstUnsafeReassignmentEventFor(persistent)
       }
       unsafeDedupOffset <- EitherT.right(firstUnsafeOffsetPublicationTime())
@@ -123,7 +141,7 @@ class FirstUnsafeOffsetComputation(
 
       sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
         .get(
-          synchronizerId.logical,
+          synchronizerId,
           synchronizerIndex
             .flatMap(_.sequencerIndex)
             .map(_.sequencerTimestamp)
@@ -230,14 +248,18 @@ class FirstUnsafeOffsetComputation(
           targetSynchronizerId,
         ) = earliestIncompleteReassignment
         for {
-          unsafeOffsetForReassignments <- EitherT(
+          unsafeOffsetForReassignments <- EitherT[
+            FutureUnlessShutdown,
+            LedgerPruningError,
+            SynchronizerOffset,
+          ](
             participantNodePersistentState.value.ledgerApiStore
               .synchronizerOffset(earliestIncompleteReassignmentGlobalOffset)
               .map(
                 _.toRight(
                   Pruning.LedgerPruningInternalError(
                     s"incomplete reassignment from $earliestIncompleteReassignmentGlobalOffset not found on $synchronizerId"
-                  ): LedgerPruningError
+                  )
                 )
               )
           )

@@ -13,13 +13,17 @@ import com.digitalasset.canton.data.LedgerTimeBoundaries
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.hash.TransactionHash.NodeHashingError
-import com.digitalasset.canton.protocol.hash.{HashTracer, TransactionHash, TransactionMetadataHashBuilder}
+import com.digitalasset.canton.protocol.hash.{
+  HashTracer,
+  TransactionHash,
+  TransactionMetadataHashBuilder,
+}
 import com.digitalasset.canton.protocol.{LfContractId, LfHash, SerializableContract}
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, NodeId, VersionedTransaction}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.util.UUID
@@ -85,7 +89,7 @@ object InteractiveSubmission {
         .map { case (contractId, serializedNode) =>
           contractId -> FatContractInstance.fromCreateNode(
             serializedNode.toLf,
-            CreationTime.CreatedAt(serializedNode.ledgerCreateTime.toLf),
+            serializedNode.ledgerCreateTime.toLf,
             saltFromSerializedContract(serializedNode),
           )
         }

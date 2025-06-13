@@ -6,6 +6,7 @@ package com.digitalasset.canton.store
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.caching.ScaffeineCache
 import com.digitalasset.canton.caching.ScaffeineCache.TracedAsyncLoadingCache
+import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.{CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -15,7 +16,6 @@ import com.digitalasset.canton.store.db.DbIndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{checked, topology}
 import com.google.common.annotations.VisibleForTesting
 import slick.jdbc.{PositionedParameters, SetParameter}
 
@@ -115,7 +115,7 @@ object IndexedSynchronizer extends IndexedStringFromDb[IndexedSynchronizer, Sync
 final case class IndexedPhysicalSynchronizer private (
     synchronizerId: PhysicalSynchronizerId,
     index: Int,
-) extends IndexedString.Impl[topology.PhysicalSynchronizerId](synchronizerId) {
+) extends IndexedString.Impl[PhysicalSynchronizerId](synchronizerId) {
   require(
     index > 0,
     s"Illegal index $index. The index must be positive to prevent clashes with participant event log ids.",
@@ -123,14 +123,14 @@ final case class IndexedPhysicalSynchronizer private (
 }
 
 object IndexedPhysicalSynchronizer
-    extends IndexedStringFromDb[IndexedPhysicalSynchronizer, topology.PhysicalSynchronizerId] {
+    extends IndexedStringFromDb[IndexedPhysicalSynchronizer, PhysicalSynchronizerId] {
 
   /** @throws java.lang.IllegalArgumentException
     *   if `index <= 0`.
     */
   @VisibleForTesting
   def tryCreate(
-      synchronizerId: topology.PhysicalSynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       index: Int,
   ): IndexedPhysicalSynchronizer =
     IndexedPhysicalSynchronizer(synchronizerId, index)
@@ -138,14 +138,14 @@ object IndexedPhysicalSynchronizer
   override protected def dbTyp: IndexedStringType = IndexedStringType.physicalSynchronizerId
 
   override protected def buildIndexed(
-      item: topology.PhysicalSynchronizerId,
+      item: PhysicalSynchronizerId,
       index: Int,
   ): IndexedPhysicalSynchronizer =
     // save, because buildIndexed is only called with indices created by IndexedStringStores.
     // These indices are positive by construction.
     checked(tryCreate(item, index))
 
-  override protected def asString(item: topology.PhysicalSynchronizerId): String300 =
+  override protected def asString(item: PhysicalSynchronizerId): String300 =
     item.toLengthLimitedString
 
   override protected def fromString(

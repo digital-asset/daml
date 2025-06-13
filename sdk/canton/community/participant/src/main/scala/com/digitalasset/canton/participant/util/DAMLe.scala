@@ -55,7 +55,8 @@ object DAMLe {
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
-        10000, // 10000 is the default value in the engine configuration
+        10000, // 10000 is the default value in the engine configuration,
+      paranoidMode: Boolean,
   ): Engine =
     new Engine(
       EngineConfig(
@@ -70,6 +71,7 @@ object DAMLe {
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        paranoid = paranoidMode,
       )
     )
 
@@ -257,7 +259,7 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = rootSeed,
-        preparationTime = preparationTime.toLf,
+        submissionTime = preparationTime.toLf,
         ledgerEffectiveTime = ledgerTime.toLf,
         packageResolution = packageResolution,
         engineLogger =
@@ -294,7 +296,7 @@ class DAMLe(
         submitters = submitters,
         command = command,
         nodeSeed = Some(DAMLe.zeroSeed),
-        preparationTime = Time.Timestamp.Epoch, // Only used to compute contract ids
+        submissionTime = Time.Timestamp.Epoch, // Only used to compute contract ids
         ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
         packageResolution = Map.empty,
       )

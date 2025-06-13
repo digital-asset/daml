@@ -84,7 +84,7 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
       // Obtain the last event.
       val lastEvent: PossiblyIgnoredProtocolEvent =
         participant1.testing.state_inspection
-          .findMessage(daName, LatestUpto(CantonTimestamp.MaxValue))
+          .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
           .value
           .value
 
@@ -120,7 +120,7 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
 // architecture-handbook-entry-begin: DumpAllSequencedEventsToFile
       // Obtain all events.
       val allEvents: Seq[PossiblyIgnoredProtocolEvent] =
-        participant1.testing.state_inspection.findMessages(daName, None, None, None).map(_.value)
+        participant1.testing.state_inspection.findMessages(daId, None, None, None).map(_.value)
 
       // Dump all events to a file.
       utils.write_to_file(allEvents.map(_.toProtoV30), dumpFilePath)
@@ -156,7 +156,7 @@ sealed trait DumpIntegrationTest extends CommunityIntegrationTest with SharedEnv
       // Create ignored events.
       val lastEvent =
         participant1.testing.state_inspection
-          .findMessage(daName, LatestUpto(CantonTimestamp.MaxValue))
+          .findMessage(daId, LatestUpto(CantonTimestamp.MaxValue))
           .value
           .value
       val emptyIgnoredEvent =

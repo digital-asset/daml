@@ -100,13 +100,13 @@ private[routing] class ContractsReassigner(
     val reassignment = for {
       sourceSynchronizer <- EitherT.fromEither[Future](
         connectedSynchronizers
-          .get(sourceSynchronizerId.unwrap.logical)
+          .get(sourceSynchronizerId.unwrap)
           .toRight("Not connected to the source synchronizer")
       )
 
       targetSynchronizer <- EitherT.fromEither[Future](
         connectedSynchronizers
-          .get(targetSynchronizerId.unwrap.logical)
+          .get(targetSynchronizerId.unwrap)
           .toRight("Not connected to the target synchronizer")
       )
 

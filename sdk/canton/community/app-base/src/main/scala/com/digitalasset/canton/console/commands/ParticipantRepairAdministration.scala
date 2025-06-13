@@ -27,7 +27,7 @@ import com.digitalasset.canton.participant.admin.data.{
 }
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
+import com.digitalasset.canton.topology.{PartyId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -422,7 +422,7 @@ class ParticipantRepairAdministration(
       |(Ignoring such events would normally have no effect, as they have already been processed.)"""
   )
   def ignore_events(
-      synchronizerId: SynchronizerId,
+      physicalSynchronizerId: PhysicalSynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean = false,
@@ -431,7 +431,7 @@ class ParticipantRepairAdministration(
       consoleEnvironment.run {
         runner.adminCommand(
           ParticipantAdminCommands.ParticipantRepairManagement
-            .IgnoreEvents(synchronizerId, fromInclusive, toInclusive, force)
+            .IgnoreEvents(physicalSynchronizerId, fromInclusive, toInclusive, force)
         )
       }
     }
@@ -450,7 +450,7 @@ class ParticipantRepairAdministration(
       |(Unignoring such events would normally have no effect, as they have already been processed.)"""
   )
   def unignore_events(
-      synchronizerId: SynchronizerId,
+      physicalSynchronizerId: PhysicalSynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean = false,
@@ -458,7 +458,7 @@ class ParticipantRepairAdministration(
     consoleEnvironment.run {
       runner.adminCommand(
         ParticipantAdminCommands.ParticipantRepairManagement
-          .UnignoreEvents(synchronizerId, fromInclusive, toInclusive, force)
+          .UnignoreEvents(physicalSynchronizerId, fromInclusive, toInclusive, force)
       )
     }
   }

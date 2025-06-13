@@ -71,8 +71,8 @@ import com.digitalasset.canton.sequencing.client.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
-import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
+import com.digitalasset.canton.store.{IndexedPhysicalSynchronizer, IndexedSynchronizer}
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SynchronizerTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
@@ -279,6 +279,7 @@ class ProtocolProcessorTest
         participant,
         clock,
         crypto.crypto,
+        IndexedPhysicalSynchronizer.tryCreate(synchronizer, 1),
         IndexedSynchronizer.tryCreate(synchronizer, 1),
         defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,

@@ -54,10 +54,10 @@ import com.digitalasset.canton.platform.apiserver.services.{
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.protocol.hash.HashTracer
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{MonadUtil, TryUtil}
-import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
+import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.ImmArray
@@ -263,10 +263,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       )
         .leftMap(CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(_))
       // Require this participant to be connected to the synchronizer on which the transaction will be run
-      synchronizerId = commandExecutionResult.synchronizerRank.synchronizerId.logical
-      protocolVersionForChosenSynchronizer <- EitherT.fromEither[FutureUnlessShutdown](
-        protocolVersionForSynchronizerId(synchronizerId)
-      )
+      synchronizerId = commandExecutionResult.synchronizerRank.synchronizerId
+      protocolVersionForChosenSynchronizer = synchronizerId.protocolVersion
 
       transactionData = TransactionData(
         submitterInfo = commandExecutionResult.commandInterpretationResult.submitterInfo,
@@ -274,7 +272,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         transaction = SubmittedTransaction(enrichedTransaction),
         globalKeyMapping = commandExecutionResult.commandInterpretationResult.globalKeyMapping,
         inputContracts = inputContracts,
-        synchronizerId = synchronizerId,
+        synchronizerId = synchronizerId.logical,
       )
 
       // Use the highest hashing versions supported on that protocol version
@@ -287,7 +285,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         .liftF(
           transactionEncoder.serializeCommandInterpretationResult(
             transactionData,
-            synchronizerId,
+            synchronizerId.logical,
             transactionUUID,
             // TODO(i20688) Mediator group should be picked in the ProtocolProcessor
             mediatorGroup,
@@ -299,7 +297,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         transactionData.submitterInfo.commandId,
         transactionUUID,
         mediatorGroup,
-        synchronizerId,
+        synchronizerId.logical,
         transactionData.transactionMeta.timeBoundaries,
         transactionData.transactionMeta.preparationTime,
         inputContracts,
@@ -411,16 +409,6 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
           .toScalaUnwrapped
       }
   }
-
-  private def protocolVersionForSynchronizerId(
-      synchronizerId: SynchronizerId
-  )(implicit loggingContext: LoggingContextWithTrace): Either[RpcError, ProtocolVersion] =
-    syncService
-      .getProtocolVersionForSynchronizer(Traced(synchronizerId))
-      .toRight(
-        CommandExecutionErrors.InteractiveSubmissionPreparationError
-          .Reject(s"Unknown synchronizer id $synchronizerId")
-      )
 
   private def handleSubmissionResult(result: Try[state.SubmissionResult])(implicit
       loggingContext: LoggingContextWithTrace

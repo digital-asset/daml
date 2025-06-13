@@ -11,11 +11,16 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
   BlockNumber,
   EpochNumber,
+  ViewNumber,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopology,
+  OrderingTopologyInfo,
   SequencingParameters,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Consensus
@@ -23,6 +28,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   BlockTransferRequest,
   BlockTransferResponse,
 }
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer.StateTransferTestHelpers.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.modules.{
   ProgrammableUnitTestContext,
@@ -30,6 +36,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.unit.mod
   failingCryptoProvider,
 }
 import org.scalatest.wordspec.AnyWordSpec
+import org.slf4j.event.Level
 
 class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTest {
 
@@ -137,6 +144,47 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
         membership,
       ) shouldBe expectedResult
     }
+  }
+
+  "skip old block transfer responses" in {
+    implicit val context: ProgrammableUnitTestContext[Consensus.Message[ProgrammableUnitTestEnv]] =
+      new ProgrammableUnitTestContext
+
+    val blockMetadata = BlockMetadata(EpochNumber(1), BlockNumber(1))
+    val prePrepare = PrePrepare.create(
+      blockMetadata,
+      ViewNumber.First,
+      OrderingBlock(Seq.empty),
+      CanonicalCommitSet.empty,
+      otherId,
+    )(testedProtocolVersion)
+    val commitCertificate = CommitCertificate(prePrepare.fakeSign, Seq.empty)
+    val orderingTopology = OrderingTopology.forTesting(Set(myId, otherId))
+    val leaders = Seq(myId, otherId)
+    val orderingTopologyInfo = OrderingTopologyInfo[ProgrammableUnitTestEnv](
+      myId,
+      orderingTopology,
+      failingCryptoProvider,
+      leaders,
+      orderingTopology,
+      failingCryptoProvider,
+      leaders,
+    )
+
+    val response = BlockTransferResponse.create(Some(commitCertificate), otherId)
+    assertLogs(
+      validator.validateUnverifiedStateTransferNetworkMessage(
+        response.fakeSign,
+        EpochNumber(2),
+        orderingTopologyInfo,
+      ),
+      logLine => {
+        logLine.level shouldBe Level.INFO
+        logLine.message shouldBe "State transfer: old BlockTransferResponse: from epoch 1 we are in epoch 2, dropping..."
+      },
+    )
+
+    context.extractSelfMessages() shouldBe empty
   }
 
   "skip block transfer response signature verification" in {

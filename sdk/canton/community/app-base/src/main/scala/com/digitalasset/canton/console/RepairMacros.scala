@@ -83,6 +83,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           s"Node is not initialized. Therefore, I can not download anything",
         )
         // store keys onto local drive
+        // TODO(#25974): proper KMS handling
         val keys = node.keys.secret.list()
         val keysCount = keys.size
         keys.zipWithIndex.foreach { case (keyEntry, idx) =>
@@ -229,6 +230,7 @@ class RepairMacros(override val loggerFactory: NamedLoggerFactory)
           s"Can not upload identity data to an already initialised node ${node.name}",
         )
 
+        // TODO(#25974): proper KMS handling
         val num = uploadKeys(node, sourceDir)
         logger.info(s"Uploaded ${num + 1} secret keys to node ${node.name}")
         initId(node, sourceDir)

@@ -368,7 +368,7 @@ create or replace view debug.par_commitment_queue as
 
 create or replace view debug.par_static_synchronizer_parameters as
   select
-    synchronizer_id,
+    physical_synchronizer_id,
     params
   from par_static_synchronizer_parameters;
 
@@ -415,7 +415,8 @@ create or replace view debug.mediator_synchronizer_configuration as
     lock,
     synchronizer_id,
     static_synchronizer_parameters,
-    sequencer_connection
+    sequencer_connection,
+    is_topology_initialized
   from mediator_synchronizer_configuration;
 
 create or replace view debug.common_head_sequencer_counters as

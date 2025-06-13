@@ -272,17 +272,24 @@ final class ParticipantMigrateSynchronizerIntegrationTest
             sequencer1.stop()
             mediator1.stop()
 
-            val config = getSynchronizerConfig(acmeName, sequencer2)
+            val newSynchronizerConfig = getSynchronizerConfig(acmeName, sequencer2)
 
             val reassignmentCounterBefore = participant1.ledger_api.state.acs
               .active_contracts_of_party(alice)
               .map(_.reassignmentCounter)
             reassignmentCounterBefore should not be empty
 
-            Seq(participant1, participant2).foreach { p =>
-              // need to force the synchronizer migration because of in-flight transactions
-              p.repair.migrate_synchronizer(source = daName, target = config, force = true)
+            val oldSynchronizer = daName
+            // need to force the synchronizer migration because of in-flight transactions
+            // user-manual-entry-begin: MigrateSynchronizerForRecovery
+            participants.all.foreach { participant =>
+              participant.repair.migrate_synchronizer(
+                source = oldSynchronizer,
+                target = newSynchronizerConfig,
+                force = true,
+              )
             }
+            // user-manual-entry-end: MigrateSynchronizerForRecovery
 
             val logAssertions: Seq[(LogEntryOptionality, LogEntry => Assertion)] =
               // suppress potential ACS commitment warnings during migration
@@ -447,7 +454,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
         val inspection = p.testing.state_inspection
 
         val sequencerClientEvents =
-          inspection.findMessages(daName, from = None, to = None, limit = Some(10))
+          inspection.findMessages(daId, from = None, to = None, limit = Some(10))
         sequencerClientEvents shouldBe empty
 
         val acs = valueOrFail(inspection.findAcs(daName))("ACS").futureValueUS
@@ -465,7 +472,7 @@ final class ParticipantMigrateSynchronizerIntegrationTest
 
         activeContracts shouldBe empty
 
-        inspection.requestJournalSize(daName) shouldBe Some(UnlessShutdown.Outcome(0))
+        inspection.requestJournalSize(daId) shouldBe Some(UnlessShutdown.Outcome(0))
 
         // Note that ACS commitments are not purged by PruningProcessor.purgeSynchronizer for audit reasons.
         // Hence not checking for the AcsCommitmentStore to be empty after purge.

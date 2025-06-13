@@ -3,6 +3,8 @@
 
 module Canton.Internal.PartyReplication where
 
+data ParticipantPermission = Submission | Confirmation | Observation deriving (Eq, Show)
+
 -- A PartyReplicationProposal is created by the target participant to reach an agreement with the source participant to
 -- replicate the specified party via one of the specified sequencers.
 template PartyReplicationProposal
@@ -13,6 +15,7 @@ template PartyReplicationProposal
     targetParticipant : Party -- participant admin party
     sequencerUids : [Text]
     topologySerial : Int
+    participantPermission : ParticipantPermission
   where
     signatory targetParticipant
     observer sourceParticipant
@@ -28,7 +31,7 @@ template PartyReplicationProposal
       controller sourceParticipant
         do
           assertMsg "sequencerUid needs to be one of sequencerUids" (sequencerUid `elem` sequencerUids)
-          partyReplicationAgreement <- create PartyReplicationAgreement with partyReplicationId, partyId, sourceParticipant, targetParticipant, sequencerUid, topologySerial
+          partyReplicationAgreement <- create PartyReplicationAgreement with ..
           return partyReplicationAgreement
 
     -- Or the source participant rejects the party replication proposal
@@ -49,6 +52,7 @@ template PartyReplicationAgreement
     targetParticipant : Party -- participant admin party
     sequencerUid : Text
     topologySerial : Int
+    participantPermission : ParticipantPermission
   where
     signatory targetParticipant, sourceParticipant
 

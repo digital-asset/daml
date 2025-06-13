@@ -593,7 +593,7 @@ object TestSubmissionService {
       transactionMeta(
         transaction,
         metadata.nodeSeeds,
-        metadata.preparationTime,
+        metadata.submissionTime,
         metadata.usedPackages,
       )
 

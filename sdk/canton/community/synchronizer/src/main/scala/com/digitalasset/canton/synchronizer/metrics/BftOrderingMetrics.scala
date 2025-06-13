@@ -17,11 +17,15 @@ import com.digitalasset.canton.metrics.{
   DeclarativeApiMetrics,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.{
+  Env,
+  ModuleContext,
+}
 
 import java.time.{Duration, Instant}
 import scala.collection.mutable
-import scala.concurrent.blocking
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{Future, blocking}
 import scala.jdk.DurationConverters.ScalaDurationOps
 
 private[metrics] final class BftOrderingHistograms(val parent: MetricName)(implicit
@@ -199,6 +203,9 @@ class BftOrderingMetrics private[metrics] (
   // Private constructor to avoid being instantiated multiple times by accident
   final class PerformanceMetrics private[BftOrderingMetrics] {
 
+    @SuppressWarnings(Array("org.wartremover.warts.Var"))
+    @volatile var enabled: Boolean = true
+
     // Private constructor to avoid being instantiated multiple times by accident
     final class OrderingStageLatencyMetrics private[BftOrderingMetrics] {
       object labels {
@@ -240,33 +247,69 @@ class BftOrderingMetrics private[metrics] (
         }
       }
 
-      val timer: Timer =
+      private val timer: Timer =
         openTelemetryMetricsFactory.timer(histograms.performance.orderingStageLatency.info)
+
+      def time[T](call: => T)(implicit
+          context: MetricsContext = MetricsContext.Empty
+      ): T =
+        if (enabled)
+          timer.time(call)(context)
+        else
+          call
+
+      def timeFuture[T](call: => Future[T])(implicit
+          context: MetricsContext = MetricsContext.Empty
+      ): Future[T] =
+        if (enabled)
+          timer.timeFuture(call)(context)
+        else
+          call
+
+      def timeFuture[E <: Env[E], X](
+          moduleContext: ModuleContext[E, ?],
+          futureUnlessShutdown: E#FutureUnlessShutdownT[X],
+          orderingStage: String,
+      )(implicit metricsContext: MetricsContext): E#FutureUnlessShutdownT[X] =
+        if (enabled)
+          moduleContext.timeFuture(timer, futureUnlessShutdown)(
+            metricsContext.withExtraLabels(
+              labels.stage.Key -> orderingStage
+            )
+          )
+        else
+          futureUnlessShutdown
 
       def emitModuleQueueLatency(
           moduleName: String,
           sendInstant: Instant,
           maybeDelay: Option[FiniteDuration],
-      )(implicit metricsContext: MetricsContext): Unit = {
-        val latency =
-          Duration.between(sendInstant, Instant.now).minus(maybeDelay.fold(Duration.ZERO)(_.toJava))
-        timer.update(latency)(
-          metricsContext.withExtraLabels(labels.stage.Key -> s"module-queue-$moduleName")
-        )
-      }
+      )(implicit metricsContext: MetricsContext): Unit =
+        if (enabled) {
+          val latency =
+            Duration
+              .between(sendInstant, Instant.now)
+              .minus(maybeDelay.fold(Duration.ZERO)(_.toJava))
+          timer.update(latency)(
+            metricsContext.withExtraLabels(labels.stage.Key -> s"module-queue-$moduleName")
+          )
+        }
 
       def emitOrderingStageLatency[R](
           stage: String,
           op: () => R,
       )(implicit
           mc: MetricsContext
-      ): R = {
-        val startInstant = Instant.now()
-        val result = op()
-        val duration = Duration.between(startInstant, Instant.now())
-        emitOrderingStageLatency(stage, duration)
-        result
-      }
+      ): R =
+        if (enabled) {
+          val startInstant = Instant.now()
+          val result = op()
+          val duration = Duration.between(startInstant, Instant.now())
+          emitOrderingStageLatency(stage, duration)
+          result
+        } else {
+          op()
+        }
 
       def emitOrderingStageLatency(
           stage: String,
@@ -286,13 +329,14 @@ class BftOrderingMetrics private[metrics] (
       )(implicit
           mc: MetricsContext
       ): Unit =
-        performance.orderingStageLatency.timer
-          .update(duration)(
-            mc.withExtraLabels(
-              performance.orderingStageLatency.labels.stage.Key ->
-                stage
+        if (enabled)
+          performance.orderingStageLatency.timer
+            .update(duration)(
+              mc.withExtraLabels(
+                performance.orderingStageLatency.labels.stage.Key ->
+                  stage
+              )
             )
-          )
     }
     val orderingStageLatency = new OrderingStageLatencyMetrics
   }

@@ -1070,7 +1070,7 @@ class SequencerClientTest
         env.client.close()
       }
 
-      "have new transport be used for logout" in {
+      "have new transport be used for logout" onlyRunWhen (_ < ProtocolVersion.dev) in {
         val secondTransport = MockTransport()
 
         val env = RichEnvFactory.create()
@@ -1449,20 +1449,19 @@ class SequencerClientTest
     override def acknowledgeSigned(
         signedRequest: SignedContent[AcknowledgeRequest],
         timeout: Duration,
-    )(implicit traceContext: TraceContext): EitherT[
-      FutureUnlessShutdown,
-      SequencerConnectionXStub.SequencerConnectionXStubError,
-      Boolean,
-    ] = ???
+    )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Boolean] =
+      EitherT.rightT(true)
 
     override def getTrafficStateForMember(
         request: GetTrafficStateForMemberRequest,
         timeout: Duration,
-    )(implicit traceContext: TraceContext): EitherT[
-      FutureUnlessShutdown,
-      SequencerConnectionXStub.SequencerConnectionXStubError,
-      GetTrafficStateForMemberResponse,
-    ] = ???
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] = ???
+
+    override def logout()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, Status, Unit] = ???
 
     override def downloadTopologyStateForInit(
         request: TopologyStateForInitRequest,
@@ -1508,9 +1507,17 @@ class SequencerClientTest
 
     override def nbConnections: NonNegativeInt = ???
 
-    override def getConnections(nb: Int, exclusions: Set[SequencerId])(implicit
+    override def getConnections(nb: PositiveInt, exclusions: Set[SequencerId])(implicit
         traceContext: TraceContext
     ): Set[SequencerConnectionX] = Set(connection)
+
+    override def getOneConnectionPerSequencer()(implicit
+        traceContext: TraceContext
+    ): Map[SequencerId, SequencerConnectionX] = ???
+
+    override def getAllConnections()(implicit
+        traceContext: TraceContext
+    ): Seq[SequencerConnectionX] = ???
 
     override def contents: Map[SequencerId, Set[SequencerConnectionX]] = ???
 
@@ -1584,7 +1591,6 @@ class SequencerClientTest
       )
         .thenReturn(FutureUnlessShutdown.pure(TestSynchronizerParameters.defaultDynamic))
       SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-        BaseTest.defaultStaticSynchronizerParameters,
         None,
         topologyClient,
         loggerFactory,

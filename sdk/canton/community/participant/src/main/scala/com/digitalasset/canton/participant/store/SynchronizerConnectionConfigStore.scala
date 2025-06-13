@@ -108,7 +108,8 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
   /** Retrieves the active connection for `alias`. Return an
     * [[SynchronizerConnectionConfigStore.Error]] if the alias is unknown or if no connection is
-    * active.
+    * active. If several active configs are found, return the one with the highest
+    * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]].
     *
     * @param singleExpected
     *   If true, fails if more than one active connection exist.
@@ -132,7 +133,8 @@ trait SynchronizerConnectionConfigStore extends AutoCloseable {
 
   /** Retrieves the active connection for `id`. Return an
     * [[SynchronizerConnectionConfigStore.Error]] if the id is unknown or if no connection is
-    * active.
+    * active. If several active configs are found, return the one with the highest
+    * [[com.digitalasset.canton.topology.PhysicalSynchronizerId]].
     *
     * @param singleExpected
     *   If true, fails if more than one active connection exist.

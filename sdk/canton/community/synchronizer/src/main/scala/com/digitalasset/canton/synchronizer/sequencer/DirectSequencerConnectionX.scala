@@ -32,7 +32,8 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.sequencing.{SequencedEventHandler, SequencerConnectionX}
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
+import io.grpc.Status
 
 import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.Duration
@@ -77,18 +78,21 @@ class DirectSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, Boolean] = ???
+  ): EitherT[FutureUnlessShutdown, String, Boolean] =
+    sequencer.acknowledgeSigned(signedRequest).map(_ => true)
 
   override def getTrafficStateForMember(
       request: GetTrafficStateForMemberRequest,
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[
-    FutureUnlessShutdown,
-    SequencerConnectionXStubError,
-    GetTrafficStateForMemberResponse,
-  ] = ???
+  ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] =
+    sequencer
+      .getTrafficStateAt(request.member, request.timestamp)
+      .map { trafficStateO =>
+        GetTrafficStateForMemberResponse(trafficStateO, staticParameters.protocolVersion)
+      }
+      .leftMap(_.toString)
 
   override def downloadTopologyStateForInit(
       request: TopologyStateForInitRequest,
@@ -101,6 +105,12 @@ class DirectSequencerConnectionX(
         s"$functionFullName is not implemented for DirectSequencerConnectionX"
       )
     )
+
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
+    // In-process connection is not authenticated
+    EitherTUtil.unitUS
 
   override def subscribe[E](
       request: SubscriptionRequestV2,

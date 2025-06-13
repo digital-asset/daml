@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfTimestamp, admin, crypto, protocol}
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.ValueCoder
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
@@ -103,7 +103,7 @@ case class SerializableContract(
   def tryFatContractInstance: FatContractInstance =
     FatContractInstance.fromCreateNode(
       toLf,
-      CreationTime.CreatedAt(ledgerCreateTime.toLf),
+      ledgerCreateTime.toLf,
       DriverContractMetadata(contractSalt).toLfBytes(
         CantonContractIdVersion.tryCantonContractIdVersion(contractId)
       ),
@@ -153,12 +153,9 @@ object SerializableContract
   def fromFatContract(
       fat: FatContractInstance
   ): Either[String, SerializableContract] = {
+    val ledgerTime = CantonTimestamp(fat.createdAt)
     val driverContractMetadataBytes = fat.cantonData.toByteArray
     for {
-      ledgerTime <- fat.createdAt match {
-        case CreationTime.Now => Left("Invalid createdAt timestamp")
-        case CreationTime.CreatedAt(ts) => Right(CantonTimestamp(ts))
-      }
       _disclosedContractIdVersion <- CantonContractIdVersion
         .extractCantonContractIdVersion(fat.contractId)
         .leftMap(err => s"Invalid disclosed contract id: ${err.toString}")

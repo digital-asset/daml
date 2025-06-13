@@ -26,8 +26,12 @@ trait MediatorSynchronizerConfigurationStoreTest {
       val store = mkStore
 
       for {
-        config <- store.fetchConfiguration
-      } yield config shouldBe None
+        config <- store.fetchConfiguration()
+        isTopologyInitialized <- store.isTopologyInitialized()
+      } yield {
+        config shouldBe None
+        isTopologyInitialized shouldBe false
+      }
     }.failOnShutdown("Unexpected shutdown.")
 
     "when set returns set value" in {
@@ -47,8 +51,13 @@ trait MediatorSynchronizerConfigurationStoreTest {
 
       for {
         _ <- store.saveConfiguration(originalConfig)
-        persistedConfig <- store.fetchConfiguration.map(_.value)
-      } yield persistedConfig shouldBe originalConfig
+        persistedConfig <- store.fetchConfiguration().map(_.value)
+        // storing the configuration doesn't change the topology initialization status
+        isTopologyInitialized <- store.isTopologyInitialized()
+      } yield {
+        persistedConfig shouldBe originalConfig
+        isTopologyInitialized shouldBe false
+      }
     }.failOnShutdown("Unexpected shutdown.")
 
     "supports updating the config" in {
@@ -79,12 +88,30 @@ trait MediatorSynchronizerConfigurationStoreTest {
         )
 
       for {
+        // starting out with uninitialized topology
+        isTopologyInitialized1 <- store.isTopologyInitialized()
+        _ = isTopologyInitialized1 shouldBe false
+
         _ <- store.saveConfiguration(originalConfig)
-        persistedConfig1 <- store.fetchConfiguration.map(_.value)
+        persistedConfig1 <- store.fetchConfiguration().map(_.value)
         _ = persistedConfig1 shouldBe originalConfig
+
+        // storing the config doesn't change the topology initialization state
+        isTopologyInitialized2 <- store.isTopologyInitialized()
+        _ = isTopologyInitialized2 shouldBe false
+
+        _ <- store.setTopologyInitialized()
+        isTopologyInitialized3 <- store.isTopologyInitialized()
+        _ = isTopologyInitialized3 shouldBe true
+
         _ <- store.saveConfiguration(updatedConfig)
-        persistedConfig2 <- store.fetchConfiguration.map(_.value)
-      } yield persistedConfig2 shouldBe updatedConfig
+        persistedConfig2 <- store.fetchConfiguration().map(_.value)
+        _ = persistedConfig2 shouldBe updatedConfig
+
+        // updating the config doesn't change the topology initialization state
+        isTopologyInitialized4 <- store.isTopologyInitialized()
+        _ = isTopologyInitialized4 shouldBe true
+      } yield succeed
 
     }.failOnShutdown("Unexpected shutdown.")
   }

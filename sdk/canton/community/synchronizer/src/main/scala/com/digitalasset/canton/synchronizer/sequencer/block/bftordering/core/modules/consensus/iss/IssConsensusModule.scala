@@ -226,11 +226,7 @@ final class IssConsensusModule[E <: Env[E]](
           _.dequeueAll(_ => true).foreach(context.self.asyncSend)
         )
 
-      case Consensus.Admin.GetOrderingTopology(callback) =>
-        callback(
-          epochState.epoch.info.number,
-          activeTopologyInfo.currentMembership.orderingTopology.nodes,
-        )
+      case message: Consensus.Admin => handleAdminMessage(message)
 
       case message: Consensus.ProtocolMessage => handleProtocolMessage(message)
 
@@ -333,6 +329,19 @@ final class IssConsensusModule[E <: Env[E]](
         processUnverifiedPbftMessageAtCurrentEpoch(msg)
     }
   }
+
+  private def handleAdminMessage(message: Consensus.Admin): Unit =
+    message match {
+
+      case Consensus.Admin.GetOrderingTopology(callback) =>
+        callback(
+          epochState.epoch.info.number,
+          activeTopologyInfo.currentMembership.orderingTopology.nodes,
+        )
+
+      case Consensus.Admin.SetPerformanceMetricsEnabled(enabled) =>
+        metrics.performance.enabled = enabled
+    }
 
   private def handleProtocolMessage(
       message: Consensus.ProtocolMessage
@@ -444,7 +453,7 @@ final class IssConsensusModule[E <: Env[E]](
             orderedBlock: OrderedBlock,
             commitCertificate: CommitCertificate,
           ) =>
-        emitConsensusLatencyStats(metrics)
+        emitConsensusLatencyStats(metrics, logger)
 
         epochState.confirmBlockCompleted(orderedBlock.metadata, commitCertificate)
 

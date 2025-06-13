@@ -89,6 +89,7 @@ message NamespaceDelegation {
     CanSignSpecificMappings can_sign_specific_mapings = 6;
   }
 
+  // [start-docs-entry: namespace delegation restrictions]
   // the key can sign all currently known mappings and all mappings that will be added in future releases
   message CanSignAllMappings {}
   // the key can sign all currently known mappings and all mappings that will be added in future releases, except for
@@ -98,6 +99,7 @@ message NamespaceDelegation {
   message CanSignSpecificMappings {
     repeated Enums.TopologyMappingCode mappings = 1;
   }
+  // [end-docs-entry: namespace delegation restrictions]
 }
 // [end NamespaceDelegation definition]
 
@@ -136,6 +138,7 @@ message OwnerToKeyMapping {
   reserved 3; // was synchronizer = 3;
 }
 
+// [doc-entry-start: PartyToKeyMapping]
 // mapping a party to a key
 // authorization: whoever controls the party uid
 // UNIQUE(party)
@@ -149,6 +152,7 @@ message PartyToKeyMapping {
 
   reserved 2; // was synchronizer_id = 2
 }
+// [doc-entry-end: PartyToKeyMapping]
 
 // the trust certificate issued by the participant confirming that the participant
 // wishes to be present on the given synchronizer
@@ -341,12 +345,12 @@ message PurgeTopologyTransaction {
   repeated TopologyMapping mappings = 2;
 }
 
-// indicates the beginning of a synchronizer migration and effectuates a topology freeze,
-// after which only synchronizer migration specific topology mappings are accepted.
+// indicates the beginning of a synchronizer upgrade and effectuates a topology freeze,
+// after which only synchronizer upgrade specific topology mappings are accepted.
 // removing this mapping unfreezes the topology state again.
 // authorization: whoever controls the physical synchronizer
 // UNIQUE(physical_synchronizer_id)
-message SynchronizerMigrationAnnouncement {
+message SynchronizerUpgradeAnnouncement {
   // the physical synchronizer id
   // TODO(#25576) revisit the usage of physical synchronizer ids to refer to the "current synchronizer"
   string physical_synchronizer_id = 1;
@@ -403,7 +407,7 @@ message TopologyMapping {
 
     PartyToKeyMapping party_to_key_mapping = 16;
 
-    SynchronizerMigrationAnnouncement synchronizer_migration_announcement = 17;
+    SynchronizerUpgradeAnnouncement synchronizer_upgrade_announcement = 17;
     SequencerConnectionSuccessor sequencer_connection_successor = 18;
   }
   reserved 2; // was identifier_delegation

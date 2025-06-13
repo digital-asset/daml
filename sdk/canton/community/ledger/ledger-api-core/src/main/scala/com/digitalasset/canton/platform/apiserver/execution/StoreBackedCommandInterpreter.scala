@@ -1,7 +1,6 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-
 package com.digitalasset.canton.platform.apiserver.execution
 
 import cats.data.*
@@ -41,7 +40,6 @@ import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
   GlobalKeyWithMaintainers,
   Node,
   SubmittedTransaction,
@@ -176,7 +174,7 @@ final class StoreBackedCommandInterpreter(
           transactionMeta = state.TransactionMeta(
             commands.commands.ledgerEffectiveTime,
             commands.workflowId.map(_.unwrap),
-            meta.preparationTime,
+            meta.submissionTime,
             submissionSeed,
             LedgerTimeBoundaries(meta.timeBoundaries),
             Some(meta.usedPackages),
@@ -526,10 +524,6 @@ final class StoreBackedCommandInterpreter(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
           )
-        ledgerTime <- originalContract.createdAt match {
-          case CreationTime.CreatedAt(time) => Right(time)
-          case CreationTime.Now => Left("Failed to recompute contract creation time")
-        }
         contract <- SerializableContract(
           contractId = originalContract.contractId,
           contractInstance = ThinContract(
@@ -538,7 +532,7 @@ final class StoreBackedCommandInterpreter(
             Versioned(originalContract.version, originalContract.createArg),
           ),
           metadata = recomputedMetadata,
-          ledgerTime = CantonTimestamp(ledgerTime),
+          ledgerTime = CantonTimestamp(originalContract.createdAt),
           contractSalt = salt,
         ).left.map(e => s"Failed to construct SerializableContract($e)")
       } yield contract

@@ -383,6 +383,7 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
         ),
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),
+        minimumSequencingTime = CantonTimestamp.MinValue,
         runtimeReady = FutureUnlessShutdown.unit,
       )
       .futureValueUS

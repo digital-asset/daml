@@ -262,7 +262,7 @@ final class PbftBlockState(
       )
       false
     } else if (prePrepare.isDefined) {
-      logger.info(
+      logger.debug(
         s"PrePrepare for block ${pp.message.blockMetadata.blockNumber} already exists; ignoring new one"
       )
       false
@@ -298,7 +298,7 @@ final class PbftBlockState(
             s"$baseLogMsg stored Prepare has hash ${prepare.message.hash}, found different hash ${p.message.hash}"
           )
         } else {
-          logger.info(s"$baseLogMsg new Prepare has matching hash (${prepare.message.hash})")
+          logger.debug(s"$baseLogMsg new Prepare has matching hash (${prepare.message.hash})")
         }
         false
       case None =>
@@ -320,7 +320,7 @@ final class PbftBlockState(
             s"$baseLogMsg stored Commit has hash ${commit.message.hash}, found different hash ${c.message.hash}"
           )
         } else {
-          logger.info(s"$baseLogMsg new Commit has matching hash (${commit.message.hash})")
+          logger.debug(s"$baseLogMsg new Commit has matching hash (${commit.message.hash})")
         }
         false
       case None =>

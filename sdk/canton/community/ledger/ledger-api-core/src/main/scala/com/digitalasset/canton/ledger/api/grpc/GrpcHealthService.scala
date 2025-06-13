@@ -7,17 +7,11 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcHealthService.*
 import com.digitalasset.canton.ledger.api.health.HealthChecks
-import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
-import com.digitalasset.canton.logging.{
-  ErrorLoggingContext,
-  LoggingContextWithTrace,
-  NamedLoggerFactory,
-  NamedLogging,
-}
-import io.grpc.ServerServiceDefinition
+import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.stub.StreamObserver
+import io.grpc.{ServerServiceDefinition, Status, StatusRuntimeException}
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -65,13 +59,13 @@ class GrpcHealthService(
 
   private def matchResponse(
       componentName: Option[String]
-  )(implicit errorLogger: ErrorLoggingContext): Try[HealthCheckResponse] =
+  )(implicit errorLogger: LoggingContextWithTrace): Try[HealthCheckResponse] =
     componentName
       .collect {
         case component if !healthChecks.hasComponent(component) =>
-          Failure(
-            invalidArgument(s"Component $component does not exist.")
-          )
+          val notFound = Status.NOT_FOUND.withDescription(s"Component $component does not exist.")
+          logger.debug(s"Health check requested for unknown component: '$component'. $notFound")
+          Failure(new StatusRuntimeException(notFound))
       }
       .getOrElse {
         if (healthChecks.isHealthy(componentName)) Success(servingResponse)

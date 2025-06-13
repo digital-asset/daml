@@ -30,7 +30,6 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{FatContract, InMemoryState, Key, KeyWithMaintainers, Party}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.FlowShape
@@ -388,7 +387,7 @@ private[platform] object InMemoryStateUpdater {
             },
             version = createdEvent.createArgument.version,
           ),
-          createTime = CreationTime.CreatedAt(createdEvent.ledgerEffectiveTime),
+          createTime = createdEvent.ledgerEffectiveTime,
           cantonData = createdEvent.driverMetadata,
         ),
         eventOffset = createdEvent.eventOffset,

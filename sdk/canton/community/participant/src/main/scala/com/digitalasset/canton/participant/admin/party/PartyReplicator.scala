@@ -37,7 +37,6 @@ import com.digitalasset.canton.topology.store.{StoredTopologyTransaction, TimeQu
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
-  ParticipantPermission,
   PartyToParticipant,
   TopologyChangeOp,
   TopologyMapping,
@@ -110,7 +109,13 @@ final class PartyReplicator(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, Hash] =
     executionQueue.executeEUS(
       {
-        val PartyReplicationArguments(partyId, synchronizerId, sourceParticipantId, serial) = args
+        val PartyReplicationArguments(
+          partyId,
+          synchronizerId,
+          sourceParticipantId,
+          serial,
+          participantPermission,
+        ) = args
         for {
           _ <- EitherT.cond[FutureUnlessShutdown](
             syncService.isActive(),
@@ -160,6 +165,7 @@ final class PartyReplicator(
             sourceParticipantId,
             sequencerCandidates,
             serial,
+            participantPermission,
           )
         } yield {
           val newStatus = PartyReplicationStatus.ProposalProcessed(
@@ -169,6 +175,7 @@ final class PartyReplicator(
             sourceParticipantId,
             participantId,
             serial,
+            participantPermission,
           )
           logger.info(s"Party replication $requestId proposal processed")
           partyReplications.put(requestId, newStatus).discard
@@ -238,6 +245,7 @@ final class PartyReplicator(
           targetParticipantId,
           sequencerIdsProposed,
           serial,
+          participantPermission,
         ) = proposal
         connectedSynchronizer <-
           EitherT.fromEither[FutureUnlessShutdown](
@@ -303,6 +311,7 @@ final class PartyReplicator(
             response.sourceParticipantId,
             response.targetParticipantId,
             response.serial,
+            response.participantPermission,
           )
           logger.info(
             s"Party replication ${response.requestId} proposal processed at source participant"
@@ -431,6 +440,7 @@ final class PartyReplicator(
               sourceParticipantId,
               targetParticipantId,
               serial,
+              participantPermission,
             ),
           sequencerId,
         ) = status
@@ -446,7 +456,7 @@ final class PartyReplicator(
             partyToParticipantMapping.threshold,
             partyToParticipantMapping.participants :+ HostingParticipant(
               targetParticipantId,
-              ParticipantPermission.Observation,
+              participantPermission,
               onboarding = true,
             ),
           )
@@ -642,6 +652,7 @@ final class PartyReplicator(
             synchronizerId,
             sourceParticipantId,
             targetParticipantId,
+            _,
             _,
             sequencerId,
             effectiveAt,

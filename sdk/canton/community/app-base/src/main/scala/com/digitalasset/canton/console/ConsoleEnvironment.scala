@@ -36,7 +36,7 @@ import com.digitalasset.canton.topology.{
   SynchronizerId,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.{LfPartyId, SynchronizerAlias}
+import com.digitalasset.canton.{LfPartyId, SequencerAlias, SynchronizerAlias}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
@@ -563,6 +563,9 @@ object ConsoleEnvironment {
 
     implicit def toGrpcSequencerConnection(connection: String): SequencerConnection =
       GrpcSequencerConnection.tryCreate(connection)
+
+    implicit def toSequencerAlias(alias: String): SequencerAlias =
+      SequencerAlias.tryCreate(alias)
 
     implicit def toSequencerConnections(connection: String): SequencerConnections =
       SequencerConnections.single(GrpcSequencerConnection.tryCreate(connection))

@@ -21,12 +21,14 @@ final case class MediatorSynchronizerConfiguration(
 )
 
 trait MediatorSynchronizerConfigurationStore extends AutoCloseable {
-  def fetchConfiguration(implicit
+  def fetchConfiguration()(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[MediatorSynchronizerConfiguration]]
   def saveConfiguration(configuration: MediatorSynchronizerConfiguration)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit]
+  def setTopologyInitialized()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
+  def isTopologyInitialized()(implicit traceContext: TraceContext): FutureUnlessShutdown[Boolean]
 }
 
 object MediatorSynchronizerConfigurationStore {

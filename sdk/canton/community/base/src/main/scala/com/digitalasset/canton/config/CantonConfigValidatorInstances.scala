@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.RequireTypes.{
   Port,
   PositiveNumeric,
 }
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.util.BytesUnit
 
@@ -22,6 +23,9 @@ import com.digitalasset.canton.util.BytesUnit
 object CantonConfigValidatorInstances {
   // RequireTypes
   implicit def portCantonConfigValidator: CantonConfigValidator[Port] =
+    CantonConfigValidator.validateAll
+
+  implicit def cantonTimestampCantonConfigValidator: CantonConfigValidator[CantonTimestamp] =
     CantonConfigValidator.validateAll
 
   implicit def existingFileCantonConfigValidator: CantonConfigValidator[ExistingFile] =

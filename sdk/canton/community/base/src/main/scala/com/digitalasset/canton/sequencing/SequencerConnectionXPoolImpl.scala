@@ -519,7 +519,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
   }
 
   override def getConnections(
-      requestedNumber: Int,
+      requestedNumber: PositiveInt,
       exclusions: Set[SequencerId],
   )(implicit traceContext: TraceContext): Set[SequencerConnectionX] =
     // Always return connections randomly for now
@@ -532,7 +532,7 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         // Pick up to `requestedNumber` non-excluded sequencer IDs from the pool
         val randomSeqIds = SeqUtil.randomSubsetShuffle(
           pool.keySet.diff(exclusions).toIndexedSeq,
-          requestedNumber,
+          requestedNumber.unwrap,
           random,
         )
 
@@ -554,6 +554,18 @@ class SequencerConnectionXPoolImpl private[sequencing] (
         pickedConnections
       }
     }
+
+  override def getOneConnectionPerSequencer()(implicit
+      traceContext: TraceContext
+  ): Map[SequencerId, SequencerConnectionX] = {
+    logger.debug(s"Requesting one connection per sequencer")
+    // Upper bound on number of connections. Note: `checked` because `connections` is `NonEmpty`.
+    val nb = checked(PositiveInt.tryCreate(config.connections.size))
+    getConnections(nb, exclusions = Set.empty).map(c => c.attributes.sequencerId -> c).toMap
+  }
+
+  override def getAllConnections()(implicit traceContext: TraceContext): Seq[SequencerConnectionX] =
+    blocking(lock.synchronized(pool.values.flatten.toSeq))
 }
 
 object SequencerConnectionXPoolImpl {

@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -83,6 +84,7 @@ class DriverBlockSequencerFactory[C](
       protocolVersion: ProtocolVersion,
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
+      minimumSequencingTime: CantonTimestamp,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
       authenticationServices: Option[AuthenticationServices],
@@ -121,6 +123,7 @@ class DriverBlockSequencerFactory[C](
       protocolVersion,
       rateLimitManager,
       orderingTimeFixMode,
+      minimumSequencingTime,
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,

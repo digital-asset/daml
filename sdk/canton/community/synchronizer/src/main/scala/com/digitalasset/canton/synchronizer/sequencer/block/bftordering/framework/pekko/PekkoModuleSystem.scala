@@ -100,13 +100,13 @@ object PekkoModuleSystem {
               case NoOp() =>
                 Behaviors.same
               case Stop(onStop) =>
-                logger.info(s"Stopping Pekko actor for module '$moduleName' as requested")
+                logger.debug(s"Stopping Pekko actor for module '$moduleName' as requested")
                 onStop()
                 Behaviors.stopped
             }
             .receiveSignal { case (_, Terminated(actorRef)) =>
               // after calling `context.stop()` we must handle the Terminated signal, otherwise an exception is thrown and the actor system stops
-              logger.info(
+              logger.debug(
                 s"$moduleName received Terminated signal for Pekko actor '${actorRef.path.name}' as requested"
               )
               Behaviors.same
@@ -173,6 +173,18 @@ object PekkoModuleSystem {
     )(
         fun: Try[X] => Option[MessageT]
     )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
+      futureUnlessShutdown.orderingStage.fold(pipeToSelfImpl(futureUnlessShutdown, fun)) { stage =>
+        pipeToSelfImpl(
+          moduleSystem.metrics.performance.orderingStageLatency
+            .timeFuture[PekkoEnv, X](this, futureUnlessShutdown, stage),
+          fun,
+        )
+      }
+
+    private def pipeToSelfImpl[X](
+        futureUnlessShutdown: PekkoFutureUnlessShutdown[X],
+        fun: Try[X] => Option[MessageT],
+    )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
       underlying.pipeToSelf(
         toFuture(
           futureUnlessShutdown.action,
@@ -234,22 +246,27 @@ object PekkoModuleSystem {
   final case class PekkoFutureUnlessShutdown[MessageT](
       action: String,
       futureUnlessShutdown: () => FutureUnlessShutdown[MessageT],
+      orderingStage: Option[String] = None,
   ) {
-    def map[B](f: MessageT => B)(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[B] =
-      PekkoFutureUnlessShutdown(action, () => futureUnlessShutdown().map(f))
+    def map[B](f: MessageT => B, orderingStage: Option[String] = None)(implicit
+        ec: ExecutionContext
+    ): PekkoFutureUnlessShutdown[B] =
+      PekkoFutureUnlessShutdown(action, () => futureUnlessShutdown().map(f), orderingStage)
 
     def flatMap[B](
-        f: MessageT => PekkoFutureUnlessShutdown[B]
+        f: MessageT => PekkoFutureUnlessShutdown[B],
+        orderingStage: Option[String] = None,
     )(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[B] =
       PekkoFutureUnlessShutdown(
         s"$action.flatmap(...)",
         () => futureUnlessShutdown().flatMap(x => f(x).futureUnlessShutdown()),
+        orderingStage,
       )
 
     def failed(implicit ec: ExecutionContext): PekkoFutureUnlessShutdown[Throwable] =
       PekkoFutureUnlessShutdown(action, () => futureUnlessShutdown().failed)
 
-    def zip[Y](future2: PekkoFutureUnlessShutdown[Y])(implicit
+    def zip[Y](future2: PekkoFutureUnlessShutdown[Y], orderingStage: Option[String] = None)(implicit
         ec: ExecutionContext
     ): PekkoFutureUnlessShutdown[(MessageT, Y)] =
       PekkoFutureUnlessShutdown(
@@ -257,22 +274,27 @@ object PekkoModuleSystem {
         () =>
           Applicative[FutureUnlessShutdown](parallelApplicativeFutureUnlessShutdown)
             .product(futureUnlessShutdown(), future2.futureUnlessShutdown()),
+        orderingStage,
       )
   }
 
   object PekkoFutureUnlessShutdown {
 
-    def sequence[A, F[_]](futures: F[PekkoFutureUnlessShutdown[A]])(implicit
+    def sequence[A, F[_]](
+        futures: F[PekkoFutureUnlessShutdown[A]],
+        orderingStage: Option[String] = None,
+    )(implicit
         ev: Traverse[F],
         ec: ExecutionContext,
-    ): PekkoFutureUnlessShutdown[F[A]] = PekkoFutureUnlessShutdown(
-      s"sequence(${ev.map(futures)(_.action)})",
-      () => ev.sequence(ev.map(futures)(_.futureUnlessShutdown())),
-    )
+    ): PekkoFutureUnlessShutdown[F[A]] =
+      PekkoFutureUnlessShutdown(
+        s"sequence(${ev.map(futures)(_.action)})",
+        () => ev.sequence(ev.map(futures)(_.futureUnlessShutdown())),
+        orderingStage,
+      )
 
     def pure[X](x: X): PekkoFutureUnlessShutdown[X] =
       PekkoFutureUnlessShutdown("", () => FutureUnlessShutdown.pure(x))
-
   }
 
   private[bftordering] final case class PekkoFutureContext(executionContext: ExecutionContext)
@@ -290,32 +312,38 @@ object PekkoModuleSystem {
     override def zipFuture[X, Y](
         future1: PekkoFutureUnlessShutdown[X],
         future2: PekkoFutureUnlessShutdown[Y],
+        orderingStage: Option[String] = None,
     ): PekkoFutureUnlessShutdown[(X, Y)] =
-      future1.zip(future2)(executionContext)
+      future1.zip(future2, orderingStage)(executionContext)
 
-    override def zipFuture[X, Y, Z](
+    override def zipFuture3[X, Y, Z](
         future1: PekkoFutureUnlessShutdown[X],
         future2: PekkoFutureUnlessShutdown[Y],
         future3: PekkoFutureUnlessShutdown[Z],
+        orderingStage: Option[String] = None,
     ): PekkoFutureUnlessShutdown[(X, Y, Z)] =
       future1
-        .zip(future2)(executionContext)
-        .zip(future3)(executionContext)
-        .map { case ((x, y), z) =>
-          (x, y, z)
-        }(executionContext)
+        .zip(future2, orderingStage)(executionContext)
+        .zip(future3, orderingStage)(executionContext)
+        .map(
+          { case ((x, y), z) =>
+            (x, y, z)
+          },
+          orderingStage,
+        )(executionContext)
 
     override def sequenceFuture[A, F[_]](
-        futures: F[PekkoFutureUnlessShutdown[A]]
+        futures: F[PekkoFutureUnlessShutdown[A]],
+        orderingStage: Option[String] = None,
     )(implicit
         ev: Traverse[F]
     ): PekkoFutureUnlessShutdown[F[A]] =
-      PekkoFutureUnlessShutdown.sequence(futures)(ev, executionContext)
+      PekkoFutureUnlessShutdown.sequence(futures, orderingStage)(ev, executionContext)
 
-    override def mapFuture[X, Y](future: PekkoFutureUnlessShutdown[X])(
-        fun: PureFun[X, Y]
-    ): PekkoFutureUnlessShutdown[Y] =
-      future.map(fun)(executionContext)
+    override def mapFuture[X, Y](
+        future: PekkoFutureUnlessShutdown[X]
+    )(fun: PureFun[X, Y], orderingStage: Option[String] = None): PekkoFutureUnlessShutdown[Y] =
+      future.map(fun, orderingStage)(executionContext)
 
     override def pureFuture[X](x: X): PekkoFutureUnlessShutdown[X] =
       PekkoFutureUnlessShutdown.pure(x)
@@ -323,8 +351,9 @@ object PekkoModuleSystem {
     override def flatMapFuture[R1, R2](
         future1: PekkoFutureUnlessShutdown[R1],
         future2: PureFun[R1, PekkoFutureUnlessShutdown[R2]],
+        orderingStage: Option[String] = None,
     ): PekkoFutureUnlessShutdown[R2] =
-      future1.flatMap(future2)(executionContext)
+      future1.flatMap(future2, orderingStage)(executionContext)
   }
 
   private[bftordering] final class PekkoEnv extends Env[PekkoEnv] {

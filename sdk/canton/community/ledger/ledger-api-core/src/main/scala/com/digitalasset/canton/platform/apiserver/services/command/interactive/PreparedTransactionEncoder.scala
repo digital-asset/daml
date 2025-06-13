@@ -29,7 +29,6 @@ import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
   FatContractInstance,
   GlobalKey,
   Node,
@@ -294,7 +293,7 @@ final class PreparedTransactionEncoder(
             }
         },
       )
-      .withFieldComputed(_.createdAt, fci => CreationTime.encode(fci.createdAt))
+      .withFieldComputed(_.createdAt, _.createdAt.transformInto[Long])
       .withFieldComputed(_.driverMetadata, _.cantonData.transformInto[ByteString])
       .buildTransformer
 

@@ -85,7 +85,7 @@ import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, WithKillSwitc
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.*
 import com.digitalasset.canton.util.collection.IterableUtil
-import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, NoExceptionRetryPolicy}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
 import com.google.common.annotations.VisibleForTesting
@@ -177,9 +177,9 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   ): EitherT[FutureUnlessShutdown, String, Boolean]
 
   /** Download the topology state for initializing the member */
-  def downloadTopologyStateForInit()(implicit
+  def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, GenericStoredTopologyTransactions]
+  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions]
 
   def protocolVersion: ProtocolVersion
 }
@@ -244,7 +244,11 @@ abstract class SequencerClientImpl(
   override def logout()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, Unit] =
-    sequencersTransportState.logout()
+    if (config.useNewConnectionPool) {
+      connectionPool.getAllConnections().parTraverse_(_.logout())
+    } else {
+      sequencersTransportState.logout()
+    }
 
   protected val sequencersTransportState: SequencersTransportState =
     new SequencersTransportState(
@@ -468,12 +472,12 @@ abstract class SequencerClientImpl(
     val patienceO = Option.when(exclusions.sizeIs < factor.value - 1)(patience)
 
     val linkDetailsO = connectionPool
-      .getConnections(1, exclusions.toSet)
+      .getConnections(PositiveInt.one, exclusions.toSet)
       .headOption
       .orElse(
         // No connection available with exclusions -- try without exclusions
         connectionPool
-          .getConnections(1, Set.empty)
+          .getConnections(PositiveInt.one, Set.empty)
           .headOption
       )
       .map(connection =>
@@ -822,6 +826,22 @@ abstract class SequencerClientImpl(
   def acknowledgeSigned(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Boolean] = {
+    def acknowledgeWithConnectionPool(
+        signedRequest: SignedContent[AcknowledgeRequest]
+    ): EitherT[FutureUnlessShutdown, String, Boolean] = {
+      val connectionO = connectionPool
+        .getConnections(PositiveInt.one, exclusions = Set.empty)
+        .headOption
+
+      connectionO match {
+        case Some(connection) =>
+          connection.acknowledgeSigned(signedRequest, timeouts.network.duration)
+        case None =>
+          logger.info("No connection available to send acknowledgement")
+          EitherT.pure(false)
+      }
+    }
+
     val request = AcknowledgeRequest(member, timestamp, protocolVersion)
     for {
       signedRequest <- requestSigner.signRequest(
@@ -829,17 +849,51 @@ abstract class SequencerClientImpl(
         HashPurpose.AcknowledgementSignature,
         Some(syncCryptoClient.currentSnapshotApproximation),
       )
-      result <- sequencersTransportState.transport.acknowledgeSigned(signedRequest)
+      result <-
+        if (config.useNewConnectionPool) {
+          acknowledgeWithConnectionPool(signedRequest)
+        } else {
+          sequencersTransportState.transport.acknowledgeSigned(signedRequest)
+        }
     } yield result
   }
 
-  override def downloadTopologyStateForInit()(implicit
+  override def downloadTopologyStateForInit(maxRetries: Int, retryLogLevel: Option[Level])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, String, GenericStoredTopologyTransactions] =
-    // TODO(i12076): Download topology state from one of the sequencers based on the health
-    sequencersTransportState.transport
-      .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
-      .map(_.topologyTransactions.value)
+  ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
+    val triedSequencersRef = new AtomicReference[Set[SequencerId]](Set.empty)
+
+    def downloadSnapshot
+        : EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
+      val triedSequencers = triedSequencersRef.get
+
+      // We ignore the amplification part
+      val (_, sequencerId, transport, _) =
+        sequencersTransportState.nextAmplifiedTransport(triedSequencers.toSeq)
+      triedSequencersRef.updateAndGet(_ + sequencerId).discard
+
+      logger.debug(
+        s"Attempting to download topology state for init from $sequencerId (already tried: $triedSequencers)"
+      )
+      transport
+        .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
+        .map(_.topologyTransactions.value)
+        .mapK(FutureUnlessShutdown.outcomeK)
+    }
+
+    val resultFUS = retry
+      .Pause(
+        logger = logger,
+        performUnlessClosing = closeContext.context,
+        maxRetries = maxRetries,
+        delay = 1.second,
+        operationName = "Download topology state for init",
+        retryLogLevel = retryLogLevel,
+      )
+      .unlessShutdown(downloadSnapshot.value, NoExceptionRetryPolicy)
+
+    EitherT(resultFUS)
+  }
 
   protected val periodicAcknowledgementsRef =
     new AtomicReference[Option[PeriodicAcknowledgements]](None)
