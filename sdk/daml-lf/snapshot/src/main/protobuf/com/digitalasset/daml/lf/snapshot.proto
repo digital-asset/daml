@@ -13,7 +13,7 @@ message TransactionEntry {
     string participantId = 2;
     repeated string submitters = 3;
     int64 ledgerTime = 4;
-    int64 submissionTime = 5;
+    int64 preparationTime = 5;
     bytes submissionSeed = 6;
 }
 
