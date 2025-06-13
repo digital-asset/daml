@@ -81,7 +81,7 @@ trait MediatorOnboardingTest
       newParties = Seq(AliceName -> participant1.id),
       targetTopology = Map(
         AliceName -> Map(
-          daId -> (PositiveInt.tryCreate(1) -> Set(
+          synchronizer1Id -> (PositiveInt.tryCreate(1) -> Set(
             participant1.id -> ParticipantPermission.Submission,
             participant2.id -> ParticipantPermission.Observation,
           ))
@@ -110,16 +110,18 @@ trait MediatorOnboardingTest
       .loneElement
 
     // onboard the mediator
+    // user-manual-entry-begin: DynamicallyOnboardMediator-LoadIdentity
     val mediator2Identity = mediator2.topology.transactions.identity_transactions()
     sequencer1.topology.transactions.load(
       mediator2Identity,
-      store = daId,
+      store = synchronizer1Id,
       ForceFlag.AlienMember,
     )
+    // user-manual-entry-end: DynamicallyOnboardMediator-LoadIdentity
     eventually() {
       sequencer1.topology.transactions
         .list(
-          store = daId,
+          store = synchronizer1Id,
           filterNamespace = mediator2.namespace.filterString,
           filterMappings =
             Seq(TopologyMapping.Code.NamespaceDelegation, TopologyMapping.Code.OwnerToKeyMapping),
@@ -128,12 +130,14 @@ trait MediatorOnboardingTest
         .map(_.mapping.code) should have size 2
     }
 
+    // user-manual-entry-begin: DynamicallyOnboardMediator-Propose
     sequencer1.topology.mediators.propose(
-      daId,
-      PositiveInt.one,
+      synchronizer1Id,
+      threshold = PositiveInt.one,
       active = Seq(mediator1.id, mediator2.id),
       group = NonNegativeInt.zero,
     )
+    // user-manual-entry-end: DynamicallyOnboardMediator-Propose
 
     // create topology transactions manually so that we can upload it together with additional
     // topology transactions via transactions.load in one fell swoop,
@@ -153,14 +157,16 @@ trait MediatorOnboardingTest
     // ... so that we can upload the elevation of participant2 to Submission permission
     // before the responses get through
     sequencer1.topology.transactions
-      .load(p2GainsSubmissionPermission, store = daId)
+      .load(p2GainsSubmissionPermission, store = synchronizer1Id)
 
     // initialize the mediator
+    // user-manual-entry-begin: DynamicallyOnboardMediator-Initialize
     mediator2.setup.assign(
-      daId,
+      synchronizer1Id,
       SequencerConnections.single(sequencer1.sequencerConnection),
     )
     mediator2.health.wait_for_initialized()
+    // user-manual-entry-end: DynamicallyOnboardMediator-Initialize
 
     // run an extra ping to verify that everything went through correctly
     participant3.health.ping(participant1)

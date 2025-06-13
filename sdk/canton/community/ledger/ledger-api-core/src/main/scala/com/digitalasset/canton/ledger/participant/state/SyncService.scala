@@ -16,8 +16,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{LfContractId, LfSubmittedTransaction}
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId, SynchronizerAlias}
 
 /** An interface to change a ledger via a participant. '''Please note that this interface is
@@ -52,12 +51,6 @@ trait SyncService
       traceContext: TraceContext
   ): FutureUnlessShutdown[ConnectedSynchronizerResponse] =
     throw new UnsupportedOperationException()
-
-  // TODO(i20688): Temporary until prepared transactions run through the synchronizer router
-  def getProtocolVersionForSynchronizer(
-      synchronizerId: Traced[SynchronizerId]
-  ): Option[ProtocolVersion] =
-    None
 
   // temporary implementation, will be removed as topology events on Ledger API proceed
   /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.

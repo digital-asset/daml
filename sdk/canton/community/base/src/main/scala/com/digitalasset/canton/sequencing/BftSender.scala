@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -78,10 +79,12 @@ object BftSender {
       description: String,
       futureSupervisor: FutureSupervisor,
       logger: TracedLogger,
-      operators: Map[I, O],
+      operators: NonEmpty[Map[I, O]],
       threshold: PositiveInt,
-      performRequest: O => EitherT[FutureUnlessShutdown, E, A],
-      resultHashKey: A => K,
+  )(
+      performRequest: O => EitherT[FutureUnlessShutdown, E, A]
+  )(
+      resultHashKey: A => K
   )(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,

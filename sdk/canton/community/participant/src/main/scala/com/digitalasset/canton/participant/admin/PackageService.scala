@@ -233,7 +233,10 @@ class PackageService(
     //     - Already un-vetted
     //     - Or can be automatically un-vetted, by revoking a vetting transaction corresponding to all packages in the DAR
 
-    val packages = dar.all.map(readPackageId)
+    val packages = {
+      import scalaz.syntax.traverse.*
+      dar.map(readPackageId)
+    }
 
     val mainPkg = readPackageId(dar.main)
     for {
@@ -246,7 +249,7 @@ class PackageService(
         )
 
       packageUsed <- EitherT
-        .liftF(packages.parTraverse(p => packageOps.checkPackageUnused(p).value))
+        .liftF(packages.dependencies.parTraverse(p => packageOps.checkPackageUnused(p).value))
 
       usedPackages = packageUsed.mapFilter {
         case Left(packageInUse: PackageRemovalErrorCode.PackageInUse) => Some(packageInUse.pkg)
@@ -258,20 +261,24 @@ class PackageService(
         .toLeft(())
         .leftMap(p => new CannotRemoveOnlyDarForPackage(p, darDescriptor))
 
-      packagesThatCanBeRemoved <- EitherT
+      packagesThatCanBeRemoved_ <- EitherT
         .liftF(
           packagesDarsStore
-            .determinePackagesExclusivelyInDar(packages, darDescriptor)
+            .determinePackagesExclusivelyInDar(packages.all, darDescriptor)
         )
+
+      packagesThatCanBeRemoved = packagesThatCanBeRemoved_.toList
 
       _unit <- revokeVettingForDar(
         mainPkg,
-        packagesThatCanBeRemoved.toList,
+        packagesThatCanBeRemoved,
         darDescriptor,
       )
 
-      _unit <-
-        EitherT.right(packagesDarsStore.removePackage(mainPkg))
+      // TODO(#26078): update documentation to reflect main package dependency removal changes
+      _unit <- EitherT.liftF(
+        packagesThatCanBeRemoved.parTraverse(packagesDarsStore.removePackage(_))
+      )
 
       _removed <- {
         logger.info(s"Removing dar ${darDescriptor.mainPackageId}")

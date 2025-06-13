@@ -187,6 +187,28 @@ object SequencerError extends SequencerErrorGroup {
         )
   }
 
+  @Explanation("""
+                 |This error indicates that a request was not sequenced because the sequencing time of the request would have
+                 |been before the sequencer's configured lower bound of the sequencing time.""")
+  @Resolution(
+    """Wait for the time to advance beyond the sequencing time lower bound."""
+  )
+  object SequencedBeforeLowerBound
+      extends ErrorCode(
+        "SEQUENCED_BEFORE_LOWER_BOUND",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    override def exposedViaApi: Boolean = false
+    final case class Error(
+        ts: CantonTimestamp,
+        minimumSequencingTime: CantonTimestamp,
+        message: String,
+    ) extends CantonBaseError.Impl(
+          cause =
+            s"The sequencer time [$ts] is before the sequencing time lower bound $minimumSequencingTime: $message"
+        )
+  }
+
   @Explanation("""This warning indicates that the time difference between storing the payload and writing the"
     |event exceeded the configured time bound, which resulted in the message to be discarded. This can happen
     |during some failure event on the database which causes unexpected delay between these two database operations.

@@ -826,24 +826,24 @@ class GrpcTopologyManagerReadService(
     CantonGrpcUtil.mapErrNewEUS(ret)
   }
 
-  override def listSynchronizerMigrationAnnouncement(
-      request: ListSynchronizerMigrationAnnouncementRequest
-  ): Future[ListSynchronizerMigrationAnnouncementResponse] = {
+  override def listSynchronizerUpgradeAnnouncement(
+      request: ListSynchronizerUpgradeAnnouncementRequest
+  ): Future[ListSynchronizerUpgradeAnnouncementResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val ret = for {
       res <- collectFromStoresByFilterString(
         request.baseQuery,
-        SynchronizerMigrationAnnouncement.code,
+        SynchronizerUpgradeAnnouncement.code,
         request.filterSynchronizerId,
       )
     } yield {
-      val results = res.collect { case (context, announcement: SynchronizerMigrationAnnouncement) =>
-        adminProto.ListSynchronizerMigrationAnnouncementResponse.Result(
+      val results = res.collect { case (context, announcement: SynchronizerUpgradeAnnouncement) =>
+        adminProto.ListSynchronizerUpgradeAnnouncementResponse.Result(
           context = Some(createBaseResult(context)),
           item = Some(announcement.toProto),
         )
       }
-      adminProto.ListSynchronizerMigrationAnnouncementResponse(results)
+      adminProto.ListSynchronizerUpgradeAnnouncementResponse(results)
     }
     CantonGrpcUtil.mapErrNewEUS(ret)
   }

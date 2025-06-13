@@ -107,7 +107,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
         EventSequentialIdsRow(min.getOrElse(0L), max.getOrElse(0L), count)
       }
 
-  override def onlyForTestingVerifyIntegrity(
+  override def verifyIntegrity(
       failForEmptyDB: Boolean = true
   )(connection: Connection): Unit = try {
     val duplicateSeqIds = SqlDuplicateEventSequentialIds
@@ -316,7 +316,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
       }
   }
 
-  override def onlyForTestingNumberOfAcceptedTransactionsFor(
+  override def numberOfAcceptedTransactionsFor(
       synchronizerId: SynchronizerId
   )(connection: Connection): Int =
     SQL"""SELECT internal_id
@@ -334,7 +334,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
   /** ONLY FOR TESTING This is causing wiping of all LAPI event data. This should not be used during
     * working indexer.
     */
-  override def onlyForTestingMoveLedgerEndBackToScratch()(connection: Connection): Unit = {
+  override def moveLedgerEndBackToScratch()(connection: Connection): Unit = {
     SQL"DELETE FROM lapi_parameters".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_post_processing_end".executeUpdate()(connection).discard
     SQL"DELETE FROM lapi_ledger_end_synchronizer_index".executeUpdate()(connection).discard

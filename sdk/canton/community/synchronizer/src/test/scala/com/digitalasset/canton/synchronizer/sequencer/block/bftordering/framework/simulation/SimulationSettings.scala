@@ -142,7 +142,7 @@ final case class SimulationSettings(
     clientRequestApproximateByteSize: Option[PositiveInt] = Some(
       PositiveInt.three // fully arbitrary
     ),
-    livenessCheckInterval: FiniteDuration = 20.seconds,
+    livenessCheckInterval: FiniteDuration = 25.seconds,
     nodeOnboardingDelays: Iterable[FiniteDuration] = Iterable.empty,
     becomingOnlineAfterOnboardingDelay: FiniteDuration =
       SimulationSettings.DefaultBecomingOnlineAfterOnboardingDelay,

@@ -23,7 +23,11 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
-import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
+import com.digitalasset.canton.store.{
+  IndexedPhysicalSynchronizer,
+  IndexedStringStore,
+  IndexedSynchronizer,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
@@ -45,6 +49,7 @@ class InMemorySyncPersistentState(
     participantId: ParticipantId,
     clock: Clock,
     crypto: SynchronizerCrypto,
+    override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     override val synchronizerIdx: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
@@ -69,6 +74,7 @@ class InMemorySyncPersistentState(
     )
   val reassignmentStore =
     new InMemoryReassignmentStore(Target(synchronizerIdx.item), loggerFactory)
+
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory, timeouts)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =
@@ -83,7 +89,7 @@ class InMemorySyncPersistentState(
 
   override val topologyStore =
     new InMemoryTopologyStore(
-      SynchronizerStore(synchronizerIdx.synchronizerId),
+      SynchronizerStore(physicalSynchronizerIdx.synchronizerId.logical),
       staticSynchronizerParameters.protocolVersion,
       loggerFactory,
       timeouts,

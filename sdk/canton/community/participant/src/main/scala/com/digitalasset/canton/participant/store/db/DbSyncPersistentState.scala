@@ -25,7 +25,11 @@ import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
-import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
+import com.digitalasset.canton.store.{
+  IndexedPhysicalSynchronizer,
+  IndexedStringStore,
+  IndexedSynchronizer,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.db.DbTopologyStore
@@ -45,6 +49,7 @@ import scala.concurrent.ExecutionContext
 
 class DbSyncPersistentState(
     participantId: ParticipantId,
+    override val physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     override val synchronizerIdx: IndexedSynchronizer,
     val staticSynchronizerParameters: StaticSynchronizerParameters,
     clock: Clock,
@@ -119,7 +124,7 @@ class DbSyncPersistentState(
 
   val parameterStore: DbSynchronizerParameterStore =
     new DbSynchronizerParameterStore(
-      synchronizerIdx.synchronizerId,
+      physicalSynchronizerIdx.synchronizerId,
       storage,
       timeouts,
       loggerFactory,

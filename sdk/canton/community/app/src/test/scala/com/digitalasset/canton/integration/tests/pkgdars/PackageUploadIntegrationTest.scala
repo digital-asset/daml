@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests.pkgdars
 
 import better.files.File
 import com.digitalasset.canton.SynchronizerAlias
+import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.console.{CommandFailure, ParticipantReference, SequencerReference}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -20,6 +21,8 @@ import com.digitalasset.canton.integration.{
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Reading.InvalidDar
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation.ValidationError
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors.Package.AllowedLanguageVersions
+import com.digitalasset.canton.participant.admin.CantonPackageServiceError.PackageRemovalErrorCode
+import com.digitalasset.canton.participant.admin.PackageService.{DarDescription, DarMainPackageId}
 import com.digitalasset.canton.participant.admin.PackageTestUtils.ArchiveOps
 import com.digitalasset.canton.participant.admin.{PackageServiceTest, PackageTestUtils}
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
@@ -30,6 +33,7 @@ import com.google.protobuf.ByteString
 
 import java.util.zip.ZipInputStream
 import scala.concurrent.Future
+import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Success}
 
 trait PackageUploadIntegrationTest
@@ -55,6 +59,8 @@ trait PackageUploadIntegrationTest
       ref.dars.upload(CantonTestsPath)
       ref.synchronizers.connect_local(sequencerConnection, alias = synchronizerAlias)
     }
+
+  private var cantonTestsMainPackageId, cantonExamplesMainPkgId: String = _
 
   "uploading before connecting" must {
 
@@ -235,7 +241,7 @@ trait PackageUploadIntegrationTest
       val items = participant3.dars.list(filterName = "CantonExamples")
       items should have length (1)
 
-      val dar = items.headOption.getOrElse(fail("canton examples should be there"))
+      val dar = items.loneElement
 
       // list contents
       val content = participant3.dars.get_contents(dar.mainPackageId)
@@ -453,6 +459,63 @@ trait PackageUploadIntegrationTest
 
   }
 
+  "DAR removal" should {
+    "fail if the main package-id is used" in { implicit env =>
+      import env.*
+      participant4.dars.upload(CantonExamplesPath)
+      participant4.dars.upload(CantonTestsPath)
+
+      cantonTestsMainPackageId = participant4.dars
+        .list(filterName = "CantonTests")
+        .loneElement
+        .mainPackageId
+
+      cantonExamplesMainPkgId = participant4.dars
+        .list(filterName = "CantonExamples")
+        .loneElement
+        .pipe(_.mainPackageId)
+
+      assertThrowsAndLogsCommandFailures(
+        participant4.dars.remove(cantonTestsMainPackageId),
+        _.shouldBeCommandFailure(
+          PackageRemovalErrorCode.code,
+          s"The DAR ${DarDescription(
+              DarMainPackageId.tryCreate(cantonTestsMainPackageId),
+              String255.tryCreate("CantonTests-3.4.0"),
+              String255.tryCreate("CantonTests"),
+              String255.tryCreate("3.4.0"),
+            )} cannot be removed because its main package $cantonTestsMainPackageId is in-use",
+        ),
+      )
+    }
+
+    "only remove a dependency package-id if it's not referenced in another DAR" in { implicit env =>
+      import env.*
+
+      // Archive the contract using CantonTests
+      archiveContract(participant4)
+
+      // Now, we can remove the CantonTests DAR
+      participant4.dars.remove(cantonTestsMainPackageId)
+
+      // Check that CantonTests main package-id was removed
+      participant4.packages
+        .list(filterName = "CantonTests")
+        .map(_.packageId) should not contain cantonTestsMainPackageId
+
+      // but not the CantonExamples main package-id (that is a dependency of CantonTests)
+      participant4.packages.list(filterName = "CantonExamples").map(_.packageId) should contain(
+        cantonExamplesMainPkgId
+      )
+
+      // Now, remove the CantonExamples DAR
+      participant4.dars.remove(cantonExamplesMainPkgId)
+      // Check that CantonExamples main package-id was removed
+      participant4.packages
+        .list(filterName = "CantonExamples")
+        .map(_.packageId) should not contain cantonExamplesMainPkgId
+    }
+  }
 }
 
 class PackageUploadIntegrationTestPostgres extends PackageUploadIntegrationTest {

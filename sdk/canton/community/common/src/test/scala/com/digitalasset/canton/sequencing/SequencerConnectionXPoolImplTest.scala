@@ -358,7 +358,7 @@ class SequencerConnectionXPoolImplTest
         val createdConfigs = (0 to 5).map(createdConnections.apply).map(_.config)
 
         clue("one connection per sequencer") {
-          val received = pool.getConnections(3, exclusions = Set.empty)
+          val received = pool.getConnections(PositiveInt.three, exclusions = Set.empty)
 
           received.map(_.attributes.sequencerId) shouldBe Set(
             testSequencerId(1),
@@ -375,32 +375,33 @@ class SequencerConnectionXPoolImplTest
 
         clue("round robin") {
           val exclusions = Set(testSequencerId(2), testSequencerId(3))
-          val received1 = pool.getConnections(1, exclusions)
-          val received2 = pool.getConnections(1, exclusions)
-          val received3 = pool.getConnections(1, exclusions)
+          val received1 = pool.getConnections(PositiveInt.one, exclusions)
+          val received2 = pool.getConnections(PositiveInt.one, exclusions)
+          val received3 = pool.getConnections(PositiveInt.one, exclusions)
 
           Set(received1, received2, received3).map(_.loneElement.config) shouldBe
             Set(createdConfigs(0), createdConfigs(1), createdConfigs(2))
 
-          pool.getConnections(1, exclusions) shouldBe received1
+          pool.getConnections(PositiveInt.one, exclusions) shouldBe received1
         }
 
         clue("request too many") {
-          val received = pool.getConnections(5, exclusions = Set.empty)
+          val received = pool.getConnections(PositiveInt.tryCreate(5), exclusions = Set.empty)
           received should have size 3
         }
 
         clue("stop and start") {
           val exclusions = Set(testSequencerId(1), testSequencerId(3))
 
-          pool.getConnections(3, exclusions) should have size 1
+          pool.getConnections(PositiveInt.three, exclusions) should have size 1
 
           val connectionsOnSeq2 = Set(createdConnections(3), createdConnections(4))
           connectionsOnSeq2.foreach(_.fail(reason = "test"))
 
           eventually() {
             // Both connections have been restarted and can be obtained
-            val received = connectionsOnSeq2.map(_ => pool.getConnections(3, exclusions))
+            val received =
+              connectionsOnSeq2.map(_ => pool.getConnections(PositiveInt.three, exclusions))
             forAll(received)(_ should have size 1)
             received.flatten.map(_.config) shouldBe connectionsOnSeq2.map(_.config)
           }
@@ -408,7 +409,7 @@ class SequencerConnectionXPoolImplTest
           connectionsOnSeq2.foreach(_.fatal(reason = "test"))
           eventuallyForever() {
             // Connections don't get restarted
-            pool.getConnections(3, exclusions) should have size 0
+            pool.getConnections(PositiveInt.three, exclusions) should have size 0
           }
         }
       }

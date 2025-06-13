@@ -588,7 +588,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     "participant can open a commitment it previously sent" in { implicit env =>
       import env.*
 
-      val (createdCids, period, commitment) = deployThreeAndCheck(daId)
+      val (_, period, commitment) = deployThreeAndCheck(daId)
 
       val contractsAndTransferCounters = participant1.commitments.open_commitment(
         commitment,
@@ -780,7 +780,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
       logger.info("Wait that ACS background pruning advanced past the timestamp of the commitment")
       eventually() {
-        val pruningTs = participant1.testing.state_inspection.acsPruningStatus(daName)
+        val pruningTs = participant1.testing.state_inspection.acsPruningStatus(daId)
         pruningTs.map(_.lastSuccess.forall(_ >= period.toInclusive)) shouldBe Some(true)
       }
 
@@ -945,9 +945,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
               synchronizerId: SynchronizerId,
           ): ReassignmentStore =
             participant.underlying.value.sync.syncPersistentStateManager
-              .get(synchronizerId)
+              .reassignmentStore(synchronizerId)
               .value
-              .reassignmentStore
 
           // Retrieve the reassignment data
           val reassignmentStoreP1Acme = reassignmentStore(participant1, acmeId)

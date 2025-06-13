@@ -27,7 +27,12 @@ import com.digitalasset.canton.participant.admin.repair.{
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.synchronizer.SynchronizerConnectionConfig
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.topology.{PartyId, SynchronizerId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{
+  PartyId,
+  PhysicalSynchronizerId,
+  SynchronizerId,
+  UniqueIdentifier,
+}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.Thereafter.syntax.*
@@ -338,7 +343,7 @@ final class GrpcParticipantRepairService(
       activeContractsWithRemapping <-
         ContractIdsImportProcessor(
           loggerFactory,
-          sync.protocolVersionGetter,
+          sync.syncPersistentStateManager,
           sync.pureCryptoApi,
           contractIdImportMode,
         )(repairContracts)
@@ -540,8 +545,8 @@ final class GrpcParticipantRepairService(
 
     val res = for {
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-        SynchronizerId
-          .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(request.physicalSynchronizerId, "physical_synchronizer_id")
           .leftMap(_.message)
       )
       _ <- sync.repairService.ignoreEvents(
@@ -564,8 +569,8 @@ final class GrpcParticipantRepairService(
 
     val res = for {
       synchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
-        SynchronizerId
-          .fromProtoPrimitive(request.synchronizerId, "synchronizer_id")
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(request.physicalSynchronizerId, "physical_synchronizer_id")
           .leftMap(_.message)
       )
       _ <- sync.repairService.unignoreEvents(

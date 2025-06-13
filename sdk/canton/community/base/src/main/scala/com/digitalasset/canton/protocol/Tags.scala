@@ -198,12 +198,6 @@ final case class ReassignmentId(
       timestamp = unassignmentTs.toProtoPrimitive,
     )
 
-  def toAdminProto: com.digitalasset.canton.admin.participant.v30.ReassignmentId =
-    com.digitalasset.canton.admin.participant.v30.ReassignmentId(
-      sourceSynchronizerId = sourceSynchronizer.unwrap.toProtoPrimitive,
-      timestamp = Some(unassignmentTs.toProtoTimestamp),
-    )
-
   override protected def pretty: Pretty[ReassignmentId] = prettyOfClass(
     param("ts", _.unassignmentTs),
     param("source", _.sourceSynchronizer),

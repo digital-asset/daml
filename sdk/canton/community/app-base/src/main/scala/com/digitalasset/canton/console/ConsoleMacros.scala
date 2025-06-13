@@ -965,6 +965,105 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           consoleEnvironment.raiseError(s"The synchronizer cannot be bootstrapped: $error")
       }
     }
+
+    @Help.Summary(
+      "Onboards a new Sequencer node."
+    )
+    @Help.Description(
+      "Onboards a new Sequencer node using an existing node from the network."
+    )
+    def onboard_new_sequencer(
+        synchronizerId: SynchronizerId,
+        newSequencer: SequencerReference,
+        existingSequencer: SequencerReference,
+        synchronizerOwners: Set[InstanceReference],
+        isBftSequencer: Boolean = false,
+    )(implicit consoleEnvironment: ConsoleEnvironment): Unit = {
+      import consoleEnvironment.*
+
+      def synchronizeTopologyAfterAddingSequencer(
+          newSequencerId: SequencerId,
+          existingSequencer: SequencerReference,
+      ): Unit =
+        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+          existingSequencer.topology.sequencers
+            .list(existingSequencer.synchronizer_id)
+            .headOption
+            .map(_.item.allSequencers.forgetNE)
+            .getOrElse(Seq.empty)
+            .contains(newSequencerId)
+        }
+
+      def synchronizeTopologyAfterAddingBftSequencer(
+          newSequencerId: SequencerId,
+          existingSequencer: SequencerReference,
+      ): Unit =
+        ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+          existingSequencer.bft.get_ordering_topology().sequencerIds.contains(newSequencerId)
+        }
+
+      val synchronizerOwnersNE = NonEmpty
+        .from(synchronizerOwners)
+        .getOrElse(raiseError("synchronizerOwners must not be empty"))
+
+      // extract onboarding sequencer's identity transactions
+      val onboardingSequencerIdentity =
+        newSequencer.topology.transactions.identity_transactions()
+
+      // upload onboarding sequencer's identity transactions
+      existingSequencer.topology.transactions
+        .load(onboardingSequencerIdentity, synchronizerId, ForceFlag.AlienMember)
+
+      logger.info("Uploaded a new sequencer identity")
+
+      // fetch the latest SequencerSynchronizerState mapping
+      val seqState1 = existingSequencer.topology.sequencers
+        .list(store = synchronizerId)
+        .headOption
+        .getOrElse(raiseError("No sequencer state found"))
+        .item
+
+      // propose the SequencerSynchronizerState that adds the new sequencer
+      synchronizerOwnersNE
+        .foreach(
+          _.topology.sequencers
+            .propose(
+              synchronizerId,
+              threshold = seqState1.threshold,
+              active = seqState1.active :+ newSequencer.id,
+            )
+            .discard
+        )
+
+      logger.info("Proposed a sequencer synchronizer state with the new sequencer")
+
+      // wait for SequencerSynchronizerState to be observed by the sequencer
+      ConsoleMacros.utils.retry_until_true(commandTimeouts.bounded) {
+        val sequencerStates =
+          existingSequencer.topology.sequencers.list(store = synchronizerId)
+
+        val sequencerState =
+          sequencerStates.headOption.getOrElse(
+            raiseError("SequencerSynchronizerState should not empty")
+          )
+        sequencerState.item.active.contains(newSequencer.id)
+      }
+      logger.info("New sequencer synchronizer state has been observed")
+
+      if (isBftSequencer) {
+        synchronizeTopologyAfterAddingBftSequencer(newSequencer.id, existingSequencer)
+        logger.info("The new sequencer is part of the ordering topology")
+      } else {
+        synchronizeTopologyAfterAddingSequencer(newSequencer.id, existingSequencer)
+      }
+
+      // now we can establish the sequencer snapshot
+      val onboardingState =
+        existingSequencer.setup.onboarding_state_for_sequencer(newSequencer.id)
+
+      // finally, initialize "newSequencer"
+      newSequencer.setup.assign_from_onboarding_state(onboardingState).discard
+    }
   }
 
   object commitments extends Helpful {

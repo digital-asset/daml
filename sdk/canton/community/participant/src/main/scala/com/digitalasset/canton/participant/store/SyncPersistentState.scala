@@ -37,6 +37,7 @@ trait SyncPersistentState extends NamedLogging with AutoCloseable {
 
   /** The crypto operations used on the synchronizer */
   def pureCryptoApi: CryptoPureApi
+  def physicalSynchronizerIdx: IndexedPhysicalSynchronizer
   def synchronizerIdx: IndexedSynchronizer
   def staticSynchronizerParameters: StaticSynchronizerParameters
   def enableAdditionalConsistencyChecks: Boolean
@@ -62,10 +63,10 @@ trait SyncPersistentState extends NamedLogging with AutoCloseable {
 }
 
 object SyncPersistentState {
-
   def create(
       participantId: ParticipantId,
       storage: Storage,
+      physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
       synchronizerIdx: IndexedSynchronizer,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       clock: Clock,
@@ -80,13 +81,14 @@ object SyncPersistentState {
       futureSupervisor: FutureSupervisor,
   )(implicit ec: ExecutionContext): SyncPersistentState = {
     val synchronizerLoggerFactory =
-      loggerFactory.append("synchronizerId", synchronizerIdx.synchronizerId.toString)
+      loggerFactory.append("synchronizerId", physicalSynchronizerIdx.synchronizerId.toString)
     storage match {
       case _: MemoryStorage =>
         new InMemorySyncPersistentState(
           participantId,
           clock,
           crypto,
+          physicalSynchronizerIdx,
           synchronizerIdx,
           staticSynchronizerParameters,
           parameters.enableAdditionalConsistencyChecks,
@@ -103,6 +105,7 @@ object SyncPersistentState {
       case db: DbStorage =>
         new DbSyncPersistentState(
           participantId,
+          physicalSynchronizerIdx,
           synchronizerIdx,
           staticSynchronizerParameters,
           clock,

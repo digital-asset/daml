@@ -183,7 +183,9 @@ class TransactionConfirmationResponsesFactory(
                 .map(err =>
                   logged(
                     requestId,
-                    // TODO(i13513): Check whether a `Malformed` code is appropriate
+                    // Conceptually, a normal LocalReject for the admin party should suffice for rejecting replays.
+                    // However, we nevertheless use a `Malformed` rejection here so that the rejection preference sorting
+                    // ensures that this rejection or something at least as strong will make it to the mediator.
                     LocalRejectError.MalformedRejects.MalformedRequest.Reject(
                       err.format(viewPosition)
                     ),

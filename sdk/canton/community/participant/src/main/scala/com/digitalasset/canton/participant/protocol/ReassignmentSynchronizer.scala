@@ -3,19 +3,20 @@
 
 package com.digitalasset.canton.participant.protocol
 
+import cats.syntax.functor.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.ReassignmentId
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{Future, Promise}
 
 final class ReassignmentSynchronizer(
-    sourceSynchronizer: Source[SynchronizerId],
+    sourceSynchronizer: Source[PhysicalSynchronizerId],
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 ) extends NamedLogging
@@ -27,7 +28,7 @@ final class ReassignmentSynchronizer(
 
   def add(reassignmentId: ReassignmentId): Unit = {
     require(
-      reassignmentId.sourceSynchronizer == sourceSynchronizer,
+      reassignmentId.sourceSynchronizer == sourceSynchronizer.map(_.logical),
       s"ReassignmentId $reassignmentId does not match the source synchronizer $sourceSynchronizer",
     )
     pendingUnassignments.putIfAbsent(reassignmentId, Promise()).discard

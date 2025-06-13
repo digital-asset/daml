@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.integration.tests.sequencer
 
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.Threading
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.SequencerReference
 import com.digitalasset.canton.integration.bootstrap.{
@@ -22,7 +22,6 @@ import com.digitalasset.canton.integration.{
   TestConsoleEnvironment,
 }
 import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
-import com.digitalasset.canton.{SequencerAlias, config}
 import eu.rekawek.toxiproxy.model.{Toxic, ToxicDirection, ToxicList}
 import monocle.macros.syntax.lens.*
 import org.scalatest.BeforeAndAfter
@@ -92,26 +91,18 @@ abstract class ToxiproxyIntegrationTest
       )
       .withSetup { implicit env =>
         import env.*
-        val connections = NonEmpty
-          .from(sequencers.local.take(SequencersCount))
-          .getOrElse(throw new IllegalArgumentException("Should not be empty"))
-          .map(s => (SequencerAlias.tryCreate(s.name), s))
-          .toMap
+        val connections = sequencers.local.take(SequencersCount)
         participant1.synchronizers.connect_local_bft(
           connections,
-          alias = daName,
-          submissionRequestAmplification = amplification,
-          // Use a threshold of two to ensure that the participant connects to all sequencers.
-          // TODO(#19911) Reduce to one again once this can be configured independently.
+          synchronizerAlias = daName,
           sequencerTrustThreshold = PositiveInt.two,
+          submissionRequestAmplification = amplification,
         )
         participant2.synchronizers.connect_local_bft(
           connections,
-          alias = daName,
-          submissionRequestAmplification = amplification,
-          // Use a threshold of two to ensure that the participant connects to all sequencers.
-          // TODO(#19911) Reduce to one again once this can be configured independently.
+          synchronizerAlias = daName,
           sequencerTrustThreshold = PositiveInt.two,
+          submissionRequestAmplification = amplification,
         )
 
         // In the tests we have numerous requests that will be dropped while being sequenced.

@@ -61,7 +61,7 @@ object AvailabilityAck {
       from: BftNodeId,
       metrics: BftOrderingMetrics,
   )(implicit metricsContext: MetricsContext): Hash =
-    metrics.performance.orderingStageLatency.timer.time(
+    metrics.performance.orderingStageLatency.time(
       Hash
         .build(
           HashPurpose.BftAvailabilityAck,

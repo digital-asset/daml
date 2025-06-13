@@ -70,6 +70,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{
   ConfirmationRequestSessionKeyStore,
+  IndexedPhysicalSynchronizer,
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
@@ -182,6 +183,7 @@ class AssignmentProcessingStepsTest
         participant,
         clock,
         SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
+        IndexedPhysicalSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
         IndexedSynchronizer.tryCreate(targetSynchronizer.unwrap, 1),
         defaultStaticSynchronizerParameters,
         enableAdditionalConsistencyChecks = true,

@@ -10,6 +10,7 @@ service SequencerBftAdministrationService {
   rpc RemovePeerEndpoint(RemovePeerEndpointRequest) returns (RemovePeerEndpointResponse);
   rpc GetPeerNetworkStatus(GetPeerNetworkStatusRequest) returns (GetPeerNetworkStatusResponse);
   rpc GetOrderingTopology(GetOrderingTopologyRequest) returns (GetOrderingTopologyResponse);
+  rpc SetPerformanceMetricsEnabled(SetPerformanceMetricsEnabledRequest) returns (SetPerformanceMetricsEnabledResponse);
 }
 
 message AddPeerEndpointRequest {
@@ -97,3 +98,9 @@ message GetOrderingTopologyResponse {
   // The sequencer IDs of the active BFT ordering nodes in the network.
   repeated string sequencer_ids = 2;
 }
+
+message SetPerformanceMetricsEnabledRequest {
+  bool enabled = 1;
+}
+
+message SetPerformanceMetricsEnabledResponse {}

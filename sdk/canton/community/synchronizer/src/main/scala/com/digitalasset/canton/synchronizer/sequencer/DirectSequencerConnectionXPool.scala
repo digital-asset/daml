@@ -71,13 +71,20 @@ class DirectSequencerConnectionXPool(
   override val health: SequencerConnectionXPoolHealth =
     new SequencerConnectionXPoolHealth.AlwaysHealthy("direct-pool-health", logger)
 
-  override val nbSequencers: NonNegativeInt = NonNegativeInt.one
+  override def nbSequencers: NonNegativeInt = NonNegativeInt.one
 
-  override val nbConnections: NonNegativeInt = NonNegativeInt.one
+  override def nbConnections: NonNegativeInt = NonNegativeInt.one
 
-  override def getConnections(nb: Int, exclusions: Set[SequencerId])(implicit
+  override def getConnections(nb: PositiveInt, exclusions: Set[SequencerId])(implicit
       traceContext: TraceContext
   ): Set[SequencerConnectionX] = Set(directConnection)
+
+  override def getOneConnectionPerSequencer()(implicit
+      traceContext: TraceContext
+  ): Map[SequencerId, SequencerConnectionX] = Map(sequencerId -> directConnection)
+
+  override def getAllConnections()(implicit traceContext: TraceContext): Seq[SequencerConnectionX] =
+    Seq(directConnection)
 
   override val contents: Map[SequencerId, Set[SequencerConnectionX]] = Map(
     sequencerId -> Set(directConnection)

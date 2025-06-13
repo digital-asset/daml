@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.lifecycle
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
 import com.digitalasset.canton.tracing.TraceContext
@@ -42,7 +42,8 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
     * this function, or one of the other variants such as [[performUnlessClosingF]]. The tasks are
     * assumed to take less than [[closingTimeout]] to complete.
     *
-    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock.
+    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock. DO NOT PUT
+    * retries, especially indefinite ones, inside `f`.
     *
     * @param f
     *   The task to perform
@@ -70,7 +71,8 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
     * variants such as [[performUnlessClosing]]. The tasks are assumed to take less than
     * [[closingTimeout]] to complete.
     *
-    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock.
+    * DO NOT CALL `this.close` as part of `f`, because it will result in a deadlock. DO NOT PUT
+    * retries, especially indefinite ones, inside `f`.
     *
     * @param f
     *   The task to perform
@@ -126,6 +128,14 @@ trait PerformUnlessClosing extends OnShutdownRunner with HasSynchronizeWithReade
         logger.debug(s"Won't schedule the future '$name' as this object is closing")
         FutureUnlessShutdown.abortedDueToShutdown
     }
+
+  def performUnlessClosingOptionUSF[R](name: String)(
+      otf: => OptionT[FutureUnlessShutdown, R]
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ): OptionT[FutureUnlessShutdown, R] =
+    OptionT(performUnlessClosingUSF(name)(otf.value))
 
   def performUnlessClosingEitherUSF[E, R](name: String)(
       etf: => EitherT[FutureUnlessShutdown, E, R]

@@ -64,6 +64,7 @@ import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.store.{
   ConfirmationRequestSessionKeyStore,
+  IndexedPhysicalSynchronizer,
   IndexedSynchronizer,
   SessionKeyStoreWithInMemoryCache,
 }
@@ -159,6 +160,7 @@ final class UnassignmentProcessingStepsTest
       submittingParticipant,
       clock,
       SynchronizerCrypto(crypto, defaultStaticSynchronizerParameters),
+      IndexedPhysicalSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
       IndexedSynchronizer.tryCreate(sourceSynchronizer.unwrap, 1),
       defaultStaticSynchronizerParameters,
       enableAdditionalConsistencyChecks = true,

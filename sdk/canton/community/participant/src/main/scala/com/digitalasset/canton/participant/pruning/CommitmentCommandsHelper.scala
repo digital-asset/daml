@@ -111,7 +111,7 @@ object CommitmentContractMetadata
     val (cidsInBoth, cidsOnlyFirst) = firstMap.keys.partition(cid => secondMap.contains(cid))
     val (_, cidsOnlySecond) = secondMap.keys.partition(cid => firstMap.contains(cid))
 
-    val (sameContracts, diffReassignmentCounters) =
+    val (_sameContracts, diffReassignmentCounters) =
       cidsInBoth.partition(cid => firstMap(cid) == secondMap(cid))
 
     CompareCmtContracts(cidsOnlyFirst.toSeq, cidsOnlySecond.toSeq, diffReassignmentCounters.toSeq)

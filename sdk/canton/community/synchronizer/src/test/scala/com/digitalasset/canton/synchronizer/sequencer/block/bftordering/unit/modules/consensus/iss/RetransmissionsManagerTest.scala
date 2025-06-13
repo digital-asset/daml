@@ -61,13 +61,14 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   private val allIds: Seq[BftNodeId] = (self +: others.toSeq).sorted
 
   private val membership = Membership.forTesting(self, others)
+  private val epochInfo: EpochInfo = EpochInfo(
+    EpochNumber.First,
+    BlockNumber.First,
+    EpochLength(1),
+    TopologyActivationTime(CantonTimestamp.Epoch),
+  )
   private val epoch = EpochState.Epoch(
-    EpochInfo(
-      EpochNumber.First,
-      BlockNumber.First,
-      EpochLength(1),
-      TopologyActivationTime(CantonTimestamp.Epoch),
-    ),
+    epochInfo,
     membership,
     membership,
   )
@@ -191,6 +192,25 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       )
     }
 
+    "not request retransmissions in a one node topology" in {
+      val networkOut = mock[ModuleRef[P2PNetworkOut.Message]]
+
+      val manager = createManager(networkOut)
+
+      val epochState = mock[EpochState[ProgrammableUnitTestEnv]]
+      when(epochState.epoch).thenReturn(
+        EpochState.Epoch(
+          epochInfo,
+          Membership.forTesting(self),
+          Membership.forTesting(self),
+        )
+      )
+
+      manager.startEpoch(epochState)
+
+      verify(epochState, never).requestSegmentStatuses()
+    }
+
     "have round robin work across changing memberships" in {
       val other1 = BftNodeId("other1")
       val other2 = BftNodeId("other2")
@@ -198,6 +218,7 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
       val membership1 = Membership.forTesting(self, Set(other1, other2))
       val membership2 = Membership.forTesting(self, Set(other1, other2, other3))
       val membership3 = Membership.forTesting(self, Set(other1, other3))
+      val soloMembership = Membership.forTesting(self)
 
       val roundRobin = new RetransmissionsManager.NodeRoundRobin()
 
@@ -210,6 +231,12 @@ class RetransmissionsManagerTest extends AnyWordSpec with BftSequencerBaseTest {
 
       roundRobin.nextNode(membership3) shouldBe (other1)
       roundRobin.nextNode(membership3) shouldBe (other3)
+
+      // We normally avoid returning self, since we don't want to request from self
+      // but in a one node network, this is the only node to return from this method.
+      // However, in that case, this method would not be called anyway since retransmissions
+      // won't be requested from self.
+      roundRobin.nextNode(soloMembership) shouldBe self
     }
 
     "verify network messages" when {

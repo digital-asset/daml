@@ -383,6 +383,7 @@ class PackageUploaderTest
         enableLfDev = false,
         enableLfBeta = false,
         enableStackTraces = false,
+        paranoidMode = true,
       ),
       enableUpgradeValidation = upgradeValidation,
       futureSupervisor = FutureSupervisor.Noop,

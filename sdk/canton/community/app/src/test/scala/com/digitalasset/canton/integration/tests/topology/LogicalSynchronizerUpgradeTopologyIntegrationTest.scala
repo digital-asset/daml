@@ -4,7 +4,6 @@
 package com.digitalasset.canton.integration.tests.topology
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.console.{CommandFailure, LocalParticipantReference}
@@ -33,7 +32,7 @@ import com.google.protobuf.ByteString
 
 import java.net.URI
 
-sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
+sealed trait LogicalSynchronizerUpgradeTopologyIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment {
 
@@ -47,7 +46,7 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
     import env.*
 
     synchronizerOwners1.foreach { owner =>
-      owner.topology.synchronizer_migration.announcement.propose(
+      owner.topology.synchronizer_upgrade.announcement.propose(
         daId,
         PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
       )
@@ -59,14 +58,14 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
     loggerFactory.assertThrowsAndLogs[CommandFailure](
       owner1.topology.namespace_delegations
         .propose_delegation(owner1.namespace, targetKey, CanSignAllMappings, daId),
-      _ shouldBeCantonErrorCode (TopologyManagerError.OngoingSynchronizerMigration),
+      _ shouldBeCantonErrorCode (TopologyManagerError.OngoingSynchronizerUpgrade),
     )
   }
 
   "the topology state can be unfrozen again" in { implicit env =>
     import env.*
     synchronizerOwners1.foreach(
-      _.topology.synchronizer_migration.announcement.revoke(
+      _.topology.synchronizer_upgrade.announcement.revoke(
         daId,
         PhysicalSynchronizerId(daId, testedProtocolVersion, NonNegativeInt.one),
       )
@@ -85,33 +84,27 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
 
   "sequencers announce their success endpoints" in { implicit env =>
     import env.*
-    val sequencer1Alias = SequencerAlias.create("sequencer1").value
-    val sequencer2Alias = SequencerAlias.create("sequencer2").value
 
     // participant1 has a single sequencer connection
     participant1.synchronizers.connect_local(sequencer1, daName)
 
     // participant2 is connected to two sequencers
     participant2.synchronizers.connect_local_bft(
-      synchronizer = NonEmpty(
-        Map,
-        sequencer1Alias -> sequencer1,
-        sequencer2Alias -> sequencer2,
-      ),
-      alias = daName,
+      sequencers = Seq(sequencer1, sequencer2),
+      synchronizerAlias = daName,
       sequencerTrustThreshold = PositiveInt.two,
     )
 
     // announce the migration to prepare for the sequencer connection announcements
     synchronizerOwners1.foreach(
-      _.topology.synchronizer_migration.announcement.propose(
+      _.topology.synchronizer_upgrade.announcement.propose(
         daId,
         successorSynchronizerId,
       )
     )
 
     // sequencer1 announces its connection details for the successor synchronizer
-    sequencer1.topology.synchronizer_migration.sequencer_successors.propose_successor(
+    sequencer1.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
       sequencer1.id,
       endpoints = NonEmpty(Seq, new URI("https://localhost:5000")),
       daId,
@@ -130,7 +123,7 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
       .toOption shouldBe None
 
     // sequencer2 announces its connection details for the successor synchronizer
-    sequencer2.topology.synchronizer_migration.sequencer_successors.propose_successor(
+    sequencer2.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
       sequencer2.id,
       endpoints = NonEmpty(Seq, new URI("http://localhost:6000"), new URI("http://localhost:7000")),
       daId,
@@ -145,7 +138,7 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
     )
 
     // sequencer2 changes its connection details for the successor synchronizer
-    sequencer2.topology.synchronizer_migration.sequencer_successors.propose_successor(
+    sequencer2.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
       sequencer2.id,
       endpoints = NonEmpty(Seq, new URI("http://localhost:6000")),
       daId,
@@ -155,7 +148,7 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
     checkMigratedSequencerConfig(participant2, sequencer1.id -> 5000, sequencer2.id -> 6000)
 
     // sequencer1 changes its connection details for the successor synchronizer
-    sequencer1.topology.synchronizer_migration.sequencer_successors.propose_successor(
+    sequencer1.topology.synchronizer_upgrade.sequencer_successors.propose_successor(
       sequencer1.id,
       endpoints = NonEmpty(Seq, new URI("https://localhost:5005")),
       daId,
@@ -204,8 +197,8 @@ sealed trait LogicalSynchronizerMigrationTopologyIntegrationTest
 
 }
 
-class LogicalSynchronizerMigrationTopologyIntegrationTestPostgres
-    extends LogicalSynchronizerMigrationTopologyIntegrationTest {
+class LogicalSynchronizerUpgradeTopologyIntegrationTestPostgres
+    extends LogicalSynchronizerUpgradeTopologyIntegrationTest {
   registerPlugin(new UsePostgres(loggerFactory))
   registerPlugin(new UseCommunityReferenceBlockSequencer[DbConfig.Postgres](loggerFactory))
 }

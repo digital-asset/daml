@@ -44,7 +44,9 @@ trait ParticipantNodeBootstrapFactory {
     enableLfBeta = arguments.parameterConfig.betaVersionSupport,
     enableStackTraces = arguments.parameterConfig.engine.enableEngineStackTraces,
     profileDir = arguments.config.features.profileDir,
-    iterationsBetweenInterruptions = arguments.parameterConfig.engine.iterationsBetweenInterruptions,
+    iterationsBetweenInterruptions =
+      arguments.parameterConfig.engine.iterationsBetweenInterruptions,
+    paranoidMode = arguments.parameterConfig.engine.enableAdditionalConsistencyChecks,
   )
 
   protected def createResourceService(

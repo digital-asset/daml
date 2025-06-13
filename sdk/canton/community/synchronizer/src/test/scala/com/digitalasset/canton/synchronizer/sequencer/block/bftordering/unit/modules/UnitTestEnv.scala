@@ -53,24 +53,29 @@ class UnsupportedFutureContext[E <: Env[E]] extends FutureContext[E] {
   override def pureFuture[X](x: X): E#FutureUnlessShutdownT[X] =
     unsupported()
 
-  override def mapFuture[X, Y](future: E#FutureUnlessShutdownT[X])(
-      fun: PureFun[X, Y]
-  ): E#FutureUnlessShutdownT[Y] =
+  override def mapFuture[X, Y](
+      future: E#FutureUnlessShutdownT[X]
+  )(fun: PureFun[X, Y], orderingStage: Option[String] = None): E#FutureUnlessShutdownT[Y] =
     unsupported()
 
   override def zipFuture[X, Y](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
+      orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[(X, Y)] =
     unsupported()
 
-  override def zipFuture[X, Y, Z](
+  override def zipFuture3[X, Y, Z](
       future1: E#FutureUnlessShutdownT[X],
       future2: E#FutureUnlessShutdownT[Y],
       future3: E#FutureUnlessShutdownT[Z],
+      orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[(X, Y, Z)] = unsupported()
 
-  override def sequenceFuture[A, F[_]](futures: F[E#FutureUnlessShutdownT[A]])(implicit
+  override def sequenceFuture[A, F[_]](
+      futures: F[E#FutureUnlessShutdownT[A]],
+      orderingStage: Option[String] = None,
+  )(implicit
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]] =
     unsupported()
@@ -78,6 +83,7 @@ class UnsupportedFutureContext[E <: Env[E]] extends FutureContext[E] {
   override def flatMapFuture[R1, R2](
       future1: E#FutureUnlessShutdownT[R1],
       future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
+      orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[R2] =
     unsupported()
 
@@ -182,21 +188,33 @@ class FunctionFutureContext[E <: BaseIgnoringUnitTestEnv[E]] extends FutureConte
 
   override def pureFuture[X](x: X): () => X = () => x
 
-  override def mapFuture[X, Y](future: () => X)(fun: PureFun[X, Y]): () => Y = () => fun(future())
+  override def mapFuture[X, Y](
+      future: () => X
+  )(fun: PureFun[X, Y], orderingStage: Option[String] = None): () => Y = () => fun(future())
 
-  override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) = () =>
-    (future1(), future2())
+  override def zipFuture[X, Y](
+      future1: () => X,
+      future2: () => Y,
+      orderingStage: Option[String] = None,
+  ): () => (X, Y) = () => (future1(), future2())
 
-  override def zipFuture[X, Y, Z](
+  override def zipFuture3[X, Y, Z](
       future1: () => X,
       future2: () => Y,
       future3: () => Z,
+      orderingStage: Option[String] = None,
   ): () => (X, Y, Z) = () => (future1(), future2(), future3())
 
-  override def sequenceFuture[A, F[_]](futures: F[() => A])(implicit ev: Traverse[F]): () => F[A] =
+  override def sequenceFuture[A, F[_]](futures: F[() => A], orderingStage: Option[String] = None)(
+      implicit ev: Traverse[F]
+  ): () => F[A] =
     ev.sequence(futures)
 
-  override def flatMapFuture[R1, R2](future1: () => R1, future2: PureFun[R1, () => R2]): () => R2 =
+  override def flatMapFuture[R1, R2](
+      future1: () => R1,
+      future2: PureFun[R1, () => R2],
+      orderingStage: Option[String] = None,
+  ): () => R2 =
     () => future2(future1())()
 }
 

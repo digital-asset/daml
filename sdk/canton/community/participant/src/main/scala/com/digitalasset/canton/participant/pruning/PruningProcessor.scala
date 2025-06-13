@@ -53,6 +53,7 @@ import com.digitalasset.canton.util.{
   EitherTUtil,
   ErrorUtil,
   FutureUnlessShutdownUtil,
+  MonadUtil,
   SimpleExecutionQueue,
 }
 import com.google.common.annotations.VisibleForTesting
@@ -196,7 +197,7 @@ class PruningProcessor(
             if (beforeOrAtOffset >= boundInclusive) boundInclusive else beforeOrAtOffset
           firstUnsafeOffsetComputation
             .perform(
-              syncPersistentStateManager.getAll.toList,
+              syncPersistentStateManager.getAll.values.toSeq,
               rewoundBoundInclusive,
             )
             .map(
@@ -219,18 +220,13 @@ class PruningProcessor(
   def purgeInactiveSynchronizer(synchronizerId: SynchronizerId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = for {
-    persistenceState <- EitherT.fromEither[FutureUnlessShutdown](
-      syncPersistentStateManager
-        .get(synchronizerId)
-        .toRight(PurgingUnknownSynchronizer(synchronizerId))
-    )
-
     // Ensure all configs are inactive
     configs <- EitherT.fromEither[FutureUnlessShutdown](
       synchronizerConnectionConfigStore
         .getAllFor(synchronizerId)
         .leftMap(_ => PurgingUnknownSynchronizer(synchronizerId))
     )
+
     _ <- EitherT.fromEither[FutureUnlessShutdown](
       NonEmpty
         .from(configs.collect {
@@ -244,7 +240,11 @@ class PruningProcessor(
     _ = logger.info(s"Purging inactive synchronizer $synchronizerId")
 
     _ <- EitherT.right(
-      performUnlessClosingUSF("Purge inactive synchronizer")(purgeSynchronizer(persistenceState))
+      performUnlessClosingUSF("Purge inactive synchronizer")(
+        MonadUtil.sequentialTraverse_(syncPersistentStateManager.getAllFor(synchronizerId))(
+          purgeSynchronizer
+        )
+      )
     )
   } yield ()
 
@@ -283,10 +283,11 @@ class PruningProcessor(
             CantonTimestamp(synchronizerOffset.publicationTime),
           )
         )
+      // TODO(#24716) We probably don't need to iterate over physical synchronizers
       synchronizerOffsets <- syncPersistentStateManager.getAll.toList.parTraverseFilter {
         case (synchronizerId, state) =>
           participantNodePersistentState.value.ledgerApiStore
-            .lastSynchronizerOffsetBeforeOrAt(synchronizerId, pruneUpToInclusive)
+            .lastSynchronizerOffsetBeforeOrAt(synchronizerId.logical, pruneUpToInclusive)
             .flatMap(
               _.filter(synchronizerOffset => Option(synchronizerOffset.offset) > pruneFromExclusive)
                 .map(synchronizerOffset =>
@@ -327,7 +328,7 @@ class PruningProcessor(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = {
 
-    val synchronizers = syncPersistentStateManager.getAll.toList
+    val synchronizers = syncPersistentStateManager.getAll.values.toSeq
     for {
       firstUnsafeOffsetO <- firstUnsafeOffsetComputation
         .perform(synchronizers, offset)
@@ -406,6 +407,7 @@ class PruningProcessor(
     } yield ()
   }
 
+  // TODO(#24716) Split physical vs logical pruning
   private def purgeSynchronizer(state: SyncPersistentState)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
@@ -461,13 +463,11 @@ class PruningProcessor(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Seq[ConfigForNoWaitCounterParticipants]] =
-    for {
-      allNoWait <- participantNodePersistentState.value.acsCounterParticipantConfigStore
-        .getAllActiveNoWaitCounterParticipants(
-          synchronizers,
-          participants,
-        )
-    } yield allNoWait
+    participantNodePersistentState.value.acsCounterParticipantConfigStore
+      .getAllActiveNoWaitCounterParticipants(
+        synchronizers,
+        participants,
+      )
 
   def acsResetNoWaitCommitmentsFrom(
       configs: Seq[ConfigForNoWaitCounterParticipants]

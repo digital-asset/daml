@@ -43,7 +43,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.store.SequencedEventStore
-import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
@@ -106,7 +106,7 @@ final class RepairService(
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
   private def synchronizerNotConnected(
-      synchronizerId: SynchronizerId
+      synchronizerId: PhysicalSynchronizerId
   ): EitherT[FutureUnlessShutdown, String, Unit] =
     EitherT.cond(
       !synchronizerLookup.isConnected(synchronizerId),
@@ -235,15 +235,23 @@ final class RepairService(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, RepairRequest.SynchronizerData] =
     for {
+      psid <- EitherT.fromEither[FutureUnlessShutdown](
+        synchronizerLookup
+          .latestKnownPSId(synchronizerId)
+          .toRight(s"Unable to resolve $synchronizerId to a physical synchronizer id")
+      )
+
+      _ = logger.debug(s"Using $psid as $synchronizerId")
+
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
-        lookUpSynchronizerPersistence(synchronizerId, s"synchronizer $synchronizerAlias")
+        lookUpSynchronizerPersistence(psid)
       )
       synchronizerIndex <- EitherT
         .right(
           ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId)
         )
       topologyFactory <- synchronizerLookup
-        .topologyFactoryFor(synchronizerId)
+        .topologyFactoryFor(psid)
         .toRight(s"No topology factory for synchronizer $synchronizerAlias")
         .toEitherT[FutureUnlessShutdown]
 
@@ -308,6 +316,7 @@ final class RepairService(
                 .synchronizerIdForAlias(synchronizerAlias)
                 .toRight(s"Could not find $synchronizerAlias")
             )
+
             synchronizer <- readSynchronizerData(synchronizerId, synchronizerAlias)
 
             contractStates <- EitherT.right[String](
@@ -569,7 +578,7 @@ final class RepairService(
   }
 
   def ignoreEvents(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean,
@@ -646,7 +655,7 @@ final class RepairService(
     }
 
   private def performIfRangeSuitableForIgnoreOperations[T](
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       from: SequencerCounter,
       force: Boolean,
   )(
@@ -654,14 +663,14 @@ final class RepairService(
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, String, T] =
     for {
       persistentState <- EitherT.fromEither[FutureUnlessShutdown](
-        lookUpSynchronizerPersistence(synchronizerId, synchronizerId.show)
+        lookUpSynchronizerPersistence(synchronizerId)
       )
       _ <- EitherT.right(
         ledgerApiIndexer.value
-          .ensureNoProcessingForSynchronizer(synchronizerId)
+          .ensureNoProcessingForSynchronizer(synchronizerId.logical)
       )
       synchronizerIndex <- EitherT.right(
-        ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId)
+        ledgerApiIndexer.value.ledgerApiStore.value.cleanSynchronizerIndex(synchronizerId.logical)
       )
       startingPoints <- EitherT.right(
         SyncEphemeralStateFactory.startingPoints(
@@ -680,7 +689,7 @@ final class RepairService(
     } yield res
 
   def unignoreEvents(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       fromInclusive: SequencerCounter,
       toInclusive: SequencerCounter,
       force: Boolean,
@@ -1181,20 +1190,19 @@ final class RepairService(
 
   // Looks up synchronizer persistence erroring if synchronizer is based on in-memory persistence for which repair is not supported.
   private def lookUpSynchronizerPersistence(
-      synchronizerId: SynchronizerId,
-      synchronizerDescription: String,
+      synchronizerId: PhysicalSynchronizerId
   )(implicit
       traceContext: TraceContext
   ): Either[String, SyncPersistentState] =
     for {
       dp <- synchronizerLookup
         .persistentStateFor(synchronizerId)
-        .toRight(log(s"Could not find $synchronizerDescription"))
+        .toRight(log(s"Could not find persistent state for $synchronizerId"))
       _ <- Either.cond(
         !dp.isMemory,
         (),
         log(
-          s"$synchronizerDescription is in memory which is not supported by repair. Use db persistence."
+          s"$synchronizerId is in memory which is not supported by repair. Use db persistence."
         ),
       )
     } yield dp
@@ -1263,15 +1271,29 @@ object RepairService {
 
   }
 
-  // TODO(#25483) Should this be physical?
   trait SynchronizerLookup {
-    def isConnected(synchronizerId: SynchronizerId): Boolean
+
+    /** Check whether the participant is currently connected to the given physical synchronizer.
+      */
+    def isConnected(synchronizerId: PhysicalSynchronizerId): Boolean
 
     def isConnectedToAnySynchronizer: Boolean
 
-    def persistentStateFor(synchronizerId: SynchronizerId): Option[SyncPersistentState]
+    /** Return the persistent state of the give physical synchronizer.
+      */
+    def persistentStateFor(synchronizerId: PhysicalSynchronizerId): Option[SyncPersistentState]
 
-    def topologyFactoryFor(synchronizerId: SynchronizerId)(implicit
+    /** Return the latest [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] known for the
+      * given [[com.digitalasset.canton.topology.SynchronizerId]].
+      *
+      * Use cases are:
+      *   - submission of a transaction (phase 1)
+      *   - repair service
+      *   - inspection services
+      */
+    def latestKnownPSId(synchronizerId: SynchronizerId): Option[PhysicalSynchronizerId]
+
+    def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
         traceContext: TraceContext
     ): Option[TopologyComponentFactory]
   }

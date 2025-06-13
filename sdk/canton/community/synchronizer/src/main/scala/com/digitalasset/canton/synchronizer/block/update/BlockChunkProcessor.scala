@@ -405,7 +405,7 @@ final class BlockChunkProcessor(
         protocolVersion,
         warnIfApproximate = false,
       )
-      allAcknowledgements = fixedTsChanges.collect { case (_, t @ Traced(Acknowledgment(ack))) =>
+      allAcknowledgements = fixedTsChanges.collect { case (_, t @ Traced(Acknowledgment(_, ack))) =>
         t.map(_ => ack)
       }
       (goodTsAcks, futureAcks) = allAcknowledgements.partition { tracedSignedAck =>
@@ -462,7 +462,7 @@ final class BlockChunkProcessor(
             metrics.block.blockEvents.mark()(mc)
             metrics.block.blockEventBytes.mark(payloadSize.longValue)(mc)
 
-          case LedgerBlockEvent.Acknowledgment(request) =>
+          case LedgerBlockEvent.Acknowledgment(_, request) =>
             // record the event
             metrics.block.blockEvents
               .mark()(

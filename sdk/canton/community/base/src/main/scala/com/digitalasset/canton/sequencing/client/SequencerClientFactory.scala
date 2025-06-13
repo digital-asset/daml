@@ -116,7 +116,6 @@ object SequencerClientFactory {
         }
         val sequencerSynchronizerParamsLookup =
           SynchronizerParametersLookup.forSequencerSynchronizerParameters(
-            synchronizerParameters,
             config.overrideMaxRequestSize,
             topologyClient,
             loggerFactory,
@@ -127,6 +126,73 @@ object SequencerClientFactory {
           member,
           requestSigner,
         )
+
+        def getTrafficStateWithTransports(
+            ts: CantonTimestamp
+        ): EitherT[FutureUnlessShutdown, String, Option[TrafficState]] =
+          BftSender
+            .makeRequest(
+              s"Retrieving traffic state from synchronizer for $member at $ts",
+              futureSupervisor,
+              logger,
+              sequencerTransportsMap,
+              sequencerConnections.sequencerTrustThreshold,
+            )(
+              _.getTrafficStateForMember(
+                // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
+                // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
+                // would return a state with the previous extra traffic value, because traffic purchases only become
+                // valid _after_ they've been sequenced. This ensures the participant doesn't miss a traffic purchase
+                // if it gets disconnected just after reading one.
+                GetTrafficStateForMemberRequest(
+                  member,
+                  ts.immediateSuccessor,
+                  synchronizerParameters.protocolVersion,
+                )
+              ).map(_.trafficState)
+            )(identity)
+            .leftMap { err =>
+              s"Failed to retrieve traffic state from synchronizer for $member: $err"
+            }
+
+        def getTrafficStateWithConnectionPool(
+            ts: CantonTimestamp
+        ): EitherT[FutureUnlessShutdown, String, Option[TrafficState]] =
+          for {
+            connections <- EitherT.fromEither[FutureUnlessShutdown](
+              NonEmpty
+                .from(connectionPool.getOneConnectionPerSequencer())
+                .toRight(
+                  s"No connection available to retrieve traffic state from synchronizer for $member"
+                )
+            )
+            result <- BftSender
+              .makeRequest(
+                s"Retrieving traffic state from synchronizer for $member at $ts",
+                futureSupervisor,
+                logger,
+                operators = connections,
+                threshold = sequencerConnections.sequencerTrustThreshold,
+              )(
+                performRequest = _.getTrafficStateForMember(
+                  // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
+                  // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
+                  // would return a state with the previous extra traffic value, because traffic purchases only become
+                  // valid _after_ they've been sequenced. This ensures the participant doesn't miss a traffic purchase
+                  // if it gets disconnected just after reading one.
+                  GetTrafficStateForMemberRequest(
+                    member,
+                    ts.immediateSuccessor,
+                    synchronizerParameters.protocolVersion,
+                  ),
+                  timeout = processingTimeout.network.duration,
+                ).map(_.trafficState)
+              )(identity)
+              .leftMap { err =>
+                s"Failed to retrieve traffic state from synchronizer for $member: $err"
+              }
+
+          } yield result
 
         for {
           sequencerTransports <- EitherT.fromEither[FutureUnlessShutdown](
@@ -151,7 +217,12 @@ object SequencerClientFactory {
               .value
               .map(_.map(_.timestamp))
           )
-          getTrafficStateFromSynchronizerFn = { (ts: CantonTimestamp) =>
+
+          getTrafficStateFromSynchronizerFn =
+            if (config.useNewConnectionPool) getTrafficStateWithConnectionPool _
+            else getTrafficStateWithTransports _
+
+          getTrafficStateFromSynchronizerWithRetryFn = { (ts: CantonTimestamp) =>
             EitherT(
               retry
                 .Backoff(
@@ -165,41 +236,16 @@ object SequencerClientFactory {
                   retryLogLevel = Some(Level.INFO),
                 )
                 .unlessShutdown(
-                  BftSender
-                    .makeRequest[SequencerAlias, String, SequencerClientTransport, Option[
-                      TrafficState
-                    ], Option[TrafficState]](
-                      s"Retrieving traffic state from synchronizer for $member at $ts",
-                      futureSupervisor,
-                      logger,
-                      sequencerTransportsMap.forgetNE,
-                      sequencerConnections.sequencerTrustThreshold,
-                      _.getTrafficStateForMember(
-                        // Request the traffic state at the timestamp immediately following the last sequenced event timestamp
-                        // That's because we will not re-process that event, but if it was a traffic purchase, the sequencer
-                        // would return a state with the previous extra traffic value, because traffic purchases only become
-                        // valid _after_ they've been sequenced. This ensures the participant doesn't miss a traffic purchase
-                        // if it gets disconnected just after reading one.
-                        GetTrafficStateForMemberRequest(
-                          member,
-                          ts.immediateSuccessor,
-                          synchronizerParameters.protocolVersion,
-                        )
-                      ).map(_.trafficState),
-                      identity,
-                    )
-                    .leftMap { err =>
-                      s"Failed to retrieve traffic state from synchronizer for $member: $err"
-                    }
-                    .value,
+                  getTrafficStateFromSynchronizerFn(ts).value,
                   AllExceptionRetryPolicy,
                 )
             )
           }
+
           // Make a BFT call to all the transports to retrieve the current traffic state from the synchronizer
           // and initialize the trafficStateController with it
           trafficStateO <- latestSequencedTimestampO
-            .traverse(getTrafficStateFromSynchronizerFn(_))
+            .traverse(getTrafficStateFromSynchronizerWithRetryFn)
             .map(_.flatten)
 
           // fetch the initial set of pending sends to initialize the client with.

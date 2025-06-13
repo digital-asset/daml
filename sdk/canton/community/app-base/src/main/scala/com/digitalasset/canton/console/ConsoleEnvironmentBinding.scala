@@ -82,6 +82,7 @@ object ConsoleEnvironmentBinding {
          |import com.digitalasset.canton.sequencing.SequencerConnection
          |import com.digitalasset.canton.sequencing.SequencerConnections
          |import com.digitalasset.canton.sequencing.SequencerConnectionValidation._
+         |import com.digitalasset.canton.sequencing.SubmissionRequestAmplification
          |import com.digitalasset.canton.sequencing.GrpcSequencerConnection
          |""".stripMargin
 

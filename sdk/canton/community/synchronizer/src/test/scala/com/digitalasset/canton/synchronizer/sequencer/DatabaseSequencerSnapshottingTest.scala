@@ -65,6 +65,7 @@ trait DatabaseSequencerSnapshottingTest extends SequencerApiTest with DbTest {
       DefaultProcessingTimeouts.testing,
       storage,
       sequencerStore,
+      minimumSequencingTime = CantonTimestamp.MinValue,
       clock,
       synchronizerId,
       sequencerId,

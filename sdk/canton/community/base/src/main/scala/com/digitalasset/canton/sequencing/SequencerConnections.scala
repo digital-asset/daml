@@ -131,7 +131,9 @@ object SequencerConnections
     extends HasVersionedMessageCompanion[SequencerConnections]
     with HasVersionedMessageCompanionDbHelpers[SequencerConnections] {
 
-  def single(connection: SequencerConnection): SequencerConnections =
+  def single(
+      connection: SequencerConnection
+  ): SequencerConnections =
     new SequencerConnections(
       aliasToConnection = NonEmpty(Map, connection.sequencerAlias -> connection),
       sequencerTrustThreshold = PositiveInt.one,

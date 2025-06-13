@@ -8,6 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage
@@ -82,6 +83,7 @@ class BftSequencerApiTest extends SequencerApiTest with RateLimitManagerTesting 
         crypto,
         FutureSupervisor.Noop,
         SequencerTrafficConfig(),
+        minimumSequencingTime = CantonTimestamp.MinValue,
         runtimeReady = FutureUnlessShutdown.unit,
       )
       .futureValueUS

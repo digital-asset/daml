@@ -82,7 +82,7 @@ class SequencerConnectionSuccessorListener(
         }.toMap
       configuredSequencerIds = configuredSequencers.keySet
 
-      successorSynchronizerId <- OptionT(snapshot.isSynchronizerMigrationOngoing())
+      successorSynchronizerId <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
 
       _ = logger.debug(
         s"Checking whether the participant can migrate $alias from ${activeConfig.configuredPSId} to $successorSynchronizerId"

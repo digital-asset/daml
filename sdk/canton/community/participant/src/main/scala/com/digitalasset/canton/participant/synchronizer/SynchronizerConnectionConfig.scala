@@ -9,12 +9,14 @@ import cats.syntax.traverse.*
 import com.daml.nonempty.catsinstances.`cats nonempty traverse`
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.admin.participant.v30
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.SynchronizerTimeTrackerConfig
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
   SequencerConnections,
+  SubmissionRequestAmplification,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -190,9 +192,7 @@ final case class SynchronizerConnectionConfig(
       connection,
       additionalConnections*
     )
-  } yield (
-    copy(sequencerConnections = sequencerConnections)
-  )
+  } yield copy(sequencerConnections = sequencerConnections)
 
   def addConnection(connection: SequencerConnection): Either[String, SynchronizerConnectionConfig] =
     for {
@@ -200,15 +200,34 @@ final case class SynchronizerConnectionConfig(
         connection.sequencerAlias,
         connection,
       )
-    } yield (
-      copy(sequencerConnections = sequencerConnections)
-    )
+    } yield copy(sequencerConnections = sequencerConnections)
 
   def withCertificates(
       sequencerAlias: SequencerAlias,
       certificates: ByteString,
   ): SynchronizerConnectionConfig =
     copy(sequencerConnections = sequencerConnections.withCertificates(sequencerAlias, certificates))
+
+  def tryWithSequencerTrustThreshold(
+      threshold: PositiveInt
+  ): SynchronizerConnectionConfig =
+    sequencerConnections
+      .withSequencerTrustThreshold(sequencerTrustThreshold = threshold)
+      .map(connections => copy(sequencerConnections = connections)) match {
+      case Left(err) =>
+        throw new IllegalArgumentException(s"Invalid Sequencer trust threshold $threshold : $err")
+      case Right(es) => es
+    }
+
+  def withPriority(priority: Int): SynchronizerConnectionConfig =
+    this.copy(priority = priority)
+
+  def withSubmissionRequestAmplification(
+      submissionRequestAmplification: SubmissionRequestAmplification
+  ): SynchronizerConnectionConfig =
+    this.copy(sequencerConnections =
+      sequencerConnections.withSubmissionRequestAmplification(submissionRequestAmplification)
+    )
 
   override protected def pretty: Pretty[SynchronizerConnectionConfig] =
     prettyOfClass(
@@ -253,8 +272,7 @@ object SynchronizerConnectionConfig
   )
   override def name: String = "synchronizer connection config"
 
-  def grpc(
-      sequencerAlias: SequencerAlias,
+  def tryGrpcSingleConnection(
       synchronizerAlias: SynchronizerAlias,
       connection: String,
       manualConnect: Boolean = false,
@@ -265,12 +283,15 @@ object SynchronizerConnectionConfig
       maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
       timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
       initializeFromTrustedSynchronizer: Boolean = false,
-  ): SynchronizerConnectionConfig =
+  ): SynchronizerConnectionConfig = {
+    val sequencerConnection =
+      SequencerConnections.single(
+        GrpcSequencerConnection.tryCreate(connection, certificates, SequencerAlias.Default)
+      )
+
     SynchronizerConnectionConfig(
       synchronizerAlias,
-      SequencerConnections.single(
-        GrpcSequencerConnection.tryCreate(connection, certificates, sequencerAlias)
-      ),
+      sequencerConnection,
       manualConnect,
       synchronizerId,
       priority,
@@ -279,6 +300,41 @@ object SynchronizerConnectionConfig
       timeTracker,
       initializeFromTrustedSynchronizer,
     )
+  }
+
+  def tryGrpc(
+      synchronizerAlias: SynchronizerAlias,
+      connections: Seq[SequencerConnection],
+      manualConnect: Boolean = false,
+      synchronizerId: Option[PhysicalSynchronizerId] = None,
+      priority: Int = 0,
+      initialRetryDelay: Option[NonNegativeFiniteDuration] = None,
+      maxRetryDelay: Option[NonNegativeFiniteDuration] = None,
+      timeTracker: SynchronizerTimeTrackerConfig = SynchronizerTimeTrackerConfig(),
+      initializeFromTrustedSynchronizer: Boolean = false,
+      sequencerTrustThreshold: PositiveInt = PositiveInt.one,
+      submissionRequestAmplification: SubmissionRequestAmplification =
+        SubmissionRequestAmplification.NoAmplification,
+  ): SynchronizerConnectionConfig = {
+    val sequencerConnections =
+      SequencerConnections.tryMany(
+        connections,
+        sequencerTrustThreshold = sequencerTrustThreshold,
+        submissionRequestAmplification = submissionRequestAmplification,
+      )
+
+    SynchronizerConnectionConfig(
+      synchronizerAlias,
+      sequencerConnections,
+      manualConnect,
+      synchronizerId,
+      priority,
+      initialRetryDelay,
+      maxRetryDelay,
+      timeTracker,
+      initializeFromTrustedSynchronizer,
+    )
+  }
 
   def fromProtoV30(
       synchronizerConnectionConfigP: v30.SynchronizerConnectionConfig

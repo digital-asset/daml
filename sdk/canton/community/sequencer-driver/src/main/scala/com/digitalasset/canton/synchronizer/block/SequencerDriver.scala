@@ -225,7 +225,8 @@ object RawLedgerBlock {
         microsecondsSinceEpoch: Long,
     ) extends RawBlockEvent
 
-    final case class Acknowledgment(acknowledgement: ByteString) extends RawBlockEvent
+    final case class Acknowledgment(acknowledgement: ByteString, microsecondsSinceEpoch: Long)
+        extends RawBlockEvent
   }
 }
 

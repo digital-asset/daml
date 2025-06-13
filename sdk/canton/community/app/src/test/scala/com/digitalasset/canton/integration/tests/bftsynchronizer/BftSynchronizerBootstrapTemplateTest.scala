@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.integration.tests.bftsynchronizer
 
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerAlias
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.integration.plugins.UseCommunityReferenceBlockSequencer
 import com.digitalasset.canton.integration.{
@@ -31,26 +29,14 @@ sealed trait BftSynchronizerBootstrapTemplateTest
       // STEP 1: connect participants for the synchronizer via "their" sequencers
       clue("participant1 connects to sequencer1, sequencer2") {
         participant1.synchronizers.connect_local_bft(
-          NonEmpty
-            .mk(
-              Seq,
-              SequencerAlias.tryCreate("seq1x") -> sequencer1,
-              SequencerAlias.tryCreate("seq2x") -> sequencer2,
-            )
-            .toMap,
-          alias = daName,
+          Seq(sequencer1, sequencer2),
+          synchronizerAlias = daName,
         )
       }
       clue("participant2 connects to sequencer1, sequencer2") {
         participant2.synchronizers.connect_local_bft(
-          NonEmpty
-            .mk(
-              Seq,
-              SequencerAlias.tryCreate("seq2x") -> sequencer2,
-              SequencerAlias.tryCreate("seq1x") -> sequencer1,
-            )
-            .toMap,
-          alias = daName,
+          Seq(sequencer2, sequencer1),
+          synchronizerAlias = daName,
         )
       }
       clue("participant3 connects to sequencer1") {

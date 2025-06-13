@@ -16,6 +16,7 @@ final case class MissingBatchStatus(
     batchId: BatchId,
     originalProof: ProofOfAvailability,
     remainingNodesToTry: Seq[BftNodeId],
+    numberOfAttempts: Int,
     mode: OrderedBlockForOutput.Mode,
 )
 

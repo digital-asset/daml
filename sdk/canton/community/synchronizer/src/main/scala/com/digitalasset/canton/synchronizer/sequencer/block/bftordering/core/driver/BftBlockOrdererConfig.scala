@@ -24,6 +24,7 @@ import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig.{
   BlacklistLeaderSelectionPolicyConfig,
+  DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
   DefaultConsensusQueueMaxSize,
   DefaultConsensusQueuePerNodeQuota,
   DefaultDelayedInitQueueMaxSize,
@@ -80,6 +81,8 @@ final case class BftBlockOrdererConfig(
     maxRequestsInBatch: Short = DefaultMaxRequestsInBatch,
     minRequestsInBatch: Short = DefaultMinRequestsInBatch,
     maxBatchCreationInterval: FiniteDuration = DefaultMaxBatchCreationInterval,
+    availabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning: Int =
+      DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning,
     // TODO(#24184) make a dynamic sequencing parameter
     maxBatchesPerBlockProposal: Short = DefaultMaxBatchesPerProposal,
     consensusQueueMaxSize: Int = DefaultConsensusQueueMaxSize,
@@ -94,6 +97,8 @@ final case class BftBlockOrdererConfig(
       DefaultHowManyCanWeBlacklist,
     leaderSelectionPolicy: LeaderSelectionPolicyConfig = DefaultLeaderSelectionPolicy,
     storage: Option[StorageConfig] = None,
+    // We may want to flip the default once we're satisfied with initial performance
+    enablePerformanceMetrics: Boolean = true,
 ) extends UniformCantonConfigValidation {
   // The below parameters are not yet dynamically configurable.
   private val EmptyBlockCreationIntervalMultiplayer = 3L
@@ -127,6 +132,7 @@ object BftBlockOrdererConfig {
   val DefaultMinRequestsInBatch: Short = 3
   val DefaultMaxBatchCreationInterval: FiniteDuration = 100.milliseconds
   val DefaultMaxBatchesPerProposal: Short = 16
+  val DefaultAvailabilityNumberOfAttemptsOfDownloadingOutputFetchBeforeWarning: Int = 5
   val DefaultConsensusQueueMaxSize: Int = 10 * 1024
   val DefaultConsensusQueuePerNodeQuota: Int = 1024
   val DefaultDelayedInitQueueMaxSize: Int = 1024
@@ -176,7 +182,7 @@ object BftBlockOrdererConfig {
       CantonConfigValidatorDerivation[P2PNetworkAuthenticationConfig]
   }
 
-  /** If [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
+  /** The [[externalAddress]], [[externalPort]] and [[externalTlsConfig]] must be configured
     * correctly for the client to correctly authenticate the server, as the client tells the server
     * its endpoint for authentication based on this information.
     */
@@ -237,10 +243,10 @@ object BftBlockOrdererConfig {
   )
 
   final case class PruningConfig(
-      enabled: Boolean,
-      retentionPeriod: FiniteDuration,
-      minNumberOfBlocksToKeep: Int,
-      pruningFrequency: FiniteDuration,
+      enabled: Boolean = DefaultPruningConfig.enabled,
+      retentionPeriod: FiniteDuration = DefaultPruningConfig.retentionPeriod,
+      minNumberOfBlocksToKeep: Int = DefaultPruningConfig.minNumberOfBlocksToKeep,
+      pruningFrequency: FiniteDuration = DefaultPruningConfig.pruningFrequency,
   ) extends UniformCantonConfigValidation
   object PruningConfig {
     implicit val pruningConfigCantonConfigValidator: CantonConfigValidator[PruningConfig] =

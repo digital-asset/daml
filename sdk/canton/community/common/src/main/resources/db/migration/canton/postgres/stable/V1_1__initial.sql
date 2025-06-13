@@ -378,7 +378,7 @@ create index idx_par_commitment_queue_by_time on par_commitment_queue (synchroni
 
 -- the (current) synchronizer parameters for the given synchronizer
 create table par_static_synchronizer_parameters (
-  synchronizer_id varchar collate "C" primary key,
+  physical_synchronizer_id varchar collate "C" primary key,
   -- serialized form
   params bytea not null
 );
@@ -447,7 +447,8 @@ create table mediator_synchronizer_configuration (
   lock char(1) not null default 'X' primary key check (lock = 'X'),
   synchronizer_id varchar collate "C" not null,
   static_synchronizer_parameters bytea not null,
-  sequencer_connection bytea not null
+  sequencer_connection bytea not null,
+  is_topology_initialized bool not null default false
 );
 
 -- the last recorded head clean sequencer counter for each synchronizer

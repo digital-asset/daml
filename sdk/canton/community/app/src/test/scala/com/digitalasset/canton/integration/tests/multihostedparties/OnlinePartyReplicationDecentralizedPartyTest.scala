@@ -116,6 +116,10 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
       s"Decentralized party created and hosted on source participant $participant1 with serial $previousSerial"
     )
 
+    // Issue a ping to ensure that the RoutingSynchronizerState does not pick a stale
+    // topology snapshot that does not yet know about the decentralized party (#25474).
+    participant1.health.ping(participant1)
+
     CoinFactoryHelpers.createCoinsFactory(
       decentralizedParty,
       participant1.adminParty,
@@ -148,16 +152,12 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
     clue("Decentralized party owners agree to have target participant co-host the party")(
       partyOwners.foreach(
         _.topology.party_to_participant_mappings
-          .propose(
+          .propose_delta(
             party = decentralizedParty,
-            newParticipants = Seq(
-              (sourceParticipant, ParticipantPermission.Submission),
-              (targetParticipant, ParticipantPermission.Observation),
-            ),
-            participantsRequiringPartyToBeOnboarded = Seq(targetParticipant),
-            threshold = PositiveInt.one,
+            adds = Seq((targetParticipant, ParticipantPermission.Submission)),
             store = daId,
             serial = Some(serial),
+            requiresPartyToBeOnboarded = true,
           )
       )
     )
@@ -179,6 +179,7 @@ sealed trait OnlinePartyReplicationDecentralizedPartyTest
         synchronizerId = daId,
         sourceParticipant = sourceParticipant,
         serial = serial,
+        participantPermission = ParticipantPermission.Submission,
       )
     )
 

@@ -90,9 +90,9 @@ trait SequencerIntegrationTest
   "Onboard a new sequencer" in { implicit env =>
     import env.*
     onboardNewSequencer(
-      synchronizerId,
-      newSequencer = sequencer2,
-      existingSequencer = sequencer1,
+      synchronizerId.logical,
+      newSequencerReference = sequencer2,
+      existingSequencerReference = sequencer1,
       synchronizerOwners = synchronizerOwners.toSet,
     )
   }
@@ -108,6 +108,11 @@ trait SequencerIntegrationTest
       participant2.synchronizers.connect_local(sequencer2, daName)
     }
     participant2.health.ping(participant1.id)
+
+    // Note: we stop the participants here since these are not needed for the following tests
+    //  and can cause warning flakes when they try to submit time requests
+    participant1.stop()
+    participant2.stop()
   }
 
   "preload events into the sequencer cache" in { implicit env =>
@@ -118,6 +123,7 @@ trait SequencerIntegrationTest
       {
         sequencer1.stop()
         sequencer1.start()
+        sequencer1.health.wait_for_running()
       },
       entries => {
         forAtLeast(1, entries) {

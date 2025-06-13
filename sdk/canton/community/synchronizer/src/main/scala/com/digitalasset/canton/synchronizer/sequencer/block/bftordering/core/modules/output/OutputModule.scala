@@ -876,7 +876,7 @@ object OutputModule {
           signedSubmissionRequest.content.content.content.batch.allRecipients
             .contains(AllMembersOfSynchronizer)
         case Left(error) =>
-          logger.info(
+          logger.debug(
             s"Skipping ordering request while looking for sequencer events as it failed to deserialize: $error"
           )(traceContext)
           false

@@ -59,7 +59,7 @@ final case class StaticSynchronizerParameters(
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
 
-  private[canton] def toInternal: StaticSynchronizerParametersInternal =
+  def toInternal: StaticSynchronizerParametersInternal =
     this.transformInto[StaticSynchronizerParametersInternal]: @nowarn(
       "msg=Der in object CryptoKeyFormat is deprecated"
     )

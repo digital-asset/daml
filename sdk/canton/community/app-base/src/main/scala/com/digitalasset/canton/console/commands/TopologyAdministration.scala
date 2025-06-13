@@ -1467,6 +1467,10 @@ class TopologyAdministrationGroup(
             participant's permissions.
       removes: The unique identifiers of the participants that should no longer host the party.
       signedBy: Refers to the optional fingerprint of the authorizing key which in turn refers to a specific, locally existing certificate.
+      serial: The expected serial this topology transaction should have. Serials must be contiguous and start at 1.
+              This transaction will be rejected if another fully authorized transaction with the same serial already
+              exists, or if there is a gap between this serial and the most recently used serial.
+              If None, the serial will be automatically selected by the node.
       synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
       mustFullyAuthorize: When set to true, the proposal's previously received signatures and the signature of this node must be
                           sufficient to fully authorize the topology transaction. If this is not the case, the request fails.
@@ -1486,6 +1490,7 @@ class TopologyAdministrationGroup(
         adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
         removes: Seq[ParticipantId] = Nil,
         signedBy: Option[Fingerprint] = None,
+        serial: Option[PositiveInt] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
         ),
@@ -1496,7 +1501,7 @@ class TopologyAdministrationGroup(
     ): SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant] = {
 
       val currentO = findCurrent(party, store)
-      val (existingPermissions, newSerial, threshold) = currentO match {
+      val (existingPermissions, nextSerial, threshold) = currentO match {
         case Some(current) if current.context.operation == TopologyChangeOp.Remove =>
           (
             // if the existing mapping was REMOVEd, we start from scratch
@@ -1517,6 +1522,7 @@ class TopologyAdministrationGroup(
             PositiveInt.one,
           )
       }
+      val newSerial = if (serial.nonEmpty) serial else nextSerial
 
       val newPermissions = new PartyToParticipantComputations(loggerFactory)
         .computeNewPermissions(
@@ -2989,7 +2995,7 @@ class TopologyAdministrationGroup(
     }
   }
 
-  object synchronizer_migration extends Helpful {
+  object synchronizer_upgrade extends Helpful {
 
     @Help.Summary("Inspect synchronizer migration announcements")
     @Help.Group("Synchronizer Migration Announcement")
@@ -3001,9 +3007,9 @@ class TopologyAdministrationGroup(
           operation: Option[TopologyChangeOp] = Some(TopologyChangeOp.Replace),
           filterSynchronizer: String = "",
           filterSigningKey: String = "",
-      ): Seq[ListSynchronizerMigrationAnnouncementResult] = consoleEnvironment.run {
+      ): Seq[ListSynchronizerUpgradeAnnouncementResult] = consoleEnvironment.run {
         adminCommand(
-          TopologyAdminCommands.Read.ListSynchronizerMigrationAnnouncement(
+          TopologyAdminCommands.Read.ListSynchronizerUpgradeAnnouncement(
             BaseQuery(
               store,
               proposals,
@@ -3049,11 +3055,11 @@ class TopologyAdministrationGroup(
           synchronize: Option[config.NonNegativeDuration] = Some(
             consoleEnvironment.commandTimeouts.unbounded
           ),
-      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerMigrationAnnouncement] =
+      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] =
         consoleEnvironment.run {
           adminCommand(
             TopologyAdminCommands.Write.Propose(
-              mapping = SynchronizerMigrationAnnouncement(
+              mapping = SynchronizerUpgradeAnnouncement(
                 physicalSynchronizerId,
                 successorPhysicalSynchronizerId,
               ),
@@ -3100,11 +3106,11 @@ class TopologyAdministrationGroup(
           synchronize: Option[config.NonNegativeDuration] = Some(
             consoleEnvironment.commandTimeouts.unbounded
           ),
-      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerMigrationAnnouncement] =
+      ): SignedTopologyTransaction[TopologyChangeOp, SynchronizerUpgradeAnnouncement] =
         consoleEnvironment.run {
           adminCommand(
             TopologyAdminCommands.Write.Propose(
-              mapping = SynchronizerMigrationAnnouncement(
+              mapping = SynchronizerUpgradeAnnouncement(
                 physicalSynchronizerId,
                 successorPhysicalSynchronizerId,
               ),

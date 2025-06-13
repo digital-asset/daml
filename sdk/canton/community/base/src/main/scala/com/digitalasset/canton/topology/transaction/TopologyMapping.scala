@@ -176,8 +176,8 @@ object TopologyMapping {
     case object PartyToKeyMapping
         extends Code("ptk", v30Code.TOPOLOGY_MAPPING_CODE_PARTY_TO_KEY_MAPPING)
 
-    case object SynchronizerMigrationAnnouncement
-        extends Code("sma", v30Code.TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT)
+    case object SynchronizerUpgradeAnnouncement
+        extends Code("sua", v30Code.TOPOLOGY_MAPPING_CODE_SYNCHRONIZER_MIGRATION_ANNOUNCEMENT)
     case object SequencerConnectionSuccessor
         extends Code("scs", v30Code.TOPOLOGY_MAPPING_CODE_SEQUENCER_CONNECTION_SUCCESSOR)
 
@@ -196,7 +196,7 @@ object TopologyMapping {
       PurgeTopologyTransaction,
       SequencingDynamicParametersState,
       PartyToKeyMapping,
-      SynchronizerMigrationAnnouncement,
+      SynchronizerUpgradeAnnouncement,
       SequencerConnectionSuccessor,
     )
 
@@ -332,8 +332,8 @@ object TopologyMapping {
       case Mapping.SequencerSynchronizerState(value) =>
         SequencerSynchronizerState.fromProtoV30(value)
       case Mapping.PurgeTopologyTxs(value) => PurgeTopologyTransaction.fromProtoV30(value)
-      case Mapping.SynchronizerMigrationAnnouncement(value) =>
-        SynchronizerMigrationAnnouncement.fromProtoV30(value)
+      case Mapping.SynchronizerUpgradeAnnouncement(value) =>
+        SynchronizerUpgradeAnnouncement.fromProtoV30(value)
       case Mapping.SequencerConnectionSuccessor(value) =>
         SequencerConnectionSuccessor.fromProtoV30(value)
     }
@@ -1882,24 +1882,24 @@ object PurgeTopologyTransaction extends TopologyMappingCompanion {
 
 }
 
-// Indicates the beginning of synchronizer migration. Only topology transactions related to synchronizer migrations are permitted
+// Indicates the beginning of synchronizer upgrade. Only topology transactions related to synchronizer upgrades are permitted
 // after this transaction has become effective. Removing this mapping effectively unfreezes the topology state again.
-final case class SynchronizerMigrationAnnouncement(
+final case class SynchronizerUpgradeAnnouncement(
     synchronizerId: PhysicalSynchronizerId,
     successorSynchronizerId: PhysicalSynchronizerId,
 ) extends TopologyMapping {
 
-  override def companion: SynchronizerMigrationAnnouncement.type = SynchronizerMigrationAnnouncement
+  override def companion: SynchronizerUpgradeAnnouncement.type = SynchronizerUpgradeAnnouncement
 
-  def toProto: v30.SynchronizerMigrationAnnouncement =
-    v30.SynchronizerMigrationAnnouncement(
+  def toProto: v30.SynchronizerUpgradeAnnouncement =
+    v30.SynchronizerUpgradeAnnouncement(
       physicalSynchronizerId = synchronizerId.toProtoPrimitive,
       successorPhysicalSynchronizerId = successorSynchronizerId.toProtoPrimitive,
     )
 
   def toProtoV30: v30.TopologyMapping =
     v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.SynchronizerMigrationAnnouncement(
+      v30.TopologyMapping.Mapping.SynchronizerUpgradeAnnouncement(
         toProto
       )
     )
@@ -1915,19 +1915,19 @@ final case class SynchronizerMigrationAnnouncement(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
   ): RequiredAuth = RequiredNamespaces(Set(synchronizerId.namespace))
 
-  override def uniqueKey: MappingHash = SynchronizerMigrationAnnouncement.uniqueKey(synchronizerId)
+  override def uniqueKey: MappingHash = SynchronizerUpgradeAnnouncement.uniqueKey(synchronizerId)
 }
 
-object SynchronizerMigrationAnnouncement extends TopologyMappingCompanion {
+object SynchronizerUpgradeAnnouncement extends TopologyMappingCompanion {
 
   def uniqueKey(synchronizerId: PhysicalSynchronizerId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(_.add(synchronizerId.toProtoPrimitive))
 
-  override def code: TopologyMapping.Code = Code.SynchronizerMigrationAnnouncement
+  override def code: TopologyMapping.Code = Code.SynchronizerUpgradeAnnouncement
 
   def fromProtoV30(
-      value: v30.SynchronizerMigrationAnnouncement
-  ): ParsingResult[SynchronizerMigrationAnnouncement] =
+      value: v30.SynchronizerUpgradeAnnouncement
+  ): ParsingResult[SynchronizerUpgradeAnnouncement] =
     for {
       synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(
         value.physicalSynchronizerId,
@@ -1937,7 +1937,7 @@ object SynchronizerMigrationAnnouncement extends TopologyMappingCompanion {
         value.successorPhysicalSynchronizerId,
         "successor_physical_synchronizer_id",
       )
-    } yield SynchronizerMigrationAnnouncement(synchronizerId, successorSynchronizerId)
+    } yield SynchronizerUpgradeAnnouncement(synchronizerId, successorSynchronizerId)
 }
 
 final case class GrpcConnection(

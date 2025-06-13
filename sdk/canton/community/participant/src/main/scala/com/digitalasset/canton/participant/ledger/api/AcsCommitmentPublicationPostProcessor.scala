@@ -27,7 +27,7 @@ class AcsCommitmentPublicationPostProcessor(
         commitSetO: Option[CommitSet],
     ): Unit =
       connectedSynchronizersLookupContainer
-        // not publishing if no synchronizer active: it means subsequent crash recovery will establish consistency again
+        // not publishing if not connected to synchronizer: it means subsequent crash recovery will establish consistency again
         .get(synchronizerId)
         // not publishing anything if the AcsCommitmentProcessor initialization succeeded with AbortedDueToShutdown or failed
         .foreach(

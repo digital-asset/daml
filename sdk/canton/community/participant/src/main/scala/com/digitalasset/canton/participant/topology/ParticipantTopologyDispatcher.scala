@@ -129,7 +129,7 @@ class ParticipantTopologyDispatcher(
     EitherT
       .fromEither[FutureUnlessShutdown](
         state
-          .get(synchronizerId.logical)
+          .get(synchronizerId)
           .toRight(
             SynchronizerRegistryError.SynchronizerRegistryInternalError
               .InvalidState("No persistent state for synchronizer")
@@ -316,7 +316,7 @@ class ParticipantTopologyDispatcher(
 
             outboxes.forgetNE.parTraverse_(
               _.startup().leftMap(
-                SynchronizerRegistryError.InitialOnboardingError.Error(_)
+                SynchronizerRegistryError.InitialOnboardingError.Error(_): SynchronizerRegistryError
               )
             )
           }

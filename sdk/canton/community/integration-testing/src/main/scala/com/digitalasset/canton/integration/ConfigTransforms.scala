@@ -106,11 +106,15 @@ object ConfigTransforms {
       ConfigTransforms.generousRateLimiting,
       ConfigTransforms.enableAdvancedCommands(FeatureFlag.Preview),
       ConfigTransforms.enableAdvancedCommands(FeatureFlag.Testing),
+      // Needed for enabling engine.enableAdditionalConsistencyChecks
+      ConfigTransforms.enableNonStandardConfig,
       ConfigTransforms.updateAllParticipantConfigs_(
         _.focus(_.parameters.adminWorkflow.bongTestMaxLevel)
           .replace(NonNegativeInt.tryCreate(20))
           .focus(_.parameters.ledgerApiServer.contractIdSeeding)
           .replace(Seeding.Weak)
+          .focus(_.parameters.engine.enableAdditionalConsistencyChecks)
+          .replace(true)
       ),
       _.focus(_.parameters.enableAdditionalConsistencyChecks)
         .replace(true)

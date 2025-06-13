@@ -55,7 +55,8 @@ object DAMLe {
       enableStackTraces: Boolean,
       profileDir: Option[Path] = None,
       iterationsBetweenInterruptions: Long =
-        10000, // 10000 is the default value in the engine configuration
+        10000, // 10000 is the default value in the engine configuration,
+      paranoidMode: Boolean,
   ): Engine =
     new Engine(
       EngineConfig(
@@ -70,6 +71,7 @@ object DAMLe {
         requireSuffixedGlobalContractId = true,
         contractKeyUniqueness = ContractKeyUniquenessMode.Off,
         iterationsBetweenInterruptions = iterationsBetweenInterruptions,
+        paranoid = paranoidMode,
       )
     )
 

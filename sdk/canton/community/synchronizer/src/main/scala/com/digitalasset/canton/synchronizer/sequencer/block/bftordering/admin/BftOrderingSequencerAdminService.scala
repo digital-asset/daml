@@ -128,4 +128,13 @@ final class BftOrderingSequencerAdminService(
       )
     }
   }
+
+  override def setPerformanceMetricsEnabled(
+      request: SetPerformanceMetricsEnabledRequest
+  ): Future[SetPerformanceMetricsEnabledResponse] = {
+    issConsensusAdminRef.asyncSend(
+      Consensus.Admin.SetPerformanceMetricsEnabled(request.enabled)
+    )
+    Future.successful(SetPerformanceMetricsEnabledResponse())
+  }
 }

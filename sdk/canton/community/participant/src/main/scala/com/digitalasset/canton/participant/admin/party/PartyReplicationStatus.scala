@@ -7,6 +7,7 @@ import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, SequencerId, SynchronizerId}
 
 import scala.reflect.ClassTag
@@ -57,6 +58,7 @@ object PartyReplicationStatus {
         sourceParticipantId: ParticipantId,
         targetParticipantId: ParticipantId,
         serial: PositiveInt,
+        participantPermission: ParticipantPermission,
     ): ProposalProcessed =
       ProposalProcessed(
         ReplicationParams(
@@ -66,6 +68,7 @@ object PartyReplicationStatus {
           sourceParticipantId,
           targetParticipantId,
           serial,
+          participantPermission,
         )
       )
   }
@@ -91,6 +94,7 @@ object PartyReplicationStatus {
           agreement.sourceParticipantId,
           agreement.targetParticipantId,
           agreement.serial,
+          agreement.participantPermission,
         ),
         agreement.sequencerId,
       )
@@ -128,6 +132,7 @@ object PartyReplicationStatus {
           agreement.sourceParticipantId,
           agreement.targetParticipantId,
           agreement.serial,
+          agreement.participantPermission,
           sequencerId,
           effectiveAt,
         )
@@ -206,6 +211,7 @@ object PartyReplicationStatus {
       sourceParticipantId: ParticipantId,
       targetParticipantId: ParticipantId,
       serial: PositiveInt,
+      participantPermission: ParticipantPermission,
   ) {
     implicit def toAuthorized(
         sequencerId: SequencerId,
@@ -218,6 +224,7 @@ object PartyReplicationStatus {
         sourceParticipantId,
         targetParticipantId,
         serial,
+        participantPermission,
         sequencerId,
         effectiveAt,
       )
@@ -230,6 +237,7 @@ object PartyReplicationStatus {
       sourceParticipantId: ParticipantId,
       targetParticipantId: ParticipantId,
       serial: PositiveInt,
+      participantPermission: ParticipantPermission,
       sequencerId: SequencerId,
       effectiveAt: CantonTimestamp,
   ) {
@@ -241,6 +249,7 @@ object PartyReplicationStatus {
         sourceParticipantId,
         targetParticipantId,
         serial,
+        participantPermission,
       )
   }
 }

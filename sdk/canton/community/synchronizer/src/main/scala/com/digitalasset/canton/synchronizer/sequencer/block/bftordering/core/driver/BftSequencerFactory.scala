@@ -5,6 +5,7 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.dr
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.crypto.SynchronizerCryptoClient
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.environment.CantonNodeParameters
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -79,6 +80,7 @@ class BftSequencerFactory(
       protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
       rateLimitManager: SequencerRateLimitManager,
       orderingTimeFixMode: OrderingTimeFixMode,
+      minimumSequencingTime: CantonTimestamp,
       initialBlockHeight: Option[Long],
       sequencerSnapshot: Option[SequencerSnapshot],
       authenticationServices: Option[AuthenticationServices],
@@ -125,6 +127,7 @@ class BftSequencerFactory(
       protocolVersion,
       rateLimitManager,
       orderingTimeFixMode,
+      minimumSequencingTime,
       nodeParameters.processingTimeouts,
       nodeParameters.loggingConfig.eventDetails,
       nodeParameters.loggingConfig.api.printer,

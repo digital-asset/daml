@@ -184,19 +184,19 @@ class RetransmissionsManager[E <: Env[E]](
         case Consensus.RetransmissionsMessage.RetransmissionRequest(epochStatus) =>
           currentEpoch.filter(_.epoch.info.number == epochStatus.epochNumber) match {
             case Some(currentEpoch) =>
-              logger.info(
+              logger.debug(
                 s"Got a retransmission request from ${epochStatus.from} for current epoch ${currentEpoch.epoch.info}"
               )
               currentEpoch.processRetransmissionsRequest(epochStatus)
             case None =>
-              logger.info(
+              logger.debug(
                 s"Got a retransmission request from ${epochStatus.from} for a previous epoch ${epochStatus.epochNumber}"
               )
               previousEpochsRetransmissionsTracker.processRetransmissionsRequest(
                 epochStatus
               ) match {
                 case Right(commitCertsToRetransmit) =>
-                  logger.info(
+                  logger.debug(
                     s"Retransmitting ${commitCertsToRetransmit.size} commit certificates to ${epochStatus.from}"
                   )
                   retransmitCommitCertificates(
@@ -238,7 +238,7 @@ class RetransmissionsManager[E <: Env[E]](
     case segStatus: Consensus.RetransmissionsMessage.SegmentStatus =>
       epochStatusBuilder.foreach(_.receive(segStatus))
       epochStatusBuilder.flatMap(_.epochStatus).foreach { epochStatus =>
-        logger.info(
+        logger.debug(
           s"Broadcasting epoch status at epoch ${epochStatus.epochNumber} in order to request retransmissions"
         )
 
@@ -300,10 +300,12 @@ class RetransmissionsManager[E <: Env[E]](
 
   private def startRetransmissionsRequest()(implicit traceContext: TraceContext): Unit =
     currentEpoch.foreach { epoch =>
-      logger.info(
-        s"Started gathering segment status at epoch ${epoch.epoch.info.number} in order to broadcast epoch status"
-      )
-      epochStatusBuilder = Some(epoch.requestSegmentStatuses())
+      if (epoch.epoch.currentMembership.otherNodes.nonEmpty) {
+        logger.debug(
+          s"Started gathering segment status at epoch ${epoch.epoch.info.number} in order to broadcast epoch status"
+        )
+        epochStatusBuilder = Some(epoch.requestSegmentStatuses())
+      }
     }
 
   private def sendStatus(

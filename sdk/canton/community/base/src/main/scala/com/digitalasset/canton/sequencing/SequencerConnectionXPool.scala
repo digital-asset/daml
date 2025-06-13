@@ -108,9 +108,18 @@ trait SequencerConnectionXPool extends FlagCloseable with NamedLogging {
     *     returned for that sequencer ID is chosen via round-robin
     */
   def getConnections(
-      nb: Int,
+      nb: PositiveInt,
       exclusions: Set[SequencerId],
   )(implicit traceContext: TraceContext): Set[SequencerConnectionX]
+
+  /** Obtain a single connection for each different sequencer ID present in the pool.
+    */
+  def getOneConnectionPerSequencer()(implicit
+      traceContext: TraceContext
+  ): Map[SequencerId, SequencerConnectionX]
+
+  /** Obtain all the connections present in the pool. */
+  def getAllConnections()(implicit traceContext: TraceContext): Seq[SequencerConnectionX]
 
   @VisibleForTesting
   def contents: Map[SequencerId, Set[SequencerConnectionX]]

@@ -81,6 +81,7 @@ class BlockSequencer(
     protocolVersion: ProtocolVersion, // TODO(#25482) Reduce duplication in parameters
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
+    minimumSequencingTime: CantonTimestamp,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -113,6 +114,7 @@ class BlockSequencer(
       metrics,
       loggerFactory,
       blockSequencerMode = true,
+      minimumSequencingTime = minimumSequencingTime,
       rateLimitManagerO = Some(blockRateLimitManager),
     )
     with DatabaseSequencerIntegration
@@ -148,6 +150,7 @@ class BlockSequencer(
       sequencerId,
       blockRateLimitManager,
       orderingTimeFixMode,
+      minimumSequencingTime = minimumSequencingTime,
       metrics,
       loggerFactory,
       memberValidator = memberValidator,

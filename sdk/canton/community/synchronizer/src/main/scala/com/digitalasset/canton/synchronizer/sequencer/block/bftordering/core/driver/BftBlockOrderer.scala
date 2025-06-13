@@ -152,6 +152,8 @@ final class BftBlockOrderer(
   // Initialize the non-compliant behavior meter so that a value appears even if all behavior is compliant.
   metrics.security.noncompliant.behavior.mark(0)
 
+  metrics.performance.enabled = config.enablePerformanceMetrics
+
   override val timeouts: ProcessingTimeout = nodeParameters.processingTimeouts
 
   override def firstBlockHeight: Long = sequencerSubscriptionInitialHeight

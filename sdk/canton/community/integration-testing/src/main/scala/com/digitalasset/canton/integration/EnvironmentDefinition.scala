@@ -94,7 +94,7 @@ final case class EnvironmentDefinition(
   def updateTestingConfig(
       update: TestingConfigInternal => TestingConfigInternal
   ): EnvironmentDefinition =
-    copy(testingConfig = testingConfig.focus().modify(update))
+    copy(testingConfig = update(testingConfig))
 
   private def setStaticSynchronizerParameters(
       map: Map[String, StaticSynchronizerParameters]

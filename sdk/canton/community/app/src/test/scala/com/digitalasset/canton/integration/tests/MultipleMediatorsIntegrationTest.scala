@@ -48,7 +48,11 @@ import com.digitalasset.canton.synchronizer.sequencer.{
 }
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
-import com.digitalasset.canton.topology.transaction.{NamespaceDelegation, OwnerToKeyMapping}
+import com.digitalasset.canton.topology.transaction.{
+  NamespaceDelegation,
+  OwnerToKeyMapping,
+  TopologyChangeOp,
+}
 import com.digitalasset.canton.topology.{ForceFlag, MediatorId}
 import org.scalatest.Assertion
 
@@ -76,7 +80,7 @@ trait MultipleMediatorsBaseTest { this: BaseTest & HasProgrammableSequencer =>
 
     sequencer.topology.transactions.load(
       med2Identity,
-      sequencer.synchronizer_id.logical,
+      sequencer.synchronizer_id,
       ForceFlag.AlienMember,
     )
     eventually() {
@@ -375,6 +379,17 @@ class MultipleMediatorsIntegrationTest
         logger.debug(
           "Make sure that the participant receives another timestamp that triggers the rejection"
         )
+
+        eventually() {
+          // The participant should see the removed mediator group,
+          // otherwise the next command can be flaky
+          participant1.topology.mediators
+            .list(
+              synchronizerId = daId,
+              group = Some(NonNegativeInt.zero),
+              operation = Some(TopologyChangeOp.Remove),
+            ) should not be empty
+        }
 
         // A plain fetch_synchronizer_time isn't enough because the SynchronizerTimeTracker may use the delayed submission
         // as the witness for the time

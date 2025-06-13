@@ -57,6 +57,9 @@ message AddPartyAsyncRequest {
   // add the party to this target participant.
   // Required
   uint32 topology_serial = 4;
+  // The permission level of the party on the target participant.
+  // Required
+  ParticipantPermission participant_permission = 5;
 }
 
 message AddPartyAsyncResponse {
@@ -82,6 +85,7 @@ message GetAddPartyStatusResponse {
   string source_participant_uid = 3;
   string target_participant_uid = 4;
   uint32 topology_serial = 5;
+  ParticipantPermission participant_permission = 6;
 
   message Status {
     // The add-party request has been submitted by the target participant, or accepted by the
@@ -139,7 +143,19 @@ message GetAddPartyStatusResponse {
     }
   }
 
-  Status status = 6;
+  Status status = 7;
+}
+
+// Enum indicating the permission level of the party on the target participant.
+// Refer to topology.proto:`ParticipantPermission` for definitions.
+enum ParticipantPermission {
+  PARTICIPANT_PERMISSION_UNSPECIFIED = 0;
+
+  PARTICIPANT_PERMISSION_SUBMISSION = 1;
+
+  PARTICIPANT_PERMISSION_CONFIRMATION = 2;
+
+  PARTICIPANT_PERMISSION_OBSERVATION = 3;
 }
 
 message ExportAcsTargetSynchronizer {

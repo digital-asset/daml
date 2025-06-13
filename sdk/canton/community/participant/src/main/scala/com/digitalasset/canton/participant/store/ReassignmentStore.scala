@@ -119,10 +119,9 @@ object ReassignmentStore {
       syncPersistentStateLookup: SyncPersistentStateLookup
   ): Target[SynchronizerId] => Either[String, ReassignmentStore] =
     (synchronizerId: Target[SynchronizerId]) =>
-      syncPersistentStateLookup.getAll
-        .get(synchronizerId.unwrap)
+      syncPersistentStateLookup
+        .reassignmentStore(synchronizerId.unwrap)
         .toRight(s"Unknown synchronizer `${synchronizerId.unwrap}`")
-        .map(_.reassignmentStore)
 
   def reassignmentOffsetPersistenceFor(
       syncPersistentStateLookup: SyncPersistentStateLookup

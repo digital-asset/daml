@@ -83,7 +83,8 @@ class PackageOpsImpl(
   override def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, PackageInUse, Unit] =
-    stateManager.getAll.toList
+    // Restricting to latest physical state because only (active) contract stores are used
+    stateManager.getAllLatest.toList
       // Sort to keep tests deterministic
       .sortBy { case (synchronizerId, _) => synchronizerId.toProtoPrimitive }
       .parTraverse_ { case (_, state) =>
@@ -93,7 +94,11 @@ class PackageOpsImpl(
             .map(opt =>
               opt.fold(Either.unit[PackageInUse])(contractId =>
                 Left(
-                  new PackageInUse(packageId, contractId, state.synchronizerIdx.synchronizerId)
+                  new PackageInUse(
+                    packageId,
+                    contractId,
+                    state.synchronizerIdx.synchronizerId,
+                  )
                 )
               )
             )
@@ -109,8 +114,10 @@ class PackageOpsImpl(
   )(implicit tc: TraceContext): EitherT[FutureUnlessShutdown, RpcError, Boolean] = {
     // Use the aliasManager to query all synchronizers, even those that are currently disconnected
     val snapshotsForSynchronizers: List[TopologySnapshot] =
-      stateManager.getAll.view.keys
-        .map(stateManager.topologyFactoryFor(_, initialProtocolVersion))
+      stateManager.getAll.view.values
+        .map(persistentState =>
+          stateManager.topologyFactoryFor(persistentState.physicalSynchronizerId)
+        )
         .flatMap(_.map(_.createHeadTopologySnapshot()))
         .toList
 
