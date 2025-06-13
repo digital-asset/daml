@@ -5,12 +5,14 @@
 Daml Sandbox
 ============
 
-The Daml Sandbox, or Sandbox for short, is a program that enables rapid application prototyping by running a simple Canton ledger with one participant.
+The Daml Sandbox, or Sandbox for short, is a program for running a Canton ledger with your Daml code.
+The ledger uses the simplest topology possible: a single Participant Node connected to a Synchronizer Node.
+Use the Daml sandbox when you need access to a Canton ledger running your Daml code and matching the target Participant Node topology is not required.
 
 Install
 -------
 
-Install the Daml Sandbox by :brokenref:`installing the Daml Assistant <Install section of Daml Assistant>`.
+Install the Daml Sandbox by :ref:`installing the Daml Assistant <daml-assistant-install>`.
 
 Configure
 ---------
@@ -24,11 +26,11 @@ To view all available command line configuration options for Daml Sandbox, run `
 
 .. code-block:: none
 
-      Usage: daml sandbox [--port ARG] [--admin-api-port ARG] 
-                          [--sequencer-public-port ARG] [--sequencer-admin-port ARG] 
-                          [--mediator-admin-port ARG] [--json-api-port ARG] 
-                          [--json-api-port-file PATH] [--canton-port-file PATH] 
-                          [--static-time | --wall-clock-time] [--canton-help] 
+      Usage: daml sandbox [--port ARG] [--admin-api-port ARG]
+                          [--sequencer-public-port ARG] [--sequencer-admin-port ARG]
+                          [--mediator-admin-port ARG] [--json-api-port ARG]
+                          [--json-api-port-file PATH] [--canton-port-file PATH]
+                          [--static-time | --wall-clock-time] [--canton-help]
                           [-c|--config FILE] [--port-file PATH] [--dar PATH] [ARG]
 
       Available options:
@@ -114,7 +116,7 @@ There are two ways to run the Daml Sandbox:
    **Note**: To forward an option to the underlying ``daml sandbox`` call, use
    the ``--sandbox-option`` flag.
 
-   For example, to change the sandbox's ledger-api port, the normal command would be
+   For example, to change the sandbox's Ledger API port, the normal command would be
 
    .. code-block:: none
 

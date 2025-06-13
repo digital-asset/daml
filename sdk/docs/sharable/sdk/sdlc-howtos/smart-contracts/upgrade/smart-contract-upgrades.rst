@@ -1,6 +1,9 @@
 .. Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 .. SPDX-License-Identifier: Apache-2.0
 
+.. wip::
+    Turn into a proper how-to guide, remove mentions to contract keys.
+
 .. _smart-contract-upgrades:
 
 Smart Contract Upgrade
@@ -2108,6 +2111,8 @@ Testing
 
 Standalone Upgradeability Checks
 --------------------------------
+
+.. _upgrade-check-tool:
 
 We recommend using the ``upgrade-check`` tool to perform a standalone check that all of the DARs typecheck against one another correctly as further validation of your upgraded packages.
 

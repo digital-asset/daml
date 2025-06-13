@@ -182,3 +182,16 @@ for f in $(ls *_install*.json | egrep -v "deprecated"); do
     exit 1
   fi
 done
+
+if [[ $is_test = 1 ]]; then
+  echo "Checking .rst with vale, is_test=TRUE so --minAlertLevel=warning"
+  vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=warning
+else
+  echo "Checking .rst with vale, is_test=FALSE so --minAlertLevel=suggestion"
+  if [ "$diff_mode" = "true" ]; then
+    echo "--diff, so only linting diff"
+    check_diff $merge_base '\.rst$' vale --config ./.vale-ci.ini --minAlertLevel=suggestion
+  else
+    vale ./docs/sharable --config ./.vale-ci.ini --minAlertLevel=suggestion
+  fi
+fi

@@ -3,9 +3,6 @@
 Daml Codegen for Java
 =====================
 
-.. wip::
-    fix brokenrefs
-
 Use the Daml Codegen for Java (``daml codegen java``) to generate Java classes representing all Daml data types defined
 in a Daml Archive (.dar) file.
 These classes simplify constructing the types required by the Java gRPC bindings for the
@@ -18,7 +15,7 @@ See :ref:`How to work with contracts and transactions in Java <howto-application
 Install
 -------
 
-Install the Daml Codegen for Java by :brokenref:`installing the Daml Assistant <Install section of Daml Assistant>`.
+Install the Daml Codegen for Java by :ref:`installing the Daml Assistant <daml-assistant-install>`.
 
 Configure
 ---------

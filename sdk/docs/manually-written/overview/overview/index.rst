@@ -13,19 +13,19 @@ The purpose of the *Overview* manual section is to:
 
 * Show how the different products of Digital Asset allow you to join the Canton Network as a user or a provider of services.
 
-Multi-Party Applications
+Multi-party applications
 ------------------------
 
 Software applications are used every day to facilitate communication, share information, and support decision-making.
 But what happens when you need to collaborate with multiple parties on the same set of data? How do you ensure that
 everyone has access and can operate on the same information? Who controls the data? Who controls who can collaborate?
 When there's trust and collaboration within the same organization, responsibility is often delegated to a central authority operating a
-centralised application, such as the IT department of our  company or one of the large cloud providers. But what if you
+centralised application, such as the IT department of our company or one of the large cloud providers. But what if you
 are not part of the same organization? What if you cannot agree on who should operate the application? What if you do
-not trust each other but still want to collaborate? Then you end up with a **multi-party application**.
+not trust each other but still want to collaborate?
 
-Originally, multi-party applications are built by each party implementing their own version of the application, and
-exchanging messages to signal data changes. Such applications are very bilateral in nature and require
+Originally, these problems are solved by defining a common protocol and having each party implementing their own version
+of the application, exchanging messages to signal data changes. Such applications are very bilateral in nature and require
 a lot of coordination between the parties to keep the implementations and the data in sync. These technical challenges
 impact the efficiency and the business value, leading to high cost, low flexibility and long lead times. Well known
 examples of such applications can be found in the financial markets or in the health care sector, requiring large
@@ -34,14 +34,17 @@ and well-funded organizations that can afford to build and maintain them.
 Technically, the problem can be stated as follows: how do you coordinate reads and writes across multiple databases of
 multiple, potentially unknown parties who do not trust each other nor a central authority, but with the
 strong guarantee that the data is always correct and consistent, and only accessed and modified according to the
-individually agreed rules for the given data set?
+individually pre-agreed rules for the given data set?
 
-This is the problem that Canton solves out of the box, enabling a network of self-sovereign, tightly-coupled, multi-party
-applications built for seamless real world business success: the Canton Network.
+An application built with such a technology provides both: the individual control and data sovereignty of each party,
+while at the same time guaranteeing tight integration and collaboration between the parties. Such applications are
+called **multi-party applications**. Enabling such applications is the problem that Canton solves out of the box,
+creating a network of self-sovereign, tightly-coupled, multi-party applications built for seamless real-world
+business success: the Canton Network.
 
 Continue diving into :ref:`Multi-Party Applications <overview-multiparty-applications-intro>` in the respective section of the manual.
 
-Ledger Properties
+Ledger properties
 -----------------
 
 In order to solve the problem of complex, real-world multi-party applications, Canton is designed to provide the following properties:
@@ -89,7 +92,13 @@ This allows the Canton Network to **scale horizontally** by just adding more syn
 
 Continue diving into the elements of the :brokenref:`Canton Network <overview_overview_canton_network>`.
 
-.. we need to add more references to the protocol and the global sync.
+.. todo::
+    we need to add more references to the protocol and the global sync.
+    also, we need to replace / improve below image with a better one.
+
+.. image:: arch-intro-2b.png
+   :alt: A network with three synchronizers, including the global sync and four participant nodes, each hosting one or
+        more parties. Each participant node can connect to different synchronizers at their own discretion.
 
 Ledger concepts expressed in database terms
 -------------------------------------------
