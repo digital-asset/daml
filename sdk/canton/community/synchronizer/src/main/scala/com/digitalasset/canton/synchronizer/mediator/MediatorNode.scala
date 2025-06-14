@@ -453,7 +453,7 @@ class MediatorNodeBootstrap(
 
       }
 
-      performUnlessClosingEitherUSF("starting up mediator node") {
+      synchronizeWithClosing("starting up mediator node") {
         for {
           // safety check. normally we shouldn't even be able to get to this point without a configuration,
           // because the previous bootstrap stage only completes if it finds a configuration.

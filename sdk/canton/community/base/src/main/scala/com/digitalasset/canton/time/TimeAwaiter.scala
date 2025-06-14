@@ -45,7 +45,7 @@ final class TimeAwaiter(
     val current = getCurrentKnownTime()
     if (current >= timestamp) None
     else
-      performUnlessClosing(s"await known timestamp at $timestamp") {
+      synchronizeWithClosingSync(s"await known timestamp at $timestamp") {
         logger.debug(
           s"Starting time awaiter for timestamp $timestamp. Current known time is $current."
         )

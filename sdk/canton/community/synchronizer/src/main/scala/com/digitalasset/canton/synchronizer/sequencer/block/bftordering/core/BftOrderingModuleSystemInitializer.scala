@@ -29,12 +29,15 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
   MempoolModule,
   MempoolModuleConfig,
 }
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders.{
   BlacklistLeaderSelectionPolicyState,
   LeaderSelectionInitializer,
+}
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.{
+  EpochChecker,
+  OutputModule,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.pruning.PruningModule
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.data.P2PEndpointsStore
@@ -98,6 +101,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
     timeouts: ProcessingTimeout,
     requestInspector: RequestInspector =
       OutputModule.DefaultRequestInspector, // Only set by simulation tests
+    epochChecker: EpochChecker = EpochChecker.DefaultEpochChecker, // Only set by simulation tests
 )(implicit synchronizerProtocolVersion: ProtocolVersion, mc: MetricsContext)
     extends SystemInitializer[E, BftOrderingServiceReceiveRequest, Mempool.Message]
     with NamedLogging {
@@ -273,6 +277,7 @@ private[bftordering] class BftOrderingModuleSystemInitializer[E <: Env[E]](
             loggerFactory,
             timeouts,
             requestInspector,
+            epochChecker,
           ),
         pruning = () =>
           new PruningModule(

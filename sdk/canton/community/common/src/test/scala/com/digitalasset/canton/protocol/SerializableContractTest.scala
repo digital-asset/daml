@@ -15,7 +15,7 @@ import com.digitalasset.canton.{
   LfVersioned,
 }
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node}
+import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Node}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -97,7 +97,11 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
     )
 
     val disclosedContract =
-      FatContractInstance.fromCreateNode(createNode, createdAt, driverMetadata)
+      FatContractInstance.fromCreateNode(
+        createNode,
+        CreationTime.CreatedAt(createdAt),
+        driverMetadata,
+      )
 
     "provided a valid disclosed contract" should {
       "succeed" in {
@@ -132,7 +136,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
           .fromFatContract(
             FatContractInstance.fromCreateNode(
               createNode.mapCid(_ => invalidFormatContractId),
-              createdAt,
+              CreationTime.CreatedAt(createdAt),
               driverMetadata,
             )
           )
@@ -145,7 +149,11 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
       "fail" in {
         SerializableContract
           .fromFatContract(
-            FatContractInstance.fromCreateNode(createNode, createdAt, cantonData = Bytes.Empty)
+            FatContractInstance.fromCreateNode(
+              createNode,
+              CreationTime.CreatedAt(createdAt),
+              cantonData = Bytes.Empty,
+            )
           )
           .left
           .value shouldBe "Missing driver contract metadata in provided disclosed contract"

@@ -107,7 +107,7 @@ trait PrunableByTime {
       res <- MonadUtil.sequentialTraverse(
         computeBuckets(lastTs, limit)
       ) { case (prev, next) =>
-        closeContext.context.performUnlessClosingUSF(s"prune interval $next")(doPrune(next, prev))
+        closeContext.context.synchronizeWithClosing(s"prune interval $next")(doPrune(next, prev))
       }
       _ <- advancePruningTimestamp(PruningPhase.Completed, limit)
     } yield {

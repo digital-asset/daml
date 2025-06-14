@@ -86,7 +86,7 @@ class AuthenticationTokenProvider(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry] = {
     def generateTokenET: FutureUnlessShutdown[Either[Status, AuthenticationTokenWithExpiry]] =
-      performUnlessClosingUSF(functionFullName) {
+      synchronizeWithClosing(functionFullName) {
         (for {
           challenge <- getChallenge(authenticationClient)
           nonce <- Nonce

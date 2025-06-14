@@ -52,7 +52,7 @@ class PeriodicAcknowledgements(
   private def update()(implicit traceContext: TraceContext): Unit =
     if (isHealthy) {
       val updateET: EitherT[Future, String, Boolean] =
-        performUnlessClosingEitherUSF(functionFullName) {
+        synchronizeWithClosing(functionFullName) {
           for {
             latestClean <- EitherT.right(fetchLatestCleanTimestamp(traceContext))
             result <- latestClean.fold(EitherT.rightT[FutureUnlessShutdown, String](true))(
@@ -92,7 +92,7 @@ class PeriodicAcknowledgements(
 
   private def scheduleNextUpdate(): Unit =
     withNewTraceContext { implicit traceContext =>
-      performUnlessClosing(functionFullName)(
+      synchronizeWithClosingSync(functionFullName)(
         clock
           .scheduleAfter(
             { _ =>

@@ -85,7 +85,8 @@ final case class EstablishConnection(
     endpoint: PlainTextP2PEndpoint,
     continuation: (P2PEndpoint.Id, BftNodeId) => Unit,
 ) extends Command
-final case class CrashRestartNode(node: BftNodeId) extends Command
+final case class CrashNode(node: BftNodeId) extends Command
+final case class RestartNode(node: BftNodeId) extends Command
 case object MakeSystemHealthy extends Command
 case object ResumeLivenessChecks extends Command
 

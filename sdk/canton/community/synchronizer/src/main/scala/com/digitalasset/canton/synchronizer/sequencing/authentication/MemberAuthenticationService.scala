@@ -203,7 +203,7 @@ class MemberAuthenticationService(
   private def scheduleExpirations(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Unit = {
-    def run(): Unit = performUnlessClosing(functionFullName) {
+    def run(): Unit = synchronizeWithClosingSync(functionFullName) {
       val now = clock.now
       logger.debug(s"Expiring nonces and tokens up to $now")
       store.expireNoncesAndTokens(now)
@@ -334,7 +334,7 @@ class MemberAuthenticationServiceImpl(
       sc: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingUSF(functionFullName) {
+    synchronizeWithClosing(functionFullName) {
       FutureUnlessShutdown.sequence(transactions.map(_.transaction).map {
         case TopologyTransaction(
               TopologyChangeOp.Remove,

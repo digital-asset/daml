@@ -49,7 +49,7 @@ trait Module[E <: Env[E], MessageT] extends NamedLogging with FlagCloseable {
       traceContext: TraceContext,
   ): Unit =
     try {
-      performUnlessClosing("receive")(receiveInternal(message))
+      synchronizeWithClosingSync("receive")(receiveInternal(message))
         .onShutdown {
           logger.info(s"Received $message but won't process because we're shutting down")
         }
@@ -342,14 +342,14 @@ trait ModuleContext[E <: Env[E], MessageT] extends NamedLogging with FutureConte
   )(implicit
       ev: Traverse[F]
   ): E#FutureUnlessShutdownT[F[A]] =
-    futureContext.sequenceFuture(futures)
+    futureContext.sequenceFuture(futures, orderingStage)
 
   final override def flatMapFuture[R1, R2](
       future1: E#FutureUnlessShutdownT[R1],
       future2: PureFun[R1, E#FutureUnlessShutdownT[R2]],
       orderingStage: Option[String] = None,
   ): E#FutureUnlessShutdownT[R2] =
-    futureContext.flatMapFuture(future1, future2)
+    futureContext.flatMapFuture(future1, future2, orderingStage)
 
   def pipeToSelf[X](futureUnlessShutdown: E#FutureUnlessShutdownT[X])(
       fun: Try[X] => Option[MessageT]

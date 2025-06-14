@@ -66,7 +66,8 @@ class ContractAuthenticatorImpl(unicumGenerator: UnicumGenerator) extends Contra
         .leftMap(_.toString)
       createTime <- contract.createdAt match {
         case CreationTime.CreatedAt(time) => Right(CantonTimestamp(time))
-        case CreationTime.Now => Left(s"Cannot determine creation time for contract ${contract.contractId}.")
+        case CreationTime.Now =>
+          Left(s"Cannot determine creation time for contract ${contract.contractId}.")
       }
       contractInstance <- SerializableRawContractInstance
         .create(

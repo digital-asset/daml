@@ -822,7 +822,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       tc: TraceContext
   ): Future[Unit] = {
     FutureUnlessShutdownUtil.doNotAwaitUnlessShutdown(
-      performUnlessClosingUSF("send-result-if-done")(f),
+      synchronizeWithClosing("send-result-if-done")(f),
       s"send-result-if-done failed for request $requestId",
       level = Level.WARN,
     )

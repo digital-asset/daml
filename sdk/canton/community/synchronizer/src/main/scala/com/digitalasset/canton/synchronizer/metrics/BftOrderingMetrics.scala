@@ -243,6 +243,11 @@ class BftOrderingMetrics private[metrics] (
                 val BatchQueuedForBlockInclusion = "batch-queued-for-block-inclusion"
               }
             }
+
+            object output {
+              val Fetch = "output-block-fetch-batches"
+              val Inspection = "output-block-inspection"
+            }
           }
         }
       }

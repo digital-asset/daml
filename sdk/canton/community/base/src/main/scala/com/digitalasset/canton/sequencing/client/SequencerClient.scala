@@ -669,7 +669,7 @@ abstract class SequencerClientImpl(
 
       linkDetailsO match {
         case Some(LinkDetails(sequencerAlias, sequencerId, transportOrPoolConnection)) =>
-          performUnlessClosingEitherUSF(s"sending message $messageId to sequencer $sequencerId") {
+          synchronizeWithClosing(s"sending message $messageId to sequencer $sequencerId") {
             NonEmpty.from(previousSequencers) match {
               case None =>
                 logger.debug(s"Sending message ID $messageId to sequencer $sequencerId")
@@ -884,7 +884,7 @@ abstract class SequencerClientImpl(
     val resultFUS = retry
       .Pause(
         logger = logger,
-        performUnlessClosing = closeContext.context,
+        hasSynchronizeWithClosing = closeContext.context,
         maxRetries = maxRetries,
         delay = 1.second,
         operationName = "Download topology state for init",
@@ -1031,7 +1031,7 @@ class RichSequencerClientImpl(
       nonThrottledEventHandler,
       metrics,
     )
-    val subscriptionF = performUnlessClosingUSF(functionFullName) {
+    val subscriptionF = synchronizeWithClosing(functionFullName) {
       for {
         initialPriorEventO <-
           sequencedEventStore
@@ -1294,7 +1294,7 @@ class RichSequencerClientImpl(
           )
           (for {
             _ <- EitherT.right(
-              performUnlessClosingF("processing-delay")(processingDelay.delay(serializedEvent))
+              synchronizeWithClosingF("processing-delay")(processingDelay.delay(serializedEvent))
             )
             _ = logger.debug(s"Processing delay $processingDelay completed successfully")
             _ <- eventValidator
@@ -1346,7 +1346,7 @@ class RichSequencerClientImpl(
     //  instances with equivalent parameters in case of BFT subscriptions.
     private def signalHandler(
         eventHandler: SequencedApplicationHandler[ClosedEnvelope]
-    )(implicit traceContext: TraceContext): Unit = performUnlessClosing(functionFullName) {
+    )(implicit traceContext: TraceContext): Unit = synchronizeWithClosingSync(functionFullName) {
       val isIdle = blocking {
         handlerIdleLock.synchronized {
           val oldPromise = handlerIdle.getAndUpdate(p => if (p.isCompleted) Promise() else p)
@@ -1695,7 +1695,7 @@ class SequencerClientImplPekko[E: Pretty](
       nonThrottledEventHandler,
       metrics,
     )
-    val subscriptionF = performUnlessClosingUSF(functionFullName) {
+    val subscriptionF = synchronizeWithClosing(functionFullName) {
       for {
         initialPriorEventO <-
           sequencedEventStore

@@ -5,23 +5,20 @@ package com.digitalasset.canton.integration.tests.examples
 
 import better.files.File
 import com.daml.ledger.api.v2.interactive.interactive_submission_service.PreparedTransaction
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.integration.plugins.UseH2
 import com.digitalasset.canton.integration.tests.examples.ExampleIntegrationTest.interactiveSubmissionFolder
 import com.digitalasset.canton.integration.{CommunityIntegrationTest, ConfigTransform}
-import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionEncoder
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.{
+  PrepareTransactionData,
+  PreparedTransactionEncoder,
+}
 import com.digitalasset.canton.protocol.hash.HashTracer
-import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ConcurrentBufferedLogger, HexString, ResourceUtil}
 import com.digitalasset.canton.version.HashingSchemeVersion
-import com.digitalasset.daml.lf.data.ImmArray
 import monocle.macros.syntax.lens.*
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-import java.util.UUID
 import scala.sys.process.Process
 
 sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
@@ -31,9 +28,7 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
     with CommunityIntegrationTest
     with ScalaCheckPropertyChecks {
 
-  import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionGenerators.*
-  import com.digitalasset.canton.topology.GeneratorsTopology.*
 
   private implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.ForTesting
 
@@ -146,57 +141,26 @@ sealed abstract class InteractiveSubmissionDemoExampleIntegrationTest
   }
 
   def buildV2Hash(
-      preparedTransactionData: TransactionData,
-      transactionUUID: UUID,
-      mediatorGroup: PositiveInt,
-      synchronizerId: SynchronizerId,
+      preparedTransactionData: PrepareTransactionData,
       hashTracer: HashTracer,
   ) =
-    InteractiveSubmission.computeVersionedHash(
-      HashingSchemeVersion.V2,
-      preparedTransactionData.transaction,
-      InteractiveSubmission.TransactionMetadataForHashing.create(
-        preparedTransactionData.submitterInfo.actAs.toSet,
-        preparedTransactionData.submitterInfo.commandId,
-        transactionUUID,
-        mediatorGroup.value,
-        synchronizerId,
-        preparedTransactionData.transactionMeta.timeBoundaries,
-        preparedTransactionData.transactionMeta.preparationTime,
-        preparedTransactionData.inputContracts,
-      ),
-      preparedTransactionData.transactionMeta.optNodeSeeds
-        .getOrElse(ImmArray.empty)
-        .toList
-        .toMap,
-      testedProtocolVersion,
-      hashTracer,
-    )
+    preparedTransactionData.computeHash(HashingSchemeVersion.V2, testedProtocolVersion, hashTracer)
 
   "produce hash consistent with canton implementation" in { implicit env =>
     import env.*
     forAll {
       (
-          preparedTransactionData: TransactionData,
-          synchronizerId: SynchronizerId,
-          transactionUUID: UUID,
-          mediatorGroup: PositiveInt,
+        preparedTransactionData: PrepareTransactionData,
       ) =>
         val hashTracer = HashTracer.StringHashTracer(traceSubNodes = true)
         val expectedHash = buildV2Hash(
           preparedTransactionData,
-          transactionUUID,
-          mediatorGroup,
-          synchronizerId,
           hashTracer,
         )
 
         val result = for {
-          encoded <- encoder.serializeCommandInterpretationResult(
-            preparedTransactionData,
-            synchronizerId,
-            transactionUUID,
-            mediatorGroup.value,
+          encoded <- encoder.encode(
+            preparedTransactionData
           )
         } yield {
 

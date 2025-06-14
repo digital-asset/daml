@@ -53,7 +53,7 @@ private[service] class DirectSequencerSubscription[E](
       .mapAsync(1) { eventOrError =>
         externalCompletionRef.get match {
           case None =>
-            performUnlessClosingUSF("direct-sequencer-subscription-handler") {
+            synchronizeWithClosing("direct-sequencer-subscription-handler") {
               handler(eventOrError)
             }.onShutdown {
               Either.unit

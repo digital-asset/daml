@@ -100,11 +100,16 @@ class DbEpochStore(
   }
 
   private def createFuture[X](
-      actionName: String
+      actionName: String,
+      orderingStage: String,
   )(future: => FutureUnlessShutdown[X])(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[X] =
-    PekkoFutureUnlessShutdown(actionName, () => storage.performUnlessClosingUSF(actionName)(future))
+    PekkoFutureUnlessShutdown(
+      actionName,
+      () => storage.synchronizeWithClosing(actionName)(future),
+      Some(orderingStage),
+    )
 
   private def parseSignedMessage[A <: PbftNetworkMessage](
       parse: BftNodeId => ProtoConsensusMessage => ByteString => ParsingResult[A]
@@ -133,7 +138,7 @@ class DbEpochStore(
   override def startEpoch(
       epoch: EpochInfo
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
-    createFuture(startEpochActionName(epoch)) {
+    createFuture(startEpochActionName(epoch), orderingStage = functionFullName) {
       storage.update_(
         profile match {
           case _: Postgres =>
@@ -158,7 +163,7 @@ class DbEpochStore(
   override def completeEpoch(
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
-    createFuture(completeEpochActionName(epochNumber)) {
+    createFuture(completeEpochActionName(epochNumber), orderingStage = functionFullName) {
       storage.update_(
         for {
           // delete all in-progress messages after an epoch ends and before we start adding new messages in the new epoch
@@ -173,49 +178,51 @@ class DbEpochStore(
 
   override def latestEpoch(includeInProgress: Boolean)(implicit
       traceContext: TraceContext
-  ): PekkoFutureUnlessShutdown[Epoch] = createFuture(latestEpochActionName) {
-    storage
-      .query(
-        for {
-          epochInfo <-
-            if (!includeInProgress)
-              sql"""select epoch_number, start_block_number, epoch_length, topology_ts
+  ): PekkoFutureUnlessShutdown[Epoch] =
+    createFuture(latestEpochActionName, orderingStage = functionFullName) {
+      storage
+        .query(
+          for {
+            epochInfo <-
+              if (!includeInProgress)
+                sql"""select epoch_number, start_block_number, epoch_length, topology_ts
                     from ord_epochs
                     where in_progress = false
                     order by epoch_number desc
                     limit 1
                  """.as[EpochInfo]
-            else
-              sql"""select epoch_number, start_block_number, epoch_length, topology_ts
+              else
+                sql"""select epoch_number, start_block_number, epoch_length, topology_ts
                     from ord_epochs
                     order by epoch_number desc
                     limit 1
                  """.as[EpochInfo]
-          epoch = epochInfo.lastOption.getOrElse(Genesis.GenesisEpochInfo)
-          lastBlockCommitMessages <-
-            sql"""select message
+            epoch = epochInfo.lastOption.getOrElse(Genesis.GenesisEpochInfo)
+            lastBlockCommitMessages <-
+              sql"""select message
                   from ord_pbft_messages_completed pbft_message
                   where pbft_message.block_number = ${epoch.lastBlockNumber} and pbft_message.discriminator = $CommitMessageDiscriminator
                   order by pbft_message.from_sequencer_id
                """.as[SignedMessage[Commit]]
-        } yield Epoch(epoch, lastBlockCommitMessages),
-        functionFullName,
-      )
-  }
+          } yield Epoch(epoch, lastBlockCommitMessages),
+          functionFullName,
+        )
+    }
 
   override def addPrePrepare(prePrepare: SignedMessage[ConsensusMessage.PrePrepare])(implicit
       traceContext: TraceContext
-  ): PekkoFutureUnlessShutdown[Unit] = createFuture(addPrePrepareActionName(prePrepare)) {
-    storage.update_(
-      DBIOAction.sequence(insertInProgressPbftMessages(Seq(prePrepare))),
-      functionFullName,
-    )
-  }
+  ): PekkoFutureUnlessShutdown[Unit] =
+    createFuture(addPrePrepareActionName(prePrepare), orderingStage = functionFullName) {
+      storage.update_(
+        DBIOAction.sequence(insertInProgressPbftMessages(Seq(prePrepare))),
+        functionFullName,
+      )
+    }
 
   override def addPrepares(
       prepares: Seq[SignedMessage[ConsensusMessage.Prepare]]
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
-    createFuture(addPreparesActionName) {
+    createFuture(addPreparesActionName, orderingStage = functionFullName) {
       storage.update_(
         DBIOAction.sequence(insertInProgressPbftMessages(prepares)).transactionally,
         functionFullName,
@@ -227,7 +234,10 @@ class DbEpochStore(
   )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] =
-    createFuture(addViewChangeMessageActionName(viewChangeMessage)) {
+    createFuture(
+      addViewChangeMessageActionName(viewChangeMessage),
+      orderingStage = functionFullName,
+    ) {
       storage.update_(
         DBIOAction.sequence(insertInProgressPbftMessages(Seq(viewChangeMessage))).transactionally,
         functionFullName,
@@ -242,7 +252,10 @@ class DbEpochStore(
   ): PekkoFutureUnlessShutdown[Unit] = {
     val epochNumber = prePrepare.message.blockMetadata.epochNumber
     val blockNumber = prePrepare.message.blockMetadata.blockNumber
-    createFuture(addOrderedBlockActionName(epochNumber, blockNumber)) {
+    createFuture(
+      addOrderedBlockActionName(epochNumber, blockNumber),
+      orderingStage = functionFullName,
+    ) {
       storage.update_(
         DBIOAction
           .sequence(
@@ -328,7 +341,7 @@ class DbEpochStore(
   override def loadEpochProgress(activeEpochInfo: EpochInfo)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[EpochInProgress] =
-    createFuture(loadEpochProgressActionName(activeEpochInfo)) {
+    createFuture(loadEpochProgressActionName(activeEpochInfo), orderingStage = functionFullName) {
       storage
         .query(
           for {
@@ -347,11 +360,7 @@ class DbEpochStore(
                 // had to set the GetResult explicitly because for some reason it was picking the one for commit messages
                 .as[SignedMessage[PbftNetworkMessage]](readPbftMessage)
           } yield {
-            val commits = completeBlockMessages
-              .collect { case s @ SignedMessage(_: Commit, _) =>
-                s.asInstanceOf[SignedMessage[Commit]]
-              }
-              .groupBy(_.message.blockMetadata.blockNumber)
+            val commits = getCommits(completeBlockMessages)
             val sortedBlocks = completeBlockMessages
               .collect { case s @ SignedMessage(pp: PrePrepare, _) =>
                 val blockNumber = pp.blockMetadata.blockNumber
@@ -378,7 +387,10 @@ class DbEpochStore(
   )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Seq[Block]] =
-    createFuture(loadPrePreparesActionName(startEpochNumberInclusive, endEpochNumberInclusive)) {
+    createFuture(
+      loadPrePreparesActionName(startEpochNumberInclusive, endEpochNumberInclusive),
+      orderingStage = functionFullName,
+    ) {
       storage
         .query(
           for {
@@ -390,12 +402,7 @@ class DbEpochStore(
                     order by from_sequencer_id, block_number
                  """.as[SignedMessage[PbftNetworkMessage]](readPbftMessage)
           } yield {
-            val commits = completeBlockMessages
-              .collect { case s @ SignedMessage(_: Commit, _) =>
-                s.asInstanceOf[SignedMessage[Commit]]
-              }
-              .groupBy(_.message.blockMetadata.blockNumber)
-
+            val commits = getCommits(completeBlockMessages)
             completeBlockMessages
               .collect { case s @ SignedMessage(pp: PrePrepare, _) =>
                 val blockNumber = pp.blockMetadata.blockNumber
@@ -417,7 +424,7 @@ class DbEpochStore(
   override def loadEpochInfo(
       epochNumber: EpochNumber
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Option[EpochInfo]] =
-    createFuture(loadEpochInfoActionName(epochNumber)) {
+    createFuture(loadEpochInfoActionName(epochNumber), orderingStage = functionFullName) {
       storage
         .query(
           sql"""select epoch_number, start_block_number, epoch_length, topology_ts
@@ -432,7 +439,10 @@ class DbEpochStore(
   override def loadOrderedBlocks(
       initialBlockNumber: BlockNumber
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Seq[OrderedBlockForOutput]] =
-    createFuture(loadOrderedBlocksActionName(initialBlockNumber)) {
+    createFuture(
+      loadOrderedBlocksActionName(initialBlockNumber),
+      orderingStage = functionFullName,
+    ) {
       storage
         .query(
           sql"""select
@@ -470,9 +480,9 @@ class DbEpochStore(
   override def loadNumberOfRecords(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
-    createFuture(loadNumberOfRecordsName) {
+    createFuture(loadNumberOfRecordsName, orderingStage = functionFullName) {
       storage.query(
-        (for {
+        for {
           numberOfEpochs <- sql"""select count(*) from ord_epochs""".as[Long].head
           numberOfMsgsCompleted <- sql"""select count(*) from ord_pbft_messages_completed"""
             .as[Long]
@@ -481,7 +491,7 @@ class DbEpochStore(
             .as[Int]
             .head
         } yield EpochStore
-          .NumberOfRecords(numberOfEpochs, numberOfMsgsCompleted, numberOfMsgsInProgress)),
+          .NumberOfRecords(numberOfEpochs, numberOfMsgsCompleted, numberOfMsgsInProgress),
         functionFullName,
       )
     }
@@ -489,7 +499,7 @@ class DbEpochStore(
   override def prune(epochNumberExclusive: EpochNumber)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[EpochStore.NumberOfRecords] =
-    createFuture(pruneName(epochNumberExclusive)) {
+    createFuture(pruneName(epochNumberExclusive), orderingStage = functionFullName) {
       for {
         epochsDeleted <- storage.update(
           sqlu""" delete from ord_epochs where epoch_number < $epochNumberExclusive """,
@@ -509,6 +519,16 @@ class DbEpochStore(
         pbftMessagesInProgressDeleted,
       )
     }
+
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
+  private def getCommits(
+      completeBlockMessages: Vector[SignedMessage[PbftNetworkMessage]]
+  ): Map[BlockNumber, Vector[SignedMessage[Commit]]] =
+    completeBlockMessages
+      .collect { case s @ SignedMessage(_: Commit, _) =>
+        s.asInstanceOf[SignedMessage[Commit]]
+      }
+      .groupBy(_.message.blockMetadata.blockNumber)
 }
 
 object DbEpochStore {

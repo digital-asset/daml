@@ -41,7 +41,7 @@ class LifeCycleScopeImplTest
     "always run synchronize-with-closing tasks" in {
       val scope = LifeCycleScopeImpl.empty
       val hasRun = new AtomicBoolean()
-      scope.synchronizeWithClosing("empty synchronize")(hasRun.set(true)).failOnShutdown
+      scope.synchronizeWithClosingSync("empty synchronize")(hasRun.set(true)).failOnShutdown
       hasRun.get() shouldBe true
     }
 
@@ -49,7 +49,7 @@ class LifeCycleScopeImplTest
       val scope = LifeCycleScopeImpl.empty
       val hasRun = new AtomicBoolean()
       scope
-        .synchronizeWithClosingF("empty synchronize")(Future(hasRun.set(true)))
+        .synchronizeWithClosingUS("empty synchronize")(Future(hasRun.set(true)))
         .failOnShutdown
         .futureValue
       hasRun.get() shouldBe true
@@ -61,16 +61,16 @@ class LifeCycleScopeImplTest
     "refuse tasks and synchronization when closing is in progress" in {
       val manager = LifeCycleManager.root("single manager", 1.second, loggerFactory)
       val promise = Promise[Unit]()
-      val compF = manager.synchronizeWithClosingF("delay closing")(promise.future).failOnShutdown
+      val compF = manager.synchronizeWithClosingUS("delay closing")(promise.future).failOnShutdown
 
       val scope = new LifeCycleScopeImpl(Set(manager))
       val closeF = manager.closeAsync()
 
       scope.runOnClose(new TestRunOnClosing("task during closing")) shouldBe AbortedDueToShutdown
-      scope.synchronizeWithClosing("synchronize during closing") {
+      scope.synchronizeWithClosingSync("synchronize during closing") {
         fail("This should not run")
       } shouldBe AbortedDueToShutdown
-      scope.synchronizeWithClosingF("async synchronize during closing") {
+      scope.synchronizeWithClosingUS("async synchronize during closing") {
         fail("This should not run"): Unit
         Future.unit
       } shouldBe AbortedDueToShutdown
@@ -80,10 +80,10 @@ class LifeCycleScopeImplTest
       closeF.futureValue
 
       scope.runOnClose(new TestRunOnClosing("task after closing")) shouldBe AbortedDueToShutdown
-      scope.synchronizeWithClosing("synchronize after closing") {
+      scope.synchronizeWithClosingSync("synchronize after closing") {
         fail("This should not run")
       } shouldBe AbortedDueToShutdown
-      scope.synchronizeWithClosingF("async synchronize after closing") {
+      scope.synchronizeWithClosingUS("async synchronize after closing") {
         fail("This should not run"): Unit
         Future.unit
       } shouldBe AbortedDueToShutdown
@@ -137,7 +137,7 @@ class LifeCycleScopeImplTest
       val manager1 = LifeCycleManager.root("manager1", 1.second, loggerFactory)
       val manager2 = LifeCycleManager.root("manager2", 1.second, loggerFactory)
       val promise = Promise[Unit]()
-      val compF = manager1.synchronizeWithClosingF("delay closing")(promise.future).failOnShutdown
+      val compF = manager1.synchronizeWithClosingUS("delay closing")(promise.future).failOnShutdown
 
       val scope = new LifeCycleScopeImpl(Set(manager1, manager2))
       scope.isClosing shouldBe false
@@ -155,7 +155,7 @@ class LifeCycleScopeImplTest
       val manager1 = LifeCycleManager.root("manager1", 1.second, loggerFactory)
       val manager2 = LifeCycleManager.root("manager2", 1.second, loggerFactory)
       val promise = Promise[Unit]()
-      val compF = manager1.synchronizeWithClosingF("delay closing")(promise.future).failOnShutdown
+      val compF = manager1.synchronizeWithClosingUS("delay closing")(promise.future).failOnShutdown
 
       val scope = new LifeCycleScopeImpl(Set(manager1, manager2))
       val task = new TestRunOnClosing("scope task")
@@ -186,7 +186,7 @@ class LifeCycleScopeImplTest
 
       val closeRef1 = new AtomicReference[Future[Unit]]()
       val closeRef2 = new AtomicReference[Future[Unit]]()
-      scope.synchronizeWithClosing("close manager from within") {
+      scope.synchronizeWithClosingSync("close manager from within") {
         order.getAndUpdate(_ :+ "start")
         closeRef1.set(manager1.closeAsync())
         logger.debug("Give the first manager a bit of time to progress on its closing")
@@ -214,7 +214,7 @@ class LifeCycleScopeImplTest
       val promise = Promise[Unit]()
 
       val compF = scope
-        .synchronizeWithClosingF("async computation") {
+        .synchronizeWithClosingUS("async computation") {
           order.getAndUpdate(_ :+ "start")
           promise.future.map { _ =>
             order.getAndUpdate(_ :+ "end")

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.protocol.hash
 
 import com.daml.crypto.MessageDigestPrototype
+import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.crypto.Hash
 import com.digitalasset.canton.crypto.HashAlgorithm.Sha256
 import com.digitalasset.canton.data.LedgerTimeBoundaries
@@ -11,7 +12,12 @@ import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.protocol.hash.HashTracer.StringHashTracer
 import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  FatContractInstance,
+  Node,
+  TransactionVersion,
+}
 import com.digitalasset.daml.lf.value.{Value, Value as V}
 import com.google.protobuf.ByteString
 import org.scalatest.matchers.should.Matchers
@@ -36,12 +42,12 @@ trait HashUtilsTest { this: Matchers =>
   val bob = Ref.Party.assertFromString("bob")
   val node1 = FatContractInstance.fromCreateNode(
     dummyCreateNode(cid1, Set(alice), Set(alice)),
-    Time.Timestamp.Epoch.add(Duration.ofDays(10)),
+    CreationTime.CreatedAt(LfTimestamp.Epoch.add(Duration.ofDays(10))),
     Bytes.assertFromString("0010"),
   )
   val node2 = FatContractInstance.fromCreateNode(
     dummyCreateNode(cid2, Set(bob), Set(bob)),
-    Time.Timestamp.Epoch.add(Duration.ofDays(20)),
+    CreationTime.CreatedAt(LfTimestamp.Epoch.add(Duration.ofDays(20))),
     Bytes.assertFromString("0050"),
   )
   val metadata = TransactionMetadataHashBuilder.MetadataV1(

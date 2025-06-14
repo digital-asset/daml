@@ -230,7 +230,7 @@ class DatabaseSequencer(
 
     def markOffline(): Unit = withNewTraceContext { implicit traceContext =>
       doNotAwait(
-        performUnlessClosingUSF(functionFullName)(markOfflineF().thereafter { _ =>
+        synchronizeWithClosing(functionFullName)(markOfflineF().thereafter { _ =>
           // schedule next marking sequencers as offline regardless of outcome
           schedule()
         }).onShutdown {

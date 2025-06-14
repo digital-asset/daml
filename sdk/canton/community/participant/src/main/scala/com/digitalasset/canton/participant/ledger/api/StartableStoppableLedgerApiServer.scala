@@ -131,7 +131,7 @@ class StartableStoppableLedgerApiServer(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     execQueue.execute(
-      performUnlessClosingF(functionFullName) {
+      synchronizeWithClosingF(functionFullName) {
         ledgerApiResource.get match {
           case Some(_) =>
             logger.info(
@@ -316,13 +316,18 @@ class StartableStoppableLedgerApiServer(
       // contract IDs of the transaction yet. This means enrichment of the transaction may fail
       // when processing unsuffixed contract IDs. For that reason we disable this requirement via the flag below.
       // When CIDs are suffixed, we can re-use the LfValueTranslation from the index service created above
-      lfValueTranslationForInteractiveSubmission = new LfValueTranslation(
-        metrics = config.metrics,
-        engineO =
-          Some(new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false))),
-        loadPackage = (packageId, loggingContext) =>
-          timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
-        loggerFactory = loggerFactory,
+      packageLoader = new DeduplicatingPackageLoader()
+      interactiveSubmissionEnricher = new InteractiveSubmissionEnricher(
+        new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
+        packageResolver = packageId =>
+          implicit traceContext =>
+            FutureUnlessShutdown.outcomeF(
+              packageLoader.loadPackage(
+                packageId = packageId,
+                delegate = packageId => timedSyncService.getLfArchive(packageId)(traceContext),
+                metric = config.metrics.index.db.translation.getLfPackage,
+              )
+            ),
       )
 
       _ <- ApiServiceOwner(
@@ -377,21 +382,7 @@ class StartableStoppableLedgerApiServer(
         authenticateFatContractInstance = contractAuthenticator.authenticateFat,
         dynParamGetter = config.syncService.dynamicSynchronizerParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
-        interactiveSubmissionEnricher = {
-          val packageLoader = new DeduplicatingPackageLoader()
-          new InteractiveSubmissionEnricher(
-            new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false)),
-            packageResolver = packageId =>
-              traceContext =>
-                FutureUnlessShutdown.outcomeF(
-                  packageLoader.loadPackage(
-                    packageId = packageId,
-                    delegate = packageId => timedSyncService.getLfArchive(packageId)(traceContext),
-                    metric = config.metrics.index.db.translation.getLfPackage,
-                  )
-                ),
-          )
-        },
+        interactiveSubmissionEnricher = interactiveSubmissionEnricher,
         keepAlive = config.serverConfig.keepAliveServer,
         packagePreferenceBackend = packagePreferenceBackend,
       )

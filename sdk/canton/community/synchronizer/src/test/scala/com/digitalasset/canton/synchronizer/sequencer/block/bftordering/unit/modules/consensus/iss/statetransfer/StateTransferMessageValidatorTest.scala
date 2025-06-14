@@ -175,12 +175,12 @@ class StateTransferMessageValidatorTest extends AnyWordSpec with BftSequencerBas
     assertLogs(
       validator.validateUnverifiedStateTransferNetworkMessage(
         response.fakeSign,
-        EpochNumber(2),
+        EpochNumber(1),
         orderingTopologyInfo,
       ),
       logLine => {
         logLine.level shouldBe Level.INFO
-        logLine.message shouldBe "State transfer: old BlockTransferResponse: from epoch 1 we are in epoch 2, dropping..."
+        logLine.message shouldBe "State transfer: old BlockTransferResponse: from epoch 1 we have completed epoch 1, dropping..."
       },
     )
 

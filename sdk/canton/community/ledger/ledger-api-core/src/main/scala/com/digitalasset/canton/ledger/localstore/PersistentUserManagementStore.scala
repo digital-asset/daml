@@ -327,7 +327,7 @@ class PersistentUserManagementStore(
     implicit val success = Success.always
     val retry = Backoff(
       logger = logger,
-      flagCloseable = flagCloseable,
+      hasSynchronizeWithClosing = flagCloseable,
       maxRetries = 10,
       initialDelay = 50.milliseconds,
       maxDelay = 1.second,
