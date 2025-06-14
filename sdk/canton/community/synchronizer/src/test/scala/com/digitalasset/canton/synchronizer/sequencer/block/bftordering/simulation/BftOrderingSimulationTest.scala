@@ -6,8 +6,8 @@ package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.simulat
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{Port, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.protocol.MaxRequestSizeToDeserialize
 import com.digitalasset.canton.synchronizer.block.BlockFormat
 import com.digitalasset.canton.synchronizer.metrics.SequencerMetrics
@@ -18,6 +18,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.mod
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.availability.data.memory.SimulationAvailabilityStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.SimulationEpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.network.data.memory.SimulationP2PEndpointsStore
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.EpochChecker
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.OutputModule.RequestInspector
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.memory.SimulationOutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.networking.GrpcNetworking.{
@@ -30,8 +31,12 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.{
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.endpointToTestBftNodeId
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.SimulationBlockSubscription
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BftNodeId
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.{
+  BftNodeId,
+  EpochNumber,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.OrderingRequest
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.Mempool
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.{
@@ -57,6 +62,7 @@ import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.mutable
@@ -153,6 +159,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 
       logger.debug(s"$alreadyOnboardedAll")
 
+      val epochChecker = new SimEpochChecker(loggerFactory)
       val allSimulationTestNodeDataCell =
         new AtomicReference[Map[BftNodeId, SimulationTestNodeData]](Map.empty)
       stages.zipWithIndex.foreach { case (SimulationTestStageSettings(simSettings), idx) =>
@@ -215,6 +222,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             sendQueue,
             clock,
             availabilityRandom,
+            epochChecker,
             simSettings,
             initializeImmediately,
           )
@@ -291,7 +299,10 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
           simulationTestStage
             .getOrElse(fail("The simulation object was not set but it should always be"))
 
-        stage.simulation.run(stage.model)
+        loggerFactory.assertLoggedWarningsAndErrorsSeq(
+          stage.simulation.run(stage.model),
+          log => log shouldBe Seq.empty,
+        )
 
         // Prepare for next stage
         firstNewlyOnboardedIndex += numberOfOnboardedNodes
@@ -308,6 +319,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
       sendQueue: mutable.Queue[(BftNodeId, BlockFormat.Block)],
       clock: Clock,
       availabilityRandom: Random,
+      epochChecker: EpochChecker,
       simSettings: SimulationSettings,
       initializeImmediately: Boolean,
   ): SimulationInitializerT = {
@@ -329,15 +341,14 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
               sequencerSnapshotAdditionalInfo,
             ) =>
           // Forces always querying for an up-to-date topology, so that we simulate correctly topology changes.
-          val requestInspector =
-            new RequestInspector {
-              override def isRequestToAllMembersOfSynchronizer(
-                  request: OrderingRequest,
-                  maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
-                  logger: TracedLogger,
-                  traceContext: TraceContext,
-              )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true
-            }
+          val requestInspector = new RequestInspector {
+            override def isRequestToAllMembersOfSynchronizer(
+                request: OrderingRequest,
+                maxRequestSizeToDeserialize: MaxRequestSizeToDeserialize,
+                logger: TracedLogger,
+                traceContext: TraceContext,
+            )(implicit synchronizerProtocolVersion: ProtocolVersion): Boolean = true
+          }
 
           new BftOrderingModuleSystemInitializer[SimulationEnv](
             thisNode,
@@ -354,6 +365,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             logger,
             timeouts,
             requestInspector,
+            epochChecker,
           )
       },
       IssClient.initializer(simSettings, thisNode, logger, timeouts),
@@ -363,6 +375,29 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
 }
 
 object BftOrderingSimulationTest {
+
+  private class SimEpochChecker(override val loggerFactory: NamedLoggerFactory)
+      extends EpochChecker
+      with Matchers
+      with NamedLogging {
+
+    private val allPrevious = mutable.Map.empty[EpochNumber, (BftNodeId, Membership)]
+
+    override def check(
+        thisNode: BftNodeId,
+        epochNumber: EpochNumber,
+        membership: Membership,
+    ): Unit =
+      allPrevious.get(epochNumber) match {
+        case Some((otherNode, otherMembership)) =>
+          withClue(s"first node: $otherNode, second node: $thisNode") {
+            membership.leaders shouldBe otherMembership.leaders
+          }
+        case None =>
+          allPrevious(epochNumber) = (thisNode, membership)
+      }
+
+  }
 
   val SimulationStartTime: CantonTimestamp = CantonTimestamp.Epoch
 

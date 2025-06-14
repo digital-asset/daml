@@ -123,7 +123,7 @@ class RecordOrderPublisher(
   def tick(event: SequencedUpdate, sequencerCounter: SequencerCounter, rcO: Option[RequestCounter])(
       implicit traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
-    performUnlessClosingF(functionFullName) {
+    synchronizeWithClosingF(functionFullName) {
       if (event.recordTime > initTimestamp) {
         rcO
           .foreach(requestCounter =>
@@ -174,7 +174,7 @@ class RecordOrderPublisher(
   )(implicit
       traceContext: TraceContext
   ): UnlessShutdown[Either[CantonTimestamp, FutureUnlessShutdown[T]]] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       taskScheduler
         .scheduleTaskIfLater(
           desiredTimestamp = timestamp,
@@ -225,7 +225,7 @@ class RecordOrderPublisher(
   def scheduleFloatingEventPublicationImmediately(
       eventFactory: CantonTimestamp => Option[FloatingUpdate]
   )(implicit traceContext: TraceContext): UnlessShutdown[CantonTimestamp] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       taskScheduler
         .scheduleTaskImmediately(
           taskFactory = immediateTimestamp =>
@@ -251,7 +251,7 @@ class RecordOrderPublisher(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       if (sequencerCounter >= initSc) {
         scheduleFloatingEventPublication(
           timestamp = timestamp,
@@ -275,7 +275,7 @@ class RecordOrderPublisher(
   def scheduleEventBuffering(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): UnlessShutdown[Either[CantonTimestamp, Unit]] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       taskScheduler
         .scheduleTaskIfLater(
           desiredTimestamp = timestamp,
@@ -336,7 +336,7 @@ class RecordOrderPublisher(
   private def scheduleBufferingEventTaskImmediately(
       perform: CantonTimestamp => FutureUnlessShutdown[Unit]
   )(implicit traceContext: TraceContext): UnlessShutdown[Unit] =
-    performUnlessClosing(functionFullName)(
+    synchronizeWithClosingSync(functionFullName)(
       taskScheduler
         .scheduleTaskImmediately(taskFactory = perform, taskTraceContext = traceContext)
         .discard

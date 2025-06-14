@@ -81,7 +81,7 @@ class EnterpriseSequencerRateLimitManager(
     import TraceContext.Implicits.Empty.emptyTraceContext
     trafficConsumedPerMember.getOrElseUpdate(
       member,
-      performUnlessClosingUSF("getOrCreateTrafficConsumedManager") {
+      synchronizeWithClosing("getOrCreateTrafficConsumedManager") {
         trafficConsumedStore
           .lookupLast(member)
           .map(lastConsumed =>

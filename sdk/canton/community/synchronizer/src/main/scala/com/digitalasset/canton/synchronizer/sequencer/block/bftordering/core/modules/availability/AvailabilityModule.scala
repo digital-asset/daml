@@ -294,12 +294,15 @@ final class AvailabilityModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     pipeToSelf(
-      context.sequenceFuture(batches.map { case (batchId, batch) =>
-        activeCryptoProvider.signHash(
-          AvailabilityAck.hashFor(batchId, batch.epochNumber, activeMembership.myId, metrics),
-          "availability-sign-local-batchId",
-        )
-      })
+      context.sequenceFuture(
+        batches.map { case (batchId, batch) =>
+          activeCryptoProvider.signHash(
+            AvailabilityAck.hashFor(batchId, batch.epochNumber, activeMembership.myId, metrics),
+            "availability-sign-local-batchId",
+          )
+        },
+        orderingStage = Some("availability-sign-local-batches"),
+      )
     ) {
       case Failure(exception) =>
         abort("Failed to sign local batches", exception)

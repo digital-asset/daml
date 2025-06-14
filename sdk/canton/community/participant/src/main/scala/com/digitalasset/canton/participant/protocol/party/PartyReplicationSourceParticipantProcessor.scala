@@ -160,7 +160,7 @@ final class PartyReplicationSourceParticipantProcessor private (
     (NonEmpty[Seq[ActiveContractOld]], NonNegativeInt)
   ]] = {
     val contracts = List.newBuilder[ActiveContractOld]
-    performUnlessClosingEitherUSF(
+    synchronizeWithClosing(
       s"Read ACS from ${newChunkToConsumerFrom.unwrap} to $newChunkToConsumeTo"
     )(
       acsInspection

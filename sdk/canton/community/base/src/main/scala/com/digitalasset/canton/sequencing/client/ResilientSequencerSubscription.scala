@@ -86,7 +86,7 @@ class ResilientSequencerSubscription[HandlerError](
   private def setupNewSubscription(
       delayOnRestart: FiniteDuration = retryDelayRule.initialDelay
   )(implicit traceContext: TraceContext): Unit =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       def started(
           hasReceivedEvent: HasReceivedEvent,
           newSubscription: SequencerSubscription[HandlerError],

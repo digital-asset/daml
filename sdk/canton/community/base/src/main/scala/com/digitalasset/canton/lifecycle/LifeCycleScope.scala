@@ -44,7 +44,7 @@ sealed trait LifeCycleScope[Discriminator] {
 
 /** Combines multiple [[LifeCycleManager]]s into a single scope such that
   *   - [[RunOnClosing]] tasks of the scope are run when the first manager closes.
-  *   - [[HasSynchronizeWithClosing.synchronizeWithClosingF]] synchronizes with all the managers in
+  *   - [[HasSynchronizeWithClosing.synchronizeWithClosingUS]] synchronizes with all the managers in
   *     the scope.
   *
   * @tparam Discriminator
@@ -98,7 +98,7 @@ private[lifecycle] final class LifeCycleScopeImpl[Discriminator](
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
-  override def synchronizeWithClosingF[F[_], A](name: String)(f: => F[A])(implicit
+  override def synchronizeWithClosingUS[F[_], A](name: String)(f: => F[A])(implicit
       traceContext: TraceContext,
       F: Thereafter[F],
   ): UnlessShutdown[F[A]] = {
@@ -107,7 +107,7 @@ private[lifecycle] final class LifeCycleScopeImpl[Discriminator](
 
     def synchronizeWithManager(acc: Eval[FF[A]], manager: LifeCycleManager): Eval[FF[A]] =
       Eval.always(Try {
-        manager.synchronizeWithClosingF(name)(acc.value)(traceContext, FF)
+        manager.synchronizeWithClosingUS(name)(acc.value)(traceContext, FF)
       } match {
         case Success(Outcome(fa)) => fa
         case Success(AbortedDueToShutdown) => Success(AbortedDueToShutdown)

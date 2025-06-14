@@ -240,7 +240,7 @@ class PruningProcessor(
     _ = logger.info(s"Purging inactive synchronizer $synchronizerId")
 
     _ <- EitherT.right(
-      performUnlessClosingUSF("Purge inactive synchronizer")(
+      synchronizeWithClosing("Purge inactive synchronizer")(
         MonadUtil.sequentialTraverse_(syncPersistentStateManager.getAllFor(synchronizerId))(
           purgeSynchronizer
         )
@@ -252,7 +252,7 @@ class PruningProcessor(
       lastUpTo: Option[Offset],
       pruneUpToInclusiveBatchEnd: Offset,
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
-    performUnlessClosingEitherUSF[LedgerPruningError, Unit](functionFullName) {
+    synchronizeWithClosing(functionFullName) {
       logger.info(s"Start pruning up to $pruneUpToInclusiveBatchEnd...")
       val pruningStore = participantNodePersistentState.value.pruningStore
       for {

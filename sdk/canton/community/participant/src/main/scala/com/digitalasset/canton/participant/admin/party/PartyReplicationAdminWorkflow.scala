@@ -156,7 +156,7 @@ class PartyReplicationAdminWorkflow(
             s"proposal-accept-${contract.data.partyReplicationId}",
           ),
       )
-      val commandResultF = performUnlessClosingF(s"submit $commandId")(
+      val commandResultF = synchronizeWithClosingF(s"submit $commandId")(
         retrySubmitter.submitCommands(
           Commands(
             workflowId = "",

@@ -5,7 +5,12 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, GlobalKeyWithMaintainers, Node}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  FatContractInstance,
+  GlobalKeyWithMaintainers,
+  Node,
+}
 import com.digitalasset.daml.lf.value.Value
 
 object FatContractInstanceHelper {
@@ -32,7 +37,7 @@ object FatContractInstanceHelper {
       keyOpt = keyOpt,
       version = version,
     )
-    FatContractInstance.fromCreateNode(create, createdAt, driverMetadata)
+    FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(createdAt), driverMetadata)
   }
 
 }

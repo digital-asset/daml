@@ -59,7 +59,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
       transactions,
       protocolVersion,
     )
-    performUnlessClosingEitherUSF(functionFullName)(
+    synchronizeWithClosing(functionFullName)(
       sendRequest(request, maxSequencingTime, sendCallback)
     )
       .biSemiflatMap(

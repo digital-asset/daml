@@ -84,7 +84,7 @@ private[time] class TimeProofRequestSubmitterImpl(
 
     /* Make the request or short circuit if we're no longer waiting a time event */
     def mkRequest(): FutureUnlessShutdown[Either[SendAsyncClientError, Unit]] =
-      performUnlessClosingUSF(functionFullName) {
+      synchronizeWithClosing(functionFullName) {
         if (stillPending) {
           logger.debug("Sending time request")
           sendRequest(traceContext).value
@@ -92,7 +92,7 @@ private[time] class TimeProofRequestSubmitterImpl(
       }
 
     def eventuallySendRequest(): Unit =
-      performUnlessClosing("unless closing, sendRequestIfPending") {
+      synchronizeWithClosingSync("unless closing, sendRequestIfPending") {
         addToFlushAndLogError(
           s"sendRequestIfPending scheduled ${config.maxSequencingDelay} after ${clock.now}"
         ) {

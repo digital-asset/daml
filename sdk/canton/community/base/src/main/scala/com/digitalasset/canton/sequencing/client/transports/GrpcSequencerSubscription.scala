@@ -171,7 +171,7 @@ abstract class ConsumesCancellableGrpcStreamObserver[
       logger.debug("Received a message from the sequencer.")
 
       val current = Promise[Unit]()
-      val closeReasonOO = performUnlessClosing(functionFullName) {
+      val closeReasonOO = synchronizeWithClosingSync(functionFullName) {
         try {
           appendToCurrentProcessing(_ => current.future)
 

@@ -56,7 +56,7 @@ class ResilientLedgerSubscription[S, T](
   private[client] val subscriptionF = retry
     .Backoff(
       logger = logger,
-      flagCloseable = this,
+      hasSynchronizeWithClosing = this,
       maxRetries = retry.Forever,
       initialDelay = 1.second,
       maxDelay = 5.seconds,

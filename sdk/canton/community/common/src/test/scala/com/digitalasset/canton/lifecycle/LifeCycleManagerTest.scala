@@ -162,7 +162,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         val lcm = LifeCycleManager.root("idempotent", 1.second, loggerFactory)
 
         val promise = Promise[Unit]()
-        val compF = lcm.synchronizeWithClosingF("promise")(promise.future).failOnShutdown
+        val compF = lcm.synchronizeWithClosingUS("promise")(promise.future).failOnShutdown
 
         val closeF1 = Future.unit.flatMap(_ => lcm.closeAsync())
         val closeF2 = lcm.closeAsync()
@@ -190,7 +190,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         registerOrFail(lcm, resource)
 
         val closeF = lcm
-          .synchronizeWithClosing("initiate closing from synchronization block") {
+          .synchronizeWithClosingSync("initiate closing from synchronization block") {
             val closeF = Future.unit.flatMap(_ => lcm.closeAsync())
             Threading.sleep(100)
             closeOrder.getAndUpdate(_ :+ "computation")
@@ -216,7 +216,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
         val promise = Promise[Unit]()
         val compF = lcm
-          .synchronizeWithClosingF("initiate closing from asynchronous synchronization block") {
+          .synchronizeWithClosingUS("initiate closing from asynchronous synchronization block") {
             promise.future.map { _ =>
               closeOrder.getAndUpdate(_ :+ "computation")
               ()
@@ -235,16 +235,16 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
       "short-circuits synchronize after closing" in {
         val lcm = LifeCycleManager.root("synchronize too late", 1.second, loggerFactory)
         lcm.closeAsync().futureValue
-        lcm.synchronizeWithClosing("short-circuit")(()) shouldBe AbortedDueToShutdown
+        lcm.synchronizeWithClosingSync("short-circuit")(()) shouldBe AbortedDueToShutdown
       }
 
       "short-circuits synchronize if closing is in progress" in {
         val lcm = LifeCycleManager.root("synchronize concurrent", 1.second, loggerFactory)
         val promise = Promise[Unit]()
         val delayedCLosing =
-          lcm.synchronizeWithClosingF("short-circuit")(promise.future).failOnShutdown
+          lcm.synchronizeWithClosingUS("short-circuit")(promise.future).failOnShutdown
         val closeF = lcm.closeAsync()
-        lcm.synchronizeWithClosing("short-circuit")(()) shouldBe AbortedDueToShutdown
+        lcm.synchronizeWithClosingSync("short-circuit")(()) shouldBe AbortedDueToShutdown
         promise.success(())
         closeF.futureValue
         delayedCLosing.futureValue
@@ -257,11 +257,13 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         val ex = new RuntimeException("failing computation")
 
         val compT =
-          Try(lcm.synchronizeWithClosing("initiate closing from failing synchronization block") {
-            val closeF = lcm.closeAsync()
-            closeRef.set(closeF)
-            throw ex
-          })
+          Try(
+            lcm.synchronizeWithClosingSync("initiate closing from failing synchronization block") {
+              val closeF = lcm.closeAsync()
+              closeRef.set(closeF)
+              throw ex
+            }
+          )
 
         compT shouldBe Failure(ex)
         closeRef.get.futureValue
@@ -283,7 +285,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         val ex = new RuntimeException("failing computation")
         val promise = Promise[Unit]()
         val compF1 = lcm
-          .synchronizeWithClosingF(
+          .synchronizeWithClosingUS(
             "initiate closing from failing asynchronous synchronization block"
           ) {
             promise.future.map { _ =>
@@ -312,7 +314,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         val ex = new RuntimeException("failing computation")
 
         val compT = Try(
-          lcm.synchronizeWithClosingF(
+          lcm.synchronizeWithClosingUS(
             "initiate closing from failing asynchronous synchronization block"
           ) {
             val closeF = lcm.closeAsync()
@@ -331,7 +333,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
           LifeCycleManager.root("synchronizeWithClosingF non-termination", timeout, loggerFactory)
 
         Seq(1 to 10).foreach { i =>
-          lcm.synchronizeWithClosingF(s"computation $i")(Future.never).failOnShutdown.discard
+          lcm.synchronizeWithClosingUS(s"computation $i")(Future.never).failOnShutdown.discard
         }
 
         val closeF = loggerFactory.assertLogs(
@@ -350,7 +352,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
           LifeCycleManager.root("synchronizeWithClosingF slow", timeout, loggerFactory)
 
         val promise = Promise[Unit]()
-        val compF = lcm.synchronizeWithClosingF("slow computation")(promise.future).failOnShutdown
+        val compF = lcm.synchronizeWithClosingUS("slow computation")(promise.future).failOnShutdown
 
         val resource = new TestManagedResource(
           "res",
@@ -378,7 +380,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
         val promise = Promise[Unit]()
 
         val compF = lcm
-          .synchronizeWithClosingF("computation completes via runOnClose")(promise.future)
+          .synchronizeWithClosingUS("computation completes via runOnClose")(promise.future)
           .failOnShutdown
 
         val runOnClose =
@@ -524,7 +526,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
         val promise = Promise[Unit]()
         val compF =
-          child.synchronizeWithClosingF("child computation")(promise.future).failOnShutdown
+          child.synchronizeWithClosingUS("child computation")(promise.future).failOnShutdown
 
         val closeF = root.closeAsync()
         always(durationOfSuccess = 500.milliseconds) {
@@ -541,7 +543,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
         val promise = Promise[Unit]()
         val compF =
-          child.synchronizeWithClosingF("child computation")(promise.future).failOnShutdown
+          child.synchronizeWithClosingUS("child computation")(promise.future).failOnShutdown
 
         val closeChildF = child.closeAsync()
         Threading.sleep(10)
@@ -562,7 +564,7 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
         val promise = Promise[Unit]()
         val compF =
-          child.synchronizeWithClosingF("child computation")(promise.future).failOnShutdown
+          child.synchronizeWithClosingUS("child computation")(promise.future).failOnShutdown
 
         val resource = new TestManagedResource(
           "unblock synchronize with closing of child",
@@ -584,9 +586,9 @@ class LifeCycleManagerTest extends AnyWordSpec with BaseTest with HasExecutionCo
 
         val promise = Promise[Unit]()
         val rootF =
-          root.synchronizeWithClosingF("root computation")(promise.future).failOnShutdown
+          root.synchronizeWithClosingUS("root computation")(promise.future).failOnShutdown
         val childF =
-          root.synchronizeWithClosingF("child computation")(promise.future).failOnShutdown
+          root.synchronizeWithClosingUS("child computation")(promise.future).failOnShutdown
 
         val rootHandle = root.runOnClose(new TestRunOnClosing("at root")).failOnShutdown
         val childHandle = child.runOnClose(new TestRunOnClosing("at child")).failOnShutdown

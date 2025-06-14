@@ -139,7 +139,7 @@ class QueueBasedSynchronizerOutbox(
   def startup()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    performUnlessClosingEitherUSF(functionFullName) {
+    synchronizeWithClosing(functionFullName) {
       if (hasUnsentTransactions) ensureIdleFutureIsSet()
       logger.debug(
         s"Resuming dispatching, pending=$hasUnsentTransactions"
@@ -215,7 +215,7 @@ class QueueBasedSynchronizerOutbox(
       if (initialize)
         initialized.set(true)
       if (hasUnsentTransactions) {
-        val pendingAndApplicableF = performUnlessClosingUSF(functionFullName)(for {
+        val pendingAndApplicableF = synchronizeWithClosing(functionFullName)(for {
           // find pending transactions
           pending <- findPendingTransactions()
           // filter out applicable
@@ -235,7 +235,7 @@ class QueueBasedSynchronizerOutbox(
 
           _ = lastDispatched.set(notPresent.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the synchronizer
-          convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
+          convertedTxs <- synchronizeWithClosing(functionFullName) {
             convertTransactions(notPresent)
           }
           // dispatch to synchronizer

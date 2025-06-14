@@ -793,7 +793,13 @@ private[events] object TransactionLogUpdatesConversions {
   ): Future[apiEvent.CreatedEvent] = {
 
     def getFatContractInstance: Right[Nothing, FatContractInstance] =
-      Right(FatContractInstance.fromCreateNode(create, CreationTime.CreatedAt(ledgerEffectiveTime), driverMetadata))
+      Right(
+        FatContractInstance.fromCreateNode(
+          create,
+          CreationTime.CreatedAt(ledgerEffectiveTime),
+          driverMetadata,
+        )
+      )
 
     val witnesses = requestingPartiesO
       .fold(createdEventWitnesses)(_.view.filter(createdEventWitnesses).toSet)

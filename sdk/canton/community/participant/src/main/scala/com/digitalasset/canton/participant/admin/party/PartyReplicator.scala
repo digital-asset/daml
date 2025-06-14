@@ -522,7 +522,7 @@ final class PartyReplicator(
         _ <- EitherTUtil.ifThenET(participantId == sourceParticipantId) {
           val operation = s"observe $partyId topology transaction via ledger api"
           retryUntilLocalStoreUpdatedInExpectedState(operation)(
-            performUnlessClosingF(_)(
+            synchronizeWithClosingF(_)(
               syncService.participantNodePersistentState.value.ledgerApiStore
                 .topologyEventOffsetPublishedOnRecordTime(
                   synchronizerId,

@@ -86,7 +86,9 @@ final class LfValueTranslation(
 ) extends LfValueSerialization
     with NamedLogging {
 
-  private val enricherO = engineO.map(new Enricher(_))
+  private val enricherO = engineO.map(engine =>
+    new Enricher(engine, requireContractIdSuffix = engine.config.requireSuffixedGlobalContractId)
+  )
 
   private[this] val packageLoader = new DeduplicatingPackageLoader()
 

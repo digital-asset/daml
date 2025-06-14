@@ -183,7 +183,7 @@ class PackageOpsImpl(
   ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Boolean] =
     for {
       currentMapping <- EitherT.right(
-        performUnlessClosingUSF(functionFullName)(
+        synchronizeWithClosing(functionFullName)(
           topologyManager.store
             .findPositiveTransactions(
               asOf = CantonTimestamp.MaxValue,
@@ -219,7 +219,7 @@ class PackageOpsImpl(
           )
         )
       _ <- EitherTUtil.ifThenET(newVettedPackagesState != currentPackages) {
-        performUnlessClosingEitherUSF(functionFullName)(
+        synchronizeWithClosing(functionFullName)(
           topologyManager
             .proposeAndAuthorize(
               op = TopologyChangeOp.Replace,

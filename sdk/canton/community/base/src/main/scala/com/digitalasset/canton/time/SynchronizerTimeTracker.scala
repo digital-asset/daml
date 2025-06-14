@@ -273,7 +273,7 @@ class SynchronizerTimeTracker(
       latestAndNextRef: AtomicReference[LatestAndNext[A]],
       requiresTimeProof: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[A] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       val now = clock.now
       val receivedWithin = now.minus(freshnessBound.unwrap)
 
@@ -423,7 +423,7 @@ class SynchronizerTimeTracker(
   private def ensureMinObservationDuration(): Unit = withNewTraceContext { implicit traceContext =>
     val minObservationDuration = config.minObservationDuration.asJava
     def performUpdate(expectedUpdateBy: CantonTimestamp): Unit =
-      performUnlessClosing(functionFullName) {
+      synchronizeWithClosingSync(functionFullName) {
         val lastObserved = timestampRef.get().latest.map(_.receivedAt)
 
         // did we see an event within the observation window
@@ -447,7 +447,7 @@ class SynchronizerTimeTracker(
       }.onShutdown(())
 
     def scheduleNextUpdate(): Unit =
-      performUnlessClosing(functionFullName) {
+      synchronizeWithClosingSync(functionFullName) {
         val latestTimestamp = timestampRef.get().latest.fold(clock.now)(_.receivedAt)
         val expectUpdateBy = latestTimestamp.add(minObservationDuration).immediateSuccessor
 

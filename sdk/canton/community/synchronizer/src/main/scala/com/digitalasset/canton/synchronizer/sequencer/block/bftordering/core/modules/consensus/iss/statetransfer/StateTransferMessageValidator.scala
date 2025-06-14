@@ -70,9 +70,9 @@ final class StateTransferMessageValidator[E <: Env[E]](
         case response: StateTransferMessage.BlockTransferResponse =>
           response.commitCertificate match {
             case Some(cc)
-                if cc.prePrepare.message.blockMetadata.epochNumber < latestLocallyCompletedEpoch =>
+                if cc.prePrepare.message.blockMetadata.epochNumber <= latestLocallyCompletedEpoch =>
               val respReason =
-                s"State transfer: old BlockTransferResponse: from epoch ${cc.prePrepare.message.blockMetadata.epochNumber} we are in epoch $latestLocallyCompletedEpoch, dropping..."
+                s"State transfer: old BlockTransferResponse: from epoch ${cc.prePrepare.message.blockMetadata.epochNumber} we have completed epoch $latestLocallyCompletedEpoch, dropping..."
               DropResult(respReason)
             case _ =>
               validateBlockTransferResponse(

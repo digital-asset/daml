@@ -244,7 +244,7 @@ class GrpcSequencerService(
       _ <- sequencer.sendAsyncSigned(request)
     } yield v30.SendAsyncResponse()
 
-    val resET = performUnlessClosingEitherUSF(functionFullName)(sendET.leftMap { err =>
+    val resET = synchronizeWithClosing(functionFullName)(sendET.leftMap { err =>
       logger.info(s"Rejecting submission request by $senderFromMetadata with $err")
       err.toCantonRpcError
     })

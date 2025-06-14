@@ -4,6 +4,7 @@
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.leaders
 
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.driver.BftBlockOrdererConfig
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.output.data.OutputMetadataStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.*
@@ -23,7 +24,9 @@ class BlacklistLeaderSelectionPolicy[E <: Env[E]](
     config: BftBlockOrdererConfig.BlacklistLeaderSelectionPolicyConfig,
     epochLength: EpochLength,
     store: OutputMetadataStore[E],
-) extends LeaderSelectionPolicy[E] {
+    override val loggerFactory: NamedLoggerFactory,
+) extends LeaderSelectionPolicy[E]
+    with NamedLogging {
 
   private var state = initialState
 
@@ -38,6 +41,8 @@ class BlacklistLeaderSelectionPolicy[E <: Env[E]](
       orderedBlockNumber: BlockNumber,
       viewNumber: ViewNumber,
   ): Unit = {
+    implicit val tc: TraceContext = TraceContext.empty
+    logger.trace(s"Adding $orderedBlockNumber | $viewNumber (epoch $epochNumber) ")
     if (epochNumber < state.epochNumber) {
       // After a restart we might reprocess old blocks in output module. We ignore them here
       return
@@ -75,7 +80,10 @@ class BlacklistLeaderSelectionPolicy[E <: Env[E]](
       epochNumber: EpochNumber,
   ): Unit = {
     assert(EpochNumber(state.epochNumber + 1) == epochNumber)
+
+    logger.trace(s"old blacklist state $state")(TraceContext.empty)
     state = state.update(topology, config, epochLength, blockToLeader, nodesToPunish.toSet)
+    logger.trace(s"new blacklist state $state")(TraceContext.empty)
     nodesToPunish.clear()
 
     val newBlockToLeader = state.computeBlockToLeader(topology, config, epochLength)
@@ -121,6 +129,7 @@ object BlacklistLeaderSelectionPolicy {
       config: BftBlockOrdererConfig,
       orderingTopology: OrderingTopology,
       store: OutputMetadataStore[E],
+      loggerFactory: NamedLoggerFactory,
   ): BlacklistLeaderSelectionPolicy[E] =
     new BlacklistLeaderSelectionPolicy(
       state,
@@ -130,5 +139,6 @@ object BlacklistLeaderSelectionPolicy {
         config.epochLength
       ), // TODO(#19289) support variable epoch lengths or leave the default if not relevant
       store,
+      loggerFactory,
     )
 }

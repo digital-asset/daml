@@ -304,7 +304,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
     private val idleP = Promise[EventsReceivedReport]()
 
     private def scheduleCheck(): Unit =
-      performUnlessClosing(functionFullName) {
+      synchronizeWithClosingSync(functionFullName) {
         val nextCheckDuration =
           idlenessDuration.toJava.minus(durationFromLastEventToNow(stateRef.get()))
         val _ = materializer.scheduleOnce(nextCheckDuration.toScala, () => checkIfIdle())

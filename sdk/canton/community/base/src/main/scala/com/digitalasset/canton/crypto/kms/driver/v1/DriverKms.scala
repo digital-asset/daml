@@ -350,7 +350,7 @@ class DriverKms(
 
     TraceContext
       .withNewTraceContext { implicit traceContext =>
-        performUnlessClosing(functionFullName) {
+        synchronizeWithClosingSync(functionFullName) {
           logger.debug(s"Checking health at $now")
 
           val driverHealthF = driver.health.thereafter {

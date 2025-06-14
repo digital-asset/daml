@@ -40,8 +40,8 @@ import scala.util.{Failure, Success, Try}
   *      Exceptions from the [[RunOnClosing]] tasks are logged and then discarded. The dependent
   *      [[LifeCycleManager]]s also start running their [[RunOnClosing]] tasks.
   *   1. '''Synchronize with closing''': The [[LifeCycleManager]] waits until all its
-  *      [[HasSynchronizeWithClosing.synchronizeWithClosing]] computations have finished or until
-  *      [[LifeCycleManager.synchronizeWithClosingPatience]] has elapsed.
+  *      [[HasSynchronizeWithClosing.synchronizeWithClosingSync]] computations have finished or
+  *      until [[LifeCycleManager.synchronizeWithClosingPatience]] has elapsed.
   *   1. '''Release''': The [[LifeCycleManager]] releases all its
   *      [[LifeCycleManager.ManagedResource]]s and instructs dependent [[LifeCycleManager]]s to do
   *      so in ascending priority order. Within the same priority, releasing is unordered and
@@ -50,14 +50,14 @@ import scala.util.{Failure, Success, Try}
   *
   * Exceptions thrown in the last step "release" are propagated as a [[ShutdownFailedException]]
   * with proper exception chaining. If the third step completes because the patience has elapsed and
-  * some [[HasSynchronizeWithClosing.synchronizeWithClosing]] computations are still running at the
-  * end of the last step, a [[ShutdownFailedException]] signals such a synchronization failure.
+  * some [[HasSynchronizeWithClosing.synchronizeWithClosingSync]] computations are still running at
+  * the end of the last step, a [[ShutdownFailedException]] signals such a synchronization failure.
   *
   * Rationale for this exception handling policy:
   *   - When an exception happens in the last step, it is unknown whether all dependencies have
   *     successfully finished all their business. So we must signal to the caller that the
   *     unexpected happened.
-  *   - When some [[HasSynchronizeWithClosing.synchronizeWithClosing]] is still running after
+  *   - When some [[HasSynchronizeWithClosing.synchronizeWithClosingSync]] is still running after
   *     everything has been released, we cannot guarantee that all side effects guarded by this
   *     shutdown hierarchy are over. We signal this to the caller via an exception.
   *   - In contrast, [[RunOnClosing]] tasks are meant to quickly clean up stuff upon closing. They
@@ -269,7 +269,7 @@ object LifeCycleManager {
         .accumulate(task, priority)
         .bimap(_.traceContext, handle => new LifeCycleRegistrationHandleImpl(handle))
 
-    override def synchronizeWithClosingF[F[_], A](name: String)(f: => F[A])(implicit
+    override def synchronizeWithClosingUS[F[_], A](name: String)(f: => F[A])(implicit
         traceContext: TraceContext,
         F: Thereafter[F],
     ): UnlessShutdown[F[A]] =

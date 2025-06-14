@@ -45,6 +45,7 @@ class BlacklistLeaderSelectionPolicyTest extends AnyWordSpec with BaseTest {
           BftBlockOrdererConfig(),
           orderingTopology,
           store,
+          loggerFactory,
         )
 
       leaderSelectionPolicy.getLeaders(orderingTopology, EpochNumber.First) shouldBe
@@ -63,6 +64,7 @@ class BlacklistLeaderSelectionPolicyTest extends AnyWordSpec with BaseTest {
           BftBlockOrdererConfig(),
           orderingTopology,
           store,
+          loggerFactory,
         )
 
       leaderSelectionPolicy.addBlock(

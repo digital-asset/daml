@@ -132,7 +132,7 @@ class SequencerReader(
   def readV2(member: Member, requestedTimestampInclusive: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CreateSubscriptionError, Sequencer.SequencedEventSource] =
-    performUnlessClosingEitherUSF(functionFullName)(for {
+    synchronizeWithClosing(functionFullName)(for {
       registeredTopologyClientMember <- EitherT
         .fromOptionF(
           store.lookupMember(topologyClientMember),
@@ -339,7 +339,7 @@ class SequencerReader(
         _ = logger.debug(
           s"Signing event with sequencing timestamp ${event.timestamp} for $member"
         )
-        signed <- performUnlessClosingUSF("sign-event")(
+        signed <- synchronizeWithClosing("sign-event")(
           signEvent(event, signingSnapshot).value
         )
       } yield signed

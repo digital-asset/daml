@@ -139,7 +139,7 @@ final class GrpcNetworking(
     private def connect(
         serverEndpoint: P2PEndpoint
     )(implicit executionContext: ExecutionContext): Option[FutureUnlessShutdown[Unit]] =
-      performUnlessClosing("open-grpc-channel") {
+      synchronizeWithClosingSync("open-grpc-channel") {
         logger.debug(
           s"Creating a gRPC channel and connecting to endpoint in server role $serverEndpoint"
         )
@@ -305,8 +305,7 @@ final class GrpcNetworking(
       FutureUnlessShutdown,
       (SequencerId, StreamObserver[BftOrderingServiceReceiveRequest]),
     ] =
-      performUnlessClosingOptionUSF("create-server-handle") {
-
+      synchronizeWithClosing("create-server-handle") {
         def retry(
             failureDescription: String,
             exception: Throwable,

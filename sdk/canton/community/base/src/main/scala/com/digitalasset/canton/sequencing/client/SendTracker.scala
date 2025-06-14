@@ -93,7 +93,7 @@ class SendTracker(
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SavePendingSendError, Unit] =
-    performUnlessClosingEitherUSF(s"track $messageId") {
+    synchronizeWithClosing(s"track $messageId") {
       for {
         _ <- store.savePendingSend(messageId, maxSequencingTime)
       } yield {

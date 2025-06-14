@@ -484,7 +484,7 @@ class SequencerNodeBootstrap(
 
       addCloseable(synchronizerOutboxFactory)
 
-      performUnlessClosingEitherUSF("starting up runtime") {
+      synchronizeWithClosing("starting up runtime") {
         val indexedStringStore = IndexedStringStore.create(
           storage,
           parameters.cachingConfigs.indexedStrings,

@@ -173,7 +173,7 @@ class StoreBasedSynchronizerOutbox(
   final def startup()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
-    val loadWatermarksF = performUnlessClosingUSF(functionFullName)(for {
+    val loadWatermarksF = synchronizeWithClosing(functionFullName)(for {
       // find the current target watermark
       watermarkTsO <- targetStore.currentDispatchingWatermark
       watermarkTs = watermarkTsO.getOrElse(CantonTimestamp.MinValue)
@@ -238,7 +238,7 @@ class StoreBasedSynchronizerOutbox(
       if (initialize)
         initialized.set(true)
       if (cur.hasPending) {
-        val pendingAndApplicableF = performUnlessClosingUSF(functionFullName)(for {
+        val pendingAndApplicableF = synchronizeWithClosing(functionFullName)(for {
           // find pending transactions
           pending <- findPendingTransactions(cur)
           // filter out applicable
@@ -251,7 +251,7 @@ class StoreBasedSynchronizerOutbox(
           (pending, applicable) = pendingAndApplicable
           _ = lastDispatched.set(applicable.lastOption)
           // Try to convert if necessary the topology transactions for the required protocol version of the synchronizer
-          convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
+          convertedTxs <- synchronizeWithClosing(functionFullName) {
             convertTransactions(applicable)
           }
           // dispatch to synchronizer
@@ -316,7 +316,7 @@ class StoreBasedSynchronizerOutbox(
         )
       }.discard
       logger.debug(s"Updating dispatching watermark to $newWatermark")
-      performUnlessClosingUSF(functionFullName)(
+      synchronizeWithClosing(functionFullName)(
         targetStore.updateDispatchingWatermark(newWatermark)
       )
     } else {

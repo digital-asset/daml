@@ -48,7 +48,7 @@ class BadRootHashMessagesRequestProcessor(
       mediator: MediatorGroupRecipient,
       reject: LocalRejectError,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingUSF(functionFullName) {
+    synchronizeWithClosing(functionFullName) {
       for {
         snapshot <- crypto.awaitSnapshot(timestamp)
         requestId = RequestId(timestamp)

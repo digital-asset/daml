@@ -63,7 +63,7 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
     })
   private val retryWithBackoff = retry.Backoff(
     logger = logger,
-    flagCloseable = this,
+    hasSynchronizeWithClosing = this,
     maxRetries = retry.Forever,
     // TODO(#18407): Consider making the values below configurable
     initialDelay = 10.milliseconds,
@@ -77,7 +77,7 @@ trait DatabaseSequencerIntegration extends SequencerIntegration {
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Unit] =
     // TODO(#18394): Batch acknowledgements?
-    performUnlessClosingUSF(functionFullName)(acknowledgements.toSeq.parTraverse_ {
+    synchronizeWithClosing(functionFullName)(acknowledgements.toSeq.parTraverse_ {
       case (member, timestamp) =>
         this.writeAcknowledgementInternal(member, timestamp)
     })

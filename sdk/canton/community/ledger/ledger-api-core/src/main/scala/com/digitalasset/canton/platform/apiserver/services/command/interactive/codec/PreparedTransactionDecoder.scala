@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.apiserver.services.command.interactive
+package com.digitalasset.canton.platform.apiserver.services.command.interactive.codec
 
 import cats.syntax.either.*
 import cats.syntax.traverse.*
@@ -15,10 +15,7 @@ import com.daml.ledger.api.v2.interactive.{
 }
 import com.daml.ledger.api.v2.value as lapiValue
 import com.digitalasset.canton.data.LedgerTimeBoundaries
-import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
-  ExecuteRequest,
-  TransactionData,
-}
+import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.ledger.api.validation.StricterValueValidator
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
@@ -30,17 +27,22 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionDecoder.DeserializationResult
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PreparedTransactionCodec.*
 import com.digitalasset.canton.protocol.{LfNode, LfNodeId}
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.Ref.TypeConId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, NodeId}
+import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
+  FatContractInstance,
+  NodeId,
+  TransactionCoder,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -52,17 +54,7 @@ import io.scalaland.chimney.partial.Result
 import io.scalaland.chimney.syntax.*
 import io.scalaland.chimney.{PartialTransformer, Transformer}
 
-import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Try
-
-object PreparedTransactionDecoder {
-  final case class DeserializationResult(
-      preparedTransactionData: TransactionData,
-      transactionUUID: UUID,
-      mediatorGroup: Int,
-  )
-}
 
 /** Class to decode a PreparedTransaction to an LF Transaction and its metadata. Uses chimney to
   * define Transformers and PartialTransformer for all conversions.
@@ -135,9 +127,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         contractId <- lf.value.Value.ContractId.fromBytes(bytes).toResult
       } yield contractId
     }
-  private implicit val uuidTransformer: PartialTransformer[String, UUID] =
-    PartialTransformer(src => Try(UUID.fromString(src)).toEither.leftMap(_.getMessage).toResult)
-
   private implicit val hashTransformer: PartialTransformer[ByteString, lf.crypto.Hash] =
     PartialTransformer { src =>
       lf.crypto.Hash.fromBytes(Bytes.fromByteString(src)).toResult
@@ -154,9 +143,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         .map(lf.transaction.NodeId(src.nodeId) -> _)
     }
 
-  private implicit val bytesTransformer: Transformer[ByteString, Bytes] = (src: ByteString) =>
-    Bytes.fromByteString(src)
-
   private implicit val timestampTransformer: PartialTransformer[Long, lf.data.Time.Timestamp] =
     PartialTransformer(src => lf.data.Time.Timestamp.fromLong(src).toResult)
 
@@ -172,9 +158,6 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   private implicit val partyTransformer: PartialTransformer[String, lf.data.Ref.Party] =
     PartialTransformer(src => lf.data.Ref.Party.fromString(src).toResult)
-
-  private implicit val mediatorGroupIndexDecoder: PartialTransformer[Int, MediatorGroupIndex] =
-    PartialTransformer(src => MediatorGroupIndex.create(src).leftMap(_.message).toResult)
 
   private implicit val nodeIdTransformer: PartialTransformer[String, lf.transaction.NodeId] =
     PartialTransformer { src =>
@@ -355,7 +338,7 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
   // Input contract decoder
   private implicit def inputContractTransformer(implicit
       errorLoggingContext: ErrorLoggingContext
-  ): PartialTransformer[iss.Metadata.InputContract, FatContractInstance] =
+  ): PartialTransformer[iss.Metadata.InputContract, ExternalInputContract] =
     PartialTransformer { src =>
       val contract = src.contract
       val createNodeResult = contract match {
@@ -367,10 +350,18 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
       for {
         createNode <- createNodeResult
         createTime <- src.createdAt.transformIntoPartial[Time.Timestamp]
-      } yield FatContractInstance.fromCreateNode(
-        createNode,
-        CreationTime.CreatedAt(createTime),
-        src.driverMetadata.transformInto[Bytes],
+        originalContract <- TransactionCoder
+          .decodeFatContractInstance(src.eventBlob)
+          .leftMap(_.errorMessage)
+          .toResult
+        enrichedContract = FatContractInstance.fromCreateNode(
+          createNode,
+          CreationTime.CreatedAt(createTime),
+          originalContract.cantonData,
+        )
+      } yield ExternalInputContract(
+        originalContract = originalContract,
+        enrichedContract = enrichedContract,
       )
     }
 
@@ -409,19 +400,29 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
 
   /** Decodes a prepared transaction back into a DeserializationResult that can be submitted.
     */
-  def deserialize(executeRequest: ExecuteRequest)(implicit
+  def decode(executeRequest: ExecuteRequest)(implicit
       executionContext: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ErrorLoggingContext,
-  ): Future[DeserializationResult] = {
+  ): Future[ExecuteTransactionData] = {
     implicit val traceContext = loggingContext.traceContext
 
     for {
       metadataProto <- requireField(executeRequest.preparedTransaction.metadata, "metadata")
       submitterInfoProto <- requireField(metadataProto.submitterInfo, "submitter_info")
-      transactionUUID <- metadataProto.transactionUuid
-        .transformIntoPartial[UUID]
+      transactionUUID <- ProtoConverter.UuidConverter
+        .fromProtoPrimitive(metadataProto.transactionUuid)
         .toFutureWithLoggedFailures("Failed to deserialize transaction UUID", logger)
+      externallySignedSubmission <- for {
+        mediatorGroup <- ProtoConverter
+          .parseNonNegativeInt("mediator_group", metadataProto.mediatorGroup)
+          .toFutureWithLoggedFailures("Failed to deserialize mediator group", logger)
+      } yield ExternallySignedSubmission(
+        executeRequest.serializationVersion,
+        executeRequest.signatures,
+        transactionUUID = transactionUUID,
+        mediatorGroup = mediatorGroup,
+      )
       submitterInfo <- submitterInfoProto
         .intoPartial[SubmitterInfo]
         // Read as is unused for the execution as the transaction has already been run through Daml engine at this point
@@ -433,18 +434,9 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           submitterInfoProto.commandId.transformIntoPartial[lf.data.Ref.CommandId],
         )
         .withFieldConst(_.deduplicationPeriod, executeRequest.deduplicationPeriod)
-        .withFieldConstPartial(
+        .withFieldConst(
           _.externallySignedSubmission,
-          for {
-            mediatorGroup <- metadataProto.mediatorGroup.transformIntoPartial[MediatorGroupIndex]
-          } yield Some(
-            ExternallySignedSubmission(
-              executeRequest.serializationVersion,
-              executeRequest.signatures,
-              transactionUUID = transactionUUID,
-              mediatorGroup = mediatorGroup,
-            )
-          ),
+          Some(externallySignedSubmission),
         )
         .transform
         .toFutureWithLoggedFailures("Failed to deserialize submitter info", logger)
@@ -502,8 +494,8 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
         .transformIntoPartial[Map[lf.transaction.GlobalKey, Option[lf.value.Value.ContractId]]]
         .toFutureWithLoggedFailures("Failed to deserialize global key mapping", logger)
       inputContracts <- metadataProto.inputContracts
-        .traverse(_.transformIntoPartial[FatContractInstance])
-        .map(_.map(fci => fci.contractId -> fci).toMap)
+        .traverse(_.transformIntoPartial[ExternalInputContract])
+        .map(_.map(eic => eic.contractId -> eic).toMap)
         .toFutureWithLoggedFailures("Failed to deserialize input contracts", logger)
       missingInputContracts = transaction.inputContracts.diff(inputContracts.keySet)
       _ <- Either
@@ -530,16 +522,15 @@ final class PreparedTransactionDecoder(override val loggerFactory: NamedLoggerFa
           logger,
         )
     } yield {
-      val preparedTransactionData = TransactionData(
+      ExecuteTransactionData(
         submitterInfo = submitterInfo,
         synchronizerId = synchronizerId,
         transactionMeta = transactionMeta,
         transaction = lf.transaction.SubmittedTransaction(transaction),
         globalKeyMapping = globalKeyMapping,
         inputContracts = inputContracts,
+        externallySignedSubmission = externallySignedSubmission,
       )
-
-      DeserializationResult(preparedTransactionData, transactionUUID, metadataProto.mediatorGroup)
     }
   }
 }

@@ -693,7 +693,8 @@ object ConsensusSegment {
         signedMessages: Seq[SignedMessage[PrePrepare]],
     ) extends PbftViewChangeEvent
 
-    final case class BlockOrdered(metadata: BlockMetadata) extends ConsensusMessage
+    final case class BlockOrdered(metadata: BlockMetadata, isEmpty: Boolean)
+        extends ConsensusMessage
 
     final case class CompletedEpoch(epochNumber: EpochNumber) extends ConsensusMessage
 

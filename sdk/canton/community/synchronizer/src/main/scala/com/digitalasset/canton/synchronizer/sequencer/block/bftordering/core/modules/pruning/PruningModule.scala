@@ -75,6 +75,7 @@ final class PruningModule[E <: Env[E]](
           context.zipFuture(
             stores.outputStore.getLatestBlockAtOrBefore(pruningTimestamp),
             stores.outputStore.getBlock(minBlockToKeep),
+            orderingStage = Some("pruning-compute-pruning-point"),
           )
         ) {
           case Success(result) =>
@@ -119,13 +120,15 @@ final class PruningModule[E <: Env[E]](
         }
       case Pruning.PerformPruning(epochNumber) =>
         logger.info(s"Pruning at epoch $epochNumber starting")
-        val pruneFuture = context.zipFuture3(
-          stores.outputStore.prune(epochNumber),
-          stores.epochStore.prune(epochNumber),
-          stores.availabilityStore.prune(
-            EpochNumber(epochNumber - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
-          ),
-        )
+        val pruneFuture =
+          context.zipFuture3(
+            stores.outputStore.prune(epochNumber),
+            stores.epochStore.prune(epochNumber),
+            stores.availabilityStore.prune(
+              EpochNumber(epochNumber - OrderingRequestBatch.BatchValidityDurationEpochs + 1L)
+            ),
+            orderingStage = Some("pruning-prune"),
+          )
         pipeToSelf(pruneFuture) {
           case Success(
                 (outputStorePrunedRecords, epochStorePrunedRecords, availabilityStorePrunedRecords)

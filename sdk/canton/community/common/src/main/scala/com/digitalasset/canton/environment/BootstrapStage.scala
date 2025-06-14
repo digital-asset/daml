@@ -97,7 +97,7 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
         case Some(previous) => EitherT.rightT(Some(previous))
         case None =>
           EitherT(
-            performUnlessClosingUSF(description)(
+            synchronizeWithClosing(description)(
               (for {
                 result <- attempt()
                   .leftMap { err =>
@@ -219,7 +219,7 @@ abstract class BootstrapStageWithStorage[
             logger.info(
               s"Initialization stage $description completed in the background, proceeding."
             )
-            performUnlessClosingEitherUSF(description)(result.start())
+            synchronizeWithClosing(description)(result.start())
           case None =>
             ErrorUtil.invalidState(
               s"Retry loop for initialization stage $description terminated with unsuccessful None"
@@ -260,7 +260,7 @@ abstract class BootstrapStageWithStorage[
         EitherT.pure[FutureUnlessShutdown, String][Option[StageResult]](None)
       } else {
         EitherT
-          .right[String](performUnlessClosingUSF("check-already-init")(stageCompleted))
+          .right[String](synchronizeWithClosing("check-already-init")(stageCompleted))
           .flatMap[String, Option[StageResult]] {
             case Some(result) =>
               logger.info(
@@ -293,7 +293,7 @@ abstract class BootstrapStageWithStorage[
         } else
           {
             for {
-              current <- performUnlessClosingEitherUSF(s"check-already-init-$description")(
+              current <- synchronizeWithClosing(s"check-already-init-$description")(
                 EitherT.right[String](stageCompleted)
               )
               _ <- EitherT.cond[FutureUnlessShutdown](
@@ -302,11 +302,11 @@ abstract class BootstrapStageWithStorage[
                 s"Node is already initialised with $current",
               )
               _ <- EitherT.cond[FutureUnlessShutdown](storage.isActive, (), "Node is passive")
-              item <- performUnlessClosingEitherUSF(s"complete-grab-result-$description")(
+              item <- synchronizeWithClosing(s"complete-grab-result-$description")(
                 storeAndPassResult
               ): EitherT[FutureUnlessShutdown, String, M]
               stage <-
-                performUnlessClosingEitherUSF(s"store-stage-$description") {
+                synchronizeWithClosing(s"store-stage-$description") {
                   buildNextStage(item).map { stage =>
                     stageResult.set(Some(stage))
                     stage
@@ -328,7 +328,7 @@ abstract class BootstrapStageWithStorage[
   final protected override def attempt()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Option[StageResult]] =
-    performUnlessClosingEitherUSF(description) {
+    synchronizeWithClosing(description) {
       for {
         result <- EitherT.right(stageCompleted)
         stageO <- result match {

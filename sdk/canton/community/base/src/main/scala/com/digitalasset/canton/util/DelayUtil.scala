@@ -55,7 +55,7 @@ object DelayUtil extends NamedLogging {
       scheduledExecutorService,
       delay,
       { promise =>
-        val _ = performUnlessClosing.performUnlessClosing(name)(promise.success(()))
+        val _ = performUnlessClosing.synchronizeWithClosingSync(name)(promise.success(()))
       },
     )
 

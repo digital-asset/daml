@@ -56,7 +56,7 @@ object RetryEither {
     maxRetries.tailRecM { retryCount =>
       EitherT {
         closeContext.context
-          .performUnlessClosing(operationName)(body)(loggingContext.traceContext)
+          .synchronizeWithClosingSync(operationName)(body)(loggingContext.traceContext)
           .flatMap {
             _.value.map {
               _.map(Right(_))

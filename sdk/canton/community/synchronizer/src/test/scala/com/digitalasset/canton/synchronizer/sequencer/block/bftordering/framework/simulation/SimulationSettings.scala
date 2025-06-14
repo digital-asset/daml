@@ -101,6 +101,7 @@ final case class LocalSettings(
     clockDriftChance: Probability = Probability(0),
     clockDrift: PowerDistribution = LocalSettings.defaultClockDriftDistribution,
     crashRestartChance: Probability = Probability(0),
+    crashTimeDistribution: PowerDistribution = LocalSettings.defaultCrashTimeDistribution,
     crashRestartGracePeriod: PowerDistribution = LocalSettings.defaultCrashRestartGracePeriod,
 )
 
@@ -113,6 +114,9 @@ object LocalSettings {
 
   private val defaultClockDriftDistribution: PowerDistribution =
     PowerDistribution(0.microseconds, 25.microseconds)
+
+  private val defaultCrashTimeDistribution: PowerDistribution =
+    PowerDistribution(0.seconds, 10.seconds)
 
   private val defaultCrashRestartGracePeriod: PowerDistribution =
     PowerDistribution(1.second, 5.seconds)

@@ -162,7 +162,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
         .toEitherT[FutureUnlessShutdown]
 
       topologyClient <- EitherT.right(
-        performUnlessClosingUSF("create caching client")(
+        synchronizeWithClosing("create caching client")(
           topologyFactory.createCachingTopologyClient(
             packageDependencyResolver
           )
@@ -369,7 +369,7 @@ trait SynchronizerRegistryHelpers extends FlagCloseable with NamedLogging with H
       ec: ExecutionContextExecutor,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
-    performUnlessClosingEitherUSF("check-for-synchronizer-topology-initialization")(
+    synchronizeWithClosing("check-for-synchronizer-topology-initialization")(
       syncPersistentStateManager.synchronizerTopologyStateInitFor(
         synchronizerId,
         participantId,

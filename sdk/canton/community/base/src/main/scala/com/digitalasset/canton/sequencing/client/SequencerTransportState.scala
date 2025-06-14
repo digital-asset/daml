@@ -131,7 +131,7 @@ class SequencersTransportState(
   private def transportState(
       sequencerId: SequencerId
   )(implicit traceContext: TraceContext): UnlessShutdown[SequencerTransportState] =
-    performUnlessClosing(functionFullName)(blocking(lock.synchronized {
+    synchronizeWithClosingSync(functionFullName)(blocking(lock.synchronized {
       states.getOrElse(
         sequencerId,
         ErrorUtil.internalError(
@@ -144,7 +144,7 @@ class SequencersTransportState(
       sequencerId: SequencerId,
       updatedTransport: SequencerTransportContainer[?],
   )(implicit traceContext: TraceContext): UnlessShutdown[SequencerTransportState] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       blocking(lock.synchronized {
         transportState(sequencerId).map { transportStateBefore =>
           states
@@ -229,7 +229,7 @@ class SequencersTransportState(
       ],
       eventValidator: SequencedEventValidator,
   )(implicit traceContext: TraceContext): Unit =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       blocking(lock.synchronized {
         transportState(sequencerId)
           .map { currentSequencerTransportStateForAlias =>

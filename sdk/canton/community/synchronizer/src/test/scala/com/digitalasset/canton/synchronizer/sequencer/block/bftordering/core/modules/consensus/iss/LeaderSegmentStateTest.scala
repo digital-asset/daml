@@ -164,11 +164,20 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           loggerFactory,
         )
       val leaderSegmentState = new LeaderSegmentState(segmentState, epoch, Seq.empty)
-      mySegment.slotNumbers.foreach { slotNumber =>
+
+      val anotherNodeSegment =
+        epoch.segments
+          .find(_.originalLeader != myId)
+          .getOrElse(fail("there should be more than one segment"))
+
+      (0 until mySegment.slotNumbers.size).foreach { relativeIndex =>
         leaderSegmentState.isProgressBlocked shouldBe false
-        (BlockNumber.First until slotNumber).foreach { n =>
-          leaderSegmentState.confirmCompleteBlockStored(BlockNumber(n))
-        }
+
+        leaderSegmentState.confirmCompleteBlockStored(
+          anotherNodeSegment.slotNumbers(relativeIndex),
+          isEmpty = false,
+        )
+
         leaderSegmentState.isProgressBlocked shouldBe true
         val orderedBlock = leaderSegmentState.assignToSlot(OrderingBlock.empty, Seq.empty)
         completeBlock(segmentState, orderedBlock.metadata.blockNumber)

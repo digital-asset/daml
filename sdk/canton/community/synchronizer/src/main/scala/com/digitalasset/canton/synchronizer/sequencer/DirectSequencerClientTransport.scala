@@ -139,7 +139,7 @@ class DirectSequencerClientTransport(
             case Success(UnlessShutdown.Outcome(Right(subscription))) =>
               closeReasonPromise.completeWith(subscription.closeReason)
 
-              performUnlessClosing(functionFullName) {
+              synchronizeWithClosingSync(functionFullName) {
                 subscriptionRef.set(Some(subscription))
               } onShutdown {
                 subscription.close()

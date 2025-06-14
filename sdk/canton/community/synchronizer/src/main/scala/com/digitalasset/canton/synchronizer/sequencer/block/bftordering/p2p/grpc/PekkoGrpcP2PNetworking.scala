@@ -57,7 +57,7 @@ final class PekkoP2PNetworkRef[P2PMessageT](
   override def asyncP2PSend(
       createMessage: Option[Instant] => P2PMessageT
   )(implicit traceContext: TraceContext, metricsContext: MetricsContext): Unit =
-    performUnlessClosing("send-message") {
+    synchronizeWithClosingSync("send-message") {
       connectionHandler ! SendMessage(
         createMessage,
         metricsContext,

@@ -139,7 +139,7 @@ class SimpleExecutionQueue(
     next.chain(
       oldHead,
       // Only run the task when the queue is not shut down
-      performUnlessClosingF(s"queued task: $description")(
+      synchronizeWithClosingF(s"queued task: $description")(
         // Turn the action FutureUnlessShutdown[A] into Future[Try[UnlessShutdown[A]]].
         // This allows us to distinguish between the failure/shutdown of the queue or the task.
         execution

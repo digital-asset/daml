@@ -86,7 +86,8 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
       case nv: NewView =>
         collectFuturesAndFlatten(
           nv.viewChanges.map(validateSignedMessage(validateViewChange(_))) ++
-            nv.prePrepares.map(validateSignedMessage(validatePrePrepare(_)))
+            nv.prePrepares.map(validateSignedMessage(validatePrePrepare(_))),
+          orderingStage = "consensus-validate-new-view",
         )
     }
 
@@ -97,22 +98,24 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
       metricsContext: MetricsContext,
-  ): VerificationResult = collectFutures[SignatureCheckError] {
-    proofOfAvailability.acks.map { ack =>
-      val hash = AvailabilityAck.hashFor(
-        proofOfAvailability.batchId,
-        proofOfAvailability.epochNumber,
-        ack.from,
-        metrics,
-      )
-      cryptoProvider.verifySignature(
-        hash,
-        ack.from,
-        ack.signature,
-        "consensus-signature-verify-poa-ack",
-      )
-    }
-  }
+  ): VerificationResult =
+    collectFutures[SignatureCheckError](
+      proofOfAvailability.acks.map { ack =>
+        val hash = AvailabilityAck.hashFor(
+          proofOfAvailability.batchId,
+          proofOfAvailability.epochNumber,
+          ack.from,
+          metrics,
+        )
+        cryptoProvider.verifySignature(
+          hash,
+          ack.from,
+          ack.signature,
+          "consensus-signature-verify-poa-ack",
+        )
+      },
+      orderingStage = "consensus-validate-poa",
+    )
 
   private def validateOrderingBlock(
       block: OrderingBlock
@@ -122,7 +125,10 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): VerificationResult =
-    collectFuturesAndFlatten(block.proofs.map(validateProofOfAvailability(_)))
+    collectFuturesAndFlatten(
+      block.proofs.map(validateProofOfAvailability(_)),
+      orderingStage = "consensus-validate-ordering-block",
+    )
 
   private def validatePrePrepare(
       message: PrePrepare
@@ -158,7 +164,8 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
             membership,
             AuthenticatedMessageType.BftSignedConsensusMessage,
           )(commit)
-        ) :+ validateOrderingBlock(block)
+        ) :+ validateOrderingBlock(block),
+        orderingStage = "consensus-validate-pre-prepare",
       )
   }
 
@@ -171,7 +178,8 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
       topologyInfo: OrderingTopologyInfo[E],
   ): VerificationResult =
     collectFuturesAndFlatten(
-      message.consensusCerts.map(verifyConsensusCertificate(_, topologyInfo))
+      message.consensusCerts.map(verifyConsensusCertificate(_, topologyInfo)),
+      orderingStage = "consensus-validate-view-change",
     )
 
   def verifyRetransmissionMessage(
@@ -187,7 +195,8 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
         case _: RetransmissionRequest => context.pureFuture(Either.unit[Seq[SignatureCheckError]])
         case RetransmissionResponse(_, consensusCerts) =>
           collectFuturesAndFlatten(
-            consensusCerts.map(verifyConsensusCertificate(_, topologyInfo))
+            consensusCerts.map(verifyConsensusCertificate(_, topologyInfo)),
+            orderingStage = "consensus-validate-retransmission-response",
           )
       }
     validateSignedMessage[RetransmissionsNetworkMessage](
@@ -215,11 +224,20 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
       validateSignedMessage[PrePrepare](validatePrePrepare(_))(certificate.prePrepare)
     val remainingValidationF: VerificationResult = certificate match {
       case CommitCertificate(_, commits) =>
-        collectFuturesAndFlatten(commits.map(validate(_)))
+        collectFuturesAndFlatten(
+          commits.map(validate(_)),
+          orderingStage = "consensus-validate-commit-certificate",
+        )
       case PrepareCertificate(_, prepares) =>
-        collectFuturesAndFlatten(prepares.map(validate(_)))
+        collectFuturesAndFlatten(
+          prepares.map(validate(_)),
+          orderingStage = "consensus-validate-prepare-certificate",
+        )
     }
-    collectFuturesAndFlatten(Seq(prePrepareValidationF, remainingValidationF))
+    collectFuturesAndFlatten(
+      Seq(prePrepareValidationF, remainingValidationF),
+      orderingStage = "consensus-validate-consensus-certificate",
+    )
   }
 
   private def validateSignedMessage[A <: PbftNetworkMessage](
@@ -257,8 +275,10 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
                 signedMessage,
                 authenticatedMessageType,
               )
-            )
+            ),
+            orderingStage = "consensus-verify-signed-message",
           ),
+          orderingStage = Some("consensus-validate-signed-message"),
         )
       )(
         PureFun.Util.CollectPairErrors[SignatureCheckError]()
@@ -271,16 +291,22 @@ final class IssConsensusSignatureVerifier[E <: Env[E]](metrics: BftOrderingMetri
     }
 
   private def collectFutures[Err](
-      futures: Seq[E#FutureUnlessShutdownT[Either[Err, Unit]]]
+      futures: Seq[E#FutureUnlessShutdownT[Either[Err, Unit]]],
+      orderingStage: String,
   )(implicit
       context: FutureContext[E]
   ): E#FutureUnlessShutdownT[Either[Seq[Err], Unit]] =
-    context.mapFuture(context.sequenceFuture(futures))(PureFun.Util.CollectErrors())
+    context.mapFuture(context.sequenceFuture(futures, Some(orderingStage)))(
+      PureFun.Util.CollectErrors()
+    )
 
   private def collectFuturesAndFlatten[Err](
-      futures: Seq[E#FutureUnlessShutdownT[Either[Seq[Err], Unit]]]
+      futures: Seq[E#FutureUnlessShutdownT[Either[Seq[Err], Unit]]],
+      orderingStage: String,
   )(implicit
       context: FutureContext[E]
   ): E#FutureUnlessShutdownT[Either[Seq[Err], Unit]] =
-    context.mapFuture(collectFutures(futures))(PureFun.Either.LeftMap(PureFun.Seq.Flatten()))
+    context.mapFuture(collectFutures(futures, orderingStage))(
+      PureFun.Either.LeftMap(PureFun.Seq.Flatten())
+    )
 }

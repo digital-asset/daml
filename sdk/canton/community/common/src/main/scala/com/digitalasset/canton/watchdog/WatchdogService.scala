@@ -40,7 +40,7 @@ class WatchdogService(
 
   private val checkAndKillTask = new Runnable {
     override def run(): Unit =
-      performUnlessClosing("WatchdogService-checkAndKillTask") {
+      synchronizeWithClosingSync("WatchdogService-checkAndKillTask") {
         if (!checkIsAlive) {
           logger.underlying.error(
             s"Watchdog detected that the service is not alive. Scheduling to kill the service after a delay of $killDelay."

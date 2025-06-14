@@ -56,7 +56,7 @@ class LocalSequencerStateEventSignaller(
   override def notifyOfLocalWrite(
       notification: WriteNotification
   )(implicit traceContext: TraceContext): Future[Unit] =
-    performUnlessClosingF(functionFullName) {
+    synchronizeWithClosingF(functionFullName) {
       queueWithLogging("latest-head-state-queue", queue)(notification)
     }.onShutdown {
       logger.info("Dropping local write signal due to shutdown")

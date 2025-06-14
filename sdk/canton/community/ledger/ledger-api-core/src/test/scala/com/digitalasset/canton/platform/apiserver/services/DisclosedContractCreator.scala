@@ -9,6 +9,7 @@ import com.digitalasset.canton.LfValue
 import com.digitalasset.canton.protocol.LfTransactionVersion
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
@@ -79,7 +80,8 @@ object DisclosedContractCreator {
         keyOpt = Some(lf.keyWithMaintainers),
         version = testTxVersion,
       ),
-      createTime = Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L),
+      createTime =
+        CreationTime.CreatedAt(Time.Timestamp.assertFromLong(api.createdAtSeconds * 1000000L)),
       cantonData = lf.driverMetadataBytes,
     )
   }

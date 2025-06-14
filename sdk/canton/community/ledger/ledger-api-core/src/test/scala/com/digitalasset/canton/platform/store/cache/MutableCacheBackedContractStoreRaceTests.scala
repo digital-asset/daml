@@ -25,7 +25,7 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.transaction.{Node, Versioned}
+import com.digitalasset.daml.lf.transaction.{CreationTime, Node, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ValueInt64
 import org.apache.pekko.Done
@@ -348,7 +348,7 @@ private object MutableCacheBackedContractStoreRaceTests {
               keyOpt = Some(KeyWithMaintainers(key, Set.empty)),
               version = contract.version,
             ),
-            createTime = Time.Timestamp.MinValue, // Not used,
+            createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue), // Not used,
             cantonData = Bytes.Empty,
           ),
           offset,
@@ -452,7 +452,7 @@ private object MutableCacheBackedContractStoreRaceTests {
                       keyOpt = None,
                       version = contract.version,
                     ),
-                    createTime = Time.Timestamp.MinValue,
+                    createTime = CreationTime.CreatedAt(Time.Timestamp.MinValue),
                     cantonData = Bytes.Empty,
                   )
                 )

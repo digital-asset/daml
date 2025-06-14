@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss
 
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.BftOrderingIdentifiers.BlockNumber
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
@@ -25,27 +26,35 @@ class LeaderSegmentState(
 ) {
   private val segment = state.segment
 
-  private val completedBlocks: mutable.Set[BlockNumber] =
-    mutable.Set[BlockNumber](initialCompletedBlocks.map(_.blockNumber)*)
+  private val completedBlockIsEmpty: mutable.Map[BlockNumber, Boolean] =
+    mutable.Map(
+      initialCompletedBlocks.map(b =>
+        b.blockNumber -> b.commitCertificate.prePrepare.message.block.proofs.isEmpty
+      )*
+    )
 
   private val blockedProgressDetector = {
-
-    def isBlockComplete(blockNumber: BlockNumber) = completedBlocks.contains(
+    def isBlockComplete(blockNumber: BlockNumber) = completedBlockIsEmpty.contains(
       blockNumber
     ) || (segment.slotNumbers.contains(blockNumber) && state.isBlockComplete(blockNumber))
 
+    def isBlockEmpty(blockNumber: BlockNumber) =
+      completedBlockIsEmpty.getOrElse(blockNumber, false)
+
     new BlockedProgressDetector(
-      epoch.info.startBlockNumber,
-      Some(this),
-      epoch.segments.map(s => s.originalLeader -> s).toMap,
+      epoch.segments
+        .map(s => s.originalLeader -> s)
+        .toMap,
       isBlockComplete,
+      isBlockEmpty,
     )
   }
 
-  def confirmCompleteBlockStored(blockNumber: BlockNumber): Boolean =
-    completedBlocks.add(blockNumber)
+  def confirmCompleteBlockStored(blockNumber: BlockNumber, isEmpty: Boolean): Unit =
+    completedBlockIsEmpty.put(blockNumber, isEmpty).discard
 
-  def isProgressBlocked: Boolean = blockedProgressDetector.isProgressBlocked
+  def isProgressBlocked: Boolean =
+    moreSlotsToAssign && blockedProgressDetector.isProgressBlocked(nextRelativeBlockToOrder)
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var nextRelativeBlockToOrder =
@@ -95,8 +104,6 @@ class LeaderSegmentState(
 
     orderedBlock
   }
-
-  def nextBlockNumberToFill: BlockNumber = segment.slotNumbers(nextRelativeBlockToOrder)
 
   def isNextSlotFirst: Boolean = nextRelativeBlockToOrder == 0
 }

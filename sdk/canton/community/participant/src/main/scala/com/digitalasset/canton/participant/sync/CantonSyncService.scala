@@ -2163,17 +2163,21 @@ class CantonSyncService(
 
   override def getRoutingSynchronizerState(implicit
       traceContext: TraceContext
-  ): RoutingSynchronizerState =
-    RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup)
+  ): RoutingSynchronizerState = {
+    val syncCryptoPureApi: RoutingSynchronizerStateFactory.SyncCryptoPureApiLookup =
+      (synchronizerId, staticSyncParameters) =>
+        syncCrypto.forSynchronizer(synchronizerId.logical, staticSyncParameters).map(_.pureCrypto)
+    RoutingSynchronizerStateFactory.create(connectedSynchronizersLookup, syncCryptoPureApi)
+  }
 }
 
 object CantonSyncService {
   sealed trait ConnectSynchronizer extends Product with Serializable {
 
-    /** Wether to start processing for a connected synchronizer. */
+    /** Whether to start processing for a connected synchronizer. */
     def startConnectedSynchronizer: Boolean
 
-    // Whether the synchronizer is added in the `connectedSynchronizersMap` map
+    /** Whether the synchronizer is added in the `connectedSynchronizersMap` map */
     def markSynchronizerAsConnected: Boolean
   }
 

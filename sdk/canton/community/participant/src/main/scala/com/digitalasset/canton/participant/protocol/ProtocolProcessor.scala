@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol
 
-import cats.data.{EitherT, NonEmptyChain}
+import cats.data.{EitherT, Nested, NonEmptyChain}
 import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
@@ -143,17 +143,6 @@ abstract class ProtocolProcessor[
     */
   private val submissionCounter: AtomicInteger = new AtomicInteger(0)
 
-  /** Validations run at the start of the submission. This can be overridden to provide early stage
-    * validations that should fail _synchronously_ the submission.
-    */
-  protected def preSubmissionValidations(
-      params: SubmissionParam,
-      cryptoSnapshot: SynchronizerSnapshotSyncCryptoApi,
-      protocolVersion: ProtocolVersion,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SubmissionError, Unit]
-
   /** Submits the request to the sequencer, using a recent topology snapshot and the current
     * persisted state as an approximation to the future state at the assigned request timestamp.
     *
@@ -176,7 +165,6 @@ abstract class ProtocolProcessor[
     val recentSnapshot = crypto.create(topologySnapshot)
     val explicitMediatorGroupIndex = steps.explicitMediatorGroup(submissionParam)
     for {
-      _ <- preSubmissionValidations(submissionParam, recentSnapshot, protocolVersion)
       mediator <- chooseMediator(recentSnapshot.ipsSnapshot, explicitMediatorGroupIndex)
         .leftMap(steps.embedNoMediatorError)
       submission <- steps.createSubmission(submissionParam, mediator, ephemeral, recentSnapshot)
@@ -642,7 +630,7 @@ abstract class ProtocolProcessor[
       val rootHash = batch.rootHashMessage.rootHash
       val freshOwnTimelyTxF = ephemeral.submissionTracker.register(rootHash, requestId)
 
-      val processedET = performUnlessClosingEitherUSF(
+      val processedET = synchronizeWithClosing(
         s"ProtocolProcess.processRequest(rc=$rc, sc=$sc, traceId=${traceContext.traceId})"
       ) {
         // registering the request has to be done synchronously
@@ -712,7 +700,7 @@ abstract class ProtocolProcessor[
         )
       } else FutureUnlessShutdown.unit
 
-    performUnlessClosingEitherUSF(
+    synchronizeWithClosing(
       s"$functionFullName(rc=$rc, sc=$sc, traceId=${traceContext.traceId})"
     ) {
       val preliminaryChecksET = for {
@@ -1259,7 +1247,7 @@ abstract class ProtocolProcessor[
     val content = event.event.content
     val ts = content.timestamp
 
-    val processedET = performUnlessClosingEitherUSFAsync(
+    val processedET = synchronizeWithClosing(
       s"ProtocolProcess.processResult(sc=$counter, traceId=${traceContext.traceId}"
     ) {
       val resultEnvelopes =
@@ -1277,8 +1265,8 @@ abstract class ProtocolProcessor[
         show"Got result for ${steps.requestKind.unquoted} request at $requestId: $resultEnvelopes"
       )
 
-      processResultInternal1(event, result, requestId, ts, counter)
-    }(_.value)
+      Nested(processResultInternal1(event, result, requestId, ts, counter))
+    }.value
 
     handlerResultForConfirmationResult(ts, processedET)
   }
@@ -1461,7 +1449,7 @@ abstract class ProtocolProcessor[
     //  A dishonest sequencer or mediator could break this assumption.
 
     // Some more synchronization is done in the Phase37Synchronizer.
-    val res = performUnlessClosingEitherUSF(
+    val res = synchronizeWithClosing(
       s"$functionFullName(sc=$sc, traceId=${traceContext.traceId})"
     )(
       EitherT(

@@ -154,7 +154,7 @@ abstract class AbstractMessageProcessor(
           logger.debug(
             s"Bad request $requestCounter: Timed out without a confirmation result message."
           )
-          performUnlessClosingUSF(functionFullName) {
+          synchronizeWithClosing(functionFullName) {
 
             decisionTimeF.flatMap(
               terminateRequest(requestCounter, sequencerCounter, timestamp, _, None)

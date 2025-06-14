@@ -818,8 +818,8 @@ object DbStorage {
 
   /* Helper methods to make usage of EitherT[DBIO,] possible without requiring type hints */
   def dbEitherT[A, B](value: DBIO[Either[A, B]]): EitherT[DBIO, A, B] = EitherT[DBIO, A, B](value)
-  def dbEitherT[A]: DbEitherTRight[A] = new DbEitherTRight[A]
-  class DbEitherTRight[A] private[resource] {
+  def dbEitherT[A]: DbEitherTRight[A] = new DbEitherTRight[A]()
+  final class DbEitherTRight[A](private val dummy: Boolean = true) extends AnyVal {
     def apply[B](value: DBIO[B])(implicit ec: ExecutionContext): EitherT[DBIO, A, B] = {
       import DbStorage.Implicits.functorDBIO
       EitherT.right[A](value)

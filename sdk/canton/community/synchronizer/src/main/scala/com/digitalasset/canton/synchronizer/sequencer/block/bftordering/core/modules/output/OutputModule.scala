@@ -93,6 +93,7 @@ import com.digitalasset.canton.util.SingleUseCell
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
+import java.time.Instant
 import scala.collection.mutable
 import scala.util.{Failure, Success}
 
@@ -116,6 +117,7 @@ class OutputModule[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
     requestInspector: RequestInspector = DefaultRequestInspector, // For testing
+    epochChecker: EpochChecker = EpochChecker.DefaultEpochChecker, // For testing
 )(implicit
     override val config: BftBlockOrdererConfig,
     synchronizerProtocolVersion: ProtocolVersion,
@@ -181,7 +183,7 @@ class OutputModule[E <: Env[E]](
       loggerFactory,
     )
 
-  private val blocksBeingFetched = mutable.Set[BlockNumber]()
+  private val blocksBeingFetched = mutable.Map[BlockNumber, Instant]()
 
   // Used to ensure ordered blocks from an epoch are processed only after the transition to that epoch
   //  has completed, so that epoch-related transient state in this module, which is updated
@@ -254,7 +256,7 @@ class OutputModule[E <: Env[E]](
             ),
           ).min
 
-        logger.debug(
+        logger.info(
           s"Output module bootstrap: last acknowledged block number = $lastAcknowledgedBlockNumber, " +
             s"last stored block number = $lastStoredBlockNumber => recover from block number = $recoverFromBlockNumber"
         )
@@ -362,7 +364,7 @@ class OutputModule[E <: Env[E]](
                   Availability.LocalOutputFetch.FetchBlockData(orderedBlockForOutput)
                 )
               }
-              blocksBeingFetched.add(blockNumber).discard
+              blocksBeingFetched.put(blockNumber, Instant.now()).discard
             } else {
               logger.debug(s"Block $blockNumber is already being fetched")
             }
@@ -371,7 +373,15 @@ class OutputModule[E <: Env[E]](
           case BlockDataFetched(completedBlockData) =>
             val orderedBlock = completedBlockData.orderedBlockForOutput.orderedBlock
             val blockNumber = orderedBlock.metadata.blockNumber
-            blocksBeingFetched.remove(blockNumber).discard
+            blocksBeingFetched
+              .remove(blockNumber)
+              .foreach(
+                metrics.performance.orderingStageLatency.emitOrderingStageLatency(
+                  metrics.performance.orderingStageLatency.labels.stage.values.output.Fetch,
+                  _,
+                  Instant.now(),
+                )
+              )
             logger.debug(
               s"output received completed block; epoch: ${orderedBlock.metadata.epochNumber}, " +
                 s"blockID: $blockNumber, batchIDs: ${completedBlockData.batches.map(_._1)}"
@@ -598,6 +608,7 @@ class OutputModule[E <: Env[E]](
           context.flatMapFuture(
             store.insertEpochIfMissing(outputEpochMetadata),
             PureFun.Const(store.insertBlockIfMissing(outputBlockMetadata)),
+            orderingStage = Some("output-insert-block-and-epoch-metadata"),
           )
         } else {
           store.insertBlockIfMissing(outputBlockMetadata)
@@ -640,15 +651,19 @@ class OutputModule[E <: Env[E]](
   private def potentiallyAltersSequencersTopology(
       orderedBlockData: CompleteBlockData
   ): Boolean =
-    orderedBlockData.requestsView.toSeq.findLast {
-      case tracedOrderingRequest @ Traced(orderingRequest) =>
-        requestInspector.isRequestToAllMembersOfSynchronizer(
-          orderingRequest,
-          currentEpochOrderingTopology.maxRequestSizeToDeserialize,
-          logger,
-          tracedOrderingRequest.traceContext,
-        )
-    }.isDefined
+    metrics.performance.orderingStageLatency.emitOrderingStageLatency(
+      metrics.performance.orderingStageLatency.labels.stage.values.output.Inspection,
+      () =>
+        orderedBlockData.requestsView.toSeq.findLast {
+          case tracedOrderingRequest @ Traced(orderingRequest) =>
+            requestInspector.isRequestToAllMembersOfSynchronizer(
+              orderingRequest,
+              currentEpochOrderingTopology.maxRequestSizeToDeserialize,
+              logger,
+              tracedOrderingRequest.traceContext,
+            )
+        }.isDefined,
+    )
 
   @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   private def fetchNewEpochTopologyIfNeeded(
@@ -728,6 +743,7 @@ class OutputModule[E <: Env[E]](
     }
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
   private def setupNewEpoch(
       newEpochNumber: EpochNumber,
       newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
@@ -737,21 +753,20 @@ class OutputModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
 
+    if (startupState.initialEpochWeHaveLeaderSelectionStateFor > newEpochNumber) {
+      // This is epoch is old (we are replaying it due to restart) and as such consensus will not care for the topology
+      // information. Instead of doing an historic read of the leaders (potentially involving the db) we just put the
+      // leaders to be empty. They will not be used anywhere (consensus will drop it, and the code below does not depend
+      // on leaders).
+      return
+    }
+
     val orderingTopology =
       newOrderingTopologyAndCryptoProvider.fold(currentEpochOrderingTopology)(_._1)
-    val newEpochLeaders =
-      if (startupState.initialEpochWeHaveLeaderSelectionStateFor < newEpochNumber) {
-        leaderSelectionPolicy.getLeaders(
-          orderingTopology,
-          newEpochNumber,
-        )
-      } else {
-        // This is epoch is old (we are replaying it due to restart) and as such consensus will not care for the topology
-        // information. Instead of doing an historic read of the leaders (potentially involving the db) we just put the
-        // leaders to be empty. They will not be used anywhere (consensus will drop it, and the code below does not depend
-        // on leaders).
-        Seq.empty
-      }
+    val newEpochLeaders = leaderSelectionPolicy.getLeaders(
+      orderingTopology,
+      newEpochNumber,
+    )
 
     val newMembership = Membership(thisNode, orderingTopology, newEpochLeaders)
     val cryptoProvider =
@@ -795,6 +810,11 @@ class OutputModule[E <: Env[E]](
       )
 
       consensus.asyncSend(newEpochTopologyMessage)
+      epochChecker.check(
+        thisNode,
+        newEpochTopologyMessage.epochNumber,
+        newEpochTopologyMessage.membership,
+      )
 
       processFetchedBlocks()
     }

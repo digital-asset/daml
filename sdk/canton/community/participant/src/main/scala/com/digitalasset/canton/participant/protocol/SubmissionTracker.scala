@@ -196,7 +196,7 @@ class SubmissionTrackerImpl private[protocol] (
   override def register(rootHash: RootHash, requestId: RequestId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Boolean] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       val nextPUS = PromiseUnlessShutdown.supervised[Boolean](
         s"available-for-next-$rootHash-$requestId",
         futureSupervisor,

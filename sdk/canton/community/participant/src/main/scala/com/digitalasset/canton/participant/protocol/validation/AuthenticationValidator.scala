@@ -248,7 +248,8 @@ private[protocol] object AuthenticationValidator {
         .verifySignatures(
           hash,
           externalAuthorization.signatures,
-          topology,
+          topology.pureCrypto,
+          topology.ipsSnapshot,
           actAs.forgetNE,
           logger,
         )

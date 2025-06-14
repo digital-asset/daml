@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.sync
 
-import cats.data.EitherT
+import cats.data.{EitherT, Nested}
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
@@ -526,7 +526,7 @@ class ConnectedSynchronizer(
   private[sync] def start()(implicit
       initializationTraceContext: TraceContext
   ): FutureUnlessShutdown[Either[ConnectedSynchronizerInitializationError, Unit]] =
-    performUnlessClosingUSF("start") {
+    synchronizeWithClosing("start") {
 
       val delayLogger = new DelayLogger(
         clock,
@@ -671,7 +671,7 @@ class ConnectedSynchronizer(
     ): FutureUnlessShutdown[Either[Option[(CantonTimestamp, Source[SynchronizerId])], Unit]] = {
       logger.debug(s"Fetch $fetchLimit pending reassignments")
       val resF = for {
-        pendingReassignments <- performUnlessClosingUSF(functionFullName)(
+        pendingReassignments <- synchronizeWithClosing(functionFullName)(
           persistent.reassignmentStore.findAfter(
             requestAfter = previous,
             limit = fetchLimit,
@@ -682,20 +682,19 @@ class ConnectedSynchronizer(
         eithers <- MonadUtil
           .sequentialTraverse(pendingReassignments) { data =>
             logger.debug(s"Complete ${data.reassignmentId} after startup")
-            val eitherF =
-              performUnlessClosingEitherUSF[ReassignmentProcessorError, Unit](functionFullName)(
-                AutomaticAssignment.perform(
-                  data.reassignmentId,
-                  Target(synchronizerId),
-                  Target(staticSynchronizerParameters),
-                  reassignmentCoordination,
-                  data.contracts.stakeholders.all,
-                  data.unassignmentRequest.submitterMetadata,
-                  participantId,
-                  data.unassignmentRequest.targetTimeProof.timestamp,
-                )
+            val eitherF = synchronizeWithClosing(functionFullName)(
+              AutomaticAssignment.perform(
+                data.reassignmentId,
+                Target(synchronizerId),
+                Target(staticSynchronizerParameters),
+                reassignmentCoordination,
+                data.contracts.stakeholders.all,
+                data.unassignmentRequest.submitterMetadata,
+                participantId,
+                data.unassignmentRequest.targetTimeProof.timestamp,
               )
-            eitherF.value.map(_.left.map(err => data.reassignmentId -> err))
+            )
+            eitherF.leftMap(err => data.reassignmentId -> err).value
           }
 
       } yield {
@@ -733,7 +732,7 @@ class ConnectedSynchronizer(
           .getOrElse(Future.unit)
       )
 
-      _params <- performUnlessClosingUSF(functionFullName)(
+      _params <- synchronizeWithClosing(functionFullName)(
         topologyClient.currentSnapshotApproximation.findDynamicSynchronizerParametersOrDefault(
           staticSynchronizerParameters.protocolVersion
         )
@@ -758,16 +757,12 @@ class ConnectedSynchronizer(
     * completion as well: on shutdown wait for the inner FUS to complete before closing the
     * child-services.
     */
-  private def performSubmissionUnlessClosing[ERROR, RESULT](
-      name: String,
-      onClosing: => ERROR,
-  )(
+  private def synchronizeSubmissionWithClosing[ERROR, RESULT](name: String, onClosing: => ERROR)(
       f: => EitherT[FutureUnlessShutdown, ERROR, FutureUnlessShutdown[RESULT]]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ERROR, FutureUnlessShutdown[RESULT]] =
-    performUnlessClosingEitherUSFAsync[ERROR, FutureUnlessShutdown[RESULT]](name)(f)(x => x)
-      .onShutdown(Left(onClosing))
+    synchronizeWithClosing(name)(Nested(f)).value.onShutdown(Left(onClosing))
 
   /** @return
     *   The outer future completes after the submission has been registered as in-flight. The inner
@@ -785,7 +780,7 @@ class ConnectedSynchronizer(
   ): EitherT[Future, TransactionSubmissionError, FutureUnlessShutdown[
     TransactionSubmissionResult
   ]] =
-    performSubmissionUnlessClosing[
+    synchronizeSubmissionWithClosing[
       TransactionSubmissionError,
       TransactionSubmissionResult,
     ](functionFullName, SubmissionDuringShutdown.Rejection()) {
@@ -810,7 +805,7 @@ class ConnectedSynchronizer(
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     UnassignmentProcessingSteps.SubmissionResult
   ]] =
-    performSubmissionUnlessClosing[
+    synchronizeSubmissionWithClosing[
       ReassignmentProcessorError,
       UnassignmentProcessingSteps.SubmissionResult,
     ](
@@ -846,7 +841,7 @@ class ConnectedSynchronizer(
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     AssignmentProcessingSteps.SubmissionResult
   ]] =
-    performSubmissionUnlessClosing[
+    synchronizeSubmissionWithClosing[
       ReassignmentProcessorError,
       AssignmentProcessingSteps.SubmissionResult,
     ](

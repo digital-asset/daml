@@ -163,7 +163,7 @@ class ParticipantTopologyDispatcher(
         store: TopologyStore[?]
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Boolean] =
       EitherT.right(
-        performUnlessClosingUSF(functionFullName)(
+        synchronizeWithClosing(functionFullName)(
           store
             .findPositiveTransactions(
               asOf = CantonTimestamp.MaxValue,
@@ -183,7 +183,7 @@ class ParticipantTopologyDispatcher(
     def trustSynchronizer(
         state: SyncPersistentState
     ): EitherT[FutureUnlessShutdown, SynchronizerRegistryError, Unit] =
-      performUnlessClosingEitherUSF(functionFullName) {
+      synchronizeWithClosing(functionFullName) {
         MonadUtil.unlessM(alreadyTrustedInStore(manager.store)) {
           manager
             .proposeAndAuthorize(
@@ -379,17 +379,17 @@ private class SynchronizerOnboardingOutbox(
   ]] =
     for {
       candidates <- EitherT.right(
-        performUnlessClosingUSF(functionFullName)(
+        synchronizeWithClosing(functionFullName)(
           authorizedStore
             .findParticipantOnboardingTransactions(participantId, synchronizerId.logical)
         )
       )
       applicable <- EitherT.right(
-        performUnlessClosingUSF(functionFullName)(onlyApplicable(candidates))
+        synchronizeWithClosing(functionFullName)(onlyApplicable(candidates))
       )
       _ <- EitherT.fromEither[FutureUnlessShutdown](initializedWith(applicable))
       // Try to convert if necessary the topology transactions for the required protocol version of the synchronizer
-      convertedTxs <- performUnlessClosingEitherUSF(functionFullName) {
+      convertedTxs <- synchronizeWithClosing(functionFullName) {
         convertTransactions(applicable).leftMap[SynchronizerRegistryError](
           SynchronizerRegistryError.TopologyConversionError.Error(_)
         )

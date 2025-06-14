@@ -18,28 +18,33 @@ import EpochState.Segment
   * preserved across crashes.
   */
 class BlockedProgressDetector(
-    epochStartBlockNumber: BlockNumber,
-    mySegmentState: Option[LeaderSegmentState],
     leaderToSegmentState: Map[BftNodeId, Segment],
     isBlockComplete: BlockNumber => Boolean,
+    isBlockEmpty: BlockNumber => Boolean,
 ) {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private var previousBlockCompletionState: Option[Seq[Boolean]] = None
 
-  def isProgressBlocked: Boolean =
-    mySegmentState.exists { mySegment =>
-      mySegment.moreSlotsToAssign && (isEpochProgressBlocked(mySegment) || isNetworkSilent)
-    }
+  def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
+    isEpochProgressBlocked(nextRelativeBlockIndexToFill) || isNetworkSilent
 
-  private def isEpochProgressBlocked(mySegment: LeaderSegmentState) = {
-    val nextBlockNumberToFill = mySegment.nextBlockNumberToFill
-    val allPreviousSlotsFilled =
-      (epochStartBlockNumber until nextBlockNumberToFill).forall(n =>
-        isBlockComplete(BlockNumber(n))
-      )
-    epochStartBlockNumber != nextBlockNumberToFill && allPreviousSlotsFilled
-  }
+  // The heuristic we use asks the following question:
+  // As a leader, for the next relative block index I must fill, are there leaders in other
+  // segments that have a non-empty block already ordered at the same relative index or higher?
+  // If another leader has completed the block on the last relative index in their segment,
+  // we also consider that we're blocking progress regardless of that block being empty or not,
+  // because in that case we are blocking the completion of the epoch for that leader so they can
+  // start working on the next one.
+  private def isEpochProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
+    leaderToSegmentState.values
+      .map(_.slotNumbers)
+      .exists { slotNumbers =>
+        isBlockComplete(slotNumbers.last1) ||
+        slotNumbers
+          .drop(nextRelativeBlockIndexToFill)
+          .exists(slot => isBlockComplete(slot) && !isBlockEmpty(slot))
+      }
 
   // Since BFT time is decided using a previous block, if there is no traffic for a while, we need to signalize that
   // and order an empty block. Otherwise, the first block (and its transactions) afterwards could have a time that

@@ -89,7 +89,7 @@ private[service] class GrpcManagedSubscription[T](
       FutureUnlessShutdown
         .outcomeF {
           Future {
-            Right(performUnlessClosing("grpc-managed-subscription-handler") {
+            Right(synchronizeWithClosingSync("grpc-managed-subscription-handler") {
               observer.onNext(toSubscriptionResponse(event))
             }.onShutdown(()))
           }
@@ -117,7 +117,7 @@ private[service] class GrpcManagedSubscription[T](
   def initialize(): FutureUnlessShutdown[Unit] =
     // TODO(#5705) Redo this when revisiting the subscription pool
     withNewTraceContext { implicit traceContext =>
-      performUnlessClosingUSF("grpc-managed-subscription-handler") {
+      synchronizeWithClosing("grpc-managed-subscription-handler") {
         val createSub =
           // wrap in a Try to catch any exception in the creation of the EitherT itself
           Try(createSubscription(handler)).sequence.semiflatMap(FutureUnlessShutdown.fromTry)

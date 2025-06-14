@@ -71,7 +71,7 @@ private[channel] final class GrpcSequencerChannelPool(
   )(implicit
       traceContext: TraceContext
   ): Either[String, StreamObserver[v30.ConnectToSequencerChannelRequest]] =
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       blocking {
         synchronized {
           val channel = new UninitializedGrpcSequencerChannel(
@@ -110,7 +110,7 @@ private[channel] final class GrpcSequencerChannelPool(
                 tc: TraceContext,
             ): Either[String, GrpcSequencerChannelMemberMessageHandler] = {
               implicit val traceContext: TraceContext = tc
-              performUnlessClosing(functionFullName) {
+              synchronizeWithClosingSync(functionFullName) {
                 blocking {
                   GrpcSequencerChannelPool.this.synchronized {
                     // Remove uninitialized channel even if adding initialized channel fails

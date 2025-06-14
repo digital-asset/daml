@@ -73,7 +73,7 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
   final protected def sendPayload(operation: String, payload: ByteString)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    performUnlessClosingEitherUSF(operation) {
+    synchronizeWithClosing(operation) {
       channelEndpoint.get match {
         case None =>
           val err = s"Attempt to send $operation before channel endpoint set"
@@ -92,7 +92,7 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
   final protected def sendCompleted(status: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    performUnlessClosingEitherUSF(s"complete with $status") {
+    synchronizeWithClosing(s"complete with $status") {
       channelEndpoint.get.fold {
         val err = s"Attempt to send complete with $status before channel endpoint set"
         logger.warn(err)
@@ -104,7 +104,7 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
   final protected def sendError(error: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    performUnlessClosingEitherUSF(s"send error $error") {
+    synchronizeWithClosing(s"send error $error") {
       channelEndpoint.get.fold {
         val errSend = s"Attempt to send error $error before channel endpoint set"
         logger.warn(errSend)

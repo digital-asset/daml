@@ -51,7 +51,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.PekkoUtil.WithKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
@@ -291,7 +291,7 @@ object SequencedEventValidator extends HasLoggerName {
       getTolerance,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
-      (topology, traceContext) => topology.findDynamicSynchronizerParameters()(traceContext),
+      _.withTraceContext(implicit traceContext => _.findDynamicSynchronizerParameters()),
     )
 
   def validateTopologyTimestampUS(
@@ -317,10 +317,11 @@ object SequencedEventValidator extends HasLoggerName {
       getTolerance,
     )(
       SyncCryptoClient.getSnapshotForTimestamp _,
-      (topology, traceContext) =>
-        closeContext.context.performUnlessClosingUSF("get-dynamic-parameters")(
-          topology.findDynamicSynchronizerParameters()(traceContext)
-        )(executionContext, traceContext),
+      _.withTraceContext { implicit traceContext => topology =>
+        closeContext.context.synchronizeWithClosing("get-dynamic-parameters")(
+          topology.findDynamicSynchronizerParameters()
+        )
+      },
     )
 
   // Base version of validateSigningTimestamp abstracting over the effect type to allow for
@@ -342,10 +343,9 @@ object SequencedEventValidator extends HasLoggerName {
           ProtocolVersion,
           Boolean,
       ) => F[SyncCryptoApi],
-      getDynamicSynchronizerParameters: (
-          TopologySnapshot,
-          TraceContext,
-      ) => F[Either[String, DynamicSynchronizerParametersWithValidity]],
+      getDynamicSynchronizerParameters: Traced[TopologySnapshot] => F[
+        Either[String, DynamicSynchronizerParametersWithValidity]
+      ],
   )(implicit
       loggingContext: NamedLoggingContext
   ): EitherT[F, TopologyTimestampVerificationError, SyncCryptoApi] = {
@@ -365,7 +365,7 @@ object SequencedEventValidator extends HasLoggerName {
     def validateWithSnapshot(
         snapshot: SyncCryptoApi
     ): F[Either[TopologyTimestampVerificationError, SyncCryptoApi]] =
-      getDynamicSynchronizerParameters(snapshot.ipsSnapshot, traceContext)
+      getDynamicSynchronizerParameters(Traced(snapshot.ipsSnapshot))
         .map { dynamicSynchronizerParametersE =>
           for {
             dynamicSynchronizerParameters <- dynamicSynchronizerParametersE.leftMap(

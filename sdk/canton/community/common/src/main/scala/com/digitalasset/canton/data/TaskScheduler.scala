@@ -144,7 +144,7 @@ class TaskScheduler[Task <: TimedTask](
 
   private def checkIfBlocked(): Unit = {
     implicit val empty: TraceContext = TraceContext.empty
-    performUnlessClosing("check for missing ticks") {
+    synchronizeWithClosingSync("check for missing ticks") {
 
       val now = clock.now
       val (sc, lastTick) = lastProgress.get()
@@ -289,7 +289,7 @@ class TaskScheduler[Task <: TimedTask](
           timestamp,
           () =>
             FutureUnlessShutdown.lift {
-              performUnlessClosing(functionFullName)(
+              synchronizeWithClosingSync(functionFullName)(
                 barrierPromise.outcome_(())
               ).tapOnShutdown(
                 // the barrierPromise will close anyway eventually, this is just to prevent races
@@ -434,7 +434,7 @@ class TaskScheduler[Task <: TimedTask](
       }
     pollAll()
 
-    val _ = performUnlessClosing(functionFullName) {
+    val _ = synchronizeWithClosingSync(functionFullName) {
       val observedTime = latestPolledTimestamp.get
       performActionsUpto(observedTime)
     }
@@ -458,7 +458,7 @@ class TaskScheduler[Task <: TimedTask](
 
   private def executeTask(task: TimedTask): Unit = {
     implicit val traceContext: TraceContext = task.traceContext
-    performUnlessClosing(functionFullName) {
+    synchronizeWithClosingSync(functionFullName) {
       FutureUtil.doNotAwait(
         // Close the task if the queue is shutdown or if it has failed
         queue

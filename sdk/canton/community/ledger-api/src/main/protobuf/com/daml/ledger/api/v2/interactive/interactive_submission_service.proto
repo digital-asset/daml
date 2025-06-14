@@ -291,7 +291,8 @@ message Metadata {
       interactive.transaction.v1.Create v1 = 1;
     }
     uint64 created_at = 1000;
-    bytes driver_metadata = 1001;
+    reserved 1001; // Used to contain driver_metadata, now contained in event_blob
+    bytes event_blob = 1002;
   }
 
   /* ************************************************** */

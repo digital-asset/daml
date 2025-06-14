@@ -95,7 +95,7 @@ final class SequencerChannelClient(
       processor.handleClose(s"Sequencer channel endpoint $channelId", closeReasonTry)
     }
 
-    EitherT(performUnlessClosing("connectToSequencerChannel") {
+    EitherT(synchronizeWithClosingSync("connectToSequencerChannel") {
       def mkEndpoint(
           context: CancellableContext,
           hasRunOnClosing: HasRunOnClosing,

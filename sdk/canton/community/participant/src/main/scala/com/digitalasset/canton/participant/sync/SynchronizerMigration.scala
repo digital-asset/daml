@@ -195,7 +195,7 @@ class SynchronizerMigration(
   ] =
     for {
       targetSynchronizerInfo <- target.traverse(synchronizerConnectionConfig =>
-        performUnlessClosingEitherUSF(functionFullName)(
+        synchronizeWithClosing(functionFullName)(
           sequencerInfoLoader
             .loadAndAggregateSequencerEndpoints(
               synchronizerConnectionConfig.synchronizerAlias,
@@ -214,7 +214,7 @@ class SynchronizerMigration(
             }
         )
       )
-      _ <- performUnlessClosingEitherUSF(functionFullName)(
+      _ <- synchronizeWithClosing(functionFullName)(
         aliasManager
           .processHandshake(
             target.unwrap.synchronizerAlias,
@@ -229,9 +229,10 @@ class SynchronizerMigration(
           )
       )
 
-      inFlights <- performUnlessClosingEitherUSF(functionFullName)(
-        countAllInFlight(source.unwrap)
-          .leftMap(_ => SyncServiceUnknownSynchronizer.Error(source.unwrap))
+      inFlights <- synchronizeWithClosing(functionFullName)(
+        countAllInFlight(source.unwrap).leftMap(_ =>
+          SyncServiceUnknownSynchronizer.Error(source.unwrap)
+        )
       )
 
       _ <-
@@ -341,7 +342,7 @@ class SynchronizerMigration(
     }
 
     for {
-      sourcePSId <- performUnlessClosingEitherUSF(functionFullName)(prepare())
+      sourcePSId <- synchronizeWithClosing(functionFullName)(prepare())
       sourceLSId <- source.traverse(getSynchronizerId(_))
       _ <- prepareSynchronizerConnection(Traced(target.unwrap.synchronizerAlias))
       _ <- migrateContracts(source, sourceLSId, targetPSId.map(_.logical))
@@ -380,7 +381,7 @@ class SynchronizerMigration(
   ): EitherT[FutureUnlessShutdown, SynchronizerMigrationError, Unit] =
     for {
       // load all contracts on source synchronizer
-      acs <- performUnlessClosingEitherUSF(functionFullName)(
+      acs <- synchronizeWithClosing(functionFullName)(
         inspection
           .findAcs(sourceAlias.unwrap)
           .leftMap[SynchronizerMigrationError](err =>
@@ -395,7 +396,7 @@ class SynchronizerMigration(
         case None => EitherT.right[SynchronizerMigrationError](FutureUnlessShutdown.unit)
         case Some(contractIds) =>
           // move contracts from one synchronizer to the other synchronizer using repair service in batches of batchSize
-          performUnlessClosingEitherUSF(functionFullName)(
+          synchronizeWithClosing(functionFullName)(
             repair.changeAssignation(
               contractIds.map((_, None)),
               source,
