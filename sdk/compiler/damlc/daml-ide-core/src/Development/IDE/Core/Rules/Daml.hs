@@ -870,6 +870,7 @@ contextForFile file = do
         { ctxModules = Map.fromList encodedModules
         , ctxPackages = [(LF.dalfPackageId pkg, LF.dalfPackageBytes pkg) | pkg <- Map.elems pkgMap ++ Map.elems stablePackages]
         , ctxSkipValidation = SS.SkipValidation (getSkipScriptValidation envSkipScriptValidation)
+        , ctxPackageMetadata = LF.packageMetadata pkg
         }
 
 contextForPackage :: NormalizedFilePath -> LF.Package -> Action SS.Context
@@ -888,6 +889,7 @@ contextForPackage file pkg = do
                   | pkg <- Map.elems pkgMap ++ Map.elems stablePackages
                   ]
             , ctxSkipValidation = SS.SkipValidation True -- no validation for external packages
+            , ctxPackageMetadata = LF.packageMetadata pkg
             }
 
 worldForFile :: NormalizedFilePath -> Action LF.World
