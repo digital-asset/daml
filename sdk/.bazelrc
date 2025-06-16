@@ -80,6 +80,11 @@ build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
 # since we're only connecting to localhost.
 build --define=grpc_no_ares=true
 
+# Retry on remote cache eviction errors.
+# Bazel 7 enabled builds without the bytes by default, which can cause build
+# errors when outputs of cached actions are no longer stored in the CAS.
+build --experimental_remote_cache_eviction_retries=1
+
 # Pass through cacert information for git.
 build --action_env=GIT_SSL_CAINFO
 # Pass through locale archive to ensure that we can get a UTF-8 locale.
