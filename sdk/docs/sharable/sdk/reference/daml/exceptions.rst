@@ -6,7 +6,7 @@
 Reference: Exceptions (Deprecated)
 ##################################
 
-.. note:: User-defined Daml Exceptions, catching, and throwing have been
+.. important:: User-defined Daml Exceptions, catching, and throwing have been
    deprecated and are being phased out in favour of the :externalref:`Canton error framework <error_codes>`,
    which represents Daml errors as :brokenref:`InvalidGivenCurrentSystemStateOther <error-categories-inventory_InvalidGivenCurrentSystemStateOther>`.
 
