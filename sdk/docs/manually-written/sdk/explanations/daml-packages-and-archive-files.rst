@@ -108,8 +108,8 @@ and DALF files:
 * DALF files, on the other hand contain a compact, binary-encoded representation
   of Daml-LF. Daml-LF is very restricted, comparatively simple
   computer-executable programming language. Daml-LF is not intended to be
-  human-readable nor human-writable, it is intended to be fast to
-  execute and secure.
+  human-readable nor human-writable, it is intended to be deterministic, fast to
+  execute, and secure.
 
 Because DAR files are intended to be executed and passed around, they primarily
 contain Daml-LF, which can be executed directly -- they do not need to store the
