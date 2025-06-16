@@ -22,6 +22,7 @@ import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import DA.Daml.Compiler.Output
+import DA.Daml.Package.Config
 import qualified DA.Daml.LF.Ast as LF
 import qualified DA.Daml.LF.PrettyScript as SS
 import qualified DA.Daml.LF.ScriptServiceClient as SSC
@@ -76,10 +77,24 @@ data CoveragePaths = CoveragePaths
 newtype LoadCoverageOnly = LoadCoverageOnly {getLoadCoverageOnly :: Bool}
 
 -- | Test a Daml file.
-execTest :: SdkVersioned => [NormalizedFilePath] -> RunAllTests -> ShowCoverage -> UseColor -> Maybe FilePath -> Options -> TableOutputPath -> TransactionsOutputPath -> CoveragePaths -> [CoverageFilter] -> IO ()
-execTest inFiles runAllTests coverage color mbJUnitOutput opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
+execTest
+    :: SdkVersioned
+    => [NormalizedFilePath]
+    -> RunAllTests
+    -> ShowCoverage
+    -> UseColor
+    -> Maybe FilePath
+    -> Maybe PackageConfigFields
+    -> Options
+    -> TableOutputPath
+    -> TransactionsOutputPath
+    -> CoveragePaths
+    -> [CoverageFilter]
+    -> IO ()
+execTest inFiles runAllTests coverage color mbJUnitOutput mPkgConfig opts tableOutputPath transactionsOutputPath resultsIO coverageFilters = do
     loggerH <- getLogger opts "test"
-    withDamlIdeState opts loggerH diagnosticsLogger $ \h -> do
+    let optsWithPkg = maybe opts (\PackageConfigFields{..} -> opts { optMbPackageName = Just pName, optMbPackageVersion = pVersion }) mPkgConfig
+    withDamlIdeState optsWithPkg loggerH diagnosticsLogger $ \h -> do
         testRun h inFiles (optDetailLevel opts) (optDamlLfVersion opts) runAllTests coverage color mbJUnitOutput tableOutputPath transactionsOutputPath resultsIO coverageFilters
         diags <- getDiagnostics h
         when (any (\(_, _, diag) -> Just DsError == _severity diag) diags) exitFailure
