@@ -13,9 +13,12 @@ archive.
 Inspecting a DAR file
 *********************
 
-Running ``daml damlc inspect-dar <darfile>`` reports all of the files and
-packages in a DAR file. For example, consider a package ``mypkg`` which depends
-on a package ``dep``:
+You can run ``daml damlc inspect-dar /path/to/your.dar`` to get a
+human-readable listing of the files inside it and a list of packages
+and their package ids. This is often useful to find the package id of the
+project you just built.
+
+For example, consider a package ``mypkg`` which depends on a package ``dep``:
 
 .. code-block:: yaml
    :caption: mypkg/daml.yaml
@@ -38,7 +41,7 @@ on a package ``dep``:
 When ``mypkg-1.0.0`` is compiled to a DAR, we can inspect that DAR to ensure that
 it contains both the ``mypkg`` package and its dependency ``dep``:
 
-.. code-block:: none
+.. code-block:: sh
 
    > daml build
    ...
@@ -66,6 +69,44 @@ The first section reports all of the files in DAR, and the second section
 reports the package name and package ID for every DALF in the archive.
 
 More information on the exact structure of the zip file is :ref:`available in the explanation on Daml packages and archive files <structure-of-an-archive-file>`.
+
+Inspecting a DAR file as JSON
+*****************************
+
+In addition to the human-readable output, you can also get the output
+as JSON. This is easier to consume programmatically and it is more
+robust to changes across SDK versions:
+
+.. code-block:: sh
+
+  > daml damlc inspect-dar --json .daml/dist/mypkg-1.0.0.dar
+  {
+      "files": [
+          "mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf",
+          "mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf",
+          "mypkg-1.0.0-<mypkg-package-id>/Main.daml",
+          "mypkg-1.0.0-<mypkg-package-id>/Main.hi",
+          "mypkg-1.0.0-<mypkg-package-id>/Main.hie",
+          "META-INF/MANIFEST.MF"
+      ],
+      "main_package_id": "<mypkg-package-id>",
+      "packages": {
+          "<mypkg-package-id>": {
+              "name": "mypkg",
+              "path":
+                "mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf",
+              "version": "1.0.0"
+          },
+          "<dep-package-id>": {
+              "name": "dep",
+              "path": "mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf",
+              "version": "1.0.0"
+          }
+      }
+  }
+
+
+Note that ``name`` and ``version`` will be ``null`` for packages in Daml-LF < 1.8.
 
 Inspecting the main package of a DAR file
 *****************************************
