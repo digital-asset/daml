@@ -118,13 +118,19 @@ cd "${STAGING_DIR}" || exit 1
     fi
     info "Processing ${artifact_name} for ${arch}...\n"
     artifact="$(find . -type f -name ${search_pattern} | head -1)"
+    info "Found artifact: ${artifact}\n"
     if [[ -f "${artifact}" ]]; then
       ${makedir} "dist/${arch}/${artifact_name}"
         if [[ "$artifact_path" =~ .jar ]]; then
           ${copy} ${artifact} "dist/${arch}/${artifact_name}"
         else
           ${unarchive} "${artifact}" --unlink-first -C "dist/${arch}/${artifact_name}"
-          ${move} "dist/${arch}/${artifact_name}/${artifact_name}" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
+          if [[ "${item%%,*}" == "windows" ]]; then
+            # In windows archive we have folder with ".exe" at the end
+            ${move} "dist/${arch}/${artifact_name}/${artifact_name}.exe" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
+          else
+            ${move} "dist/${arch}/${artifact_name}/${artifact_name}" "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}"
+          fi
           # Fix symlinks in the artifact: replace them with real files
           find "dist/${arch}/${artifact_name}/${artifact_name}-${RELEASE_TAG}" -type l | while read link; do
             real_path="$(realpath "${link}")"
