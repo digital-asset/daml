@@ -136,7 +136,7 @@ provides a Scala package object ``com.digitalasset.daml.lf.archive`` with
 several decoders.
 
 There are three different types of outputs a decoder can have, and three
-possible inputs that the a decoder accepts - the ``archive`` package object
+possible inputs that a decoder accepts - the ``archive`` package object
 defines decoders for 8 of the 9 possible combinations
 
 Output types

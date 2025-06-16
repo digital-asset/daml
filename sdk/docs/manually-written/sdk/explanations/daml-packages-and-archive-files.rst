@@ -90,7 +90,7 @@ Aside from these files, there will be:
   is also used by Daml Studio to provide jump-to-definition.
 
 Both the source code and interface files are not required by any other tool than
-``Daml Studio`` - they can be safely removed from the DAR by consumers such as
+Daml Studio - they can be safely removed from the DAR by consumers such as
 participant runners.
 
 Difference between DALF files and Daml files
