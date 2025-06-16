@@ -78,7 +78,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
           .copy(directDeps = Set(libraryId))
 
       inside(newEngine.validatePackages(Map(pkgId -> dependentPackage))) {
-        case Left(Error.Package.SelfConsistency(pkgIds, deps, Set.empty)) =>
+        case Left(Error.Package.SelfConsistency(pkgIds, deps, _)) =>
           pkgIds shouldBe Set(pkgId)
           deps shouldBe Set(libraryId)
       }
