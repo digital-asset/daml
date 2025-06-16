@@ -84,7 +84,7 @@ class PackageUploader(
         dependencies <- dar.dependencies.parTraverse(archive =>
           catchUpstreamErrors(Decode.decodeArchive(archive))
         )
-        _ <- validatePackages(mainPackage :: dependencies)
+        _ <- validatePackages(mainPackage, dependencies)
       } yield DarMainPackageId.tryCreate(mainPackage._1)
     }
 
@@ -194,7 +194,7 @@ class PackageUploader(
           DarDescription(mainPackageId, persistedDescription, mainInfo.name, mainInfo.version),
           darPayload.toByteArray,
         )
-      _ <- validatePackages(allPackages.map(_._2))
+      _ <- validatePackages(mainPackage._2, dependencies.map(_._2))
       toUpload <- EitherT.fromEither[FutureUnlessShutdown](
         allPackages.traverse(x => parseMetadata(x).map(_ -> x._1))
       )
@@ -221,14 +221,15 @@ class PackageUploader(
     }
 
   private def validatePackages(
-      packages: List[(LfPackageId, Ast.Package)]
+      mainPackage: (LfPackageId, Ast.Package),
+      packages: List[(LfPackageId, Ast.Package)],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RpcError, Unit] =
     for {
       _ <- EitherT.fromEither[FutureUnlessShutdown](
         engine
-          .validatePackages(packages.toMap)
+          .validateDar(Dar(mainPackage, packages))
           .leftMap(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): RpcError
           )

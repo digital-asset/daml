@@ -50,7 +50,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
       """
 
     "accept valid package" in {
-      newEngine.validatePackages(Map(pkgId -> pkg)) shouldBe Right(())
       newEngine.validateDar(darFromPackageMap(pkgId -> pkg)) shouldBe Right(())
     }
 
@@ -63,10 +62,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
         }
       """
 
-      inside(
-        newEngine.validatePackages(Map(pkgId -> illTypedPackage))
-      ) { case Left(_: Error.Package.Validation) =>
-      }
       inside(
         newEngine.validateDar(darFromPackageMap(pkgId -> illTypedPackage))
       ) { case Left(_: Error.Package.Validation) =>
@@ -93,12 +88,6 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
             // TODO: parser should set dependencies properly
             .copy(directDeps = Set(missingPkgId))
 
-        inside(newEngine.validatePackages(Map(pkgId -> dependentPackage))) {
-          case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
-            pkgIds shouldBe Set(pkgId)
-            missingDeps shouldBe Set(missingPkgId)
-            extraDeps shouldBe Set.empty
-        }
         inside(newEngine.validateDar(darFromPackageMap(pkgId -> dependentPackage))) {
           case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
             pkgIds shouldBe Set(pkgId)

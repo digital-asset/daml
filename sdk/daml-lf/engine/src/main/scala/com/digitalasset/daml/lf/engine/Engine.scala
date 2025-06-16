@@ -40,8 +40,6 @@ import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
 
-import scala.annotation.unused
-
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
 trait EngineLogger {
@@ -610,8 +608,8 @@ class Engine(val config: EngineConfig) {
   def preloadPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     compiledPackages.addPackage(pkgId, pkg)
 
-  /** This method checks a set of packages is self-consistent (it
-    * contains all its dependencies), contains only well-formed
+  /** This method checks a Dar file is self-consistent (it
+    * contains all its dependencies and only those dependencies), contains only well-formed
     * packages (See Daml-LF spec for more details) and uses only the
     * allowed language versions (as described by the engine
     * config).
@@ -619,45 +617,6 @@ class Engine(val config: EngineConfig) {
     * Package in [[pkgIds]] but not in [[pkgs]] are assumed to be
     * preloaded.
     */
-  // TODO: https://github.com/digital-asset/daml/pull/21378: remove this function in favour of validateDar
-  def validatePackages(
-      pkgs: Map[PackageId, Package]
-  ): Either[Error.Package.Error, Unit] = {
-    for {
-      _ <- pkgs
-        .collectFirst {
-          case (pkgId, pkg)
-              if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
-                .contains(pkg.languageVersion) =>
-            Error.Package.AllowedLanguageVersion(
-              pkgId,
-              pkg.languageVersion,
-              config.allowedLanguageVersions,
-            )
-        }
-        .toLeft(())
-      pkgIds = pkgs.keySet
-      missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
-      _ <- Either.cond(
-        missingDeps.isEmpty,
-        (),
-        Error.Package.SelfConsistency(pkgIds, missingDeps, Set.empty),
-      )
-      pkgInterface = PackageInterface(pkgs)
-      _ <- {
-        pkgs.iterator
-          // we trust already loaded packages
-          .collect {
-            case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
-              Validation.checkPackage(pkgInterface, pkgId, pkg)
-          }
-          .collectFirst { case Left(err) => Error.Package.Validation(err) }
-      }.toLeft(())
-
-    } yield ()
-  }
-
-  @unused
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
     val darManifest = dar.all.toMap
 
