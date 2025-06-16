@@ -649,6 +649,71 @@ class Engine(val config: EngineConfig) {
     } yield ()
   }
 
+  def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
+    val darManifest = dar.all.toMap
+
+    def lookupDarPackage(pkgId: PackageId): Option[Package] = darManifest.get(pkgId)
+
+    // FIXME: can we make this stack safe?
+    def calculateDependencyInformation(
+        pkgIds: Set[PackageId],
+        knownDeps: Set[PackageId],
+        missingDeps: Set[PackageId],
+    ): (Set[PackageId], Set[PackageId]) =
+      if (pkgIds.isEmpty) {
+        (knownDeps, missingDeps)
+      } else {
+        val (newMissingDeps, newKnownDeps) = pkgIds.partition(id => lookupDarPackage(id).isEmpty)
+        val directDeps = newKnownDeps.flatMap(id =>
+          lookupDarPackage(id).get.directDeps
+        ) -- (knownDeps ++ newKnownDeps ++ missingDeps ++ newMissingDeps)
+
+        calculateDependencyInformation(
+          directDeps,
+          knownDeps ++ newKnownDeps,
+          missingDeps ++ newMissingDeps,
+        )
+      }
+
+    for {
+      _ <- dar.all
+        .collectFirst {
+          case (pkgId, pkg)
+              if !stablePackageIds.contains(pkgId) && !config.allowedLanguageVersions
+                .contains(pkg.languageVersion) =>
+            Error.Package.AllowedLanguageVersion(
+              pkgId,
+              pkg.languageVersion,
+              config.allowedLanguageVersions,
+            )
+        }
+        .toLeft(())
+      // missingDeps are transitive dependencies that are missing from the Dar manifest
+      // extraDeps are dependencies that are not used (but they may also be missing from the Dar manifest)
+      (transitiveDeps, missingDeps) = calculateDependencyInformation(
+        Set(dar.main._2),
+        Set.empty,
+        Set.empty,
+      )
+      extraDeps = dar.all.filterNot((transitiveDeps ++ missingDeps).contains _)
+      _ <- Either.cond(
+        missingDeps.isEmpty && extraDeps.isEmpty,
+        (),
+        Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps),
+      )
+      pkgInterface = PackageInterface(pkgs)
+      _ <- {
+        pkgs.iterator
+          // we trust already loaded packages
+          .collect {
+            case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
+              Validation.checkPackage(pkgInterface, pkgId, pkg)
+          }
+          .collectFirst { case Left(err) => Error.Package.Validation(err) }
+      }.toLeft(())
+    } yield ()
+  }
+
   /** Given a contract argument of the given template id, calculate the interface
     * view of that API.
     */

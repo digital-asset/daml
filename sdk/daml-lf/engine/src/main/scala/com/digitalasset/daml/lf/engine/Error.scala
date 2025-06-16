@@ -65,10 +65,17 @@ object Error {
     final case class SelfConsistency(
         packageIds: Set[Ref.PackageId],
         missingDependencies: Set[Ref.PackageId],
+        extraDependencies: Set[Ref.PackageId],
     ) extends Error {
       def message: String =
         s"The set of packages ${packageIds.mkString("{'", "', '", "'}")} is not self consistent, " +
-          s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")}."
+          (if (missingDependencies.nonEmpty)
+             s"the missing dependencies are ${missingDependencies.mkString("{'", "', '", "'}")} "
+           else "") +
+          (if (missingDependencies.nonEmpty && extraDependencies.nonEmpty) "and " else "") +
+          (if (extraDependencies.nonEmpty)
+             s"the extra dependencies are ${extraDependencies.mkString("{'", "', '", "'}")}"
+           else "")
     }
 
   }
