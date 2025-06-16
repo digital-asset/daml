@@ -22,7 +22,7 @@ on a package ``dep``:
 
    name: mypkg
    version: 1.0.0
-   source: daml
+   source: daml/Main.daml
    ...
    data-dependencies:
    - ../dep/.daml/dist/dep-1.0.0.dar
@@ -32,7 +32,7 @@ on a package ``dep``:
 
    name: dep
    version: 1.0.0
-   source: daml
+   source: daml/Dep.daml
    ...
 
 When ``mypkg-1.0.0`` is compiled to a DAR, we can inspect that DAR to ensure that
