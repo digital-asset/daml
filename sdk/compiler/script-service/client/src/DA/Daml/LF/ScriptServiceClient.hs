@@ -188,6 +188,7 @@ data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
   , ctxSkipValidation :: LowLevel.SkipValidation
+  , ctxPackageMetadata :: LF.PackageMetadata
   }
 
 getNewCtx :: Handle -> Context -> IO (Either LowLevel.BackendError LowLevel.ContextId)
@@ -210,6 +211,7 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       loadPackages
       (S.toList unloadPackages)
       ctxSkipValidation
+      ctxPackageMetadata
   rootCtxId <- readIORef hContextId
   runExceptT $ do
       clonedRootCtxId <- ExceptT $ LowLevel.cloneCtx hLowLevelHandle rootCtxId

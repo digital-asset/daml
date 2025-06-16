@@ -16,6 +16,7 @@ import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.ModuleName
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.script.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
@@ -423,12 +424,22 @@ class ScriptService(implicit
             else
               Seq.empty
 
+          val selfPackageMetadata = Option.when(req.hasSelfPackageMetadata) {
+            val proto = req.getSelfPackageMetadata
+            Ast.PackageMetadata(
+              Ref.PackageName.assertFromString(proto.getPackageName),
+              Ref.PackageVersion.assertFromString(proto.getPackageVersion),
+              None,
+            )
+          }
+
           ctx.update(
             unloadModules,
             loadModules,
             unloadPackages,
             loadPackages,
             req.getNoValidation,
+            selfPackageMetadata,
           )
 
           resp.addAllLoadedModules(ctx.loadedModules().map(_.toString).asJava)

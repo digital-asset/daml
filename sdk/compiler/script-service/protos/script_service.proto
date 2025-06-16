@@ -106,6 +106,7 @@ message UpdateContextRequest {
   UpdateModules update_modules = 2;
   UpdatePackages update_packages = 3;
   bool noValidation = 4; // if true, does not run the package validations
+  PackageMetadata self_package_metadata = 5;
 }
 
 message UpdateContextResponse {

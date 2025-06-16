@@ -81,6 +81,11 @@ class Context(
   private var modules: Map[ModuleName, Ast.Module] = HashMap.empty
   private var modDefns: Map[ModuleName, Map[SDefinitionRef, SDefinition]] = HashMap.empty
   private var defns: Map[SDefinitionRef, SDefinition] = HashMap.empty
+  private var selfPackageMetadata: Ast.PackageMetadata = Ast.PackageMetadata(
+    name = PackageName.assertFromString("-dummy-package-name-"),
+    version = PackageVersion.assertFromString("0.0.0"),
+    upgradedPackageId = None,
+  )
 
   def loadedModules(): Iterable[ModuleName] = modules.keys
   def loadedPackages(): Iterable[PackageId] = extSignatures.keys
@@ -92,6 +97,7 @@ class Context(
     newCtx.modules = modules
     newCtx.modDefns = modDefns
     newCtx.defns = defns
+    newCtx.selfPackageMetadata = selfPackageMetadata
     newCtx
   }
 
@@ -102,6 +108,7 @@ class Context(
       unloadPackages: Set[PackageId],
       loadPackages: collection.Seq[ByteString],
       omitValidation: Boolean,
+      selfPackageMetadata: Option[Ast.PackageMetadata],
   ): Unit = synchronized {
 
     val newModules = loadModules.map(module =>
@@ -130,7 +137,8 @@ class Context(
         newModules
       }
 
-    val pkgInterface = new language.PackageInterface(this.allSignatures)
+    selfPackageMetadata.foreach(this.selfPackageMetadata = _)
+    val pkgInterface = new language.PackageInterface(allSignatures)
     val compiler = new Compiler(pkgInterface, compilerConfig)
 
     modulesToCompile.foreach { mod =>
@@ -149,21 +157,12 @@ class Context(
     modDefns.values.foreach(defns ++= _)
   }
 
-  // TODO: https://github.com/digital-asset/daml/issues/17995
-  //  Get the package name and package version from the daml.yaml
-  private[this] val dummyMetadata =
-    Ast.PackageMetadata(
-      name = PackageName.assertFromString("-dummy-package-name-"),
-      version = PackageVersion.assertFromString("0.0.0"),
-      upgradedPackageId = None,
-    )
-
   def allSignatures: Map[PackageId, Ast.PackageSignature] = {
     val extSignatures = this.extSignatures
     extSignatures.updated(
       homePackageId,
       AstUtil.toSignature(
-        Ast.Package(modules, extSignatures.keySet, languageVersion, dummyMetadata)
+        Ast.Package(modules, extSignatures.keySet, languageVersion, selfPackageMetadata)
       ),
     )
   }

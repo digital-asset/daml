@@ -107,6 +107,7 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updSkipValidation :: SkipValidation
+  , updPackageMetadata :: LF.PackageMetadata 
   }
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
@@ -327,6 +328,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
+          (Just $ convPackageMetadata updPackageMetadata)
   pure (void res)
   where
     updModules =
@@ -340,6 +342,10 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
     encodeName = TL.fromStrict . mangleModuleName
     convModule :: (LF.ModuleName, BS.ByteString) -> SS.ScriptModule
     convModule (_, bytes) = SS.ScriptModule bytes
+    convPackageMetadata m =
+      SS.PackageMetadata
+        (TL.fromStrict $ LF.unPackageName $ LF.packageName m)
+        (TL.fromStrict $ LF.unPackageVersion $ LF.packageVersion m)
 
 mangleModuleName :: LF.ModuleName -> T.Text
 mangleModuleName (LF.ModuleName modName) =
