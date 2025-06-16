@@ -28,7 +28,7 @@ These methods will install the most recent Daml SDK with its Daml Assistant, and
 Configure
 *********
 Daml assistant uses a ``daml-config.yaml`` file to configure SDK installation behaviour.  
-On Linux/MacOS, this will be in ``~/.daml/``. On Windows, it will be in ``C:/Users/<user>/AppData/Roaming/daml``.  
+On Linux/MacOS, this will be in ``$DAML_HOME``. On Windows, it will be in ``%DAML_HOME%``.  
 
 .. _global_daml_config:
 
@@ -128,7 +128,7 @@ Decomission
 ***********
 Linux/MacOS
 ===========
-Run ``rm -rf ~/.daml``, then one of the following based on which shell you are running:
+Run ``rm -rf $DAML_HOME``, then one of the following based on which shell you are running:
 
 - Zsh: ``sed -i -E '/^export PATH=\$PATH:[^ ;\n]+\.daml/bin/d' ~/.zprofile``
 - Bash: ``sed -i -E '/^export PATH=\$PATH:[^ ;\n]+\.daml/bin/d' ~/.bash_profile``
@@ -143,11 +143,39 @@ Troubleshoot
 ************
 ``Command 'daml' not found, did you mean:``  
 
-Try adding Daml to your PATH manually, by adding ``export PATH=$PATH:$HOME/.daml/bin`` to your ``zprofile``/``bash_profile``/``profile`` file, depending on which shell you are using.
+Try adding Daml to your PATH manually, by adding ``export PATH=$PATH:$DAML_HOME/bin`` to your ``zprofile``/``bash_profile``/``profile`` file, depending on which shell you are using.
 
 .. Consider adding Sdk version build error - install that SDK
 .. Maybe the error for when the enterprise artifactory key is wrong
 .. Caution, this section could become very large, we should be conservative with what we include here.
+
+
+The Daml installation requires around 1.5 GB of disk space. If there is not enough space on disk, the installer outputs the error:
+``
+resource exhausted (No space left on device)
+``
+
+In order to fix this problem, one needs to ensure sufficient disk space overall. In particular, the directory where the Daml SDK installs, 
+and the temporary files directory need to have sufficient space (i.e., in the order of 2GiB each):
+
+* On Windows, one can find the Daml SDK home directory in the ``%DAML_HOME%`` environment variable, which default to ``%APPDATA%/daml``, and the
+  temporary files directory in the ``%TEMP%`` environment variable
+* On Linux and MacOS, one can find the Daml SDK home directory also in the ``DAML_HOME`` environment variable, which defaults to ``~/.daml``, 
+  and the temporary files directory in the ``TMPDIR`` environment variable 
+
+If the installer cannot ensure sufficient space in the Daml SDK's home directory (``DAML_HOME``)  and the temporary files directory, 
+an alternative is to change the location of these directories before the installation.
+To do so, call the installer with ``DAML_HOME`` and ``TMPDIR`` environment variables pointing to directories that have sufficient space:
+
+* On Windows, first set the environment variables. Then run the installation as usual.
+* On Linus and MacOS, run in a terminal:
+
+.. code-block: sh
+  
+  DAML_HOME=<YOUR-TARGET-DIR> TMPDIR=<YOUR-TEMPDIR> curl -sSL https://get.daml.com/ | sh
+
+Avoid choosing directories for ``DAML_HOME`` and ``TMPDIR`` environment variables that are located inside the unzipped installation
+directory ``sdk-x.x.x``, as otherwise the installer fails.
 
 Contribute
 **********
