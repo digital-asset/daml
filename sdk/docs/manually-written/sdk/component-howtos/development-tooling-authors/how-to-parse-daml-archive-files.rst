@@ -151,7 +151,7 @@ depending on what is needed.
   In this case, ``PackageId`` comes from ``com.digitalasset.daml.lf.language.Ref``
   in the ``com.daml:daml-lf-data`` package, and ``Package`` comes from
   ``com.digitalasset.daml.lf.language.Ast``, in the ``com.daml:daml-lf-language``
-  package.
+  library.
 
   Because fully decoding the package takes more processing time than the next
   two examples, only use it when the full package code is needed.
