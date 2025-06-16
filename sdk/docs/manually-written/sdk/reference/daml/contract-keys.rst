@@ -6,6 +6,20 @@
 Reference: Contract Keys
 ########################
 
+
+.. important::
+  Contract keys are not supported in this release of Canton 3.x.
+  Support for **non-unique contract keys** will come in a future release of Canton 3.x.
+  Unique contract keys are not planned be supported in Canton 3.x, as
+  there are no known good solutions for enforcing uniqueness constraints at the
+  infrastructure level when there are multiple independent subnetworks that can
+  be (dis)connected at any point in time.
+
+  The documentation below is kept for completeness, but can be ignored for this release of Canton 3.x.
+
+Unsupported feature
+*******************
+
 Contract keys are an optional addition to templates. They let you specify a way of uniquely identifying contracts, using the parameters to the template - similar to a primary key for a database.
 
 Contract keys do not change and can be used to refer to a contract even when the contract id changes.
