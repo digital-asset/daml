@@ -119,7 +119,7 @@ DARs as dependencies
 ********************
 
 When a new project needs to depend on a different package, the DAR that the
-package was compiled to is supplied a data-dependency in the new project's
+package was compiled to is supplied as a data-dependency in the new project's
 ``daml.yaml``.
 
 For example, suppose a new package ``next-project`` that uses the ``mypkg``
