@@ -1,0 +1,119 @@
+.. _daml-packages-and-daml-archive-files:
+
+Daml packages and archive (.dar) files
+######################################
+
+When a Daml package is compiled, it is packed into a final artifact called a DAR
+(``.dar``) file. The purpose of this DAR file is to contain all of the necessary
+code and logic to run the package's templates, without requiring any other
+files.
+
+For example, assume a simple package with the following definition:
+
+.. code:: yaml
+
+   name: mypkg
+   version: 1.0.0
+   source: daml
+   ...
+   dependencies:
+   - daml-prim
+   - daml-stdlib
+
+The command ``daml build`` compiles it and reports the path of the resulting DAR
+as the last line:
+
+.. code:: sh
+
+   > daml build
+
+   Running single package build of mypkg as no multi-package.yaml was found.
+   ...
+   Compiling mypkg to a DAR.
+   ...
+   Created .daml/dist/mypkg-1.0.0.dar
+
+This DAR will contain all of the code for the package, as well as all of the
+code for its dependencies.
+
+Contents of an archive file
+***************************
+
+A DAR file contains:
+
+* A ``MANIFEST`` file which contains the name of the package that was compiled
+  into the DAR, contains some more metadata about the package, and lists all of
+  the dependencies of that package.
+* The entire compiled representation of the DAR's primary package, encoded via
+  protobuf into a single DALF file (``.dalf``).
+* For each dependency of the primary package, another DALF file is listed. This
+  includes depdencies like daml-prim and daml-stdlib.
+* Optionally, the source code and interface files for the primary package. This
+  is used by Daml Studio to provide jump-to-definition and similar functionality
+  when the DAR is included as a dependency of another project.
+
+Difference between DALF files and Daml files
+********************************************
+
+A common question at this stage is why DAR files contain DALF files - why don't
+they just contain all of the source code for all of the packages directly?
+
+To understand why, it is important to understand the distinction between Daml
+and DALF files:
+
+* Daml files contain the Daml source code that Daml developers write. Daml
+  source code is human-writable and human-readable, and is readable as a general
+  purpose programming language.
+* DALF files, on the other hand contain a compact, binary-encoded representation
+  of Daml-LF. Daml-LF is very restricted, comparatively simple
+  computer-executable programming language. Daml-LF is not intended to be
+  human-readable nor human-writable, it is intended to be fast to
+  execute and secure.
+
+Because DAR files are intended to be executed and passed around, they primarily
+contain Daml-LF, which can be executed directly when it is uploaded to a
+participant and run. In general, DAR files only need to keep the executable
+Daml-LF for the whole package around, so they do not need to store the Daml code
+from which it was compiled.
+
+There is one exception: so that Daml Studio can provide useful functions such as
+goto-definition, a DAR file can store the Daml code for its primary package.
+However, the DAR does not store the Daml code for any other package because Daml
+Studio does not provide jump-to-definition for transitive dependencies.
+
+DARs as dependencies
+********************
+
+When a new project needs to depend on a different package, the DAR that the
+package was compiled to is supplied a data-dependency in the new project's
+``daml.yaml``.
+
+For example, suppose a new package ``next-project`` that uses the ``mypkg``
+package as a dependency:
+
+.. code:: yaml
+
+   name: next-project
+   version: 1.0.0
+   source: daml
+   dependencies:
+   - daml-prim
+   - daml-stdlib
+   data-dependencies:
+   - ../mypkg/.daml/dist/mypkg-1.0.0.dar
+
+In this case, the compilation process unpacks the DAR, finds its primary
+package, and exposes that as a dependency to code inside ``next-project``. When
+``next-project`` is compiled, it retains all of the DALF files inside the
+``mypkg`` DAR, including the ``mypkg`` package's dependencies.
+
+In general, any time a DAR is compiled for a package that has further DAR
+dependencies, those DAR dependencies are unpacked and all of their DALF files
+are copied into the new output DAR. However, while DALF files are copied over,
+the dependency DARs' manifest files are not copied over, and neither are the
+source code and interface files. Only the source code and interface files for
+the primary package of a DAR can show up in a DAR.
+
+For more information on how to open up and inspect the DAR files and DALF files,
+refer to the documentation on :ref:`how to parse Daml archive files
+<how-to-parse-daml-archive-files>`.
