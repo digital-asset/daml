@@ -13,11 +13,9 @@ archive.
 Inspecting a DAR file
 *********************
 
-A DAR is actually a zip file which contains many ``.dalf`` files - each
-``.dalf`` file contains the compiled code for a specific package. A metadata
-file called ``MANIFEST`` records which package is the "main" or "primary"
-package of the DAR -- the rest of the packages are dependencies of that "main"
-package.
+A DAR is actually a zip file containing multiple packages, one of which is the
+"main" package; more information on the exact structure of the zip file is
+:ref:`available the explanation on Daml packages and archive files <structure-of-an-archive-file>`.
 
 Running ``daml damlc inspect-dar <darfile>`` reports all of the files and
 packages in a DAR file. For example, consider a package ``mypkg`` which depends
@@ -46,6 +44,10 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
 
 .. code-block:: none
 
+   > daml build
+   ...
+   Created .daml/dist/mypkg-1.0.0.dar
+
    > daml damlc inspect-dar .daml/dist/mypkg-1.0.0.dar
 
    DAR archive contains the following files:
@@ -64,57 +66,77 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
    dep-1.0.0-<dep-package-id> "<dep-package-id>"
    mypkg-1.0.0-<mypkg-package-id> "<mypkg-package-id>"
 
-The first section reports all of the files in DAR, including the DAR's MANIFEST
-file, which keeps metadata about which DALF file is the "main". The second section
-reports the package name and package ID for every dalf in the archive.
+The first section reports all of the files in DAR, and the second section
+reports the package name and package ID for every DALF in the archive.
 
-In every DAR, there will be many additional ``.dalf`` files for the standard
-library and primitive libraries - these are necessary for running any Daml code,
-so they are automatically included.
+Inspecting the main package of a DAR file
+*****************************************
+
+If you'd like to inspect the code inside the main package of a DAR, the Daml
+compiler provides the ``inspect`` tool; running ``daml damlc inspect <path-to-dar-file>``
+prints all of the code in that DALF file in a human-readable format.
+
+For example, run the ``inspect`` tool on the DAR produced in the previous
+section:
+
+.. code-block:: sh
+
+   # Human-readable dump of code in "mypkg" package inside of "mypkg" DAR
+   > daml damlc inspect .daml/dist/mypkg-1.0.0.dar
+   package <mypkg-package-id>
+   daml-lf 2.1
+   metadata mypkg-1.0.0
+
+   module Main where
+   ...
 
 Inspecting a DALF file
 **********************
 
-If you'd like to inspect the code inside a .dalf, the Daml compiler provides the
-``inspect`` tool; running ``daml damlc inspect <path-to-dalf-file>`` on a DALF
-file prints all of the code in that DALF file in a human-readable format.
+The ``inspect`` tool also accepts DALF files; running ``daml damlc inspect <path-to-dalf-file>``
+on a DALF file prints all of the code in that DALF file.
 
 We can unzip a DAR to access its dalfs and inspect them, for example with the
 DAR from the previous section:
 
 .. code-block:: sh
 
+   # Unzip the DAR to get its DALFs
    > unzip .daml/dist/mypkg-1.0.0.dar
-   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
-   ...
-   # Human-readable dump of code in mypkg
-   ...
-   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
-   ...
+
    # Human-readable dump of code in dep
+   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
+   package <dep-package-id>
+   daml-lf 2.1
+   metadata dep-1.0.0
+
+   module Dep where
    ...
 
-Running ``inspect`` on a DAR will extract only its "main" package's ``.dalf``,
-and then run ``inspect`` on that ``.dalf``:
+We can even inspect the main package of a DAR this way, even though running
+``inspect`` directly on the DAR file would require fewer steps.
 
 .. code-block:: sh
 
-   # Same as the first two lines in the code block above
-   > daml damlc inspect .daml/dist/mypkg-1.0.0.dar
-   ...
-   # Human-readable dump of code in mypkg
+   # Identical to dump from `daml damlc inspect .daml/dist/mypkg-1.0.0.dar`
+   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
+   package <mypkg-package-id>
+   daml-lf 2.1
+   metadata mypkg-1.0.0
+
+   module Main where
    ...
 
 Parsing DAR and DALF files
 **************************
 
 To parse a DAR or DALF file from within Scala code, the
-``com-daml:daml-lf-archive-reader`` library on Maven provides a Scala package
-object ``com.digitalasset.daml.lf.archive`` with several decoders.
-
-There are three different types of outputs a decoder can have, and three
-possible inputs that the a decoder accepts - the ``archive`` package object
-defines decoders for 8 of the 9 possible combinations
+``com-daml:daml-lf-archive-reader`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-reader>`_
+provides a Scala package object ``com.digitalasset.daml.lf.archive`` with
+several decoders. Below are the common types of inputs and outputs a decoder can
+have, and which decoders to use depending on the input and output that is
+desired. For more details on inputs, outputs, and decoders, please refer to
+Maven to find the source code for the associated libraries.
 
 Output types
 """"""""""""
@@ -128,14 +150,15 @@ depending on what is needed.
   In this case, ``PackageId`` comes from ``com.digitalasset.daml.lf.language.Ref``
   in the ``com.daml:daml-lf-data`` package, and ``Package`` comes from
   ``com.digitalasset.daml.lf.language.Ast``, in the ``com.daml:daml-lf-language``
-  package.
+  `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-language>`_.
 
   Because fully decoding the package takes more processing time than the next
   two examples, only use it when the full package code is needed.
 * When only the simplest representation of the protobuf of the package is
   needed, pick a decoder returning a ``com.digitalasset.daml.lf.DamlLf.ArchivePayload``
-  (from the ``com-daml:daml-lf-archive-proto`` library). This should only be
-  needed when working with internal protobuf representations of a package.
+  (from the ``com-daml:daml-lf-archive-proto`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto>`).
+  This should only be needed when working with internal protobuf representations
+  of a package.
 * When only the package's byte representation and hash is needed, use a
   decoder that returns ``Archive`` (also from the ``com-daml:daml-lf-archive-proto``
   library). When using this, the decoder will not spend time decoding any of the
