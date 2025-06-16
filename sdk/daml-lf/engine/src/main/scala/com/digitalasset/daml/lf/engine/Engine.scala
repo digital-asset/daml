@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.command._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageId, ParticipantId, Party}
@@ -38,6 +39,8 @@ import com.digitalasset.daml.lf.validation.Validation
 import com.daml.logging.LoggingContext
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
+
+import scala.annotation.unused
 
 // TODO once the ContextualizedLogger is replaced with the NamedLogger and Speedy doesn't use its
 //   own logger, we can remove this import
@@ -616,6 +619,7 @@ class Engine(val config: EngineConfig) {
     * Package in [[pkgIds]] but not in [[pkgs]] are assumed to be
     * preloaded.
     */
+  // TODO: https://github.com/digital-asset/daml/pull/21378: remove this function in favour of validateDar
   def validatePackages(
       pkgs: Map[PackageId, Package]
   ): Either[Error.Package.Error, Unit] = {
@@ -634,7 +638,11 @@ class Engine(val config: EngineConfig) {
         .toLeft(())
       pkgIds = pkgs.keySet
       missingDeps = pkgs.valuesIterator.flatMap(_.directDeps).toSet.filterNot(pkgIds)
-      _ <- Either.cond(missingDeps.isEmpty, (), Error.Package.SelfConsistency(pkgIds, missingDeps))
+      _ <- Either.cond(
+        missingDeps.isEmpty,
+        (),
+        Error.Package.SelfConsistency(pkgIds, missingDeps, Set.empty),
+      )
       pkgInterface = PackageInterface(pkgs)
       _ <- {
         pkgs.iterator
@@ -649,6 +657,7 @@ class Engine(val config: EngineConfig) {
     } yield ()
   }
 
+  @unused
   def validateDar(dar: Dar[(PackageId, Package)]): Either[Error.Package.Error, Unit] = {
     val darManifest = dar.all.toMap
 
@@ -688,22 +697,22 @@ class Engine(val config: EngineConfig) {
             )
         }
         .toLeft(())
-      // missingDeps are transitive dependencies that are missing from the Dar manifest
-      // extraDeps are dependencies that are not used (but they may also be missing from the Dar manifest)
+      // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
+      // extraDeps are Dar manifest package IDs that are not used (but their packages may also be missing from the Dar manifest)
       (transitiveDeps, missingDeps) = calculateDependencyInformation(
-        Set(dar.main._2),
+        Set(dar.main._1),
         Set.empty,
         Set.empty,
       )
-      extraDeps = dar.all.filterNot((transitiveDeps ++ missingDeps).contains _)
+      extraDeps = darManifest.keySet.diff(transitiveDeps ++ missingDeps)
       _ <- Either.cond(
         missingDeps.isEmpty && extraDeps.isEmpty,
         (),
-        Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps),
+        Error.Package.SelfConsistency(darManifest.keySet, missingDeps, extraDeps),
       )
-      pkgInterface = PackageInterface(pkgs)
+      pkgInterface = PackageInterface(darManifest)
       _ <- {
-        pkgs.iterator
+        darManifest.iterator
           // we trust already loaded packages
           .collect {
             case (pkgId, pkg) if !compiledPackages.contains(pkgId) =>
