@@ -96,8 +96,8 @@ participant runners.
 Difference between DALF files and Daml files
 ********************************************
 
-A common question at this stage is why DAR files contain DALF files - why don't
-they just contain all of the source code for all of the packages directly?
+A common question is why DAR files contain DALF files - why don't they just
+contain all of the source code for all of the packages directly?
 
 To understand why, it is important to understand the distinction between Daml
 and DALF files:
