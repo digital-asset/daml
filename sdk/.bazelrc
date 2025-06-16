@@ -80,10 +80,11 @@ build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
 # since we're only connecting to localhost.
 build --define=grpc_no_ares=true
 
-# Retry on remote cache eviction errors.
-# Bazel 7 enabled builds without the bytes by default, which can cause build
-# errors when outputs of cached actions are no longer stored in the CAS.
-build --experimental_remote_cache_eviction_retries=1
+# Disable builds without the bytes, which is enabled by default as of Bazel 7.
+# The remote cache evicts items without taking the link between action cache
+# entries and CAS entries into account. Build without the bytes causes build
+# failures when a CAS item for a cached action is missing.
+build --remote_download_outputs=all
 
 # Pass through cacert information for git.
 build --action_env=GIT_SSL_CAINFO
