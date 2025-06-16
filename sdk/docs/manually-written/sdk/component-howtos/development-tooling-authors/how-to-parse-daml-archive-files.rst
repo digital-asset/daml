@@ -10,6 +10,8 @@ When a Daml project is compiled, it produces a DAR (extension ``.dar``), short
 for Daml Archive. The Daml compiler exposes commands for inspecting this
 archive.
 
+.. _inspecting_dars:
+
 Inspecting a DAR file
 *********************
 
@@ -189,15 +191,19 @@ depending on what is needed.
   In this case, ``PackageId`` comes from ``com.digitalasset.daml.lf.language.Ref``
   in the ``com.daml:daml-lf-data`` package, and ``Package`` comes from
   ``com.digitalasset.daml.lf.language.Ast``, in the ``com.daml:daml-lf-language``
-  `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-language>`_.
+  `library on Maven`__.
+
+  __ https://mvnrepository.com/artifact/com.daml/daml-lf-language
 
   Because fully decoding the package takes more processing time than the next
   two examples, only use it when the full package code is needed.
 * When only the simplest representation of the protobuf of the package is
   needed, pick a decoder returning a ``com.digitalasset.daml.lf.DamlLf.ArchivePayload``
-  (from the ``com-daml:daml-lf-archive-proto`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto>`).
+  (from the ``com-daml:daml-lf-archive-proto`` `library on Maven`__).
   This should only be needed when working with internal protobuf representations
   of a package.
+
+  __ https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto
 * When only the package's byte representation and hash is needed, use a
   decoder that returns ``Archive`` (also from the ``com-daml:daml-lf-archive-proto``
   library). When using this, the decoder will not spend time decoding any of the
