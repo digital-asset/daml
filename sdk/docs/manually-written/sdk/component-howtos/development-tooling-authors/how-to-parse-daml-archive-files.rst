@@ -131,8 +131,9 @@ Parsing DAR and DALF files
 **************************
 
 To parse a DAR or DALF file from within Scala code, the
-``com-daml:daml-lf-archive-reader`` library on Maven provides a Scala package
-object ``com.digitalasset.daml.lf.archive`` with several decoders.
+``com-daml:daml-lf-archive-reader`` library `on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-reader>`_
+provides a Scala package object ``com.digitalasset.daml.lf.archive`` with
+several decoders.
 
 There are three different types of outputs a decoder can have, and three
 possible inputs that the a decoder accepts - the ``archive`` package object
