@@ -13,10 +13,6 @@ archive.
 Inspecting a DAR file
 *********************
 
-A DAR is actually a zip file containing multiple packages, one of which is the
-"main" package; more information on the exact structure of the zip file is
-:ref:`available the explanation on Daml packages and archive files <structure-of-an-archive-file>`.
-
 Running ``daml damlc inspect-dar <darfile>`` reports all of the files and
 packages in a DAR file. For example, consider a package ``mypkg`` which depends
 on a package ``dep``:
@@ -68,6 +64,8 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
 
 The first section reports all of the files in DAR, and the second section
 reports the package name and package ID for every DALF in the archive.
+
+More information on the exact structure of the zip file is :ref:`available in the explanation on Daml packages and archive files <structure-of-an-archive-file>`.
 
 Inspecting the main package of a DAR file
 *****************************************
