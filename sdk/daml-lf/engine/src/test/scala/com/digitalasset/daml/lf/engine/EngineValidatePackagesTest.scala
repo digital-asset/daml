@@ -4,7 +4,9 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.digitalasset.daml.lf.archive.Dar
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.testing.parser
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
@@ -33,10 +35,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
   )
 
   private def darFromPackageMap(
-      mainPkg: (Ref.PackageId, Ref.Package),
-      dependentPkgs: (Ref.PackageId, Ref.Package)*
-  ): Dar[(Ref.PackageId, Ref.Package)] =
-    Dar(mainPkg, dependentPkgs)
+      mainPkg: (Ref.PackageId, Package),
+      dependentPkgs: (Ref.PackageId, Package)*
+  ): Dar[(Ref.PackageId, Package)] =
+    Dar(mainPkg, dependentPkgs.toList)
 
   "Engine.validatePackages" should {
     val pkg =
@@ -116,10 +118,10 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
 
         inside(
           newEngine.validateDar(
-            darFromPackageMap(Map(pkgId -> dependentPackage, extraPkgId -> extraPkg))
+            darFromPackageMap(pkgId -> dependentPackage, extraPkgId -> extraPkg)
           )
         ) { case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
-          pkgIds shouldBe Set(pkgId)
+          pkgIds shouldBe Set(pkgId, extraPkgId)
           missingDeps shouldBe Set.empty
           extraDeps shouldBe Set(extraPkgId)
         }
@@ -141,7 +143,7 @@ class EngineValidatePackagesTest(majorLanguageVersion: LanguageMajorVersion)
             darFromPackageMap(pkgId -> dependentPackage, extraPkgId -> extraPkg)
           )
         ) { case Left(Error.Package.SelfConsistency(pkgIds, missingDeps, extraDeps)) =>
-          pkgIds shouldBe Set(pkgId)
+          pkgIds shouldBe Set(pkgId, extraPkgId)
           missingDeps shouldBe Set(missingPkgId)
           extraDeps shouldBe Set(extraPkgId)
         }
