@@ -112,10 +112,8 @@ and DALF files:
   execute and secure.
 
 Because DAR files are intended to be executed and passed around, they primarily
-contain Daml-LF, which can be executed directly when it is uploaded to a
-participant and run. In general, DAR files only need to keep the executable
-Daml-LF for the whole package around, so they do not need to store the Daml code
-from which it was compiled.
+contain Daml-LF, which can be executed directly -- they do not need to store the
+Daml code from which it was compiled.
 
 DARs as dependencies
 ********************
