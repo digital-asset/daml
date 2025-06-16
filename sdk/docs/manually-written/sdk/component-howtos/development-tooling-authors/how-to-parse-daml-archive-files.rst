@@ -131,13 +131,12 @@ Parsing DAR and DALF files
 **************************
 
 To parse a DAR or DALF file from within Scala code, the
-``com-daml:daml-lf-archive-reader`` library `on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-reader>`_
+``com-daml:daml-lf-archive-reader`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-reader>`_
 provides a Scala package object ``com.digitalasset.daml.lf.archive`` with
-several decoders.
-
-There are three different types of outputs a decoder can have, and three
-possible inputs that a decoder accepts - the ``archive`` package object
-defines decoders for 8 of the 9 possible combinations
+several decoders. Below are the common types of inputs and outputs a decoder can
+have, and which decoders to use depending on the input and output that is
+desired. For more details on inputs, outputs, and decoders, please refer to
+Maven to find the source code for the associated libraries.
 
 Output types
 """"""""""""
@@ -151,14 +150,15 @@ depending on what is needed.
   In this case, ``PackageId`` comes from ``com.digitalasset.daml.lf.language.Ref``
   in the ``com.daml:daml-lf-data`` package, and ``Package`` comes from
   ``com.digitalasset.daml.lf.language.Ast``, in the ``com.daml:daml-lf-language``
-  library.
+  `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-language>`_.
 
   Because fully decoding the package takes more processing time than the next
   two examples, only use it when the full package code is needed.
 * When only the simplest representation of the protobuf of the package is
   needed, pick a decoder returning a ``com.digitalasset.daml.lf.DamlLf.ArchivePayload``
-  (from the ``com-daml:daml-lf-archive-proto`` library). This should only be
-  needed when working with internal protobuf representations of a package.
+  (from the ``com-daml:daml-lf-archive-proto`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto>`).
+  This should only be needed when working with internal protobuf representations
+  of a package.
 * When only the package's byte representation and hash is needed, use a
   decoder that returns ``Archive`` (also from the ``com-daml:daml-lf-archive-proto``
   library). When using this, the decoder will not spend time decoding any of the
