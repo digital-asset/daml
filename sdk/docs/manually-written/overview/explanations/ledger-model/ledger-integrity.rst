@@ -19,9 +19,6 @@ Integrity
 This section addresses the question of who can request which
 changes.
 
-Parking lot
-***********
-
 To answer the next question, "who can request which changes",
 a precise definition is needed of which ledgers are permissible,
 and which are not. For example, the above
@@ -71,10 +68,31 @@ following ledgers are not.
 
    Painter trying to create two different paint offers with the same reference number.
 
-   
-The next section discusses the criteria that rule out the above examples as
-invalid ledgers.
 
+.. 
+  The next section discusses the criteria that rule out the above examples as
+  invalid ledgers.
+  
+  Ledger projections do not always satisfy the definition of
+  consistency, even if the ledger does. For example, in P's view, `Iou Bank A` is
+  exercised without ever being created, and thus without being made
+  active. Furthermore, projections can in general be
+  non-conformant. However, the projection for a party `p` is always
+  
+  - internally consistent for all contracts,
+  - consistent for all contracts on which `p` is a stakeholder, and
+  - consistent for the keys that `p` is a maintainer of.
+  
+  In other words,
+  `p` is never a stakeholder on any input contracts of its projection. Furthermore, if the
+  contract model is **subaction-closed**, which
+  means that for every action `act` in the model, all subactions of
+  `act` are also in the model, then the projection is guaranteed to be
+  conformant. As we will see shortly, Daml-based contract models are
+  conformant. Lastly, as projections carry no information about the
+  requesters, we cannot talk about authorization on the level of
+  projections.
+  
 
 
 .. _da-model-consistency:
@@ -564,8 +582,6 @@ to him. However, the actor of this exercise is Alice, who has not
 authorized the exercise. Thus, this ledger is not
 well-authorized.
 
-The rationale for making the maintainers required authorizers for a **NoSuchKey** assertion
-is discussed in the next section about :ref:`privacy <da-model-privacy-authorization>`.
 
 Valid Ledgers, Obligations, Offers and Rights
 *********************************************

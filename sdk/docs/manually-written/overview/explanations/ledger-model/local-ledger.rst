@@ -32,7 +32,7 @@ A Daml Ledger need not totally order all transaction, unlike ledgers in the Daml
 The following examples illustrate these ordering guarantees of the Ledger API.
 They are based on the paint counteroffer workflow from the Daml Ledger Model's :ref:`privacy section <da-model-privacy>`,
 ignoring the total ordering coming from the Daml Ledger Model.
-Recall that :ref:`the party projections <da-paint-counteroffer-example>` are as follows.
+Recall that :brokenref:`the party projections <da-paint-counteroffer-example>` are as follows.
 
 .. https://www.lucidchart.com/documents/edit/c4df0455-13ab-415f-b457-f5654c2684be
 .. image:: ./images/divulgence-for-disclosure-counteroffer.svg
