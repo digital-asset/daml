@@ -69,37 +69,62 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
 The first section reports all of the files in DAR, and the second section
 reports the package name and package ID for every DALF in the archive.
 
+Inspecting the main package of a DAR file
+*****************************************
+
+If you'd like to inspect the code inside the main package of a DAR, the Daml
+compiler provides the ``inspect`` tool; running ``daml damlc inspect <path-to-dar-file>``
+prints all of the code in that DALF file in a human-readable format.
+
+For example, run the ``inspect`` tool on the DAR produced in the previous
+section:
+
+.. code-block:: sh
+
+   # Human-readable dump of code in "mypkg" package inside of "mypkg" DAR
+   > daml damlc inspect .daml/dist/mypkg-1.0.0.dar
+   package <mypkg-package-id>
+   daml-lf 2.1
+   metadata mypkg-1.0.0
+
+   module Main where
+   ...
+
 Inspecting a DALF file
 **********************
 
-If you'd like to inspect the code inside a .dalf, the Daml compiler provides the
-``inspect`` tool; running ``daml damlc inspect <path-to-dalf-file>`` on a DALF
-file prints all of the code in that DALF file in a human-readable format.
+The ``inspect`` tool also accepts DALF files; running ``daml damlc inspect <path-to-dalf-file>``
+on a DALF file prints all of the code in that DALF file.
 
 We can unzip a DAR to access its dalfs and inspect them, for example with the
 DAR from the previous section:
 
 .. code-block:: sh
 
+   # Unzip the DAR to get its DALFs
    > unzip .daml/dist/mypkg-1.0.0.dar
-   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
-   ...
-   # Human-readable dump of code in mypkg
-   ...
-   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
-   ...
+
    # Human-readable dump of code in dep
+   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
+   package <dep-package-id>
+   daml-lf 2.1
+   metadata dep-1.0.0
+
+   module Dep where
    ...
 
-Running ``inspect`` on a DAR will extract only its "main" package's ``.dalf``,
-and then run ``inspect`` on that ``.dalf``:
+We can even inspect the main package of a DAR this way, even though running
+``inspect`` directly on the DAR file would require fewer steps.
 
 .. code-block:: sh
 
-   # Same as the first two lines in the code block above
-   > daml damlc inspect .daml/dist/mypkg-1.0.0.dar
-   ...
-   # Human-readable dump of code in mypkg
+   # Identical to dump from `daml damlc inspect .daml/dist/mypkg-1.0.0.dar`
+   > daml damlc inspect mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
+   package <mypkg-package-id>
+   daml-lf 2.1
+   metadata mypkg-1.0.0
+
+   module Main where
    ...
 
 Parsing DAR and DALF files
