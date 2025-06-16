@@ -397,7 +397,7 @@ final class BftBlockOrderer(
       serverConfig: ServerConfig
   ): UnlessShutdown[LifeCycle.CloseableServer] = {
     implicit val traceContext: TraceContext = TraceContext.empty
-    performUnlessClosing("start-P2P-server") {
+    synchronizeWithClosingSync("start-P2P-server") {
 
       import scala.jdk.CollectionConverters.*
       val activeServerBuilder =

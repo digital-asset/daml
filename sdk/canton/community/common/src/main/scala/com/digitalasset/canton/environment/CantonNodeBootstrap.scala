@@ -460,7 +460,7 @@ abstract class CantonNodeBootstrapImpl[
 
       // crypto factory doesn't write to the db during startup, hence,
       // we won't have "isPassive" issues here
-      performUnlessClosingEitherUSF("create-crypto")(
+      synchronizeWithClosing("create-crypto")(
         Crypto
           .create(
             cryptoConfig,

@@ -256,7 +256,7 @@ class BlockSequencerStateManager(
 
     (for {
       _ <- EitherT.right[String](
-        performUnlessClosingUSF("trafficConsumedStore.store")(
+        synchronizeWithClosing("trafficConsumedStore.store")(
           trafficConsumedStore.store(trafficConsumedUpdates)
         )
       )
@@ -266,7 +266,7 @@ class BlockSequencerStateManager(
       )
 
       _ <- EitherT.right[String](
-        performUnlessClosingUSF("partialBlockUpdate")(
+        synchronizeWithClosing("partialBlockUpdate")(
           store.partialBlockUpdate(inFlightAggregationUpdates = update.inFlightAggregationUpdates)
         )
       )

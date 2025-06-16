@@ -248,7 +248,7 @@ private[participant] class NaiveRequestTracker(
       RequestTrackerStoreError
     ], Unit]] =
       // Complete the promise only if we're not shutting down.
-      performUnlessClosing(functionFullName) {
+      synchronizeWithClosingSync(functionFullName) {
         commitSetPromise.tryComplete(commitSet)
       } match {
         case UnlessShutdown.AbortedDueToShutdown =>
@@ -351,7 +351,7 @@ private[participant] class NaiveRequestTracker(
       * assigned).</li> <li>Fulfill the `activenessResult` promise with the result</li> </ul>
       */
     override def perform(): FutureUnlessShutdown[Unit] =
-      performUnlessClosingUSF("check-activeness-result") {
+      synchronizeWithClosing("check-activeness-result") {
         logger.debug(withRC(rc, "Performing the activeness check"))
 
         val result = conflictDetector.checkActivenessAndLock(rc)
@@ -391,7 +391,7 @@ private[participant] class NaiveRequestTracker(
     override def perform(): FutureUnlessShutdown[Unit] =
       if (!timeoutPromise.isCompleted) {
         logger.debug(withRC(rc, "Timed out."))
-        performUnlessClosingUSF("trigger-timeout")(releaseAllLocks(rc, requestTimestamp)).map { _ =>
+        synchronizeWithClosing("trigger-timeout")(releaseAllLocks(rc, requestTimestamp)).map { _ =>
           evictRequest(rc)
           /* Timeout promises are completed only here and in `addResult`.
            * These two completions never race.
@@ -463,7 +463,7 @@ private[participant] class NaiveRequestTracker(
       *   activeness check
       */
     override def perform(): FutureUnlessShutdown[Unit] =
-      performUnlessClosingUSF("finalize-request") {
+      synchronizeWithClosing("finalize-request") {
         commitSetFuture.transformWith {
           case Success(UnlessShutdown.Outcome(commitSet)) =>
             logger.debug(withRC(rc, s"Finalizing at $commitTime"))

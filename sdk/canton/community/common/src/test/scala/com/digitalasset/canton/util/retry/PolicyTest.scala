@@ -54,7 +54,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val tries = forwardCountingFutureStream().iterator
       Directly(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 3,
         operationName = "directly-retry-specified-times-op",
       )(
@@ -68,7 +68,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val tries = Future(None: Option[Int])
       Directly(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 2,
         operationName = "directly-fail-when-expected-op",
       )(
@@ -81,7 +81,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       implicit val success: Success[Any] = Success.always
       val policy = Directly(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 3,
         operationName = "directly-future-failures-op",
       )
@@ -102,7 +102,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testSynchronousException(
       Directly(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 3,
         operationName = "directly-sync-exception-op",
       ),
@@ -114,7 +114,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val counter = new AtomicInteger()
       val future = Directly(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 1,
         operationName = "directly-future-reduced-syntax-format-op",
       )(
@@ -132,7 +132,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val counter = new AtomicInteger()
       val future = Directly(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 1,
         operationName = "directly-retry-futures-passed-op",
       )(
@@ -161,7 +161,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val policy =
         Directly(
           logger,
-          performUnlessClosing = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = Forever,
           operationName = "directly-repeat-on-non-expected-value-op",
         )
@@ -201,7 +201,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       suspend =>
         Directly(
           logger,
-          performUnlessClosing = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = maxRetries,
           operationName = "directly-suspend-op",
           suspendRetries = suspend,
@@ -232,7 +232,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testUnexpectedException(
       Pause(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 10,
         delay = 30.millis,
         operationName = "pause-unexpected-exception-op",
@@ -244,7 +244,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val tries = forwardCountingFutureStream().iterator
       val policy = Pause(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 3,
         delay = 30.millis,
         operationName = "pause-between-retries-op",
@@ -282,7 +282,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       val policy = Pause(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = Forever,
         delay = 1.millis,
         operationName = "pause-repeat-on-unexpected-until-success-op",
@@ -296,7 +296,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testSynchronousException(
       Pause(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 1,
         delay = 1.millis,
         operationName = "pause-sync-exception-op",
@@ -342,7 +342,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       suspend =>
         Pause(
           logger,
-          performUnlessClosing = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = maxRetries,
           delay = 5.millis,
           operationName = "pause-suspend-op",
@@ -353,7 +353,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testExceptionLogging(
       Pause(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 3,
         delay = 1.millis,
         operationName = "pause-exception-logging-op",
@@ -363,7 +363,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testExceptionLoggingRetryForever(
       Pause(
         logger,
-        performUnlessClosing = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = retry.Forever,
         delay = 1.millis,
         operationName = "pause-exception-logging-forever-op",
@@ -378,7 +378,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testUnexpectedException(
       Backoff(
         logger,
-        flagCloseable = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 10,
         initialDelay = 30.millis,
         maxDelay = Duration.Inf,
@@ -391,7 +391,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       val tries = forwardCountingFutureStream().iterator
       val policy = Backoff(
         logger,
-        flagCloseable = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 2,
         initialDelay = 30.millis,
         maxDelay = Duration.Inf,
@@ -429,7 +429,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
       val policy = Backoff(
         logger,
-        flagCloseable = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = Forever,
         initialDelay = 1.millis,
         maxDelay = Duration.Inf,
@@ -444,7 +444,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testSynchronousException(
       Backoff(
         logger,
-        flagCloseable = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 1,
         initialDelay = 1.millis,
         maxDelay = Duration.Inf,
@@ -494,7 +494,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       suspend =>
         Backoff(
           logger,
-          flagCloseable = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = maxRetries,
           initialDelay = 5.milli,
           maxDelay = Duration.Inf,
@@ -506,7 +506,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testExceptionLogging(
       Backoff(
         logger,
-        flagCloseable = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = 3,
         initialDelay = 1.millis,
         maxDelay = 1.millis,
@@ -517,7 +517,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
     testExceptionLoggingRetryForever(
       Backoff(
         logger,
-        flagCloseable = flagCloseable,
+        hasSynchronizeWithClosing = flagCloseable,
         maxRetries = retry.Forever,
         initialDelay = 1.millis,
         maxDelay = 1.millis,
@@ -536,7 +536,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       testUnexpectedException(
         Backoff(
           logger,
-          flagCloseable = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = 10,
           initialDelay = 30.millis,
           maxDelay = Duration.Inf,
@@ -550,7 +550,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val tries = forwardCountingFutureStream().iterator
         val policy = Backoff(
           logger,
-          flagCloseable = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = 3,
           initialDelay = 1.milli,
           maxDelay = Duration.Inf,
@@ -568,7 +568,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val policy =
           Backoff(
             logger,
-            flagCloseable = flagCloseable,
+            hasSynchronizeWithClosing = flagCloseable,
             maxRetries = 3,
             initialDelay = 1.milli,
             maxDelay = Duration.Inf,
@@ -585,7 +585,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val policy =
           Backoff(
             logger,
-            flagCloseable = flagCloseable,
+            hasSynchronizeWithClosing = flagCloseable,
             maxRetries = 3,
             initialDelay = 5.millis,
             maxDelay = Duration.Inf,
@@ -609,7 +609,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val policy =
           Backoff(
             logger,
-            flagCloseable = flagCloseable,
+            hasSynchronizeWithClosing = flagCloseable,
             maxRetries = 1,
             initialDelay = 1.milli,
             maxDelay = Duration.Inf,
@@ -631,7 +631,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val tries = forwardCountingFutureStream().iterator
         val policy = Backoff(
           logger,
-          flagCloseable = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = 5,
           initialDelay = 50.millis,
           maxDelay = Duration.Inf,
@@ -661,7 +661,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val policy =
           Backoff(
             logger,
-            flagCloseable = flagCloseable,
+            hasSynchronizeWithClosing = flagCloseable,
             maxRetries = Forever,
             initialDelay = 10.millis,
             maxDelay = Duration.Inf,
@@ -701,7 +701,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
 
         val policy = Backoff(
           logger,
-          flagCloseable = flagCloseable,
+          hasSynchronizeWithClosing = flagCloseable,
           maxRetries = Forever,
           initialDelay = 1.millis,
           maxDelay = Duration.Inf,
@@ -728,7 +728,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         { case _ =>
           Pause(
             logger,
-            performUnlessClosing = flagCloseable,
+            hasSynchronizeWithClosing = flagCloseable,
             maxRetries = 10,
             delay = 30.millis,
             operationName = "when-unexpected-exception-op",
@@ -752,7 +752,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
               { case 1 =>
                 Pause(
                   logger,
-                  performUnlessClosing = flagCloseable,
+                  hasSynchronizeWithClosing = flagCloseable,
                   maxRetries = 4,
                   delay = 2.seconds,
                   operationName = "when-retry-cond-op",
@@ -776,7 +776,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case 1 =>
             Directly(
               logger,
-              performUnlessClosing = flagCloseable,
+              hasSynchronizeWithClosing = flagCloseable,
               maxRetries = 3,
               operationName = "when-retry-only-when-cond-met-op",
             )
@@ -806,7 +806,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case RetryAfter(duration) =>
             Pause(
               logger,
-              performUnlessClosing = flagCloseable,
+              hasSynchronizeWithClosing = flagCloseable,
               maxRetries = 4,
               delay = duration,
               operationName = "when-handle-future-failures-op",
@@ -835,7 +835,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case RetryAfter(duration) =>
             Pause(
               logger,
-              performUnlessClosing = flagCloseable,
+              hasSynchronizeWithClosing = flagCloseable,
               maxRetries = 4,
               delay = duration,
               operationName = "when-sync-failures-op",
@@ -866,7 +866,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case _: MyException =>
             Directly(
               logger,
-              performUnlessClosing = flagCloseable,
+              hasSynchronizeWithClosing = flagCloseable,
               maxRetries = Forever,
               operationName = "when-repeat-fail-until-success-op",
             )
@@ -899,7 +899,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case _: MyException =>
             Pause(
               logger,
-              performUnlessClosing = flagCloseable,
+              hasSynchronizeWithClosing = flagCloseable,
               maxRetries = Forever,
               delay = 1.millis,
               operationName = "when-repeat-with-pause-op",
@@ -934,7 +934,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
           case _: MyException =>
             Backoff(
               logger,
-              flagCloseable = flagCloseable,
+              hasSynchronizeWithClosing = flagCloseable,
               maxRetries = Forever,
               initialDelay = 1.millis,
               maxDelay = Duration.Inf,
@@ -1087,7 +1087,7 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
       logger.debug("Wrapping")
       // Wrap the retry in a performUnlessClosing to trigger possible deadlocks.
       val retryUnlessClosingF =
-        closeable.performUnlessClosingF("test-retry")(retryF)(executorService, traceContext)
+        closeable.synchronizeWithClosingF("test-retry")(retryF)(executorService, traceContext)
 
       Threading.sleep(10)
       closeable.close()

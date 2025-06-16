@@ -372,6 +372,7 @@ final class StateTransferBehavior[E <: Env[E]](
       context.flatMapFuture(
         epochStore.completeEpoch(currentEpochNumber),
         PureFun.Const(epochStore.startEpoch(newEpochInfo)),
+        orderingStage = Some("state-transfer-store-epochs"),
       )
     ) {
       case Failure(exception) => Consensus.ConsensusMessage.AsyncException(exception)

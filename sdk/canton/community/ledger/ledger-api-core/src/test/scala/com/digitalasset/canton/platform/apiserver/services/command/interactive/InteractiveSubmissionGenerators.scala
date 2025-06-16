@@ -6,10 +6,11 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 import com.digitalasset.canton.GeneratorsLf.*
 import com.digitalasset.canton.config.GeneratorsConfig.*
 import com.digitalasset.canton.config.PositiveFiniteDuration
-import com.digitalasset.canton.config.RequireTypes.PositiveLong
+import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.{DeduplicationPeriod, LedgerTimeBoundaries, Offset}
-import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.TransactionData
 import com.digitalasset.canton.ledger.participant.state.{SubmitterInfo, TransactionMeta}
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.EnrichedTransactionData.ExternalInputContract
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PrepareTransactionData
 import com.digitalasset.canton.topology.GeneratorsTopology.*
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.{LedgerUserId, LfPackageId, LfPartyId}
@@ -18,6 +19,7 @@ import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{
+  CreationTime,
   FatContractInstance,
   GlobalKey,
   Node,
@@ -184,32 +186,46 @@ object InteractiveSubmissionGenerators {
   private val globalKeyMappingGen: Gen[Map[GlobalKey, Option[Value.ContractId]]] =
     Gen.mapOf(globalKeyMappingEntryGen)
 
-  private val inputContractsGen: Gen[FatContractInstance] = for {
+  private def inputContractsGen(overrideCid: Value.ContractId): Gen[FatContractInstance] = for {
     create <- ValueGenerators
       .malformedCreateNodeGenWithVersion(LanguageVersion.v2_1)
       .map(normalizeNodeForV1)
     createdAt <- Arbitrary.arbitrary[Time.Timestamp]
     driverMetadata <- Arbitrary.arbitrary[Array[Byte]].map(Bytes.fromByteArray)
-  } yield FatContractInstance.fromCreateNode(create, createdAt, driverMetadata)
+  } yield FatContractInstance.fromCreateNode(
+    create.copy(coid = overrideCid),
+    CreationTime.CreatedAt(createdAt),
+    driverMetadata,
+  )
 
-  private val preparedTransactionDataGen: Gen[TransactionData] = for {
+  private val preparedTransactionDataGen: Gen[PrepareTransactionData] = for {
     submitterInfo <- submitterInfoGen
     synchronizerId <- Arbitrary.arbitrary[SynchronizerId]
     transaction <- versionedTransactionGenerator.map(SubmittedTransaction(_))
     transactionMeta <- transactionMetaGen(transaction)
-    interpretationTimeNanos <- Gen.long
     globalKeyMapping <- globalKeyMappingGen
-    inputContracts <- Gen.listOfN(1, inputContractsGen).map(ImmArray.from)
-  } yield TransactionData(
+    coids <- Gen.listOf(ValueGenerators.coidGen)
+    inputContracts = coids.flatMap(inputContractsGen(_).sample)
+    enrichedInputContracts = coids.flatMap(inputContractsGen(_).sample)
+    mediatorGroup <- Arbitrary.arbitrary[PositiveInt]
+    transactionUUID <- Gen.uuid
+  } yield PrepareTransactionData(
     submitterInfo,
     transactionMeta,
     transaction,
     globalKeyMapping,
-    inputContracts.map(fci => fci.contractId -> fci).toSeq.toMap,
+    inputContracts
+      .zip(enrichedInputContracts)
+      .map { case (originalFci, enrichedFci) =>
+        originalFci.contractId -> ExternalInputContract(originalFci, enrichedFci)
+      }
+      .toMap,
     synchronizerId,
+    mediatorGroup.value,
+    transactionUUID,
   )
 
-  implicit val preparedTransactionDataArb: Arbitrary[TransactionData] = Arbitrary(
+  implicit val preparedTransactionDataArb: Arbitrary[PrepareTransactionData] = Arbitrary(
     preparedTransactionDataGen
   )
 }

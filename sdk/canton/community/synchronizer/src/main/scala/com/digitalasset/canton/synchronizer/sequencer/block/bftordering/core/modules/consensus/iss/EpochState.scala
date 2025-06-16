@@ -131,7 +131,7 @@ class EpochState[E <: Env[E]](
   def processRetransmissionsRequest(
       epochStatus: ConsensusStatus.EpochStatus
   )(implicit traceContext: TraceContext): Unit =
-    performUnlessClosing("processRetransmissionsRequest") {
+    synchronizeWithClosingSync("processRetransmissionsRequest") {
       epoch.segments.zip(epochStatus.segments).foreach { case (segment, segmentStatus) =>
         segmentStatus match {
           case status: ConsensusStatus.SegmentStatus.Incomplete =>
@@ -152,7 +152,7 @@ class EpochState[E <: Env[E]](
       from: BftNodeId,
       commitCerts: Seq[CommitCertificate],
   )(implicit traceContext: TraceContext): Unit =
-    performUnlessClosing("processRetransmissionsRequest") {
+    synchronizeWithClosingSync("processRetransmissionsRequest") {
       commitCerts.foreach { cc =>
         blockToSegmentModule(cc.prePrepare.message.blockMetadata.blockNumber)
           .asyncSend(ConsensusSegment.ConsensusMessage.RetransmittedCommitCertificate(from, cc))
@@ -173,7 +173,12 @@ class EpochState[E <: Env[E]](
       commitCertificate: CommitCertificate,
   )(implicit traceContext: TraceContext): Unit = {
     setCommitCertificate(blockMetadata.blockNumber, commitCertificate)
-    sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.BlockOrdered(blockMetadata))
+    sendMessageToSegmentModules(
+      ConsensusSegment.ConsensusMessage.BlockOrdered(
+        blockMetadata,
+        isEmpty = commitCertificate.prePrepare.message.block.proofs.isEmpty,
+      )
+    )
   }
 
   def notifyEpochCompletionToSegments(epochNumber: EpochNumber)(implicit
@@ -211,7 +216,7 @@ class EpochState[E <: Env[E]](
   private def sendMessageToSegmentModules(
       msg: ConsensusSegment.ConsensusMessage
   )(implicit traceContext: TraceContext): Unit =
-    performUnlessClosing("handleMessage")(msg match {
+    synchronizeWithClosingSync("handleMessage")(msg match {
       case proposalCreated: ConsensusSegment.ConsensusMessage.BlockProposal =>
         mySegmentModule.foreach(_.asyncSend(proposalCreated))
       case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
@@ -220,7 +225,7 @@ class EpochState[E <: Env[E]](
         segmentModules.values.foreach(_.asyncSend(msg))
       case cancelEpoch: ConsensusSegment.ConsensusMessage.CancelEpoch =>
         segmentModules.values.foreach(_.asyncSend(cancelEpoch))
-      case ConsensusSegment.ConsensusMessage.BlockOrdered(block) =>
+      case ConsensusSegment.ConsensusMessage.BlockOrdered(block, _) =>
         (for {
           segment <- mySegment
           // only send block completion for blocks we're not a leader of

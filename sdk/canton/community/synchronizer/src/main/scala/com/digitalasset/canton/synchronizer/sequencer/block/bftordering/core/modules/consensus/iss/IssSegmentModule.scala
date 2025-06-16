@@ -234,8 +234,8 @@ class IssSegmentModule[E <: Env[E]](
           )
         }
 
-      case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata) =>
-        leaderSegmentState.foreach(_.confirmCompleteBlockStored(metadata.blockNumber))
+      case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata, isEmpty) =>
+        leaderSegmentState.foreach(_.confirmCompleteBlockStored(metadata.blockNumber, isEmpty))
 
       case blockStored @ ConsensusSegment.Internal.OrderedBlockStored(
             commitCertificate,
@@ -427,7 +427,12 @@ class IssSegmentModule[E <: Env[E]](
             case Right(signedMessage) =>
               context.pureFuture(Right(signedMessage))
           }
-        pipeToSelfWithFutureTracking(context.sequenceFuture(futures)) {
+        pipeToSelfWithFutureTracking(
+          context.sequenceFuture(
+            futures,
+            orderingStage = Some("consensus-segment-sign-pre-prepares-for-new-view"),
+          )
+        ) {
           case Failure(exception) =>
             logAsyncException(exception)
             None

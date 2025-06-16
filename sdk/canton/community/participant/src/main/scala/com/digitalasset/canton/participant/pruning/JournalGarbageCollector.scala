@@ -48,7 +48,7 @@ private[participant] class JournalGarbageCollector(
   ): Unit = flush(traceContext)
 
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingUSF(functionFullName) {
+    synchronizeWithClosing(functionFullName) {
       for {
         synchronizerIndex <- synchronizerIndexF(implicitly)
         safeToPruneTsO <-
@@ -77,11 +77,11 @@ private[participant] class JournalGarbageCollector(
     logger.debug(s"Starting periodic background pruning of journals up to $pruneTs")
     val acsDescription = s"Periodic ACS prune at $pruneTs"
     // Clean unused entries from the ACS
-    val acsF = performUnlessClosingUSF(acsDescription)(acs.prune(pruneTs.forgetRefinement))
+    val acsF = synchronizeWithClosing(acsDescription)(acs.prune(pruneTs.forgetRefinement))
     val submissionTrackerStoreDescription =
       s"Periodic submission tracker store prune at $pruneTs"
     // Clean unused entries from the submission tracker store
-    val submissionTrackerStoreF = performUnlessClosingUSF(submissionTrackerStoreDescription)(
+    val submissionTrackerStoreF = synchronizeWithClosing(submissionTrackerStoreDescription)(
       submissionTrackerStore.prune(pruneTs.forgetRefinement)
     )
     Seq(acsF, submissionTrackerStoreF).sequence_.onShutdown(())

@@ -8,21 +8,15 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
-  PerformUnlessClosing,
+  HasSynchronizeWithClosing,
   UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryWithDelay.{RetryOutcome, RetryTermination}
-import com.digitalasset.canton.util.retry.{
-  AllExceptionRetryPolicy,
-  ErrorKind,
-  ExceptionRetryPolicy,
-  Jitter,
-  Success,
-}
-import com.digitalasset.canton.util.{DelayUtil, LoggerUtil, retry}
+import com.digitalasset.canton.util.retry.{ErrorKind, ExceptionRetryPolicy, Jitter, Success}
+import com.digitalasset.canton.util.{DelayUtil, LoggerUtil, Thereafter, retry}
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
@@ -30,15 +24,6 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.control.NonFatal
 import scala.util.{Failure, Try}
-
-/** A retry [[com.digitalasset.canton.util.retry.Policy]] defines an interface for retrying a
-  * future-based task with retry semantics specific to implementations. If the task throws a
-  * non-fatal exceptions synchronously, the exception is converted into an asynchronous one, i.e.,
-  * it is returned as a failed future or retried.
-  *
-  * If unsure about what retry policy to pick, [[com.digitalasset.canton.util.retry.Backoff]] is a
-  * good default.
-  */
 
 sealed trait PolicyEffect[F[_]] {
   def app[T](p: Policy, task: => F[T], retryOk: ExceptionRetryPolicy)(implicit
@@ -70,6 +55,14 @@ object PolicyEffect {
   }
 }
 
+/** A retry [[com.digitalasset.canton.util.retry.Policy]] defines an interface for retrying a
+  * future-based task with retry semantics specific to implementations. If the task throws a
+  * non-fatal exceptions synchronously, the exception is converted into an asynchronous one, i.e.,
+  * it is returned as a failed future or retried.
+  *
+  * If unsure about what retry policy to pick, [[com.digitalasset.canton.util.retry.Backoff]] is a
+  * good default.
+  */
 abstract class Policy(logger: TracedLogger) {
 
   protected val directExecutionContext: DirectExecutionContext = DirectExecutionContext(logger)
@@ -96,56 +89,6 @@ abstract class Policy(logger: TracedLogger) {
 
 }
 
-object Policy {
-
-  /** Repeatedly execute the task until it doesn't throw an exception or the `flagCloseable` is
-    * closing.
-    */
-  def noisyInfiniteRetry[A](
-      task: => Future[A],
-      performUnlessClosing: PerformUnlessClosing,
-      retryInterval: FiniteDuration,
-      operationName: String,
-      actionable: String,
-  )(implicit
-      loggingContext: ErrorLoggingContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[A] =
-    noisyInfiniteRetryUS(
-      FutureUnlessShutdown.outcomeF(task),
-      performUnlessClosing,
-      retryInterval,
-      operationName,
-      actionable,
-    )
-
-  /** Repeatedly execute the task until it returns an abort due to shutdown, doesn't throw an
-    * exception, or the `flagCloseable` is closing.
-    */
-  def noisyInfiniteRetryUS[A](
-      task: => FutureUnlessShutdown[A],
-      performUnlessClosing: PerformUnlessClosing,
-      retryInterval: FiniteDuration,
-      operationName: String,
-      actionable: String,
-  )(implicit
-      loggingContext: ErrorLoggingContext,
-      executionContext: ExecutionContext,
-  ): FutureUnlessShutdown[A] =
-    Pause(
-      loggingContext.logger,
-      performUnlessClosing,
-      maxRetries = Int.MaxValue,
-      retryInterval,
-      operationName = operationName,
-      actionable = Some(actionable),
-    ).unlessShutdown(task, AllExceptionRetryPolicy)(
-      Success.always,
-      executionContext,
-      loggingContext.traceContext,
-    )
-}
-
 abstract class RetryWithDelay(
     logger: TracedLogger,
     operationName: String,
@@ -153,7 +96,7 @@ abstract class RetryWithDelay(
     actionable: Option[String], // How to mitigate the error
     initialDelay: FiniteDuration,
     totalMaxRetries: Int,
-    performUnlessClosing: PerformUnlessClosing,
+    hasSynchronizeWithClosing: HasSynchronizeWithClosing,
     retryLogLevel: Option[Level],
     suspendRetries: Eval[FiniteDuration],
 ) extends Policy(logger) {
@@ -241,7 +184,7 @@ abstract class RetryWithDelay(
               )
               Future.successful(RetryOutcome(succ, RetryTermination.Success))
 
-            case outcome if performUnlessClosing.isClosing =>
+            case outcome if hasSynchronizeWithClosing.isClosing =>
               val str = outcome match {
                 case Failure(exception) => s"exception: ${exception.getMessage}"
                 case util.Success(value) => s"success with predicate=false: $value"
@@ -275,7 +218,7 @@ abstract class RetryWithDelay(
                     s"Suspend retrying the operation '$operationName' for $suspendDuration."
                   )
                   DelayUtil
-                    .delayIfNotClosing(operationName, suspendDuration, performUnlessClosing)
+                    .delayIfNotClosing(operationName, suspendDuration, hasSynchronizeWithClosing)
                     .onShutdown(())(directExecutionContext)
                     .flatMap(_ =>
                       run(
@@ -308,7 +251,7 @@ abstract class RetryWithDelay(
                   )
 
                   val delayedF =
-                    DelayUtil.delayIfNotClosing(operationName, delay, performUnlessClosing)
+                    DelayUtil.delayIfNotClosing(operationName, delay, hasSynchronizeWithClosing)
                   delayedF
                     .flatMap { _ =>
                       logOnThrow {
@@ -319,9 +262,11 @@ abstract class RetryWithDelay(
                         // Run the task again on the normal execution context as the task might take a long time.
                         // `performUnlessClosingF` guards against closing the execution context.
                         val nextRunUnlessShutdown =
-                          performUnlessClosing.performUnlessClosingF(operationName)(runTask())(
-                            executionContext,
+                          hasSynchronizeWithClosing.synchronizeWithClosingUS(operationName)(
+                            runTask()
+                          )(
                             traceContext,
+                            Thereafter.futureThereafter(executionContext),
                           )
                         @SuppressWarnings(Array("org.wartremover.warts.TryPartial"))
                         val nextRunF = nextRunUnlessShutdown
@@ -329,13 +274,8 @@ abstract class RetryWithDelay(
                             // If we're closing, report the previous `outcome` and recurse.
                             // This will enter the case branch with `flagCloseable.isClosing`
                             // and therefore yield the termination reason `Shutdown`.
-                            outcome.get
-                          }(
-                            // Use the direct execution context as this is a small task.
-                            // The surrounding `performUnlessClosing` ensures that this post-processing
-                            // is registered with the normal execution context before it can close.
-                            directExecutionContext
-                          )
+                            Future.fromTry(outcome)
+                          }
                         FutureUnlessShutdown.outcomeF(
                           run(
                             previousResult = nextRunF,
@@ -444,7 +384,7 @@ object RetryWithDelay {
 /** Retry immediately after failure for a max number of times */
 final case class Directly(
     logger: TracedLogger,
-    performUnlessClosing: PerformUnlessClosing,
+    hasSynchronizeWithClosing: HasSynchronizeWithClosing,
     maxRetries: Int,
     operationName: String,
     longDescription: String = "",
@@ -457,7 +397,7 @@ final case class Directly(
       None,
       Duration.Zero,
       maxRetries,
-      performUnlessClosing,
+      hasSynchronizeWithClosing,
       retryLogLevel,
       suspendRetries,
     ) {
@@ -468,7 +408,7 @@ final case class Directly(
 /** Retry with a pause between attempts for a max number of times */
 final case class Pause(
     logger: TracedLogger,
-    performUnlessClosing: PerformUnlessClosing,
+    hasSynchronizeWithClosing: HasSynchronizeWithClosing,
     maxRetries: Int,
     delay: FiniteDuration,
     operationName: String,
@@ -483,7 +423,7 @@ final case class Pause(
       actionable,
       delay,
       maxRetries,
-      performUnlessClosing,
+      hasSynchronizeWithClosing,
       retryLogLevel,
       suspendRetries,
     ) {
@@ -525,7 +465,7 @@ final case class Pause(
   */
 final case class Backoff(
     logger: TracedLogger,
-    flagCloseable: PerformUnlessClosing,
+    hasSynchronizeWithClosing: HasSynchronizeWithClosing,
     maxRetries: Int,
     initialDelay: FiniteDuration,
     maxDelay: Duration,
@@ -542,7 +482,7 @@ final case class Backoff(
       actionable,
       initialDelay,
       maxRetries,
-      flagCloseable,
+      hasSynchronizeWithClosing,
       retryLogLevel,
       suspendRetries,
     ) {

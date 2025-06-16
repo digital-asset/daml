@@ -144,7 +144,7 @@ class DbParticipantSettingsStore(
       query: SqlAction[Int, NoStream, Effect.Write],
       operationName: String,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingUSF(operationName)(storage.update_(query, operationName)).transformWith {
+    synchronizeWithClosing(operationName)(storage.update_(query, operationName)).transformWith {
       res =>
         // Reload cache to make it consistent with the DB. Particularly important in case of concurrent writes.
         FutureUnlessShutdownUtil

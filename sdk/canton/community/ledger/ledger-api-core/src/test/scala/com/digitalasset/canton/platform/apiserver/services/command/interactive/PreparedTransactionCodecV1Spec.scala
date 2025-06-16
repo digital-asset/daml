@@ -6,7 +6,11 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 import com.daml.ledger.api.v2.interactive.transaction.v1.interactive_submission_data.Node.NodeType
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionGenerators.*
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.PreparedTransactionCodec.*
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.PreparedTransactionCodec.*
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.codec.{
+  PreparedTransactionDecoder,
+  PreparedTransactionEncoder,
+}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.ImmArray

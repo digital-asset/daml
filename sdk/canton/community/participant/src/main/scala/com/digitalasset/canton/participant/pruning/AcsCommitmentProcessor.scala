@@ -350,7 +350,7 @@ class AcsCommitmentProcessor private (
   private def getReconciliationIntervals(validAt: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SortedReconciliationIntervals] =
-    performUnlessClosingUSF(functionFullName)(
+    synchronizeWithClosing(functionFullName)(
       sortedReconciliationIntervalsProvider.reconciliationIntervals(validAt)
     )
 
@@ -1589,7 +1589,7 @@ class AcsCommitmentProcessor private (
 
     def sendUnlessClosing() = {
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
-      performUnlessClosingUSF(functionFullName) {
+      synchronizeWithClosing(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
         val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
         FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(

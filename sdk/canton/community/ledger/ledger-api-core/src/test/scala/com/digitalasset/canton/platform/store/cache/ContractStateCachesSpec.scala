@@ -12,7 +12,7 @@ import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.Node as LfNode
+import com.digitalasset.daml.lf.transaction.{CreationTime, Node as LfNode}
 import com.digitalasset.daml.lf.value.Value.{ValueInt64, ValueRecord}
 import org.mockito.MockitoSugar
 import org.scalatest.OptionValues
@@ -154,7 +154,7 @@ class ContractStateCachesSpec
             keyOpt = key,
             version = LanguageVersion.Major.V2.maxStableVersion,
           ),
-          createTime = Time.Timestamp(cId),
+          createTime = CreationTime.CreatedAt(Time.Timestamp(cId)),
           cantonData = Bytes.Empty,
         )
 

@@ -21,7 +21,7 @@ import scala.util.{Failure, Success, Try}
   * released it when done. [[HasSynchronizeWithReaders.synchronizeWithReaders]] attempts to acquire
   * all permits and logs progress if slow.
   */
-trait HasSynchronizeWithReaders extends HasRunOnClosing {
+trait HasSynchronizeWithReaders extends HasSynchronizeWithClosing {
 
   import HasSynchronizeWithReaders.*
 
@@ -42,8 +42,8 @@ trait HasSynchronizeWithReaders extends HasRunOnClosing {
     )(TraceContext.empty)
   }
 
-  /** Semaphore for all the [[HasSynchronizeWithClosing.synchronizeWithClosing]] calls. Each such
-    * call obtains a permit for the time the computation is running. Upon closing,
+  /** Semaphore for all the [[HasSynchronizeWithClosing.synchronizeWithClosingSync]] calls. Each
+    * such call obtains a permit for the time the computation is running. Upon closing,
     * [[synchronizeWithReaders]] grabs all permits and thereby prevents further calls from
     * succeeding.
     */
@@ -145,7 +145,7 @@ trait HasSynchronizeWithReaders extends HasRunOnClosing {
     poll(initialReaderPollingPatience)
   }
 
-  private def dumpRunning()(implicit traceContext: TraceContext): Unit =
+  private[this] def dumpRunning()(implicit traceContext: TraceContext): Unit =
     readerUnderapproximation.keys.foreach { handle =>
       // Only dump those for which we have recorded a stack trace
       handle.location.foreach { loc =>

@@ -160,7 +160,7 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
   )(implicit traceContext: TraceContext): Unit = recipientMemberMessageHandler.fold {
     onMissingRecipientHandler()
   } { recipientRequestHandler =>
-    performUnlessClosing(s"forward $message to recipient")(
+    synchronizeWithClosingSync(s"forward $message to recipient")(
       callToForward(recipientRequestHandler)
     ).onShutdown(())
   }

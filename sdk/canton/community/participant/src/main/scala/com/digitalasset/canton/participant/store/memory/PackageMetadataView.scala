@@ -70,7 +70,7 @@ class MutablePackageMetadataViewImpl(
     }.discard
 
   def refreshState(implicit tc: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingUSF(s"Refreshing $loggingSubject") {
+    synchronizeWithClosing(s"Refreshing $loggingSubject") {
       val startedTime = clock.now
       def elapsedDurationMillis(): Long = (clock.now - startedTime).toMillis
 

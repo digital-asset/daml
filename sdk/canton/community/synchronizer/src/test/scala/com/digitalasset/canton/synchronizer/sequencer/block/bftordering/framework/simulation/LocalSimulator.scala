@@ -42,7 +42,11 @@ class LocalSimulator(
         val gracePeriod =
           at.add(settings.crashRestartGracePeriod.generateRandomDuration(random).toJava)
         if (settings.crashRestartChance.flipCoin(random)) {
-          agenda.addOne(CrashRestartNode(node), duration = 1.microsecond)
+          agenda.addOne(CrashNode(node), duration = 1.microsecond)
+          agenda.addOne(
+            RestartNode(node),
+            duration = settings.crashTimeDistribution.generateRandomDuration(random),
+          )
         }
         LocalSimulator.Initialized(gracePeriod)
       } else {
