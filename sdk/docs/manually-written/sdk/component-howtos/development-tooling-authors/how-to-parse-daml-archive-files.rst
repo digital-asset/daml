@@ -13,11 +13,9 @@ archive.
 Inspecting a DAR file
 *********************
 
-A DAR is actually a zip file which contains many ``.dalf`` files - each
-``.dalf`` file contains the compiled code for a specific package. A metadata
-file called ``MANIFEST`` records which package is the "main" or "primary"
-package of the DAR -- the rest of the packages are dependencies of that "main"
-package.
+A DAR is actually a zip file containing multiple packages, one of which is the
+"main" package; more information on the exact structure of the zip file is
+:ref:`available the explanation on Daml packages and archive files <structure-of-an-archive-file>`.
 
 Running ``daml damlc inspect-dar <darfile>`` reports all of the files and
 packages in a DAR file. For example, consider a package ``mypkg`` which depends
@@ -46,6 +44,10 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
 
 .. code-block:: none
 
+   > daml build
+   ...
+   Created .daml/dist/mypkg-1.0.0.dar
+
    > daml damlc inspect-dar .daml/dist/mypkg-1.0.0.dar
 
    DAR archive contains the following files:
@@ -64,13 +66,8 @@ it contains both the ``mypkg`` package and its dependency ``dep``:
    dep-1.0.0-<dep-package-id> "<dep-package-id>"
    mypkg-1.0.0-<mypkg-package-id> "<mypkg-package-id>"
 
-The first section reports all of the files in DAR, including the DAR's MANIFEST
-file, which keeps metadata about which DALF file is the "main". The second section
-reports the package name and package ID for every dalf in the archive.
-
-In every DAR, there will be many additional ``.dalf`` files for the standard
-library and primitive libraries - these are necessary for running any Daml code,
-so they are automatically included.
+The first section reports all of the files in DAR, and the second section
+reports the package name and package ID for every DALF in the archive.
 
 Inspecting a DALF file
 **********************

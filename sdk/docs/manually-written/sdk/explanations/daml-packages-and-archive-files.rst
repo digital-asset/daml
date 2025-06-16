@@ -8,7 +8,7 @@ When a Daml package is compiled, it is packed into a final artifact called a DAR
 code and logic to run the package's templates, without requiring any other
 files.
 
-For example, assume a simple package with the following definition:
+For example, assume a simple package ``mypkg`` with a single dependency ``dep``:
 
 .. code:: yaml
 
@@ -19,6 +19,8 @@ For example, assume a simple package with the following definition:
    dependencies:
    - daml-prim
    - daml-stdlib
+   data-dependencies:
+   - /path/to/dep-1.0.0.dar
 
 The command ``daml build`` compiles it and reports the path of the resulting DAR
 as the last line:
@@ -36,21 +38,53 @@ as the last line:
 This DAR will contain all of the code for the package, as well as all of the
 code for its dependencies.
 
-Contents of an archive file
-***************************
+.. _structure-of-an-archive-file:
 
-A DAR file contains:
+Structure of an archive file
+****************************
 
-* A ``MANIFEST`` file which contains the name of the package that was compiled
-  into the DAR, contains some more metadata about the package, and lists all of
-  the dependencies of that package.
-* The entire compiled representation of the DAR's primary package, encoded via
-  protobuf into a single DALF file (``.dalf``).
-* For each dependency of the primary package, another DALF file is listed. This
-  includes depdencies like daml-prim and daml-stdlib.
-* Optionally, the source code and interface files for the primary package. This
-  is used by Daml Studio to provide jump-to-definition and similar functionality
-  when the DAR is included as a dependency of another project.
+A DAR is actually a zip file which contains many different files, all of which
+work together to provide a ledger everything it needs to know in order to run
+the code it was compiled from.
+
+.. code:: sh
+
+   > unzip -Z1 .daml/dist/mypkg-1.0.0.dar
+
+   META-INF/MANIFEST.MF
+   ...
+   mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-....dalf
+   mypkg-1.0.0-<mypkg-package-id>/Main.daml
+   mypkg-1.0.0-<mypkg-package-id>/Main.hi
+   mypkg-1.0.0-<mypkg-package-id>/Main.hie
+   mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-....dalf
+
+
+The majority of the files in a given DAR will be DALF files (``.dalf``). Each
+``.dalf`` file contains the entire compiled code for a specific package.
+
+One of the DALF files will be the "main" or "primary" package that the DAR was
+compiled from - this DALF will contain the definitions of templates, interfaces,
+datatypes, and functions that were originally described in the Daml code that
+the DAR was compiled from. In this case, that is the ``mypkg-1.0.0-....dalf``
+file listed above.
+
+All of the other DALF files will be for dependency packages of that "main"
+package, which are required to run the package. This includes the ``dep-1.0.0....dalf``
+file, as well as many DALF files for the ``daml-prim`` and ``daml-stdlib``
+libraries.
+
+Aside from these files, there will be:
+
+* A ``MANIFEST.MF`` file, which contains metadata about the rest of the
+  artifacts in the DAR.
+  * the name of the "main" package that was compiled into the DAR
+  * a list of all of the dependencies of the main package
+  * some more metadata about the package
+* Optionally, the source code (``.daml``) and interface files (``.hi``,
+  ``.hie``, ``.conf``) for the primary package. This is used by Daml Studio to
+  provide jump-to-definition and similar functionality when the DAR is included
+  as a dependency of another project.
 
 Difference between DALF files and Daml files
 ********************************************
