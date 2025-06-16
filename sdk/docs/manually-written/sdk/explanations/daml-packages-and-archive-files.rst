@@ -81,10 +81,11 @@ Aside from these files, there will be:
   * the name of the "main" package that was compiled into the DAR
   * a list of all of the dependencies of the main package
   * some more metadata about the package
-* Optionally, the source code (``.daml``) and interface files (``.hi``,
-  ``.hie``, ``.conf``) for the primary package. This is used by Daml Studio to
-  provide jump-to-definition and similar functionality when the DAR is included
-  as a dependency of another project.
+* The source code (``.daml``) and interface files (``.hi``, ``.hie``, ``.conf``)
+  for the primary package. This is used by Daml Studio to provide
+  jump-to-definition and similar functionality when the DAR is included as a
+  dependency of another project. It is not required by any other tool and can be
+  safely removed from the DAR.
 
 Difference between DALF files and Daml files
 ********************************************
