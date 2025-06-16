@@ -81,11 +81,17 @@ Aside from these files, there will be:
   * the name of the "main" package that was compiled into the DAR
   * a list of all of the dependencies of the main package
   * some more metadata about the package
-* The source code (``.daml``) and interface files (``.hi``, ``.hie``, ``.conf``)
-  for the primary package. This is used by Daml Studio to provide
-  jump-to-definition and similar functionality when the DAR is included as a
-  dependency of another project. It is not required by any other tool and can be
-  safely removed from the DAR.
+* The source code (``.daml``) for the primary package. This can be used by
+  consumers of the DAR to verify that the DALF they're running corresponds to
+  the code inside of it. It is also used by Daml Studio for code intelligence
+  such as jump-to-definition when the DAR is included as a dependency of another
+  project.
+* Interface files (``.hi``, ``.hie``, ``.conf``) for the primary package. This
+  is also used by Daml Studio to provide jump-to-definition.
+
+Both the source code and interface files are not required by any other tool than
+``Daml Studio`` - they can be safely removed from the DAR by consumers such as
+participant runners.
 
 Difference between DALF files and Daml files
 ********************************************
@@ -110,11 +116,6 @@ contain Daml-LF, which can be executed directly when it is uploaded to a
 participant and run. In general, DAR files only need to keep the executable
 Daml-LF for the whole package around, so they do not need to store the Daml code
 from which it was compiled.
-
-There is one exception: so that Daml Studio can provide useful functions such as
-goto-definition, a DAR file can store the Daml code for its primary package.
-However, the DAR does not store the Daml code for any other package because Daml
-Studio does not provide jump-to-definition for transitive dependencies.
 
 DARs as dependencies
 ********************
