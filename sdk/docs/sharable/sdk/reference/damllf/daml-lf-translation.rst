@@ -3,14 +3,14 @@
 
 .. _daml-lf-translation:
 
-How Daml Types are Translated to Daml-LF
+How Daml Types are translated to Daml-LF
 ########################################
 
 This page shows how types in Daml are translated into Daml-LF. It should help you understand and predict the generated client interfaces, which is useful when you're building a Daml-based application that uses the Ledger API or client bindings in other languages.
 
 .. todo: add back this link once we write the daml lf overview section: For an introduction to Daml-LF, see :ref:`daml-lf-intro`.
 
-Primitive Types
+Primitive types
 ***************
 
 :ref:`Built-in data types <daml-ref-built-in-types>` in Daml have straightforward mappings to Daml-LF.
@@ -48,7 +48,7 @@ Most built-in types have the same name in Daml-LF as in Daml. These are the exac
 
 Be aware that only the Daml primitive types exported by the :ref:`Prelude <module-prelude-72703>` module map to the Daml-LF primitive types above. That means that, if you define your own type named ``Party``, it will not translate to the Daml-LF primitive ``Party``.
 
-Tuple Types
+Tuple types
 ***********
 
 Daml tuple type constructors take types ``T1, T2, …, TN`` to the type ``(T1, T2, …, TN)``. These are exposed in the Daml surface language through the :ref:`Prelude <module-prelude-72703>` module.
@@ -70,7 +70,7 @@ Daml-LF has three kinds of data declarations:
 
 .. In the tables below, the left column uses Daml 1.2 syntax and the right column uses the notation from the `Daml-LF specification <https://github.com/digital-asset/daml/blob/main/daml-lf/spec/daml-lf-1.rst>`_.
 
-Record Declarations
+Record declarations
 ===================
 
 This section uses the syntax for Daml :ref:`records <daml-ref-record-types>` with curly braces.
@@ -94,7 +94,7 @@ This section uses the syntax for Daml :ref:`records <daml-ref-record-types>` wit
    * - ``data Foo = Bar {}``
      - ``record Foo ↦ {}``
 
-Variant Declarations
+Variant declarations
 ====================
 
 .. list-table::
@@ -128,9 +128,9 @@ Variant Declarations
    * - ``data Foo = Bar { bar1: Int; bar2: Decimal } | Baz Text``
      - ``variant Foo ↦ Bar Foo.Bar | Baz Text``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``
    * - ``data Foo = Bar { bar1: Int; bar2: Decimal } | Baz { baz1: Text; baz2: Date }``
-     - ``data Foo ↦ Bar Foo.Bar | Baz Foo.Baz``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``, ``record Foo.Baz ↦ { baz1: Text; baz2: Date }``
+     - ``variant Foo ↦ Bar Foo.Bar | Baz Foo.Baz``, ``record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }``, ``record Foo.Baz ↦ { baz1: Text; baz2: Date }``
 
-Enum Declarations
+Enum declarations
 =================
 
 .. list-table::
@@ -144,7 +144,7 @@ Enum Declarations
    * - ``data Color = Red | Green | Blue``
      - ``enum Color ↦ Red | Green | Blue``
 
-Banned Declarations
+Banned declarations
 ===================
 
 There are two gotchas to be aware of: things you might expect to be able to do in Daml that you can't because of Daml-LF.
@@ -172,7 +172,102 @@ The second gotcha is that a constructor in a data type declaration can have at m
    * - ``data Foo = Bar | Baz Int Text``
      - Name arguments to the Baz constructor, for example ``data Foo = Bar | Baz { x: Int; y: Text }``
 
-Type Synonyms
+Restrictions for upgrades
+=========================
+
+The flavour of a datatype's Daml-LF representation restricts the ways in which
+it can be upgraded via :ref:`smart contract upgrades <smart-contract-upgrades>`:
+only records can add fields, and only variants and enums can add new
+constructors. It is not possible to change the flavour of a datatype once it has
+been chosen.
+
+Therefore, the ideal choice of the flavour of a datatype strongly depends
+on what upgrade behaviours are planned for it. For example, the following
+datatype:
+
+.. code::
+
+   data Foo = Foo { foo: Int }
+
+is translated to a record in Daml-LF:
+
+.. code::
+
+   record Foo ↦ { foo: Int64 }
+
+We can add fields when upgrading it, because that does not change its flavour:
+
+.. code::
+
+   -- Add a field to Foo in version 2 of its package
+   data Foo = Foo { foo: Int, newField: Int }
+
+.. code::
+
+   // Still a record
+   record Foo ↦ { foo: Int64, newField: Int }
+
+However, we cannot add a new constructor, because that would change its flavour
+from a record to a variant:
+
+.. code::
+
+   -- Add a constructor to Foo in version 2 of its package
+   data Foo
+     = Foo { foo: Int }
+     | NewConstructor
+
+.. code::
+
+   // Flavour changed from a record to a variant
+   variant Foo ↦ Foo Foo.Foo | NewConstructor
+
+Note that, as above, a variant with fields will desugar to a single variant and a record for each constructor, such as the following:
+
+.. code::
+
+   -- Add a constructor to Foo in version
+   data Foo
+     = Bar { bar1: Int; bar2: Decimal }
+     | Baz { baz1: Text; baz2: Date }
+
+.. code::
+
+   // Desugars to a variant datatype and two record datatypes, one for each
+   // of the variant's constructors
+   variant Foo ↦ Bar Foo.Bar | Baz Foo.Baz
+   record Foo.Bar ↦ { bar1: Int64; bar2: Decimal }
+   record Foo.Baz ↦ { baz1: Text; baz2: Date }
+
+This means that we can upgrade the fields of a constructor and add a new
+constructor to this particular datatype at the same time, because the changes
+are valid upgrades to the underlying Daml-LF definitions.
+
+For example, if we add a field ``bar3`` and a constructor ``Bat``:
+
+.. code::
+
+   data Foo
+     = Bar { bar1: Int; bar2: Decimal, bar3: Text } -- Add a bar3 field
+     | Baz { baz1: Text; baz2: Date }
+     | Bat { bat1: Int } -- Add a Bat constructor
+
+.. code::
+
+   variant Foo ↦ Bar Foo.Bar | Baz Foo.Baz | Bat Foo.Bat // Variant adds a constructor - allowed under upgrades
+   record Foo.Bar ↦ { bar1: Int64; bar2: Decimal; bar3: Text } // Record adds a variant - allowed under upgrades
+   record Foo.Baz ↦ { baz1: Text; baz2: Date }
+   record Foo.Bat ↦ { bat1: Int64 } // New variant constructor's underlying datatype
+
+In short: If the datatype is planned to gradually add more constructors over
+time, it should be defined as a variant. If the datatype is planned to add
+fields over time, it should be defined as a record. If the datatype is planned
+to do both, it should be defined as a variant with fields.
+
+More information about restrictions imposed on different flavours of datatypes
+by smart contract upgrades is available in :ref:`Limitations in Upgrading Variants <limitations-in-upgrading-variants>`.
+
+Type synonyms
 *************
 
 :ref:`Type synonyms <daml-ref-type-synonyms>` (starting with the ``type`` keyword) are eliminated during conversion to Daml-LF. The body of the type synonym is inlined for all occurrences of the type synonym name.
