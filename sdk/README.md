@@ -269,6 +269,22 @@ To see only errors when running Vale, use the `--minAlertLevel` flag. For instan
 ```bash
 vale --minAlertLevel=error docs/manually-written/overview/howtos/index.rst 
 ```
+
+#### Run Vale on entire project
+You can pass a folder to `vale` and it will recursively check all subfolders. The scripts check the `docs/sharable` folder by executing (from `/daml/sdk`):
+
+``` bash
+  vale ./docs/sharable --minAlertLevel=suggestion
+```
+
+Please note that vale's recursive search on the `/daml/sdk` folder is broken. If for some reason you want to run it on directories higher than `/doc`, use find to collect all `*.rst*` files:
+
+``` bash
+find . -type f -name "*.rst" -exec vale {} +
+```
+
+#### Further info
+
 For more information, refer to the official [Vale doc][vale_doc]. 
 
 [vale_official]: https://vale.sh/
