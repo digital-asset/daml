@@ -694,27 +694,6 @@ load("@io_bazel_rules_scala//jmh:jmh.bzl", "jmh_repositories")
 
 jmh_repositories()
 
-# TODO (aherrmann) This wrapper is only used on Windows.
-#   Replace by an appropriate Windows only `dadew_tool` call.
-dev_env_tool(
-    name = "nodejs_dev_env",
-    nix_include = [
-        "bin",
-        "include",
-        "lib",
-        "share",
-    ],
-    nix_label = "@node_nix",
-    nix_paths = [],
-    prefix = "nodejs_dev_env",
-    tools = [],
-    win_include = [
-        ".",
-    ],
-    win_paths = [],
-    win_tool = "nodejs-18",
-)
-
 # Setup the Node.js toolchain
 load("@build_bazel_rules_nodejs//:repositories.bzl", "build_bazel_rules_nodejs_dependencies")
 
