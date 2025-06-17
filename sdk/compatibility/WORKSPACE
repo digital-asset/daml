@@ -256,25 +256,6 @@ nixpkgs_package(
     repositories = dev_env_nix_repos,
 )
 
-dev_env_tool(
-    name = "nodejs_dev_env",
-    nix_include = [
-        "bin",
-        "include",
-        "lib",
-        "share",
-    ],
-    nix_label = "@node_nix",
-    nix_paths = [],
-    prefix = "nodejs_dev_env",
-    tools = [],
-    win_include = [
-        ".",
-    ],
-    win_paths = [],
-    win_tool = "nodejs-14",
-)
-
 node_repositories(
     node_version = "18.12.1",
 )
