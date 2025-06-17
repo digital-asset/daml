@@ -202,8 +202,8 @@ depending on what is needed.
   For example, the ``com.digitalasset.daml.lf.typesig.reader.SignatureReader`` class
   from the ``com-daml:daml-lf-api-type-signature`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-api-type-signature>`
   takes a ``(PackageId, Package)`` pair to produce a ``com.digitalasset.daml.lf.typesig.PackageSignature``
-  (also from the ``api-type-signature``) package, which quickly specifies all of
-  the templates, datatypes, and interfaces in a package.
+  (also from the ``api-type-signature``) package, which specifies all of the
+  templates, datatypes, and interfaces in a package.
 
 * When only the simplest representation of the protobuf of the package is
   needed, pick a decoder returning a ``com.digitalasset.daml.lf.ArchivePayload``
