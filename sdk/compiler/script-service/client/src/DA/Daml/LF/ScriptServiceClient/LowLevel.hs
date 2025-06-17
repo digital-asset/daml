@@ -45,7 +45,7 @@ import Control.Exception
 import Control.Monad
 import Control.Monad.IO.Class
 import DA.Daml.LF.Mangling
-import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
+import qualified DA.Daml.LF.Proto3.Encode as Encode
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Conduit as C
@@ -111,7 +111,7 @@ data ContextUpdate = ContextUpdate
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
 encodeSinglePackageModule version m =
-    BSL.toStrict (Proto.toLazyByteString (EncodeV2.encodeSinglePackageModule version m))
+    BSL.toStrict (Proto.toLazyByteString (Encode.encodeSinglePackageModule version m))
 
 data BackendError
   = BErrorClient ClientError

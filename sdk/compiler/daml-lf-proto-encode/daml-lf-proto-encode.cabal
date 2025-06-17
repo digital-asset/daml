@@ -23,37 +23,27 @@ library
       base,
       -- @@stackage//:bytestring
       bytestring,
-      -- @@stackage//:containers
-      containers,
-      -- @@stackage//:cryptonite
+      -- @stackage//:cryptonite
       cryptonite,
       -- //libs-haskell/da-hs-base:da-hs-base
       da-hs-base,
       -- //compiler/daml-lf-ast:daml-lf-ast
       daml-lf-ast,
+      -- //compiler/daml-lf-proto-encode:daml-lf-proto-encode-internal
+      daml-lf-proto-encode-internal,
       -- //daml-lf/archive:daml_lf_archive_haskell_proto
       daml-lf-proto-types,
       -- //compiler/daml-lf-proto-util:daml-lf-proto-util
       daml-lf-proto-util,
-      -- @@stackage//:lens
-      lens,
-      -- @@stackage//:memory
+      -- @stackage//:memory
       memory,
-      -- @@stackage//:mtl
-      mtl,
-      -- @@stackage//:proto3-suite
+      -- @stackage//:proto3-suite
       proto3-suite,
       -- @@stackage//:text
       text,
-      -- @@stackage//:unordered-containers
-      unordered-containers,
-      -- @@stackage//:vector
-      vector,
     exposed-modules:
       DA.Daml.LF.Proto3.Archive.Encode
       DA.Daml.LF.Proto3.Encode
-      DA.Daml.LF.Proto3.EncodeV2
-      DA.Daml.LF.Proto3.InternedMap
     default-extensions:
       BangPatterns
       DeriveDataTypeable

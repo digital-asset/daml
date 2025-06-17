@@ -5,13 +5,9 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE TemplateHaskell #-}
 -- | Encoding of the LF package into LF version 1 format.
-module DA.Daml.LF.Proto3.EncodeV2
-  ( encodeSinglePackageModule
-  , encodePackage
-  , initEncodeEnv
-  , encodeKind
-  , EncodeEnv(..)
-  ) where
+module DA.Daml.LF.Proto3.EncodeV2 (
+  module DA.Daml.LF.Proto3.EncodeV2
+) where
 
 import           Control.Lens ((^.), matching, makeLensesFor, zoom)
 import           Control.Lens.Ast (rightSpine)

@@ -1,21 +1,41 @@
 # Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-load("//bazel_tools:haskell.bzl", "da_haskell_library", "generate_and_track_cabal")
+load("//bazel_tools:haskell.bzl", "da_haskell_library", "da_haskell_test", "generate_and_track_cabal")
 
 da_haskell_library(
     name = "daml-lf-proto-encode",
     srcs = [
         "src/DA/Daml/LF/Proto3/Archive/Encode.hs",
         "src/DA/Daml/LF/Proto3/Encode.hs",
-        "src/DA/Daml/LF/Proto3/EncodeV2.hs",
-        "src/DA/Daml/LF/Proto3/InternedMap.hs",
     ],
     hackage_deps = [
         "base",
         "bytestring",
         "cryptonite",
         "memory",
+        "text",
+        "proto3-suite",
+    ],
+    src_strip_prefix = "src",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-encode:daml-lf-proto-encode-internal",
+        "//compiler/daml-lf-proto-util",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_library(
+    name = "daml-lf-proto-encode-internal",
+    srcs = [
+        "src/DA/Daml/LF/Proto3/EncodeV2.hs",
+        "src/DA/Daml/LF/Proto3/InternedMap.hs",
+    ],
+    hackage_deps = [
+        "base",
         "containers",
         "mtl",
         "lens",
@@ -25,10 +45,33 @@ da_haskell_library(
         "unordered-containers",
     ],
     src_strip_prefix = "src",
-    visibility = ["//visibility:public"],
+    visibility = ["//visibility:private"],
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-util",
+        "//daml-lf/archive:daml_lf_archive_haskell_proto",
+        "//libs-haskell/da-hs-base",
+    ],
+)
+
+da_haskell_test(
+    name = "daml-lf-proto-encode-test",
+    srcs = [
+        "test/DA/Daml/LF/Proto3/EncodeTest.hs",
+    ],
+    hackage_deps = [
+        "base",
+        "mtl",
+        "tasty",
+        "tasty-hunit",
+        "vector",
+    ],
+    main_function = "DA.Daml.LF.Proto3.EncodeTest.entry",
+    src_strip_prefix = "test",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-proto-encode:daml-lf-proto-encode-internal",
         "//daml-lf/archive:daml_lf_archive_haskell_proto",
         "//libs-haskell/da-hs-base",
     ],
