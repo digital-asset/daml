@@ -115,7 +115,8 @@ Inspecting the main package of a DAR file
 
 If you'd like to inspect the code inside the main package of a DAR, the Daml
 compiler provides the ``inspect`` tool; running ``daml damlc inspect <path-to-dar-file>``
-prints all of the code in that DALF file in a human-readable format.
+prints all of the code in the main package of that DAR file in a human-readable
+format.
 
 For example, run the ``inspect`` tool on the DAR produced in the previous
 section:
