@@ -199,16 +199,17 @@ depending on what is needed.
   Because fully decoding the package takes more processing time than the next
   two examples, only use it when the full package code is needed.
 * When only the simplest representation of the protobuf of the package is
-  needed, pick a decoder returning a ``com.digitalasset.daml.lf.DamlLf.ArchivePayload``
-  (from the ``com-daml:daml-lf-archive-proto`` `library on Maven`__).
-  This should only be needed when working with internal protobuf representations
-  of a package.
+  needed, pick a decoder returning a ``com.digitalasset.daml.lf.ArchivePayload``
+  (from the ``com-daml:daml-lf-archive`` `library on Maven`__).
+
+  __ https://mvnrepository.com/artifact/com.daml/daml-lf-archive
+
+* When only the package's byte representation and hash is needed, use a
+  decoder that returns ``Archive`` (from the ``com-daml:daml-lf-archive-proto``
+  `library on Maven`__). When using this, the decoder will not spend time decoding any of the
+  package's actual content, such as its metadata or its code.
 
   __ https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto
-* When only the package's byte representation and hash is needed, use a
-  decoder that returns ``Archive`` (also from the ``com-daml:daml-lf-archive-proto``
-  library). When using this, the decoder will not spend time decoding any of the
-  package's actual content, such as its metadata or its code.
 
 Input types
 """""""""""
