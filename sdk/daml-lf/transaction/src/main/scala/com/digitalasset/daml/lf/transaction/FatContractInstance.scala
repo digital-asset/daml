@@ -12,7 +12,7 @@ import scala.collection.immutable.TreeSet
 // This should replace value.ThinContractInstance in the whole daml/canton codespace
 // TODO: Rename to ContractInstance once value.ThinContractInstance is properly deprecated
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
-  type CreatedAt <: CreationTime
+  type CreatedAtTime <: CreationTime
 
   val version: TransactionVersion
   val contractId: Value.ContractId
@@ -22,15 +22,17 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val signatories: TreeSet[Ref.Party]
   val stakeholders: TreeSet[Ref.Party]
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
-  val createdAt: CreatedAt
+  val createdAt: CreatedAtTime
   val cantonData: Bytes
-  private[lf] def toImplementation: FatContractInstanceImpl[CreatedAt] =
-    this.asInstanceOf[FatContractInstanceImpl[CreatedAt]]
+  private[lf] def toImplementation: FatContractInstanceImpl[CreatedAtTime] =
+    this.asInstanceOf[FatContractInstanceImpl[CreatedAtTime]]
   final lazy val maintainers: TreeSet[Ref.Party] =
     contractKeyWithMaintainers.fold(TreeSet.empty[Ref.Party])(k => TreeSet.from(k.maintainers))
   final lazy val nonMaintainerSignatories: TreeSet[Ref.Party] = signatories -- maintainers
   final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
-  def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstance
+  def updateCreateAt(
+      updatedTime: Time.Timestamp
+  ): FatContractInstance { type CreatedAt = CreationTime.CreatedAt }
   def setSalt(cantonData: Bytes): FatContractInstance
 
   def toCreateNode = Node.Create(
@@ -76,7 +78,7 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
 ) extends FatContractInstance
     with CidContainer[FatContractInstanceImpl[Time]] {
 
-  override type CreatedAt = Time
+  override type CreatedAtTime = Time
 
   // TODO (change implementation of KeyWithMaintainers.maintainer to TreeSet)
   require(maintainers.isInstanceOf[TreeSet[Ref.Party]], "maintainers should be a TreeSet")
