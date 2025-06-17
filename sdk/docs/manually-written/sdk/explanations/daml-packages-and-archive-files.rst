@@ -136,10 +136,10 @@ package as a dependency:
    data-dependencies:
    - ../mypkg/.daml/dist/mypkg-1.0.0.dar
 
-In this case, the compilation process unpacks the DAR, finds its primary
-package, and exposes that as a dependency to code inside ``next-project``. When
-``next-project`` is compiled, it retains all of the DALF files inside the
-``mypkg`` DAR, including the ``mypkg`` package's dependencies.
+In this case, the compilation process unpacks the ``mypkg-1.0.0`` DAR, finds its
+primary package, and exposes that as a dependency to code inside
+``next-project``. When ``next-project`` is compiled, it retains all of the DALF
+files inside the ``mypkg`` DAR, including the ``mypkg`` package's dependencies.
 
 In general, any time a DAR is compiled for a package that has further DAR
 dependencies, those DAR dependencies are unpacked and all of their DALF files
