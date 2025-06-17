@@ -1,7 +1,8 @@
 // Copyright (c) 2025 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.language
+package com.digitalasset.daml.lf
+package language
 
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
@@ -1243,7 +1244,7 @@ object Ast {
       metadata: PackageMetadata,
       // Packages that do not define any serializable types are referred to as utility packages
       // in the context of upgrades. They will not be considered for upgrade checks.
-      private val isUtilityPackage: Boolean,
+      private[lf] val isUtilityPackage: Boolean,
   ) {
     def supportsUpgrades(pkgId: Ref.PackageId) =
       LanguageVersion

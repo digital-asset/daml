@@ -622,6 +622,11 @@ class Engine(val config: EngineConfig) {
 
     def lookupDarPackage(pkgId: PackageId): Option[Package] = darManifest.get(pkgId)
 
+    def isUtilityPackage(pkgId: PackageId): Boolean =
+      darManifest.get(pkgId).fold(false) { pkg =>
+        List("daml-prim", "daml-stdlib").contains(pkg.metadata.name) && pkg.isUtilityPackage
+      }
+
     // FIXME: can we make this stack safe?
     def calculateDependencyInformation(
         pkgIds: Set[PackageId],
@@ -657,13 +662,15 @@ class Engine(val config: EngineConfig) {
         }
         .toLeft(())
       // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
-      // extraDeps are Dar manifest package IDs that are not stable packages and are not used (but their packages may also be missing from the Dar manifest)
+      // extraDeps are Dar manifest package IDs that are not stable packages, are not utility packages and are not used (but their packages may also be missing from the Dar manifest)
       (transitiveDeps, missingDeps) = calculateDependencyInformation(
         Set(dar.main._1),
         Set.empty,
         Set.empty,
       )
-      extraDeps = darManifest.keySet.diff(transitiveDeps ++ missingDeps ++ stablePackageIds)
+      extraDeps = darManifest.keySet
+        .filterNot(isUtilityPackage)
+        .diff(transitiveDeps ++ missingDeps ++ stablePackageIds)
       _ <- Either.cond(
         missingDeps.isEmpty && extraDeps.isEmpty,
         (),
