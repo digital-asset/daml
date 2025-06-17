@@ -30,7 +30,7 @@ import           Control.Exception.Extra
 import           Control.Monad
 import           Control.Monad.IO.Class
 import           DA.Daml.LF.PrettyScript (prettyScriptError, prettyScriptResult)
-import           DA.Daml.LF.Proto3.EncodeV2
+import           DA.Daml.LF.Proto3.Encode
 import qualified DA.Daml.LF.Proto3.Archive.Encode as Archive
 import           DA.Pretty hiding (first)
 import qualified DA.Daml.LF.ScriptServiceClient as SS
