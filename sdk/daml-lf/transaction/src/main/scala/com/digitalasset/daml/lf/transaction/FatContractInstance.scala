@@ -12,6 +12,8 @@ import scala.collection.immutable.TreeSet
 // This should replace value.ThinContractInstance in the whole daml/canton codespace
 // TODO: Rename to ContractInstance once value.ThinContractInstance is properly deprecated
 sealed abstract class FatContractInstance extends CidContainer[FatContractInstance] {
+  type CreatedAt <: CreationTime
+
   val version: TransactionVersion
   val contractId: Value.ContractId
   val packageName: Ref.PackageName
@@ -20,10 +22,10 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   val signatories: TreeSet[Ref.Party]
   val stakeholders: TreeSet[Ref.Party]
   val contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers]
-  val createdAt: CreationTime
+  val createdAt: CreatedAt
   val cantonData: Bytes
-  private[lf] def toImplementation: FatContractInstanceImpl =
-    this.asInstanceOf[FatContractInstanceImpl]
+  private[lf] def toImplementation: FatContractInstanceImpl[CreatedAt] =
+    this.asInstanceOf[FatContractInstanceImpl[CreatedAt]]
   final lazy val maintainers: TreeSet[Ref.Party] =
     contractKeyWithMaintainers.fold(TreeSet.empty[Ref.Party])(k => TreeSet.from(k.maintainers))
   final lazy val nonMaintainerSignatories: TreeSet[Ref.Party] = signatories -- maintainers
@@ -60,7 +62,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
     )
 }
 
-private[lf] final case class FatContractInstanceImpl(
+private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
     version: TransactionVersion,
     contractId: Value.ContractId,
     packageName: Ref.PackageName,
@@ -69,10 +71,12 @@ private[lf] final case class FatContractInstanceImpl(
     signatories: TreeSet[Ref.Party],
     stakeholders: TreeSet[Ref.Party],
     contractKeyWithMaintainers: Option[GlobalKeyWithMaintainers],
-    createdAt: CreationTime,
+    createdAt: Time,
     cantonData: Bytes,
 ) extends FatContractInstance
-    with CidContainer[FatContractInstanceImpl] {
+    with CidContainer[FatContractInstanceImpl[Time]] {
+
+  override type CreatedAt = Time
 
   // TODO (change implementation of KeyWithMaintainers.maintainer to TreeSet)
   require(maintainers.isInstanceOf[TreeSet[Ref.Party]], "maintainers should be a TreeSet")
@@ -84,17 +88,19 @@ private[lf] final case class FatContractInstanceImpl(
     "Creation time 'now' is not allowed for local and absolute contract ids",
   )
 
-  override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl = {
+  override def mapCid(f: Value.ContractId => Value.ContractId): FatContractInstanceImpl[Time] = {
     copy(
       contractId = f(contractId),
       createArg = createArg.mapCid(f),
     )
   }
 
-  override def updateCreateAt(updatedTime: Time.Timestamp): FatContractInstanceImpl =
+  override def updateCreateAt(
+      updatedTime: Time.Timestamp
+  ): FatContractInstanceImpl[CreationTime.CreatedAt] =
     copy(createdAt = CreationTime.CreatedAt(updatedTime))
 
-  override def setSalt(cantonData: Bytes): FatContractInstanceImpl = {
+  override def setSalt(cantonData: Bytes): FatContractInstanceImpl[Time] = {
     assert(cantonData.nonEmpty)
     copy(cantonData = cantonData)
   }
@@ -102,11 +108,11 @@ private[lf] final case class FatContractInstanceImpl(
 
 object FatContractInstance {
 
-  def fromCreateNode(
+  def fromCreateNode[T <: CreationTime](
       create: Node.Create,
-      createTime: CreationTime,
+      createTime: T,
       cantonData: Bytes,
-  ): FatContractInstance =
+  ): FatContractInstance { type CreatedAt = T } =
     FatContractInstanceImpl(
       version = create.version,
       contractId = create.coid,

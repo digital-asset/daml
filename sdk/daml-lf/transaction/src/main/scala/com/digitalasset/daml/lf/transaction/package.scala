@@ -34,4 +34,7 @@ package object transaction {
 
   type VersionedGlobalKey = Versioned[GlobalKey]
 
+  type FatContractInstanceWithAbsoluteCreationTime = FatContractInstance {
+    type CreatedAt = CreationTime.CreatedAt
+  }
 }

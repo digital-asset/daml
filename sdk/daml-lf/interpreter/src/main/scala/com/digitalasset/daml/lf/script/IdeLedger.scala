@@ -621,7 +621,8 @@ final case class IdeLedger(
       case Some(info) =>
         info.toFatContractInstance match {
           case Some(contract) =>
-            val isEffective = contract.createdAt match {
+            // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+            val isEffective = (contract.createdAt: CreationTime) match {
               case CreationTime.Now => true
               case CreationTime.CreatedAt(createdAt) => createdAt <= effectiveAt
             }
