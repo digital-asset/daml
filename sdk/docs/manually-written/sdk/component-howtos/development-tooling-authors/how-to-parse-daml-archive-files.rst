@@ -173,7 +173,7 @@ Parsing DAR and DALF files
 **************************
 
 To parse a DAR or DALF file from within Scala code, the
-``com-daml:daml-lf-archive-reader`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-reader>`_
+``com-daml:daml-lf-archive-reader`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-reader>`
 provides a Scala package object ``com.digitalasset.daml.lf.archive`` with
 several decoders. Below are the common types of inputs and outputs a decoder can
 have, and which decoders to use depending on the input and output that is
@@ -189,27 +189,27 @@ depending on what is needed.
 * When the full code of the package is needed, pick a decoder returning tuples
   ``(PackageId, Package)``.
 
-  In this case, ``PackageId`` comes from ``com.digitalasset.daml.lf.language.Ref``
-  in the ``com.daml:daml-lf-data`` package, and ``Package`` comes from
-  ``com.digitalasset.daml.lf.language.Ast``, in the ``com.daml:daml-lf-language``
-  `library on Maven`__.
-
-  __ https://mvnrepository.com/artifact/com.daml/daml-lf-language
+  In this case, ``PackageId`` is a string-like type that comes from
+  ``com.digitalasset.daml.lf.language.Ref`` in the ``com.daml:daml-lf-data``
+  `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-data>`.
+  ``Package`` represents the full structure of a package, and comes
+  from ``com.digitalasset.daml.lf.language.Ast``, in the ``com.daml:daml-lf-language``
+  `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-language>`.
 
   Because fully decoding the package takes more processing time than the next
   two examples, only use it when the full package code is needed.
+
 * When only the simplest representation of the protobuf of the package is
   needed, pick a decoder returning a ``com.digitalasset.daml.lf.ArchivePayload``
-  (from the ``com-daml:daml-lf-archive`` `library on Maven`__).
-
-  __ https://mvnrepository.com/artifact/com.daml/daml-lf-archive
+  (from the ``com-daml:daml-lf-archive`` `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive>`).
+  This should only be needed when working with internal protobuf representations
+  of a package.
 
 * When only the package's byte representation and hash is needed, use a
   decoder that returns ``Archive`` (from the ``com-daml:daml-lf-archive-proto``
-  `library on Maven`__). When using this, the decoder will not spend time decoding any of the
-  package's actual content, such as its metadata or its code.
-
-  __ https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto
+  `library on Maven <https://mvnrepository.com/artifact/com.daml/daml-lf-archive-proto>`).
+  When using this, the decoder will not spend time decoding any of the package's
+  actual content, such as its metadata or its code.
 
 Input types
 """""""""""
