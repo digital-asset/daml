@@ -53,11 +53,11 @@ the code it was compiled from.
 
    META-INF/MANIFEST.MF
    ...
-   mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-....dalf
+   mypkg-1.0.0-<mypkg-package-id>/dep-1.0.0-<dep-package-id>.dalf
    mypkg-1.0.0-<mypkg-package-id>/Main.daml
    mypkg-1.0.0-<mypkg-package-id>/Main.hi
    mypkg-1.0.0-<mypkg-package-id>/Main.hie
-   mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-....dalf
+   mypkg-1.0.0-<mypkg-package-id>/mypkg-1.0.0-<mypkg-package-id>.dalf
 
 
 The majority of the files in a given DAR will be DALF files (``.dalf``). Each
@@ -66,11 +66,11 @@ The majority of the files in a given DAR will be DALF files (``.dalf``). Each
 One of the DALF files will be the "main" or "primary" package that the DAR was
 compiled from - this DALF will contain the definitions of templates, interfaces,
 datatypes, and functions that were originally described in the Daml code that
-the DAR was compiled from. In this case, that is the ``mypkg-1.0.0-....dalf``
+the DAR was compiled from. In this case, that is the ``mypkg-1.0.0-<mypkg-package-id>.dalf``
 file listed above.
 
 All of the other DALF files will be for dependency packages of that "main"
-package, which are required to run the package. This includes the ``dep-1.0.0....dalf``
+package, which are required to run the package. This includes the ``dep-1.0.0-<dep-package-id>.dalf``
 file, as well as many DALF files for the ``daml-prim`` and ``daml-stdlib``
 libraries.
 
