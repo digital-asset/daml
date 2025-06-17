@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.topology.store.memory
 
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
 import com.digitalasset.canton.topology.store.{
   DownloadTopologyStateForInitializationServiceTest,
@@ -14,7 +14,7 @@ import com.digitalasset.canton.topology.store.{
 class InMemoryDownloadTopologyStateForInitializationServiceTest
     extends DownloadTopologyStateForInitializationServiceTest {
   override protected def mkStore(
-      synchronizerId: SynchronizerId
+      synchronizerId: PhysicalSynchronizerId
   ): TopologyStore[TopologyStoreId.SynchronizerStore] = {
     val storeId = SynchronizerStore(synchronizerId)
     new InMemoryTopologyStore[TopologyStoreId.SynchronizerStore](

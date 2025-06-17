@@ -373,7 +373,7 @@ trait DbStoreBasedTopologySnapshotTest
   this: AsyncWordSpec with BaseTest with HasExecutionContext with DbTest =>
 
   "DbStoreBasedTopologySnapshot" should {
-    behave like topologySnapshot(() => mkStore(DefaultTestIdentities.synchronizerId))
+    behave like topologySnapshot(() => mkStore(DefaultTestIdentities.physicalSynchronizerId))
   }
 
 }

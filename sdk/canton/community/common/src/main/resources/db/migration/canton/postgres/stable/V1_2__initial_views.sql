@@ -289,6 +289,7 @@ create or replace view debug.par_reassignments as
   select
     debug.resolve_common_static_string(target_synchronizer_idx) as target_synchronizer_idx,
     debug.resolve_common_static_string(source_synchronizer_idx) as source_synchronizer_idx,
+    unassign_id,
     unassignment_global_offset,
     assignment_global_offset,
     debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
@@ -413,7 +414,7 @@ create or replace view debug.common_sequenced_event_store_pruning as
 create or replace view debug.mediator_synchronizer_configuration as
   select
     lock,
-    synchronizer_id,
+    physical_synchronizer_id,
     static_synchronizer_parameters,
     sequencer_connection,
     is_topology_initialized

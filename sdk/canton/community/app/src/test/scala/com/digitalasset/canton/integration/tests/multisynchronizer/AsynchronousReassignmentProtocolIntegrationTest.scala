@@ -7,7 +7,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalSequencerReference
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
@@ -208,10 +207,8 @@ final class AsynchronousReassignmentProtocolIntegrationTest
         acmeId,
       )
 
-    val aliceReassignmentId =
-      ReassignmentId(Source(daId), CantonTimestamp.assertFromLong(unassign1.toLong))
-    val bobReassignmentId =
-      ReassignmentId(Source(daId), CantonTimestamp.assertFromLong(unassign2.toLong))
+    val aliceReassignmentId = ReassignmentId.tryCreate(Source(daId), unassign1)
+    val bobReassignmentId = ReassignmentId.tryCreate(Source(daId), unassign2)
 
     val reassignmentStore = participant1.underlying.value.sync.syncPersistentStateManager
       .get(acmeId)

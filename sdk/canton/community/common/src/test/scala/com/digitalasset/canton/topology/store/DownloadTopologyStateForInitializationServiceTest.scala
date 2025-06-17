@@ -8,7 +8,7 @@ import com.digitalasset.canton.FailOnShutdown
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.TopologyStoreId.SynchronizerStore
@@ -21,7 +21,7 @@ trait DownloadTopologyStateForInitializationServiceTest
     with FailOnShutdown {
 
   protected def mkStore(
-      synchronizerId: SynchronizerId
+      synchronizerId: PhysicalSynchronizerId
   ): TopologyStore[SynchronizerStore]
 
   val testData = new TopologyStoreTestData(testedProtocolVersion, loggerFactory, executionContext)
@@ -72,7 +72,7 @@ trait DownloadTopologyStateForInitializationServiceTest
   private def initializeStore(
       storedTransactions: GenericStoredTopologyTransactions
   ): FutureUnlessShutdown[TopologyStore[SynchronizerStore]] = {
-    val store = mkStore(synchronizer1_p1p2_synchronizerId)
+    val store = mkStore(synchronizer1_p1p2_physicalSynchronizerId)
     val groupedBySequencedTime =
       storedTransactions.result.groupBy(tx => (tx.sequenced, tx.validFrom)).toSeq.sortBy {
         case (sequenced, _) => sequenced

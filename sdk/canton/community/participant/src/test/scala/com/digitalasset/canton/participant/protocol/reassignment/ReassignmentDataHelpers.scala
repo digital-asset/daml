@@ -74,6 +74,7 @@ final case class ReassignmentDataHelpers(
   def unassignmentData(
       reassignmentId: ReassignmentId,
       unassignmentRequest: UnassignmentRequest,
+      unassignmentTs: CantonTimestamp = CantonTimestamp.Epoch,
   ): UnassignmentData = {
     val uuid = new UUID(10L, 0L)
     val seed = seedGenerator.generateSaltSeed()
@@ -89,6 +90,7 @@ final case class ReassignmentDataHelpers(
     UnassignmentData(
       reassignmentId = reassignmentId,
       unassignmentRequest = fullUnassignmentViewTree,
+      unassignmentTs = unassignmentTs,
     )
   }
 }
@@ -102,7 +104,7 @@ object ReassignmentDataHelpers {
       identityFactory: TestingIdentityFactory,
   ) = {
     val pureCrypto = identityFactory
-      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap.logical)
+      .forOwnerAndSynchronizer(DefaultTestIdentities.mediatorId, sourceSynchronizer.unwrap)
       .pureCrypto
 
     new ReassignmentDataHelpers(
@@ -114,14 +116,14 @@ object ReassignmentDataHelpers {
         identityFactory
           .forOwnerAndSynchronizer(
             DefaultTestIdentities.mediatorId,
-            sourceSynchronizer.unwrap.logical,
+            sourceSynchronizer.unwrap,
           )
       ),
       sequencerCryptoClient = Some(
         identityFactory
           .forOwnerAndSynchronizer(
             DefaultTestIdentities.sequencerId,
-            sourceSynchronizer.unwrap.logical,
+            sourceSynchronizer.unwrap,
           )
       ),
     )

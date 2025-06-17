@@ -255,8 +255,9 @@ create table par_reassignments (
   -- reassignment id
   target_synchronizer_idx integer not null,
   source_synchronizer_idx integer not null,
+  unassign_id varchar collate "C" not null,
 
-  primary key (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp),
+  primary key (target_synchronizer_idx, source_synchronizer_idx, unassign_id),
 
   unassignment_global_offset bigint,
   assignment_global_offset bigint,
@@ -445,7 +446,7 @@ create table common_sequenced_event_store_pruning (
 create table mediator_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  synchronizer_id varchar collate "C" not null,
+  physical_synchronizer_id varchar collate "C" not null,
   static_synchronizer_parameters bytea not null,
   sequencer_connection bytea not null,
   is_topology_initialized bool not null default false

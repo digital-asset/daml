@@ -84,7 +84,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
   def hashOfSignatures(protocolVersion: ProtocolVersion): Hash = {
     val builder = Hash.build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)
     signatures.toList
-      .sortBy(_.signedBy.toProtoPrimitive)
+      .sortBy(_.authorizingLongTermKey.toProtoPrimitive)
       .foreach(signature => builder.add(signature.signature.toByteString(protocolVersion)))
     builder.finish()
   }
@@ -118,7 +118,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
 
   def removeSignatures(keys: Set[Fingerprint]): Option[SignedTopologyTransaction[Op, M]] = {
     val updatedSignatures =
-      signatures.filterNot(sig => keys.contains(sig.signedBy))
+      signatures.filterNot(sig => keys.contains(sig.authorizingLongTermKey))
 
     NonEmpty
       .from(updatedSignatures)
@@ -172,7 +172,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       unnamedParam(_.transaction),
       // just calling `signatures.map(_.signedBy)` hides the fact that there could be
       // multiple (possibly invalid) signatures by the same key
-      param("signatures", _.signatures.toSeq.map(_.signedBy).sorted),
+      param("signatures", _.signatures.toSeq.map(_.authorizingLongTermKey).sorted),
       paramIfTrue("proposal", _.isProposal),
     )
 
@@ -375,7 +375,7 @@ object SignedTopologyTransaction
           signedTopologyTransaction <- SignedTopologyTransaction
             .signAndCreate(
               convertedTx,
-              signedTx.signatures.map(signature => signature.signedBy),
+              signedTx.signatures.map(signature => signature.authorizingLongTermKey),
               signedTx.isProposal,
               crypto.privateCrypto,
               protocolVersion,

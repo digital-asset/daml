@@ -3,27 +3,47 @@
 
 package com.digitalasset.canton.topology.admin.grpc
 
+import cats.syntax.bifunctor.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.String185
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.admin.v30 as adminProto
-import com.digitalasset.canton.topology.{SynchronizerId, store}
+import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SynchronizerId, store}
+
+import scala.language.implicitConversions
 
 sealed trait TopologyStoreId extends Product with Serializable {
   def toProtoV30: adminProto.StoreId
 
-  private[canton] def toInternal: store.TopologyStoreId
+  private[canton] def toInternal(
+      lookup: PSIdLookup
+  ): Either[SynchronizerId, store.TopologyStoreId]
+}
+
+private[canton] trait PSIdLookup {
+  def activePSIdFor(
+      synchronizerId: SynchronizerId
+  ): Option[PhysicalSynchronizerId]
 }
 
 object TopologyStoreId {
 
   def fromInternal(internalStore: store.TopologyStoreId): TopologyStoreId = internalStore match {
     case store.TopologyStoreId.SynchronizerStore(synchronizerId) =>
-      TopologyStoreId.Synchronizer(synchronizerId)
+      Synchronizer(synchronizerId)
     case store.TopologyStoreId.AuthorizedStore => TopologyStoreId.Authorized
     case store.TopologyStoreId.TemporaryStore(name) => TopologyStoreId.Temporary(name)
   }
+
+  implicit def synchronizerIdIsTopologyStoreId(
+      synchronizerId: SynchronizerId
+  ): TopologyStoreId.Synchronizer =
+    TopologyStoreId.Synchronizer(synchronizerId)
+  implicit def physicalSynchronizerIdIsTopologyStoreId(
+      synchronizerId: PhysicalSynchronizerId
+  ): TopologyStoreId.Synchronizer =
+    TopologyStoreId.Synchronizer(synchronizerId)
 
   def fromProtoV30(
       store: adminProto.StoreId,
@@ -36,20 +56,65 @@ object TopologyStoreId {
         String185
           .fromProtoPrimitive(temporary.name, fieldName)
           .map(TopologyStoreId.Temporary(_))
-      case adminProto.StoreId.Store.Synchronizer(synchronizer) =>
+      case adminProto.StoreId.Store.Synchronizer(
+            adminProto.StoreId.Synchronizer(
+              adminProto.StoreId.Synchronizer.Kind.Id(logicalSynchronizerId)
+            )
+          ) =>
         SynchronizerId
-          .fromProtoPrimitive(synchronizer.id, fieldName)
-          .map(TopologyStoreId.Synchronizer(_))
+          .fromProtoPrimitive(logicalSynchronizerId, fieldName)
+          .map(id => TopologyStoreId.Synchronizer(id))
+
+      case adminProto.StoreId.Store.Synchronizer(
+            adminProto.StoreId.Synchronizer(
+              adminProto.StoreId.Synchronizer.Kind.PhysicalId(physicalSynchronizerId)
+            )
+          ) =>
+        PhysicalSynchronizerId
+          .fromProtoPrimitive(physicalSynchronizerId, fieldName)
+          .map(id => TopologyStoreId.Synchronizer(id))
+
+      case adminProto.StoreId.Store.Synchronizer(
+            adminProto.StoreId.Synchronizer(
+              adminProto.StoreId.Synchronizer.Kind.Empty
+            )
+          ) =>
+        Left(ProtoDeserializationError.FieldNotSet(fieldName))
     }
 
-  final case class Synchronizer(id: SynchronizerId) extends TopologyStoreId {
+  final case class Synchronizer private (id: Either[SynchronizerId, PhysicalSynchronizerId])
+      extends TopologyStoreId {
+
     override def toProtoV30: adminProto.StoreId =
       adminProto.StoreId(
-        adminProto.StoreId.Store.Synchronizer(adminProto.StoreId.Synchronizer(id.toProtoPrimitive))
+        adminProto.StoreId.Store.Synchronizer(
+          adminProto.StoreId.Synchronizer(
+            id.bimap(
+              logical => adminProto.StoreId.Synchronizer.Kind.Id(logical.toProtoPrimitive),
+              physical => adminProto.StoreId.Synchronizer.Kind.PhysicalId(physical.toProtoPrimitive),
+            ).merge
+          )
+        )
       )
 
-    override private[canton] def toInternal: store.TopologyStoreId.SynchronizerStore =
-      store.TopologyStoreId.SynchronizerStore(id)
+    override private[canton] def toInternal(
+        lookup: PSIdLookup
+    ): Either[SynchronizerId, store.TopologyStoreId.SynchronizerStore] =
+      id.fold(
+        logical =>
+          lookup
+            .activePSIdFor(logical)
+            .map(store.TopologyStoreId.SynchronizerStore(_))
+            .toRight(logical),
+        physical => Right(store.TopologyStoreId.SynchronizerStore(physical)),
+      )
+  }
+
+  object Synchronizer {
+    def apply(synchronizerId: SynchronizerId): Synchronizer = Synchronizer(Left(synchronizerId))
+    def apply(physicalSynchronizerId: PhysicalSynchronizerId): Synchronizer =
+      Synchronizer(Right(physicalSynchronizerId))
+
   }
 
   final case class Temporary(name: String185) extends TopologyStoreId {
@@ -58,8 +123,10 @@ object TopologyStoreId {
         adminProto.StoreId.Store.Temporary(adminProto.StoreId.Temporary(name.unwrap))
       )
 
-    override private[canton] def toInternal: store.TopologyStoreId.TemporaryStore =
-      store.TopologyStoreId.TemporaryStore(name)
+    override private[canton] def toInternal(
+        lookup: PSIdLookup
+    ): Either[SynchronizerId, store.TopologyStoreId.TemporaryStore] =
+      Right(store.TopologyStoreId.TemporaryStore(name))
   }
 
   object Temporary {
@@ -76,7 +143,9 @@ object TopologyStoreId {
     override def toProtoV30: adminProto.StoreId =
       adminProto.StoreId(adminProto.StoreId.Store.Authorized(adminProto.StoreId.Authorized()))
 
-    override private[canton] def toInternal: store.TopologyStoreId.AuthorizedStore =
-      store.TopologyStoreId.AuthorizedStore
+    override private[canton] def toInternal(
+        lookup: PSIdLookup
+    ): Either[SynchronizerId, store.TopologyStoreId.AuthorizedStore] =
+      Right(store.TopologyStoreId.AuthorizedStore)
   }
 }

@@ -15,8 +15,12 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   ActivenessChangeDetail,
   ReassignmentType,
 }
-import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId, SerializableContract}
-import com.digitalasset.canton.serialization.ProtoConverter
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  ReassignmentId,
+  SerializableContract,
+  UnassignId,
+}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedSynchronizer}
 import com.digitalasset.canton.topology.{ParticipantId, SynchronizerId}
@@ -552,7 +556,7 @@ final case class ContractAssigned(
         Some(
           v30.ContractState.ReassignmentId(
             rid.sourceSynchronizer.unwrap.toProtoPrimitive,
-            Some(rid.unassignmentTs.toProtoTimestamp),
+            rid.unassignId.toProtoPrimitive,
           )
         )
       case None => None: Option[v30.ContractState.ReassignmentId]
@@ -580,14 +584,10 @@ object ContractAssigned
     val reassignmentIdE = assigned.reassignmentId match {
       case Some(reassignmentId) =>
         for {
-          ts <- ProtoConverter.parseRequired(
-            CantonTimestamp.fromProtoTimestamp,
-            "unassignTimestamp",
-            reassignmentId.unassignTimestamp,
-          )
+          unassignId <- UnassignId.fromProtoPrimitive(reassignmentId.unassignId)
           sourceSynchronizerId <- SynchronizerId
             .fromProtoPrimitive(reassignmentId.sourceSynchronizerId, "sourceSynchronizerId")
-        } yield Some(ReassignmentId(Source(sourceSynchronizerId), ts))
+        } yield Some(ReassignmentId(Source(sourceSynchronizerId), unassignId))
       case None => Right(None: Option[ReassignmentId])
     }
 
@@ -623,7 +623,7 @@ final case class ContractUnassigned(
         Some(
           v30.ContractState.ReassignmentId(
             rid.sourceSynchronizer.unwrap.toProtoPrimitive,
-            Some(rid.unassignmentTs.toProtoTimestamp),
+            rid.unassignId.toProtoPrimitive,
           )
         )
       case None => None: Option[v30.ContractState.ReassignmentId]
@@ -653,14 +653,10 @@ object ContractUnassigned extends HasVersionedMessageCompanion[ContractUnassigne
       reassignmentIdE = unassigned.reassignmentId match {
         case Some(reassignmentId) =>
           for {
-            ts <- ProtoConverter.parseRequired(
-              CantonTimestamp.fromProtoTimestamp,
-              "unassign_ts",
-              reassignmentId.unassignTimestamp,
-            )
+            unassignId <- UnassignId.fromProtoPrimitive(reassignmentId.unassignId)
             sourceSynchronizerId <- SynchronizerId
               .fromProtoPrimitive(reassignmentId.sourceSynchronizerId, "sourceSynchronizerId")
-          } yield Some(ReassignmentId(Source(sourceSynchronizerId), ts))
+          } yield Some(ReassignmentId(Source(sourceSynchronizerId), unassignId))
         case None => Right(None: Option[ReassignmentId])
       }
 

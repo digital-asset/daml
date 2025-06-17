@@ -82,10 +82,8 @@ private final class ChangeAssignation(
         .toEitherT
 
       _ <- persistAssignments(
-        unassignmentData.payload.contracts.contractIdCounters.map {
-          case (contractId, reassignmentCounter) =>
-            (contractId, unassignmentData.targetTimeOfRepair, reassignmentCounter)
-        }
+        unassignmentData.payload.contracts.contractIdCounters,
+        unassignmentData.targetTimeOfRepair,
       ).toEitherT
 
       _ <- EitherT.right(
@@ -336,18 +334,19 @@ private final class ChangeAssignation(
     }
 
   private def persistAssignments(
-      contracts: Iterable[(LfContractId, Target[TimeOfRepair], ReassignmentCounter)]
+      contracts: Iterable[(LfContractId, ReassignmentCounter)],
+      timeOfRepair: Target[TimeOfRepair],
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, String, ActiveContractStore.AcsWarning, Unit] =
     targetPersistentState.unwrap.activeContractStore
       .assignContracts(
-        contracts.map { case (cid, tor, reassignmentCounter) =>
+        contracts.map { case (cid, reassignmentCounter) =>
           (
             cid,
             sourceSynchronizerId,
             reassignmentCounter,
-            tor.unwrap.toToc,
+            timeOfRepair.unwrap.toToc,
           )
         }.toSeq
       )
@@ -358,32 +357,22 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): CheckedT[FutureUnlessShutdown, String, ActiveContractStore.AcsWarning, Unit] = {
+    val contractIdCounters = changes.payload.batches.flatMap(_.contractIdCounters)
 
     val unassignF = sourcePersistentState.unwrap.activeContractStore
       .unassignContracts(
-        changes.payload.batches.flatMap { case batch =>
-          batch.contractIdCounters.map { case (contractId, reassignmentCounter) =>
-            (
-              contractId,
-              targetSynchronizerId,
-              reassignmentCounter,
-              changes.sourceTimeOfRepair.unwrap.toToc,
-            )
-          }
+        contractIdCounters.map { case (cid, reassignmentCounter) =>
+          (
+            cid,
+            targetSynchronizerId,
+            reassignmentCounter,
+            changes.sourceTimeOfRepair.unwrap.toToc,
+          )
         }
       )
       .mapAbort(e => s"Failed to mark contracts as unassigned: $e")
 
-    unassignF
-      .flatMap(_ =>
-        persistAssignments(
-          changes.payload.batches.flatMap { case batch =>
-            batch.contractIdCounters.map { case (contractId, reassignmentCounter) =>
-              (contractId, changes.targetTimeOfRepair, reassignmentCounter)
-            }
-          }
-        )
-      )
+    unassignF.flatMap(_ => persistAssignments(contractIdCounters, changes.targetTimeOfRepair))
   }
 
   private def publishAssignmentEvent(
@@ -404,7 +393,8 @@ private final class ChangeAssignation(
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] = {
-    val reassignmentId = ReassignmentId(sourceSynchronizerId, repairSource.unwrap.timestamp)
+    val unassignId = UnassignId(sourceSynchronizerId, repairSource.unwrap.timestamp)
+    val reassignmentId = ReassignmentId(sourceSynchronizerId, unassignId)
     val updates = unassignment(reassignmentId, changes) ++ assignment(reassignmentId, changes)
     for {
       _ <- FutureUnlessShutdown.outcomeF(
@@ -427,7 +417,7 @@ private final class ChangeAssignation(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          unassignId = reassignmentId.unassignmentTs,
+          unassignId = reassignmentId.unassignId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>
@@ -458,7 +448,7 @@ private final class ChangeAssignation(
           sourceSynchronizer = sourceSynchronizerId,
           targetSynchronizer = targetSynchronizerId,
           submitter = None,
-          unassignId = reassignmentId.unassignmentTs,
+          unassignId = reassignmentId.unassignId,
           isReassigningParticipant = false,
         ),
         reassignment = Reassignment.Batch(batch.contracts.zipWithIndex.map { case (reassign, idx) =>

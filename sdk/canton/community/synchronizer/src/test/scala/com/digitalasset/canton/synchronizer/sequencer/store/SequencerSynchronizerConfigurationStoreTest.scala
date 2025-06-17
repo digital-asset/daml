@@ -34,7 +34,7 @@ trait SequencerSynchronizerConfigurationStoreTest {
     "when set returns set value" in {
       val store = mkStore
       val originalConfig = SequencerSynchronizerConfiguration(
-        DefaultTestIdentities.synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         defaultStaticSynchronizerParameters,
       )
 
@@ -48,7 +48,7 @@ trait SequencerSynchronizerConfigurationStoreTest {
       val store = mkStore
       val defaultParams = defaultStaticSynchronizerParameters
       val originalConfig = SequencerSynchronizerConfiguration(
-        DefaultTestIdentities.synchronizerId,
+        DefaultTestIdentities.physicalSynchronizerId,
         defaultParams,
       )
       val updatedConfig = originalConfig

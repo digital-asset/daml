@@ -271,8 +271,10 @@ object InteractiveSubmission {
 
           (invalidSignatures, validSignatures) = signatures.map { signature =>
             authInfo.signingKeys
-              .find(_.fingerprint == signature.signedBy)
-              .toRight(s"Signing key ${signature.signedBy} is not a valid key for $party")
+              .find(_.fingerprint == signature.authorizingLongTermKey)
+              .toRight(
+                s"Signing key ${signature.authorizingLongTermKey} is not a valid key for $party"
+              )
               .flatMap(key =>
                 cryptoPureApi
                   .verifySignature(hash.unwrap, key, signature, SigningKeyUsage.ProtocolOnly)

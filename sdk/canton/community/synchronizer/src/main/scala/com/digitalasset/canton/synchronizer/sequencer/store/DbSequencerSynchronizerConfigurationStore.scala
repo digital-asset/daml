@@ -5,14 +5,14 @@ package com.digitalasset.canton.synchronizer.sequencer.store
 
 import cats.data.EitherT
 import cats.syntax.traverse.*
-import com.digitalasset.canton.config.CantonRequireTypes.{String1, String255}
+import com.digitalasset.canton.config.CantonRequireTypes.{String1, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.SynchronizerId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -26,7 +26,7 @@ class DbSequencerSynchronizerConfigurationStore(
     extends SequencerSynchronizerConfigurationStore
     with DbStore {
 
-  private type SerializedRow = (String255, ByteString)
+  private type SerializedRow = (String300, ByteString)
   import DbStorage.Implicits.*
   import storage.api.*
 
@@ -91,7 +91,7 @@ class DbSequencerSynchronizerConfigurationStore(
   private def deserialize(
       row: SerializedRow
   ): ParsingResult[SequencerSynchronizerConfiguration] = for {
-    synchronizerId <- SynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
+    synchronizerId <- PhysicalSynchronizerId.fromProtoPrimitive(row._1.unwrap, "synchronizerId")
     synchronizerParameters <- StaticSynchronizerParameters.fromTrustedByteString(
       row._2
     )

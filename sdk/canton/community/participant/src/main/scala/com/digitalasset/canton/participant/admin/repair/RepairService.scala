@@ -472,11 +472,13 @@ final class RepairService(
                 contracts.view.flatMap(_.map(c => c.contractId -> c)).toMap
               }
 
+          toc = repair.tryExactlyOneTimeOfRepair.toToc
+
           operationsE = contractIds
             .zip(contractStates)
             .foldMapM { case (cid, acsStatus) =>
               val storedContract = storedContracts.get(cid)
-              computePurgeOperations(repair, ignoreAlreadyPurged)(cid, acsStatus, storedContract)
+              computePurgeOperations(toc, ignoreAlreadyPurged)(cid, acsStatus, storedContract)
                 .map { case (missingPurge, missingAssignment) =>
                   (storedContract.toList, missingPurge, missingAssignment)
                 }
@@ -875,7 +877,7 @@ final class RepairService(
     * @param storedContractO
     *   Instance of the contract
     */
-  private def computePurgeOperations(repair: RepairRequest, ignoreAlreadyPurged: Boolean)(
+  private def computePurgeOperations(toc: TimeOfChange, ignoreAlreadyPurged: Boolean)(
       cid: LfContractId,
       acsStatus: Option[ActiveContractStore.Status],
       storedContractO: Option[SerializableContract],
@@ -890,8 +892,6 @@ final class RepairService(
           s"Contract $cid cannot be purged: $reason. Set ignoreAlreadyPurged = true to skip non-existing contracts."
         ),
       )
-
-    val toc = repair.tryExactlyOneTimeOfRepair.toToc
 
     // Not checking that the participant hosts a stakeholder as we might be cleaning up contracts
     // on behalf of stakeholders no longer around.

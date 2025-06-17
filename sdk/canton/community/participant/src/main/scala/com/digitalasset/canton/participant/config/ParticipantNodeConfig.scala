@@ -43,7 +43,6 @@ trait BaseParticipantConfig extends NodeConfig with Product with Serializable {
 
 final case class ParticipantProtocolConfig(
     minimumProtocolVersion: Option[ProtocolVersion],
-    override val sessionSigningKeys: SessionSigningKeysConfig,
     override val alphaVersionSupport: Boolean,
     override val betaVersionSupport: Boolean,
     override val dontWarnOnDeprecatedPV: Boolean,
@@ -348,7 +347,6 @@ final case class ParticipantNodeParameterConfig(
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest
     ),
-    sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     alphaVersionSupport: Boolean = true,
     betaVersionSupport: Boolean = false,

@@ -8,8 +8,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.participant.admin.data.ActiveContractOld
-import com.digitalasset.canton.participant.admin.party.v30
 import com.digitalasset.canton.participant.protocol.party.PartyReplicationSourceMessage.DataOrStatus
+import com.digitalasset.canton.participant.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*

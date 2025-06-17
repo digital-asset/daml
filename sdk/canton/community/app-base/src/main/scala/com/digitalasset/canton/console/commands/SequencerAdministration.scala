@@ -122,7 +122,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
 
     consoleEnvironment.run {
       runner.adminCommand(
-        InitializeFromOnboardingState(onboardingState)
+        InitializeFromOnboardingState(onboardingState = onboardingState)
       )
     }
   }

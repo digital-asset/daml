@@ -146,7 +146,7 @@ class SequencerClientTest
   private var actorSystem: ActorSystem = _
   private lazy val materializer: Materializer = Materializer(actorSystem)
   private lazy val topologyWithTrafficControl =
-    TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+    TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
       .withDynamicSynchronizerParameters(
         DefaultTestIdentities.defaultDynamicSynchronizerParameters.tryUpdate(
           trafficControlParameters = Some(
@@ -158,7 +158,7 @@ class SequencerClientTest
         validFrom = CantonTimestamp.MinValue,
       )
       .build()
-      .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
+      .forOwnerAndSynchronizer(participant1)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -1671,9 +1671,9 @@ class SequencerClientTest
 
       val topologyClient =
         topologyO.getOrElse(
-          TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+          TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
             .build(loggerFactory)
-            .forOwnerAndSynchronizer(mediatorId, DefaultTestIdentities.synchronizerId)
+            .forOwnerAndSynchronizer(mediatorId)
         )
       val trafficStateController = new TrafficStateController(
         mediatorId,
@@ -1778,7 +1778,7 @@ class SequencerClientTest
       val topologyClient = topologyO.getOrElse(
         TestingTopology()
           .build(loggerFactory)
-          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
+          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.physicalSynchronizerId)
       )
       val trafficStateController = new TrafficStateController(
         participant1,

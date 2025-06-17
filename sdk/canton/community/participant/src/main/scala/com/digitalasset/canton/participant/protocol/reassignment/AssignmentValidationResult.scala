@@ -144,7 +144,7 @@ final case class AssignmentValidationResult(
         sourceSynchronizer = reassignmentId.sourceSynchronizer,
         targetSynchronizer = targetSynchronizer,
         submitter = Option(submitterMetadata.submitter),
-        unassignId = reassignmentId.unassignmentTs,
+        unassignId = reassignmentId.unassignId,
         isReassigningParticipant = isReassigningParticipant,
       ),
       reassignment = reassignment,

@@ -533,7 +533,7 @@ object NamespaceDelegation extends TopologyMappingCompanion {
       .select[transaction.NamespaceDelegation]
       .exists(ns =>
         // a root certificate must only be signed by the namespace key, but we accept multiple signatures from that key
-        sit.signatures.forall(_.signedBy == ns.namespace.fingerprint) &&
+        sit.signatures.forall(_.authorizingLongTermKey == ns.namespace.fingerprint) &&
           // explicitly checking for nonEmpty to guard against refactorings away from NonEmpty[Set[...]].
           sit.signatures.nonEmpty &&
           ns.canSign(Code.NamespaceDelegation) &&

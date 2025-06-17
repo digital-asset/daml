@@ -77,7 +77,7 @@ private[reassignment] object TestReassignmentCoordination {
           synchronizer -> new InMemoryReassignmentStore(synchronizer, loggerFactory)
         )
         .toMap
-    val assignmentBySubmission = { (_: SynchronizerId) => None }
+    val assignmentBySubmission = { (_: PhysicalSynchronizerId) => None }
 
     val staticSynchronizerParametersGetter = new StaticSynchronizerParametersGetter {
       override def staticSynchronizerParameters(
@@ -112,7 +112,7 @@ private[reassignment] object TestReassignmentCoordination {
     ) {
 
       override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
-          synchronizerId: T[SynchronizerId],
+          synchronizerId: T[PhysicalSynchronizerId],
           staticSynchronizerParameters: T[StaticSynchronizerParameters],
           timestamp: CantonTimestamp,
       )(implicit
@@ -128,7 +128,7 @@ private[reassignment] object TestReassignmentCoordination {
       override def cryptoSnapshot[
           T[X] <: ReassignmentTag[X]: SameReassignmentType: SingletonTraverse
       ](
-          synchronizerId: T[SynchronizerId],
+          synchronizerId: T[PhysicalSynchronizerId],
           staticSynchronizerParameters: T[StaticSynchronizerParameters],
           timestamp: CantonTimestamp,
       )(implicit
@@ -151,8 +151,9 @@ private[reassignment] object TestReassignmentCoordination {
       packages: Seq[LfPackageId],
       loggerFactory: NamedLoggerFactory,
   ): SyncCryptoApiParticipantProvider =
-    TestingTopology(synchronizers = synchronizers.toSet)
-      .withReversedTopology(defaultTopology)
+    TestingTopology(synchronizers =
+      synchronizers.map(PhysicalSynchronizerId(_, BaseTest.testedProtocolVersion)).toSet
+    ).withReversedTopology(defaultTopology)
       .withPackages(defaultTopology.keys.map(_ -> packages).toMap)
       .build(loggerFactory)
       .forOwner(submittingParticipant)

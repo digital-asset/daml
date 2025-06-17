@@ -39,7 +39,7 @@ trait SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
           sequencer3.topology.transactions.export_identity_transactions(identityFile)
         }
 
-        // Fist sequencer's console:
+        // Fist and second sequencers' (i.e., owners) console:
         // * load third sequencer's identity transactions
         // * add the third sequencer to the sequencer synchronizer state
         // * write the topology snapshot, sequencer snapshot and static synchronizer parameters to files
@@ -47,21 +47,35 @@ trait SynchronizerBootstrapWithMultipleConsolesAndSequencersIntegrationTest
           // Store the third sequencer's identity topology transactions on the synchronizer
           sequencer1.topology.transactions
             .import_topology_snapshot_from(identityFile, store = synchronizerId)
+          sequencer2.topology.transactions
+            .import_topology_snapshot_from(identityFile, store = synchronizerId)
+
           // wait for the identity transactions to become effective
           sequencer1.topology.synchronisation.await_idle()
+          sequencer2.topology.synchronisation.await_idle()
 
           // find the current sequencer synchronizer state
-          val sequencerSynchronizerState = sequencer1.topology.sequencers
-            .list(store = synchronizerId)
-            .headOption
-            .getOrElse(sys.error("Did not find sequencer synchronizer state on the synchronizer"))
+          val sequencerSynchronizerState =
+            sequencer1.topology.sequencers
+              .list(store = synchronizerId)
+              .headOption
+              .getOrElse(sys.error("Did not find sequencer synchronizer state on the synchronizer"))
 
           // add the third sequencer to the synchronizer state
+          val threshold = sequencerSynchronizerState.item.threshold
+          val activeSequencers = sequencerSynchronizerState.item.active :+ sequencer3.id
+          val newSerial = Some(sequencerSynchronizerState.context.serial.increment)
           sequencer1.topology.sequencers.propose(
             synchronizerId,
-            threshold = sequencerSynchronizerState.item.threshold,
-            active = sequencerSynchronizerState.item.active :+ sequencer3.id,
-            serial = Some(sequencerSynchronizerState.context.serial.increment),
+            threshold,
+            activeSequencers,
+            serial = newSerial,
+          )
+          sequencer2.topology.sequencers.propose(
+            synchronizerId,
+            threshold,
+            activeSequencers,
+            serial = newSerial,
           )
           sequencer1.topology.synchronisation.await_idle()
 

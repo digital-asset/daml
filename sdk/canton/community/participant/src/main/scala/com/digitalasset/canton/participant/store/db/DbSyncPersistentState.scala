@@ -144,7 +144,7 @@ class DbSyncPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      SynchronizerStore(synchronizerIdx.synchronizerId),
+      SynchronizerStore(physicalSynchronizerIdx.synchronizerId),
       staticSynchronizerParameters.protocolVersion,
       timeouts,
       loggerFactory,

@@ -116,7 +116,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     TestingTopology()
       .withSimpleParticipants(participant, anotherParticipant)
       .build()
-      .forOwnerAndSynchronizer(participant, synchronizerId.logical)
+      .forOwnerAndSynchronizer(participant, synchronizerId)
   val clock = new SimClock(loggerFactory = loggerFactory)
   val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
   def timeouts = DefaultProcessingTimeouts.testing

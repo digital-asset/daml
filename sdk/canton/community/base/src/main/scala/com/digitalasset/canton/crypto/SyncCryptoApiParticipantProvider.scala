@@ -13,7 +13,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervision}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{ProcessingTimeout, SessionSigningKeysConfig}
+import com.digitalasset.canton.config.{CryptoConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SyncCryptoError.{KeyNotAvailable, SyncCryptoEncryptionError}
 import com.digitalasset.canton.crypto.signer.SyncCryptoSigner
 import com.digitalasset.canton.crypto.verifier.SyncCryptoVerifier
@@ -59,7 +59,7 @@ class SyncCryptoApiParticipantProvider(
     val member: Member,
     val ips: IdentityProvidingServiceClient,
     val crypto: Crypto,
-    sessionSigningKeysConfig: SessionSigningKeysConfig,
+    cryptoConfig: CryptoConfig,
     verificationParallelismLimit: PositiveInt,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
@@ -70,21 +70,22 @@ class SyncCryptoApiParticipantProvider(
 
   def pureCrypto: CryptoPureApi = crypto.pureCrypto
 
-  private val synchronizerCryptoClientCache: TrieMap[SynchronizerId, SynchronizerCryptoClient] =
+  private val synchronizerCryptoClientCache
+      : TrieMap[PhysicalSynchronizerId, SynchronizerCryptoClient] =
     TrieMap.empty
 
-  def remove(synchronizerId: SynchronizerId): Unit = {
+  def remove(synchronizerId: PhysicalSynchronizerId): Unit = {
     synchronizerCryptoClientCache.remove(synchronizerId).discard
     ips.remove(synchronizerId).discard
   }
 
-  def removeAndClose(synchronizerId: SynchronizerId): Unit = {
+  def removeAndClose(synchronizerId: PhysicalSynchronizerId): Unit = {
     synchronizerCryptoClientCache.remove(synchronizerId).foreach(_.close())
     ips.remove(synchronizerId).foreach(_.close())
   }
 
   private def createSynchronizerCryptoClient(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerTopologyClient: SynchronizerTopologyClient,
   ) =
@@ -94,7 +95,7 @@ class SyncCryptoApiParticipantProvider(
       synchronizerTopologyClient,
       staticSynchronizerParameters,
       SynchronizerCrypto(crypto, staticSynchronizerParameters),
-      sessionSigningKeysConfig,
+      cryptoConfig,
       verificationParallelismLimit,
       timeouts,
       futureSupervisor,
@@ -102,7 +103,7 @@ class SyncCryptoApiParticipantProvider(
     )
 
   private def getOrUpdate(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerTopologyClient: SynchronizerTopologyClient,
   ): SynchronizerCryptoClient =
@@ -116,7 +117,7 @@ class SyncCryptoApiParticipantProvider(
     )
 
   def tryForSynchronizer(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
   ): SynchronizerCryptoClient =
     getOrUpdate(
@@ -126,7 +127,7 @@ class SyncCryptoApiParticipantProvider(
     )
 
   def forSynchronizer(
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       staticSynchronizerParameters: StaticSynchronizerParameters,
   ): Option[SynchronizerCryptoClient] =
     ips.forSynchronizer(synchronizerId).map { topologyClient =>
@@ -443,11 +444,11 @@ object SynchronizerCryptoClient {
     */
   def createWithOptionalSessionKeys(
       member: Member,
-      synchronizerId: SynchronizerId,
+      synchronizerId: PhysicalSynchronizerId,
       ips: SynchronizerTopologyClient,
       staticSynchronizerParameters: StaticSynchronizerParameters,
       synchronizerCrypto: SynchronizerCrypto,
-      sessionSigningKeysConfig: SessionSigningKeysConfig,
+      cryptoConfig: CryptoConfig,
       verificationParallelismLimit: PositiveInt,
       timeouts: ProcessingTimeout,
       futureSupervisor: FutureSupervisor,
@@ -456,23 +457,23 @@ object SynchronizerCryptoClient {
       executionContext: ExecutionContext
   ): SynchronizerCryptoClient = {
     val syncCryptoSignerWithSessionKeys = SyncCryptoSigner.createWithOptionalSessionKeys(
-      synchronizerId,
+      synchronizerId.logical,
       staticSynchronizerParameters,
       member,
       synchronizerCrypto,
-      sessionSigningKeysConfig,
+      cryptoConfig,
       futureSupervisor,
       timeouts,
       loggerFactory,
     )
     new SynchronizerCryptoClient(
       member,
-      PhysicalSynchronizerId(synchronizerId, staticSynchronizerParameters),
+      synchronizerId,
       ips,
       synchronizerCrypto,
       syncCryptoSignerWithSessionKeys,
       SyncCryptoVerifier.create(
-        synchronizerId,
+        synchronizerId.logical,
         staticSynchronizerParameters,
         synchronizerCrypto.pureCrypto,
         verificationParallelismLimit,

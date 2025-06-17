@@ -239,6 +239,9 @@ create table par_reassignments (
 
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
+
+    unassign_id varchar not null,
+
     unassignment_request binary large object,
     unassignment_global_offset bigint,
     assignment_global_offset bigint,
@@ -246,7 +249,7 @@ create table par_reassignments (
     -- defined if reassignment was completed
     -- UTC timestamp in microseconds relative to EPOCH
     assignment_timestamp bigint,
-    primary key (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp)
+    primary key (target_synchronizer_idx, source_synchronizer_idx, unassign_id)
 );
 
 -- stores all requests for the request journal
@@ -428,7 +431,7 @@ create table common_sequenced_event_store_pruning (
 create table mediator_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  synchronizer_id varchar not null,
+  physical_synchronizer_id varchar not null,
   static_synchronizer_parameters binary large object not null,
   sequencer_connection binary large object not null,
   is_topology_initialized bool not null default false

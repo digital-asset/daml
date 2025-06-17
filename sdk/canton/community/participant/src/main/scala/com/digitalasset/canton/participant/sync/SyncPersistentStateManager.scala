@@ -347,7 +347,7 @@ class SyncPersistentStateManager(
   ): Option[TopologyComponentFactory] =
     get(synchronizerId).map(state =>
       new TopologyComponentFactory(
-        synchronizerId.logical,
+        synchronizerId,
         synchronizerId.protocolVersion,
         synchronizerCryptoFactory(state.staticSynchronizerParameters),
         clock,

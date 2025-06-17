@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.LocalSequencerReference
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.GetCash
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
@@ -209,8 +208,7 @@ sealed trait ReassignmentNoReassignmentDataIntegrationTest
       .value
       .reassignmentStore
 
-    val reassignmendId =
-      ReassignmentId(Source(daId), CantonTimestamp.assertFromLong(unassignId.toLong))
+    val reassignmendId = ReassignmentId.tryCreate(Source(daId), unassignId)
 
     reassignmentStore
       .findReassignmentEntry(reassignmendId)

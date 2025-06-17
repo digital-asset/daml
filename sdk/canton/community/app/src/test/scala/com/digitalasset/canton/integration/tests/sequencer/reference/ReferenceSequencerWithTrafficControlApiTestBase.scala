@@ -9,11 +9,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveDouble, PositiveInt}
-import com.digitalasset.canton.config.{
-  BatchAggregatorConfig,
-  ProcessingTimeout,
-  SessionSigningKeysConfig,
-}
+import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{HashPurpose, Signature, SynchronizerCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -253,7 +249,6 @@ abstract class ReferenceSequencerWithTrafficControlApiTestBase
         ProcessingTimeout()
       ),
       protocol = CantonNodeParameters.Protocol.Impl(
-        sessionSigningKeys = SessionSigningKeysConfig.disabled,
         alphaVersionSupport = false,
         betaVersionSupport = false,
         dontWarnOnDeprecatedPV = false,

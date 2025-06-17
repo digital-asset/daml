@@ -46,7 +46,8 @@ trait BaseSequencerDriverApiTest[ConfigType]
       config = Some(ConfigFactory.load),
     )
 
-  protected final def synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
+  protected final def synchronizerId: PhysicalSynchronizerId =
+    DefaultTestIdentities.physicalSynchronizerId
 
   protected final def mediatorId: MediatorId = DefaultTestIdentities.daMediator
 

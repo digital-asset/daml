@@ -200,7 +200,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     val referencedAuth = requiredAuth.referenced
 
     val unvalidatedSigningKeysCoveringHash =
-      toValidate.allUnvalidatedSignaturesCoveringHash.map(_.signedBy)
+      toValidate.allUnvalidatedSignaturesCoveringHash.map(_.authorizingLongTermKey)
 
     // let's determine which namespaces and uids actually delegated to any of the keys
     val namespaceAuthorizations = referencedAuth.namespaces.map { ns =>
@@ -253,7 +253,8 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
 
     logger.debug(s"All keys used for authorization: ${allKeysUsedForAuthorization.keySet}")
 
-    val superfluousKeys = toValidate.signatures.map(_.signedBy) -- allKeysUsedForAuthorization.keys
+    val superfluousKeys =
+      toValidate.signatures.map(_.authorizingLongTermKey) -- allKeysUsedForAuthorization.keys
     for {
       _ <- Either.cond[TopologyTransactionRejection, Unit](
         // there must be at least 1 key used for the signatures for one of the delegation mechanisms
@@ -333,10 +334,10 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
     validSignaturesToVerify.toList
       .traverse_ { case (hash, signature) =>
         allKeysUsedForAuthorizationNE
-          .get(signature.signedBy)
+          .get(signature.authorizingLongTermKey)
           .toRight({
             val msg =
-              s"Key ${signature.signedBy} was delegated to, but no actual key was identified. This should not happen."
+              s"Key ${signature.authorizingLongTermKey} was delegated to, but no actual key was identified. This should not happen."
             logger.error(msg)
             TopologyTransactionRejection.AssumptionViolation(msg)
           })
@@ -493,7 +494,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
   ): GenericValidatedTopologyTransaction =
     toValidate.restrictedToSynchronizer.zip(synchronizerId) match {
       case Some((txSynchronizerId, underlyingSynchronizerId))
-          if txSynchronizerId != underlyingSynchronizerId =>
+          if txSynchronizerId != underlyingSynchronizerId.logical =>
         ValidatedTopologyTransaction(
           toValidate,
           Some(TopologyTransactionRejection.InvalidSynchronizer(txSynchronizerId)),

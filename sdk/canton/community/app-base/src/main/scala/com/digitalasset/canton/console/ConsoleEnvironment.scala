@@ -650,16 +650,6 @@ object ConsoleEnvironment {
     /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
       * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
       */
-    implicit def toSynchronizerTopologyStoreId(
-        synchronizerId: SynchronizerId
-    ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId)
-
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
-      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
-      */
-    implicit def toSynchronizerTopologyStoreId(
-        synchronizerId: PhysicalSynchronizerId
-    ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId.logical)
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
       * [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]]
@@ -675,7 +665,7 @@ object ConsoleEnvironment {
     implicit def physicalSynchronizerIdIsSomeTopologyStoreId(
         synchronizerId: PhysicalSynchronizerId
     ): Option[TopologyStoreId.Synchronizer] = Some(
-      TopologyStoreId.Synchronizer(synchronizerId.logical)
+      TopologyStoreId.Synchronizer(synchronizerId)
     )
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
@@ -701,7 +691,7 @@ object ConsoleEnvironment {
     implicit def synchronizerIdIsSomeTopologyStoreId(
         synchronizerId: SynchronizerId
     ): Option[TopologyStoreId.Synchronizer] =
-      Some(TopologyStoreId.Synchronizer(synchronizerId))
+      Some(synchronizerId)
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
       * of [[com.digitalasset.canton.topology.SynchronizerId]]
@@ -716,7 +706,7 @@ object ConsoleEnvironment {
     implicit def optionSynchronizerIdIsOptionTopologyStoreId(
         synchronizerId: Option[SynchronizerId]
     ): Option[TopologyStoreId] =
-      synchronizerId.map(TopologyStoreId.Synchronizer(_))
+      synchronizerId.map(id => TopologyStoreId.Synchronizer(id))
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId]] to
       * [[scala.Option]] of
