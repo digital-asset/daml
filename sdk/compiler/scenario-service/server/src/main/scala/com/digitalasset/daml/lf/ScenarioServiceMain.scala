@@ -21,7 +21,7 @@ import com.daml.lf.scenario.api.v1.{Map => _, _}
 import com.daml.logging.LoggingContext
 import io.grpc.stub.StreamObserver
 import io.grpc.{Status, StatusRuntimeException}
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 
 import java.time.Instant
 import scala.util.Random

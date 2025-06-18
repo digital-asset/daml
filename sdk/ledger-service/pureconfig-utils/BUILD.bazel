@@ -35,7 +35,7 @@ da_scala_library(
         "//observability/metrics",
         "@maven//:com_auth0_java_jwt",
         "@maven//:com_typesafe_config",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
     ],
 )
 

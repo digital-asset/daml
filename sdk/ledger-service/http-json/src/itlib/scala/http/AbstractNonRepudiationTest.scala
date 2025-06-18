@@ -24,7 +24,7 @@ import com.daml.ports.{FreePort, Port}
 import com.daml.resources.grpc.GrpcResourceOwnerFactories
 import com.daml.testing.postgresql.PostgresAroundEach
 import io.grpc.Server
-import io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
 import org.scalatest.freespec.AsyncFreeSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, BeforeAndAfterEach, Inside}

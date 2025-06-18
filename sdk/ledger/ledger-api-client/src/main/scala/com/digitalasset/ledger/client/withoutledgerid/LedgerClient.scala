@@ -34,7 +34,7 @@ import com.daml.ledger.client.services.pkg.withoutledgerid.PackageClient
 import com.daml.ledger.client.services.transactions.withoutledgerid.TransactionClient
 import com.daml.ledger.client.services.version.withoutledgerid.VersionClient
 import com.daml.ledger.client.{GrpcChannel, LedgerClient => ClassicLedgerClient}
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.Channel
 
 import java.io.Closeable

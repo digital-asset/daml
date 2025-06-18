@@ -69,7 +69,7 @@ import com.digitalasset.canton.version.{
   ReleaseVersion,
   RepresentativeProtocolVersion,
 }
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem

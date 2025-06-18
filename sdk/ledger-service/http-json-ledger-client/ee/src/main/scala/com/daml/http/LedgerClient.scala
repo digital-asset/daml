@@ -10,7 +10,7 @@ import java.security.spec.PKCS8EncodedKeySpec
 
 import com.daml.ledger.client.configuration.LedgerClientChannelConfiguration
 import com.daml.nonrepudiation.client.SigningInterceptor
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try

@@ -7,7 +7,7 @@ import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
 import com.digitalasset.canton.DiscardOps
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.ledger.client.configuration.LedgerClientChannelConfiguration
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.{Channel, ManagedChannel}
 
 import java.net.InetAddress

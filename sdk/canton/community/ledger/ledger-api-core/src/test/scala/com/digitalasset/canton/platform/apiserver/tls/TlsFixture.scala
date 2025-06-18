@@ -15,7 +15,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.{ApiService, ApiServices, LedgerApiService}
 import io.grpc.{BindableService, ManagedChannel}
-import io.netty.handler.ssl.ClientAuth
+import io.grpc.netty.shaded.io.netty.handler.ssl.ClientAuth
 
 import java.io.File
 import java.util.concurrent.Executors

@@ -11,7 +11,7 @@ import com.daml.ledger.api.testtool.infrastructure._
 import com.daml.ledger.api.testtool.runner.TestRunner._
 import com.daml.ledger.api.tls.TlsConfiguration
 import io.grpc.Channel
-import io.grpc.netty.{NegotiationType, NettyChannelBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{NegotiationType, NettyChannelBuilder}
 import org.slf4j.LoggerFactory
 
 import scala.concurrent.duration.DurationInt

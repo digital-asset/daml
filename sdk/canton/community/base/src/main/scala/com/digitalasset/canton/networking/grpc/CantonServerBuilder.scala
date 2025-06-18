@@ -14,9 +14,9 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.MetricHandle.MetricsFactory
 import com.digitalasset.canton.tracing.TracingConfig
 import io.grpc.*
-import io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{GrpcSslContexts, NettyServerBuilder}
 import io.grpc.util.MutableHandlerRegistry
-import io.netty.handler.ssl.{SslContext, SslContextBuilder}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
 import java.net.InetSocketAddress
 import java.util.concurrent.{Executor, TimeUnit}
