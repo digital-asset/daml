@@ -7,11 +7,14 @@ import Daml.Script.Internal.LowLevel
 import DA.Time
 import DA.Stack
 
+-- | HIDE
 data SetTime = SetTime with
   time : Time
+-- | HIDE
 instance IsQuestion SetTime () where command = "SetTime"
 
--- | Set the time via the time service.
+-- | MOVE Daml.Script
+-- Set the time via the time service.
 --
 -- This is only supported in Daml Studio and `daml test` as well as
 -- when running over the gRPC API against a ledger in static time mode.
@@ -21,10 +24,13 @@ instance IsQuestion SetTime () where command = "SetTime"
 setTime : HasCallStack => Time -> Script ()
 setTime = lift . SetTime
 
+-- | HIDE
 data GetTime = GetTime {}
+-- | HIDE
 instance IsQuestion GetTime Time where command = "GetTime"
 
--- | In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.
+-- | MOVE Daml.Script
+-- In wallclock mode, this is the current UTC time both over gRPC and over the JSON API.
 --
 -- In static time mode over gRPC, this will
 -- query the ledger time service for the current time when running over
@@ -35,11 +41,14 @@ instance IsQuestion GetTime Time where command = "GetTime"
 instance HasTime Script where
   getTime = lift GetTime
 
+-- | HIDE
 data Sleep = Sleep with
   duration : RelTime
+-- | HIDE
 instance IsQuestion Sleep () where command = "Sleep"
 
--- | Sleep for the given duration.
+-- | MOVE Daml.Script
+-- Sleep for the given duration.
 --
 -- This is primarily useful in tests
 -- where you repeatedly call `query` until a certain state is reached.
@@ -48,7 +57,8 @@ instance IsQuestion Sleep () where command = "Sleep"
 sleep : HasCallStack => RelTime -> Script ()
 sleep = lift . Sleep
 
--- | Advance ledger time by the given interval.
+-- | MOVE Daml.Script
+-- Advance ledger time by the given interval.
 --
 -- This is only supported in Daml Studio and `daml test` as well as
 -- when running over the gRPC API against a ledger in static time mode.

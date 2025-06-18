@@ -8,4 +8,6 @@ Daml Script Library
 
 The Daml Script library defines the API used to implement Daml script tests.
 
-{{{body}}}
+* :doc:`Daml.Script <Daml-Script>`
+* :doc:`Daml.Script.Internal <Daml-Script-Internal>`
+
