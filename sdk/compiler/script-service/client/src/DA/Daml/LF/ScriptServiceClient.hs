@@ -188,7 +188,11 @@ data Context = Context
   { ctxModules :: MS.Map Hash (LF.ModuleName, BS.ByteString)
   , ctxPackages :: [(LF.PackageId, BS.ByteString)]
   , ctxSkipValidation :: LowLevel.SkipValidation
-  , ctxPackageMetadata :: LF.PackageMetadata
+  , ctxSelfPackageMetadata :: Maybe LF.PackageMetadata
+  -- ^ the self package is the package from which we run the test command,
+  -- and not necessarily the package that contains the script being run.
+  -- This allows to distinguish between internal and external templates
+  -- in the coverage report.
   }
 
 getNewCtx :: Handle -> Context -> IO (Either LowLevel.BackendError LowLevel.ContextId)
@@ -211,7 +215,7 @@ getNewCtx Handle{..} Context{..} = withLock hContextLock $ withSem hConcurrencyS
       loadPackages
       (S.toList unloadPackages)
       ctxSkipValidation
-      ctxPackageMetadata
+      ctxSelfPackageMetadata
   rootCtxId <- readIORef hContextId
   runExceptT $ do
       clonedRootCtxId <- ExceptT $ LowLevel.cloneCtx hLowLevelHandle rootCtxId

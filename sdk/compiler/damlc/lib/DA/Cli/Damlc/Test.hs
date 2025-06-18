@@ -159,9 +159,9 @@ testRun h inFiles lvl lfVersion (RunAllTests runAllTests) coverage color mbJUnit
                  Nothing -> pure [] -- nothing to test
                  Just file ->
                      runActionSync h $
-                     forM extPkgs $ \pkg -> do
-                         (_fileDiagnostics, mbResults) <- runScriptsPkg file pkg extPkgs
-                         pure (pkg, mbResults)
+                     forM extPkgs $ \extPkg -> do
+                         (_fileDiagnostics, mbResults) <- runScriptsPkg file extPkg extPkgs
+                         pure (extPkg, mbResults)
         else pure []
 
     let -- All Packages / Modules mentioned somehow

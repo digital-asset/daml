@@ -107,7 +107,7 @@ data ContextUpdate = ContextUpdate
   , updLoadPackages :: ![(LF.PackageId, BS.ByteString)]
   , updUnloadPackages :: ![LF.PackageId]
   , updSkipValidation :: SkipValidation
-  , updPackageMetadata :: LF.PackageMetadata 
+  , updSelfPackageMetadata :: Maybe LF.PackageMetadata 
   }
 
 encodeSinglePackageModule :: LF.Version -> LF.Module -> BS.ByteString
@@ -328,7 +328,7 @@ updateCtx Handle{..} (ContextId ctxId) ContextUpdate{..} = do
           (Just updModules)
           (Just updPackages)
           (getSkipValidation updSkipValidation)
-          (Just $ convPackageMetadata updPackageMetadata)
+          (fmap convPackageMetadata updSelfPackageMetadata)
   pure (void res)
   where
     updModules =

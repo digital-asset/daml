@@ -870,15 +870,15 @@ contextForFile file = do
         { ctxModules = Map.fromList encodedModules
         , ctxPackages = [(LF.dalfPackageId pkg, LF.dalfPackageBytes pkg) | pkg <- Map.elems pkgMap ++ Map.elems stablePackages]
         , ctxSkipValidation = SS.SkipValidation (getSkipScriptValidation envSkipScriptValidation)
-        , ctxPackageMetadata = LF.packageMetadata pkg
+        , ctxSelfPackageMetadata = Just $ LF.packageMetadata pkg
         }
 
-contextForPackage :: NormalizedFilePath -> LF.Package -> Action SS.Context
-contextForPackage file pkg = do
+contextForExtFile :: NormalizedFilePath -> LF.ExternalPackage -> Action SS.Context
+contextForExtFile file extPkg = do
     lfVersion <- getDamlLfVersion
     encodedModules <-
         mapM (\m -> fmap (\(hash, bs) -> (hash, (LF.moduleName m, bs))) (encodeModule lfVersion m)) $
-        NM.toList $ LF.packageModules pkg
+        NM.toList $ LF.packageModules $ LF.extPackagePkg extPkg
     PackageMap pkgMap <- use_ GeneratePackageMap file
     stablePackages <- useNoFile_ GenerateStablePackages
     pure
@@ -889,7 +889,7 @@ contextForPackage file pkg = do
                   | pkg <- Map.elems pkgMap ++ Map.elems stablePackages
                   ]
             , ctxSkipValidation = SS.SkipValidation True -- no validation for external packages
-            , ctxPackageMetadata = LF.packageMetadata pkg
+            , ctxSelfPackageMetadata = Nothing
             }
 
 worldForFile :: NormalizedFilePath -> Action LF.World
@@ -996,9 +996,9 @@ runScriptsPkg ::
     -> LF.ExternalPackage
     -> [LF.ExternalPackage]
     -> Action ([FileDiagnostic], Maybe [(VirtualResource, Either SS.Error SS.ScriptResult)])
-runScriptsPkg projRoot extPkg pkgs = do
+runScriptsPkg file extPkg pkgs = do
     Just scriptService <- envScriptService <$> getDamlServiceEnv
-    ctx <- contextForPackage projRoot pkg
+    ctx <- contextForExtFile file extPkg
     ctxIdOrErr <- liftIO $ SS.getNewCtx scriptService ctx
     ctxId <-
         liftIO $
@@ -1007,7 +1007,7 @@ runScriptsPkg projRoot extPkg pkgs = do
             pure
             ctxIdOrErr
     scriptContextsVar <- envScriptContexts <$> getDamlServiceEnv
-    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert projRoot ctxId
+    liftIO $ modifyMVar_ scriptContextsVar $ pure . HashMap.insert file ctxId
     rs <- do
         lvl <- getDetailLevel
         scriptResults <- forM scripts $ \script ->
