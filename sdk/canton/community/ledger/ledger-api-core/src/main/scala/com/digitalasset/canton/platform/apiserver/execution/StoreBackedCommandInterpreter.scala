@@ -525,7 +525,8 @@ final class StoreBackedCommandInterpreter(
             e => s"Failed to build DriverContractMetadata ($e)",
             m => m.salt,
           )
-        ledgerTime <- originalContract.createdAt match {
+        // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+        ledgerTime <- (originalContract.createdAt: CreationTime) match {
           case CreationTime.CreatedAt(time) => Right(time)
           case CreationTime.Now => Left("Failed to recompute contract creation time")
         }
