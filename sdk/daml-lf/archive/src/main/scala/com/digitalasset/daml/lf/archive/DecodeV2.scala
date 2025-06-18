@@ -685,13 +685,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    /**
-     * Roger: As far as I understand, [[decodeType()]] is the checked version of
-     * [[uncheckedDecodeType()]] in the sense that [[decodeType()]] allows only
-     * references to interned kinds, meant to be used to parse the ast (after
-     * the interning table was parsed). It is meant to disallow any concrete
-     * types (any non-interned-referencing) types. In the long run, if we want
-     * to only intern trees of depth >= n, we need to weaken this restriction
+    /** Roger: As far as I understand, [[decodeType()]] is the checked version of
+      * [[uncheckedDecodeType()]] in the sense that [[decodeType()]] allows only
+      * references to interned kinds, meant to be used to parse the ast (after
+      * the interning table was parsed). It is meant to disallow any concrete
+      * types (any non-interned-referencing) types. In the long run, if we want
+      * to only intern trees of depth >= n, we need to weaken this restriction
       */
     private def decodeType[T](lfType: PLF.Type)(k: Type => Work[T]): Work[T] = {
       Work.Bind(
