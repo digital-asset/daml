@@ -906,8 +906,6 @@ queryDisclosure :: (Template t, IsParties p, HasCallStack) => p -> ContractId t 
 -- | Query the set of active contract views for an interface
 --   that are visible to the given party.
 --   If the view function fails for a given contract id, The `Optional v` will be `None`.
---   
---   WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryinterface-52085
 queryInterface :: (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
 

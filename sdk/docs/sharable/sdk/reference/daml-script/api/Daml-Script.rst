@@ -1718,8 +1718,6 @@ Functions
   that are visible to the given party\.
   If the view function fails for a given contract id, The ``Optional v`` will be ``None``\.
 
-  WARNING\: Information about instances with failed\-views is not currently returned over the JSON API\: the ``Optional v`` will be ``Some _`` for every element in the returned list\.
-
 .. _function-daml-script-internal-questions-query-queryinterfacecontractid-18438:
 
 `queryInterfaceContractId <function-daml-script-internal-questions-query-queryinterfacecontractid-18438_>`_

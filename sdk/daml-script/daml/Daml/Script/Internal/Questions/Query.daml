@@ -84,8 +84,6 @@ instance IsQuestion QueryInterface [LedgerValue] where command = "QueryInterface
 -- Query the set of active contract views for an interface
 -- that are visible to the given party.
 -- If the view function fails for a given contract id, The `Optional v` will be `None`.
---
--- WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
 queryInterface : forall i v p. (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
 queryInterface p = fmap convert $ lift $ QueryInterface with
     parties = toParties p
