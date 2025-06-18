@@ -534,7 +534,8 @@ class DecodeV2Spec
       )
 
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, ImmArraySeq.empty, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         forEvery(exceptionBuiltinCases) { (proto, scala) =>
           val result = Try(decoder.decodeExprForTest(proto, "test"))
 
@@ -569,7 +570,8 @@ class DecodeV2Spec
       )
       val stringTable = ImmArraySeq("a")
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
         val result = Try(decoder.decodeExprForTest(tryCatchExprProto, "test"))
         if (version >= LV.Features.exceptions)
           result shouldBe Success(tryCatchExprScala)
@@ -839,7 +841,13 @@ class DecodeV2Spec
       forEveryVersion { version =>
         forEvery(testCases) { (protoUpdate, scala) =>
           val decoder =
-            moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, ImmArraySeq.empty, typeTable)
+            moduleDecoder(
+              version,
+              ImmArraySeq("Choice"),
+              interfaceDottedNameTable,
+              ImmArraySeq.empty,
+              typeTable,
+            )
           val proto = DamlLf2.Expr.newBuilder().setUpdate(protoUpdate).build()
           decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(scala)
         }
@@ -877,7 +885,13 @@ class DecodeV2Spec
 
       forEveryVersionSuchThat(_ >= LV.Features.extendedInterfaces) { version =>
         val decoder =
-          moduleDecoder(version, ImmArraySeq("Choice"), interfaceDottedNameTable, ImmArraySeq.empty, typeTable)
+          moduleDecoder(
+            version,
+            ImmArraySeq("Choice"),
+            interfaceDottedNameTable,
+            ImmArraySeq.empty,
+            typeTable,
+          )
         val proto = DamlLf2.Expr.newBuilder().setUpdate(exerciseInterfaceProto).build()
         decoder.decodeExprForTest(proto, "test") shouldBe Ast.EUpdate(exerciseInterfaceScala)
       }
@@ -907,7 +921,8 @@ class DecodeV2Spec
       )
 
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, ImmArraySeq.empty, typeTable)
         val proto = DamlLf2.Expr.newBuilder().setUpdate(softFetchProto).build()
         val result = Try(decoder.decodeExprForTest(proto, "test"))
         result shouldBe Success(Ast.EUpdate(softFetchScala))
@@ -924,7 +939,13 @@ class DecodeV2Spec
         ImmArraySeq("Mod", "T", "I", "J", "K").map(Ref.DottedName.assertFromString)
 
       (version: LV) =>
-        moduleDecoder(version, interfaceDefStringTable, interfaceDefDottedNameTable, ImmArraySeq.empty, typeTable)
+        moduleDecoder(
+          version,
+          interfaceDefStringTable,
+          interfaceDefDottedNameTable,
+          ImmArraySeq.empty,
+          typeTable,
+        )
     }
 
     s"decode interface definitions correctly" in {
@@ -1302,7 +1323,8 @@ class DecodeV2Spec
         protoChoiceWithoutObservers.toBuilder.setObservers(observersExpr).build
 
       forEveryVersion { version =>
-        val decoder = moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
+        val decoder =
+          moduleDecoder(version, stringTable, ImmArraySeq.empty, ImmArraySeq.empty, typeTable)
 
         an[Error.Parsing] should be thrownBy (
           decoder.decodeChoiceForTest(templateName, protoChoiceWithoutObservers),
