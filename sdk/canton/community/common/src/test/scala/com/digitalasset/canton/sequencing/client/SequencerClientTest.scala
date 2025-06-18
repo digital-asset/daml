@@ -146,7 +146,7 @@ class SequencerClientTest
   private var actorSystem: ActorSystem = _
   private lazy val materializer: Materializer = Materializer(actorSystem)
   private lazy val topologyWithTrafficControl =
-    TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+    TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
       .withDynamicSynchronizerParameters(
         DefaultTestIdentities.defaultDynamicSynchronizerParameters.tryUpdate(
           trafficControlParameters = Some(
@@ -158,7 +158,7 @@ class SequencerClientTest
         validFrom = CantonTimestamp.MinValue,
       )
       .build()
-      .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
+      .forOwnerAndSynchronizer(participant1)
 
   override protected def beforeAll(): Unit = {
     super.beforeAll()
@@ -1466,11 +1466,9 @@ class SequencerClientTest
     override def downloadTopologyStateForInit(
         request: TopologyStateForInitRequest,
         timeout: Duration,
-    )(implicit traceContext: TraceContext): EitherT[
-      FutureUnlessShutdown,
-      SequencerConnectionXStub.SequencerConnectionXStubError,
-      TopologyStateForInitResponse,
-    ] = ???
+    )(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse] = ???
 
     override def subscribe[E](
         request: SubscriptionRequestV2,
@@ -1671,9 +1669,9 @@ class SequencerClientTest
 
       val topologyClient =
         topologyO.getOrElse(
-          TestingTopology(Set(DefaultTestIdentities.synchronizerId))
+          TestingTopology(Set(DefaultTestIdentities.physicalSynchronizerId))
             .build(loggerFactory)
-            .forOwnerAndSynchronizer(mediatorId, DefaultTestIdentities.synchronizerId)
+            .forOwnerAndSynchronizer(mediatorId)
         )
       val trafficStateController = new TrafficStateController(
         mediatorId,
@@ -1778,7 +1776,7 @@ class SequencerClientTest
       val topologyClient = topologyO.getOrElse(
         TestingTopology()
           .build(loggerFactory)
-          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.synchronizerId)
+          .forOwnerAndSynchronizer(participant1, DefaultTestIdentities.physicalSynchronizerId)
       )
       val trafficStateController = new TrafficStateController(
         participant1,

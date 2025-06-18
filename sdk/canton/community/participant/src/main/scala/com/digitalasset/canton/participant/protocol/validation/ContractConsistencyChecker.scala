@@ -33,7 +33,7 @@ object ContractConsistencyChecker {
   ): Either[List[ReferenceToFutureContractError], Unit] =
     inputContracts
       .traverse_ { case (coid, contract) =>
-        val let = contract.ledgerCreateTime.ts
+        val let = CantonTimestamp(contract.ledgerCreateTime.time)
         Validated.condNec(
           let <= ledgerTime,
           (),

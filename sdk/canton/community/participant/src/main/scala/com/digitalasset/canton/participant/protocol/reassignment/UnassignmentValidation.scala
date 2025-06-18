@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.{FullUnassignmentTree, ReassignmentRef}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -11,7 +12,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.Activeness
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.validation.AuthenticationValidator
 import com.digitalasset.canton.participant.protocol.{ContractAuthenticator, ProcessingSteps}
-import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.protocol.{ReassignmentId, UnassignId}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -38,7 +39,10 @@ private[reassignment] class UnassignmentValidation(
     val fullTree = parsedRequest.fullViewTree
 
     val reassignmentId: ReassignmentId =
-      ReassignmentId(fullTree.sourceSynchronizer, parsedRequest.requestTimestamp)
+      ReassignmentId(
+        fullTree.sourceSynchronizer,
+        UnassignId(fullTree.sourceSynchronizer, parsedRequest.requestTimestamp),
+      )
 
     for {
 
@@ -73,6 +77,7 @@ private[reassignment] class UnassignmentValidation(
       hostedStakeholders = hostedStakeholders,
       assignmentExclusivity = assignmentExclusivity,
       validationResult = validationResult,
+      unassignmentTs = parsedRequest.requestTimestamp,
     )
   }
 

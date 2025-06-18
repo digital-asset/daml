@@ -424,6 +424,17 @@ object SyncServiceError extends SyncServiceErrorGroup {
         )
         with SyncServiceError
 
+    final case class PhysicalSynchronizerIdNotConfigured(
+        synchronizerAlias: SynchronizerAlias,
+        where: String,
+    )(implicit
+        val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"The physical synchronizer id for the synchronizer configuration for $synchronizerAlias was unexpectedly not configured."
+        )
+        with SyncServiceError
+
     final case class CleanHeadAwaitFailed(
         synchronizerAlias: SynchronizerAlias,
         ts: CantonTimestamp,

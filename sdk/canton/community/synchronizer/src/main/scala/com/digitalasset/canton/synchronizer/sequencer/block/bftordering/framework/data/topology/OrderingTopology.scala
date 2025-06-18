@@ -84,7 +84,7 @@ object OrderingTopology {
           node,
           NodeTopologyInfo(
             activationTime = TopologyActivationTime(CantonTimestamp.MinValue),
-            keyIds = Set(FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy)),
+            keyIds = Set(FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey)),
           ),
         )
       }.toMap,

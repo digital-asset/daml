@@ -116,7 +116,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     TestingTopology()
       .withSimpleParticipants(participant, anotherParticipant)
       .build()
-      .forOwnerAndSynchronizer(participant, synchronizerId.logical)
+      .forOwnerAndSynchronizer(participant, synchronizerId)
   val clock = new SimClock(loggerFactory = loggerFactory)
   val sequencerSubscriptionFactory = mock[DirectSequencerSubscriptionFactory]
   def timeouts = DefaultProcessingTimeouts.testing
@@ -132,6 +132,8 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
     override protected def timeouts: ProcessingTimeout = self.timeouts
     override protected[this] def logger: TracedLogger = self.logger
   })
+
+  val useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev
 
   when(topologyClient.currentSnapshotApproximation(any[TraceContext]))
     .thenReturn(mockTopologySnapshot)
@@ -306,7 +308,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   val connectionPoolFactory = new GrpcSequencerConnectionXPoolFactory(
     clientProtocolVersions = NonEmpty(Seq, BaseTest.testedProtocolVersion),
     minimumProtocolVersion = None,
-    authConfig = new AuthenticationTokenManagerConfig(),
+    authConfig = authConfig,
     member = participant,
     clock = clock,
     crypto = cryptoApi.crypto.crypto,
@@ -323,7 +325,7 @@ class Env(override val loggerFactory: SuppressingLogger)(implicit
   def makeClient(
       connections: SequencerConnections,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
-      useNewConnectionPool: Boolean = BaseTest.testedProtocolVersion >= ProtocolVersion.dev,
+      useNewConnectionPool: Boolean = useNewConnectionPool,
   ): EitherT[FutureUnlessShutdown, String, RichSequencerClient] = {
     val clientFactory = SequencerClientFactory(
       synchronizerId,
@@ -655,8 +657,15 @@ class GrpcSequencerIntegrationWithFailingTokenRefreshTest
               .value
               .futureValueUS
           ) { case Left(message) =>
-            message shouldBe
-              "Status{code=UNAVAILABLE, description=Authentication token refresh error: test, cause=null}"
+            if (env.useNewConnectionPool) {
+              // The error message is formatted differently with the connection pool
+              message should include(
+                "GrpcServiceUnavailable: UNAVAILABLE/Authentication token refresh error: test"
+              )
+            } else {
+              message shouldBe
+                "Status{code=UNAVAILABLE, description=Authentication token refresh error: test, cause=null}"
+            }
           },
           LogEntry.assertLogSeq(
             Seq(

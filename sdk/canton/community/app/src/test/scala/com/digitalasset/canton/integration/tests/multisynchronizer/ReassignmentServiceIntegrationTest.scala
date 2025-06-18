@@ -361,7 +361,6 @@ abstract class ReassignmentServiceIntegrationTest
         )
 
       // Assign contract
-      val reassignmentId = getReassignmentId(unassignedEvent)
       val assignmentCmd = getReassignmentCommand(
         getAssignmentCmd(
           source = daId,
@@ -378,7 +377,7 @@ abstract class ReassignmentServiceIntegrationTest
       )
 
       inside(res) { case error: GenericCommandError =>
-        error.cause should include(reassignmentId.toString)
+        error.cause should include(unassignedEvent.reassignmentId.toString)
         error.cause should include("unknown reassignment id")
       }
 

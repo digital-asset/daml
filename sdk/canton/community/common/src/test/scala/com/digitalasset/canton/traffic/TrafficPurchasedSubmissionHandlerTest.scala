@@ -70,7 +70,7 @@ class TrafficPurchasedSubmissionHandlerTest
       )
     )
   ).build(loggerFactory)
-    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId.logical)
+    .forOwnerAndSynchronizer(DefaultTestIdentities.sequencerId, synchronizerId)
 
   override def beforeEach(): Unit = {
     super.beforeEach()

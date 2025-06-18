@@ -19,7 +19,7 @@ import com.digitalasset.canton.participant.admin.data.ActiveContractOld
 import com.digitalasset.canton.participant.store.ParticipantNodePersistentState
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{SerializableContract, TransactionId}
+import com.digitalasset.canton.protocol.{SerializableContract, TransactionId, UnassignId}
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelProtocolProcessor
 import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -248,14 +248,17 @@ final class PartyReplicationTargetParticipantProcessor(
             sourceSynchronizer = ReassignmentTag.Source(synchronizerId),
             targetSynchronizer = ReassignmentTag.Target(synchronizerId),
             submitter = None,
-            unassignId = timestamp, // artificial unassign has same timestamp as assign
+            unassignId = UnassignId(
+              ReassignmentTag.Source(synchronizerId),
+              timestamp,
+            ), // artificial unassign has same timestamp as assign
             isReassigningParticipant = false,
           ),
           reassignment = Reassignment.Batch(
             contracts.zipWithIndex.map {
               case (ActiveContractOld(_, contract, reassignmentCounter), idx) =>
                 Reassignment.Assign(
-                  ledgerEffectiveTime = contract.ledgerCreateTime.toLf,
+                  ledgerEffectiveTime = contract.ledgerCreateTime.time,
                   createNode = contract.toLf,
                   contractMetadata =
                     LfBytes.fromByteString(contract.metadata.toByteString(protocolVersion)),

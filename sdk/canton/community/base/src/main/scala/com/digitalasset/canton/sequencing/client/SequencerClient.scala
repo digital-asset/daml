@@ -863,24 +863,40 @@ abstract class SequencerClientImpl(
   ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
     val triedSequencersRef = new AtomicReference[Set[SequencerId]](Set.empty)
 
-    def downloadSnapshot
-        : EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
+    def downloadSnapshot(
+        request: TopologyStateForInitRequest
+    ): EitherT[FutureUnlessShutdown, String, GenericStoredTopologyTransactions] = {
       val triedSequencers = triedSequencersRef.get
 
       // We ignore the amplification part
-      val (_, sequencerId, transport, _) =
-        sequencersTransportState.nextAmplifiedTransport(triedSequencers.toSeq)
-      triedSequencersRef.updateAndGet(_ + sequencerId).discard
+      val (linkDetailsO, _) = getNextLink(triedSequencers.toSeq)
 
-      logger.debug(
-        s"Attempting to download topology state for init from $sequencerId (already tried: $triedSequencers)"
-      )
-      transport
-        .downloadTopologyStateForInit(TopologyStateForInitRequest(member, protocolVersion))
-        .map(_.topologyTransactions.value)
-        .mapK(FutureUnlessShutdown.outcomeK)
+      val resultET = linkDetailsO match {
+        case Some(LinkDetails(_, sequencerId, transportOrPoolConnection)) =>
+          triedSequencersRef.updateAndGet(_ + sequencerId).discard
+          logger.debug(
+            s"Attempting to download topology state for init from $sequencerId (already tried: $triedSequencers)"
+          )
+          transportOrPoolConnection match {
+            case Right(connection) =>
+              connection.downloadTopologyStateForInit(request, timeouts.network.duration)
+
+            case Left(transport) =>
+              transport
+                .downloadTopologyStateForInit(request)
+                .mapK(FutureUnlessShutdown.outcomeK)
+          }
+
+        case None =>
+          EitherT.leftT[FutureUnlessShutdown, TopologyStateForInitResponse](
+            "No connection available to download topology state for init"
+          )
+      }
+
+      resultET.map(_.topologyTransactions.value)
     }
 
+    val request = TopologyStateForInitRequest(member, protocolVersion)
     val resultFUS = retry
       .Pause(
         logger = logger,
@@ -890,7 +906,7 @@ abstract class SequencerClientImpl(
         operationName = "Download topology state for init",
         retryLogLevel = retryLogLevel,
       )
-      .unlessShutdown(downloadSnapshot.value, NoExceptionRetryPolicy)
+      .unlessShutdown(downloadSnapshot(request).value, NoExceptionRetryPolicy)
 
     EitherT(resultFUS)
   }
@@ -1121,10 +1137,10 @@ class RichSequencerClientImpl(
         periodicAcknowledgementsRef.set(
           PeriodicAcknowledgements
             .create(
-              config.acknowledgementInterval.underlying,
+              interval = config.acknowledgementInterval.underlying,
               isHealthy = deferredSubscriptionHealth.getState.isAlive,
-              RichSequencerClientImpl.this,
-              fetchCleanTimestamp,
+              client = RichSequencerClientImpl.this,
+              fetchCleanTimestamp = fetchCleanTimestamp,
               clock,
               timeouts,
               loggerFactory,

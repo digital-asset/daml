@@ -63,7 +63,7 @@ class InMemoryReassignmentStore(
     logger.debug(s"Add reassignment request in the store: ${unassignmentData.reassignmentId}")
 
     val reassignmentId = unassignmentData.reassignmentId
-    val newEntry = ReassignmentEntry(unassignmentData, None, None)
+    val newEntry = ReassignmentEntry(unassignmentData, None, unassignmentData.unassignmentTs, None)
 
     val result: Either[ReassignmentStoreError, Unit] = MapsUtil
       .updateWithConcurrentlyM_[Checked[
@@ -93,6 +93,7 @@ class InMemoryReassignmentStore(
     } yield ReassignmentEntry(
       reassignmentData,
       reassignmentEntry.reassignmentGlobalOffset,
+      reassignmentEntry.unassignmentTs,
       reassignmentEntry.assignmentTs,
     )
 
@@ -247,6 +248,7 @@ class InMemoryReassignmentStore(
       assignmentData.contracts.contracts.map(_.contract),
       None,
       None,
+      CantonTimestamp.Epoch,
       None,
     )
 
@@ -285,7 +287,7 @@ class InMemoryReassignmentStore(
       .to(LazyList)
       .filter(filter)
       .flatMap(_.unassignmentDataO)
-      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceSynchronizer.unwrap))(
+      .sortBy(t => (t.unassignmentTs, t.reassignmentId.sourceSynchronizer.unwrap))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
         Ordering.Tuple2(
@@ -327,7 +329,7 @@ class InMemoryReassignmentStore(
           IncompleteReassignmentData
             .tryCreate(
               entry.sourceSynchronizer,
-              entry.unassignmentTs,
+              entry.reassignmentId.unassignId,
               entry.unassignmentRequest,
               entry.reassignmentGlobalOffset,
               validAt,
@@ -355,30 +357,20 @@ class InMemoryReassignmentStore(
       // all reassignments are complete
       if (incompleteReassignments.isEmpty) FutureUnlessShutdown.pure(None)
       else {
-        val incompleteReassignmentOffsets = incompleteReassignments
+        val minIncompleteTransferOffset = incompleteReassignments
           .mapFilter(entry =>
             (
-              entry.assignmentGlobalOffset
-                .orElse(entry.unassignmentGlobalOffset),
+              entry.assignmentGlobalOffset.orElse(entry.unassignmentGlobalOffset),
               entry.reassignmentId,
             ) match {
               case (Some(o), rid) => Some((o, rid))
               case (None, _) => None
             }
           )
-        // only in-flight reassignments
-        if (incompleteReassignmentOffsets.isEmpty) FutureUnlessShutdown.pure(None)
-        else {
-          val default = (
-            Offset.MaxValue,
-            ReassignmentId(Source(synchronizer.unwrap), CantonTimestamp.MaxValue),
-          )
-          val minIncompleteTransferOffset =
-            incompleteReassignmentOffsets.minByOption(_._1).getOrElse(default)
-          FutureUnlessShutdown.pure(
-            Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, synchronizer))
-          )
-        }
+          .minByOption(_._1)
+          .map { case (o, r) => (o, r, synchronizer) }
+
+        FutureUnlessShutdown.pure(minIncompleteTransferOffset)
       }
     }
 
@@ -405,7 +397,7 @@ class InMemoryReassignmentStore(
             ) &&
             completionTs.forall(ts => entry.assignmentTs.forall(ts == _))
           }
-          .collect { case (reassignmentId, ReassignmentEntry(_, _, Some(request), _, _)) =>
+          .collect { case (reassignmentId, ReassignmentEntry(_, _, Some(request), _, _, _)) =>
             request.contracts.contractIds.map(_ -> reassignmentId)
           }
           .flatten

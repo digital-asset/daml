@@ -5,9 +5,8 @@ package com.digitalasset.canton.participant.admin.data
 
 import cats.implicits.*
 import com.daml.ledger.api.v2.state_service.ActiveContract as LapiActiveContract
-import com.digitalasset.canton.data.{CantonTimestamp, Counter}
+import com.digitalasset.canton.data.Counter
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.util.{ByteStringUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.{LfVersioned, ReassignmentCounter}
@@ -96,7 +95,7 @@ object RepairContract {
       )
 
       ledgerCreateTime <- fattyContract.createdAt match {
-        case CreationTime.CreatedAt(time) => Right(LedgerCreateTime(CantonTimestamp(time)))
+        case absolute: CreationTime.CreatedAt => Right(absolute)
         case CreationTime.Now => Left("Unable to determine create time.")
       }
 

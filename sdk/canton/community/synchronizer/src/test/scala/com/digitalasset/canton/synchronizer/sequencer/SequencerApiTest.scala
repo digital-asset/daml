@@ -57,7 +57,7 @@ abstract class SequencerApiTest
 
     lazy val sequencer: CantonSequencer = {
       val sequencer = SequencerApiTest.this.createSequencer(
-        topologyFactory.forOwnerAndSynchronizer(owner = sequencerId, synchronizerId.logical)
+        topologyFactory.forOwnerAndSynchronizer(owner = sequencerId, synchronizerId)
       )
       registerAllTopologyMembers(topologyFactory.topologySnapshot(), sequencer)
       sequencer
@@ -501,9 +501,9 @@ abstract class SequencerApiTest
         val messageId1 = MessageId.tryCreate(s"request1")
         val messageId2 = MessageId.tryCreate(s"request2")
         val messageId3 = MessageId.tryCreate(s"request3")
-        val p11Crypto = topologyFactory.forOwnerAndSynchronizer(p11, synchronizerId.logical)
-        val p12Crypto = topologyFactory.forOwnerAndSynchronizer(p12, synchronizerId.logical)
-        val p13Crypto = topologyFactory.forOwnerAndSynchronizer(p13, synchronizerId.logical)
+        val p11Crypto = topologyFactory.forOwnerAndSynchronizer(p11, synchronizerId)
+        val p12Crypto = topologyFactory.forOwnerAndSynchronizer(p12, synchronizerId)
+        val p13Crypto = topologyFactory.forOwnerAndSynchronizer(p13, synchronizerId)
 
         def mkRequest(
             sender: Member,
@@ -623,8 +623,8 @@ abstract class SequencerApiTest
         val messageId1 = MessageId.tryCreate(s"request1")
         val messageId2 = MessageId.tryCreate(s"request2")
         val messageId3 = MessageId.tryCreate(s"request3")
-        val p14Crypto = topologyFactory.forOwnerAndSynchronizer(p14, synchronizerId.logical)
-        val p15Crypto = topologyFactory.forOwnerAndSynchronizer(p15, synchronizerId.logical)
+        val p14Crypto = topologyFactory.forOwnerAndSynchronizer(p14, synchronizerId)
+        val p15Crypto = topologyFactory.forOwnerAndSynchronizer(p15, synchronizerId)
 
         def mkRequest(
             sender: Member,

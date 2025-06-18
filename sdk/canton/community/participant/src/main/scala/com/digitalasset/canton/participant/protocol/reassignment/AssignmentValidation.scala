@@ -177,7 +177,7 @@ private[reassignment] class AssignmentValidation(
       // TODO(i12926): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
       cryptoSnapshotTargetTs <- reassignmentCoordination
         .cryptoSnapshot(
-          unassignmentData.targetSynchronizer.map(_.logical),
+          unassignmentData.targetSynchronizer,
           staticSynchronizerParameters,
           targetTimeProof,
         )
@@ -215,6 +215,7 @@ private[reassignment] class AssignmentValidation(
     val UnassignmentData(
       reassignmentId,
       unassignmentRequest,
+      _unassignmentTs,
     ) = unassignmentData
 
     val reassigningParticipants = Validated.condNec(

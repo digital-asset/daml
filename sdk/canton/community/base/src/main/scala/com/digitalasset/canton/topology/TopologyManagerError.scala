@@ -234,10 +234,11 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         )
         with TopologyManagerError
 
-    final case class MultipleSynchronizerStoresFound(storeId: TopologyStoreId)(implicit
+    final case class MultipleSynchronizerStoresFound(storeIds: Seq[TopologyStoreId])(implicit
         val loggingContext: ErrorLoggingContext
     ) extends CantonError.Impl(
-          cause = s"Multiple synchronizer stores found for the provided storeId: $storeId."
+          cause =
+            s"Multiple synchronizer stores found for the provided storeId: ${storeIds.mkString(", ")}."
         )
         with TopologyManagerError
   }

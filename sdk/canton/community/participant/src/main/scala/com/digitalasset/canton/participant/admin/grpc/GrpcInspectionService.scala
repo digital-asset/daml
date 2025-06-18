@@ -470,7 +470,7 @@ class GrpcInspectionService(
         // 2. Retrieve the contracts for the synchronizer and the time of the commitment
 
         topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
-          ips.forSynchronizer(psid.logical),
+          ips.forSynchronizer(psid),
           InspectionServiceError.InternalServerError.Error(
             s"Failed to retrieve ips for synchronizer: $psid"
           ),

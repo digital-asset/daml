@@ -230,8 +230,18 @@ class GrpcSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse] =
-    stub.downloadTopologyStateForInit(request, timeout)
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse] = {
+    logger.debug("Downloading topology state for initialization")
+
+    for {
+      result <- stub.downloadTopologyStateForInit(request, timeout).leftMap(_.toString)
+      storedTxs = result.topologyTransactions.value
+      _ = logger.debug(
+        s"Downloaded topology state for initialization with last change timestamp at " +
+          s"${storedTxs.lastChangeTimestamp}: ${storedTxs.result.size} transactions"
+      )
+    } yield result
+  }
 
   override def subscribe[E](
       request: SubscriptionRequestV2,

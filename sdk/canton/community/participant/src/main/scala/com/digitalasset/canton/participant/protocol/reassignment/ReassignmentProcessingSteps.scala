@@ -560,6 +560,7 @@ object ReassignmentProcessingSteps {
 
   final case class ContractError(message: String) extends ReassignmentProcessorError
 
+  // TODO(#26219): should be physical
   final case class UnknownSynchronizer(synchronizerId: SynchronizerId, context: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Unknown synchronizer $synchronizerId when $context"

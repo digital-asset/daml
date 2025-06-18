@@ -300,6 +300,7 @@ private class ForwardingTopologySnapshotClient(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[ParticipantId, ParticipantAttributes]] =
     parent.loadParticipantStates(participants)
+
   override private[client] def loadActiveParticipantsOf(
       party: PartyId,
       participantStates: Seq[ParticipantId] => FutureUnlessShutdown[
@@ -441,14 +442,16 @@ class CachingTopologySnapshot(
       .buildTracedAsync[FutureUnlessShutdown, ParticipantId, Option[ParticipantAttributes]](
         cache = cachingConfigs.participantCache.buildScaffeine(),
         loader = implicit traceContext => pid => parent.findParticipantState(pid),
-        allLoader = Some(implicit traceContext =>
-          pids =>
-            parent.loadParticipantStates(pids.toSeq).map { attributes =>
+        allLoader = Some { implicit traceContext => pids =>
+          parent
+            .loadParticipantStates(pids.toSeq)
+            .map(attributes =>
               // make sure that the returned map contains an entry for each input element
               pids.map(pid => pid -> attributes.get(pid)).toMap
-            }
-        ),
+            )
+        },
       )(logger, "participantCache")
+
   private val keyCache: TracedAsyncLoadingCache[FutureUnlessShutdown, Member, KeyCollection] =
     ScaffeineCache.buildTracedAsync[FutureUnlessShutdown, Member, KeyCollection](
       cache = cachingConfigs.keyCache.buildScaffeine(),

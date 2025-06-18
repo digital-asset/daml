@@ -4,13 +4,14 @@
 package com.digitalasset.canton.topology.processing
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.BaseTest.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.protocol.TestSynchronizerParameters
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.DefaultTestIdentities.sequencerId
+import com.digitalasset.canton.topology.DefaultTestIdentities.{physicalSynchronizerId, sequencerId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.DelegationRestriction.{
   CanSignAllButNamespaceDelegations,
@@ -42,7 +43,10 @@ class TopologyTransactionTestFactory(
   val uid1a = UniqueIdentifier.tryCreate("one", ns1)
   val uid1b = UniqueIdentifier.tryCreate("two", ns1)
   val uid6 = UniqueIdentifier.tryCreate("other", ns6)
-  val synchronizerId1 = SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", ns1))
+  val physicalSynchronizerId1 =
+    SynchronizerId(UniqueIdentifier.tryCreate("synchronizer", ns1)).toPhysical
+  val synchronizerId1 = physicalSynchronizerId.logical
+  val physicalSynchronizerId1a = SynchronizerId(uid1a).toPhysical
   val synchronizerId1a = SynchronizerId(uid1a)
   val party1b = PartyId(uid1b)
   val party6 = PartyId(uid6)

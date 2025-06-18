@@ -21,7 +21,6 @@ import com.daml.ledger.api.v2.value.{
 }
 import com.daml.ledger.javaapi.data.{DisclosedContract, Identifier}
 import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiTypeWrappers.WrappedCreatedEvent
 import com.digitalasset.canton.admin.api.client.data
 import com.digitalasset.canton.admin.api.client.data.{
@@ -35,7 +34,10 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.ConsoleEnvironment.Implicits.*
-import com.digitalasset.canton.console.commands.PruningSchedulerAdministration
+import com.digitalasset.canton.console.commands.{
+  PruningSchedulerAdministration,
+  TopologyAdministrationGroup,
+}
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -49,7 +51,6 @@ import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.JavaDecodeUtil
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.{
   SequencerConnectionValidation,
   SequencerConnections,
@@ -63,13 +64,11 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransactions,
 }
 import com.digitalasset.canton.topology.transaction.*
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
-  GenericSignedTopologyTransaction,
-  PositiveSignedTopologyTransaction,
-}
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{SequencerAlias, SynchronizerAlias, config}
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import com.typesafe.scalalogging.LazyLogging
@@ -312,7 +311,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           generate_contract_id(
             cryptoPureApi = pureCrypto,
             rawContract = contractInstanceWithUpdatedContractIdReferences,
-            createdAt = contract.ledgerCreateTime.ts,
+            createdAt = CantonTimestamp(contract.ledgerCreateTime.time),
             discriminator = discriminator,
             contractSalt = contract.contractSalt,
             metadata = contract.metadata,
@@ -353,7 +352,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
       val unicum = unicumGenerator
         .recomputeUnicum(
           contractSalt,
-          LedgerCreateTime(createdAt),
+          CreationTime.CreatedAt(createdAt.toLf),
           metadata,
           rawContract,
           cantonContractIdVersion,
@@ -824,23 +823,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         .mapFilter(_.selectOp[TopologyChangeOp.Replace])
         .distinct
 
-      // remember order of transactions in the initial topology state
-      // so we don't mess up certificate chains
-      val orderingMap = initialTopologyState.zipWithIndex.map { case (tx, idx) =>
-        (tx.mapping.uniqueKey, idx)
-      }.toMap
-
-      val merged = initialTopologyState
-        .groupBy1(_.hash)
-        .values
-        .map(
-          // combine signatures of transactions with the same hash
-          _.reduceLeft[PositiveSignedTopologyTransaction] { (a, b) =>
-            a.addSignaturesFromTransaction(b)
-          }.updateIsProposal(isProposal = false)
-        )
-        .toSeq
-        .sortBy(tx => orderingMap(tx.mapping.uniqueKey))
+      val merged =
+        TopologyAdministrationGroup.merge(initialTopologyState, updateIsProposal = Some(false))
 
       val storedTopologySnapshot = StoredTopologyTransactions[TopologyChangeOp, TopologyMapping](
         merged.map(stored =>

@@ -5,6 +5,7 @@ package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -42,6 +43,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{FutureUnlessShutdownUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.apache.pekko.stream.Materializer
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContextExecutor, blocking}
@@ -57,7 +59,7 @@ class GrpcInternalSequencerConnectionX private[sequencing] (
     futureSupervisor: FutureSupervisor,
     override val timeouts: ProcessingTimeout,
     protected override val loggerFactory: NamedLoggerFactory,
-)(implicit ec: ExecutionContextExecutor)
+)(implicit ec: ExecutionContextExecutor, esf: ExecutionSequencerFactory, materializer: Materializer)
     extends InternalSequencerConnectionX
     with PrettyPrinting
     with GrpcClientTransportHelpers {
@@ -449,13 +451,15 @@ class GrpcInternalSequencerConnectionXFactory(
     loggerFactory: NamedLoggerFactory,
 ) extends InternalSequencerConnectionXFactory {
   override def create(config: ConnectionXConfig)(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): InternalSequencerConnectionX =
     new GrpcInternalSequencerConnectionX(
       config,
       clientProtocolVersions,
       minimumProtocolVersion,
-      stubFactory = SequencerConnectionXStubFactoryImpl,
+      stubFactory = new SequencerConnectionXStubFactoryImpl(loggerFactory),
       futureSupervisor,
       timeouts,
       loggerFactory.append("connection", config.name),

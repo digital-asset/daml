@@ -4,6 +4,8 @@
 package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
+import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.GrpcServiceInvocationMethod
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -26,7 +28,9 @@ import com.digitalasset.canton.sequencing.ConnectionX.{
 }
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import io.grpc.Channel
-import io.grpc.stub.AbstractStub
+import io.grpc.stub.{AbstractStub, StreamObserver}
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 
 import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicReference
@@ -129,6 +133,21 @@ final case class GrpcConnectionX(
         EitherT.leftT[FutureUnlessShutdown, Res](
           ConnectionXError.InvalidStateError("Connection is not started")
         )
+    }
+
+  def serverStreamingRequestPekko[Svc <: AbstractStub[Svc], Req, Res](
+      stubFactory: Channel => Svc
+  )(request: Req, send: Svc => (Req, StreamObserver[Res]) => Unit)(implicit
+      esf: ExecutionSequencerFactory
+  ): Either[ConnectionXError.InvalidStateError, Source[Res, NotUsed]] =
+    channelRef.get() match {
+      case Some(channel) =>
+        val client = GrpcClient.create(channel, stubFactory)
+        val source = ClientAdapter.serverStreaming(request, send(client.service))
+        Right(source)
+
+      case None =>
+        Left(ConnectionXError.InvalidStateError("Connection is not started"))
     }
 
   private def mkChannelBuilder(
