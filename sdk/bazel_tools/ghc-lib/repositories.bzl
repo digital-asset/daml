@@ -5,6 +5,7 @@ load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("@bazel_tools//tools/build_defs/repo:utils.bzl", "patch", "workspace_and_buildfile")
 load("@io_tweag_rules_nixpkgs//nixpkgs:nixpkgs.bzl", "nixpkgs_package")
+load("@rules_sh//sh:sh.bzl", "sh_binaries")
 load("//bazel_tools/dev_env_tool:dev_env_tool.bzl", "dadew_binary_bundle")
 load("//nix:repositories.bzl", "common_nix_file_deps", "dev_env_nix_repos")
 load(
@@ -21,7 +22,15 @@ load(
 def _ghc_lib_deps_windows():
     """Import dependencies of ghc-lib on Windows."""
     dadew_binary_bundle(
-        name = "dadew_ghc_lib_deps",
+        name = "dadew_ghc_lib_deps_git",
+        paths = [
+            "bin/git",
+        ],
+        tool = "git",
+    )
+
+    dadew_binary_bundle(
+        name = "dadew_ghc_lib_deps_msys2",
         paths = [
             # msys2
             "msys2",
@@ -51,8 +60,6 @@ def _ghc_lib_deps_windows():
             "usr/bin/diff",
             "usr/bin/diff3",
             "usr/bin/sdiff",
-            # git
-            "usr/bin/git",
             # gnumake
             "usr/bin/make",
             # m4

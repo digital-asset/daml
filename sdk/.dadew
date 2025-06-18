@@ -6,6 +6,7 @@
         "cacert",
         "curl",
         "gcloud",
+        "git",
         "jdk",
         "maven-3.6.1",
         "msys2",
