@@ -8,7 +8,6 @@ import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands.Updat
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.examples.java.iou.Iou
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
@@ -188,8 +187,7 @@ sealed trait AssignmentBeforeUnassignmentIntegrationTest
       .value
       .reassignmentStore
 
-    val reassignmentId =
-      ReassignmentId(Source(daId), CantonTimestamp.assertFromLong(unassign1.toLong))
+    val reassignmentId = ReassignmentId.tryCreate(Source(daId), unassign1)
 
     reassignmentStoreP2.findReassignmentEntry(reassignmentId).futureValueUS shouldBe Left(
       UnknownReassignmentId(reassignmentId)

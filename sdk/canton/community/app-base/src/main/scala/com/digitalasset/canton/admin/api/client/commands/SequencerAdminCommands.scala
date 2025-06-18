@@ -151,9 +151,7 @@ object SequencerAdminCommands {
 
     override protected def createRequest()
         : Either[String, proto.InitializeSequencerFromOnboardingStateRequest] =
-      Right(
-        proto.InitializeSequencerFromOnboardingStateRequest(onboardingState)
-      )
+      Right(proto.InitializeSequencerFromOnboardingStateRequest(onboardingState = onboardingState))
 
     override protected def handleResponse(
         response: proto.InitializeSequencerFromOnboardingStateResponse
@@ -188,7 +186,7 @@ object SequencerAdminCommands {
         (topologySnapshot: Array[Byte]) =>
           proto.InitializeSequencerFromGenesisStateRequest(
             topologySnapshot = ByteString.copyFrom(topologySnapshot),
-            Some(synchronizerParameters.toProtoV30),
+            synchronizerParameters = Some(synchronizerParameters.toProtoV30),
           ),
         request.topologySnapshot,
       )
@@ -198,7 +196,7 @@ object SequencerAdminCommands {
       Right(
         proto.InitializeSequencerFromGenesisStateRequest(
           topologySnapshot = topologySnapshot,
-          Some(synchronizerParameters.toProtoV30),
+          synchronizerParameters = Some(synchronizerParameters.toProtoV30),
         )
       )
 

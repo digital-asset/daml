@@ -150,7 +150,7 @@ final class AvailabilityModule[E <: Env[E]](
 
           case Availability.UnverifiedProtocolMessage(signedMessage) =>
             val from = signedMessage.from
-            val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.signedBy)
+            val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.authorizingLongTermKey)
             if (messageAuthorizer.isAuthorized(from, keyId)) {
               logger.debug(s"Start to verify message from '$from'")
               pipeToSelf(

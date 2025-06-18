@@ -22,23 +22,26 @@ import com.digitalasset.canton.store.SequencedEventStore.CounterAndTimestamp
 import com.digitalasset.canton.store.db.DbSequencedEventStore.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.version.ProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
 
 class DbSequencedEventStore(
     override protected val storage: DbStorage,
-    indexedSynchronizer: IndexedSynchronizer,
-    protocolVersion: ProtocolVersion,
+    physicalSynchronizerIdx: IndexedPhysicalSynchronizer,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends SequencedEventStore
     with DbStore
-    with DbPrunableByTime {
+    with DbPrunableByTime[IndexedPhysicalSynchronizer] {
 
-  override protected[this] val partitionKey: IndexedSynchronizer = indexedSynchronizer
+  override protected[this] implicit def setParameterIndexedSynchronizer
+      : SetParameter[IndexedPhysicalSynchronizer] = IndexedString.setParameterIndexedString
+  override protected[this] def partitionColumn: String = "physical_synchronizer_idx"
+
+  private val protocolVersion = physicalSynchronizerIdx.synchronizerId.protocolVersion
+  override protected[this] val partitionKey: IndexedPhysicalSynchronizer = physicalSynchronizerIdx
 
   override protected[this] def pruning_status_table: String = "common_sequenced_event_store_pruning"
 
@@ -100,7 +103,7 @@ class DbSequencedEventStore(
       events: Seq[PossiblyIgnoredSerializedEvent]
   )(implicit traceContext: TraceContext): DBIOAction[Unit, NoStream, Effect.All] = {
     val insertSql =
-      "insert into common_sequenced_events (synchronizer_idx, ts, sequenced_event, type, sequencer_counter, trace_context, ignore) " +
+      "insert into common_sequenced_events (physical_synchronizer_idx, ts, sequenced_event, type, sequencer_counter, trace_context, ignore) " +
         "values (?, ?, ?, ?, ?, ?, ?) " +
         "on conflict do nothing"
     DbStorage.bulkOperation_(insertSql, events, storage.profile) { pp => event =>
@@ -122,10 +125,10 @@ class DbSequencedEventStore(
         // The implementation assumes that we timestamps on sequenced events increases monotonically with the sequencer counter
         // It therefore is fine to take the first event that we find.
         sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
-                where synchronizer_idx = $partitionKey and ts = $timestamp"""
+                where physical_synchronizer_idx = $partitionKey and ts = $timestamp"""
       case LatestUpto(inclusive) =>
         sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
-                where synchronizer_idx = $partitionKey and ts <= $inclusive
+                where physical_synchronizer_idx = $partitionKey and ts <= $inclusive
                 order by ts desc #${storage.limit(1)}"""
     }
 
@@ -148,7 +151,7 @@ class DbSequencedEventStore(
           for {
             events <- storage.query(
               sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
-                    where synchronizer_idx = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
+                    where physical_synchronizer_idx = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
                     order by ts #${limit.fold("")(storage.limit(_))}"""
                 .as[PossiblyIgnoredSerializedEvent],
               functionFullName,
@@ -172,7 +175,7 @@ class DbSequencedEventStore(
   ): FutureUnlessShutdown[Seq[PossiblyIgnoredSerializedEvent]] =
     storage.query(
       sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
-              where synchronizer_idx = $partitionKey
+              where physical_synchronizer_idx = $partitionKey
               order by ts #${limit.fold("")(storage.limit(_))}"""
         .as[PossiblyIgnoredSerializedEvent],
       functionFullName,
@@ -183,12 +186,12 @@ class DbSequencedEventStore(
       lastPruning: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val query =
-      sqlu"delete from common_sequenced_events where synchronizer_idx = $partitionKey and ts <= $untilInclusive"
+      sqlu"delete from common_sequenced_events where physical_synchronizer_idx = $partitionKey and ts <= $untilInclusive"
     storage
       .queryAndUpdate(query, functionFullName)
       .map { nrPruned =>
         logger.info(
-          s"Pruned at least $nrPruned entries from the sequenced event store of synchronizer_idx $partitionKey older or equal to $untilInclusive"
+          s"Pruned at least $nrPruned entries from the sequenced event store of physical_synchronizer_idx $partitionKey older or equal to $untilInclusive"
         )
         nrPruned
       }
@@ -216,7 +219,7 @@ class DbSequencedEventStore(
     for {
       lastSequencerCounterAndTimestampO <- EitherT.right(
         storage.query(
-          sql"""select sequencer_counter, ts from common_sequenced_events where synchronizer_idx = $partitionKey
+          sql"""select sequencer_counter, ts from common_sequenced_events where physical_synchronizer_idx = $partitionKey
                order by sequencer_counter desc #${storage.limit(1)}"""
             .as[(SequencerCounter, CantonTimestamp)]
             .headOption,
@@ -254,7 +257,7 @@ class DbSequencedEventStore(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     storage.update_(
-      sqlu"update common_sequenced_events set ignore = $ignore where synchronizer_idx = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
+      sqlu"update common_sequenced_events set ignore = $ignore where physical_synchronizer_idx = $partitionKey and $fromInclusive <= sequencer_counter and sequencer_counter <= $toInclusive",
       functionFullName,
     )
 
@@ -278,7 +281,7 @@ class DbSequencedEventStore(
       lastNonEmptyEventSequencerCounter <- EitherT.right(
         storage.query(
           sql"""select sequencer_counter from common_sequenced_events
-              where synchronizer_idx = $partitionKey and type != ${SequencedEventDbType.IgnoredEvent}
+              where physical_synchronizer_idx = $partitionKey and type != ${SequencedEventDbType.IgnoredEvent}
               order by sequencer_counter desc #${storage.limit(1)}"""
             .as[SequencerCounter]
             .headOption,
@@ -291,7 +294,7 @@ class DbSequencedEventStore(
       lastSequencerCounter <- EitherT.right(
         storage.query(
           sql"""select sequencer_counter from common_sequenced_events
-              where synchronizer_idx = $partitionKey
+              where physical_synchronizer_idx = $partitionKey
               order by sequencer_counter desc #${storage.limit(1)}"""
             .as[SequencerCounter]
             .headOption,
@@ -307,7 +310,7 @@ class DbSequencedEventStore(
       _ <- EitherT.right(
         storage.update(
           sqlu"""delete from common_sequenced_events
-               where synchronizer_idx = $partitionKey and type = ${SequencedEventDbType.IgnoredEvent}
+               where physical_synchronizer_idx = $partitionKey and type = ${SequencedEventDbType.IgnoredEvent}
                  and $fromEffective <= sequencer_counter and sequencer_counter <= $to""",
           functionFullName,
         )
@@ -318,7 +321,7 @@ class DbSequencedEventStore(
       fromInclusive: SequencerCounter
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
-      sqlu"delete from common_sequenced_events where synchronizer_idx = $partitionKey and sequencer_counter >= $fromInclusive",
+      sqlu"delete from common_sequenced_events where physical_synchronizer_idx = $partitionKey and sequencer_counter >= $fromInclusive",
       functionFullName,
     )
 
@@ -328,7 +331,7 @@ class DbSequencedEventStore(
     val query =
       sql"""select trace_context
             from common_sequenced_events
-             where synchronizer_idx = $partitionKey
+             where physical_synchronizer_idx = $partitionKey
                and ts = $sequencedTimestamp"""
     storage
       .querySingle(
@@ -345,7 +348,7 @@ class DbSequencedEventStore(
     val query =
       sql"""select sequencer_counter, ts
             from common_sequenced_events
-            where synchronizer_idx = $partitionKey
+            where physical_synchronizer_idx = $partitionKey
             order by sequencer_counter desc
             limit 1"""
     storage

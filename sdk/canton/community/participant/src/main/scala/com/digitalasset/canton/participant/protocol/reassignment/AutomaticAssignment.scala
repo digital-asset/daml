@@ -75,7 +75,7 @@ private[participant] object AutomaticAssignment {
         )
         submissionResult <- reassignmentCoordination
           .assign(
-            targetSynchronizer.map(_.logical),
+            targetSynchronizer,
             ReassignmentSubmitterMetadata(
               assignmentSubmitter,
               participantId,
@@ -138,11 +138,11 @@ private[participant] object AutomaticAssignment {
             )
             for {
               _ <- reassignmentCoordination
-                .awaitSynchronizerTime(targetSynchronizer.map(_.logical), exclusivityLimit)
+                .awaitSynchronizerTime(targetSynchronizer, exclusivityLimit)
                 .mapK(FutureUnlessShutdown.outcomeK)
               _ <- reassignmentCoordination
                 .awaitTimestamp(
-                  targetSynchronizer.map(_.logical),
+                  targetSynchronizer,
                   targetStaticSynchronizerParameters,
                   exclusivityLimit,
                   FutureUnlessShutdown.pure(
@@ -175,7 +175,7 @@ private[participant] object AutomaticAssignment {
     for {
       targetIps <- reassignmentCoordination
         .cryptoSnapshot(
-          targetSynchronizer.map(_.logical),
+          targetSynchronizer,
           targetStaticSynchronizerParameters,
           t0,
         )

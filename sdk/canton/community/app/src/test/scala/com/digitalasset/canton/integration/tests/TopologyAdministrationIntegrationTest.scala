@@ -143,7 +143,8 @@ class TopologyAdministrationIntegrationTest
       // namespace-only key to sign this request and be added to the OwnerToKeyMapping.
       val keysWithUsage = assignExpectedUsageToKeys(
         otkmWithNewKey,
-        NonEmpty.mk(Set, keyToAdd.id) ++ storedOtkm.transaction.signatures.map(_.signedBy),
+        NonEmpty.mk(Set, keyToAdd.id) ++ storedOtkm.transaction.signatures
+          .map(_.authorizingLongTermKey),
         forSigning = false,
       )
 

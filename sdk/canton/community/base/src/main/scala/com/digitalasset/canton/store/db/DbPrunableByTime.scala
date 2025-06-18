@@ -8,7 +8,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.store.{IndexedString, IndexedSynchronizer, PrunableByTime}
+import com.digitalasset.canton.store.PrunableByTime
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.SetParameter
 
@@ -19,11 +19,10 @@ import scala.concurrent.ExecutionContext
   * The pruning method of the store must use [[advancePruningTimestamp]] to signal the start end
   * completion of each pruning.
   */
-trait DbPrunableByTime extends PrunableByTime {
+trait DbPrunableByTime[Idx] extends PrunableByTime {
   this: DbStore =>
 
-  protected[this] implicit def setParameterIndexedSynchronizer: SetParameter[IndexedSynchronizer] =
-    IndexedString.setParameterIndexedString
+  protected[this] implicit def setParameterIndexedSynchronizer: SetParameter[Idx]
 
   /** The table name to store the pruning timestamp in. The table must define the following fields:
     *   - [[partitionColumn]] primary key
@@ -32,9 +31,8 @@ trait DbPrunableByTime extends PrunableByTime {
     */
   protected[this] def pruning_status_table: String
 
-  protected[this] def partitionColumn: String = "synchronizer_idx"
-
-  protected[this] def partitionKey: IndexedSynchronizer
+  protected[this] def partitionColumn: String
+  protected[this] def partitionKey: Idx
 
   protected[this] implicit val ec: ExecutionContext
 
@@ -109,11 +107,10 @@ trait DbPrunableByTime extends PrunableByTime {
 }
 
 /** Specialized [[DbPrunableByTime]] that uses the synchronizer as discriminator */
-trait DbPrunableByTimeSynchronizer extends DbPrunableByTime {
+trait DbPrunableByTimeSynchronizer[Idx] extends DbPrunableByTime[Idx] {
   this: DbStore =>
 
-  protected[this] def indexedSynchronizer: IndexedSynchronizer
+  protected[this] def indexedSynchronizer: Idx
 
-  override protected[this] def partitionKey: IndexedSynchronizer = indexedSynchronizer
-
+  override protected[this] def partitionKey: Idx = indexedSynchronizer
 }

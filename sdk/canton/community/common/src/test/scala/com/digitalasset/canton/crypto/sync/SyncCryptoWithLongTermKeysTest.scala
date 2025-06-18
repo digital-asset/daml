@@ -22,11 +22,18 @@ class SyncCryptoWithLongTermKeysTest extends AnyWordSpec with SyncCryptoTest {
       syncCryptoSignerP1 shouldBe a[SyncCryptoSignerWithLongTermKeys]
     }
 
+    /* This test checks whether a node that does not use session keys can verify a signature
+     * sent by a node that uses session keys (with a signature delegation defined).
+     */
     "correctly verify signature that contains a delegation for a session key" in {
 
+      // enable session keys just for signing
       val testingTopologyWithSessionKeys =
-        TestingTopology(sessionSigningKeysConfig = SessionSigningKeysConfig.default)
+        TestingTopology()
           .withSimpleParticipants(participant1)
+          .withCryptoConfig(
+            cryptoConfigWithSessionSigningKeysConfig(SessionSigningKeysConfig.default)
+          )
           .build(crypto, loggerFactory)
 
       val p1WithSessionKey = testingTopologyWithSessionKeys.forOwnerAndSynchronizer(participant1)

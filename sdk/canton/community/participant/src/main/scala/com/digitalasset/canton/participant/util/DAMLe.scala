@@ -22,7 +22,6 @@ import com.digitalasset.canton.participant.util.DAMLe.{
 }
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId}
@@ -34,7 +33,7 @@ import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.Ast.Package
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.language.LanguageVersion.v2_dev
-import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Versioned}
+import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, CreationTime, Versioned}
 
 import java.nio.file.Path
 import scala.annotation.tailrec
@@ -278,7 +277,7 @@ class DAMLe(
   def replayCreate(
       submitters: Set[LfPartyId],
       command: LfCreateCommand,
-      ledgerEffectiveTime: LedgerCreateTime,
+      ledgerEffectiveTime: CreationTime.CreatedAt,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit
       traceContext: TraceContext
@@ -289,7 +288,7 @@ class DAMLe(
         command = command,
         nodeSeed = Some(DAMLe.zeroSeed),
         preparationTime = Time.Timestamp.Epoch, // Only used to compute contract ids
-        ledgerEffectiveTime = ledgerEffectiveTime.ts.underlying,
+        ledgerEffectiveTime = ledgerEffectiveTime.time,
         packageResolution = Map.empty,
       )
       for {

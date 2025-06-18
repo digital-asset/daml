@@ -26,7 +26,6 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   LfContractId,
@@ -37,8 +36,16 @@ import com.digitalasset.canton.protocol.{
 import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, LfPartyId, LfValue, LfVersioned, ReassignmentCounter}
+import com.digitalasset.canton.{
+  BaseTest,
+  LfPartyId,
+  LfTimestamp,
+  LfValue,
+  LfVersioned,
+  ReassignmentCounter,
+}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.transaction.CreationTime
 import org.mockito.{ArgumentMatchersSugar, MockitoSugar}
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
@@ -168,7 +175,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       contractId,
       MockedSerializableRawContractInstance,
       metadata,
-      LedgerCreateTime(CantonTimestamp.Epoch),
+      CreationTime.CreatedAt(LfTimestamp.Epoch),
       TestSalt.generateSalt(3),
     )
   }

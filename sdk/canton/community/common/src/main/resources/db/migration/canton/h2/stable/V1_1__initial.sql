@@ -175,7 +175,7 @@ create table med_response_aggregations (
 -- Stores the received sequencer messages
 create table common_sequenced_events (
     -- discriminate between different users of the sequenced events tables
-    synchronizer_idx integer not null,
+    physical_synchronizer_idx integer not null,
     -- Proto serialized signed message
     sequenced_event binary large object not null,
     -- Explicit fields to query the messages, which are stored as blobs
@@ -189,26 +189,10 @@ create table common_sequenced_events (
     -- flag to skip problematic events
     ignore boolean not null,
     -- The sequencer ensures that the timestamp is unique
-    primary key (synchronizer_idx, ts)
+    primary key (physical_synchronizer_idx, ts)
 );
 
-create unique index idx_sequenced_events_sequencer_counter on common_sequenced_events(synchronizer_idx, sequencer_counter);
-
--- Track what send requests we've made but have yet to observe being sequenced.
--- If events are not observed by the max sequencing time we know that the send will never be processed.
-create table sequencer_client_pending_sends (
-    -- synchronizer (index) for distinguishing between different sequencer clients in the same node
-    synchronizer_idx integer not null,
-
-    -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in-flight)
-    message_id varchar not null,
-
-    -- the message id should be unique for the sequencer client
-    primary key (synchronizer_idx, message_id),
-
-    -- the max sequencing time of the send request (UTC timestamp in microseconds relative to EPOCH)
-    max_sequencing_time bigint not null
-);
+create unique index idx_sequenced_events_sequencer_counter on common_sequenced_events(physical_synchronizer_idx, sequencer_counter);
 
 create table par_synchronizer_connection_configs(
     synchronizer_alias varchar not null,
@@ -239,6 +223,9 @@ create table par_reassignments (
 
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_timestamp bigint not null,
+
+    unassign_id varchar not null,
+
     unassignment_request binary large object,
     unassignment_global_offset bigint,
     assignment_global_offset bigint,
@@ -246,12 +233,12 @@ create table par_reassignments (
     -- defined if reassignment was completed
     -- UTC timestamp in microseconds relative to EPOCH
     assignment_timestamp bigint,
-    primary key (target_synchronizer_idx, source_synchronizer_idx, unassignment_timestamp)
+    primary key (target_synchronizer_idx, source_synchronizer_idx, unassign_id)
 );
 
 -- stores all requests for the request journal
 create table par_journal_requests (
-    synchronizer_idx integer not null,
+    physical_synchronizer_idx integer not null,
     request_counter bigint not null,
     request_state_index smallint not null,
     -- UTC timestamp in microseconds relative to EPOCH
@@ -259,9 +246,9 @@ create table par_journal_requests (
     -- UTC timestamp in microseconds relative to EPOCH
     -- is set only if the request is clean
     commit_time bigint,
-    primary key (synchronizer_idx, request_counter));
-create unique index idx_par_journal_request_timestamp on par_journal_requests (synchronizer_idx, request_timestamp);
-create index idx_par_journal_request_commit_time on par_journal_requests (synchronizer_idx, commit_time);
+    primary key (physical_synchronizer_idx, request_counter));
+create unique index idx_par_journal_request_timestamp on par_journal_requests (physical_synchronizer_idx, request_timestamp);
+create index idx_par_journal_request_commit_time on par_journal_requests (physical_synchronizer_idx, commit_time);
 
 -- locally computed ACS commitments to a specific period, counter-participant and synchronizer
 create table par_computed_acs_commitments (
@@ -414,12 +401,12 @@ create table par_commitment_pruning (
 
 -- Maintains the latest timestamp (by sequencer client) for which the sequenced event store pruning has started or finished
 create table common_sequenced_event_store_pruning (
-  synchronizer_idx integer not null,
+  physical_synchronizer_idx integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (synchronizer_idx)
+  primary key (physical_synchronizer_idx)
 );
 
 -- table to contain the values provided by the synchronizer to the mediator node for initialization.
@@ -428,7 +415,7 @@ create table common_sequenced_event_store_pruning (
 create table mediator_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  synchronizer_id varchar not null,
+  physical_synchronizer_id varchar not null,
   static_synchronizer_parameters binary large object not null,
   sequencer_connection binary large object not null,
   is_topology_initialized bool not null default false
@@ -437,7 +424,7 @@ create table mediator_synchronizer_configuration (
 -- the last recorded head clean sequencer counter for each synchronizer
 create table common_head_sequencer_counters (
   -- discriminate between different users of the sequencer counter tracker tables
-  synchronizer_idx integer not null primary key,
+  physical_synchronizer_idx integer not null primary key,
   prehead_counter bigint not null, -- sequencer counter before the first unclean sequenced event
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null
@@ -601,7 +588,7 @@ create table par_command_deduplication_pruning (
 create table sequencer_synchronizer_configuration (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
-  synchronizer_id varchar not null,
+  physical_synchronizer_id varchar not null,
   static_synchronizer_parameters binary large object not null
 );
 
@@ -616,20 +603,20 @@ create table common_pruning_schedules(
 
 -- Tables for new submission tracker
 create table par_fresh_submitted_transaction (
-    synchronizer_idx integer not null,
+    physical_synchronizer_idx integer not null,
     root_hash_hex varchar not null,
     request_id bigint not null,
     max_sequencing_time bigint not null,
-    primary key (synchronizer_idx, root_hash_hex)
+    primary key (physical_synchronizer_idx, root_hash_hex)
 );
 
 create table par_fresh_submitted_transaction_pruning (
-    synchronizer_idx integer not null,
+    physical_synchronizer_idx integer not null,
     phase pruning_phase not null,
     -- UTC timestamp in microseconds relative to EPOCH
     ts bigint not null,
     succeeded bigint null,
-    primary key (synchronizer_idx)
+    primary key (physical_synchronizer_idx)
 );
 
 -- pruning_schedules with pruning flag specific to participant pruning

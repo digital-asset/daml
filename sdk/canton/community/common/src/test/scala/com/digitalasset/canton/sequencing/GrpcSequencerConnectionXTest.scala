@@ -17,6 +17,8 @@ class GrpcSequencerConnectionXTest
     with FailOnShutdown
     with ConnectionPoolTestHelpers {
 
+  import ConnectionPoolTestHelpers.*
+
   "GrpcSequencerConnectionX" should {
     "have authentication hooks" in {
       val member = ParticipantId("test")

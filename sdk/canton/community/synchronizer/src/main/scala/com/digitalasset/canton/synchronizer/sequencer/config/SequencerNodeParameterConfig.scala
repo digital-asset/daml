@@ -23,7 +23,6 @@ import com.digitalasset.canton.data.CantonTimestamp
   *   the sequencer will only send events with at least the minimumSequencingTime to subscribers
   */
 final case class SequencerNodeParameterConfig(
-    override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.disabled,
     // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version
     override val alphaVersionSupport: Boolean = true,
     override val betaVersionSupport: Boolean = false,

@@ -16,8 +16,7 @@ import com.digitalasset.canton.sequencing.protocol.channel.{
   SequencerChannelSessionKeyAck,
 }
 import com.digitalasset.canton.serialization.DefaultDeserializationError
-import com.digitalasset.canton.topology.SynchronizerId
-import com.digitalasset.canton.topology.admin.grpc.TopologyStoreId
+import com.digitalasset.canton.topology.PhysicalSynchronizerId
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.mutable
@@ -28,7 +27,7 @@ import scala.concurrent.ExecutionContext
   */
 private[channel] final class TestRecorder(
     participant: LocalParticipantReference,
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     staticSynchronizerParameters: StaticSynchronizerParameters,
 )(implicit executionContext: ExecutionContext, traceContext: TraceContext) {
 
@@ -116,7 +115,7 @@ private[channel] final class TestRecorder(
 
   private[channel] def timestamp: CantonTimestamp =
     participant.topology.transactions
-      .list(store = TopologyStoreId.Synchronizer(synchronizerId))
+      .list(store = synchronizerId)
       .result
       .last
       .validFrom

@@ -21,7 +21,6 @@ import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.{FlagCloseable, LifeCycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
-import com.digitalasset.canton.protocol.SerializableContract
 import com.digitalasset.canton.sequencing.{
   GrpcSequencerConnection,
   SequencerConnection,
@@ -38,6 +37,7 @@ import com.digitalasset.canton.topology.{
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.{LfPartyId, SequencerAlias, SynchronizerAlias}
 import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.transaction.CreationTime
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
 import org.tpolecat.typename.TypeName
@@ -606,10 +606,10 @@ object ConsoleEnvironment {
       */
     implicit def toPositiveDouble(n: Double): PositiveDouble = PositiveDouble.tryCreate(n)
 
-    /** Implicitly map a `CantonTimestamp` to a `LedgerCreateTime`
+    /** Implicitly map a `CantonTimestamp` to a `CreationTime.CreatedAt`
       */
-    implicit def toLedgerCreateTime(ts: CantonTimestamp): SerializableContract.LedgerCreateTime =
-      SerializableContract.LedgerCreateTime(ts)
+    implicit def toLedgerCreateTime(ts: CantonTimestamp): CreationTime.CreatedAt =
+      CreationTime.CreatedAt(ts.toLf)
 
     /** Implicitly convert a duration to a [[com.digitalasset.canton.config.NonNegativeDuration]]
       * @throws java.lang.IllegalArgumentException
@@ -650,16 +650,6 @@ object ConsoleEnvironment {
     /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
       * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
       */
-    implicit def toSynchronizerTopologyStoreId(
-        synchronizerId: SynchronizerId
-    ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId)
-
-    /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to
-      * [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId.Synchronizer]]
-      */
-    implicit def toSynchronizerTopologyStoreId(
-        synchronizerId: PhysicalSynchronizerId
-    ): TopologyStoreId.Synchronizer = TopologyStoreId.Synchronizer(synchronizerId.logical)
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
       * [[scala.Option]] of [[com.digitalasset.canton.topology.SynchronizerId]]
@@ -675,7 +665,7 @@ object ConsoleEnvironment {
     implicit def physicalSynchronizerIdIsSomeTopologyStoreId(
         synchronizerId: PhysicalSynchronizerId
     ): Option[TopologyStoreId.Synchronizer] = Some(
-      TopologyStoreId.Synchronizer(synchronizerId.logical)
+      TopologyStoreId.Synchronizer(synchronizerId)
     )
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.PhysicalSynchronizerId]] to
@@ -701,7 +691,7 @@ object ConsoleEnvironment {
     implicit def synchronizerIdIsSomeTopologyStoreId(
         synchronizerId: SynchronizerId
     ): Option[TopologyStoreId.Synchronizer] =
-      Some(TopologyStoreId.Synchronizer(synchronizerId))
+      Some(synchronizerId)
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.SynchronizerId]] to [[scala.Option]]
       * of [[com.digitalasset.canton.topology.SynchronizerId]]
@@ -716,7 +706,7 @@ object ConsoleEnvironment {
     implicit def optionSynchronizerIdIsOptionTopologyStoreId(
         synchronizerId: Option[SynchronizerId]
     ): Option[TopologyStoreId] =
-      synchronizerId.map(TopologyStoreId.Synchronizer(_))
+      synchronizerId.map(id => TopologyStoreId.Synchronizer(id))
 
     /** Implicitly convert a [[com.digitalasset.canton.topology.admin.grpc.TopologyStoreId]] to
       * [[scala.Option]] of

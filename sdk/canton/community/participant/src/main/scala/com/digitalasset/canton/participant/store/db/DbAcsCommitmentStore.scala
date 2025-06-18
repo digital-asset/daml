@@ -38,8 +38,8 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
 import com.digitalasset.canton.resource.DbStorage.{DbAction, SQLActionBuilderChain}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.DeterministicEncoding
-import com.digitalasset.canton.store.IndexedSynchronizer
 import com.digitalasset.canton.store.db.{DbDeserializationException, DbPrunableByTimeSynchronizer}
+import com.digitalasset.canton.store.{IndexedString, IndexedSynchronizer}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
@@ -67,10 +67,14 @@ class DbAcsCommitmentStore(
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends AcsCommitmentStore
-    with DbPrunableByTimeSynchronizer
+    with DbPrunableByTimeSynchronizer[IndexedSynchronizer]
     with DbStore {
   import storage.api.*
   import storage.converters.*
+
+  override protected[this] implicit def setParameterIndexedSynchronizer
+      : SetParameter[IndexedSynchronizer] = IndexedString.setParameterIndexedString
+  override protected[this] def partitionColumn: String = "synchronizer_idx"
 
   override protected[this] val pruning_status_table = "par_commitment_pruning"
 
@@ -370,7 +374,10 @@ class DbAcsCommitmentStore(
       computed <- lastComputedAndSent
       adjustedTsOpt = computed.map(_.forgetRefinement.min(beforeOrAt))
       ignores <- acsCounterParticipantConfigStore
-        .getAllActiveNoWaitCounterParticipants(Seq(indexedSynchronizer.synchronizerId), Seq.empty)
+        .getAllActiveNoWaitCounterParticipants(
+          Seq(indexedSynchronizer.synchronizerId),
+          Seq.empty,
+        )
       outstandingOpt <- adjustedTsOpt.traverse { ts =>
         storage.query(
           sql"""select from_exclusive, to_inclusive, counter_participant, multi_hosted_cleared from par_outstanding_acs_commitments

@@ -356,6 +356,8 @@ message SynchronizerUpgradeAnnouncement {
   string physical_synchronizer_id = 1;
   // the physical synchronizer id of the successor synchronizer
   string successor_physical_synchronizer_id = 2;
+  // when the upgrade happens
+  google.protobuf.Timestamp upgrade_time = 3;
 }
 
 // a sequencer can announce its connections on the successor synchronizer
