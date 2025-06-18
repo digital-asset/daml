@@ -15,6 +15,8 @@ Data Types
 
 **data** `CommandName <type-daml-script-internal-questions-testing-commandname-12991_>`_
 
+  Name of the Daml Script Command (or Question) that failed
+
   .. _constr-daml-script-internal-questions-testing-commandname-12826:
 
   `CommandName <constr-daml-script-internal-questions-testing-commandname-12826_>`_
@@ -33,6 +35,8 @@ Data Types
 .. _type-daml-script-internal-questions-testing-errorclassname-49861:
 
 **data** `ErrorClassName <type-daml-script-internal-questions-testing-errorclassname-49861_>`_
+
+  Scala class name of the exception thrown
 
   .. _constr-daml-script-internal-questions-testing-errorclassname-42862:
 
@@ -53,6 +57,8 @@ Data Types
 
 **data** `ErrorMessage <type-daml-script-internal-questions-testing-errormessage-78991_>`_
 
+  Result of the ``getMessage`` method on the Scala exception
+
   .. _constr-daml-script-internal-questions-testing-errormessage-24784:
 
   `ErrorMessage <constr-daml-script-internal-questions-testing-errormessage-24784_>`_
@@ -72,8 +78,8 @@ Data Types
 
 **data** `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
 
-  Pseudo exception that daml\-script can throw/catch, but that isn't seen as an exception in the dar
-  and as such, does not need to be serializable/cannot be thrown in Update
+  Daml type representing a Scala exception thrown during script interpretation\.
+  Used for internal testing of the Daml Script library\.
 
   .. _constr-daml-script-internal-questions-testing-failedcmd-77803:
 
@@ -100,33 +106,13 @@ Data Types
 
 **data** `ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199_>`_
 
-  Additional debugging info optionally provided by the ledger
-
-.. _type-daml-script-internal-questions-submit-error-deverrortype-71788:
-
-**data** `DevErrorType <type-daml-script-internal-questions-submit-error-deverrortype-71788_>`_
-
-  Errors that will be promoted to SubmitError once stable \- code needs to be kept in sync with SubmitError\.scala
-
-  .. _constr-daml-script-internal-questions-submit-error-choiceguardfailed-92292:
-
-  `ChoiceGuardFailed <constr-daml-script-internal-questions-submit-error-choiceguardfailed-92292_>`_
-
-
-  .. _constr-daml-script-internal-questions-submit-error-wronglytypedcontractsoft-93780:
-
-  `WronglyTypedContractSoft <constr-daml-script-internal-questions-submit-error-wronglytypedcontractsoft-93780_>`_
-
-
-  .. _constr-daml-script-internal-questions-submit-error-unknownnewfeature-96345:
-
-  `UnknownNewFeature <constr-daml-script-internal-questions-submit-error-unknownnewfeature-96345_>`_
-
-    This should never happen \- Update Scripts when you see this!
+  Additional debugging information provided only by IDE Ledger
 
 .. _type-daml-script-internal-questions-packages-packagename-68696:
 
 **data** `PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_
+
+  Used for vetting and unvetting packages
 
   .. _constr-daml-script-internal-questions-packages-packagename-3807:
 
@@ -161,42 +147,68 @@ Functions
 `liftFailedCommandToFailureStatus <function-daml-script-internal-questions-testing-liftfailedcommandtofailurestatus-62416_>`_
   \: :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` a
 
-  Runs a script and lifts FailedCmd scala exceptions into the FailedCmd daml exception, which can be caught via try\-catch
+  Runs a script and lifts FailedCmd scala exceptions into a FailureStatus, which can be caught via tryFailureStatus
 
 .. _function-daml-script-internal-questions-submit-error-isnotactive-40539:
 
 `isNotActive <function-daml-script-internal-questions-submit-error-isnotactive-40539_>`_
   \: `ContractNotFoundAdditionalInfo <type-daml-script-internal-questions-submit-error-contractnotfoundadditionalinfo-6199_>`_ \-\> `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ :ref:`AnyContractId <type-daml-script-internal-questions-util-anycontractid-11399>`
 
+  Exacts nonactive contract ID from ContractNotFoundAdditionalInfo
+
 .. _function-daml-script-internal-questions-packages-vetpackages-16211:
 
 `vetPackages <function-daml-script-internal-questions-packages-vetpackages-16211_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+
+  Vet a set of packages on all participants\.
+  Note that the Admin API port must be provided when using this with a Canton Ledger
+  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324:
 
 `vetPackagesOnParticipant <function-daml-script-internal-questions-packages-vetpackagesonparticipant-8324_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
+  Vet a set of packages on a single participant\.
+  Note that the Admin API port must be provided when using this with a Canton Ledger
+  Use ``--admin-port`` with the ``daml script`` CLI tool\.
+
 .. _function-daml-script-internal-questions-packages-unvetpackages-80050:
 
 `unvetPackages <function-daml-script-internal-questions-packages-unvetpackages-80050_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
+
+  Unvet a set of packages on all participants\.
+  Note that the Admin API port must be provided when using this with a Canton Ledger
+  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459:
 
 `unvetPackagesOnParticipant <function-daml-script-internal-questions-packages-unvetpackagesonparticipant-47459_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\] \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` ()
 
+  Unvet a set of packages on a single participant\.
+  Note that the Admin API port must be provided when using this with a Canton Ledger
+  Use ``--admin-port`` with the ``daml script`` CLI tool\.
+
 .. _function-daml-script-internal-questions-packages-listvettedpackages-3001:
 
 `listVettedPackages <function-daml-script-internal-questions-packages-listvettedpackages-3001_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
 
+  Lists the vetted packages on the default participant
+  Note that the Admin API port must be provided when using this with a Canton Ledger
+  Use ``--admin-port`` with the ``daml script`` CLI tool\.
+
 .. _function-daml-script-internal-questions-packages-listallpackages-50063:
 
 `listAllPackages <function-daml-script-internal-questions-packages-listallpackages-50063_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` \[`PackageName <type-daml-script-internal-questions-packages-packagename-68696_>`_\]
+
+  Lists all packages (vetted and unvetted) on the default participant
+  Note that the Admin API port must be provided when using this with a Canton Ledger
+  Use ``--admin-port`` with the ``daml script`` CLI tool\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671:
 
@@ -220,4 +232,6 @@ Functions
 
 `throwAnyException <function-daml-script-internal-questions-exceptions-throwanyexception-70957_>`_
   \: `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` t
+
+  Throws an ``AnyException``, note that this function discards the stacktrace
 

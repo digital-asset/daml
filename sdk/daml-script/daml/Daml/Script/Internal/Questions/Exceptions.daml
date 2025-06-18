@@ -54,6 +54,7 @@ instance ActionThrow Script where
   throw e = throwAnyException $ toAnyException e
 
 -- | MOVE Daml.Script.Internal
+-- Throws an ``AnyException``, note that this function discards the stacktrace
 throwAnyException : AnyException -> Script t
 throwAnyException = lift . Throw
 
@@ -84,6 +85,8 @@ data TryFailureStatus = TryFailureStatus with
 instance IsQuestion TryFailureStatus (Either FailureStatus x) where command = "TryFailureStatus"
 
 -- | MOVE Daml.Script
+-- Runs a script for a result. If it fails either by Daml Exceptions or `failWithStatus`, returns the
+-- `FailureStatus` that a Canton Ledger would return.
 tryFailureStatus : (HasCallStack => Script a) -> Script (Either FailureStatus a)
 tryFailureStatus act = lift TryFailureStatus with
   act = \() -> toLedgerValue act

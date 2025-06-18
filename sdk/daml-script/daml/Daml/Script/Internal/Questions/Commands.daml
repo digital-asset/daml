@@ -42,7 +42,7 @@ instance Show CommandResult where
   show ExerciseResult {} = "ExerciseResult"
 
 -- | MOVE Daml.Script
--- This is used to build up the commands send as part of `submit`.
+-- This is used to build up the commands sent as part of `submit`.
 -- If you enable the `ApplicativeDo` extension by adding
 -- `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
 -- use `do`-notation but the individual commands must not depend
@@ -54,6 +54,7 @@ data Commands a = Commands with
   deriving Functor
 
 -- | MOVE Daml.Script
+-- Contract disclosures which can be acquired via ``queryDisclosure``
 data Disclosure = Disclosure with
    templateId: TemplateTypeRep
    contractId : ContractId ()

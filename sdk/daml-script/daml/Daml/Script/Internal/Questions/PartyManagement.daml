@@ -25,6 +25,7 @@ instance IsQuestion AllocateParty Party
 newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
 
 -- | MOVE Daml.Script
+-- Participant name for multi-participant script runs to address a specific participant
 newtype ParticipantName = ParticipantName { participantName : Text }
 
 -- | MOVE Daml.Script

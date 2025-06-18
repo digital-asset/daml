@@ -10,16 +10,19 @@ import qualified DA.TextMap as TextMap
 import DA.Fail
 
 -- | MOVE Daml.Script.Internal
+-- Name of the Daml Script Command (or Question) that failed
 newtype CommandName = CommandName
   with getCommandName : Text
   deriving (Eq, Show)
 
 -- | MOVE Daml.Script.Internal
+-- Scala class name of the exception thrown
 newtype ErrorClassName = ErrorClassName
   with getErrorClassName : Text
   deriving (Eq, Show)
 
 -- | MOVE Daml.Script.Internal
+-- Result of the `getMessage` method on the Scala exception
 newtype ErrorMessage = ErrorMessage
   with getErrorMessage : Text
   deriving (Eq, Show)
@@ -43,8 +46,8 @@ tryCommands : Script a -> Script (Either FailedCmd a)
 tryCommands = fmap (first tupleToFailedCmd) . lift . TryCommands . toLedgerValue
 
 -- | MOVE Daml.Script.Internal
--- Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
--- and as such, does not need to be serializable/cannot be thrown in Update
+-- Daml type representing a Scala exception thrown during script interpretation.
+-- Used for internal testing of the Daml Script library.
 data FailedCmd = FailedCmd with
     commandName : CommandName
     errorClassName : ErrorClassName
@@ -52,7 +55,7 @@ data FailedCmd = FailedCmd with
   deriving (Eq, Show)
 
 -- | MOVE Daml.Script.Internal
--- Runs a script and lifts FailedCmd scala exceptions into the FailedCmd daml exception, which can be caught via try-catch
+-- Runs a script and lifts FailedCmd scala exceptions into a FailureStatus, which can be caught via tryFailureStatus
 liftFailedCommandToFailureStatus : Script a -> Script a
 liftFailedCommandToFailureStatus act = tryCommands act >>= either (failWithStatus . failedCmdToFailureStatus) pure
   where

@@ -52,7 +52,13 @@ newtype PackageId = PackageId Text deriving (Show, Eq)
 -- All submissions must specify at least one `actAs` party, else a runtime error will be thrown.
 -- A minimum submission may look like
 -- ```
--- submit (actAs alice) $ createCmd MyContract with party = alice
+-- actAs alice `submit` createCmd MyContract with party = alice
+-- ```
+-- For backwards compatibility, a single or set of parties can be provided in place of the `SubmitOptions` to
+-- `submit`, which will represent the `actAs` field.
+-- The above example could be reduced to
+-- ```
+-- alice `submit` createCmd MyContract with party = alice
 -- ```
 data SubmitOptions = SubmitOptions with
   soActAs : [Party]
