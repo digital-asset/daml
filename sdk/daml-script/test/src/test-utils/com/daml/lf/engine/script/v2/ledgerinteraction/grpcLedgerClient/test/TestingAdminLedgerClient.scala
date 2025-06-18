@@ -14,7 +14,7 @@ import com.digitalasset.canton.protocol.v0.TopologyChangeOp
 import com.digitalasset.canton.topology.admin.{v0 => admin_topology_service}
 import com.google.protobuf.ByteString
 import io.grpc.Channel
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import java.io.{File, FileInputStream}
 import scala.concurrent.{ExecutionContext, Future}
 

@@ -51,7 +51,7 @@ da_scala_test(
         "//libs-scala/testing-utils",
         "//test-common:dar-files-default-lib",
         "//test-common/canton/it-lib",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

@@ -28,7 +28,7 @@ import com.digitalasset.canton.sequencing.GrpcSequencerConnection
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.{ProtoDeserializationError, SequencerAlias}
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{ClientAuth, SslContext}
 import org.slf4j.LoggerFactory
 
 import java.io.File
@@ -382,22 +382,22 @@ object TlsServerConfig {
     )
     val logger = LoggerFactory.getLogger(TlsServerConfig.getClass)
     val filtered = candidates.filter { x =>
-      io.netty.handler.ssl.OpenSsl.availableOpenSslCipherSuites().contains(x) ||
-      io.netty.handler.ssl.OpenSsl.availableJavaCipherSuites().contains(x)
+      io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.availableOpenSslCipherSuites().contains(x) ||
+      io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.availableJavaCipherSuites().contains(x)
     }
     if (filtered.isEmpty) {
-      val len = io.netty.handler.ssl.OpenSsl
+      val len = io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl
         .availableOpenSslCipherSuites()
-        .size() + io.netty.handler.ssl.OpenSsl
+        .size() + io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl
         .availableJavaCipherSuites()
         .size()
       logger.warn(
         s"All of Canton's default TLS ciphers are unsupported by your JVM (netty reports $len ciphers). Defaulting to JVM settings."
       )
-      if (!io.netty.handler.ssl.OpenSsl.isAvailable) {
+      if (!io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.isAvailable) {
         logger.info(
           "Netty OpenSSL is not available because of an issue",
-          io.netty.handler.ssl.OpenSsl.unavailabilityCause(),
+          io.grpc.netty.shaded.io.netty.handler.ssl.OpenSsl.unavailabilityCause(),
         )
       }
       None

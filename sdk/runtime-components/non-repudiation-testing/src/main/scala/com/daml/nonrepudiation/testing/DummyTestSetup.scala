@@ -7,7 +7,7 @@ import java.net.{InetAddress, InetSocketAddress, SocketAddress}
 
 import com.daml.ports.FreePort
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
-import io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
 import io.grpc.protobuf.services.ProtoReflectionService
 import io.grpc.{ManagedChannelBuilder, ServerBuilder}
 

@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.tls
 
 import com.digitalasset.canton.ledger.api.tls.TlsVersion.TlsVersion
 import com.digitalasset.canton.testing.utils.TestResourceUtils
-import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{OpenSslServerContext, SslContext}
 import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.Inside.inside

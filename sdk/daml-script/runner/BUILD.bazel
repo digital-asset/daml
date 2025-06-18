@@ -86,8 +86,7 @@ da_scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "@maven//:com_google_guava_guava",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
     ],
 )
 

@@ -25,7 +25,7 @@ import com.daml.grpc.adapter.{PekkoExecutionSequencerPool, ExecutionSequencerFac
 import com.daml.ledger.api.tls.{TlsConfiguration, TlsConfigurationCli}
 import com.daml.scalautil.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.grpc.stub.StreamObserver
 
 import java.net.{InetAddress, InetSocketAddress}

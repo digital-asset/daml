@@ -47,7 +47,7 @@ import com.digitalasset.canton.platform.apiserver.{ApiServiceOwner, GrpcServer}
 import com.digitalasset.canton.platform.localstore.InMemoryUserManagementStore
 import com.digitalasset.canton.platform.localstore.api.UserManagementStore
 import com.digitalasset.canton.{BaseTest, UniquePortGenerator}
-import io.grpc.netty.NettyChannelBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyChannelBuilder
 import io.grpc.stub.StreamObserver
 import io.grpc.{
   BindableService,

@@ -5,7 +5,7 @@ package com.daml.ledger.api.tls
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.ledger.api.tls.TlsVersion.TlsVersion
-import io.netty.handler.ssl.{OpenSslServerContext, SslContext}
+import io.grpc.netty.shaded.io.netty.handler.ssl.{OpenSslServerContext, SslContext}
 import org.apache.commons.io.IOUtils
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers

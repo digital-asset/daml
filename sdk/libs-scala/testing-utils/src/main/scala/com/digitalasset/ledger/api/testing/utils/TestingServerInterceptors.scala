@@ -6,7 +6,7 @@ package com.daml.ledger.api.testing.utils
 import java.net.{InetAddress, InetSocketAddress}
 
 import com.daml.ledger.resources.{ResourceContext, ResourceOwner, Resource => LedgerResource}
-import io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
 import io.grpc.{BindableService, Channel, Server, ServerInterceptor}
 
 import scala.concurrent.Future
