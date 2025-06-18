@@ -5,7 +5,9 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.implicits.toBifunctorOps
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.daml.lf.transaction.{CreationTime, FatContractInstance, Versioned}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ThinContractInstance}
 
