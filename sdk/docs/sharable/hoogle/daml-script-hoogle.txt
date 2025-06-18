@@ -76,7 +76,8 @@ CanReadAs :: Party -> UserRight
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-usermanagement-canreadasanyparty-13813
 CanReadAsAnyParty :: UserRight
 
--- | Applicative that allows for multiple concurrent transaction submissions See `concurrently` for usage of this type.
+-- | Applicative that allows for multiple concurrent transaction submissions
+--   See `concurrently` for usage of this type.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-concurrentsubmits-82688
 data ConcurrentSubmits a
 
@@ -94,7 +95,17 @@ data PackageId
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#constr-daml-script-internal-questions-submit-packageid-38878
 PackageId :: Text -> PackageId
 
--- | Options to detemine the stakeholders of a transaction, as well as disclosures. Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator. ``` actAs alice <> readAs [alice, bob] <> disclose myContract ``` Note that actAs and readAs follows the same party derivation rules as `signatory`, see their docs for examples. All submissions must specify at least one `actAs` party, else a runtime error will be thrown. A minimum submission may look like ``` submit (actAs alice) $ createCmd MyContract with party = alice ```
+-- | Options to detemine the stakeholders of a transaction, as well as disclosures.
+--   Intended to be specified using the `actAs`, `readAs` and `disclose` builders, combined using the Semigroup concat `(<>)` operator.
+--   ```
+--   actAs alice <> readAs [alice, bob] <> disclose myContract
+--   ```
+--   Note that actAs and readAs follows the same party derivation rules as `signatory`, see their docs for examples.
+--   All submissions must specify at least one `actAs` party, else a runtime error will be thrown.
+--   A minimum submission may look like
+--   ```
+--   submit (actAs alice) $ createCmd MyContract with party = alice
+--   ```
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-submit-submitoptions-56692
 data SubmitOptions
 
@@ -475,7 +486,8 @@ party :: PartyDetails -> Party
 -- | True if party is hosted by the backing participant.
 isLocal :: PartyDetails -> Bool
 
--- | A hint to the backing participant what party id to allocate. Must be a valid PartyIdString (as described in @value.proto@).
+-- | A hint to the backing participant what party id to allocate.
+--   Must be a valid PartyIdString (as described in @value.proto@).
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-partymanagement-partyidhint-14540
 data PartyIdHint
 
@@ -498,7 +510,12 @@ privateKey :: Secp256k1KeyPair -> PrivateKeyHex
 
 publicKey :: Secp256k1KeyPair -> PublicKeyHex
 
--- | This is used to build up the commands send as part of `submit`. If you enable the `ApplicativeDo` extension by adding `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can use `do`-notation but the individual commands must not depend on each other and the last statement in a `do` block must be of the form ``return expr`` or ``pure expr``.
+-- | This is used to build up the commands send as part of `submit`.
+--   If you enable the `ApplicativeDo` extension by adding
+--   `{-# LANGUAGE ApplicativeDo #-}` at the top of your file, you can
+--   use `do`-notation but the individual commands must not depend
+--   on each other and the last statement in a `do` block
+--   must be of the form ``return expr`` or ``pure expr``.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-questions-commands-commands-79301
 data Commands a
 
@@ -521,7 +538,8 @@ contractId :: Disclosure -> ContractId ()
 
 blob :: Disclosure -> Text
 
--- | This is the type of A Daml script. `Script` is an instance of `Action`, so you can use `do` notation.
+-- | This is the type of A Daml script. `Script` is an instance of `Action`,
+--   so you can use `do` notation.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#type-daml-script-internal-lowlevel-script-4781
 data Script a
 
@@ -626,23 +644,61 @@ submitUser :: (HasCallStack) => UserId -> Commands a -> Script a
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-usermanagement-submituseron-39337
 submitUserOn :: (HasCallStack) => UserId -> ParticipantName -> Commands a -> Script a
 
--- | Set the time via the time service. This is only supported in Daml Studio and `daml test` as well as when running over the gRPC API against a ledger in static time mode. Note that the ledger time service does not support going backwards in time. However, you can go back in time in Daml Studio.
+-- | Set the time via the time service.
+--   
+--   This is only supported in Daml Studio and `daml test` as well as
+--   when running over the gRPC API against a ledger in static time mode.
+--   
+--   Note that the ledger time service does not support going backwards in time.
+--   However, you can go back in time in Daml Studio.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-time-settime-32330
 setTime :: (HasCallStack) => Time -> Script ()
 
--- | Sleep for the given duration. This is primarily useful in tests where you repeatedly call `query` until a certain state is reached. Note that this will sleep for the same duration in both wall clock and static time mode.
+-- | Sleep for the given duration.
+--   
+--   This is primarily useful in tests
+--   where you repeatedly call `query` until a certain state is reached.
+--   
+--   Note that this will sleep for the same duration in both wall clock and static time mode.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-time-sleep-58882
 sleep :: (HasCallStack) => RelTime -> Script ()
 
--- | Advance ledger time by the given interval. This is only supported in Daml Studio and `daml test` as well as when running over the gRPC API against a ledger in static time mode. Note that this is not an atomic operation over the gRPC API so no other clients should try to change time while this is running. Note that the ledger time service does not support going backwards in time. However, you can go back in time in Daml Studio.
+-- | Advance ledger time by the given interval.
+--   
+--   This is only supported in Daml Studio and `daml test` as well as
+--   when running over the gRPC API against a ledger in static time mode.
+--   Note that this is not an atomic operation over the
+--   gRPC API so no other clients should try to change time while this is
+--   running.
+--   
+--   Note that the ledger time service does not support going backwards in time.
+--   However, you can go back in time in Daml Studio.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-time-passtime-50024
 passTime :: RelTime -> Script ()
 
--- | Builds a SubmitOptions with given actAs parties. Any given submission must include at least one actAs party. Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following: ``` Party [Party] NonEmpty Party Set Party Optional Party ```
+-- | Builds a SubmitOptions with given actAs parties.
+--   Any given submission must include at least one actAs party.
+--   Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following:
+--   ```
+--   Party
+--   [Party]
+--   NonEmpty Party
+--   Set Party
+--   Optional Party
+--   ```
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-actas-76494
 actAs :: (IsParties parties) => parties -> SubmitOptions
 
--- | Builds a SubmitOptions with given readAs parties. A given submission may omit any readAs parties and still be valid. Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following: ``` Party [Party] NonEmpty Party Set Party Optional Party ```
+-- | Builds a SubmitOptions with given readAs parties.
+--   A given submission may omit any readAs parties and still be valid.
+--   Note that the parties type is constrainted by `IsParties`, allowing for specifying parties as any of the following:
+--   ```
+--   Party
+--   [Party]
+--   NonEmpty Party
+--   Set Party
+--   Optional Party
+--   ```
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-readas-67481
 readAs :: (IsParties parties) => parties -> SubmitOptions
 
@@ -662,7 +718,20 @@ packagePreference :: [PackageId] -> SubmitOptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-prefetchkeys-84998
 prefetchKeys :: [AnyContractKey] -> SubmitOptions
 
--- | Allows for concurrent submission of transactions, using an applicative, similar to Commands. Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence NOTE: The submission order of transactions within `concurrently` is deterministic, this function is not intended to test contention. It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction before sending the next. Example: ``` exerciseResult <- concurrently $ do alice `submit` createCmd ... res <- alice `submit` exerciseCmd ... bob `submit` createCmd ... pure res ```
+-- | Allows for concurrent submission of transactions, using an applicative, similar to Commands.
+--   Concurrently takes a computation in `ConcurrentSubmits`, which supports all the existing `submit` functions
+--   that `Script` supports. It however does not implement `Action`, and thus does not support true binding and computation interdependence
+--   NOTE: The submission order of transactions within `concurrently` is deterministic, this function is not intended to test contention.
+--   It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction before
+--   sending the next.
+--   Example:
+--   ```
+--   exerciseResult <- concurrently $ do
+--     alice `submit` createCmd ...
+--     res <- alice `submit` exerciseCmd ...
+--     bob `submit` createCmd ...
+--     pure res
+--   ```
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-concurrently-75077
 concurrently :: (HasCallStack) => ConcurrentSubmits a -> Script a
 
@@ -678,10 +747,16 @@ trySubmitResultAndTree :: (HasCallStack, ScriptSubmit script, IsSubmitOptions op
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitwitherror-52958
 submitWithError :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script SubmitError
 
--- | `submit p cmds` submits the commands `cmds` as a single transaction from party `p` and returns the value returned by `cmds`. The `options` field can either be any "Parties" like type (See `IsParties`) or `SubmitOptions` which allows for finer control over parameters of the submission. If the transaction fails, `submit` also fails.
+-- | `submit p cmds` submits the commands `cmds` as a single transaction
+--   from party `p` and returns the value returned by `cmds`.
+--   The `options` field can either be any "Parties" like type (See `IsParties`) or `SubmitOptions`
+--   which allows for finer control over parameters of the submission.
+--   
+--   If the transaction fails, `submit` also fails.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submit-5889
 submit :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script a
 
+-- | DEPRECATED: Daml 2.9 compatibility helper, use 'submit' instead
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitwithoptions-56152
 submitWithOptions :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script a
 
@@ -689,7 +764,8 @@ submitWithOptions :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submittree-5925
 submitTree :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script TransactionTree
 
--- | Submit a transaction and recieve back either the result, or a `SubmitError`. In the majority of failures, this will not crash at runtime.
+-- | Submit a transaction and recieve back either the result, or a `SubmitError`.
+--   In the majority of failures, this will not crash at runtime.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-trysubmit-23693
 trySubmit :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError a)
 
@@ -697,70 +773,123 @@ trySubmit :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => opt
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-trysubmittree-68085
 trySubmitTree :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script (Either SubmitError TransactionTree)
 
--- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction from party `p`. See submitWithOptions for details on the `options` field It only succeeds if the submitting the transaction fails.
+-- | `submitMustFail p cmds` submits the commands `cmds` as a single transaction
+--   from party `p`.
+--   See submitWithOptions for details on the `options` field
+--   
+--   It only succeeds if the submitting the transaction fails.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmustfail-63662
 submitMustFail :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 
+-- | DEPRECATED: Daml 2.9 compatibility helper, use 'submitMustFail' instead
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017
 submitMustFailWithOptions :: (HasCallStack, ScriptSubmit script, IsSubmitOptions options) => options -> Commands a -> script ()
 
--- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction authorized by `actAs`. Fetched contracts must be visible to at least one party in the union of actAs and readAs. Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds` and is only provided for backwards compatibility.
+-- | `submitMulti actAs readAs cmds` submits `cmds` as a single transaction
+--   authorized by `actAs`. Fetched contracts must be visible to at least
+--   one party in the union of actAs and readAs.
+--   
+--   Note: This behaviour can be achieved using `submit (actAs actors <> readAs readers) cmds`
+--   and is only provided for backwards compatibility.
+--   DEPRECATED: Legacy API, use `submit`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmulti-45107
 submitMulti :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script a
 
--- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds` but fails when `submitMulti` succeeds and the other way around. Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds` and is only provided for backwards compatibility.
+-- | `submitMultiMustFail actAs readAs cmds` behaves like `submitMulti actAs readAs cmds`
+--   but fails when `submitMulti` succeeds and the other way around.
+--   
+--   Note: This behaviour can be achieved using `submitMustFail (actAs actors <> readAs readers) cmds`
+--   and is only provided for backwards compatibility.
+--   DEPRECATED: Legacy API, use `submitMustFail`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitmultimustfail-77808
 submitMultiMustFail :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script ()
 
--- | Equivalent to `submitMulti` but returns the full transaction tree. Note: This behaviour can be achieved using `submitTree (actAs actors <> readAs readers) cmds` and is only provided for backwards compatibility.
+-- | Equivalent to `submitMulti` but returns the full transaction tree.
+--   
+--   Note: This behaviour can be achieved using `submitTree (actAs actors <> readAs readers) cmds`
+--   and is only provided for backwards compatibility.
+--   DEPRECATED: Legacy API, use `submitTree`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submittreemulti-4879
 submitTreeMulti :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script TransactionTree
 
--- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties. Note: This behaviour can be achieved using `trySubmit (actAs actors <> readAs readers) cmds` and is only provided for backwards compatibility.
+-- | Alternate version of `trySubmit` that allows specifying the actAs and readAs parties.
+--   
+--   Note: This behaviour can be achieved using `trySubmit (actAs actors <> readAs readers) cmds`
+--   and is only provided for backwards compatibility.
+--   DEPRECATED: Legacy API, use `trySubmit`, `actAs` and `readAs` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-trysubmitmulti-31939
 trySubmitMulti :: (HasCallStack, ScriptSubmit script) => [Party] -> [Party] -> Commands a -> script (Either SubmitError a)
 
+-- | DEPRECATED: Legacy API, use `concurrent` and `trySubmit` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-trysubmitconcurrently-11443
 trySubmitConcurrently :: (HasCallStack) => Party -> [Commands a] -> Script [Either SubmitError a]
 
+-- | DEPRECATED: Legacy API, use `trySubmit` and `disclosures` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitwithdisclosures-50120
 submitWithDisclosures :: (HasCallStack) => Party -> [Disclosure] -> Commands a -> Script a
 
+-- | DEPRECATED: Legacy API, use `submitMustFail` and `disclosures` separately
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-submit-submitwithdisclosuresmustfail-28475
 submitWithDisclosuresMustFail :: (HasCallStack) => Party -> [Disclosure] -> Commands a -> Script ()
 
--- | Finds the contract id of an event within a tree given a tree index Tree indices are created using the `created(N)` and `exercised(N)` builders which allow building "paths" within a transaction to a create node For example, `exercisedN @MyTemplate1 "MyChoice" 2 $ createdN @MyTemplate2 1` would find the `ContractId MyTemplate2` of the second (0 index) create event under the 3rd exercise event of `MyChoice` from `MyTemplate1`
+-- | Finds the contract id of an event within a tree given a tree index
+--   Tree indices are created using the `created(N)` and `exercised(N)` builders
+--   which allow building "paths" within a transaction to a create node
+--   For example, `exercisedN @MyTemplate1 "MyChoice" 2 $ createdN @MyTemplate2 1`
+--   would find the `ContractId MyTemplate2` of the second (0 index) create event under
+--   the 3rd exercise event of `MyChoice` from `MyTemplate1`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-transactiontree-fromtree-1340
 fromTree :: (Template t) => TransactionTree -> TreeIndex t -> ContractId t
 
--- | Index for the first create event of a given template e.g. `created @MyTemplate`
+-- | Index for the first create event of a given template
+--   e.g. `created @MyTemplate`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-transactiontree-created-56097
 created :: (HasTemplateTypeRep t) => TreeIndex t
 
--- | Index for the Nth create event of a given template e.g. `createdN 2 @MyTemplate` `created = createdN 0`
+-- | Index for the Nth create event of a given template
+--   e.g. `createdN 2 @MyTemplate`
+--   `created = createdN 0`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-transactiontree-createdn-71930
 createdN :: (HasTemplateTypeRep t) => Int -> TreeIndex t
 
--- | Index for the first exercise of a given choice on a given template e.g. `exercised @MyTemplate "MyChoice"`
+-- | Index for the first exercise of a given choice on a given template
+--   e.g. `exercised @MyTemplate "MyChoice"`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-transactiontree-exercised-13349
 exercised :: (HasTemplateTypeRep t) => Text -> TreeIndex t' -> TreeIndex t'
 
--- | Index for the Nth exercise of a given choice on a given template e.g. `exercisedN @MyTemplate "MyChoice" 2` `exercised c = exercisedN c 0`
+-- | Index for the Nth exercise of a given choice on a given template
+--   e.g. `exercisedN @MyTemplate "MyChoice" 2`
+--   `exercised c = exercisedN c 0`
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-transactiontree-exercisedn-70910
 exercisedN :: (HasTemplateTypeRep t) => Text -> Int -> TreeIndex t' -> TreeIndex t'
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-util-fromanycontractid-11435
 fromAnyContractId :: (Template t) => AnyContractId -> Optional (ContractId t)
 
--- | Query the set of active contracts of the template that are visible to the given party.
+-- | Query the set of active contracts of the template
+--   that are visible to the given party.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-query-55941
 query :: (Template t, HasEnsure t, IsParties p) => p -> Script [(ContractId t, t)]
 
--- | Query the set of active contracts of the template that are visible to the given party and match the given predicate.
+-- | Query the set of active contracts of the template
+--   that are visible to the given party and match the given predicate.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryfilter-99157
 queryFilter :: (Template c, HasEnsure c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
 
--- | Query for the contract with the given contract id. Returns `None` if there is no active contract the party is a stakeholder on. Otherwise returns a triplet (anyTemplate, templateId, blob) where anyTemplate is the contract upgraded or downgraded to `t`, templateId is the ID of the template as stored in the ledger (may be different from `t`), and blob is the disclosure of the template as stored in the ledger (of type templateId). WARNING: Over the gRPC and with the JSON API in-memory backend this performs a linear search so only use this if the number of active contracts is small. This is semantically equivalent to calling `query` and filtering on the client side.
+-- | Query for the contract with the given contract id.
+--   
+--   Returns `None` if there is no active contract the party is a stakeholder on.
+--   Otherwise returns a triplet (anyTemplate, templateId, blob) where anyTemplate
+--   is the contract upgraded or downgraded to `t`, templateId is the ID of the
+--   template as stored in the ledger (may be different from `t`), and blob is the
+--   disclosure of the template as stored in the ledger (of type templateId).
+--   
+--   WARNING: Over the gRPC and with the JSON API
+--   in-memory backend this performs a linear search so only use this if the number of
+--   active contracts is small.
+--   
+--   This is semantically equivalent to calling `query`
+--   and filtering on the client side.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querycontractid-7634
 queryContractId_ :: (Template t, IsParties p, HasCallStack) => p -> ContractId t -> Script (Optional (AnyTemplate, TemplateTypeRep, Text))
 
@@ -770,39 +899,66 @@ queryContractId :: (Template t, HasEnsure t, IsParties p, HasCallStack) => p -> 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querydisclosure-12000
 queryDisclosure :: (Template t, IsParties p, HasCallStack) => p -> ContractId t -> Script (Optional Disclosure)
 
--- | Query the set of active contract views for an interface that are visible to the given party. If the view function fails for a given contract id, The `Optional v` will be `None`. WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
+-- | Query the set of active contract views for an interface
+--   that are visible to the given party.
+--   If the view function fails for a given contract id, The `Optional v` will be `None`.
+--   
+--   WARNING: Information about instances with failed-views is not currently returned over the JSON API: the `Optional v` will be `Some _` for every element in the returned list.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryinterface-52085
 queryInterface :: (Template i, HasInterfaceView i v, IsParties p) => p -> Script [(ContractId i, Optional v)]
 
--- | Query for the contract view with the given contract id. Returns `None` if there is no active contract the party is a stakeholder on. Returns `None` if the view function fails for the given contract id. WARNING: Over the gRPC and with the JSON API in-memory backend this performs a linear search so only use this if the number of active contracts is small. This is semantically equivalent to calling `queryInterface` and filtering on the client side.
+-- | Query for the contract view with the given contract id.
+--   
+--   Returns `None` if there is no active contract the party is a stakeholder on.
+--   
+--   Returns `None` if the view function fails for the given contract id.
+--   
+--   WARNING: Over the gRPC and with the JSON API
+--   in-memory backend this performs a linear search so only use this if the number of
+--   active contracts is small.
+--   
+--   This is semantically equivalent to calling `queryInterface`
+--   and filtering on the client side.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-queryinterfacecontractid-18438
 queryInterfaceContractId :: (Template i, HasInterfaceView i v, IsParties p, HasCallStack) => p -> ContractId i -> Script (Optional v)
 
--- | Returns `None` if there is no active contract with the given key that the party is a stakeholder on. WARNING: Over the gRPC and with the JSON API in-memory backend this performs a linear search so only use this if the number of active contracts is small. This is semantically equivalent to calling `query` and filtering on the client side.
+-- | Returns `None` if there is no active contract with the given key that
+--   the party is a stakeholder on.
+--   
+--   WARNING: Over the gRPC and with the JSON API
+--   in-memory backend this performs a linear search so only use this if the number of
+--   active contracts is small.
+--   
+--   This is semantically equivalent to calling `query`
+--   and filtering on the client side.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-query-querycontractkey-51277
 queryContractKey :: (HasCallStack, TemplateKey t k, IsParties p) => p -> k -> Script (Optional (ContractId t, t))
 
--- | Allocate a party with the given display name using the party management service.
+-- | Allocate a party with the given display name
+--   using the party management service.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocateparty-4749
 allocateParty :: (HasCallStack) => Text -> Script Party
 
--- | Deprecated
+-- | DEPRECATED: Daml 3.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocatepartywithhint-96426
 allocatePartyWithHint :: (HasCallStack) => Text -> PartyIdHint -> Script Party
 
--- | Allocate a party with the given id hint using the party management service.
+-- | Allocate a party with the given id hint
+--   using the party management service.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocatepartybyhint-55067
 allocatePartyByHint :: (HasCallStack) => PartyIdHint -> Script Party
 
--- | Allocate a party with the given display name on the specified participant using the party management service.
+-- | Allocate a party with the given display name
+--   on the specified participant using the party management service.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocatepartyon-59020
 allocatePartyOn :: Text -> ParticipantName -> Script Party
 
--- | Deprecated
+-- | DEPRECATED: Daml 3.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocatepartywithhinton-11859
 allocatePartyWithHintOn :: Text -> PartyIdHint -> ParticipantName -> Script Party
 
--- | Allocate a party with the given id hint on the specified participant using the party management service.
+-- | Allocate a party with the given id hint
+--   on the specified participant using the party management service.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218
 allocatePartyByHintOn :: PartyIdHint -> ParticipantName -> Script Party
 
@@ -814,14 +970,21 @@ listKnownParties :: (HasCallStack) => Script [PartyDetails]
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-partymanagement-listknownpartieson-55333
 listKnownPartiesOn :: (HasCallStack) => ParticipantName -> Script [PartyDetails]
 
--- | Named version of the `try catch` behaviour of Daml-Script. Note that this is no more powerful than `try catch` in daml-script, and will not catch exceptions in submissions. (Use `trySubmit` for this) Input computation is deferred to catch pure exceptions
+-- | Named version of the `try catch` behaviour of Daml-Script.
+--   Note that this is no more powerful than `try catch` in daml-script, and will not catch exceptions in submissions.
+--   (Use `trySubmit` for this)
+--   Input computation is deferred to catch pure exceptions
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-exceptions-trytoeither-58773
 tryToEither :: (() -> Script t) -> Script (Either AnyException t)
 
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-exceptions-tryfailurestatus-576
 tryFailureStatus :: Script a -> Script (Either FailureStatus a)
 
--- | Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message. Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing. For example, CCTP attestation services may be mocked in daml-script code.
+-- | Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message.
+--   
+--   Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing.
+--   
+--   For example, CCTP attestation services may be mocked in daml-script code.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-crypto-text-secp256k1sign-72886
 secp256k1sign :: (HasCallStack) => PrivateKeyHex -> BytesHex -> Script BytesHex
 
@@ -861,7 +1024,8 @@ exerciseExactCmd :: (Choice t c r) => ContractId t -> c -> Commands r
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-exercisebykeyexactcmd-4555
 exerciseByKeyExactCmd :: (TemplateKey t k, Choice t c r) => k -> c -> Commands r
 
--- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result. Uses the exact package ID of the template given - upgrades are disabled.
+-- | Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result.
+--   Uses the exact package ID of the template given - upgrades are disabled.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-createandexercisewithcidexactcmd-15363
 createAndExerciseWithCidExactCmd :: (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands (ContractId t, r)
 
@@ -869,11 +1033,17 @@ createAndExerciseWithCidExactCmd :: (Template t, Choice t c r, HasEnsure t) => t
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-createandexerciseexactcmd-54956
 createAndExerciseExactCmd :: (Template t, Choice t c r, HasEnsure t) => t -> c -> Commands r
 
--- | Archive the given contract. `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
+-- | Archive the given contract.
+--   
+--   `archiveCmd cid` is equivalent to `exerciseCmd cid Archive`.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-questions-commands-archivecmd-47203
 archiveCmd :: (Choice t Archive ()) => ContractId t -> Commands ()
 
--- | Convenience helper to declare you are writing a Script. This is only useful for readability and to improve type inference. Any expression of type `Script a` is a valid script regardless of whether it is implemented using `script` or not.
+-- | Convenience helper to declare you are writing a Script.
+--   
+--   This is only useful for readability and to improve type inference.
+--   Any expression of type `Script a` is a valid script regardless of whether
+--   it is implemented using `script` or not.
 @url https://docs.daml.com/daml-script/api/Daml-Script.html#function-daml-script-internal-lowlevel-script-65113
 script :: Script a -> Script a
 
@@ -905,7 +1075,8 @@ ErrorMessage :: Text -> ErrorMessage
 
 getErrorMessage :: ErrorMessage -> Text
 
--- | Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar and as such, does not need to be serializable/cannot be thrown in Update
+-- | Pseudo exception that daml-script can throw/catch, but that isn't seen as an exception in the dar
+--   and as such, does not need to be serializable/cannot be thrown in Update
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#type-daml-script-internal-questions-testing-failedcmd-88074
 data FailedCmd
 
@@ -975,11 +1146,15 @@ listVettedPackages :: (HasCallStack) => Script [PackageName]
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-packages-listallpackages-50063
 listAllPackages :: (HasCallStack) => Script [PackageName]
 
--- | Allocate a party with the given display name on the specified main participant using the party management service and replicates it to the specified (possibly empty) list of additional participants. Commands submitted by the allocated party will be routed to the main participant.
+-- | Allocate a party with the given display name on the specified main participant using the party management service
+--   and replicates it to the specified (possibly empty) list of additional participants. Commands submitted by the
+--   allocated party will be routed to the main participant.
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671
 allocateReplicatedPartyOn :: Text -> ParticipantName -> [ParticipantName] -> Script Party
 
--- | Allocate a party with the given display name and id hint on the specified main participant using the party management service and replicates it to the specified (possibly empty) list of additional participants. Commands submitted by the allocated party will be routed to the main participant.
+-- | Allocate a party with the given display name and id hint on the specified main participant using the party
+--   management service and replicates it to the specified (possibly empty) list of additional participants. Commands
+--   submitted by the allocated party will be routed to the main participant.
 @url https://docs.daml.com/daml-script/api/Daml-Script-Internal.html#function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144
 allocateReplicatedPartyWithHintOn :: Text -> PartyIdHint -> ParticipantName -> [ParticipantName] -> Script Party
 

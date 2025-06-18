@@ -38,7 +38,6 @@ allocateParty requestedName = lift $ AllocateParty with
 
 {-# DEPRECATED allocatePartyWithHint "Daml 3.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'" #-}
 -- | MOVE Daml.Script
--- Deprecated
 allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
 allocatePartyWithHint requestedName (PartyIdHint idHint) = lift $ AllocateParty with
   requestedName = requestedName
@@ -62,7 +61,6 @@ allocatePartyOn requestedName participantName = allocatePartyWithHintOn requeste
 
 {-# DEPRECATED allocatePartyWithHintOn "Daml 3.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'" #-}
 -- | MOVE Daml.Script
--- Deprecated
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
 allocatePartyWithHintOn requestedName idHint participant =
   allocateReplicatedPartyWithHintOn requestedName idHint participant []

@@ -164,6 +164,8 @@ Functions
 `forM_ <function-da-foldable-form-34370_>`_
   \: (`Foldable <class-da-foldable-foldable-25994_>`_ t, :ref:`Applicative <class-da-internal-prelude-applicative-9257>` f) \=\> t a \-\> (a \-\> f b) \-\> f ()
 
+  DEPRECATED\: Daml compatibility helper, use 'forA\_' instead of 'forM\_'
+
 .. _function-da-foldable-sequence-26917:
 
 `sequence_ <function-da-foldable-sequence-26917_>`_

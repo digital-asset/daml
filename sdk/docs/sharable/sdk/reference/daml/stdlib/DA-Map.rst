@@ -89,6 +89,8 @@ Functions
 `fromListWith <function-da-map-fromlistwith-28620_>`_
   \: :ref:`Ord <class-ghc-classes-ord-6395>` k \=\> (v \-\> v \-\> v) \-\> \[(k, v)\] \-\> :ref:`Map <type-da-internal-lf-map-90052>` k v
 
+  DEPRECATED\: Daml compatibility helper, use 'fromListWithR' instead of 'fromListWith'
+
 .. _function-da-map-keys-97544:
 
 `keys <function-da-map-keys-97544_>`_

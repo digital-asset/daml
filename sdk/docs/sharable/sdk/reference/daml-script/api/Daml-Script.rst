@@ -164,7 +164,8 @@ Data Types
 
 **data** `ConcurrentSubmits <type-daml-script-internal-questions-submit-concurrentsubmits-82688_>`_ a
 
-  Applicative that allows for multiple concurrent transaction submissions See ``concurrently`` for usage of this type\.
+  Applicative that allows for multiple concurrent transaction submissions
+  See ``concurrently`` for usage of this type\.
 
   .. _constr-daml-script-internal-questions-submit-concurrentsubmits-49827:
 
@@ -199,7 +200,21 @@ Data Types
 
 **data** `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
 
-  Options to detemine the stakeholders of a transaction, as well as disclosures\. Intended to be specified using the ``actAs``, ``readAs`` and ``disclose`` builders, combined using the Semigroup concat ``(<>)`` operator\. ``actAs alice <> readAs [alice, bob] <> disclose myContract`` Note that actAs and readAs follows the same party derivation rules as ``signatory``, see their docs for examples\. All submissions must specify at least one ``actAs`` party, else a runtime error will be thrown\. A minimum submission may look like ``submit (actAs alice) $ createCmd MyContract with party = alice``
+  Options to detemine the stakeholders of a transaction, as well as disclosures\.
+  Intended to be specified using the ``actAs``, ``readAs`` and ``disclose`` builders, combined using the Semigroup concat ``(<>)`` operator\.
+
+  .. code-block:: daml
+
+    actAs alice <> readAs [alice, bob] <> disclose myContract
+
+
+  Note that actAs and readAs follows the same party derivation rules as ``signatory``, see their docs for examples\.
+  All submissions must specify at least one ``actAs`` party, else a runtime error will be thrown\.
+  A minimum submission may look like
+
+  .. code-block:: daml
+
+    submit (actAs alice) $ createCmd MyContract with party = alice
 
   .. _constr-daml-script-internal-questions-submit-submitoptions-37975:
 
@@ -1058,7 +1073,8 @@ Data Types
 
 **data** `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_
 
-  A hint to the backing participant what party id to allocate\. Must be a valid PartyIdString (as described in @value\.proto@)\.
+  A hint to the backing participant what party id to allocate\.
+  Must be a valid PartyIdString (as described in @value\.proto@)\.
 
   .. _constr-daml-script-internal-questions-partymanagement-partyidhint-11617:
 
@@ -1108,7 +1124,12 @@ Data Types
 
 **data** `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a
 
-  This is used to build up the commands send as part of ``submit``\. If you enable the ``ApplicativeDo`` extension by adding ``{-# LANGUAGE ApplicativeDo #-}`` at the top of your file, you can use ``do``\-notation but the individual commands must not depend on each other and the last statement in a ``do`` block must be of the form ``return expr`` or ``pure expr``\.
+  This is used to build up the commands send as part of ``submit``\.
+  If you enable the ``ApplicativeDo`` extension by adding
+  ``{-# LANGUAGE ApplicativeDo #-}`` at the top of your file, you can
+  use ``do``\-notation but the individual commands must not depend
+  on each other and the last statement in a ``do`` block
+  must be of the form ``return expr`` or ``pure expr``\.
 
   .. _constr-daml-script-internal-questions-commands-commands-42332:
 
@@ -1157,7 +1178,8 @@ Data Types
 
 **data** `Script <type-daml-script-internal-lowlevel-script-4781_>`_ a
 
-  This is the type of A Daml script\. ``Script`` is an instance of ``Action``, so you can use ``do`` notation\.
+  This is the type of A Daml script\. ``Script`` is an instance of ``Action``,
+  so you can use ``do`` notation\.
 
   .. _constr-daml-script-internal-lowlevel-script-73096:
 
@@ -1311,35 +1333,75 @@ Functions
 `setTime <function-daml-script-internal-questions-time-settime-32330_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Time <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-time-63886>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ ()
 
-  Set the time via the time service\. This is only supported in Daml Studio and ``daml test`` as well as when running over the gRPC API against a ledger in static time mode\. Note that the ledger time service does not support going backwards in time\. However, you can go back in time in Daml Studio\.
+  Set the time via the time service\.
+
+  This is only supported in Daml Studio and ``daml test`` as well as
+  when running over the gRPC API against a ledger in static time mode\.
+
+  Note that the ledger time service does not support going backwards in time\.
+  However, you can go back in time in Daml Studio\.
 
 .. _function-daml-script-internal-questions-time-sleep-58882:
 
 `sleep <function-daml-script-internal-questions-time-sleep-58882_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `RelTime <https://docs.daml.com/daml/stdlib/DA-Time.html#type-da-time-types-reltime-23082>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ ()
 
-  Sleep for the given duration\. This is primarily useful in tests where you repeatedly call ``query`` until a certain state is reached\. Note that this will sleep for the same duration in both wall clock and static time mode\.
+  Sleep for the given duration\.
+
+  This is primarily useful in tests
+  where you repeatedly call ``query`` until a certain state is reached\.
+
+  Note that this will sleep for the same duration in both wall clock and static time mode\.
 
 .. _function-daml-script-internal-questions-time-passtime-50024:
 
 `passTime <function-daml-script-internal-questions-time-passtime-50024_>`_
   \: `RelTime <https://docs.daml.com/daml/stdlib/DA-Time.html#type-da-time-types-reltime-23082>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ ()
 
-  Advance ledger time by the given interval\. This is only supported in Daml Studio and ``daml test`` as well as when running over the gRPC API against a ledger in static time mode\. Note that this is not an atomic operation over the gRPC API so no other clients should try to change time while this is running\. Note that the ledger time service does not support going backwards in time\. However, you can go back in time in Daml Studio\.
+  Advance ledger time by the given interval\.
+
+  This is only supported in Daml Studio and ``daml test`` as well as
+  when running over the gRPC API against a ledger in static time mode\.
+  Note that this is not an atomic operation over the
+  gRPC API so no other clients should try to change time while this is
+  running\.
+
+  Note that the ledger time service does not support going backwards in time\.
+  However, you can go back in time in Daml Studio\.
 
 .. _function-daml-script-internal-questions-submit-actas-76494:
 
 `actAs <function-daml-script-internal-questions-submit-actas-76494_>`_
   \: `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ parties \=\> parties \-\> `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
 
-  Builds a SubmitOptions with given actAs parties\. Any given submission must include at least one actAs party\. Note that the parties type is constrainted by ``IsParties``, allowing for specifying parties as any of the following\: ``Party [Party] NonEmpty Party Set Party Optional Party``
+  Builds a SubmitOptions with given actAs parties\.
+  Any given submission must include at least one actAs party\.
+  Note that the parties type is constrainted by ``IsParties``, allowing for specifying parties as any of the following\:
+
+  .. code-block:: daml
+
+    Party
+    [Party]
+    NonEmpty Party
+    Set Party
+    Optional Party
 
 .. _function-daml-script-internal-questions-submit-readas-67481:
 
 `readAs <function-daml-script-internal-questions-submit-readas-67481_>`_
   \: `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ parties \=\> parties \-\> `SubmitOptions <type-daml-script-internal-questions-submit-submitoptions-56692_>`_
 
-  Builds a SubmitOptions with given readAs parties\. A given submission may omit any readAs parties and still be valid\. Note that the parties type is constrainted by ``IsParties``, allowing for specifying parties as any of the following\: ``Party [Party] NonEmpty Party Set Party Optional Party``
+  Builds a SubmitOptions with given readAs parties\.
+  A given submission may omit any readAs parties and still be valid\.
+  Note that the parties type is constrainted by ``IsParties``, allowing for specifying parties as any of the following\:
+
+  .. code-block:: daml
+
+    Party
+    [Party]
+    NonEmpty Party
+    Set Party
+    Optional Party
 
 .. _function-daml-script-internal-questions-submit-disclosemany-53386:
 
@@ -1374,7 +1436,21 @@ Functions
 `concurrently <function-daml-script-internal-questions-submit-concurrently-75077_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `ConcurrentSubmits <type-daml-script-internal-questions-submit-concurrentsubmits-82688_>`_ a \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ a
 
-  Allows for concurrent submission of transactions, using an applicative, similar to Commands\. Concurrently takes a computation in ``ConcurrentSubmits``, which supports all the existing ``submit`` functions that ``Script`` supports\. It however does not implement ``Action``, and thus does not support true binding and computation interdependence NOTE\: The submission order of transactions within ``concurrently`` is deterministic, this function is not intended to test contention\. It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction before sending the next\. Example\: ``exerciseResult <- concurrently $ do alice `submit` createCmd ... res <- alice `submit` exerciseCmd ... bob `submit` createCmd ... pure res``
+  Allows for concurrent submission of transactions, using an applicative, similar to Commands\.
+  Concurrently takes a computation in ``ConcurrentSubmits``, which supports all the existing ``submit`` functions
+  that ``Script`` supports\. It however does not implement ``Action``, and thus does not support true binding and computation interdependence
+  NOTE\: The submission order of transactions within ``concurrently`` is deterministic, this function is not intended to test contention\.
+  It is only intended to allow faster submission of many unrelated transactions, by not waiting for completion for each transaction before
+  sending the next\.
+  Example\:
+
+  .. code-block:: daml
+
+    exerciseResult <- concurrently $ do
+      alice `submit` createCmd ...
+      res <- alice `submit` exerciseCmd ...
+      bob `submit` createCmd ...
+      pure res
 
 .. _function-daml-script-internal-questions-submit-submitresultandtree-13546:
 
@@ -1402,12 +1478,19 @@ Functions
 `submit <function-daml-script-internal-questions-submit-submit-5889_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script a
 
-  ``submit p cmds`` submits the commands ``cmds`` as a single transaction from party ``p`` and returns the value returned by ``cmds``\. The ``options`` field can either be any \"Parties\" like type (See ``IsParties``) or ``SubmitOptions`` which allows for finer control over parameters of the submission\. If the transaction fails, ``submit`` also fails\.
+  ``submit p cmds`` submits the commands ``cmds`` as a single transaction
+  from party ``p`` and returns the value returned by ``cmds``\.
+  The ``options`` field can either be any \"Parties\" like type (See ``IsParties``) or ``SubmitOptions``
+  which allows for finer control over parameters of the submission\.
+
+  If the transaction fails, ``submit`` also fails\.
 
 .. _function-daml-script-internal-questions-submit-submitwithoptions-56152:
 
 `submitWithOptions <function-daml-script-internal-questions-submit-submitwithoptions-56152_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script a
+
+  DEPRECATED\: Daml 2\.9 compatibility helper, use 'submit' instead
 
 .. _function-daml-script-internal-questions-submit-submittree-5925:
 
@@ -1421,7 +1504,8 @@ Functions
 `trySubmit <function-daml-script-internal-questions-submit-trysubmit-23693_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ a)
 
-  Submit a transaction and recieve back either the result, or a ``SubmitError``\. In the majority of failures, this will not crash at runtime\.
+  Submit a transaction and recieve back either the result, or a ``SubmitError``\.
+  In the majority of failures, this will not crash at runtime\.
 
 .. _function-daml-script-internal-questions-submit-trysubmittree-68085:
 
@@ -1435,90 +1519,132 @@ Functions
 `submitMustFail <function-daml-script-internal-questions-submit-submitmustfail-63662_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script ()
 
-  ``submitMustFail p cmds`` submits the commands ``cmds`` as a single transaction from party ``p``\. See submitWithOptions for details on the ``options`` field It only succeeds if the submitting the transaction fails\.
+  ``submitMustFail p cmds`` submits the commands ``cmds`` as a single transaction
+  from party ``p``\.
+  See submitWithOptions for details on the ``options`` field
+
+  It only succeeds if the submitting the transaction fails\.
 
 .. _function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017:
 
 `submitMustFailWithOptions <function-daml-script-internal-questions-submit-submitmustfailwithoptions-20017_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script, `IsSubmitOptions <class-daml-script-internal-questions-submit-issubmitoptions-64211_>`_ options) \=\> options \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script ()
 
+  DEPRECATED\: Daml 2\.9 compatibility helper, use 'submitMustFail' instead
+
 .. _function-daml-script-internal-questions-submit-submitmulti-45107:
 
 `submitMulti <function-daml-script-internal-questions-submit-submitmulti-45107_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script a
 
-  ``submitMulti actAs readAs cmds`` submits ``cmds`` as a single transaction authorized by ``actAs``\. Fetched contracts must be visible to at least one party in the union of actAs and readAs\. Note\: This behaviour can be achieved using ``submit (actAs actors <> readAs readers) cmds`` and is only provided for backwards compatibility\.
+  ``submitMulti actAs readAs cmds`` submits ``cmds`` as a single transaction
+  authorized by ``actAs``\. Fetched contracts must be visible to at least
+  one party in the union of actAs and readAs\.
+
+  Note\: This behaviour can be achieved using ``submit (actAs actors <> readAs readers) cmds``
+  and is only provided for backwards compatibility\.
+  DEPRECATED\: Legacy API, use ``submit``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-submitmultimustfail-77808:
 
 `submitMultiMustFail <function-daml-script-internal-questions-submit-submitmultimustfail-77808_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script ()
 
-  ``submitMultiMustFail actAs readAs cmds`` behaves like ``submitMulti actAs readAs cmds`` but fails when ``submitMulti`` succeeds and the other way around\. Note\: This behaviour can be achieved using ``submitMustFail (actAs actors <> readAs readers) cmds`` and is only provided for backwards compatibility\.
+  ``submitMultiMustFail actAs readAs cmds`` behaves like ``submitMulti actAs readAs cmds``
+  but fails when ``submitMulti`` succeeds and the other way around\.
+
+  Note\: This behaviour can be achieved using ``submitMustFail (actAs actors <> readAs readers) cmds``
+  and is only provided for backwards compatibility\.
+  DEPRECATED\: Legacy API, use ``submitMustFail``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-submittreemulti-4879:
 
 `submitTreeMulti <function-daml-script-internal-questions-submit-submittreemulti-4879_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_
 
-  Equivalent to ``submitMulti`` but returns the full transaction tree\. Note\: This behaviour can be achieved using ``submitTree (actAs actors <> readAs readers) cmds`` and is only provided for backwards compatibility\.
+  Equivalent to ``submitMulti`` but returns the full transaction tree\.
+
+  Note\: This behaviour can be achieved using ``submitTree (actAs actors <> readAs readers) cmds``
+  and is only provided for backwards compatibility\.
+  DEPRECATED\: Legacy API, use ``submitTree``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-trysubmitmulti-31939:
 
 `trySubmitMulti <function-daml-script-internal-questions-submit-trysubmitmulti-31939_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `ScriptSubmit <class-daml-script-internal-questions-submit-scriptsubmit-55101_>`_ script) \=\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> \[`Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> script (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ a)
 
-  Alternate version of ``trySubmit`` that allows specifying the actAs and readAs parties\. Note\: This behaviour can be achieved using ``trySubmit (actAs actors <> readAs readers) cmds`` and is only provided for backwards compatibility\.
+  Alternate version of ``trySubmit`` that allows specifying the actAs and readAs parties\.
+
+  Note\: This behaviour can be achieved using ``trySubmit (actAs actors <> readAs readers) cmds``
+  and is only provided for backwards compatibility\.
+  DEPRECATED\: Legacy API, use ``trySubmit``, ``actAs`` and ``readAs`` separately
 
 .. _function-daml-script-internal-questions-submit-trysubmitconcurrently-11443:
 
 `trySubmitConcurrently <function-daml-script-internal-questions-submit-trysubmitconcurrently-11443_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> \[`Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a\] \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `SubmitError <type-daml-script-internal-questions-submit-error-submiterror-38284_>`_ a\]
 
+  DEPRECATED\: Legacy API, use ``concurrent`` and ``trySubmit`` separately
+
 .. _function-daml-script-internal-questions-submit-submitwithdisclosures-50120:
 
 `submitWithDisclosures <function-daml-script-internal-questions-submit-submitwithdisclosures-50120_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> \[`Disclosure <type-daml-script-internal-questions-commands-disclosure-40298_>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ a
+
+  DEPRECATED\: Legacy API, use ``trySubmit`` and ``disclosures`` separately
 
 .. _function-daml-script-internal-questions-submit-submitwithdisclosuresmustfail-28475:
 
 `submitWithDisclosuresMustFail <function-daml-script-internal-questions-submit-submitwithdisclosuresmustfail-28475_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_ \-\> \[`Disclosure <type-daml-script-internal-questions-commands-disclosure-40298_>`_\] \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ a \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ ()
 
+  DEPRECATED\: Legacy API, use ``submitMustFail`` and ``disclosures`` separately
+
 .. _function-daml-script-internal-questions-transactiontree-fromtree-1340:
 
 `fromTree <function-daml-script-internal-questions-transactiontree-fromtree-1340_>`_
   \: `Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ t \=\> `TransactionTree <type-daml-script-internal-questions-transactiontree-transactiontree-91781_>`_ \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t \-\> `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t
 
-  Finds the contract id of an event within a tree given a tree index Tree indices are created using the ``created(N)`` and ``exercised(N)`` builders which allow building \"paths\" within a transaction to a create node For example, ``exercisedN @MyTemplate1 "MyChoice" 2 $ createdN @MyTemplate2 1`` would find the ``ContractId MyTemplate2`` of the second (0 index) create event under the 3rd exercise event of ``MyChoice`` from ``MyTemplate1``
+  Finds the contract id of an event within a tree given a tree index
+  Tree indices are created using the ``created(N)`` and ``exercised(N)`` builders
+  which allow building \"paths\" within a transaction to a create node
+  For example, ``exercisedN @MyTemplate1 "MyChoice" 2 $ createdN @MyTemplate2 1``
+  would find the ``ContractId MyTemplate2`` of the second (0 index) create event under
+  the 3rd exercise event of ``MyChoice`` from ``MyTemplate1``
 
 .. _function-daml-script-internal-questions-transactiontree-created-56097:
 
 `created <function-daml-script-internal-questions-transactiontree-created-56097_>`_
   \: `HasTemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t \=\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t
 
-  Index for the first create event of a given template e\.g\. ``created @MyTemplate``
+  Index for the first create event of a given template
+  e\.g\. ``created @MyTemplate``
 
 .. _function-daml-script-internal-questions-transactiontree-createdn-71930:
 
 `createdN <function-daml-script-internal-questions-transactiontree-createdn-71930_>`_
   \: `HasTemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t \=\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t
 
-  Index for the Nth create event of a given template e\.g\. ``createdN 2 @MyTemplate``  ``created = createdN 0``
+  Index for the Nth create event of a given template
+  e\.g\. ``createdN 2 @MyTemplate``
+  ``created = createdN 0``
 
 .. _function-daml-script-internal-questions-transactiontree-exercised-13349:
 
 `exercised <function-daml-script-internal-questions-transactiontree-exercised-13349_>`_
   \: `HasTemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t' \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t'
 
-  Index for the first exercise of a given choice on a given template e\.g\. ``exercised @MyTemplate "MyChoice"``
+  Index for the first exercise of a given choice on a given template
+  e\.g\. ``exercised @MyTemplate "MyChoice"``
 
 .. _function-daml-script-internal-questions-transactiontree-exercisedn-70910:
 
 `exercisedN <function-daml-script-internal-questions-transactiontree-exercisedn-70910_>`_
   \: `HasTemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hastemplatetyperep-24134>`_ t \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `Int <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-int-37261>`_ \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t' \-\> `TreeIndex <type-daml-script-internal-questions-transactiontree-treeindex-21327_>`_ t'
 
-  Index for the Nth exercise of a given choice on a given template e\.g\. ``exercisedN @MyTemplate "MyChoice" 2``  ``exercised c = exercisedN c 0``
+  Index for the Nth exercise of a given choice on a given template
+  e\.g\. ``exercisedN @MyTemplate "MyChoice" 2``
+  ``exercised c = exercisedN c 0``
 
 .. _function-daml-script-internal-questions-util-fromanycontractid-11435:
 
@@ -1530,21 +1656,36 @@ Functions
 `query <function-daml-script-internal-questions-query-query-55941_>`_
   \: (`Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ t, `HasEnsure <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasensure-18132>`_ t, `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[(`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, t)\]
 
-  Query the set of active contracts of the template that are visible to the given party\.
+  Query the set of active contracts of the template
+  that are visible to the given party\.
 
 .. _function-daml-script-internal-questions-query-queryfilter-99157:
 
 `queryFilter <function-daml-script-internal-questions-query-queryfilter-99157_>`_
   \: (`Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ c, `HasEnsure <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasensure-18132>`_ c, `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> (c \-\> `Bool <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-bool-66265>`_) \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[(`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ c, c)\]
 
-  Query the set of active contracts of the template that are visible to the given party and match the given predicate\.
+  Query the set of active contracts of the template
+  that are visible to the given party and match the given predicate\.
 
 .. _function-daml-script-internal-questions-query-querycontractid-7634:
 
 `queryContractId_ <function-daml-script-internal-questions-query-querycontractid-7634_>`_
   \: (`Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ t, `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p, `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_) \=\> p \-\> `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`AnyTemplate <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-anytemplate-63703>`_, `TemplateTypeRep <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-any-templatetyperep-33792>`_, `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_))
 
-  Query for the contract with the given contract id\. Returns ``None`` if there is no active contract the party is a stakeholder on\. Otherwise returns a triplet (anyTemplate, templateId, blob) where anyTemplate is the contract upgraded or downgraded to ``t``, templateId is the ID of the template as stored in the ledger (may be different from ``t``), and blob is the disclosure of the template as stored in the ledger (of type templateId)\. WARNING\: Over the gRPC and with the JSON API in\-memory backend this performs a linear search so only use this if the number of active contracts is small\. This is semantically equivalent to calling ``query`` and filtering on the client side\.
+  Query for the contract with the given contract id\.
+
+  Returns ``None`` if there is no active contract the party is a stakeholder on\.
+  Otherwise returns a triplet (anyTemplate, templateId, blob) where anyTemplate
+  is the contract upgraded or downgraded to ``t``, templateId is the ID of the
+  template as stored in the ledger (may be different from ``t``), and blob is the
+  disclosure of the template as stored in the ledger (of type templateId)\.
+
+  WARNING\: Over the gRPC and with the JSON API
+  in\-memory backend this performs a linear search so only use this if the number of
+  active contracts is small\.
+
+  This is semantically equivalent to calling ``query``
+  and filtering on the client side\.
 
 .. _function-daml-script-internal-questions-query-querycontractid-24166:
 
@@ -1561,63 +1702,90 @@ Functions
 `queryInterface <function-daml-script-internal-questions-query-queryinterface-52085_>`_
   \: (`Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ i, `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ i v, `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ \[(`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ i, `Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ v)\]
 
-  Query the set of active contract views for an interface that are visible to the given party\. If the view function fails for a given contract id, The ``Optional v`` will be ``None``\. WARNING\: Information about instances with failed\-views is not currently returned over the JSON API\: the ``Optional v`` will be ``Some _`` for every element in the returned list\.
+  Query the set of active contract views for an interface
+  that are visible to the given party\.
+  If the view function fails for a given contract id, The ``Optional v`` will be ``None``\.
+
+  WARNING\: Information about instances with failed\-views is not currently returned over the JSON API\: the ``Optional v`` will be ``Some _`` for every element in the returned list\.
 
 .. _function-daml-script-internal-questions-query-queryinterfacecontractid-18438:
 
 `queryInterfaceContractId <function-daml-script-internal-questions-query-queryinterfacecontractid-18438_>`_
   \: (`Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ i, `HasInterfaceView <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-interface-hasinterfaceview-4492>`_ i v, `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p, `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_) \=\> p \-\> `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ i \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ v)
 
-  Query for the contract view with the given contract id\. Returns ``None`` if there is no active contract the party is a stakeholder on\. Returns ``None`` if the view function fails for the given contract id\. WARNING\: Over the gRPC and with the JSON API in\-memory backend this performs a linear search so only use this if the number of active contracts is small\. This is semantically equivalent to calling ``queryInterface`` and filtering on the client side\.
+  Query for the contract view with the given contract id\.
+
+  Returns ``None`` if there is no active contract the party is a stakeholder on\.
+
+  Returns ``None`` if the view function fails for the given contract id\.
+
+  WARNING\: Over the gRPC and with the JSON API
+  in\-memory backend this performs a linear search so only use this if the number of
+  active contracts is small\.
+
+  This is semantically equivalent to calling ``queryInterface``
+  and filtering on the client side\.
 
 .. _function-daml-script-internal-questions-query-querycontractkey-51277:
 
 `queryContractKey <function-daml-script-internal-questions-query-querycontractkey-51277_>`_
   \: (`HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_, `TemplateKey <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-templatekey-95200>`_ t k, `IsParties <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-isparties-53750>`_ p) \=\> p \-\> k \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ (`Optional <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-prelude-optional-37153>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, t))
 
-  Returns ``None`` if there is no active contract with the given key that the party is a stakeholder on\. WARNING\: Over the gRPC and with the JSON API in\-memory backend this performs a linear search so only use this if the number of active contracts is small\. This is semantically equivalent to calling ``query`` and filtering on the client side\.
+  Returns ``None`` if there is no active contract with the given key that
+  the party is a stakeholder on\.
+
+  WARNING\: Over the gRPC and with the JSON API
+  in\-memory backend this performs a linear search so only use this if the number of
+  active contracts is small\.
+
+  This is semantically equivalent to calling ``query``
+  and filtering on the client side\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocateparty-4749:
 
 `allocateParty <function-daml-script-internal-questions-partymanagement-allocateparty-4749_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given display name using the party management service\.
+  Allocate a party with the given display name
+  using the party management service\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartywithhint-96426:
 
 `allocatePartyWithHint <function-daml-script-internal-questions-partymanagement-allocatepartywithhint-96426_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Deprecated
+  DEPRECATED\: Daml 3\.3 compatibility helper, use 'allocatePartyByHint' instead of 'allocatePartyWithHint'
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartybyhint-55067:
 
 `allocatePartyByHint <function-daml-script-internal-questions-partymanagement-allocatepartybyhint-55067_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given id hint using the party management service\.
+  Allocate a party with the given id hint
+  using the party management service\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartyon-59020:
 
 `allocatePartyOn <function-daml-script-internal-questions-partymanagement-allocatepartyon-59020_>`_
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given display name on the specified participant using the party management service\.
+  Allocate a party with the given display name
+  on the specified participant using the party management service\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartywithhinton-11859:
 
 `allocatePartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatepartywithhinton-11859_>`_
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Deprecated
+  DEPRECATED\: Daml 3\.3 compatibility helper, use 'allocatePartyByHintOn' instead of 'allocatePartyWithHintOn'
 
 .. _function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218:
 
 `allocatePartyByHintOn <function-daml-script-internal-questions-partymanagement-allocatepartybyhinton-5218_>`_
   \: `PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540_>`_ \-\> `ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190_>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given id hint on the specified participant using the party management service\.
+  Allocate a party with the given id hint
+  on the specified participant using the party management service\.
 
 .. _function-daml-script-internal-questions-partymanagement-listknownparties-55540:
 
@@ -1638,7 +1806,10 @@ Functions
 `tryToEither <function-daml-script-internal-questions-exceptions-trytoeither-58773_>`_
   \: (() \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ t) \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ (`Either <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-types-either-56020>`_ `AnyException <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-anyexception-7004>`_ t)
 
-  Named version of the ``try catch`` behaviour of Daml\-Script\. Note that this is no more powerful than ``try catch`` in daml\-script, and will not catch exceptions in submissions\. (Use ``trySubmit`` for this) Input computation is deferred to catch pure exceptions
+  Named version of the ``try catch`` behaviour of Daml\-Script\.
+  Note that this is no more powerful than ``try catch`` in daml\-script, and will not catch exceptions in submissions\.
+  (Use ``trySubmit`` for this)
+  Input computation is deferred to catch pure exceptions
 
 .. _function-daml-script-internal-questions-exceptions-tryfailurestatus-576:
 
@@ -1650,7 +1821,11 @@ Functions
 `secp256k1sign <function-daml-script-internal-questions-crypto-text-secp256k1sign-72886_>`_
   \: `HasCallStack <https://docs.daml.com/daml/stdlib/DA-Stack.html#type-ghc-stack-types-hascallstack-63713>`_ \=\> `PrivateKeyHex <type-daml-script-internal-questions-crypto-text-privatekeyhex-82732_>`_ \-\> `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_ \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ `BytesHex <https://docs.daml.com/daml/stdlib/DA-Crypto-Text.html#type-da-crypto-text-byteshex-47880>`_
 
-  Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message\. Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing\. For example, CCTP attestation services may be mocked in daml\-script code\.
+  Using a DER formatted private key (encoded as a hex string) use Secp256k1 to sign a hex encoded string message\.
+
+  Note that this implementation uses a random source with a fixed PRNG and seed, ensuring it behaves deterministically during testing\.
+
+  For example, CCTP attestation services may be mocked in daml\-script code\.
 
 .. _function-daml-script-internal-questions-crypto-text-secp256k1generatekeypair-90200:
 
@@ -1720,7 +1895,8 @@ Functions
 `createAndExerciseWithCidExactCmd <function-daml-script-internal-questions-commands-createandexercisewithcidexactcmd-15363_>`_
   \: (`Template <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-template-31804>`_ t, `Choice <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-choice-82157>`_ t c r, `HasEnsure <https://docs.daml.com/daml/stdlib/Prelude.html#class-da-internal-template-functions-hasensure-18132>`_ t) \=\> t \-\> c \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ (`ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t, r)
 
-  Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result\. Uses the exact package ID of the template given \- upgrades are disabled\.
+  Create a contract and exercise a choice on it in the same transaction, returns the created ContractId, and the choice result\.
+  Uses the exact package ID of the template given \- upgrades are disabled\.
 
 .. _function-daml-script-internal-questions-commands-createandexerciseexactcmd-54956:
 
@@ -1734,12 +1910,18 @@ Functions
 `archiveCmd <function-daml-script-internal-questions-commands-archivecmd-47203_>`_
   \: `Choice <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-functions-choice-82157>`_ t `Archive <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-template-archive-15178>`_ () \=\> `ContractId <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-contractid-95282>`_ t \-\> `Commands <type-daml-script-internal-questions-commands-commands-79301_>`_ ()
 
-  Archive the given contract\. ``archiveCmd cid`` is equivalent to ``exerciseCmd cid Archive``\.
+  Archive the given contract\.
+
+  ``archiveCmd cid`` is equivalent to ``exerciseCmd cid Archive``\.
 
 .. _function-daml-script-internal-lowlevel-script-65113:
 
 `script <function-daml-script-internal-lowlevel-script-65113_>`_
   \: `Script <type-daml-script-internal-lowlevel-script-4781_>`_ a \-\> `Script <type-daml-script-internal-lowlevel-script-4781_>`_ a
 
-  Convenience helper to declare you are writing a Script\. This is only useful for readability and to improve type inference\. Any expression of type ``Script a`` is a valid script regardless of whether it is implemented using ``script`` or not\.
+  Convenience helper to declare you are writing a Script\.
+
+  This is only useful for readability and to improve type inference\.
+  Any expression of type ``Script a`` is a valid script regardless of whether
+  it is implemented using ``script`` or not\.
 
