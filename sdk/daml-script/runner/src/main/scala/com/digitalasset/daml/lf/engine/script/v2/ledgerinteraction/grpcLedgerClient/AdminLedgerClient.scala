@@ -71,7 +71,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
           store = Some(
             admin_topology.StoreId(
               admin_topology.StoreId.Store.Synchronizer(
-                admin_topology.StoreId.Synchronizer.Kind.Id(synchronizerId)
+                admin_topology.StoreId.Synchronizer(
+                  admin_topology.StoreId.Synchronizer.Kind.Id(synchronizerId)
+                )
               )
             )
           ),
@@ -341,7 +343,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
           store = Some(
             admin_topology.StoreId(
               admin_topology.StoreId.Store.Synchronizer(
-                admin_topology.StoreId.Synchronizer.Kind.Id(synchronizerId)
+                admin_topology.StoreId.Synchronizer(
+                  admin_topology.StoreId.Synchronizer.Kind.Id(synchronizerId)
+                )
               )
             )
           ),
@@ -392,7 +396,9 @@ class AdminLedgerClient private[grpcLedgerClient] (
       store = Some(
         admin_topology.StoreId(
           admin_topology.StoreId.Store.Synchronizer(
-            admin_topology.StoreId.Synchronizer.Kind.Id(synchronizerId)
+            admin_topology.StoreId.Synchronizer(
+              admin_topology.StoreId.Synchronizer.Kind.Id(synchronizerId)
+            )
           )
         )
       ),
