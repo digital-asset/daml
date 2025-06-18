@@ -60,11 +60,11 @@ optionalToEither _ (Some x) = Right x
 eitherToOptional : Either a b -> Optional b
 eitherToOptional (Left _) = None
 eitherToOptional (Right x) = Some x
--- | Deprecated.
+
 {-# DEPRECATED maybeToEither "Daml 1.2 compatibility helper, use 'optionalToEither' instead of 'maybeToEither'" #-}
 maybeToEither : a -> Optional b -> Either a b
 maybeToEither = optionalToEither
--- | Deprecated.
+
 {-# DEPRECATED eitherToMaybe "Daml 1.2 compatibility helper, use 'eitherToOptional' instead of 'eitherToMaybe'" #-}
 eitherToMaybe : Either a b -> Optional b
 eitherToMaybe = eitherToOptional

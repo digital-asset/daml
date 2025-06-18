@@ -72,7 +72,8 @@ Data Types
 
 **data** `FailedCmd <type-daml-script-internal-questions-testing-failedcmd-88074_>`_
 
-  Pseudo exception that daml\-script can throw/catch, but that isn't seen as an exception in the dar and as such, does not need to be serializable/cannot be thrown in Update
+  Pseudo exception that daml\-script can throw/catch, but that isn't seen as an exception in the dar
+  and as such, does not need to be serializable/cannot be thrown in Update
 
   .. _constr-daml-script-internal-questions-testing-failedcmd-77803:
 
@@ -202,14 +203,18 @@ Functions
 `allocateReplicatedPartyOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartyon-96671_>`_
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given display name on the specified main participant using the party management service and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the allocated party will be routed to the main participant\.
+  Allocate a party with the given display name on the specified main participant using the party management service
+  and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the
+  allocated party will be routed to the main participant\.
 
 .. _function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144:
 
 `allocateReplicatedPartyWithHintOn <function-daml-script-internal-questions-partymanagement-allocatereplicatedpartywithhinton-30144_>`_
   \: `Text <https://docs.daml.com/daml/stdlib/Prelude.html#type-ghc-types-text-51952>`_ \-\> :ref:`PartyIdHint <type-daml-script-internal-questions-partymanagement-partyidhint-14540>` \-\> :ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>` \-\> \[:ref:`ParticipantName <type-daml-script-internal-questions-partymanagement-participantname-88190>`\] \-\> :ref:`Script <type-daml-script-internal-lowlevel-script-4781>` `Party <https://docs.daml.com/daml/stdlib/Prelude.html#type-da-internal-lf-party-57932>`_
 
-  Allocate a party with the given display name and id hint on the specified main participant using the party management service and replicates it to the specified (possibly empty) list of additional participants\. Commands submitted by the allocated party will be routed to the main participant\.
+  Allocate a party with the given display name and id hint on the specified main participant using the party
+  management service and replicates it to the specified (possibly empty) list of additional participants\. Commands
+  submitted by the allocated party will be routed to the main participant\.
 
 .. _function-daml-script-internal-questions-exceptions-throwanyexception-70957:
 

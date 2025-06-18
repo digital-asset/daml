@@ -11,6 +11,7 @@ import DA.Daml.Doc.Anchor
 import qualified Data.Text as T
 import Data.List.Extra
 import Data.Either
+import Data.Maybe (fromMaybe)
 import Control.Applicative ((<|>))
 
 -- | Apply HIDE and MOVE annotations.
@@ -40,7 +41,7 @@ applyMove
       }
 
     isEmptyModule :: ModuleDoc -> Bool
-    isEmptyModule ModuleDoc{..} = 
+    isEmptyModule ModuleDoc{..} =
       null md_templates
         && null md_interfaces
         && null md_adts
@@ -136,14 +137,19 @@ applyHide = concatMap onModule
             | ADTDoc{..} <- x, all (isHide . ac_descr) ad_constrs = pure x{ad_constrs = []}
             | otherwise = [x]
 
-
-getAnn :: Maybe DocText -> [T.Text]
-getAnn = maybe [] (T.words . unDocText)
+-- Returns first line words and rest of lines
+getAnn :: Maybe DocText -> ([T.Text], [T.Text])
+getAnn mDoc = fromMaybe ([], []) $ do
+  doc <- mDoc
+  (firstLine, rest) <- uncons $ T.lines $ unDocText doc
+  pure (T.words firstLine, rest)
 
 isHide :: Maybe DocText -> Bool
-isHide x = ["HIDE"] `isPrefixOf` getAnn x
+isHide x = ["HIDE"] `isPrefixOf` fst (getAnn x)
 
 isMove :: Maybe DocText -> Maybe (Modulename, Maybe DocText)
 isMove x = case getAnn x of
-    "MOVE":y:rest -> Just (Modulename y, if null rest then Nothing else Just $ DocText $ T.unwords rest)
+    ("MOVE":y:restFirst, restLines) ->
+      let rest = T.unlines $ ([T.unwords restFirst | not (null restFirst)]) ++ restLines
+       in Just (Modulename y, if T.null rest then Nothing else Just $ DocText rest)
     _ -> Nothing

@@ -43,10 +43,13 @@ import "ghc-lib-parser" BasicTypes
 import "ghc-lib-parser" Bag (bagToList)
 import "ghc-lib-parser" RdrHsSyn (isDamlGenerated)
 import "ghc-lib-parser" RdrName (rdrNameOcc)
+import "ghc-lib-parser" FastString (unpackFS)
 
+import Control.Applicative (liftA2, (<|>))
 import Control.Monad
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Maybe
+import Data.Either (partitionEithers)
 import qualified Data.HashSet as HashSet
 import Data.List.Extra
 import Data.List.Extended (spanMaybe)
@@ -71,10 +74,12 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 
   where
     modDoc :: TypecheckedModule -> Maybe DocText
-    modDoc
-        = fmap (docToText . unLoc)
-        . hsmodHaddockModHeader . unLoc
-        . pm_parsed_source . tm_parsed_module
+    modDoc mod =
+      let pmod = unLoc $ pm_parsed_source $ tm_parsed_module mod
+          mainDoc = unDocText . docToText . unLoc <$> hsmodHaddockModHeader pmod
+          depDoc = renderWarningTxt . unLoc <$> hsmodDeprecMessage pmod
+          doc = liftA2 (\x y -> x <> "\n" <> y) mainDoc depDoc <|> mainDoc <|> depDoc
+       in DocText <$> doc
 
     mkModuleDocs :: Service.TcModuleResult -> ModuleDoc
     mkModuleDocs tmr =
@@ -107,9 +112,10 @@ extractDocs extractOpts diagsLogger ideOpts fp = do
 -- | This is equivalent to Haddock’s Haddock.Interface.Create.collectDocs
 collectDocs :: [LHsDecl GhcPs] -> [DeclData]
 collectDocs ds
-    | (nextDocs, decl:ds') <- spanMaybe getNextOrPrevDoc ds
+    | (nextDocs, decl:ds') <- spanMaybe getNextOrPrevOrWarnDoc ds
     , (prevDocs, ds'') <- spanMaybe getPrevDoc ds'
-    = DeclData decl (joinDocs nextDocs prevDocs)
+    , (nextMainDocs, nextDecs) <- partitionEithers nextDocs
+    = DeclData decl (joinDocs nextMainDocs (prevDocs <> nextDecs))
     : collectDocs ds''
 
     | otherwise
@@ -123,17 +129,29 @@ collectDocs ds
             then Nothing
             else Just . DocText . T.strip $ T.unlines docs
 
-    getNextOrPrevDoc :: LHsDecl a -> Maybe DocText
-    getNextOrPrevDoc = \case
-        L _ (DocD _ (DocCommentNext str)) -> Just (docToText str)
-        L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
-            -- technically this is a malformed doc, but we'll take it
+    getNextOrPrevOrWarnDoc :: LHsDecl a -> Maybe (Either DocText DocText)
+    getNextOrPrevOrWarnDoc = \case
+        L _ (DocD _ (DocCommentNext str)) -> Just $ Left $ docToText str
+        -- technically below is a malformed doc, but we'll take it
+        L _ (DocD _ (DocCommentPrev str)) -> Just $ Left $ docToText str
+        -- Warning decs need to be last, so we split them over Either and sort later
+        L _ (WarningD _ (Warnings _ _ warns)) -> Right <$> joinDocs (warnToDocText `mapMaybe` warns) []
         _ -> Nothing
+
+    warnToDocText :: LWarnDecl a -> Maybe DocText
+    warnToDocText (L _ (Warning _ _ warningTxt)) = Just $ DocText $ renderWarningTxt warningTxt
+    warnToDocText _ = Nothing
 
     getPrevDoc :: LHsDecl a -> Maybe DocText
     getPrevDoc = \case
         L _ (DocD _ (DocCommentPrev str)) -> Just (docToText str)
         _ -> Nothing
+
+renderWarningTxt :: WarningTxt -> T.Text
+renderWarningTxt (WarningTxt _ _ lits) =
+  "WARNING: " <> (T.unlines $ T.pack . unpackFS . sl_fs . unLoc <$> lits) <> "\n"
+renderWarningTxt (DeprecatedTxt _ _ lits) =
+  "DEPRECATED: " <> (T.unlines $ T.pack . unpackFS . sl_fs . unLoc <$> lits) <> "\n"
 
 buildDocCtx :: ExtractOptions -> TypecheckedModule -> DocCtx
 buildDocCtx dc_extractOptions tcmod  =
