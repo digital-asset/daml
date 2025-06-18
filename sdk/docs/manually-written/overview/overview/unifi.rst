@@ -41,7 +41,6 @@ Digital Asset’s enterprise products
         - Yes
       * - Node performance
         - High
-        - Hight
       * - Daml SDK
         - Yes
         - Yes
