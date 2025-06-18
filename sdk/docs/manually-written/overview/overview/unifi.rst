@@ -27,7 +27,7 @@ Digital Asset’s enterprise products
   Enterprise or Open Source
   *************************
   
-  All capabilities of the Canton blockchain are available using the Open Source distributions of Canton and the Daml SDK. The enterprise distribution offers additional accelerators, quality of life features, streamlined packaging, robustness and scalability enhancements, and enterprise-grade support which are essential for bridging mission-critical use cases to market fast. The differences and similarities are summarized below. Please contact sales@digitalasset.com for more information.:
+  All capabilities of the Canton blockchain are available using the Open Source distributions of Canton and the Daml SDK. The enterprise distribution offers additional accelerators, quality of life features, streamlined packaging, robustness and scalability enhancements, and enterprise-grade support which are essential for bridging mission-critical use cases to market fast. The differences and similarities are summarized below. Please contact sales@digitalasset.com for more information.
   
   .. list-table:: Differences between Enterprise and Open Source Edition
       :widths: 50,25,25
