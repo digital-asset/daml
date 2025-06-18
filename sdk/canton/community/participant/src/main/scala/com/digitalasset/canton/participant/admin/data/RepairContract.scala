@@ -94,8 +94,9 @@ object RepairContract {
         maybeKeyWithMaintainersVersioned,
       )
 
-      ledgerCreateTime <- fattyContract.createdAt match {
-        case absolute: CreationTime.CreatedAt => Right(absolute)
+      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
+      ledgerCreateTime <- (fattyContract.createdAt: CreationTime) match {
+        case CreationTime.CreatedAt(time) => Right(LedgerCreateTime(CantonTimestamp(time)))
         case CreationTime.Now => Left("Unable to determine create time.")
       }
 
