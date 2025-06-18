@@ -18,6 +18,7 @@ import DA.Exception
 import DA.Fail
 
 -- | MOVE Daml.Script
+-- SCU related submission errors
 data UpgradeErrorType
   = ValidationFailed with
         coid : AnyContractId
@@ -33,6 +34,7 @@ data UpgradeErrorType
         expectedType : Text
 
 -- | MOVE Daml.Script
+-- Daml Crypto (Secp256k1) related submission errors
 data CryptoErrorType
   = MalformedByteEncoding with
         value : Text
@@ -44,7 +46,7 @@ data CryptoErrorType
         contractIdValue : Text
     deriving Show
 
--- | MOVE Daml.Script.Internal
+-- | HIDE
 -- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
@@ -53,7 +55,7 @@ data DevErrorType
   deriving Show
 
 -- | MOVE Daml.Script.Internal
--- Additional debugging info optionally provided by the ledger
+-- Additional debugging information provided only by IDE Ledger
 data ContractNotFoundAdditionalInfo
   = NotFound -- The generic "this contract does not exist"
   | NotActive with -- The contract did exist, but has since been archived
@@ -69,12 +71,14 @@ data ContractNotFoundAdditionalInfo
   deriving Show
 
 -- | MOVE Daml.Script.Internal
+-- Exacts nonactive contract ID from ContractNotFoundAdditionalInfo
 isNotActive : ContractNotFoundAdditionalInfo -> Optional AnyContractId
 isNotActive (NotActive {additionalInfoCid}) = Some additionalInfoCid
 isNotActive _ = None
 
+-- Must be kept up to date with SubmitError.scala
 -- | MOVE Daml.Script
--- Errors that can be thrown by a command submission - code needs to be kept in sync with SubmitError.scala
+-- Errors that can be thrown by a command submission via `trySubmit`
 data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
     -- When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
@@ -169,7 +173,8 @@ data SubmitError
     UpgradeError with
       errorType : UpgradeErrorType
       errorMessage : Text
-  | FailureStatusError with
+  | -- | Exception resulting from call to `failWithStatus`
+    FailureStatusError with
       failureStatus : FailureStatus
   | -- | Crypto exceptions
     CryptoError with
@@ -183,7 +188,6 @@ data SubmitError
     UnknownError with
       unknownErrorMessage : Text
   | -- | One of the above error types where the full exception body did not fit into the response, and was incomplete.
-    -- TODO: Should we expose this at all?
     TruncatedError with
       truncatedErrorType : Text
         -- ^ One of the constructor names of SubmitFailure except DevError, UnknownError, TruncatedError
