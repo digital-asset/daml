@@ -235,16 +235,17 @@ class PackageUploader(
             PackageServiceErrors.Validation.handleLfEnginePackageError(_): RpcError
           )
       )
+      packages = dar.main +: dar.all
       _ <-
         if (enableUpgradeValidation) {
           val packageMetadataSnapshot = packageMetadataView.getSnapshot
           packageUpgradeValidator
-            .validateUpgrade(dar.dependencies, packageMetadataSnapshot)(
+            .validateUpgrade(packages, packageMetadataSnapshot)(
               LoggingContextWithTrace(loggerFactory)
             )
         } else {
           logger.info(
-            s"Skipping upgrade validation for packages ${dar.dependencies.map(_._1).sorted.mkString(", ")}"
+            s"Skipping upgrade validation for packages ${packages.map(_._1).sorted.mkString(", ")}"
           )
           EitherT.pure[FutureUnlessShutdown, RpcError](())
         }
