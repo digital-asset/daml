@@ -10,12 +10,15 @@ import Daml.Script.Internal.Questions.Commands (Disclosure(..))
 import DA.Optional
 import DA.Stack
 
+-- | HIDE
 data QueryACS = QueryACS with
   parties : [Party]
   tplId : TemplateTypeRep
+-- | HIDE
 instance IsQuestion QueryACS [(ContractId (), AnyTemplate)] where command = "QueryACS"
 
--- | Query the set of active contracts of the template
+-- | MOVE Daml.Script
+-- Query the set of active contracts of the template
 -- that are visible to the given party.
 query : forall t p. (Template t, HasEnsure t, IsParties p) => p -> Script [(ContractId t, t)]
 -- The 'HasEnsure t' constraint prevents this function from being used on interface types.
@@ -26,19 +29,23 @@ query p = fmap convert $ lift $ QueryACS with
     convert : [(ContractId (), AnyTemplate)] -> [(ContractId t, t)]
     convert = map (\(cid, tpl) -> (coerceContractId cid, fromSome $ fromAnyTemplate tpl))
 
--- | Query the set of active contracts of the template
+-- | MOVE Daml.Script
+-- Query the set of active contracts of the template
 -- that are visible to the given party and match the given predicate.
 queryFilter : (Template c, HasEnsure c, IsParties p) => p -> (c -> Bool) -> Script [(ContractId c, c)]
 -- The 'HasEnsure c' constraint prevents this function from being used on interface types.
 queryFilter p f = filter (\(_, c) -> f c) <$> query p
 
+-- | HIDE
 data QueryContractId = QueryContractId with
   parties : [Party]
   tplId : TemplateTypeRep
   cid : ContractId ()
+-- | HIDE
 instance IsQuestion QueryContractId (Optional (AnyTemplate, TemplateTypeRep, Text)) where command = "QueryContractId"
 
--- | Query for the contract with the given contract id.
+-- | MOVE Daml.Script
+-- Query for the contract with the given contract id.
 --
 -- Returns `None` if there is no active contract the party is a stakeholder on.
 -- Otherwise returns a triplet (anyTemplate, templateId, blob) where anyTemplate
@@ -61,22 +68,27 @@ queryContractId_ p c = lift $ QueryContractId with
 --    convert : Optional AnyTemplate -> Optional t
 --    convert = fmap $ fromSome . fromAnyTemplate
 
+-- | MOVE Daml.Script
 queryContractId: forall t p. (Template t, HasEnsure t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional t)
 queryContractId p c = fmap (fmap $ \(anyTpl, _, _) -> fromSome (fromAnyTemplate anyTpl)) $ queryContractId_ p c
 
 -- TODO https://github.com/digital-asset/daml/issues/17755
 --  clean the API for different query function
+-- | MOVE Daml.Script
 queryDisclosure: forall t p. (Template t, IsParties p) => HasCallStack => p -> ContractId t -> Script (Optional Disclosure)
 queryDisclosure p c = fmap (fmap  $ \(_, tplId, blob) -> Disclosure tplId cid blob) $ queryContractId_ p c
  where
     cid = coerceContractId c
 
+-- | HIDE
 data QueryInterface = QueryInterface with
   parties : [Party]
   interfaceId : TemplateTypeRep
+-- | HIDE
 instance IsQuestion QueryInterface [LedgerValue] where command = "QueryInterface"
 
--- | Query the set of active contract views for an interface
+-- | MOVE Daml.Script
+-- Query the set of active contract views for an interface
 -- that are visible to the given party.
 -- If the view function fails for a given contract id, The `Optional v` will be `None`.
 --
@@ -89,13 +101,16 @@ queryInterface p = fmap convert $ lift $ QueryInterface with
     convert : [LedgerValue] -> [(ContractId i, Optional v)]
     convert = map $ fromLedgerValue @(ContractId i, Optional v)
 
+-- | HIDE
 data QueryInterfaceContractId = QueryInterfaceContractId with
   parties : [Party]
   interfaceId : TemplateTypeRep
   cid : ContractId ()
+-- | HIDE
 instance IsQuestion QueryInterfaceContractId (Optional LedgerValue) where command = "QueryInterfaceContractId"
 
--- | Query for the contract view with the given contract id.
+-- | MOVE Daml.Script
+-- Query for the contract view with the given contract id.
 --
 -- Returns `None` if there is no active contract the party is a stakeholder on.
 --
@@ -116,13 +131,16 @@ queryInterfaceContractId p c = fmap convert $ lift $ QueryInterfaceContractId wi
     convert : Optional LedgerValue -> Optional v
     convert = fmap $ fromLedgerValue @v
 
+-- | HIDE
 data QueryContractKey = QueryContractKey with
   parties : [Party]
   tplId : TemplateTypeRep
   key : AnyContractKey -- TODO rename this, key goes blue
+-- | HIDE
 instance IsQuestion QueryContractKey (Optional (ContractId (), AnyTemplate)) where command = "QueryContractKey"
 
--- | Returns `None` if there is no active contract with the given key that
+-- | MOVE Daml.Script
+-- Returns `None` if there is no active contract with the given key that
 -- the party is a stakeholder on.
 --
 -- WARNING: Over the gRPC and with the JSON API

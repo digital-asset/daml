@@ -17,6 +17,7 @@ import DA.Foldable (foldMap)
 import DA.Exception
 import DA.Fail
 
+-- | MOVE Daml.Script
 data UpgradeErrorType
   = ValidationFailed with
         coid : AnyContractId
@@ -31,6 +32,7 @@ data UpgradeErrorType
   | DowngradeFailed with
         expectedType : Text
 
+-- | MOVE Daml.Script
 data CryptoErrorType
   = MalformedByteEncoding with
         value : Text
@@ -42,14 +44,16 @@ data CryptoErrorType
         contractIdValue : Text
     deriving Show
 
--- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
+-- | MOVE Daml.Script.Internal
+-- Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
   | WronglyTypedContractSoft
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
--- | Additional debugging info optionally provided by the ledger
+-- | MOVE Daml.Script.Internal
+-- Additional debugging info optionally provided by the ledger
 data ContractNotFoundAdditionalInfo
   = NotFound -- The generic "this contract does not exist"
   | NotActive with -- The contract did exist, but has since been archived
@@ -64,11 +68,13 @@ data ContractNotFoundAdditionalInfo
       observers : [Party]
   deriving Show
 
+-- | MOVE Daml.Script.Internal
 isNotActive : ContractNotFoundAdditionalInfo -> Optional AnyContractId
 isNotActive (NotActive {additionalInfoCid}) = Some additionalInfoCid
 isNotActive _ = None
 
--- | Errors that can be thrown by a command submission - code needs to be kept in sync with SubmitError.scala
+-- | MOVE Daml.Script
+-- Errors that can be thrown by a command submission - code needs to be kept in sync with SubmitError.scala
 data SubmitError
   = -- | Contract with given contract ID could not be found, and has never existed on this participant
     -- When run on Canton, there may be more than one contract ID, and additionalDebuggingInfo is always None
@@ -184,6 +190,7 @@ data SubmitError
       truncatedErrorMessage : Text
 
 -- TODO(https://github.com/digital-asset/daml/issues/18328): improve error messages involving types
+-- | MOVE Daml.Script
 instance Show SubmitError where
   show err = case err of
     ContractNotFound { unknownContractIds, additionalDebuggingInfo } ->
@@ -221,6 +228,7 @@ instance Show SubmitError where
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
 
+-- | MOVE Daml.Script
 instance Show UpgradeErrorType where
   show err = case err of
     ValidationFailed coid _srcTemplateId _dstTemplateId signatories observers _keyOpt ->

@@ -3,6 +3,7 @@
 
 {-# LANGUAGE CPP #-}
 
+-- | The Daml Script testing library
 module Daml.Script
   ( Script
 
@@ -19,7 +20,6 @@ module Daml.Script
   , trySubmitTree
   -- Error types
   , SubmitError (..)
-  , DevErrorType (..)
   , UpgradeErrorType (..)
   -- Submit options
   , actAs
@@ -29,6 +29,7 @@ module Daml.Script
   , prefetchKeys
   , SubmitOptions
   , concurrently
+  , trySubmitConcurrently
   -- Backwards compat submits
   , submitMulti
   , submitMultiMustFail
@@ -116,13 +117,15 @@ module Daml.Script
   , tryFailureStatus
 
 #ifdef DAML_CRYPTO
+  , PrivateKeyHex
   , Secp256k1KeyPair
   , secp256k1generatekeypair
   , secp256k1sign
+  , CryptoErrorType (..)
 #endif
 
   , -- Upgrades features
-    PackageId (..)  
+    PackageId (..)
   , packagePreference
   ) where
 
