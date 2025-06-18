@@ -47,7 +47,7 @@ deps = {
             "//ledger-service/http-json-cli:{}".format(edition),
             "//libs-scala/contextualized-logging",
             "@maven//:io_grpc_grpc_api",
-            "@maven//:io_grpc_grpc_netty",
+            "@maven//:io_grpc_grpc_netty_shaded",
         ],
     )
     for edition in [
