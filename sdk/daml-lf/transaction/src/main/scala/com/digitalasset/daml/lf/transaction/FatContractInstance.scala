@@ -32,7 +32,7 @@ sealed abstract class FatContractInstance extends CidContainer[FatContractInstan
   final lazy val nonSignatoryStakeholders: TreeSet[Ref.Party] = stakeholders -- signatories
   def updateCreateAt(
       updatedTime: Time.Timestamp
-  ): FatContractInstance { type CreatedAt = CreationTime.CreatedAt }
+  ): FatContractInstance { type CreatedAtTime = CreationTime.CreatedAt }
   def setSalt(cantonData: Bytes): FatContractInstance
 
   def toCreateNode = Node.Create(
@@ -99,7 +99,7 @@ private[lf] final case class FatContractInstanceImpl[Time <: CreationTime](
 
   override def updateCreateAt(
       updatedTime: Time.Timestamp
-  ): FatContractInstanceImpl[CreationTime.CreatedAt] =
+  ): FatContractInstance { type CreatedAtTime = CreationTime.CreatedAt } =
     copy(createdAt = CreationTime.CreatedAt(updatedTime))
 
   override def setSalt(cantonData: Bytes): FatContractInstanceImpl[Time] = {
@@ -114,7 +114,7 @@ object FatContractInstance {
       create: Node.Create,
       createTime: T,
       cantonData: Bytes,
-  ): FatContractInstance { type CreatedAt = T } =
+  ): FatContractInstance { type CreatedAtTime = T } =
     FatContractInstanceImpl(
       version = create.version,
       contractId = create.coid,
