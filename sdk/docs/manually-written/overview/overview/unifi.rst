@@ -85,8 +85,7 @@ Digital Asset’s enterprise products
   **********************************
   
   Enterprise releases are available on request (sales@digitalasset.com) and can be downloaded from the
-  respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__, or you can use
-  our Canton Enterprise Docker images as described in our :brokenref:`Docker instructions <docker-instructions>`.
+  respective `repository <https://digitalasset.jfrog.io/artifactory/canton-enterprise/>`__.
   
   
   Obtain the open source distribution
