@@ -243,7 +243,8 @@ encodeModule v m = (Hash $ hash m', m')
 
 -- Reify name * live/unlive
 data RunOptions = RunOptions
-  { name :: LF.ValueRef
+  { scriptModuleName :: LF.ModuleName
+  , scriptValName :: LF.ExprValName
   , live :: Maybe LiveHandler
   }
   deriving (Show, Eq, Ord)
@@ -255,11 +256,12 @@ instance Eq LiveHandler where
 instance Ord LiveHandler where
   compare _ _ = EQ
 
-runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> IO (Either LowLevel.Error LowLevel.ScriptResult)
-runScript h ctxId logger name = runWithOptions (RunOptions name Nothing) h ctxId logger
+runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ModuleName -> LF.ExprValName -> IO (Either LowLevel.Error LowLevel.ScriptResult)
+runScript h ctxId logger moduleName scriptName = runWithOptions (RunOptions moduleName scriptName Nothing) h ctxId logger
 
-runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ValueRef -> (LowLevel.ScriptStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScriptResult)
-runLiveScript h ctxId logger name statusUpdateHandler = runWithOptions (RunOptions name (Just (LiveHandler statusUpdateHandler))) h ctxId logger
+runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ModuleName -> LF.ExprValName -> (LowLevel.ScriptStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScriptResult)
+runLiveScript h ctxId logger moduleName scriptName statusUpdateHandler =
+  runWithOptions (RunOptions moduleName scriptName (Just (LiveHandler statusUpdateHandler))) h ctxId logger
 
 runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScriptResult)
 runWithOptions options Handle{..} ctxId logger = do
@@ -313,8 +315,8 @@ runWithOptions options Handle{..} ctxId logger = do
 optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IDELogger.Logger -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScriptResult)
 optionsToLowLevel RunOptions{..} h ctxId logger mask =
   case live of
-    Just (LiveHandler handler) -> LowLevel.runLiveScript h ctxId name logger mask handler
-    Nothing                    -> LowLevel.runScript h ctxId name
+    Just (LiveHandler handler) -> LowLevel.runLiveScript h ctxId scriptModuleName scriptValName logger mask handler
+    Nothing                    -> LowLevel.runScript h ctxId scriptModuleName scriptValName
 
 newtype Hash = Hash Int deriving (Eq, Ord, NFData, Show)
 
