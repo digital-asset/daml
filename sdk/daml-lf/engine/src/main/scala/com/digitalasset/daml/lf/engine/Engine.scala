@@ -665,12 +665,16 @@ class Engine(val config: EngineConfig) {
       // missingDeps are transitive dependencies (of the Dar main package) that are missing from the Dar manifest
       // extraDeps are Dar manifest package IDs that are not stable packages, are not utility packages and are not used (but their packages may also be missing from the Dar manifest)
       (transitiveDeps, missingDeps) = calculateDependencyInformation(
-        Set(mainPackageId),
+        dar.dependencies.map(_._1).toSet,
         Set.empty,
         Set.empty,
       )
       extraDeps = darManifest.keySet
-        .diff(transitiveDeps ++ missingDeps ++ stablePackageIds ++ utilityPackageIds)
+        .diff(
+          Set(
+            mainPackageId
+          ) ++ transitiveDeps ++ missingDeps ++ stablePackageIds ++ utilityPackageIds
+        )
       _ <- Either.cond(
         missingDeps.isEmpty && extraDeps.isEmpty,
         (),

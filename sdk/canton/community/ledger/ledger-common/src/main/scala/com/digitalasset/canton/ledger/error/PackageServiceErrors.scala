@@ -279,7 +279,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           val loggingContext: ErrorLoggingContext
       ) extends ContextualizedDamlError(
             cause =
-              "The set of packages in the dar is not self-consistent and is missing dependencies or has extra dependencies",
+              s"The set of packages in the dar is not self-consistent and is missing dependencies ($missingDependencies) or has extra dependencies ($extraDependencies)",
             extraContext = Map(
               "packageIds" -> packageIds,
               "missingDependencies" -> missingDependencies,
