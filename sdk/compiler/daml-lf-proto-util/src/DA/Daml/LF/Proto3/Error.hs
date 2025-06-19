@@ -7,7 +7,6 @@ module DA.Daml.LF.Proto3.Error
 
 import qualified Data.Text as T
 import           Data.Int (Int32)
-import           Data.Word (Word32)
 
 import DA.Daml.LF.Ast
 
@@ -30,6 +29,6 @@ data Error
   | BadStringId Int32
   | BadDottedNameId Int32
   | BadTypeId Int32
-  | BadKindId Word32
+  | BadKindId Int32
   | ExpectedTCon Type
   deriving (Show, Eq)
