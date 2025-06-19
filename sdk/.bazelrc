@@ -76,7 +76,6 @@ build:macos --tool_java_runtime_version=nixpkgs_java_17
 build:windows --java_runtime_version=17
 build:windows --tool_java_runtime_version=17
 build --tool_java_language_version=17
-build --toolchain_resolution_debug='jdk.*runtime_toolchain_type'
 
 # Propagate locales and the java home to the test environment.
 build --test_env=LANG=en_US.utf8 --test_env=LOCALE_ARCHIVE --test_env=JAVA_HOME
