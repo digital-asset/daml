@@ -17,7 +17,6 @@ module DA.Daml.LF.ScriptServiceClient
   , getNewCtx
   , deleteCtx
   , gcCtxs
-  , runScript
   , runLiveScript
   , LowLevel.BackendError(..)
   , LowLevel.Error(..)
@@ -85,9 +84,9 @@ data Handle = Handle
   , hContextId :: IORef LowLevel.ContextId
   -- ^ The root context id, this is mutable so that rather than mutating the context
   -- we can clone it and update the clone which allows us to safely interrupt a context update.
-  , hRunningHandlers :: MVar (MS.Map RunOptions RunInfo)
-  -- ^ Track running scripts as a map between the RunOptions that triggered
-  -- them and all information required to cancel them or to resume from them
+  , hRunningHandlers :: MVar (MS.Map (LF.ModuleName, LF.ExprValName) RunInfo)
+  -- ^ Track running scripts as a map between the script and all information
+  -- required to cancel them or to resume from them
   -- ContextId for determining ThreadId for cancelling via asynchronous exception
   }
 
@@ -241,30 +240,10 @@ encodeModule :: LF.Version -> LF.Module -> (Hash, BS.ByteString)
 encodeModule v m = (Hash $ hash m', m')
   where m' = LowLevel.encodeSinglePackageModule v m
 
--- Reify name * live/unlive
-data RunOptions = RunOptions
-  { scriptModuleName :: LF.ModuleName
-  , scriptValName :: LF.ExprValName
-  , live :: Maybe LiveHandler
-  }
-  deriving (Show, Eq, Ord)
-newtype LiveHandler = LiveHandler (LowLevel.ScriptStatus -> IO ())
-instance Show LiveHandler where
-  show _ = "LiveHandler"
-instance Eq LiveHandler where
-  (==) _ _ = True
-instance Ord LiveHandler where
-  compare _ _ = EQ
+type LiveHandler = LowLevel.ScriptStatus -> IO ()
 
-runScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ModuleName -> LF.ExprValName -> IO (Either LowLevel.Error LowLevel.ScriptResult)
-runScript h ctxId logger moduleName scriptName = runWithOptions (RunOptions moduleName scriptName Nothing) h ctxId logger
-
-runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ModuleName -> LF.ExprValName -> (LowLevel.ScriptStatus -> IO ()) -> IO (Either LowLevel.Error LowLevel.ScriptResult)
-runLiveScript h ctxId logger moduleName scriptName statusUpdateHandler =
-  runWithOptions (RunOptions moduleName scriptName (Just (LiveHandler statusUpdateHandler))) h ctxId logger
-
-runWithOptions :: RunOptions -> Handle -> LowLevel.ContextId -> IDELogger.Logger -> IO (Either LowLevel.Error LowLevel.ScriptResult)
-runWithOptions options Handle{..} ctxId logger = do
+runLiveScript :: Handle -> LowLevel.ContextId -> IDELogger.Logger -> LF.ModuleName -> LF.ExprValName -> LiveHandler -> IO (Either LowLevel.Error LowLevel.ScriptResult)
+runLiveScript Handle{..} ctxId logger moduleName scriptName handler = do
   resBarrier <- newBarrier
   stopSemaphore <- newEmptyMVar
 
@@ -272,7 +251,7 @@ runWithOptions options Handle{..} ctxId logger = do
   modifyMVar_ hRunningHandlers $ \runningHandlers -> do
     -- If there was an old thread handling the same script in the same
     -- way, under a different context, send a cancellation to its semaphore
-    let mbOldRunInfo = MS.lookup options runningHandlers
+    let mbOldRunInfo = MS.lookup (moduleName, scriptName) runningHandlers
     case mbOldRunInfo of
       Just oldRunInfo
         | context oldRunInfo == ctxId -> pure ()
@@ -295,7 +274,7 @@ runWithOptions options Handle{..} ctxId logger = do
           pure runningHandlers
       _ -> do
         handlerThread <- forkIO $ withSem hConcurrencySem $ do
-          r <- try $ optionsToLowLevel options hLowLevelHandle ctxId logger stopSemaphore
+          r <- try $ LowLevel.runLiveScript hLowLevelHandle ctxId moduleName scriptName logger stopSemaphore handler
           signalBarrier resBarrier $
             case r of
               Left ex -> Left $ LowLevel.ExceptionError ex
@@ -308,15 +287,9 @@ runWithOptions options Handle{..} ctxId logger = do
                 , stop = stopSemaphore
                 , result = resBarrier
                 }
-        let newRunningHandlers = MS.insert options selfInfo runningHandlers
+        let newRunningHandlers = MS.insert (moduleName, scriptName) selfInfo runningHandlers
         pure newRunningHandlers
   waitBarrier resBarrier
-
-optionsToLowLevel :: RunOptions -> LowLevel.Handle -> LowLevel.ContextId -> IDELogger.Logger -> MVar Bool -> IO (Either LowLevel.Error LowLevel.ScriptResult)
-optionsToLowLevel RunOptions{..} h ctxId logger mask =
-  case live of
-    Just (LiveHandler handler) -> LowLevel.runLiveScript h ctxId scriptModuleName scriptValName logger mask handler
-    Nothing                    -> LowLevel.runScript h ctxId scriptModuleName scriptValName
 
 newtype Hash = Hash Int deriving (Eq, Ord, NFData, Show)
 

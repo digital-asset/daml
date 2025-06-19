@@ -20,7 +20,6 @@ module DA.Daml.LF.ScriptServiceClient.LowLevel
   , ContextUpdate(..)
   , SkipValidation(..)
   , updateCtx
-  , runScript
   , runLiveScript
   , SS.ScriptResult(..)
   , SS.ScriptStatus(..)
@@ -358,19 +357,6 @@ mangleScriptName modName scriptName =
   mangleModuleName modName
   <> ":"
   <> fromRight (error "Failed to mangle script name") (mangleIdentifier $ LF.unExprValName scriptName)
-
-runScript :: Handle -> ContextId -> LF.ModuleName -> LF.ExprValName -> IO (Either Error SS.ScriptResult)
-runScript Handle{..} (ContextId ctxId) modName scriptName = do
-  res <-
-    performRequest
-      (SS.scriptServiceRunScript hClient)
-      (optGrpcTimeout hOptions)
-      (SS.RunScriptRequest $ Just $ SS.RunScriptRequestSumStart $ SS.RunScriptStart ctxId $ mangleScriptName modName scriptName)
-  pure $ case res of
-    Left err -> Left (BackendError err)
-    Right (SS.RunScriptResponse (Just (SS.RunScriptResponseResponseError err))) -> Left (ScriptError err)
-    Right (SS.RunScriptResponse (Just (SS.RunScriptResponseResponseResult r))) -> Right r
-    Right _ -> error "IMPOSSIBLE: missing payload in RunScriptResponse"
 
 performRequest
   :: (ClientRequest 'Normal payload response -> IO (ClientResult 'Normal response))
