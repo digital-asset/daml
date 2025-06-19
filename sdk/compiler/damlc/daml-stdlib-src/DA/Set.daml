@@ -149,8 +149,8 @@ deriving instance Ord k => Ord (Set k)
 instance (Ord k, Show k) => Show (Set k) where
   show s = "Set " <> show (toList s)
 
-instance IsParties (Set Party) where
-  toParties = toList
+instance IsParties a => IsParties (Set a) where
+  toParties = toParties . toList
 
 instance Ord k => Semigroup (Set k) where
   (<>) = union
