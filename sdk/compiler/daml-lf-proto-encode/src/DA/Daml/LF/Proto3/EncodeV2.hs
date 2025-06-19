@@ -10,7 +10,7 @@ module DA.Daml.LF.Proto3.EncodeV2
   , encodePackage
   ) where
 
-import           Control.Lens ((^.), matching, makeLenses)
+import           Control.Lens ((^.), matching, makeLenses, zoom)
 import           Control.Lens.Ast (rightSpine)
 import           Control.Monad.State.Strict
 
@@ -267,11 +267,12 @@ internKind k =
     EncodeEnv{version} <- get
     if isDevVersion version
       then case k of
-        (P.Kind (Just k)) -> do
-            n <- IM.internState k internedKindsMap
+        (P.Kind (Just k')) -> do
+            n <- zoom internedKindsMap $ IM.internState k'
             return $ (P.Kind . Just . P.KindSumInterned) n
         (P.Kind Nothing) -> error "nothing kind during encoding"
       else return k
+
 
 ------------------------------------------------------------------------
 -- Encoding of types

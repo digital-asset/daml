@@ -6,7 +6,6 @@
 
 module DA.Daml.LF.Proto3.InternedMap (InternedMap, internState, toVec, empty) where
 
-import           Control.Lens (Lens', (.=), use)
 import           Control.Monad.State.Strict
 
 import qualified Data.List           as L
@@ -47,12 +46,12 @@ internShare x im@(InternedMap mp _) =
 _intern :: val -> InternedMap val key -> (InternedMap val key, key)
 _intern = internShare
 
-internState :: val -> Lens' s (InternedMap val key) -> State s key
-internState x lns = do
-  im@(InternedMap mp _) <- use lns
+internState :: val -> State (InternedMap val key) key
+internState x = do
+  im@(InternedMap mp _) <- get
   case x `Map.lookup` mp of
     Just n -> return n
     Nothing -> do
       let (mp', n') = extend x im
-      lns .= mp'
+      put mp'
       return n'
