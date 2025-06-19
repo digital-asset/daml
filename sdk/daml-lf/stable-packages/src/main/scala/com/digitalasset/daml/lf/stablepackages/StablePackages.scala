@@ -96,7 +96,9 @@ private[daml] sealed class StablePackagesImpl(
     */
   @throws[IllegalArgumentException]("if the resource cannot be found")
   @throws[archive.Error]("if the dalf cannot be decoded")
-  private def decodeDalfResource(path: String): (Ref.PackageId, Ast.Package, data.Bytes, Archive) = {
+  private def decodeDalfResource(
+      path: String
+  ): (Ref.PackageId, Ast.Package, data.Bytes, Archive) = {
     val inputStream = getClass.getClassLoader.getResourceAsStream(path)
     require(inputStream != null, s"Resource not found: $path")
     val bytes = data.Bytes.fromInputStream(inputStream)
