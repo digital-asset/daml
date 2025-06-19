@@ -165,5 +165,5 @@ foldlA f x xs = foldl (\ acc y -> do v <- acc; f v y) (pure x) xs
 foldl1A : Action m => (a -> a -> m a) -> NonEmpty a -> m a
 foldl1A f l = M.foldlA f l.hd l.tl
 
-instance IsParties (NonEmpty Party) where
-  toParties = toList
+instance IsParties a => IsParties (NonEmpty a) where
+  toParties = toParties . toList

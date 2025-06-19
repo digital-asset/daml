@@ -70,7 +70,7 @@ Data Types
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` k \=\> :ref:`Semigroup <class-da-internal-prelude-semigroup-78998>` (`Set <type-da-set-types-set-90436_>`_ k)
 
-  **instance** :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` (`Set <type-da-set-types-set-90436_>`_ :ref:`Party <type-da-internal-lf-party-57932>`)
+  **instance** :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` a \=\> :ref:`IsParties <class-da-internal-template-functions-isparties-53750>` (`Set <type-da-set-types-set-90436_>`_ a)
 
   **instance** :ref:`Ord <class-ghc-classes-ord-6395>` k \=\> :ref:`Eq <class-ghc-classes-eq-22713>` (`Set <type-da-set-types-set-90436_>`_ k)
 
