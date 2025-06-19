@@ -128,7 +128,7 @@ genrule(
     cp $(location //templates:templates-tarball) $$DIR/deps/
 
     cp $(location //compiler/damlc:daml-base-rst.tar.gz) $$DIR/deps/
-    cp $$(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
+    cp $(location //daml-script/daml:daml-script-rst.tar.gz) $$DIR/deps/
     cp -L $(location //:LICENSE) $$DIR/deps/
     cp -L $(location //:NOTICES) $$DIR/deps/
 
