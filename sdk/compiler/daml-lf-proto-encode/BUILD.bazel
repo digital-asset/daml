@@ -9,6 +9,7 @@ da_haskell_library(
         "src/DA/Daml/LF/Proto3/Archive/Encode.hs",
         "src/DA/Daml/LF/Proto3/Encode.hs",
         "src/DA/Daml/LF/Proto3/EncodeV2.hs",
+        "src/DA/Daml/LF/Proto3/InternedMap.hs",
     ],
     hackage_deps = [
         "base",
@@ -22,6 +23,7 @@ da_haskell_library(
         "vector",
         "proto3-suite",
         "unordered-containers",
+        "pretty-show",
     ],
     src_strip_prefix = "src",
     visibility = ["//visibility:public"],
