@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.Ge
 import com.digitalasset.canton.topology.transaction.ValidatingTopologyMappingChecks
 import com.digitalasset.canton.topology.{
   PhysicalSynchronizerId,
-  SynchronizerId,
   TopologyManagerError,
   TopologyStateProcessor,
 }
@@ -55,7 +54,7 @@ import scala.math.Ordering.Implicits.*
   * The processor works together with the StoreBasedSynchronizerTopologyClient
   */
 class TopologyTransactionProcessor(
-    synchronizerId: SynchronizerId,
+    synchronizerId: PhysicalSynchronizerId,
     pureCrypto: SynchronizerCryptoPureApi,
     store: TopologyStore[TopologyStoreId.SynchronizerStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
@@ -534,7 +533,7 @@ object TopologyTransactionProcessor {
   ): FutureUnlessShutdown[(TopologyTransactionProcessor, SynchronizerTopologyClientWithInit)] = {
 
     val processor = new TopologyTransactionProcessor(
-      synchronizerId.logical,
+      synchronizerId,
       pureCrypto,
       topologyStore,
       _ => (),

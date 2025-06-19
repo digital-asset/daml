@@ -10,7 +10,10 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore
+import com.digitalasset.canton.participant.store.{
+  SynchronizerConnectionConfigStore,
+  SynchronizerPredecessor,
+}
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.topology.KnownPhysicalSynchronizerId
 import com.digitalasset.canton.topology.client.SynchronizerTopologyClient
@@ -82,7 +85,8 @@ class SequencerConnectionSuccessorListener(
         }.toMap
       configuredSequencerIds = configuredSequencers.keySet
 
-      successorSynchronizerId <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
+      synchronizerUpgradeOngoing <- OptionT(snapshot.isSynchronizerUpgradeOngoing())
+      (successorSynchronizerId, upgradeTime) = synchronizerUpgradeOngoing
 
       _ = logger.debug(
         s"Checking whether the participant can migrate $alias from ${activeConfig.configuredPSId} to $successorSynchronizerId"
@@ -133,9 +137,11 @@ class SequencerConnectionSuccessorListener(
             )
           configStore
             .put(
-              updated,
+              config = updated,
               status = SynchronizerConnectionConfigStore.MigratingTo,
-              KnownPhysicalSynchronizerId(successorSynchronizerId),
+              configuredPSId = KnownPhysicalSynchronizerId(successorSynchronizerId),
+              synchronizerPredecessor =
+                Some(SynchronizerPredecessor(topologyClient.physicalSynchronizerId, upgradeTime)),
             )
             .toOption
         case Some(currentSuccessorConfig) =>

@@ -247,14 +247,14 @@ class GrpcPruningService(
       allParticipantsFiltered = allParticipants
         .map { case (synchronizerId, participants) =>
           val noWaitParticipants =
-            noWaitConfig.filter(_.synchronizerId == synchronizerId).collect(_.participantId)
+            noWaitConfig.filter(_.synchronizerId == synchronizerId.logical).collect(_.participantId)
           (synchronizerId, participants.filter(!noWaitParticipants.contains(_)))
         }
     } yield v30.GetNoWaitCommitmentsFromResponse(
       noWaitConfig.map(_.toProtoV30),
       allParticipantsFiltered
         .flatMap { case (synchronizerId, participants) =>
-          participants.map(ConfigForNoWaitCounterParticipants(synchronizerId, _))
+          participants.map(ConfigForNoWaitCounterParticipants(synchronizerId.logical, _))
         }
         .toSeq
         .map(_.toProtoV30),

@@ -19,6 +19,8 @@ class GrpcInternalSequencerConnectionXTest
     with FailOnShutdown
     with ConnectionPoolTestHelpers {
 
+  import ConnectionPoolTestHelpers.*
+
   "GrpcInternalSequencerConnectionX" should {
     "be validated in the happy path" in {
       val responses = TestResponses(

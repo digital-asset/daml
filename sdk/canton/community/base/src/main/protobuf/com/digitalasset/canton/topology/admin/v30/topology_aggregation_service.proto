@@ -68,6 +68,7 @@ message ListPartiesResponse {
       message SynchronizerPermissions {
         string synchronizer_id = 1;
         com.digitalasset.canton.protocol.v30.Enums.ParticipantPermission permission = 2;
+        string physical_synchronizer_id = 3;
       }
 
       string participant_uid = 1;
@@ -100,6 +101,7 @@ message ListKeyOwnersResponse {
     string key_owner = 2;
     repeated com.digitalasset.canton.crypto.v30.SigningPublicKey signing_keys = 3;
     repeated com.digitalasset.canton.crypto.v30.EncryptionPublicKey encryption_keys = 4;
+    string physical_synchronizer_id = 5;
   }
   repeated Result results = 1;
 }

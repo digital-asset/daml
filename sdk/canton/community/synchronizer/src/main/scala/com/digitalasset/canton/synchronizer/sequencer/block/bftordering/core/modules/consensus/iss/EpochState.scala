@@ -25,7 +25,6 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
   EpochNumber,
 }
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.SignedMessage
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.ordering.iss.{
   BlockMetadata,
@@ -34,6 +33,7 @@ import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framewor
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.framework.modules.{
+  Consensus,
   ConsensusSegment,
   ConsensusStatus,
 }
@@ -191,12 +191,12 @@ class EpochState[E <: Env[E]](
   ): Unit =
     sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.CancelEpoch(epochNumber))
 
-  def proposalCreated(orderingBlock: OrderingBlock, epochNumber: EpochNumber)(implicit
+  def localAvailabilityMessageReceived(
+      message: Consensus.LocalAvailability
+  )(implicit
       traceContext: TraceContext
   ): Unit =
-    sendMessageToSegmentModules(
-      ConsensusSegment.ConsensusMessage.BlockProposal(orderingBlock, epochNumber)
-    )
+    sendMessageToSegmentModules(ConsensusSegment.ConsensusMessage.LocalAvailability(message))
 
   def processPbftMessage(event: ConsensusSegment.ConsensusMessage.PbftEvent)(implicit
       traceContext: TraceContext
@@ -217,8 +217,8 @@ class EpochState[E <: Env[E]](
       msg: ConsensusSegment.ConsensusMessage
   )(implicit traceContext: TraceContext): Unit =
     synchronizeWithClosingSync("handleMessage")(msg match {
-      case proposalCreated: ConsensusSegment.ConsensusMessage.BlockProposal =>
-        mySegmentModule.foreach(_.asyncSend(proposalCreated))
+      case localAvailability: ConsensusSegment.ConsensusMessage.LocalAvailability =>
+        mySegmentModule.foreach(_.asyncSend(localAvailability))
       case pbftEvent: ConsensusSegment.ConsensusMessage.PbftEvent =>
         blockToSegmentModule(pbftEvent.blockMetadata.blockNumber).asyncSend(pbftEvent)
       case ConsensusSegment.ConsensusMessage.CompletedEpoch(_) =>

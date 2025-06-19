@@ -76,6 +76,7 @@ object ConsensusSegment {
 
     final case class AsyncException(e: Throwable) extends Message
 
+    final case object BlockInactivityTimeout extends Message
   }
 
   sealed trait RetransmissionsMessage extends Message
@@ -89,7 +90,7 @@ object ConsensusSegment {
 
   sealed trait ConsensusMessage extends Message
   object ConsensusMessage {
-    final case class BlockProposal(orderingBlock: OrderingBlock, epochNumber: EpochNumber)
+    final case class LocalAvailability(message: Consensus.LocalAvailability)
         extends ConsensusMessage
 
     sealed trait PbftEvent extends ConsensusMessage {

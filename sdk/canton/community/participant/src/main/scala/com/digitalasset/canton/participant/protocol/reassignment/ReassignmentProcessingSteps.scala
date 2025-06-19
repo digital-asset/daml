@@ -59,7 +59,7 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
+import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter, checked}
 
@@ -82,6 +82,8 @@ trait ReassignmentProcessingSteps[
   val participantId: ParticipantId
 
   val synchronizerId: ReassignmentTag[PhysicalSynchronizerId]
+
+  val protocolVersion: ReassignmentTag[ProtocolVersion]
 
   protected def contractAuthenticator: ContractAuthenticator
 
@@ -269,11 +271,13 @@ trait ReassignmentProcessingSteps[
       rootHash: RootHash,
       malformedPayloads: Seq[MalformedPayload],
   )(implicit traceContext: TraceContext): Option[ConfirmationResponses] =
-    // TODO(i12926) This will crash the ConnectedSynchronizer
-    ErrorUtil.internalError(
-      new UnsupportedOperationException(
-        s"Received a unassignment/assignment request with id $requestId with all payloads being malformed. Crashing..."
-      )
+    ProcessingSteps.constructResponsesForMalformedPayloads(
+      requestId = requestId,
+      rootHash = rootHash,
+      malformedPayloads = malformedPayloads,
+      synchronizerId = synchronizerId.unwrap,
+      participantId = participantId,
+      protocolVersion = protocolVersion.unwrap,
     )
 
   override def eventAndSubmissionIdForRejectedCommand(
@@ -368,6 +372,7 @@ trait ReassignmentProcessingSteps[
 
   protected def createConfirmationResponses(
       requestId: RequestId,
+      malformedPayloads: Seq[MalformedPayload],
       topologySnapshot: TopologySnapshot,
       protocolVersion: ProtocolVersion,
       confirmingParties: Set[LfPartyId],
@@ -375,6 +380,34 @@ trait ReassignmentProcessingSteps[
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[ConfirmationResponses]] =
+    if (malformedPayloads.nonEmpty) {
+      FutureUnlessShutdown.pure(
+        ProcessingSteps.constructResponsesForMalformedPayloads(
+          requestId = requestId,
+          rootHash = validationResult.rootHash,
+          malformedPayloads = malformedPayloads,
+          synchronizerId = synchronizerId.unwrap,
+          participantId = participantId,
+          protocolVersion = protocolVersion,
+        )
+      )
+    } else {
+      responsesForWellformedPayloads(
+        requestId,
+        topologySnapshot,
+        protocolVersion,
+        confirmingParties,
+        validationResult,
+      )
+    }
+
+  private def responsesForWellformedPayloads(
+      requestId: RequestId,
+      topologySnapshot: TopologySnapshot,
+      protocolVersion: ProtocolVersion,
+      confirmingParties: Set[LfPartyId],
+      validationResult: ReassignmentValidationResult,
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[ConfirmationResponses]] =
     for {
       hostedConfirmingParties <-
         if (validationResult.isReassigningParticipant)
@@ -560,6 +593,7 @@ object ReassignmentProcessingSteps {
 
   final case class ContractError(message: String) extends ReassignmentProcessorError
 
+  // TODO(#26219): should be physical
   final case class UnknownSynchronizer(synchronizerId: SynchronizerId, context: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Unknown synchronizer $synchronizerId when $context"

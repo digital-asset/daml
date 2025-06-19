@@ -41,7 +41,7 @@ class CantonDynamicSynchronizerParameterGetter(
     ): EitherT[FutureUnlessShutdown, String, NonNegativeFiniteDuration] =
       for {
         topoClient <- EitherT.fromOption[FutureUnlessShutdown](
-          syncCrypto.ips.forSynchronizer(synchronizerId.logical),
+          syncCrypto.ips.forSynchronizer(synchronizerId),
           s"Cannot get topology client for synchronizer $synchronizerId",
         )
         snapshot = topoClient.currentSnapshotApproximation

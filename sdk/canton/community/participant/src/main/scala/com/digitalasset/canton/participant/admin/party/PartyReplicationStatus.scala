@@ -27,6 +27,12 @@ object PartyReplicationStatus {
     case object Error extends PartyReplicationStatusCode
   }
 
+  /** Indicates whether party replication is active and expected to be progressing, i.e. whether
+    * monitoring for progress and initiating state transitions are needed in contrast to having
+    * completed or having failed in such a way that requires operator intervention.
+    */
+  sealed trait ProgressIsExpected
+
   sealed trait PartyReplicationStatus {
     def params: ReplicationParams
     def code: PartyReplicationStatusCode
@@ -41,7 +47,9 @@ object PartyReplicationStatus {
     def toProto: v30.GetAddPartyStatusResponse.Status.Status
   }
 
-  final case class ProposalProcessed(params: ReplicationParams) extends PartyReplicationStatus {
+  final case class ProposalProcessed(params: ReplicationParams)
+      extends PartyReplicationStatus
+      with ProgressIsExpected {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.ProposalProcessed
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
@@ -75,7 +83,8 @@ object PartyReplicationStatus {
   final case class AgreementAccepted(
       params: ReplicationParams,
       sequencerId: SequencerId,
-  ) extends PartyReplicationStatus {
+  ) extends PartyReplicationStatus
+      with ProgressIsExpected {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.AgreementAccepted
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
@@ -105,7 +114,8 @@ object PartyReplicationStatus {
   }
 
   final case class TopologyAuthorized(authorizedParams: AuthorizedReplicationParams)
-      extends AuthorizedPartyReplicationStatus {
+      extends AuthorizedPartyReplicationStatus
+      with ProgressIsExpected {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.TopologyAuthorized
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
@@ -140,7 +150,8 @@ object PartyReplicationStatus {
   }
 
   final case class ConnectionEstablished(authorizedParams: AuthorizedReplicationParams)
-      extends AuthorizedPartyReplicationStatus {
+      extends AuthorizedPartyReplicationStatus
+      with ProgressIsExpected {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.ConnectionEstablished
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =
@@ -156,7 +167,8 @@ object PartyReplicationStatus {
   final case class ReplicatingAcs(
       authorizedParams: AuthorizedReplicationParams,
       numberOfContractsReplicated: NonNegativeInt,
-  ) extends AuthorizedPartyReplicationStatus {
+  ) extends AuthorizedPartyReplicationStatus
+      with ProgressIsExpected {
     override def code: PartyReplicationStatusCode = PartyReplicationStatusCode.ReplicatingAcs
 
     override def toProto: v30.GetAddPartyStatusResponse.Status.Status =

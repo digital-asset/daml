@@ -1049,12 +1049,14 @@ class TransactionProcessingSteps(
       malformedPayloads: Seq[MalformedPayload],
   )(implicit
       traceContext: TraceContext
-  ): Option[ConfirmationResponses] =
-    confirmationResponsesFactory.createConfirmationResponsesForMalformedPayloads(
-      requestId,
-      rootHash,
-      malformedPayloads,
-    )
+  ): Option[ConfirmationResponses] = ProcessingSteps.constructResponsesForMalformedPayloads(
+    requestId = requestId,
+    rootHash = rootHash,
+    malformedPayloads = malformedPayloads,
+    synchronizerId = synchronizerId,
+    participantId = participantId,
+    protocolVersion = protocolVersion,
+  )
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,

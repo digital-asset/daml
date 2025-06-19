@@ -25,7 +25,7 @@ object TopologyTransactionSignature {
       prettyOfClass(
         param("requiredHash", _.requiredHash.hash),
         param("providedHashes", _.providedHashes.map(_.hash)),
-        param("signedBy", _.signature.signedBy),
+        param("authorizingLongTermKey", _.signature.authorizingLongTermKey),
       )
   }
 }
@@ -48,7 +48,7 @@ sealed trait TopologyTransactionSignature extends Product with Serializable {
 
   def coversHash(txHash: TxHash): Boolean
 
-  def signedBy: Fingerprint
+  def authorizingLongTermKey: Fingerprint
 }
 
 /** Signature over the specific transaction hash
@@ -62,7 +62,7 @@ final case class SingleTransactionSignature(
 
   override def coversHash(txHash: TxHash): Boolean = transactionHash == txHash
 
-  @inline override def signedBy: Fingerprint = signature.signedBy
+  @inline override def authorizingLongTermKey: Fingerprint = signature.authorizingLongTermKey
 }
 
 /** Signature over the hash of multiple transaction.
@@ -78,7 +78,7 @@ final case class MultiTransactionSignature(
 
   override def coversHash(txHash: TxHash): Boolean = transactionHashes.contains(txHash)
 
-  @inline override def signedBy: Fingerprint = signature.signedBy
+  @inline override def authorizingLongTermKey: Fingerprint = signature.authorizingLongTermKey
 }
 
 object MultiTransactionSignature {

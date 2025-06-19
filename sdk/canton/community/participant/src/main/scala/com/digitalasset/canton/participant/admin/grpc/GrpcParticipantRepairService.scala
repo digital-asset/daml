@@ -7,11 +7,10 @@ import cats.data.EitherT
 import cats.syntax.all.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.base.error.RpcError
-import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
+import com.digitalasset.canton.ProtoDeserializationError.ValueConversionError
 import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.{BatchingConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -595,10 +594,9 @@ final class GrpcParticipantRepairService(
 
     val res = for {
       unassignId <- EitherT.fromEither[FutureUnlessShutdown](
-        Try(request.unassignId.toLong).toEither.left
-          .map(_ => TimestampConversionError(s"cannot convert ${request.unassignId} into Long"))
-          .flatMap(fromProtoPrimitive)
-          .leftMap(_.message)
+        protocol.UnassignId
+          .fromProtoPrimitive(request.unassignId)
+          .leftMap(err => ValueConversionError("unassign_id", err.message).message)
       )
       sourceSynchronizerId <- EitherT.fromEither[FutureUnlessShutdown](
         SynchronizerId

@@ -120,6 +120,7 @@ final case class JsPrepareSubmissionRequest(
     synchronizerId: String,
     packageIdSelectionPreference: Seq[String],
     verboseHashing: Boolean,
+    prefetchContractKeys: Seq[js.PrefetchContractKey],
 )
 
 final case class JsPrepareSubmissionResponse(
@@ -182,6 +183,7 @@ object JsInteractiveSubmissionService extends DocumentationEndpoints {
 object JsInteractiveSubmissionServiceCodecs {
   import JsCommandServiceCodecs.*
   import JsSchema.config
+  import JsSchema.JsServicesCommonCodecs.*
 
   implicit val timeRW: Codec[interactive_submission_service.MinLedgerTime.Time] =
     deriveConfiguredCodec // ADT

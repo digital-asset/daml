@@ -5,12 +5,14 @@ package com.digitalasset.canton.sequencing
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxEither
+import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.connection.v30
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc.ApiInfoServiceStub
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, GrpcError}
 import com.digitalasset.canton.protocol.StaticSynchronizerParameters
 import com.digitalasset.canton.sequencer.api.v30.SequencerConnect.GetSynchronizerParametersResponse.Parameters
@@ -27,6 +29,7 @@ import com.digitalasset.canton.topology.{PhysicalSynchronizerId, SequencerId, Un
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Channel
+import org.apache.pekko.stream.Materializer
 
 import scala.concurrent.ExecutionContextExecutor
 
@@ -150,7 +153,8 @@ class GrpcSequencerConnectionXStub(
     } yield synchronizerParameters
 }
 
-object SequencerConnectionXStubFactoryImpl extends SequencerConnectionXStubFactory {
+class SequencerConnectionXStubFactoryImpl(loggerFactory: NamedLoggerFactory)
+    extends SequencerConnectionXStubFactory {
   override def createStub(connection: ConnectionX)(implicit
       ec: ExecutionContextExecutor
   ): SequencerConnectionXStub = connection match {
@@ -165,13 +169,16 @@ object SequencerConnectionXStubFactoryImpl extends SequencerConnectionXStubFacto
   }
 
   override def createUserStub(connection: ConnectionX, clientAuth: GrpcSequencerClientAuth)(implicit
-      ec: ExecutionContextExecutor
+      ec: ExecutionContextExecutor,
+      esf: ExecutionSequencerFactory,
+      materializer: Materializer,
   ): UserSequencerConnectionXStub =
     connection match {
       case grpcConnection: GrpcConnectionX =>
         new GrpcUserSequencerConnectionXStub(
           grpcConnection,
           channel => clientAuth(SequencerServiceGrpc.stub(channel)),
+          loggerFactory,
         )
 
       case _ => throw new IllegalStateException(s"Connection type not supported: $connection")

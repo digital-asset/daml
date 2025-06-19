@@ -24,12 +24,7 @@ import com.digitalasset.canton.topology.{PartyId, SynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{
-  CreationTime,
-  FatContractInstance,
-  NodeId,
-  VersionedTransaction,
-}
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, NodeId, VersionedTransaction}
 import com.digitalasset.daml.lf.value.Value.ContractId
 
 import java.util.UUID
@@ -95,7 +90,7 @@ object InteractiveSubmission {
         .map { case (contractId, serializedNode) =>
           contractId -> FatContractInstance.fromCreateNode(
             serializedNode.toLf,
-            CreationTime.CreatedAt(serializedNode.ledgerCreateTime.toLf),
+            serializedNode.ledgerCreateTime,
             saltFromSerializedContract(serializedNode),
           )
         }
@@ -271,8 +266,10 @@ object InteractiveSubmission {
 
           (invalidSignatures, validSignatures) = signatures.map { signature =>
             authInfo.signingKeys
-              .find(_.fingerprint == signature.signedBy)
-              .toRight(s"Signing key ${signature.signedBy} is not a valid key for $party")
+              .find(_.fingerprint == signature.authorizingLongTermKey)
+              .toRight(
+                s"Signing key ${signature.authorizingLongTermKey} is not a valid key for $party"
+              )
               .flatMap(key =>
                 cryptoPureApi
                   .verifySignature(hash.unwrap, key, signature, SigningKeyUsage.ProtocolOnly)

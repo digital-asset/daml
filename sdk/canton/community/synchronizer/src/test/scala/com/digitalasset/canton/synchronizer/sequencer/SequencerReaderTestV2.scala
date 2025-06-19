@@ -76,7 +76,7 @@ class SequencerReaderTestV2
   private val cryptoD =
     valueOrFail(
       crypto
-        .forSynchronizer(synchronizerId.logical, defaultStaticSynchronizerParameters)
+        .forSynchronizer(synchronizerId, defaultStaticSynchronizerParameters)
         .toRight("no crypto api")
     )(
       "synchronizer crypto"

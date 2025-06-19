@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.pruning
 
-import cats.data.{NonEmptyList, ValidatedNec}
+import cats.data.{EitherT, NonEmptyList, ValidatedNec}
 import cats.syntax.contravariantSemigroupal.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
@@ -79,7 +79,12 @@ import com.digitalasset.canton.pruning.{
   PruningStatus,
 }
 import com.digitalasset.canton.sequencing.HandlerResult
-import com.digitalasset.canton.sequencing.client.{SendResult, SequencerClientSend}
+import com.digitalasset.canton.sequencing.client.{
+  SendAsyncClientError,
+  SendCallback,
+  SendResult,
+  SequencerClientSend,
+}
 import com.digitalasset.canton.sequencing.protocol.{Batch, OpenEnvelope, Recipients}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
@@ -90,6 +95,7 @@ import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherUtil.RichEither
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.collection.{IterableUtil, MapsUtil}
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError, ReassignmentCounter}
 import com.google.common.annotations.VisibleForTesting
@@ -98,7 +104,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.collection.immutable.{Map, SortedSet}
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, blocking}
 import scala.math.Ordering.Implicits.*
 
@@ -690,7 +696,7 @@ class AcsCommitmentProcessor private (
               _ <- MarkOutstandingIfNonEmpty(completedPeriod, msgs.keySet)
               _ <- persistRunningCommitments(snapshotRes)
             } yield {
-              sendCommitmentMessages(completedPeriod, msgs)
+              sendCommitmentMessages(completedPeriod, msgs.toSeq)
             }
           } else FutureUnlessShutdown.unit
 
@@ -1305,7 +1311,7 @@ class AcsCommitmentProcessor private (
         // end of the catch-up boundary, we then reply with an empty commitment.
         val msg = mkCommitment(remote.sender, AcsCommitmentProcessor.emptyCommitment, remote.period)
 
-        sendCommitmentMessages(remote.period, Map(remote.sender -> msg))
+        sendCommitmentMessages(remote.period, Seq(remote.sender -> msg))
         logger.debug(
           s" ${remote.sender} send a non-empty ACS, but local ACS was empty. returned an empty ACS counter-commitment."
         )
@@ -1572,7 +1578,7 @@ class AcsCommitmentProcessor private (
   /** Send the computed commitment messages */
   private def sendCommitmentMessages(
       period: CommitmentPeriod,
-      msgs: Map[ParticipantId, AcsCommitment],
+      msgs: Seq[(ParticipantId, AcsCommitment)],
   )(implicit traceContext: TraceContext): Unit = {
 
     // delay sending out commitments by at most (in this order): maxCommitmentSendDelayMillis, or
@@ -1585,43 +1591,132 @@ class AcsCommitmentProcessor private (
             .getOrElse(Duration.Zero)
         2 * latestReconciliationInterval.toMillis.toInt / 3
       })(_.value))(_.value)
+
     val delayMillis = if (maxDelayMillis > 0) rand.nextInt(maxDelayMillis) else 0
 
-    def sendUnlessClosing() = {
-      implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
-      synchronizeWithClosing(functionFullName) {
-        def message = s"Failed to send commitment message batch for period $period"
-        val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
-        FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
-          for {
-            batchForm <- msgs.toSeq.parTraverse { case (participant, commitment) =>
-              SignedProtocolMessage
-                .trySignAndCreate(commitment, cryptoSnapshot, protocolVersion)
-                .map(_ -> Recipients.cc(participant))
-            }
-            batch = Batch.of(protocolVersion, batchForm*)
-            _ <- sequencerClient
-              .sendAsync(
-                batch,
-                None,
-                // ACS commitments are "best effort", so no need to amplify them
-                amplify = false,
-                callback = {
-                  case UnlessShutdown.Outcome(SendResult.Success(deliver)) =>
-                    val difference = deliver.timestamp.toMicros - period.toInclusive.toMicros
-                    metrics.sequencingTime.updateValue(difference)
-                  case _ => // Failed to sequence the message, so no update to the metric
-                },
-              )
-              .leftMap { other =>
-                logger.warn(s"$message: $other")
-              }
-              .value
-          } yield (),
-          message,
-          logPassiveInstanceAtInfo = true,
-        )
+    // filter the commitments to send based on the participants active at the "current time",
+    // and not the ones active at the period end of the commitment
+    def filterByActiveParticipants(): FutureUnlessShutdown[Seq[(ParticipantId, AcsCommitment)]] = {
+      val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
+      val ipsSnapshot = cryptoSnapshot.ipsSnapshot
+
+      for {
+        activeParticipants <- ipsSnapshot.areMembersKnown(msgs.map {
+          case (participant, _commitment) => participant.member
+        }.toSet)
+      } yield msgs.filter { case (participant, _commitment) =>
+        activeParticipants.contains(participant.member)
       }
+    }
+
+    def retryLogic(
+        msgsFiltered: Seq[(ParticipantId, AcsCommitment)],
+        errString: Option[String],
+    ): EitherT[FutureUnlessShutdown, CommitmentSendState, Unit] =
+      EitherT(for {
+        msgsRetry <- filterByActiveParticipants()
+      } yield {
+        val action =
+          if (msgsRetry != msgsFiltered) {
+            logger.debug(
+              s"Failed sequencing commitments: $msgsFiltered for period $period. Error=[$errString]." +
+                s"The active counter-participants changed, so sending will be retried automatically."
+            )
+            CommitmentSendState.Retry
+          } else {
+            logger.debug(
+              s"Failed sequencing commitments: $msgsFiltered for period $period. Error=[$errString]." +
+                s"We won't retry sending, because the active counter-participants did not change."
+            )
+            CommitmentSendState.StopRetrying
+          }
+        Either.cond(
+          action == CommitmentSendState.StopRetrying,
+          (),
+          CommitmentSendState.Retry,
+        ): Either[CommitmentSendState, Unit]
+      })
+
+    // returns a left if the commitment send failed and we want to retry
+    // we retry only in the case that the send failed because some of the recipients are no longer known
+    def sendUnlessClosing(msgsFiltered: Seq[(ParticipantId, AcsCommitment)])(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, CommitmentSendState, Unit] = {
+      implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
+      val cryptoSnapshot = synchronizerCrypto.currentSnapshotApproximation
+      val sendCallback = SendCallback.future
+
+      for {
+        signedCmtMsgs <- EitherT.right(
+          msgsFiltered.parTraverse { case (participant, commitment) =>
+            SignedProtocolMessage
+              .trySignAndCreate(commitment, cryptoSnapshot, protocolVersion)
+              .map(_ -> Recipients.cc(participant))
+          }
+        )
+
+        sendRes <-
+          if (signedCmtMsgs.nonEmpty) {
+            val batch = Batch.of(protocolVersion, signedCmtMsgs*)
+            EitherT(
+              sequencerClient
+                .sendAsync(
+                  batch,
+                  None,
+                  // ACS commitments are "best effort", so no need to amplify them
+                  amplify = false,
+                  callback = sendCallback,
+                )
+                // both lefts and rights are a commitment state (failed, succeeded)
+                .value
+                .flatMap {
+                  case Left(sendAsyncClientError: SendAsyncClientError) =>
+                    retryLogic(msgsFiltered, Some(sendAsyncClientError.toString)).value
+                  case Right(_) =>
+                    sendCallback.future
+                      .flatMap {
+                        case SendResult.Success(deliver) =>
+                          val difference = deliver.timestamp.toMicros - period.toInclusive.toMicros
+                          metrics.sequencingTime.updateValue(difference)
+                          FutureUnlessShutdown.pure(Right[CommitmentSendState, Unit](()).either)
+                        case notSequenced: SendResult.NotSequenced =>
+                          retryLogic(msgsFiltered, Some(notSequenced.toString)).value
+                      }
+                }
+            )
+          } else {
+            EitherT.pure[FutureUnlessShutdown, CommitmentSendState](())
+          }
+      } yield sendRes
+    }
+
+    def stubbornSendUnlessClosing() = {
+      def message = s"Failed to send commitment message batch for period $period"
+      // retry internally synchronizes with closing
+      retry
+        .Backoff(
+          logger,
+          this,
+          // we retry only when the recipients shrink, and they can shrink at most the number of recipients
+          maxRetries = msgs.size,
+          1.second,
+          10.seconds,
+          "sending commitments to counter-participants",
+        )
+        .unlessShutdown(
+          for {
+            msgsActiveParticipants <- filterByActiveParticipants()
+            _ = logger.debug(
+              s"Attempting to send ${msgsActiveParticipants.size} commitments to counter-participants, specifically: $msgsActiveParticipants"
+            )
+            result <- FutureUnlessShutdownUtil.logOnFailureUnlessShutdown(
+              sendUnlessClosing(msgsActiveParticipants).value,
+              message,
+              logPassiveInstanceAtInfo = true,
+            )
+          } yield result,
+          NoExceptionRetryPolicy,
+        )
     }
 
     if (msgs.nonEmpty) {
@@ -1629,7 +1724,7 @@ class AcsCommitmentProcessor private (
         .logOnFailureUnlessShutdown(
           clock
             .scheduleAfter(
-              _ => sendUnlessClosing(),
+              _ => stubbornSendUnlessClosing(),
               java.time.Duration.ofMillis(delayMillis.toLong),
             ),
           s"Failed to schedule sending commitment message batch for period $period at time ${clock.now
@@ -1738,7 +1833,7 @@ class AcsCommitmentProcessor private (
             }
           _ <- storeCommitments(msgs)
           // TODO(i15333) batch more commitments and handle the case when we reach the maximum message limit.
-          _ = sendCommitmentMessages(period, msgs)
+          _ = sendCommitmentMessages(period, msgs.toSeq)
         } yield ()
       }
       .toSeq
@@ -2628,5 +2723,12 @@ object AcsCommitmentProcessor extends HasLoggerName {
     }
 
     transientCidsAssigned ++ transientCidsCreated
+  }
+
+  private sealed trait CommitmentSendState extends Product with Serializable
+
+  private object CommitmentSendState {
+    case object Retry extends CommitmentSendState
+    case object StopRetrying extends CommitmentSendState
   }
 }

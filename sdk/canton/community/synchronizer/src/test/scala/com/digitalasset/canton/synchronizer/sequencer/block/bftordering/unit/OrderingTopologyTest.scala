@@ -20,7 +20,7 @@ class OrderingTopologyTest extends AnyWordSpec with BftSequencerBaseTest {
         val topology = OrderingTopology.forTesting(Set(aNode))
         topology.isAuthorized(
           aNode,
-          FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy),
+          FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey),
         ) shouldBe true
       }
     }
@@ -34,7 +34,7 @@ class OrderingTopologyTest extends AnyWordSpec with BftSequencerBaseTest {
         val topology = OrderingTopology.forTesting(Set())
         topology.isAuthorized(
           aNode,
-          FingerprintKeyId.toBftKeyId(Signature.noSignature.signedBy),
+          FingerprintKeyId.toBftKeyId(Signature.noSignature.authorizingLongTermKey),
         ) shouldBe false
       }
 

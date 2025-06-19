@@ -15,7 +15,6 @@ import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   ConnectionAttributes,
   SequencerConnectionXHealth,
 }
-import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerSubscription}
 import com.digitalasset.canton.sequencing.protocol.{
@@ -99,7 +98,7 @@ class DirectSequencerConnectionX(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse] =
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse] =
     ErrorUtil.internalError(
       new UnsupportedOperationException(
         s"$functionFullName is not implemented for DirectSequencerConnectionX"

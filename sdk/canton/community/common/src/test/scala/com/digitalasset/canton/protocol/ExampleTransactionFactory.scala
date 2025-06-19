@@ -18,7 +18,6 @@ import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameV
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -47,7 +46,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageName
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
 import com.digitalasset.daml.lf.language.LanguageVersion
-import com.digitalasset.daml.lf.transaction.Versioned
+import com.digitalasset.daml.lf.transaction.{CreationTime, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.*
 import org.scalatest.EitherValues
@@ -112,7 +111,7 @@ object ExampleTransactionFactory {
       viewPosition = ViewPosition(List.empty),
       viewParticipantDataSalt = TestSalt.generateSalt(1),
       createIndex = 0,
-      ledgerCreateTime = LedgerCreateTime(ledgerTime),
+      ledgerCreateTime = CreationTime.CreatedAt(ledgerTime.toLf),
       metadata = metadata,
       suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(instance),
       cantonContractIdVersion = contractIdVersion,
@@ -357,7 +356,7 @@ object ExampleTransactionFactory {
       contractId,
       asSerializableRaw(contractInstance),
       metadata,
-      LedgerCreateTime(ledgerTime),
+      CreationTime.CreatedAt(ledgerTime.toLf),
       salt,
     )
 
@@ -573,7 +572,7 @@ class ExampleTransactionFactory(
         viewPosition,
         viewParticipantDataSalt,
         createIndex,
-        LedgerCreateTime(ledgerTime),
+        CreationTime.CreatedAt(ledgerTime.toLf),
         metadata,
         asSerializableRaw(suffixedContractInstance),
         cantonContractIdVersion,

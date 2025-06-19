@@ -11,6 +11,9 @@ import com.typesafe.config.ConfigValue
 
 sealed trait KmsConfig {
 
+  /** Session signing keys configuration for KMS (by default session signing keys are enabled). */
+  def sessionSigningKeys: SessionSigningKeysConfig
+
   /** Retry configuration for KMS operations */
   def retries: RetryConfig
 }
@@ -75,6 +78,8 @@ object KmsConfig {
     *   The driver specific raw config section
     * @param healthCheckPeriod
     *   How long to wait between health checks of the KMS driver
+    * @param sessionSigningKeys
+    *   session signing keys' configuration
     * @param retries
     *   retry configuration for KMS operations
     */
@@ -82,7 +87,8 @@ object KmsConfig {
       name: String,
       config: ConfigValue,
       healthCheckPeriod: PositiveFiniteDuration = PositiveFiniteDuration.ofSeconds(10),
-      retries: RetryConfig = RetryConfig(),
+      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.default,
+      override val retries: RetryConfig = RetryConfig(),
   ) extends KmsConfig
       with UniformCantonConfigValidation
 
@@ -103,6 +109,8 @@ object KmsConfig {
     *   flag to enable multiRegion keys (Canton will generate single region keys by default)
     * @param auditLogging
     *   when enabled, all calls to KMS will be logged. Defaults to false.
+    * @param sessionSigningKeys
+    *   session signing keys' configuration
     * @param retries
     *   retry configuration
     * @param disableSslVerification
@@ -115,6 +123,7 @@ object KmsConfig {
       region: String,
       multiRegionKey: Boolean = false,
       auditLogging: Boolean = false,
+      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.default,
       override val retries: RetryConfig = RetryConfig(),
       disableSslVerification: Boolean = false,
       endpointOverride: Option[String] = None,
@@ -138,6 +147,8 @@ object KmsConfig {
     *   key-ring, which enables multi-region keys
     * @param auditLogging
     *   when enabled, all calls to KMS will be logged. Defaults to false.
+    * @param sessionSigningKeys
+    *   session signing keys' configuration
     * @param retries
     *   retry configuration
     * @param endpointOverride
@@ -148,6 +159,7 @@ object KmsConfig {
       projectId: String,
       keyRingId: String,
       auditLogging: Boolean = false,
+      override val sessionSigningKeys: SessionSigningKeysConfig = SessionSigningKeysConfig.default,
       override val retries: RetryConfig = RetryConfig(),
       endpointOverride: Option[String] = None,
   ) extends KmsConfig

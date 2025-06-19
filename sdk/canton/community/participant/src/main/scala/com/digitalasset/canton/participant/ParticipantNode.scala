@@ -53,6 +53,7 @@ import com.digitalasset.canton.participant.pruning.{
 }
 import com.digitalasset.canton.participant.scheduler.ParticipantPruningScheduler
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.SynchronizerConnectionConfigStore.Active
 import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.participant.sync.ConnectedSynchronizer.SubmissionReady
 import com.digitalasset.canton.participant.synchronizer.SynchronizerAliasManager
@@ -68,6 +69,7 @@ import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.time.*
 import com.digitalasset.canton.time.admin.v30.SynchronizerTimeServiceGrpc
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.admin.grpc.PSIdLookup
 import com.digitalasset.canton.topology.client.{
   StoreBasedTopologySnapshot,
   SynchronizerTopologyClient,
@@ -145,6 +147,12 @@ class ParticipantNodeBootstrap(
         cantonSyncService.get.flatMap(_.lookupTopologyClient(synchronizerId))
       case _ => None
     }
+
+  override protected lazy val lookupActivePSId: PSIdLookup =
+    synchronizerId =>
+      cantonSyncService.get.flatMap(
+        _.activePSIdForLSId(synchronizerId)
+      )
 
   override protected def customNodeStages(
       storage: Storage,
@@ -370,7 +378,7 @@ class ParticipantNodeBootstrap(
           participantId,
           ips,
           crypto,
-          parameters.sessionSigningKeys,
+          cryptoConfig,
           parameters.batchingConfig.parallelism,
           timeouts,
           futureSupervisor,
@@ -676,10 +684,11 @@ class ParticipantNodeBootstrap(
         Returns the topology manager corresponding to an active configuration. Restricting to active is fine since
         the topology manager is used for party allocation which would fail for inactive configurations.
          */
-        activeTopologyManagerGetter = (id: SynchronizerId) =>
+        activeTopologyManagerGetter = (id: PhysicalSynchronizerId) =>
           synchronizerConnectionConfigStore
-            .getActive(id, singleExpected = false)
+            .get(id)
             .toOption
+            .filter(_.status == Active)
             .flatMap(_.configuredPSId.toOption)
             .flatMap(syncPersistentStateManager.get)
             .map(_.topologyManager)
@@ -921,20 +930,20 @@ class ParticipantNodeBootstrap(
     ConnectedSynchronizer.healthName,
     timeouts,
   )
-  lazy val connectedSynchronizerEphemeralHealth: MutableHealthComponent =
+  private lazy val connectedSynchronizerEphemeralHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SyncEphemeralState.healthName,
       timeouts,
     )
-  lazy val connectedSynchronizerSequencerClientHealth: MutableHealthComponent =
+  private lazy val connectedSynchronizerSequencerClientHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       SequencerClient.healthName,
       timeouts,
     )
 
-  lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
+  private lazy val connectedSynchronizerAcsCommitmentProcessorHealth: MutableHealthComponent =
     MutableHealthComponent(
       loggerFactory,
       AcsCommitmentProcessor.healthName,

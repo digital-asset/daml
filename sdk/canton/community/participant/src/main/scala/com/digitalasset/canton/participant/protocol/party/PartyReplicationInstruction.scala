@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.party
 import cats.syntax.either.*
 import com.digitalasset.canton.ProtoDeserializationError.RefinedDurationConversionError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.participant.admin.party.v30
+import com.digitalasset.canton.participant.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 

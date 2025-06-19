@@ -54,6 +54,7 @@ object Consensus {
 
   sealed trait LocalAvailability extends ProtocolMessage
   object LocalAvailability {
+    final case object NoProposalAvailableYet extends LocalAvailability
     final case class ProposalCreated(orderingBlock: OrderingBlock, epochNumber: EpochNumber)
         extends LocalAvailability
   }

@@ -71,7 +71,7 @@ object V2Routes {
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 
-    val schemaProcessors = new SchemaProcessors(
+    val schemaProcessors = new SchemaProcessorsImpl(
       packageSyncService.getPackageMetadataSnapshot(_).packages
     )
     val protocolConverters = new ProtocolConverters(schemaProcessors)

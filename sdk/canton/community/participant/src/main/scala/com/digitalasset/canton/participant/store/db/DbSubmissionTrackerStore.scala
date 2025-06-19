@@ -11,22 +11,31 @@ import com.digitalasset.canton.participant.store.SubmissionTrackerStore
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbPrunableByTimeSynchronizer
-import com.digitalasset.canton.store.{IndexedSynchronizer, PrunableByTimeParameters}
+import com.digitalasset.canton.store.{
+  IndexedPhysicalSynchronizer,
+  IndexedString,
+  PrunableByTimeParameters,
+}
 import com.digitalasset.canton.tracing.TraceContext
+import slick.jdbc.SetParameter
 import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInterpolationCanton
 
 import scala.concurrent.ExecutionContext
 
 class DbSubmissionTrackerStore(
     override protected val storage: DbStorage,
-    override val indexedSynchronizer: IndexedSynchronizer,
+    override val indexedSynchronizer: IndexedPhysicalSynchronizer,
     batchingParametersConfig: PrunableByTimeParameters,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends SubmissionTrackerStore
-    with DbPrunableByTimeSynchronizer
+    with DbPrunableByTimeSynchronizer[IndexedPhysicalSynchronizer]
     with DbStore {
+
+  override protected[this] implicit def setParameterIndexedSynchronizer
+      : SetParameter[IndexedPhysicalSynchronizer] = IndexedString.setParameterIndexedString
+  override protected[this] def partitionColumn: String = "physical_synchronizer_idx"
 
   override protected def batchingParameters: Option[PrunableByTimeParameters] = Some(
     batchingParametersConfig
@@ -45,7 +54,7 @@ class DbSubmissionTrackerStore(
 
     val insertQuery =
       sqlu"""insert into par_fresh_submitted_transaction(
-                 synchronizer_idx,
+                 physical_synchronizer_idx,
                  root_hash_hex,
                  request_id,
                  max_sequencing_time)
@@ -55,7 +64,7 @@ class DbSubmissionTrackerStore(
     val selectQuery =
       sql"""select count(*)
               from par_fresh_submitted_transaction
-              where synchronizer_idx=$indexedSynchronizer and root_hash_hex=$rootHash and request_id=$dbRequestId"""
+              where physical_synchronizer_idx=$indexedSynchronizer and root_hash_hex=$rootHash and request_id=$dbRequestId"""
         .as[Int]
         .headOption
 
@@ -76,7 +85,7 @@ class DbSubmissionTrackerStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Int] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-             where synchronizer_idx = $indexedSynchronizer and max_sequencing_time <= $beforeAndIncluding"""
+             where physical_synchronizer_idx = $indexedSynchronizer and max_sequencing_time <= $beforeAndIncluding"""
 
     storage.queryAndUpdate(deleteQuery, "prune par_fresh_submitted_transaction")
   }
@@ -84,7 +93,7 @@ class DbSubmissionTrackerStore(
   override def purge()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     storage.update_(
       sqlu"""delete from par_fresh_submitted_transaction
-             where synchronizer_idx = $indexedSynchronizer""",
+             where physical_synchronizer_idx = $indexedSynchronizer""",
       "purge par_fresh_submitted_transaction",
     )
 
@@ -107,7 +116,7 @@ class DbSubmissionTrackerStore(
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-         where synchronizer_idx = $indexedSynchronizer and request_id >= $including"""
+         where physical_synchronizer_idx = $indexedSynchronizer and request_id >= $including"""
 
     storage.update_(deleteQuery, "cleanup par_fresh_submitted_transaction")
   }

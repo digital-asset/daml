@@ -9,7 +9,10 @@ import com.digitalasset.canton.crypto.SyncCryptoError
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
-import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
+import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.{
+  BlockCompletionTimeout,
+  EmptyBlockCreationTimeout,
+}
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.synchronizer.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
@@ -72,14 +75,22 @@ class IssSegmentModule[E <: Env[E]](
     extends Module[E, ConsensusSegment.Message]
     with NamedLogging {
 
+  private val thisNode = epoch.currentMembership.myId
+  private val areWeOriginalLeaderOfSegment = thisNode == segmentState.segment.originalLeader
+
   private val viewChangeTimeoutManager =
     new TimeoutManager[E, ConsensusSegment.Message, BlockNumber](
       loggerFactory,
       BlockCompletionTimeout,
       segmentState.segment.firstBlockNumber,
     )
-  private val thisNode = epoch.currentMembership.myId
-  private val areWeOriginalLeaderOfSegment = thisNode == segmentState.segment.originalLeader
+
+  private val blockStartTimeoutManager =
+    new TimeoutManager[E, ConsensusSegment.Message, BlockNumber](
+      loggerFactory,
+      EmptyBlockCreationTimeout,
+      segmentState.segment.firstBlockNumber,
+    )
 
   private val leaderSegmentState: Option[LeaderSegmentState] =
     if (areWeOriginalLeaderOfSegment)
@@ -168,42 +179,79 @@ class IssSegmentModule[E <: Env[E]](
           }
         }
 
-      case ConsensusSegment.ConsensusMessage.BlockProposal(orderingBlock, forEpochNumber) =>
-        val logPrefix = s"$messageType: received block from local availability with batch IDs: " +
-          s"${orderingBlock.proofs.map(_.batchId)}"
-
-        leaderSegmentState.foreach { mySegmentState =>
-          // Depending on the timing of events, it is possible that Consensus has an outstanding
-          // proposal request to Availability when a view change occurs. A completed view change often
-          // leads to completed blocks, and even a completed epoch. As a result, Consensus may receive
-          // a proposal (in response to a prior request) that it can no longer assign to
-          // a slot in the local segment. `moreSlotsToAssign` is designed to detect such scenarios.
-          // The proposal will be in this case ignored, which means that Availability will never get an ack
-          // for it, so when we start a new epoch and make a new proposal request, we should get the same
-          // proposal again.
-          if (mySegmentState.moreSlotsToAssign) {
-            // Such outstanding proposal (requested before a view change) could end up coming after the epoch changes.
-            // In that case we also want to discard it by detecting that this request was not made during the current epoch.
-            if (forEpochNumber != epoch.info.number) {
-              logger.info(
-                s"$logPrefix. Ignoring it because it is from epoch $forEpochNumber and we're in epoch ${epoch.info.number}."
-              )
-            } else if (orderingBlock.proofs.nonEmpty || mySegmentState.isProgressBlocked) {
-              orderBlock(orderingBlock, mySegmentState, logPrefix)
-            } else {
-              logger.debug(
-                s"$logPrefix. Not using empty block because we are not blocking progress."
-              )
-              // Re-issue a pull from availability because we have discarded the previous one.
-              logger.debug(s"initiating pull after ignoring empty block")
-              initiatePull()
+      case ConsensusSegment.ConsensusMessage.LocalAvailability(localAvailabilityMessage) =>
+        localAvailabilityMessage match {
+          case Consensus.LocalAvailability.NoProposalAvailableYet =>
+            // If Availability signals not to have a proposal available after Consensus requests one,
+            // then Consensus will either choose to order an empty block immediately, if this leader
+            // is blocking progress for other segments. Otherwise, it won't do anything for the moment.
+            val logPrefix =
+              s"$messageType: received message from local availability that no proposals are available yet"
+            leaderSegmentState.foreach { mySegmentState =>
+              if (mySegmentState.moreSlotsToAssign && mySegmentState.isProgressBlocked) {
+                orderBlock(OrderingBlock(Seq.empty), mySegmentState, logPrefix)
+              } else {
+                logger.debug(
+                  s"$logPrefix. Since we are not blocking progress, nothing to do at the moment."
+                )
+              }
             }
-          } else {
-            logger.info(
-              s"$logPrefix. Not using block because we can't assign more slots at the moment. Probably because of a view change."
-            )
+          case Consensus.LocalAvailability.ProposalCreated(orderingBlock, forEpochNumber) =>
+            val logPrefix =
+              s"$messageType: received block from local availability with batch IDs: " +
+                s"${orderingBlock.proofs.map(_.batchId)}"
+
+            leaderSegmentState.foreach { mySegmentState =>
+              // Depending on the timing of events, it is possible that Consensus has an outstanding
+              // proposal request to Availability when a view change occurs. A completed view change often
+              // leads to completed blocks, and even a completed epoch. As a result, Consensus may receive
+              // a proposal (in response to a prior request) that it can no longer assign to
+              // a slot in the local segment.
+              //
+              // It is also possible that Consensus orders an empty block before receiving a proposal from Availability,
+              // either to unblock other leaders' progress or to avoid a view change from happening.
+              //
+              // `moreSlotsToAssign` is designed to detect such scenarios.
+              // The proposal will be in this case ignored, which means that Availability will never get an ack
+              // for it, so when we start a new epoch and make a new proposal request, we should get the same
+              // proposal again.
+              if (mySegmentState.moreSlotsToAssign) {
+                // An outstanding proposal, requested before a view change, could end up coming after the epoch changes.
+                // In that case we also want to discard it by detecting that this request was not made during the current epoch.
+                if (forEpochNumber != epoch.info.number)
+                  logger.info(
+                    s"$logPrefix. Ignoring it because it is from epoch $forEpochNumber and we're in epoch ${epoch.info.number}."
+                  )
+                else
+                  orderBlock(orderingBlock, mySegmentState, logPrefix)
+              } else
+                logger.info(
+                  s"$logPrefix. Not using block because we can't assign more slots at the moment. Probably because of a view change."
+                )
+            }
+        }
+
+      case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata, isEmpty) =>
+        leaderSegmentState.foreach { mySegmentState =>
+          mySegmentState.confirmCompleteBlockStored(metadata.blockNumber, isEmpty)
+          // If this leader is waiting to start ordering a new block and, after confirming completion of this block,
+          // it considers itself to be blocking progress for other segments, then it will start ordering an empty block
+          if (mySegmentState.moreSlotsToAssign && mySegmentState.isProgressBlocked) {
+            val logPrefix =
+              s"$messageType: new block completed and we are not blocking progress"
+            orderBlock(OrderingBlock(Seq.empty), mySegmentState, logPrefix)
           }
         }
+
+      case ConsensusSegment.Internal.BlockInactivityTimeout =>
+        leaderSegmentState.foreach { mySegmentState =>
+          if (mySegmentState.moreSlotsToAssign) {
+            val logPrefix =
+              s"$messageType: block timeout reached so ordering an empty block"
+            orderBlock(OrderingBlock(Seq.empty), mySegmentState, logPrefix)
+          }
+        }
+
       case ConsensusSegment.ConsensusMessage.MessageFromPipeToSelf(event, futureId) =>
         waitingForFutureIds.remove(futureId).discard
         event.foreach(receiveInternal(_))
@@ -233,9 +281,6 @@ class IssSegmentModule[E <: Env[E]](
             to = from,
           )
         }
-
-      case ConsensusSegment.ConsensusMessage.BlockOrdered(metadata, isEmpty) =>
-        leaderSegmentState.foreach(_.confirmCompleteBlockStored(metadata.blockNumber, isEmpty))
 
       case blockStored @ ConsensusSegment.Internal.OrderedBlockStored(
             commitCertificate,
@@ -336,6 +381,8 @@ class IssSegmentModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
     logger.debug(s"$logPrefix. Starting consensus process.")
+    blockStartTimeoutManager.cancelTimeout()
+
     val orderedBlock = mySegmentState.assignToSlot(orderingBlock, latestCompletedEpochLastCommits)
     val prePrepare =
       ConsensusSegment.ConsensusMessage.PrePrepare.create(
@@ -570,8 +617,14 @@ class IssSegmentModule[E <: Env[E]](
 
   private def initiatePull(
       orderedBatchIds: Seq[BatchId] = Seq.empty
-  )(implicit traceContext: TraceContext): Unit = {
+  )(implicit
+      traceContext: TraceContext,
+      context: E#ActorContextT[ConsensusSegment.Message],
+  ): Unit = {
     logger.debug("Consensus requesting new proposal from local availability")
+    blockStartTimeoutManager.scheduleTimeout(
+      ConsensusSegment.Internal.BlockInactivityTimeout
+    )
     availability.asyncSend(
       Availability.Consensus.CreateProposal(
         epoch.currentMembership.orderingTopology,
@@ -614,6 +667,7 @@ class IssSegmentModule[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit = {
     viewChangeTimeoutManager.cancelTimeout()
+    blockStartTimeoutManager.cancelTimeout()
     context.become(
       new SegmentClosingBehaviour[E](
         waitingForFutureIds,
@@ -631,4 +685,5 @@ class IssSegmentModule[E <: Env[E]](
 
 object IssSegmentModule {
   val BlockCompletionTimeout: FiniteDuration = 10.seconds
+  val EmptyBlockCreationTimeout: FiniteDuration = 5.seconds
 }

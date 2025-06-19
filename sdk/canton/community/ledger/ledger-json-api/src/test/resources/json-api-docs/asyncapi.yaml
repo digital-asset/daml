@@ -209,7 +209,7 @@ components:
             Required
           type: string
         status:
-          $ref: '#/components/schemas/Status'
+          $ref: '#/components/schemas/JsStatus'
           description: |-
             Identifies the exact type of the error.
             It uses the same format of conveying error details as it is used for the RPC responses of the APIs.
@@ -274,13 +274,12 @@ components:
             - for successful/failed assign commands: identifies the target synchronizer
 
             Required
-    Status:
-      title: Status
+    JsStatus:
+      title: JsStatus
       type: object
       required:
       - code
       - message
-      - unknownFields
       properties:
         code:
           type: integer
@@ -291,8 +290,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ProtoAny'
-        unknownFields:
-          $ref: '#/components/schemas/UnknownFieldSet'
     ProtoAny:
       title: ProtoAny
       type: object
@@ -970,22 +967,6 @@ components:
             Set if it was requested in the ``InterfaceFilter`` and it could be
             sucessfully computed.
             Optional
-    JsStatus:
-      title: JsStatus
-      type: object
-      required:
-      - code
-      - message
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProtoAny'
     JsEmpty:
       title: JsEmpty
       type: object
@@ -1468,7 +1449,6 @@ components:
       - updateId
       - offset
       - synchronizerId
-      - recordTime
       properties:
         updateId:
           description: |-
@@ -1476,13 +1456,6 @@ components:
             Must be a valid LedgerString (as described in ``value.proto``).
             Required
           type: string
-        events:
-          description: |-
-            A non-empty list of topology events.
-            Required
-          type: array
-          items:
-            $ref: '#/components/schemas/TopologyEvent'
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -1495,6 +1468,20 @@ components:
             Identifies the synchronizer that synchronized the topology transaction.
             Required
           type: string
+        recordTime:
+          description: |-
+            The time at which the changes in the topology transaction become effective. There is a small delay between a
+            topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
+            in order relative to a synchronizer based on their effective time rather than their sequencing time.
+            Required
+          type: string
+        events:
+          description: |-
+            A non-empty list of topology events.
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyEvent'
         traceContext:
           $ref: '#/components/schemas/TraceContext'
           description: |-
@@ -1507,16 +1494,23 @@ components:
             This field will be populated with the trace context contained in the original submission.
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
-        recordTime:
-          description: |-
-            The time at which the changes in the topology transaction become effective. There is a small delay between a
-            topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
-            in order relative to a synchronizer based on their effective time rather than their sequencing time.
-            Required
-          type: string
     TopologyEvent:
       title: TopologyEvent
+      type: object
+      required:
+      - event
+      properties:
+        event:
+          $ref: '#/components/schemas/TopologyEventEvent'
+    TopologyEventEvent:
+      title: TopologyEventEvent
       oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty3'
       - type: object
         required:
         - ParticipantAuthorizationAdded
@@ -1535,7 +1529,18 @@ components:
         properties:
           ParticipantAuthorizationRevoked:
             $ref: '#/components/schemas/ParticipantAuthorizationRevoked'
+    Empty3:
+      title: Empty
+      type: object
     ParticipantAuthorizationAdded:
+      title: ParticipantAuthorizationAdded
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAuthorizationAdded1'
+    ParticipantAuthorizationAdded1:
       title: ParticipantAuthorizationAdded
       type: object
       required:
@@ -1551,9 +1556,16 @@ components:
           type: string
         participantPermission:
           description: Required
-          type: integer
-          format: int32
+          type: string
     ParticipantAuthorizationChanged:
+      title: ParticipantAuthorizationChanged
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAuthorizationChanged1'
+    ParticipantAuthorizationChanged1:
       title: ParticipantAuthorizationChanged
       type: object
       required:
@@ -1569,9 +1581,16 @@ components:
           type: string
         participantPermission:
           description: Required
-          type: integer
-          format: int32
+          type: string
     ParticipantAuthorizationRevoked:
+      title: ParticipantAuthorizationRevoked
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAuthorizationRevoked1'
+    ParticipantAuthorizationRevoked1:
       title: ParticipantAuthorizationRevoked
       type: object
       required:

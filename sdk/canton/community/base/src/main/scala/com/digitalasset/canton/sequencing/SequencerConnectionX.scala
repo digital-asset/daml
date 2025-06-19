@@ -11,7 +11,6 @@ import com.digitalasset.canton.sequencing.InternalSequencerConnectionX.{
   ConnectionAttributes,
   SequencerConnectionXHealth,
 }
-import com.digitalasset.canton.sequencing.SequencerConnectionXStub.SequencerConnectionXStubError
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SequencerSubscription
 import com.digitalasset.canton.sequencing.protocol.{
@@ -67,7 +66,7 @@ trait SequencerConnectionX extends FlagCloseable with NamedLogging {
 
   def downloadTopologyStateForInit(request: TopologyStateForInitRequest, timeout: Duration)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SequencerConnectionXStubError, TopologyStateForInitResponse]
+  ): EitherT[FutureUnlessShutdown, String, TopologyStateForInitResponse]
 
   def subscribe[E](
       request: SubscriptionRequestV2,

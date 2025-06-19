@@ -68,8 +68,6 @@ import com.google.protobuf.ByteString
 
 import java.time.Instant
 import scala.collection.mutable
-import scala.concurrent.duration.DurationInt
-import scala.jdk.DurationConverters.*
 import scala.util.{Failure, Random, Success, Try}
 
 import AvailabilityModuleMetrics.{emitDisseminationStateStats, emitInvalidMessage}
@@ -132,7 +130,6 @@ final class AvailabilityModule[E <: Env[E]](
   ): Unit =
     message match {
       case Availability.Start =>
-        context.self.asyncSend(Availability.Consensus.LocalClockTick)
         initiateMempoolPull(shortType(message))
         initCompleted(receiveInternal)
 
@@ -149,41 +146,74 @@ final class AvailabilityModule[E <: Env[E]](
             handleRemoteProtocolMessage(message)
 
           case Availability.UnverifiedProtocolMessage(signedMessage) =>
-            val from = signedMessage.from
-            val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.signedBy)
-            if (messageAuthorizer.isAuthorized(from, keyId)) {
-              logger.debug(s"Start to verify message from '$from'")
-              pipeToSelf(
-                activeCryptoProvider.verifySignedMessage(
-                  signedMessage,
-                  AuthenticatedMessageType.BftSignedAvailabilityMessage,
-                )
-              ) {
-                case Failure(exception) =>
-                  abort(
-                    s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
-                    exception,
-                  )
-                case Success(Left(exception)) =>
-                  // Info because it can also happen at epoch boundaries
-                  logger.info(
-                    s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
-                  )
-                  emitInvalidMessage(metrics, from)
-                  Availability.NoOp
-                case Success(Right(())) =>
-                  logger.debug(s"Verified message is from '$from''")
-                  signedMessage.message
-              }
-            } else {
-              logger.info(
-                s"Received a message from '$from' signed with '$keyId' " +
-                  "but it cannot be verified in the currently known " +
-                  s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
-              )
-            }
+            handleUnverifiedProtocolMessage(signedMessage)
         }
     }
+
+  @SuppressWarnings(Array("org.wartremover.warts.Return"))
+  private def handleUnverifiedProtocolMessage(
+      signedMessage: SignedMessage[RemoteProtocolMessage]
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = signedMessage.message match {
+    case message: Availability.RemoteOutputFetch.RemoteBatchDataFetched =>
+      // We have a special case for RemoteBatchDataFetched where we don't check the signature. This is because we
+      // might be behind and have not seen the new keys being used. By checking that the batch correspond to the batchId
+      // we know we still got the correct data (a malicious node can't fake the batchId since it is an hash of the content).
+      val from = signedMessage.from
+      val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.authorizingLongTermKey)
+
+      if (!activeMembership.orderingTopology.contains(from)) {
+        // if the node sending is not part of the topology, this is malicious behavior. Since RemoteBatchDataFetched is
+        // a response. And if we don't know who is responding it is a warning.
+        logger.warn(
+          s"Received a message from '$from' signed with '$keyId' " +
+            "but it cannot be verified in the currently known " +
+            s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
+        )
+        emitInvalidMessage(metrics, from)
+        return
+      }
+
+      handleRemoteBatchDataFetched(message)
+
+    case _ =>
+      // default case
+      val from = signedMessage.from
+      val keyId = FingerprintKeyId.toBftKeyId(signedMessage.signature.authorizingLongTermKey)
+      if (messageAuthorizer.isAuthorized(from, keyId)) {
+        logger.debug(s"Start to verify message from '$from'")
+        pipeToSelf(
+          activeCryptoProvider.verifySignedMessage(
+            signedMessage,
+            AuthenticatedMessageType.BftSignedAvailabilityMessage,
+          )
+        ) {
+          case Failure(exception) =>
+            abort(
+              s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
+              exception,
+            )
+          case Success(Left(exception)) =>
+            // Info because it can also happen at epoch boundaries
+            logger.info(
+              s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
+            )
+            emitInvalidMessage(metrics, from)
+            Availability.NoOp
+          case Success(Right(())) =>
+            logger.debug(s"Verified message is from '$from''")
+            signedMessage.message
+        }
+      } else {
+        logger.info(
+          s"Received a message from '$from' signed with '$keyId' " +
+            "but it cannot be verified in the currently known " +
+            s"dissemination topology ${activeMembership.orderingTopology.nodesTopologyInfo}, dropping it"
+        )
+      }
+  }
 
   private def handleLocalProtocolMessage(
       message: Availability.LocalProtocolMessage[E]
@@ -517,29 +547,6 @@ final class AvailabilityModule[E <: Env[E]](
             cryptoProvider: CryptoProvider[E],
           ) =>
         updateActiveTopology(messageType, orderingTopology, cryptoProvider)
-
-      case Availability.Consensus.LocalClockTick =>
-        // If there are no batches to be ordered, but the consensus module is waiting for a proposal
-        //  and more time has passed since the last one was created than `emptyBlockCreationInterval`,
-        //  we propose an empty block to the consensus module.
-        //  That way the consensus module can potentially use it to fill a segment and unblock progress
-        //  of subsequent segments filled by other remote nodes.
-        if (
-          disseminationProtocolState.batchesReadyForOrdering.isEmpty &&
-          disseminationProtocolState.toBeProvidedToConsensus.nonEmpty &&
-          disseminationProtocolState.lastProposalTime
-            .exists(ts => (clock.now - ts).toScala > moduleConfig.emptyBlockCreationInterval)
-        ) {
-          logger.debug("LocalClockTick: proposing empty block to local consensus")
-          val maxBatchesPerProposal =
-            disseminationProtocolState.toBeProvidedToConsensus.dequeue()
-          assembleAndSendConsensusProposal( // Will propose an empty block
-            messageType,
-            maxBatchesPerProposal,
-          )
-        }
-
-        context.delayedEvent(ClockTickInterval, Availability.Consensus.LocalClockTick).discard
     }
   }
 
@@ -764,7 +771,15 @@ final class AvailabilityModule[E <: Env[E]](
         advanceBatchIfComplete(actingOnMessageType, batchId, disseminationProgress).discard
       }
 
-    shipAvailableConsensusProposals(actingOnMessageType)
+    if (disseminationProtocolState.batchesReadyForOrdering.isEmpty) {
+      logger.debug(
+        s"$actingOnMessageType: no proposals available yet to provide to local consensus"
+      )
+      // We signal to consensus that we don't have proposals available immediately at the time it was requested.
+      // However, a proposal will still be sent out when one is available.
+      dependencies.consensus.asyncSend(Consensus.LocalAvailability.NoProposalAvailableYet)
+    } else
+      shipAvailableConsensusProposals(actingOnMessageType)
   }
 
   private def advanceBatchIfComplete(
@@ -1066,23 +1081,38 @@ final class AvailabilityModule[E <: Env[E]](
           }
           .discard
 
-      case Availability.RemoteOutputFetch.RemoteBatchDataFetched(from, batchId, batch) =>
+      case message: Availability.RemoteOutputFetch.RemoteBatchDataFetched =>
+        handleRemoteBatchDataFetched(message)
+    }
+  }
+
+  private def handleRemoteBatchDataFetched(
+      message: Availability.RemoteOutputFetch.RemoteBatchDataFetched
+  )(implicit
+      context: E#ActorContextT[Availability.Message[E]],
+      traceContext: TraceContext,
+  ): Unit = {
+    lazy val messageType = shortType(message)
+    val batchId = message.batchId
+
+    outputFetchProtocolState.localOutputMissingBatches.get(batchId) match {
+      case Some(_) =>
+        val batch = message.batch
+        val from = message.from
         validateBatch(batchId, batch, from).fold(
           error => logger.warn(error),
-          _ =>
-            outputFetchProtocolState.localOutputMissingBatches.get(batchId) match {
-              case Some(_) =>
-                logger.debug(s"$messageType: received $batchId, persisting it")
-                pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
-                  case Failure(exception) =>
-                    abort(s"Failed to add batch $batchId", exception)
-                  case Success(_) =>
-                    Availability.LocalOutputFetch.FetchedBatchStored(batchId)
-                }
-              case None =>
-                logger.debug(s"$messageType: received $batchId but nobody needs it, ignoring")
-            },
+          _ => {
+            logger.debug(s"$messageType: received $batchId, persisting it")
+            pipeToSelf(availabilityStore.addBatch(batchId, batch)) {
+              case Failure(exception) =>
+                abort(s"Failed to add batch $batchId", exception)
+              case Success(_) =>
+                Availability.LocalOutputFetch.FetchedBatchStored(batchId)
+            }
+          },
         )
+      case None =>
+        logger.debug(s"$messageType: received $batchId but nobody needs it, ignoring")
     }
   }
 
@@ -1400,8 +1430,6 @@ final class AvailabilityModule[E <: Env[E]](
 object AvailabilityModule {
 
   private type ReadyForOrdering = Boolean
-
-  private val ClockTickInterval = 100.milliseconds
 
   private def parseAvailabilityNetworkMessage(
       from: BftNodeId,

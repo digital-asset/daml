@@ -67,7 +67,8 @@ class TransactionConfirmationRequestFactoryTest
   private val observerParticipant2: ParticipantId = ParticipantId("observerParticipant2")
 
   // General dummy parameters
-  private val synchronizerId: SynchronizerId = DefaultTestIdentities.synchronizerId
+  private val physicalSynchronizerId: PhysicalSynchronizerId =
+    DefaultTestIdentities.physicalSynchronizerId
   private val mediator: MediatorGroupRecipient = MediatorGroupRecipient(MediatorGroupIndex.zero)
   private val ledgerTime: CantonTimestamp = CantonTimestamp.Epoch
   private val workflowId: Option[WorkflowId] = Some(
@@ -86,11 +87,11 @@ class TransactionConfirmationRequestFactoryTest
     val map = partyToParticipant.fmap(parties => parties.map(_ -> permission).toMap)
     TestingTopology()
       .withReversedTopology(map)
-      .withSynchronizers(synchronizerId)
+      .withSynchronizers(physicalSynchronizerId)
       .withKeyPurposes(keyPurposes)
       .withFreshKeys(freshKeys)
       .build(loggerFactory)
-      .forOwnerAndSynchronizer(submittingParticipant, synchronizerId)
+      .forOwnerAndSynchronizer(submittingParticipant, physicalSynchronizerId)
       .currentSnapshotApproximation
   }
 
