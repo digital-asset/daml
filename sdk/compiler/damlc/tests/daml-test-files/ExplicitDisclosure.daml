@@ -42,11 +42,11 @@ disclosuresTest = do
 
   bob `submitMustFail` exerciseCmd did (Open bob)
 
-  content <- submitWithDisclosures bob [disclosure] (exerciseCmd did (Open bob))
+  content <- (actAs bob <> disclose disclosure) `submit` exerciseCmd did (Open bob)
 
   alice `submit` archiveCmd did
 
-  submitWithDisclosuresMustFail bob [disclosure] (exerciseCmd did (Open bob))
+  (actAs bob <> disclose disclosure) `submitMustFail` exerciseCmd did (Open bob)
 
   pure content
 
@@ -63,7 +63,7 @@ inactiveDisclosureDoesNotFailDuringSubmission = do
     -- we double check exercising the consumed disclosure fail 
     submitMustFail alice $ exerciseCmd did (Open alice)
 
-    submitWithDisclosures alice [disclosure] $ do
+    submit (actAs alice <> disclose disclosure) $ do
       exerciseCmd did (Open alice)
       exerciseCmd hid (FailWith "Here")
       pure ()
