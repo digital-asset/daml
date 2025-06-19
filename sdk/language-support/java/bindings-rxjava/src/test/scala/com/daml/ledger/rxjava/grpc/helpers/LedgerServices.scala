@@ -43,7 +43,7 @@ import com.daml.logging.LoggingContext
 import com.daml.platform.localstore.InMemoryUserManagementStore
 import com.google.protobuf.empty.Empty
 import io.grpc._
-import io.grpc.netty.NettyServerBuilder
+import io.grpc.netty.shaded.io.grpc.netty.NettyServerBuilder
 import io.reactivex.Observable
 
 import scala.concurrent.ExecutionContext.global

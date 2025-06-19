@@ -141,7 +141,7 @@ da_scala_library(
         "//test-common/canton/it-lib",
         "@maven//:io_grpc_grpc_api",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
-        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
 )

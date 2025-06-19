@@ -19,8 +19,7 @@ da_scala_library(
         "//libs-scala/resources-grpc",
         "//libs-scala/resources-pekko",
         "@maven//:io_grpc_grpc_api",
-        "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_transport",
+        "@maven//:io_grpc_grpc_netty_shaded",
     ],
 )
 

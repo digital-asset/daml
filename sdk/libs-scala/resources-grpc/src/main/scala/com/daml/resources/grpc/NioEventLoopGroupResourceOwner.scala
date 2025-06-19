@@ -7,7 +7,7 @@ import java.util.concurrent.ThreadFactory
 import java.util.concurrent.TimeUnit.MILLISECONDS
 
 import com.daml.resources.{AbstractResourceOwner, HasExecutionContext, ReleasableResource, Resource}
-import io.netty.channel.nio.NioEventLoopGroup
+import io.grpc.netty.shaded.io.netty.channel.nio.NioEventLoopGroup
 
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
@@ -21,7 +21,7 @@ private[grpc] final class NioEventLoopGroupResourceOwner[Context: HasExecutionCo
       eventLoopGroup =>
         val promise = Promise[Unit]()
         val future = eventLoopGroup.shutdownGracefully(0, 0, MILLISECONDS)
-        future.addListener((f: io.netty.util.concurrent.Future[_]) =>
+        future.addListener((f: io.grpc.netty.shaded.io.netty.util.concurrent.Future[_]) =>
           promise.complete(Try(f.get).map(_ => ()))
         )
         promise.future

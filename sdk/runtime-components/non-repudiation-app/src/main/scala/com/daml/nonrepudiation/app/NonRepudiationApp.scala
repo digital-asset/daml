@@ -20,7 +20,7 @@ import com.daml.resources.{
   ResourceOwnerFactories,
 }
 import io.grpc.Server
-import io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
+import io.grpc.netty.shaded.io.grpc.netty.{NettyChannelBuilder, NettyServerBuilder}
 
 import scala.concurrent.ExecutionContext
 

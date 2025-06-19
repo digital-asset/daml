@@ -24,7 +24,7 @@ da_scala_library(
         "//visibility:public",
     ],
     runtime_deps = [
-        "@maven//:io_netty_netty_tcnative_boringssl_static",
+        "@maven//:io_grpc_grpc_netty_shaded",
     ],
     deps = [
         "//daml-lf/data",
@@ -35,9 +35,7 @@ da_scala_library(
         "//ledger/ledger-api-errors",
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_netty_netty_buffer",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
@@ -118,8 +116,7 @@ da_scala_test_suite(
         "@maven//:commons_codec_commons_codec",
         "@maven//:commons_io_commons_io",
         "@maven//:io_dropwizard_metrics_metrics_core",
-        "@maven//:io_netty_netty_common",
-        "@maven//:io_netty_netty_handler",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_testing",

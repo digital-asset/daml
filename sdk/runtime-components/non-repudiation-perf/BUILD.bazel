@@ -35,7 +35,7 @@ da_scala_benchmark_jmh(
         "//runtime-components/non-repudiation-resources",
         "//runtime-components/non-repudiation-testing",
         "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_grpc_grpc_netty_shaded",
         "@maven//:io_grpc_grpc_services",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_slf4j_slf4j_api",
