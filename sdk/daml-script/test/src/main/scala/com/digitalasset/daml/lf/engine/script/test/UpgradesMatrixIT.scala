@@ -114,7 +114,8 @@ class UpgradeTestIntegration
         readAs = Set(),
         disclosures = List(),
         optPackagePreference = None,
-        commands = List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId.toRef, arg), true)),
+        commands =
+          List(ScriptLedgerClient.CommandWithMeta(ApiCommand.Create(tplId.toRef, arg), true)),
         prefetchContractKeys = List(),
         optLocation = None,
         languageVersionLookup =
