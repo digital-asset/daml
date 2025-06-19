@@ -593,9 +593,6 @@ class MediatorNodeBootstrap(
     } yield connectionPool
 
     val mediatorRuntimeET = for {
-      indexedSynchronizerId <- EitherT
-        .right(IndexedSynchronizer.indexed(indexedStringStore)(synchronizerId.logical))
-
       physicalSynchronizerIdx <- EitherT
         .right(IndexedPhysicalSynchronizer.indexed(indexedStringStore)(synchronizerId))
 

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.ledger.api.v2 as lapi
 import com.daml.ledger.api.v2.transaction_filter.ParticipantAuthorizationTopologyFormat
 import com.daml.ledger.api.v2.{offset_checkpoint, transaction_filter, update_service}
 import com.digitalasset.canton.http.WebsocketConfig
@@ -13,7 +14,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsCantonError,
   JsReassignment,
-  JsTopologyTransaction,
   JsTransaction,
   JsTransactionTree,
 }
@@ -27,6 +27,7 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
+import sttp.tapir.Schema.SName
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.{AnyEndpoint, CodecFormat, Schema, path, query, webSocketBody}
@@ -321,7 +322,8 @@ object JsUpdate {
   final case class OffsetCheckpoint(value: offset_checkpoint.OffsetCheckpoint) extends Update
   final case class Reassignment(value: JsReassignment) extends Update
   final case class Transaction(value: JsTransaction) extends Update
-  final case class TopologyTransaction(value: JsTopologyTransaction) extends Update
+  final case class TopologyTransaction(value: lapi.topology_transaction.TopologyTransaction)
+      extends Update
 }
 
 final case class JsGetTransactionTreeResponse(transaction: JsTransactionTree)
@@ -353,7 +355,7 @@ object JsUpdateServiceCodecs {
       : Codec[ParticipantAuthorizationTopologyFormat] = deriveRelaxedCodec
   implicit val topologyFormatRW: Codec[transaction_filter.TopologyFormat] = deriveRelaxedCodec
   implicit val updateFormatRW: Codec[transaction_filter.UpdateFormat] = deriveRelaxedCodec
-  implicit val getUpdatesRequest: Codec[update_service.GetUpdatesRequest] = deriveRelaxedCodec
+  implicit val getUpdatesRequestRW: Codec[update_service.GetUpdatesRequest] = deriveRelaxedCodec
   implicit val getTransactionByIdRequestRW: Codec[update_service.GetTransactionByIdRequest] =
     deriveRelaxedCodec
   implicit val getTransactionByOffsetRequestRW
@@ -364,35 +366,67 @@ object JsUpdateServiceCodecs {
   implicit val getUpdateByOffsetRequestRW: Codec[update_service.GetUpdateByOffsetRequest] =
     deriveRelaxedCodec
 
-  implicit val jsGetUpdatesResponse: Codec[JsGetUpdatesResponse] = deriveConfiguredCodec
+  implicit val jsGetUpdatesResponseRW: Codec[JsGetUpdatesResponse] = deriveConfiguredCodec
 
   implicit val jsUpdateRW: Codec[JsUpdate.Update] = deriveConfiguredCodec
 
-  implicit val jsUpdateOffsetCheckpoint: Codec[JsUpdate.OffsetCheckpoint] = deriveConfiguredCodec
+  implicit val jsUpdateOffsetCheckpointRW: Codec[JsUpdate.OffsetCheckpoint] = deriveConfiguredCodec
 
-  implicit val jsUpdateReassignment: Codec[JsUpdate.Reassignment] = deriveConfiguredCodec
-  implicit val jsUpdateTransaction: Codec[JsUpdate.Transaction] = deriveConfiguredCodec
-  implicit val jsUpdateTopologyTransaction: Codec[JsUpdate.TopologyTransaction] =
+  implicit val jsUpdateReassignmentRW: Codec[JsUpdate.Reassignment] = deriveConfiguredCodec
+  implicit val jsUpdateTransactionRW: Codec[JsUpdate.Transaction] = deriveConfiguredCodec
+  implicit val jsUpdateTopologyTransactionRW: Codec[JsUpdate.TopologyTransaction] =
     deriveConfiguredCodec
 
-  implicit val jsGetUpdateTreesResponse: Codec[JsGetUpdateTreesResponse] = deriveConfiguredCodec
+  implicit val jsGetUpdateTreesResponseRW: Codec[JsGetUpdateTreesResponse] = deriveConfiguredCodec
 
-  implicit val jsGetTransactionTreeResponse: Codec[JsGetTransactionTreeResponse] =
+  implicit val jsGetTransactionTreeResponseRW: Codec[JsGetTransactionTreeResponse] =
     deriveConfiguredCodec
-  implicit val jsGetTransactionResponse: Codec[JsGetTransactionResponse] = deriveConfiguredCodec
-  implicit val jsGetUpdateResponse: Codec[JsGetUpdateResponse] = deriveConfiguredCodec
+  implicit val jsGetTransactionResponseRW: Codec[JsGetTransactionResponse] = deriveConfiguredCodec
+  implicit val jsGetUpdateResponseRW: Codec[JsGetUpdateResponse] = deriveConfiguredCodec
 
-  implicit val jsUpdateTree: Codec[JsUpdateTree.Update] = deriveConfiguredCodec
-  implicit val jsUpdateTreeOffsetCheckpoint: Codec[JsUpdateTree.OffsetCheckpoint] =
+  implicit val jsUpdateTreeRW: Codec[JsUpdateTree.Update] = deriveConfiguredCodec
+  implicit val jsUpdateTreeOffsetCheckpointRW: Codec[JsUpdateTree.OffsetCheckpoint] =
     deriveConfiguredCodec
-  implicit val jsUpdateTreeReassignment: Codec[JsUpdateTree.Reassignment] = deriveConfiguredCodec
-  implicit val jsUpdateTreeTransaction: Codec[JsUpdateTree.TransactionTree] = deriveConfiguredCodec
+  implicit val jsUpdateTreeReassignmentRW: Codec[JsUpdateTree.Reassignment] = deriveConfiguredCodec
+  implicit val jsUpdateTreeTransactionRW: Codec[JsUpdateTree.TransactionTree] =
+    deriveConfiguredCodec
 
+  implicit val jsTopologyParticipantAuthorizationAddedRW
+      : Codec[lapi.topology_transaction.ParticipantAuthorizationAdded] =
+    deriveRelaxedCodec
+
+  implicit val jsTopologyParticipantAuthorizationChangedRW
+      : Codec[lapi.topology_transaction.ParticipantAuthorizationChanged] =
+    deriveRelaxedCodec
+
+  implicit val jsTopologyParticipantAuthorizationRevokedRW
+      : Codec[lapi.topology_transaction.ParticipantAuthorizationRevoked] =
+    deriveRelaxedCodec
+  implicit val jsTopologyEventEventRW: Codec[lapi.topology_transaction.TopologyEvent.Event] =
+    deriveConfiguredCodec
+  implicit val jsTopologyEventParticipantAuthorizationAddedRW
+      : Codec[lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationAdded] =
+    deriveRelaxedCodec
+  implicit val jsParticipantAuthorizationChangedRW
+      : Codec[lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationChanged] =
+    deriveRelaxedCodec
+  implicit val jsParticipantAuthorizationRevokedRW
+      : Codec[lapi.topology_transaction.TopologyEvent.Event.ParticipantAuthorizationRevoked] =
+    deriveRelaxedCodec
+
+  implicit val jsTopologyEventRW: Codec[lapi.topology_transaction.TopologyEvent] =
+    deriveRelaxedCodec
+  implicit val jsTopologyTransactionRW: Codec[lapi.topology_transaction.TopologyTransaction] =
+    deriveRelaxedCodec
   // Schema mappings are added to align generated tapir docs with a circe mapping of ADTs
+
+  implicit val jsTopologyTransactionSchema: Schema[lapi.topology_transaction.TopologyTransaction] =
+    Schema.derived.name(Some(SName("JsTopologyTransaction")))
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsUpdateSchema: Schema[JsUpdate.Update] = Schema.oneOfWrapped
 
   @SuppressWarnings(Array("org.wartremover.warts.Product", "org.wartremover.warts.Serializable"))
   implicit val jsUpdateTreeSchema: Schema[JsUpdateTree.Update] = Schema.oneOfWrapped
+
 }

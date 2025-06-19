@@ -8,7 +8,6 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.ProcessingStartingPoints.InvalidStartingPointsException
-import com.google.common.annotations.VisibleForTesting
 
 /** Summarizes the counters and timestamps where request processing
   *
@@ -164,8 +163,7 @@ object ProcessingStartingPoints {
       )
       .leftMap(_.message)
 
-  @VisibleForTesting
-  private[protocol] def default: ProcessingStartingPoints =
+  def default: ProcessingStartingPoints =
     new ProcessingStartingPoints(
       cleanReplay = MessageCleanReplayStartingPoint.default,
       processing = MessageProcessingStartingPoint.default,

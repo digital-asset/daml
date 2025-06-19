@@ -18,47 +18,35 @@ import EpochState.Segment
   * preserved across crashes.
   */
 class BlockedProgressDetector(
-    leaderToSegmentState: Map[BftNodeId, Segment],
+    mySegment: Segment,
+    otherLeadersToSegmentState: Map[BftNodeId, Segment],
     isBlockComplete: BlockNumber => Boolean,
     isBlockEmpty: BlockNumber => Boolean,
 ) {
 
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var previousBlockCompletionState: Option[Seq[Boolean]] = None
-
-  def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
-    isEpochProgressBlocked(nextRelativeBlockIndexToFill) || isNetworkSilent
+  def isProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean = isEpochProgressBlocked(
+    nextRelativeBlockIndexToFill
+  )
 
   // The heuristic we use asks the following question:
   // As a leader, for the next relative block index I must fill, are there leaders in other
   // segments that have a non-empty block already ordered at the same relative index or higher?
-  // If another leader has completed the block on the last relative index in their segment,
-  // we also consider that we're blocking progress regardless of that block being empty or not,
-  // because in that case we are blocking the completion of the epoch for that leader so they can
-  // start working on the next one.
-  private def isEpochProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean =
-    leaderToSegmentState.values
+  // When this leader gets to the last slot in the segment, special care must be taken to
+  // consider other leaders whose segments may be shorter than the one of this leader.
+  // In that case, if we looked just at their slot at the same relative index as our own, we would not find
+  // anything and possibly miss that they might have completed their segment. So if are at our last slot, we
+  // check whether another leader finished their last slot (regardless of it being an empty block or not)
+  // to unblock them from going to the next epoch. An advantage of only checking that when we are at the last
+  // slot is that we avoid that a view-change in another segment would make us rush to fill our segment with empty blocks.
+  private def isEpochProgressBlocked(nextRelativeBlockIndexToFill: Int): Boolean = {
+    val lastSlotToFill = nextRelativeBlockIndexToFill == mySegment.slotNumbers.size - 1
+    otherLeadersToSegmentState.values
       .map(_.slotNumbers)
       .exists { slotNumbers =>
-        isBlockComplete(slotNumbers.last1) ||
+        (lastSlotToFill && isBlockComplete(slotNumbers.last1)) ||
         slotNumbers
           .drop(nextRelativeBlockIndexToFill)
           .exists(slot => isBlockComplete(slot) && !isBlockEmpty(slot))
       }
-
-  // Since BFT time is decided using a previous block, if there is no traffic for a while, we need to signalize that
-  // and order an empty block. Otherwise, the first block (and its transactions) afterwards could have a time that
-  // appears to be quite in the past.
-  // Note that the below logic may result in ordering empty blocks from multiple nodes "at the same time".
-  // It should not be a big deal if we order multiple empty blocks when there is no traffic as long as the empty
-  // proposal creation interval is not too short. Also, empty blocks (at least so far) do not leak outside the ordering
-  // layer.
-  private def isNetworkSilent = {
-    val currentBlockCompletions = Some(
-      leaderToSegmentState.view.values.flatMap(_.slotNumbers).map(isBlockComplete).toSeq
-    )
-    val haveCompletedBlocksNotChanged = currentBlockCompletions == previousBlockCompletionState
-    previousBlockCompletionState = currentBlockCompletions
-    haveCompletedBlocksNotChanged
   }
 }

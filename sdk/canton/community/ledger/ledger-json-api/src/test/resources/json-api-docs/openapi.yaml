@@ -1988,7 +1988,7 @@ components:
             Required
           type: string
         status:
-          $ref: '#/components/schemas/Status'
+          $ref: '#/components/schemas/JsStatus'
           description: |-
             Identifies the exact type of the error.
             It uses the same format of conveying error details as it is used for the RPC responses of the APIs.
@@ -2492,7 +2492,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty7'
+            $ref: '#/components/schemas/Empty8'
     DeleteIdentityProviderConfigResponse:
       title: DeleteIdentityProviderConfigResponse
       description: Does not (yet) contain any data.
@@ -2570,6 +2570,9 @@ components:
       title: Empty
       type: object
     Empty7:
+      title: Empty
+      type: object
+    Empty8:
       title: Empty
       type: object
     Event:
@@ -3750,6 +3753,16 @@ components:
           type: array
           items:
             type: string
+        prefetchContractKeys:
+          description: |-
+            Fetches the contract keys into the caches to speed up the command processing.
+            Should only contain contract keys that are expected to be resolved during interpretation of the commands.
+            Keys of disclosed contracts do not need prefetching.
+
+            Optional
+          type: array
+          items:
+            $ref: '#/components/schemas/PrefetchContractKey'
     JsContractEntry:
       title: JsContractEntry
       description: |-
@@ -4071,6 +4084,16 @@ components:
             When true, the response will contain additional details on how the transaction was encoded and hashed
             This can be useful for troubleshooting of hash mismatches. Should only be used for debugging.
           type: boolean
+        prefetchContractKeys:
+          description: |-
+            Fetches the contract keys into the caches to speed up the command processing.
+            Should only contain contract keys that are expected to be resolved during interpretation of the commands.
+            Keys of disclosed contracts do not need prefetching.
+
+            Optional
+          type: array
+          items:
+            $ref: '#/components/schemas/PrefetchContractKey'
     JsPrepareSubmissionResponse:
       title: JsPrepareSubmissionResponse
       description: '[docs-entry-end: HashingSchemeVersion]'
@@ -4248,7 +4271,6 @@ components:
       - updateId
       - offset
       - synchronizerId
-      - recordTime
       properties:
         updateId:
           description: |-
@@ -4256,13 +4278,6 @@ components:
             Must be a valid LedgerString (as described in ``value.proto``).
             Required
           type: string
-        events:
-          description: |-
-            A non-empty list of topology events.
-            Required
-          type: array
-          items:
-            $ref: '#/components/schemas/TopologyEvent'
         offset:
           description: |-
             The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
@@ -4275,6 +4290,20 @@ components:
             Identifies the synchronizer that synchronized the topology transaction.
             Required
           type: string
+        recordTime:
+          description: |-
+            The time at which the changes in the topology transaction become effective. There is a small delay between a
+            topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
+            in order relative to a synchronizer based on their effective time rather than their sequencing time.
+            Required
+          type: string
+        events:
+          description: |-
+            A non-empty list of topology events.
+            Required
+          type: array
+          items:
+            $ref: '#/components/schemas/TopologyEvent'
         traceContext:
           $ref: '#/components/schemas/TraceContext'
           description: |-
@@ -4287,13 +4316,6 @@ components:
             This field will be populated with the trace context contained in the original submission.
             If that was not provided, a unique ledger-api-server generated trace context will be used
             instead.
-        recordTime:
-          description: |-
-            The time at which the changes in the topology transaction become effective. There is a small delay between a
-            topology transaction being sequenced and the changes it contains becoming effective. Topology transactions appear
-            in order relative to a synchronizer based on their effective time rather than their sequencing time.
-            Required
-          type: string
     JsTransaction:
       title: JsTransaction
       description: Filtered view of an on-ledger transaction's create and archive
@@ -4484,7 +4506,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty5'
+            $ref: '#/components/schemas/Empty6'
       - type: object
         required:
         - IdentityProviderAdmin
@@ -4776,6 +4798,14 @@ components:
       title: ParticipantAuthorizationAdded
       type: object
       required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAuthorizationAdded1'
+    ParticipantAuthorizationAdded1:
+      title: ParticipantAuthorizationAdded
+      type: object
+      required:
       - partyId
       - participantId
       - participantPermission
@@ -4788,9 +4818,16 @@ components:
           type: string
         participantPermission:
           description: Required
-          type: integer
-          format: int32
+          type: string
     ParticipantAuthorizationChanged:
+      title: ParticipantAuthorizationChanged
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAuthorizationChanged1'
+    ParticipantAuthorizationChanged1:
       title: ParticipantAuthorizationChanged
       type: object
       required:
@@ -4806,9 +4843,16 @@ components:
           type: string
         participantPermission:
           description: Required
-          type: integer
-          format: int32
+          type: string
     ParticipantAuthorizationRevoked:
+      title: ParticipantAuthorizationRevoked
+      type: object
+      required:
+      - value
+      properties:
+        value:
+          $ref: '#/components/schemas/ParticipantAuthorizationRevoked1'
+    ParticipantAuthorizationRevoked1:
       title: ParticipantAuthorizationRevoked
       type: object
       required:
@@ -4889,6 +4933,25 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SinglePartySignatures'
+    PrefetchContractKey:
+      title: PrefetchContractKey
+      description: Preload contracts
+      type: object
+      required:
+      - contractKey
+      properties:
+        templateId:
+          description: |-
+            The template of contract the client wants to prefetch.
+            Both package-name and package-id reference identifier formats for the template-id are supported.
+            Note: The package-id reference identifier format is deprecated. We plan to end support for this format in version 3.4.
+
+            Required
+          type: string
+        contractKey:
+          description: |-
+            The key of the contract the client wants to prefetch.
+            Required
     ProtoAny:
       title: ProtoAny
       type: object
@@ -5066,25 +5129,6 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Signature'
-    Status:
-      title: Status
-      type: object
-      required:
-      - code
-      - message
-      - unknownFields
-      properties:
-        code:
-          type: integer
-          format: int32
-        message:
-          type: string
-        details:
-          type: array
-          items:
-            $ref: '#/components/schemas/ProtoAny'
-        unknownFields:
-          $ref: '#/components/schemas/UnknownFieldSet'
     SubmitAndWaitForReassignmentRequest:
       title: SubmitAndWaitForReassignmentRequest
       description: This reassignment is executed as a single atomic update.
@@ -5192,7 +5236,7 @@ components:
         - Empty
         properties:
           Empty:
-            $ref: '#/components/schemas/Empty6'
+            $ref: '#/components/schemas/Empty7'
       - type: object
         required:
         - MinLedgerTimeAbs
@@ -5207,7 +5251,21 @@ components:
             $ref: '#/components/schemas/MinLedgerTimeRel'
     TopologyEvent:
       title: TopologyEvent
+      type: object
+      required:
+      - event
+      properties:
+        event:
+          $ref: '#/components/schemas/TopologyEventEvent'
+    TopologyEventEvent:
+      title: TopologyEventEvent
       oneOf:
+      - type: object
+        required:
+        - Empty
+        properties:
+          Empty:
+            $ref: '#/components/schemas/Empty5'
       - type: object
         required:
         - ParticipantAuthorizationAdded

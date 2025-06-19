@@ -4,6 +4,7 @@
 package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.BigDecimalImplicits.*
+import com.digitalasset.canton.config
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.DbConfig
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -18,8 +19,8 @@ import com.digitalasset.canton.examples.java.iou.{Amount, Iou}
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.MultiSynchronizer
 import com.digitalasset.canton.integration.plugins.{
   UseCommunityReferenceBlockSequencer,
-  UseH2,
   UsePostgres,
+  UseProgrammableSequencer,
 }
 import com.digitalasset.canton.integration.tests.examples.IouSyntax
 import com.digitalasset.canton.integration.util.AcsInspection.assertInAcsSync
@@ -42,16 +43,22 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceSync
 import com.digitalasset.canton.participant.util.JavaCodegenUtil.*
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.sequencing.authentication.MemberAuthentication.MemberAccessDisabled
+import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, SubmissionRequest}
+import com.digitalasset.canton.synchronizer.sequencer.{
+  HasProgrammableSequencer,
+  ProgrammableSequencerPolicies,
+  SendDecision,
+}
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.SynchronizerId
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp
-import com.digitalasset.canton.{HasExecutionContext, config}
 import monocle.macros.syntax.lens.*
 import org.slf4j.event.Level
 
 import java.time.{Duration as JDuration, Instant}
-import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContext, Promise}
 import scala.jdk.CollectionConverters.*
 import scala.jdk.DurationConverters.*
 
@@ -59,7 +66,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     extends CommunityIntegrationTest
     with SharedEnvironment
     with SortedReconciliationIntervalsHelpers
-    with HasExecutionContext {
+    with HasProgrammableSequencer {
 
   private val iouContract = new AtomicReference[Iou.Contract]
   private val interval = JDuration.ofSeconds(5)
@@ -83,7 +90,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     )
 
   override lazy val environmentDefinition: EnvironmentDefinition =
-    EnvironmentDefinition.P2_S1M1_S1M1
+    EnvironmentDefinition.P3_S1M1_S1M1
       .addConfigTransforms(
         ConfigTransforms.useStaticTime,
         ConfigTransforms.updateMaxDeduplicationDurations(maxDedupDuration),
@@ -123,6 +130,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
         connect(participant1, minObservationDuration1)
         connect(participant2, minObservationDuration2)
+        connect(participant3, minObservationDuration2)
         participants.all.synchronizers.connect_local(sequencer2, alias = acmeName)
         participants.all.foreach(_.dars.upload(CantonExamplesPath))
         passTopologyRegistrationTimeout(env)
@@ -134,7 +142,10 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     environment.environment.simClock.value.advance(
       (environment.participant1.config.topology.topologyTransactionRegistrationTimeout).asFiniteApproximation.toJava
     )
-  private def deployAndCheckContract(synchronizerId: SynchronizerId)(implicit
+  private def deployAndCheckContract(
+      synchronizerId: SynchronizerId,
+      observers: Seq[LocalParticipantReference] = Seq.empty,
+  )(implicit
       env: TestConsoleEnvironment
   ): Iou.Contract = {
     import env.*
@@ -144,13 +155,14 @@ sealed trait AcsCommitmentProcessorIntegrationTest
       .createIou(participant1, Some(synchronizerId))(
         participant1.adminParty,
         participant2.adminParty,
+        observers = observers.toList.map(_.adminParty),
       )
 
     iouContract.set(iou)
 
     logger.info(s"Waiting for the participants to see the contract in their ACS")
     eventually() {
-      participants.all.foreach(p =>
+      (Seq(participant1, participant2) ++ observers).foreach(p =>
         p.ledger_api.state.acs
           .of_all()
           .filter(_.contractId == iou.id.contractId) should not be empty
@@ -322,7 +334,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
           s"""Disconnect both participants from the synchronizer. We disconnect participant1 because we don't
             want it to observe time advancing, and participant2 because we want to purge a contract."""
         )
-        participants.all.foreach(p => p.synchronizers.disconnect_all())
+        Seq(participant1, participant2).foreach(p => p.synchronizers.disconnect_all())
         participant2.repair.purge(daName, Seq(iouContract.get().id.toLf))
 
         logger.info(
@@ -504,15 +516,26 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         }
       },
       logs => {
-        forExactly(1, logs) { m =>
+        // Because we disconnect participant 1 to purge contracts, it can happen that the clean request counter hasn't
+        // advanced to after processing the incoming commitment, therefore participant 1 processes it again and
+        // issues the mismatch warning again. This should happen at least once and at most twice
+        forAtLeast(1, logs) { m =>
           m.toString should (include(s"toInclusive = $lastCommTick") and include(
-            CommitmentsMismatch.id
-          ))
+            "sender = PAR::participant2"
+          ) and
+            include("counterParticipant = PAR::participant1") and include(
+              CommitmentsMismatch.id
+            ))
         }
         forExactly(1, logs) { m =>
-          m.toString should (include(s"toInclusive = $lastCommTick") and include(
-            NoSharedContracts.id
-          ))
+          m.toString should (include(s"toInclusive = $lastCommTick")
+            and include(
+              "sender = PAR::participant1"
+            ) and
+            include("counterParticipant = PAR::participant2")
+            and include(
+              NoSharedContracts.id
+            ))
         }
       },
       timeUntilSuccess = 60.seconds,
@@ -813,7 +836,7 @@ sealed trait AcsCommitmentProcessorIntegrationTest
       def getCleanReqTs(
           participant: LocalParticipantReference,
           synchronizerId: SynchronizerId,
-      ): Option[CantonTimestamp] = {
+      )(implicit ec: ExecutionContext): Option[CantonTimestamp] = {
         val cleanReqTs = eventually() {
           participant.underlying.value.sync.participantNodePersistentState.value.ledgerApiStore
             .cleanSynchronizerIndex(synchronizerId)
@@ -1102,6 +1125,149 @@ sealed trait AcsCommitmentProcessorIntegrationTest
     }
   }
 
+  "retry send commitments only to the registered members" in { implicit env =>
+    import env.*
+
+    val simClock = environment.simClock.value
+
+    deployAndCheckContract(daId, observers = Seq(participant3))
+
+    val seq = getProgrammableSequencer(sequencer1.name)
+    val p1RevokedP = Promise[Unit]()
+
+    val fromP2ToAll = new AtomicInteger()
+    val fromP3ToAll = new AtomicInteger()
+    val fromP2ToP3Only = new AtomicInteger()
+    val fromP3ToP2Only = new AtomicInteger()
+
+    def checkSequencedMessage(
+        submissionRequest: SubmissionRequest,
+        expectedSender: ParticipantReference,
+        firstReceiver: ParticipantReference,
+        otherReceivers: ParticipantReference*
+    ): Boolean = {
+      val expectedReceivers =
+        (firstReceiver +: otherReceivers).map(ref => MemberRecipient(ref.member)).toSet
+      submissionRequest.sender == expectedSender.member && submissionRequest.batch.allRecipients == expectedReceivers
+    }
+    // Hold back all ACS commitment messages until participant 2 pinged participants 1 and 3, so all see time advance,
+    // and participant 1 has been revoked
+    logger.info("Set policy: wait for revocation of participant 1")
+    seq.setPolicy_("delay ACS commitments until revocation of participant 1") { submissionRequest =>
+      if (ProgrammableSequencerPolicies.isAcsCommitment(submissionRequest)) {
+        if (checkSequencedMessage(submissionRequest, participant2, participant1, participant3))
+          fromP2ToAll.getAndIncrement()
+        if (checkSequencedMessage(submissionRequest, participant2, participant3))
+          fromP2ToP3Only.getAndIncrement()
+        if (checkSequencedMessage(submissionRequest, participant3, participant1, participant2))
+          fromP3ToAll.getAndIncrement()
+        if (checkSequencedMessage(submissionRequest, participant3, participant2))
+          fromP3ToP2Only.getAndIncrement()
+        SendDecision.HoldBack(p1RevokedP.future)
+      } else SendDecision.Process
+    }
+
+    val periodBegin = tickAfter(simClock.now)
+    simClock.advanceTo(periodBegin.forgetRefinement)
+
+    logger.info("Participant 2 pings participants 1 and 3, so that all see time advance")
+    participant2.testing.maybe_bong(
+      targets = Set(participant1, participant3),
+      validators = Set(participant2),
+      levels = 0,
+    ) shouldBe defined
+
+    def commitmentStatus()
+        : Map[LocalParticipantReference, Set[(LocalParticipantReference, Int, Int)]] = {
+      val allParticipants = Set(participant1, participant2, participant3)
+      allParticipants
+        .map(p =>
+          p -> allParticipants.excl(p).map { c =>
+            val computed =
+              p.commitments.computed(daName, periodBegin.toInstant, periodBegin.toInstant, Some(c))
+            val received =
+              p.commitments.received(daName, periodBegin.toInstant, periodBegin.toInstant, Some(c))
+            (c, computed.size, received.size)
+          }
+        )
+        .toMap
+    }
+
+    logger.info(
+      "Until we disconnect participant 1, no commitments should be received, because the sequencer blocks delivery."
+    )
+    eventually() {
+      commitmentStatus() shouldBe Map(
+        participant2 -> Set((participant1, 1, 0), (participant3, 1, 0)),
+        participant3 -> Set((participant1, 1, 0), (participant2, 1, 0)),
+        participant1 -> Set((participant2, 1, 0), (participant3, 1, 0)),
+      )
+    }
+
+    loggerFactory.assertLoggedWarningsAndErrorsSeq(
+      {
+        logger.info(
+          "Revoke the certificate of participant 1 on da. This means that participant 1 cannot receive commitments."
+        )
+        participant1.topology.synchronizer_trust_certificates.propose(
+          participantId = participant1.id,
+          synchronizerId = daId,
+          change = TopologyChangeOp.Remove,
+        )
+        // wait until the topology states on the sequencer, participant 2 and participant 3 see participant1
+        // removed from the daId synchronizer
+        eventually() {
+          sequencer1.topology.participant_synchronizer_states
+            .active(daId, participant1.id) shouldBe false
+          participant2.topology.participant_synchronizer_states
+            .active(daId, participant1.id) shouldBe false
+          participant3.topology.participant_synchronizer_states
+            .active(daId, participant1.id) shouldBe false
+        }
+
+        p1RevokedP.trySuccess(())
+
+        logger.info(
+          "Once we are ready to release the stalled commitments on the sequencer, we should see the retry policies kick in."
+        )
+
+        logger.info(
+          "Participant 2 computes commitments for all, but receives only from participant 3." +
+            "Participant 3 computes commitments for all, but receives only from participant 2." +
+            "Participant 1 computes commitments for all, but receives none."
+        )
+        eventually() {
+          commitmentStatus() shouldBe Map(
+            participant2 -> Set((participant1, 1, 0), (participant3, 1, 1)),
+            participant3 -> Set((participant1, 1, 0), (participant2, 1, 1)),
+            participant1 -> Set((participant2, 1, 0), (participant3, 1, 0)),
+          )
+
+          fromP2ToAll.get() shouldBe 1
+          fromP3ToAll.get() shouldBe 1
+          fromP2ToP3Only.get() shouldBe 1
+          fromP3ToP2Only.get() shouldBe 1
+        }
+      },
+      forEvery(_) { entry =>
+        entry.message should (include(
+          MemberAccessDisabled(participant1.id).reason
+        ) or include(
+          SyncServiceSynchronizerDisabledUs.id
+        ) or // The participant might have started to refresh the token before being disabled, but the refresh request
+          // is processed by the sequencer after the participant is disabled
+          include(
+            "Health-check service responded NOT_SERVING for"
+          ) or include("Token refresh aborted due to shutdown")
+          // the participant might not actually get the dispatched transaction delivered,
+          // because the sequencer may cut the participant's connection before delivering the topology broadcast
+          or include regex ("Waiting for transaction .* to be observed")
+          or include("Unknown recipients: PAR::participant1")
+          or include("(Eligible) Senders are unknown: PAR::participant1"))
+      },
+    )
+  }
+
   "Removed participant should not trigger commitment computations" in { implicit env =>
     import env.*
 
@@ -1109,30 +1275,30 @@ sealed trait AcsCommitmentProcessorIntegrationTest
 
     val cmd =
       new Iou(
-        participant1.adminParty.toProtoPrimitive,
         participant2.adminParty.toProtoPrimitive,
+        participant3.adminParty.toProtoPrimitive,
         new Amount(3.50.toBigDecimal, "CHF"),
         List().asJava,
       ).create.commands.asScala.toSeq
-    participant1.ledger_api.javaapi.commands.submit(
-      Seq(participant1.id.adminParty),
+    participant2.ledger_api.javaapi.commands.submit(
+      Seq(participant2.id.adminParty),
       cmd,
-      Some(daId),
+      Some(acmeId),
     )
     loggerFactory.assertLoggedWarningsAndErrorsSeq(
       {
-        logger.info("Removing participant1 on synchronizer da")
-        participant1.topology.synchronizer_trust_certificates.propose(
-          participantId = participant1.id,
-          synchronizerId = initializedSynchronizers(daName).synchronizerId,
+        logger.debug("Removing participant2 on synchronizer da")
+        participant2.topology.synchronizer_trust_certificates.propose(
+          participantId = participant2.id,
+          synchronizerId = initializedSynchronizers(acmeName).synchronizerId,
           change = TopologyChangeOp.Remove,
         )
         eventually() {
-          participant1.synchronizers.is_connected(
-            initializedSynchronizers(daName).synchronizerId
+          participant2.synchronizers.is_connected(
+            initializedSynchronizers(acmeName).synchronizerId
           ) shouldBe false
         }
-        logger.info("Successfully disconnected participant1 from synchronizer da")
+        logger.info("Successfully disconnected participant2 from synchronizer acme")
 
         // Sit out for a full commitment period, so that we can later check that the participants don't exchange
         // messages for this period
@@ -1141,33 +1307,33 @@ sealed trait AcsCommitmentProcessorIntegrationTest
         simClock.advanceTo(tickNoCommitments2.forgetRefinement.immediateSuccessor)
 
         simClock.advance(interval.plus(JDuration.ofSeconds(1)))
-        participants.local.foreach(_.testing.fetch_synchronizer_times())
+        Seq(participant2, participant3).foreach(_.testing.fetch_synchronizer_times())
 
         val startNoCommitment = tickNoCommitments1.toInstant
-        participant1.commitments
+        participant2.commitments
           .computed(
-            daName,
+            acmeName,
             startNoCommitment,
             Instant.now(),
-            Some(participant1),
+            Some(participant3),
           ) shouldBe empty
-        participant1.commitments
+        participant2.commitments
           .received(
-            daName,
+            acmeName,
+            startNoCommitment,
+            Instant.now(),
+            Some(participant3),
+          ) shouldBe empty
+        participant3.commitments
+          .received(
+            acmeName,
             startNoCommitment,
             Instant.now(),
             Some(participant2),
           ) shouldBe empty
-        participant2.commitments
-          .received(
-            daName,
-            startNoCommitment,
-            Instant.now(),
-            Some(participant1),
-          ) shouldBe empty
-        participant2.commitments
+        participant3.commitments
           .computed(
-            daName,
+            acmeName,
             startNoCommitment,
             Instant.now(),
             Some(participant1),
@@ -1175,6 +1341,8 @@ sealed trait AcsCommitmentProcessorIntegrationTest
       },
       forEvery(_) { entry =>
         entry.message should (include(
+          MemberAccessDisabled(participant2.id).reason
+        ) or include(
           MemberAccessDisabled(participant1.id).reason
         ) or include(
           SyncServiceSynchronizerDisabledUs.id
@@ -1202,20 +1370,22 @@ class AcsCommitmentProcessorReferenceIntegrationTestPostgres
       ),
     )
   )
+  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
 }
 
-class AcsCommitmentProcessorReferenceIntegrationTestH2
-    extends AcsCommitmentProcessorIntegrationTest {
-  registerPlugin(new UseH2(loggerFactory))
-  registerPlugin(
-    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
-      loggerFactory,
-      sequencerGroups = MultiSynchronizer(
-        Seq(
-          Set(InstanceName.tryCreate("sequencer1")),
-          Set(InstanceName.tryCreate("sequencer2")),
-        )
-      ),
-    )
-  )
-}
+//class AcsCommitmentProcessorReferenceIntegrationTestH2
+//    extends AcsCommitmentProcessorIntegrationTest {
+//  registerPlugin(new UseH2(loggerFactory))
+//  registerPlugin(
+//    new UseCommunityReferenceBlockSequencer[DbConfig.H2](
+//      loggerFactory,
+//      sequencerGroups = MultiSynchronizer(
+//        Seq(
+//          Set(InstanceName.tryCreate("sequencer1")),
+//          Set(InstanceName.tryCreate("sequencer2")),
+//        )
+//      ),
+//    )
+//  )
+//  registerPlugin(new UseProgrammableSequencer(this.getClass.toString, loggerFactory))
+//}

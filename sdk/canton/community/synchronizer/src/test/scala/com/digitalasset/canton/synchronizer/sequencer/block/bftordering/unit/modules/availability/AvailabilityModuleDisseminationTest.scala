@@ -458,6 +458,7 @@ class AvailabilityModuleDisseminationTest
         disseminationProtocolState = disseminationProtocolState,
         maxNonOrderedBatchesPerNode = disseminationQuotaSize.toShort,
         cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
+        consensus = fakeIgnoringModule,
       )
 
       def canAcceptBatch(batchId: BatchId) =
@@ -530,6 +531,7 @@ class AvailabilityModuleDisseminationTest
         disseminationProtocolState = disseminationProtocolState,
         cryptoProvider = ProgrammableUnitTestEnv.noSignatureCryptoProvider,
         availabilityStore = availabilityStore,
+        consensus = fakeIgnoringModule,
         initialEpochNumber = Genesis.GenesisEpochNumber,
       )
 

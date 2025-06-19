@@ -222,6 +222,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BftSequencerBaseTest {
             abort("Proposal received before being requested")
           }
 
+        case Consensus.LocalAvailability.NoProposalAvailableYet => ()
         case unexpectedMessage =>
           abort(s"Unexpected message type for consensus module: $unexpectedMessage")
       }

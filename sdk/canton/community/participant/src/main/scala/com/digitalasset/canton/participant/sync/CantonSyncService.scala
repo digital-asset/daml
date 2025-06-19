@@ -376,6 +376,11 @@ class CantonSyncService(
       ): Option[SyncPersistentState] =
         syncPersistentStateManager.get(synchronizerId)
 
+      override def connectionConfig(
+          psid: PhysicalSynchronizerId
+      ): Option[StoredSynchronizerConnectionConfig] =
+        synchronizerConnectionConfigStore.get(psid).toOption
+
       override def topologyFactoryFor(synchronizerId: PhysicalSynchronizerId)(implicit
           traceContext: TraceContext
       ): Option[TopologyComponentFactory] =
@@ -863,6 +868,7 @@ class CantonSyncService(
                   config,
                   SynchronizerConnectionConfigStore.Active,
                   configuredPSId = UnknownPhysicalSynchronizerId,
+                  synchronizerPredecessor = None,
                 )
                 .leftMap(e =>
                   SyncServiceError.SynchronizerRegistration
@@ -1581,6 +1587,7 @@ class CantonSyncService(
                 ledgerApiIndexer.asEval,
                 participantNodePersistentState.map(_.contractStore),
                 participantNodeEphemeralState,
+                synchronizerConnectionConfig.predecessor,
                 () => {
                   val tracker = SynchronizerTimeTracker(
                     synchronizerConnectionConfig.config.timeTracker,

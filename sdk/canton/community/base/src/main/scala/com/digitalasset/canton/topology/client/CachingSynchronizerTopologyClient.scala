@@ -404,7 +404,8 @@ private class ForwardingTopologySnapshotClient(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] = parent.isSynchronizerUpgradeOngoing()
+  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+    parent.isSynchronizerUpgradeOngoing()
 
   override def sequencerConnectionSuccessors()(implicit
       traceContext: TraceContext
@@ -530,8 +531,10 @@ class CachingTopologySnapshot(
     loader = implicit traceContext => party => parent.partyAuthorization(party),
   )(logger, "partyAuthorizationsCache")
 
-  private val topologyFrozenCache =
-    new AtomicReference[Option[FutureUnlessShutdown[Option[PhysicalSynchronizerId]]]](None)
+  private val synchronizerUpgradeCache =
+    new AtomicReference[
+      Option[FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]]]
+    ](None)
 
   override def allKeys(owner: Member)(implicit
       traceContext: TraceContext
@@ -688,8 +691,8 @@ class CachingTopologySnapshot(
 
   override def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]] =
-    getAndCache(topologyFrozenCache, parent.isSynchronizerUpgradeOngoing())
+  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]] =
+    getAndCache(synchronizerUpgradeCache, parent.isSynchronizerUpgradeOngoing())
 
   override def sequencerConnectionSuccessors()(implicit
       traceContext: TraceContext

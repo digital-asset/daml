@@ -147,8 +147,7 @@ object SerializableContract
   ): Either[String, SerializableContract] = {
     val driverContractMetadataBytes = fat.cantonData.toByteArray
     for {
-      // The upcast to CreationTime works around https://github.com/scala/bug/issues/9837
-      ledgerTime <- (fat.createdAt: CreationTime) match {
+      ledgerTime <- fat.createdAt match {
         case CreationTime.Now => Left("Invalid createdAt timestamp")
         case CreationTime.CreatedAt(ts) => Right(CantonTimestamp(ts))
       }

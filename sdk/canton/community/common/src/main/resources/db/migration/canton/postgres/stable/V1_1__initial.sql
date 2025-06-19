@@ -225,8 +225,9 @@ create table par_synchronizer_connection_configs(
   empty_if_null_physical_synchronizer_id varchar collate "C" generated always as (case when physical_synchronizer_id is null then '' else physical_synchronizer_id end) stored not null,
   unique (synchronizer_alias, empty_if_null_physical_synchronizer_id),
 
-  config bytea, -- the protobuf-serialized versioned synchronizer connection config
-  status char(1) default 'A' not null
+  config bytea not null, -- the protobuf-serialized versioned synchronizer connection config
+  status char(1) default 'A' not null,
+  synchronizer_predecessor bytea -- the protobuf-serialized versioned predecessor (if existing and applicable)
 );
 
 -- used to register all synchronizers that a participant connects to

@@ -12,6 +12,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, ViewT
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.SequencedUpdate
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps.{
@@ -41,9 +42,11 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.{ParticipantId, PhysicalSynchronizerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter}
+import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter, checked}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -615,6 +618,49 @@ object ProcessingSteps {
         synchronizerParameters.decisionTimeFor(ts)
       )
     } yield decisionTime
+
+  def constructResponsesForMalformedPayloads(
+      requestId: RequestId,
+      rootHash: RootHash,
+      malformedPayloads: Seq[MalformedPayload],
+      synchronizerId: PhysicalSynchronizerId,
+      participantId: ParticipantId,
+      protocolVersion: ProtocolVersion,
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext
+  ): Option[ConfirmationResponses] = {
+    val rejectError = LocalRejectError.MalformedRejects.Payloads.Reject(malformedPayloads.toString)
+
+    val dueToTopologyChange = malformedPayloads.forall {
+      case WrongRecipientsDueToTopologyChange(_) => true
+      case _ => false
+    }
+    if (!dueToTopologyChange) rejectError.logWithContext(Map("requestId" -> requestId.toString))
+
+    checked(
+      Some(
+        ConfirmationResponses
+          .tryCreate(
+            requestId,
+            rootHash,
+            synchronizerId,
+            participantId,
+            NonEmpty.mk(
+              Seq,
+              ConfirmationResponse.tryCreate(
+                // We don't have to specify a viewPosition.
+                // The mediator will interpret this as a rejection
+                // for all views and on behalf of all declared confirming parties hosted by the participant.
+                None,
+                rejectError.toLocalReject(protocolVersion),
+                Set.empty,
+              ),
+            ),
+            protocolVersion,
+          )
+      )
+    )
+  }
 
   trait RequestType {
     type PendingRequestData <: ProcessingSteps.PendingRequestData

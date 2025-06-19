@@ -273,7 +273,6 @@ abstract class SequencerClientImpl(
       traceContext: TraceContext,
       metricsContext: MetricsContext,
   ): EitherT[FutureUnlessShutdown, SendAsyncClientError, Unit] =
-    // TODO(#12950): Validate that group addresses map to at least one member
     sendAsyncInternal(
       batch,
       topologyTimestamp,

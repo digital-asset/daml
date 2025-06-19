@@ -213,7 +213,7 @@ trait ParticipantStateChangeIntegrationTest
       daName,
       s"http://localhost:${sequencer1.config.publicApi.port}",
       manualConnect = true,
-      synchronizerId = Some(
+      psid = Some(
         SynchronizerId(UniqueIdentifier.tryFromProtoPrimitive("notcorrect::fingerprint")).toPhysical
       ),
     )

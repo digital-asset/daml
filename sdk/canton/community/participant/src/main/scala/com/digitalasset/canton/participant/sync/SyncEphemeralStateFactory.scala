@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.Eval
+import cats.syntax.apply.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, SessionEncryptionKeyCacheConfig}
@@ -20,6 +21,7 @@ import com.digitalasset.canton.participant.store.{
   ParticipantNodeEphemeralState,
   RequestJournalStore,
   SyncPersistentState,
+  SynchronizerPredecessor,
 }
 import com.digitalasset.canton.participant.util.{TimeOfChange, TimeOfRequest}
 import com.digitalasset.canton.store.*
@@ -39,6 +41,7 @@ trait SyncEphemeralStateFactory {
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       createTimeTracker: () => SynchronizerTimeTracker,
       promiseUSFactory: PromiseUnlessShutdownFactory,
       metrics: ConnectedSynchronizerMetrics,
@@ -64,6 +67,7 @@ class SyncEphemeralStateFactoryImpl(
       ledgerApiIndexer: Eval[LedgerApiIndexer],
       contractStore: Eval[ContractStore],
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
       createTimeTracker: () => SynchronizerTimeTracker,
       promiseUSFactory: PromiseUnlessShutdownFactory,
       metrics: ConnectedSynchronizerMetrics,
@@ -82,6 +86,7 @@ class SyncEphemeralStateFactoryImpl(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
         synchronizerIndex,
+        synchronizerPredecessor,
       )
 
       _ <- SyncEphemeralStateFactory.cleanupPersistentState(persistentState, synchronizerIndex)
@@ -166,39 +171,44 @@ object SyncEphemeralStateFactory {
       requestJournalStore: RequestJournalStore,
       sequencedEventStore: SequencedEventStore,
       synchronizerIndexO: Option[SynchronizerIndex],
+      synchronizerPredecessor: Option[SynchronizerPredecessor],
   )(implicit
       ec: ExecutionContext,
       loggingContext: ErrorLoggingContext,
   ): FutureUnlessShutdown[ProcessingStartingPoints] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     for {
-      requestCounterO <- synchronizerIndexO
-        .flatTraverse(si =>
-          requestJournalStore.lastRequestTimeWithRequestTimestampBeforeOrAt(si.recordTime)
-        )
-      sequencerCounterO <- synchronizerIndexO
-        .flatMap(_.sequencerIndex)
-        .traverse(sequencerIndex =>
-          sequencedEventStore
-            .find(ByTimestamp(sequencerIndex.sequencerTimestamp))
-            .value
-            .map(
-              _.getOrElse(
-                ErrorUtil.invalidState(
-                  s"SequencerIndex with timestamp ${sequencerIndex.sequencerTimestamp} is not found in sequenced event store"
-                )
-              ).counter
+      isSequencedEventStoreEmpty <- sequencedEventStore.sequencedEvents(Some(1)).map(_.isEmpty)
+
+      isAcrossUpgrade = (synchronizerIndexO, synchronizerPredecessor).tupled.exists {
+        case (synchronizerIndex, synchronizerPredecessor) =>
+          isSequencedEventStoreEmpty && synchronizerIndex.recordTime < synchronizerPredecessor.upgradeTime
+      }
+
+      messageProcessingStartingPoint <-
+        if (isAcrossUpgrade) {
+          FutureUnlessShutdown.pure(MessageProcessingStartingPoint.default)
+        } else {
+          for {
+            tocO <- synchronizerIndexO
+              .flatTraverse(si =>
+                requestJournalStore.lastRequestTimeWithRequestTimestampBeforeOrAt(si.recordTime)
+              )
+            sequencerCounterO <- sequencerCounterFromSynchronizerIndex(
+              sequencedEventStore,
+              synchronizerIndexO,
             )
-        )
-      messageProcessingStartingPoint = MessageProcessingStartingPoint(
-        nextRequestCounter = requestCounterO.map(_.rc + 1).getOrElse(RequestCounter.Genesis),
-        nextSequencerCounter = sequencerCounterO
-          .map(_ + 1)
-          .getOrElse(SequencerCounter.Genesis),
-        lastSequencerTimestamp = lastSequencerTimestamp(synchronizerIndexO),
-        currentRecordTime = currentRecordTime(synchronizerIndexO),
-        nextRepairCounter = nextRepairCounter(synchronizerIndexO),
-      )
+          } yield MessageProcessingStartingPoint(
+            nextRequestCounter = tocO.map(_.rc + 1).getOrElse(RequestCounter.Genesis),
+            nextSequencerCounter = sequencerCounterO
+              .map(_ + 1)
+              .getOrElse(SequencerCounter.Genesis),
+            lastSequencerTimestamp = lastSequencerTimestamp(synchronizerIndexO),
+            currentRecordTime = currentRecordTime(synchronizerIndexO),
+            nextRepairCounter = nextRepairCounter(synchronizerIndexO),
+          )
+        }
+
       replayOpt <- requestJournalStore
         .firstRequestWithCommitTimeAfter(
           // We need to follow the repair requests which might come between sequencer timestamps hence we
@@ -243,6 +253,30 @@ object SyncEphemeralStateFactory {
       loggingContext.info(show"Computed starting points: $startingPoints")
       startingPoints
     }
+  }
+
+  private def sequencerCounterFromSynchronizerIndex(
+      sequencedEventStore: SequencedEventStore,
+      synchronizerIndexO: Option[SynchronizerIndex],
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[Option[SequencerCounter]] = {
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+    synchronizerIndexO
+      .flatMap(_.sequencerIndex)
+      .traverse(sequencerIndex =>
+        sequencedEventStore
+          .find(ByTimestamp(sequencerIndex.sequencerTimestamp))
+          .value
+          .map(
+            _.getOrElse(
+              ErrorUtil.invalidState(
+                s"SequencerIndex with timestamp ${sequencerIndex.sequencerTimestamp} is not found in sequenced event store"
+              )
+            ).counter
+          )
+      )
   }
 
   private def lastSequencerTimestampO(

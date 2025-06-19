@@ -386,10 +386,7 @@ final class IssConsensusModule[E <: Env[E]](
   private def handleLocalAvailabilityMessage(
       localAvailabilityMessage: Consensus.LocalAvailability
   )(implicit traceContext: TraceContext): Unit =
-    localAvailabilityMessage match {
-      case Consensus.LocalAvailability.ProposalCreated(orderingBlock, epochNumber) =>
-        epochState.proposalCreated(orderingBlock, epochNumber)
-    }
+    epochState.localAvailabilityMessageReceived(localAvailabilityMessage)
 
   private def handleConsensusMessage(
       consensusMessage: Consensus.ConsensusMessage
@@ -453,7 +450,7 @@ final class IssConsensusModule[E <: Env[E]](
             orderedBlock: OrderedBlock,
             commitCertificate: CommitCertificate,
           ) =>
-        emitConsensusLatencyStats(metrics, logger)
+        emitConsensusLatencyStats(metrics)
 
         epochState.confirmBlockCompleted(orderedBlock.metadata, commitCertificate)
 

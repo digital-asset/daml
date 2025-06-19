@@ -651,11 +651,12 @@ trait MembersTopologySnapshotClient {
 trait SynchronizerUpgradeClient {
 
   /** In case the synchronizer owners have announced a synchronizer upgrade, returns the physical
-    * synchronizer id of the successor of this synchronizer. Otherwise, returns None.
+    * synchronizer id of the successor of this synchronizer and the upgrade time. Otherwise, returns
+    * None.
     */
   def isSynchronizerUpgradeOngoing()(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[Option[PhysicalSynchronizerId]]
+  ): FutureUnlessShutdown[Option[(PhysicalSynchronizerId, CantonTimestamp)]]
 
   /** Returns the known sequencer connection details for the successor synchronizer as published by
     * the sequencers.
