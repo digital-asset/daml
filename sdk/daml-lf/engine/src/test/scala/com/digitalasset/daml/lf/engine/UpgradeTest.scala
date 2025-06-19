@@ -407,10 +407,10 @@ trait UpgradeTestCases {
       ImmArray.empty
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    def additionalv1KeyArgsValue(@nowarn v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+    def additionalv1KeyArgsValue(@nowarn v1PkgId: PackageId, @nowarn setupData: SetupData): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
     // Used for creating *ByKey commands
-    def additionalv2KeyArgsValue(@nowarn v2PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+    def additionalv2KeyArgsValue(@nowarn v2PkgId: PackageId, @nowarn setupData: SetupData): ImmArray[(Option[Name], Value)] =
       ImmArray.empty
     // Used for looking up contracts by key in choice bodies
     def additionalv2KeyArgsLf(v2PkgId: PackageId): String = ""
@@ -958,15 +958,15 @@ trait UpgradeTestCases {
     override def v2Key = v1Key
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    override def additionalv1KeyArgsValue(pkgId: PackageId) =
+    override def additionalv1KeyArgsValue(pkgId: PackageId, setupData: SetupData) =
       ImmArray(
         Some("maintainers2": Name) -> ValueList(
-          FrontStack(ValueParty(Party.assertFromString("Bob")))
+          FrontStack(ValueParty(setupData.bob))
         )
       )
     // Used for creating *ByKey commands
-    override def additionalv2KeyArgsValue(pkgId: PackageId) =
-      additionalv1KeyArgsValue(pkgId)
+    override def additionalv2KeyArgsValue(pkgId: PackageId, setupData: SetupData) =
+      additionalv1KeyArgsValue(pkgId, setupData)
     // Used for looking up contracts by key in choice bodies
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
       s", maintainers2 = (Cons @Party [Mod:Client {bob} this] (Nil @Party))"
@@ -1608,7 +1608,7 @@ trait UpgradeTestCases {
 
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
       s", extra = None @Unit"
-    override def additionalv2KeyArgsValue(v2PkgId: PackageId) =
+    override def additionalv2KeyArgsValue(v2PkgId: PackageId, setupData: SetupData) =
       ImmArray(
         Some("extra": Name) -> ValueOptional(None)
       )
@@ -1634,7 +1634,7 @@ trait UpgradeTestCases {
 
     override def additionalv2KeyArgsLf(v2PkgId: PackageId) =
       s", extra = None @Unit"
-    override def additionalv2KeyArgsValue(v2PkgId: PackageId) =
+    override def additionalv2KeyArgsValue(v2PkgId: PackageId, setupData: SetupData) =
       ImmArray(
         Some("extra": Name) -> ValueOptional(None)
       )
@@ -1678,7 +1678,7 @@ trait UpgradeTestCases {
     override def v2AdditionalKeyFields: String = ""
 
     // Used for creating disclosures of v1 contracts and the "lookup contract by key" map passed to the engine.
-    override def additionalv1KeyArgsValue(v1PkgId: PackageId): ImmArray[(Option[Name], Value)] =
+    override def additionalv1KeyArgsValue(v1PkgId: PackageId, setupData: SetupData): ImmArray[(Option[Name], Value)] =
       ImmArray(
         Some("extra": Name) -> ValueOptional(Some(ValueUnit))
       )
@@ -1921,7 +1921,7 @@ trait UpgradeTestCases {
       ImmArray(
         Some("label": Name) -> ValueText("test-key"),
         Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(setupData.alice))),
-      ).slowAppend(testCase.additionalv1KeyArgsValue(templateDefsV1PkgId)),
+      ).slowAppend(testCase.additionalv1KeyArgsValue(templateDefsV1PkgId, setupData)),
     )
 
     def globalContractv2Key(setupData: SetupData): ValueRecord = ValueRecord(
@@ -1929,7 +1929,7 @@ trait UpgradeTestCases {
       ImmArray(
         Some("label": Name) -> ValueText("test-key"),
         Some("maintainers": Name) -> ValueList(FrontStack(ValueParty(setupData.alice))),
-      ).slowAppend(testCase.additionalv2KeyArgsValue(templateDefsV2PkgId)),
+      ).slowAppend(testCase.additionalv2KeyArgsValue(templateDefsV2PkgId, setupData)),
     )
 
     def globalContractKeyWithMaintainers(setupData: SetupData): GlobalKeyWithMaintainers =
